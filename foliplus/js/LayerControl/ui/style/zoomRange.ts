@@ -19,7 +19,7 @@ import {
   notifyDelta,
 } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
-import { authorZoomRowRange } from "../projection.js";
+import { authorZoomRowRange, zoomRowUnusable } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
   getDimension,
@@ -99,16 +99,23 @@ const syncZoomRangeRow = (
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
   // Only look up the declaration when the user has no range: the row's
   // author arm is the fallback, not a second source to compare against.
-  const author = stored
-    ? undefined
-    : authorZoomRowRange(ui, ui.c.layerRegistry.get(layerId));
+  const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
   const [min, max] = liveRange ?? rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
+  // An author declaration with no intersection with the map's own rail is
+  // unusable here: the policy keeps the layer fully visible, but the row
+  // would collapse onto a meaningless [18, 18] that a drag would then persist
+  // as a real hidden interval. Render the row inert so the collapse is a
+  // display, not a value the user can commit (see zoomRowUnusable).
+  const unusable = zoomRowUnusable(ui, layerInfo);
+
   const slider = sliderOfRow(row);
   if (slider) {
+    slider.setDisabled(unusable);
     slider.setValue([min, max], { silent: true });
     slider.setMarks([
       { at: mapMin, tone: "limit" },
@@ -123,11 +130,19 @@ const syncZoomRangeRow = (
   }
 
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
-  const outOfRange = current < min || current > max;
+  const outOfRange = !unusable && (current < min || current > max);
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
-  row.title = outOfRange
-    ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
-    : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
+  if (unusable) {
+    // The declaration cannot meet the map; the row is a read-only statement.
+    const hint = ui.T("style_zoom_range_unusable");
+    row.title = hint;
+    row.setAttribute("aria-description", hint);
+  } else {
+    row.title = outOfRange
+      ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
+      : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
+    row.removeAttribute("aria-description");
+  }
 };
 
 /** Build the zoom-range form row: a dual-thumb slider with the map's current
@@ -202,6 +217,10 @@ const applyZoomRangeLive = (
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
+  // A declaration with no intersection with the map cannot be committed: the
+  // row is disabled, and writing the collapsed value here would persist the
+  // real hidden interval the policy refused to infer (see zoomRowUnusable).
+  if (zoomRowUnusable(ui, layerInfo)) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   // Announce last: the row chrome above is already settled, so a subscriber

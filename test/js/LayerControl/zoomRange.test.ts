@@ -365,3 +365,75 @@ it("collapses a declaration outside the layer's own rail onto the nearest bound"
   });
   fixture.manager.debouncedEnforce?.cancel?.();
 });
+it("disables the row when the declared range cannot meet the map, so a drag never persists it", () => {
+  // P2 regression: a declaration [20, 30] on a map capped at 18 collapses the
+  // row to [18, 18]. Without the disable, dragging or committing that value
+  // would persist the real hidden interval [18, 18] — the "drag once, locked
+  // out" bug. The row must render inert (disabled + hint) so the collapse is a
+  // display, not a value the user can commit.
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = polygonLayer();
+  const fixture = initFixture({
+    data: [
+      {
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer,
+        zoom: { min: 20, max: 30 },
+      },
+    ],
+  });
+  trackMembership(fixture.map);
+
+  // The row value still collapses (display), but the row must be disabled.
+  expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1")).toEqual({
+    min: 18,
+    max: 18,
+  });
+
+  fixture.ui.openStylePanel("overlay1");
+  const row = findItem(fixture.ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row).toBeTruthy();
+  const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
+  expect(slider?.classList.contains("is-disabled")).toBe(true);
+  expect(row.getAttribute("aria-description")).toBe(
+    "LayerControl.style_zoom_range_unusable",
+  );
+
+  // The live pass refuses to write the collapsed value into the store.
+  const liveRow = document.createElement("div");
+  applyZoomRangeLive(fixture.ui, "overlay1", liveRow, 18, 18);
+  expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
+
+  fixture.manager.debouncedEnforce?.cancel?.();
+  warn.mockRestore();
+});
+
+it("keeps the row enabled for an overlapping declaration", () => {
+  const layer = polygonLayer();
+  const fixture = initFixture({
+    data: [
+      {
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer,
+        zoom: { min: 8, max: 12 },
+      },
+    ],
+  });
+  trackMembership(fixture.map);
+
+  fixture.ui.openStylePanel("overlay1");
+  const row = findItem(fixture.ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
+  expect(slider?.classList.contains("is-disabled")).toBe(false);
+  expect(row.getAttribute("aria-description")).toBeNull();
+
+  fixture.manager.debouncedEnforce?.cancel?.();
+});

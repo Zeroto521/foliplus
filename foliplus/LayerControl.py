@@ -128,7 +128,7 @@ def _warn_foliplus(note: str, message: str) -> None:
     and re-rendering the same page stays quiet. Never raises: a typo in the
     declaration namespace is a warning, not a page failure.
     """
-    if not _should_report(("foliplus", note)):
+    if not _should_report(("foliplus", note), _foliplus_reports):
         return
     warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
 
@@ -517,34 +517,39 @@ def _pair_scale(
 
 # Diagnostics already reported in this process, so re-rendering a page does not
 # repeat the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. The set is a log filter, not
+# two-layer map measured 16 identical warnings. Each set is a log filter, not
 # state — it is cleared rather than grown when a long process renders many maps.
-# Shared by the caption refusal (#781) and the foliplus={...} declaration
-# rejections (#804) on purpose: one module, one de-duplication mechanism, one
-# lifetime. A second set for the declarations would be a second convention to
-# keep in step, and the per-render set this replaces died with the render that
-# built it, so a repeated render could not stay quiet. Notes are string tuples
-# whose first element is the domain tag, so the two families cannot collide.
+# Split per family (#804): the caption refusal (#781) and the foliplus={...}
+# declaration rejections each own a 64-note budget, so a flood of malformed
+# declarations cannot clear the caption history (or vice versa) — each family's
+# dedup only needs to remember its own notes. Notes are string tuples whose
+# first element is the domain tag, kept so a note is self-describing when a
+# store is inspected or logged.
 _refused_captions: set[tuple[str, ...]] = set()
+_foliplus_reports: set[tuple[str, ...]] = set()
+
+_LOG_FILTER_CAP = 64
 
 
-def _should_report(note: tuple[str, ...]) -> bool:
+def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
     """True when this diagnostic has not been printed in this process yet.
 
-    The cap keeps a long process that renders many maps from growing the set
-    without bound; clearing it wholesale is what #781 chose over an LRU.
+    ``store`` is the family's own filter (one per diagnostic family, so the
+    families do not crowd each other out at the cap). The cap keeps a long
+    process that renders many maps from growing the set without bound;
+    clearing it wholesale is what #781 chose over an LRU.
     """
-    if note in _refused_captions:
+    if note in store:
         return False
-    if len(_refused_captions) >= 64:
-        _refused_captions.clear()
-    _refused_captions.add(note)
+    if len(store) >= _LOG_FILTER_CAP:
+        store.clear()
+    store.add(note)
     return True
 
 
 def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
     """Report a refused caption once per (caption, agreement) pair."""
-    if not _should_report(("caption", caption, str(hits), str(total))):
+    if not _should_report(("caption", caption, str(hits), str(total)), _refused_captions):
         return
     _log.warning(
         "LayerControl: the scale caption %r names a column, but only %d/%d "
@@ -870,6 +875,33 @@ class LayerControl(BaseControl):
     (``explore``'s baked colors) and finally the built-in default. Reset
     returns to the declared ramp. An invalid declaration only warns and falls
     back; it never paints a ramp the author did not ask for.
+
+    A layer may declare its own visible zoom range on the same per-layer
+    namespace, under the ``zoom`` key:
+
+    >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+
+    .. list-table:
+       :header-rows: 1
+
+       * - Key
+         - Default
+         - Meaning
+       * - ``min``
+         - the map's minimum zoom
+         - lowest zoom at which the layer is visible (inclusive)
+       * - ``max``
+         - the map's maximum zoom
+         - highest zoom at which the layer is visible (inclusive)
+
+    Precedence matches the label and fill declarations: the user's choice in
+    the style panel wins, then the declaration, then the map's own range. A
+    declaration that cannot intersect the map's zoom levels (author [20, 30]
+    on a map capped at 18) is not a reason to hide the layer: the policy
+    treats it as undeclared and warns once, and the panel's row is disabled
+    with a hint instead of offering a collapsed value a drag would persist.
+    An invalid declaration only warns and falls back; it never hides the
+    layer on a payload the author never saw validated.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

@@ -73,6 +73,7 @@
   "LayerControl.style_zoom_range_max": "Maximum Zoom",
   "LayerControl.style_zoom_range_current": "Current zoom level: {zoom}",
   "LayerControl.style_zoom_range_out_of_range": "Current zoom level ({zoom}) is outside the visible range",
+  "LayerControl.style_zoom_range_unusable": "The layer's declared zoom range does not overlap this map's zoom levels, so it stays visible at every level; the row is disabled because committing the shown value would hide the layer",
   "LayerControl.style_border_color": "Border Color",
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",

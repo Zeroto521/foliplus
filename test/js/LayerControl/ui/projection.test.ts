@@ -12,6 +12,7 @@ import {
   currentOpacity,
   inZoomRange,
   projectLayer,
+  zoomRowUnusable,
 } from "#foliplus/LayerControl/ui/projection.js";
 
 const makeLayerInfo = (id: string, opts: { opacity?: number } = {}) =>
@@ -345,5 +346,63 @@ describe("authorZoomRowRange (the row's fallback range)", () => {
     const ui = makeUI();
     expect(authorZoomRowRange(ui, undefined)).toBeUndefined();
     expect(authorZoomRowRange(ui, null)).toBeUndefined();
+  });
+});
+
+// The row's usability verdict (`zoomRowUnusable`): the P2 regression — a
+// declaration with no intersection with the map's own rail collapses the row
+// to a meaningless [18, 18] that a drag would persist as a real hidden
+// interval. The row must render inert while that is the case, so the collapse
+// is a display and never a value the user can commit.
+describe("zoomRowUnusable (the row cannot express the declaration)", () => {
+  const layerWithZoom = (id: string, zoom: { min: number; max: number }) =>
+    ({ id, layer: null, canvas: null, zoom }) as any;
+
+  it("is false when the declaration overlaps the map's rail", () => {
+    const ui = makeUI({ minZoom: 0, maxZoom: 18, zoom: 10 });
+    expect(zoomRowUnusable(ui, layerWithZoom("overlap", { min: 8, max: 12 }))).toBe(
+      false,
+    );
+  });
+
+  it("is true when the declaration cannot meet the map's rail", () => {
+    // Pure predicate: the verdict itself warns nothing — the row and policy
+    // warnings are emitted by authorZoomRowRange / authorZoomPolicyRange at
+    // their own call sites, so a test of the predicate asserts the verdict.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUI({ minZoom: 0, maxZoom: 18, zoom: 10 });
+    expect(zoomRowUnusable(ui, layerWithZoom("degenerate", { min: 20, max: 30 }))).toBe(
+      true,
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("is true for a declaration entirely below the map's rail", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUI({ minZoom: 4, maxZoom: 18, zoom: 10 });
+    expect(zoomRowUnusable(ui, layerWithZoom("below", { min: 0, max: 3 }))).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("is false when the user stored a range, even if the declaration is unusable", () => {
+    // The user's own choice is what the layer shows now and is always usable:
+    // it is not the collapsed author value, and the row must stay editable so
+    // the user can change it back.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUI({ minZoom: 0, maxZoom: 18, zoom: 10 });
+    setIntent(ui, "stored-wins", "zoomRange", [6, 12]);
+    expect(
+      zoomRowUnusable(ui, layerWithZoom("stored-wins", { min: 20, max: 30 })),
+    ).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(0);
+  });
+
+  it("is false for an undeclared layer and for one the registry cannot resolve", () => {
+    const ui = makeUI({ minZoom: 0, maxZoom: 18, zoom: 10 });
+    expect(
+      zoomRowUnusable(ui, { id: "undeclared", layer: null, canvas: null } as any),
+    ).toBe(false);
+    expect(zoomRowUnusable(ui, undefined)).toBe(false);
+    expect(zoomRowUnusable(ui, null)).toBe(false);
   });
 });

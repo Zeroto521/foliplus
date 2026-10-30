@@ -124,22 +124,51 @@ def test_a_repeated_render_repeats_no_declaration_warning():
 
 
 def test_the_declaration_log_filter_clears_itself_at_capacity():
-    # The log filter is shared with the refused-caption path and capped at 64
-    # notes: past that it clears instead of growing without bound in a process
-    # that renders many maps. Pinned directly so the capacity branch is not
-    # dead code.
-    from foliplus.LayerControl import _refused_captions, _should_report
+    # Each diagnostic family owns its own filter, capped at 64 notes: past
+    # that it clears instead of growing without bound in a process that
+    # renders many maps. Pinned directly so the capacity branch is not dead
+    # code.
+    from foliplus.LayerControl import _foliplus_reports, _should_report
 
-    _refused_captions.clear()
+    _foliplus_reports.clear()
     for index in range(64):
-        assert _should_report(("test", str(index)))
-    assert len(_refused_captions) == 64
+        assert _should_report(("foliplus", str(index)), _foliplus_reports)
+    assert len(_foliplus_reports) == 64
 
     # A duplicate does not grow the set; the next new note clears at capacity
     # and starts over instead of growing without bound.
-    assert not _should_report(("test", "0"))
-    assert _should_report(("test", "over-capacity"))
-    assert _refused_captions == {("test", "over-capacity")}
+    assert not _should_report(("foliplus", "0"), _foliplus_reports)
+    assert _should_report(("foliplus", "over-capacity"), _foliplus_reports)
+    assert _foliplus_reports == {("foliplus", "over-capacity")}
+    _foliplus_reports.clear()
+
+
+def test_family_filters_do_not_crowd_each_other_out_at_capacity():
+    # #804: the foliplus declaration filter and the refused-caption filter are
+    # separate 64-note budgets. A flood of declaration notes must not clear the
+    # caption history, or a caption that was already reported would print again
+    # once the shared set rolled over.
+    from foliplus.LayerControl import (
+        _foliplus_reports,
+        _refused_captions,
+        _should_report,
+    )
+
+    _foliplus_reports.clear()
+    _refused_captions.clear()
+
+    caption = ("caption", "C", "1", "1")
+    assert _should_report(caption, _refused_captions)
+
+    # Fill the foliplus filter to capacity with distinct declaration notes.
+    for index in range(64):
+        assert _should_report(("foliplus", str(index)), _foliplus_reports)
+    assert len(_foliplus_reports) == 64
+
+    # The caption note is untouched by the other family's rollover.
+    assert not _should_report(caption, _refused_captions)
+
+    _foliplus_reports.clear()
     _refused_captions.clear()
 
 
