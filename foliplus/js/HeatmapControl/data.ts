@@ -150,7 +150,7 @@ const aggregateData = (
   // never loaded it has no source for the breaks, so the render would throw
   // out of the method selector's handler and the user's choice would not be
   // persisted. Degrade to the one method that needs no dependency and say so,
-  // instead of a flat single colour.
+  // instead of a flat single color.
   let breaks: number[];
   try {
     breaks = computeBreaks(allVals, numClassesCapped, method);
@@ -164,7 +164,7 @@ const aggregateData = (
   }
   // Ask chroma for the classes breaks actually produced, not the classes
   // requested: a method that cannot split the sample returns fewer breaks, and
-  // the surplus colours would sit unused next to a class index that can never
+  // the surplus colors would sit unused next to a class index that can never
   // reach them.
   const classColors = safeColorScale(scheme, Math.max(0, breaks.length - 1));
   const valueToClassIdx = (val: number): number => {

@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -71,7 +72,6 @@ const makeUi = (
       dragEntry: null,
       lastDragHintAt: 0,
       lastDragOverItem: null,
-      pressInPanel: false,
     },
     saveFoldState: vi.fn(),
     lastDragOverItem: null,
@@ -79,6 +79,8 @@ const makeUi = (
       layers,
       findLayer: vi.fn(() => ({ options: {} })),
       map: {
+        on: vi.fn(),
+        off: vi.fn(),
         hasLayer: vi.fn(() => true),
         removeLayer: vi.fn(),
         addLayer: vi.fn(),
@@ -120,7 +122,19 @@ describe("ui/drag", () => {
       const row = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
-      ui.listPanel.pressInPanel = true;
+      document.body.appendChild(ui.uiContainer!);
+      const registry = ensureOverlayRegistry(ui.c.map);
+      const unregister = registry.register({
+        id: "test.press",
+        isOpen: () => true,
+        panels: () => [row],
+        close: () => {},
+        dismissOn: "mousedown",
+        pressPriority: 100,
+      });
+      row.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
       const event = dragEvent(row);
 
       handleDragStart(ui, event);
@@ -129,6 +143,7 @@ describe("ui/drag", () => {
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
       expect(event.preventDefault).toHaveBeenCalled();
+      unregister();
     });
 
     it("handleDragStart ignores rows the registry does not know", () => {
@@ -662,7 +677,6 @@ describe("showReorderBlockedHint", () => {
         lastDragHintAt: 0,
         dragEntry: null,
         lastDragOverItem: null,
-        pressInPanel: false,
         foldedRoles: new Set<string>(),
         checkedCount: {},
       },

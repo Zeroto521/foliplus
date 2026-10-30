@@ -460,9 +460,14 @@ describe("pickFilterField / buildFilterModel", () => {
   });
 
   it("returns null for no filterable data", () => {
-    expect(buildFilterModel(null, undefined, "")).toBeNull();
+    expect(buildFilterModel(null, undefined, "", "Field")).toBeNull();
     expect(
-      buildFilterModel({ points: [], numericFields: [], ranges: {} }, undefined, ""),
+      buildFilterModel(
+        { points: [], numericFields: [], ranges: {} },
+        undefined,
+        "",
+        "Field",
+      ),
     ).toBeNull();
   });
 
@@ -474,7 +479,7 @@ describe("pickFilterField / buildFilterModel", () => {
       range: [1, 1] as [number, number],
     };
     expect(
-      buildFilterModel(snap, countsFilter, "a", { kept: 7, total: 137 }),
+      buildFilterModel(snap, countsFilter, "a", "Field", { kept: 7, total: 137 }),
     ).toMatchObject({
       kept: 7,
       total: 137,
@@ -487,7 +492,9 @@ describe("pickFilterField / buildFilterModel", () => {
       numericFields: ["a"],
       ranges: {},
     };
-    expect(buildFilterModel(noExtent, undefined, "a")!.dimensions[0]).toMatchObject({
+    expect(
+      buildFilterModel(noExtent, undefined, "a", "Field")!.dimensions[0],
+    ).toMatchObject({
       kind: "range",
       range: [0, 0],
     });
@@ -500,12 +507,15 @@ describe("pickFilterField / buildFilterModel", () => {
       op: "between" as const,
       range: [1, 1] as [number, number],
     };
-    expect(buildFilterModel(snap, filter, "a")).toEqual({
+    expect(buildFilterModel(snap, filter, "a", "Field")).toEqual({
       dimensions: [
         {
           kind: "range",
           field: "a",
-          label: "a",
+          // Two captions, and neither is the raw field name: `label` is the
+          // condition row's wording (empty = panel chrome applies).
+          fieldLabel: "Field",
+          label: "",
           range: [1, 1],
           step: 1,
         },
@@ -516,14 +526,21 @@ describe("pickFilterField / buildFilterModel", () => {
     });
   });
 
-  it("carries an owner-localized dimension label when one is supplied", () => {
-    const model = buildFilterModel(snap, undefined, "a", undefined, "Magnitude");
+  it("carries the owner's two captions and never the raw field name", () => {
+    const model = buildFilterModel(snap, undefined, "a", "Field", undefined, "Range");
     expect(model!.dimensions).toHaveLength(1);
     expect(model!.dimensions[0]).toMatchObject({
       kind: "range",
       field: "a",
-      label: "Magnitude",
+      fieldLabel: "Field",
+      label: "Range",
     });
+    // No caption falls back to the field name: the field row names the field
+    // in its value cell, and the condition row keeps the panel's own wording
+    // when the owner supplies none.
+    const bare = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
+    expect(bare).toMatchObject({ fieldLabel: "Field", label: "" });
+    expect(bare.field).toBe("a");
   });
 });
 

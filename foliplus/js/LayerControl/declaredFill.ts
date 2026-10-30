@@ -234,9 +234,9 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
  *
  *  Additive contract — the same one #781's `fillAuthor` payload follows:
  *  `fillAuthor` is a pure additive key. A layer that produces no payload
- *  (non-explore, `style_function`, single-colour explore) carries no CONF key,
+ *  (non-explore, `style_function`, single-color explore) carries no CONF key,
  *  shows no Author arm, and behaves byte-identically to before; only a
- *  multi-colour explore layer gains the read-only Author state, and the map
+ *  multi-color explore layer gains the read-only Author state, and the map
  *  paint is not rewritten before the user edits. This reader adds nothing to
  *  CONF either: a layer without `foliplus.fill` is byte-identical, and a
  *  declaration only changes what the fill arm reads at load/Reset time.

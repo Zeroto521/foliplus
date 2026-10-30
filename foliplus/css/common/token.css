@@ -207,9 +207,9 @@
   );
   --foliplus-form-number-width: 52px;
   /* One inline-secondary width: the compact field that sits beside a flexed
-     control (border colour + weight, method + class count). The class-count
+     control (border color + weight, method + class count). The class-count
      select and the number input both read it, so the two are the same width by
-     construction — and the flexed sibling (method select / colour swatch)
+     construction — and the flexed sibling (method select / color swatch)
      matches its counterpart in the other row. */
   --foliplus-form-secondary-width: var(--foliplus-form-number-width);
   /* Toast width cap. Below the 480px viewport the media block in hint.css
@@ -409,7 +409,7 @@
   --foliplus-menu-max-width: 320px;
 
   /* ── Scheme picker (shared by HeatmapControl and LayerControl) ──
-     Colour-strip inset. The trigger's strip and a dropdown item's strip use
+     color-strip inset. The trigger's strip and a dropdown item's strip use
      the same value so the two bars line up on both sides; the item subtracts
      its reserved selection border inside the inset (see scheme-picker.css). */
   --foliplus-scheme-picker-bar-inset-x: var(--foliplus-icon-size-md);

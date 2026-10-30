@@ -6,13 +6,13 @@ import {
   createSchemePicker,
 } from "#common/schemePicker.js";
 
-// ── Colour-scale helper ────────────────────────────────────────────────
+// ── color-scale helper ────────────────────────────────────────────────
 
 const colorScale = vi.fn((name: string, n: number) => {
   if (typeof chroma === "undefined") {
     return Array(n).fill("#999");
   }
-  // Simulate chroma.scale().mode().colors() returning distinct colours.
+  // Simulate chroma.scale().mode().colors() returning distinct colors.
   return Array.from({ length: n }, (_, i) => {
     const hue = Math.round((i / n) * 360);
     return "hsl(" + hue + ", 70%, 50%)";
@@ -173,12 +173,10 @@ describe("listbox keyboard navigation", () => {
     picker.destroy();
   });
 
-  it("Escape closes dropdown and returns focus to trigger", () => {
+  it("close() closes dropdown and returns focus to trigger", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(picker.getDropdown()).toBeNull();
     expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
     expect(document.activeElement).toBe(trigger);
@@ -268,48 +266,14 @@ describe("trigger keyboard (no dropdown open)", () => {
   });
 });
 
-// ── Outside click ──────────────────────────────────────────────────────
-
-describe("outside click", () => {
-  it("closes the dropdown on outside click", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-    outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click inside the dropdown", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const dropdown = picker.getDropdown()!;
-    dropdown.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click on the trigger", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // The trigger's own click handler toggles, but the outside-click
-    // handler should not fire for the trigger.
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-});
-
 // ── Focus return ───────────────────────────────────────────────────────
 
 describe("focus return", () => {
-  it("returns focus to trigger on Escape", () => {
+  it("returns focus to trigger on close()", () => {
     const { picker, trigger } = makePicker();
     trigger.focus();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(document.activeElement).toBe(trigger);
     picker.destroy();
   });
@@ -388,9 +352,7 @@ describe("ARIA attributes", () => {
   it("sets aria-expanded=false when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     picker.destroy();
   });
@@ -451,9 +413,7 @@ describe("ARIA attributes", () => {
   it("removes aria-activedescendant when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(trigger.hasAttribute("aria-activedescendant")).toBe(false);
     picker.destroy();
   });
@@ -497,16 +457,16 @@ describe("hidden select sync", () => {
   });
 });
 
-// ── Colour blocks ──────────────────────────────────────────────────────
+// ── color blocks ──────────────────────────────────────────────────────
 
-describe("colour blocks", () => {
+describe("color blocks", () => {
   it("renders numClasses blocks in the trigger bar", () => {
     const { trigger } = makePicker({ numClasses: 4 });
     const inner = trigger.querySelector("[data-scheme-bar-inner]")!;
     expect(inner.children.length).toBe(4);
   });
 
-  it("renders colour blocks in each dropdown item", () => {
+  it("renders color blocks in each dropdown item", () => {
     const { picker, trigger } = makePicker({ numClasses: 3 });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const items = picker
@@ -796,9 +756,7 @@ describe("onToggle callback", () => {
     const onToggle = vi.fn();
     const { picker, trigger } = makePicker({ onToggle });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(onToggle).toHaveBeenCalledWith(false, null);
     picker.destroy();
   });
@@ -922,8 +880,8 @@ describe("multiple pickers", () => {
 });
 // ── Failure paths and portal geometry ──────────────────────────────────
 
-describe("colour-scale fallback", () => {
-  it("renders neutral blocks when the injected colour scale throws", () => {
+describe("color-scale fallback", () => {
+  it("renders neutral blocks when the injected color scale throws", () => {
     const throwingScale = vi.fn(() => {
       throw new Error("scale boom");
     });

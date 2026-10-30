@@ -190,9 +190,9 @@ type SchemeRowOptions = {
   label: string;
   /** Class of the picker trigger element. */
   triggerClass: string;
-  /** Class of the colour-strip element inside the trigger. */
+  /** Class of the color-strip element inside the trigger. */
   barClass: string;
-  /** Extra class on the colour strip (heatmap's inner-bar class). */
+  /** Extra class on the color strip (heatmap's inner-bar class). */
   barInnerClass?: string;
   /** Class of the hidden select (defaults to the shared picker class). */
   hiddenClass?: string;
@@ -205,7 +205,7 @@ type SchemeRowOptions = {
 
 /** The scheme picker's trigger + hidden select, wrapped in a labelled row.
  *  The consumer creates the picker with these references (its onChange owns
- *  the repaint) — the trigger shows the colour strip only, no scheme name, in
+ *  the repaint) — the trigger shows the color strip only, no scheme name, in
  *  both panels. */
 const buildSchemeRow = (
   opts: SchemeRowOptions,
