@@ -1429,7 +1429,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
           {
             kind: "range",
             field: "magnitude",
-            label: "magnitude",
+            fieldLabel: "Field",
+            label: "Range",
             range,
             step: 1,
           },

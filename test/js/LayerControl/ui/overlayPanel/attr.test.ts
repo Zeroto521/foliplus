@@ -463,7 +463,14 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
           dimensions: [
-            { kind: "range", field: "value", label: "value", range: [0, 10], step: 1 },
+            {
+              kind: "range",
+              field: "value",
+              fieldLabel: "Field",
+              label: "Range",
+              range: [0, 10],
+              step: 1,
+            },
           ],
           filter: { kind: "atom", field: "value", op: "between", range: [2, 8] },
           kept: 2500,
@@ -497,7 +504,14 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
           dimensions: [
-            { kind: "range", field: "value", label: "value", range: [0, 10], step: 1 },
+            {
+              kind: "range",
+              field: "value",
+              fieldLabel: "Field",
+              label: "Range",
+              range: [0, 10],
+              step: 1,
+            },
           ],
           filter: undefined,
           kept: 900,
