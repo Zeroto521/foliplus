@@ -23,6 +23,16 @@
       // count every element that looks like a common/dropdown popup or scheme picker
       dropdownPopups: document.querySelectorAll(".foliplus-dropdown, .foliplus-scheme-picker-dropdown").length,
       openTriggers: Array.from(document.querySelectorAll('[aria-expanded="true"]')).map(e => String(e.className).slice(0,60)),
+      schemeTriggers: Array.from(document.querySelectorAll(".foliplus-style-scheme-trigger")).map(e => ({
+        expanded: e.getAttribute("aria-expanded"),
+        controls: e.getAttribute("aria-controls"),
+        cls: String(e.className).slice(0,50),
+      })),
+      schemePortals: Array.from(document.querySelectorAll(".foliplus-scheme-picker-portal")).map(e => ({
+        id: e.getAttribute("id"),
+        connected: e.isConnected,
+        rect: e.getBoundingClientRect().height,
+      })),
       activeTag: ae ? String(ae.tagName) : null,
       activeClass: ae ? String(ae.className) : null,
       t: performance.now(),
