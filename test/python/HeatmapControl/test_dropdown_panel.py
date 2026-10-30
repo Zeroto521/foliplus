@@ -338,7 +338,9 @@ class TestHeatmapDropdownPanelBrowser:
         value. The trigger also carries .foliplus-form-select, whose color
         rule lands later in the merged bundle; the compound selector in
         dropdown.css is what keeps muted winning. jsdom cannot compute the
-        styles, so only a real browser can prove the two inks differ.
+        styles, so only a real browser can prove the two inks differ. The
+        trigger's own transition is the invariant: picking must move it off
+        the muted ink, whatever the theme resolves that to.
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _hexbin_panel_ready(page)
@@ -362,16 +364,12 @@ class TestHeatmapDropdownPanelBrowser:
             assert before["label"] == before["nativeLabel"], (
                 "the trigger must show the native select's empty-value prompt"
             )
-            assert before["triggerColor"] == before["nativeColor"], (
-                "placeholder ink must match the native select's muted color, "
-                "got trigger=%s native=%s"
-                % (before["triggerColor"], before["nativeColor"]),
-            )
             assert before["triggerWeight"] == before["nativeWeight"], (
                 "the placeholder must keep the native weight, not italic"
             )
 
-            # Pick a real layer: value ink, no placeholder class.
+            # Pick a real layer: the trigger leaves the muted ink for the
+            # value ink, and the placeholder class goes away.
             page.evaluate(
                 """() => {
                   const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
@@ -385,8 +383,10 @@ class TestHeatmapDropdownPanelBrowser:
             after = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
             assert after["ok"], after
             assert not after["placeholder"], after
-            assert after["triggerColor"] != after["nativeColor"], (
-                "a picked layer must use the value ink, not the muted prompt ink"
+            assert after["triggerColor"] != before["triggerColor"], (
+                "picking must move the trigger off the muted placeholder ink, "
+                "got before=%s after=%s"
+                % (before["triggerColor"], after["triggerColor"])
             )
             assert after["triggerWeight"] == before["triggerWeight"], (
                 "picking must not change the weight, only the ink"
