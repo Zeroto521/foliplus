@@ -423,18 +423,6 @@ const syncFromNative = (state: InternalState): void => {
   if (!state.native) return;
   state.items = nativeItemsOf(state.native);
   state.values = new Set(state.native.value === "" ? [] : [state.native.value]);
-  // A bridged single select with no stored value opens on its first real
-  // option: that is the value the native select itself reports, so the
-  // trigger must show it instead of a placeholder. An empty-value prompt row
-  // (the heatmap's "pick a layer") is a state of its own and stays a
-  // placeholder — auto-picking a layer would paint a heatmap nobody asked for.
-  if (!state.multiple && state.values.size === 0) {
-    const first = state.items[0];
-    if (first && !first.disabled && first.value !== "") {
-      state.values = new Set([first.value]);
-      state.native.value = first.value;
-    }
-  }
 };
 
 const closeDropdown = (
@@ -744,6 +732,16 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     native.addEventListener("change", () => refresh());
   }
   wrapper.append(list);
+
+  // A standalone single-select with no value and no placeholder opens on its
+  // first enabled item: the control has no empty state to show. A dropdown
+  // that declares a placeholder (the filter's "Any") keeps the empty state on
+  // purpose — auto-picking there would silently filter the data — and so does
+  // every multi-select.
+  if (!native && !multiple && !opts.placeholder && state.values.size === 0) {
+    const first = state.items.find(item => !item.disabled);
+    if (first) state.values = new Set([first.value]);
+  }
 
   if (native) syncFromNative(state);
   renderLabel(state);

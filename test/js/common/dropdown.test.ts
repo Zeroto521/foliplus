@@ -1027,10 +1027,40 @@ describe("dropdown: remaining branches", () => {
     expect(dropdown.isOpen()).toBe(true);
   });
 
-  it("reports an empty value for a standalone dropdown with nothing selected", () => {
+  it("opens a standalone single-select on its first enabled item", () => {
+    // No stored value and no placeholder: the control has no empty state, so
+    // the trigger must show the value it will report, never a placeholder.
     const dropdown = make(three);
+    expect(dropdown.getValue()).toBe("a");
+    expect(dropdown.getValues()).toEqual(["a"]);
+    expect(labelOf(dropdown)).toBe("Alpha");
+  });
+
+  it("keeps the empty state when the dropdown declares a placeholder", () => {
+    const dropdown = createDropdown({
+      items: [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Bee" },
+      ],
+      placeholder: "Any",
+    });
+    document.body.append(dropdown.element);
+    cleanup.push(() => dropdown.destroy());
     expect(dropdown.getValue()).toBe("");
-    expect(dropdown.getValues()).toEqual([]);
+    expect(labelOf(dropdown)).toBe("Any");
+  });
+
+  it("never opens a single-select trigger on its placeholder", () => {
+    // The #801 default rule: a single trigger's first frame is a value.
+    const standalone = make(three);
+    expect(standalone.trigger.classList.contains(CLS.placeholder)).toBe(false);
+    expect(labelOf(standalone)).toBe("Alpha");
+    const { dropdown } = bridged("a", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    expect(labelOf(dropdown)).toBe("Alpha");
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(false);
   });
 
   it("setValue('') clears a bridged select back to its placeholder", () => {
