@@ -480,3 +480,58 @@ class TestExportCompositeBrowser:
             result = page.evaluate(_js("ExportControl/marker_opacity_pixel_check"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, f"Marker pixels missing from export: {result}"
+
+    def test_export_default_marker_pixels(self, browser, tmp_path):
+        """A default-geometry Leaflet marker exports red-dominant pixels.
+
+        The task premise: a bare ``L.marker(...)`` (Leaflet's ``Icon.Default``,
+        which loads ``marker-icon.png`` from the Leaflet CDN path) has no pixel
+        assertion in the export tests, because the default icon URL is not in
+        the CDN list and the image load races the export. A bare marker is
+        also NOT exported: it is not in the LayerAPI registry (only registered
+        layers are) and the default ``markerPane`` is excluded from pane
+        discovery. This test covers the export path for a marker that keeps
+        the DEFAULT Leaflet icon geometry (25x41, anchor [12,41]) but uses a
+        deterministic solid-red data-URI PNG, so the export sees exactly the
+        pixels the icon element's ``src`` points at — no CDN lookup, no load
+        race.
+
+        The marker is registered through the LayerAPI into a foliplus pane
+        (as a folium Marker is when LayerControl collects layers at map build
+        time), and tile layers are hidden so the opaque OSM tiles cannot mask
+        the red icon. The exported canvas is sampled in an 80x100 window that
+        covers the icon body, and the window must be red-dominant.
+        """
+        with use_page(_make_page, browser, tmp_path, slug="export_default_marker") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            state = page.evaluate(_js("ExportControl/setup_default_marker"))
+            assert state is not None and "error" not in state, state
+            assert state["marker"] is True, state
+
+            _install_canvas_hook(page)
+            _run_export(page)
+
+            page.evaluate(
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": {"marker": state["window"]},
+                    "color": [230, 30, 30],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+            w = result["marker"]
+            assert w["total"] > 0, f"Marker window has no pixels in export: {result}"
+            assert w["hit"] > 0, f"Marker red pixels missing from export: {result}"
+            ratio = w["hit"] / w["total"]
+            assert ratio >= 0.4, (
+                f"Marker window not red-dominant (ratio {ratio:.3f}): {result}"
+            )
+            assert len(errors) == 0, f"JS errors on default-marker export: {errors}"
