@@ -54,7 +54,7 @@
 
   /* ── Color Scheme Bar ──
      The trigger box and chevron are the shared scheme-picker recipe
-     (common/scheme-picker.css); this block only keeps the colour strip's own
+     (common/scheme-picker.css); this block only keeps the color strip's own
      inline height token as the fallback. */
   .foliplus-heatmap-scheme-bar-inner {
     height: var(
@@ -67,7 +67,7 @@
   .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
-  /* Scheme hidden select, dropdown, items, and colour bars live in
+  /* Scheme hidden select, dropdown, items, and color bars live in
      common/scheme-picker.css (shared by HeatmapControl and LayerControl). */
 
   /* Color / number inputs live in common/form.css — one visual for the

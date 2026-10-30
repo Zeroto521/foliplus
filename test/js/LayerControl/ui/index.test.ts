@@ -264,7 +264,7 @@ describe("LayerUI shell — delegates", () => {
     }
   });
 
-  it("resetSolidBasemap() delegates to the colour module and flushes state", () => {
+  it("resetSolidBasemap() delegates to the color module and flushes state", () => {
     // The manager's deleteLayer reaches this method rather than the color
     // module directly. The delegate exists so the bus-driven signal handler
     // has a single seam to spy on.
@@ -309,7 +309,7 @@ describe("LayerUI shell — delegates", () => {
     expect(() => ui.syncNoBasemap()).not.toThrow();
   });
 
-  it("hideSolidBasemap delegates to the colour module", () => {
+  it("hideSolidBasemap delegates to the color module", () => {
     const setVisible = vi.fn();
     ui.c.createColor = vi.fn(() => ({
       element: document.createElement("canvas"),

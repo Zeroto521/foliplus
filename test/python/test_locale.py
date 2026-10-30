@@ -156,7 +156,7 @@ class TestRowTooltipVocabulary:
     def test_base_short_says_map_and_differs_from_color(self):
         en, zh = _TABLES["en"], _TABLES["zh"]
         # The short word is 地图/Map, distinct from the long 瓦片底图/Tile
-        # Map label and from the colour row's 纯色/Color.
+        # Map label and from the color row's 纯色/Color.
         assert en["LayerControl.type_tile_map_short"] == "Map"
         assert zh["LayerControl.type_tile_map_short"] == "地图"
         assert en["LayerControl.type_color_map_short"] == "Color"

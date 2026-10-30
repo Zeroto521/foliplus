@@ -1,8 +1,8 @@
-// Arm the activation-key regression for a style panel's colour picker.
+// Arm the activation-key regression for a style panel's color picker.
 //
 // `layer` selects the owning row: "overlay" for the first overlay row (a data
-// layer's Fill Color row) or "color-map" for the solid-colour basemap row
-// (whose fill row is the colour swatch). Opens that row's style panel,
+// layer's Fill Color row) or "color-map" for the solid-color basemap row
+// (whose fill row is the color swatch). Opens that row's style panel,
 // focuses the real <input type=color> used by the Fill Color row, and records
 // the row's checkbox plus a capture-phase keydown log. Reading `prevented` in
 // the capture listener would only ever report false, so the read step
