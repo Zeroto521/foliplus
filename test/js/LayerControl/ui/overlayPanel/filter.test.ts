@@ -57,7 +57,8 @@ const makeOwner = (values: number[]) => {
         {
           kind: "range",
           field: "magnitude",
-          label: "magnitude",
+          fieldLabel: "Field",
+          label: "Range",
           range,
           step: 1,
         },
@@ -282,15 +283,24 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field row: the dimension label sits in the label cell and the control
-      // cell holds the slider, so the owner's field name is not repeated.
+      // Row 1 is the field row: the owner's "Field" caption beside the
+      // read-only field name — two cells answering two questions, so the field
+      // name is never printed as the caption with an empty control cell.
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      expect(field.textContent).toBe("");
-      const row = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "magnitude",
+      const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
+      expect(
+        fieldRow.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)!.textContent,
+      ).toBe("magnitude");
+      // Row 2 is the condition row: the owner's condition caption (or the
+      // panel's own "Range") beside the slider.
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Range",
       );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
@@ -305,6 +315,40 @@ describe("LayerUI filter panel", () => {
       // Result row: a live region fed by the owner model.
       const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`);
       expect(result!.getAttribute("aria-live")).toBe("polite");
+    });
+
+    it("falls back to the panel's own wording when the owner names no condition", () => {
+      // `label` is the owner's word for the condition control. An owner that
+      // has none — or a component that only names its field row — must still
+      // get a caption: the panel's own, never an empty <label> and never the
+      // field name. `core` hands over "" and the panel decides the wording.
+      const owner = makeOwner([10, 20, 30]);
+      const provider = owner.filterProvider;
+      owner.filterProvider = (): LayerFilterModel => {
+        const model = provider();
+        return {
+          ...model,
+          dimensions: model.dimensions.map(dim => ({ ...dim, label: "" })),
+        };
+      };
+      registerPoints("pnt2", owner);
+      const item = findItem(ui, "pnt2");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const fieldRow = (
+        panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`) as HTMLElement
+      ).closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      // The field row keeps the owner's caption for the field itself...
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
+      // ...while the condition row falls back to the panel's own "Range".
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_range"),
+      );
     });
 
     it("the result readout composes the localized kept/total sentence", () => {
@@ -1422,7 +1466,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
           {
             kind: "range",
             field: "magnitude",
-            label: "magnitude",
+            fieldLabel: "Field",
+            label: "Range",
             range,
             step: 1,
           },
