@@ -475,7 +475,6 @@ describe("LayerUI style panel", () => {
     // from the other side. Only trigger ownership can dismiss here.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
 
     const foreignTrigger = document.createElement("button");
     document.body.appendChild(foreignTrigger);
