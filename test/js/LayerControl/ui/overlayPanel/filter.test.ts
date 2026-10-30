@@ -317,6 +317,40 @@ describe("LayerUI filter panel", () => {
       expect(result!.getAttribute("aria-live")).toBe("polite");
     });
 
+    it("falls back to the panel's own wording when the owner names no condition", () => {
+      // `label` is the owner's word for the condition control. An owner that
+      // has none — or a component that only names its field row — must still
+      // get a caption: the panel's own, never an empty <label> and never the
+      // field name. `core` hands over "" and the panel decides the wording.
+      const owner = makeOwner([10, 20, 30]);
+      const provider = owner.filterProvider;
+      owner.filterProvider = (): LayerFilterModel => {
+        const model = provider();
+        return {
+          ...model,
+          dimensions: model.dimensions.map(dim => ({ ...dim, label: "" })),
+        };
+      };
+      registerPoints("pnt2", owner);
+      const item = findItem(ui, "pnt2");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const fieldRow = (
+        panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`) as HTMLElement
+      ).closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      // The field row keeps the owner's caption for the field itself...
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
+      // ...while the condition row falls back to the panel's own "Range".
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_range"),
+      );
+    });
+
     it("the result readout composes the localized kept/total sentence", () => {
       const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
