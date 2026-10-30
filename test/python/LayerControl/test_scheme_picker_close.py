@@ -142,8 +142,23 @@ def _open_style_dropdown(page) -> None:
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
     assert ready["ok"], f"the ramp arm did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
-    page.wait_for_selector(
-        ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+    # Wait for the picker's open state to be *committed*, not merely for the
+    # portal node to be in the DOM. On Linux headless the open state lands a
+    # beat after the portal is attached (the dropdown is appended before the
+    # trigger's aria-expanded and the row layout settle), and pressing Escape in
+    # that window reads PICKER_DROPDOWN as not open, so the registry's topmost()
+    # falls through to LAYER_STYLE and one press tears down both the list and
+    # the drawer. Only the committed state guarantees the picker owns Escape.
+    page.wait_for_function(
+        """() => {
+          const portal = document.querySelector(".foliplus-scheme-picker-portal");
+          const trigger = document.querySelector(".foliplus-style-scheme-trigger");
+          if (!portal || !trigger) return false;
+          if (portal.getBoundingClientRect().height <= 0) return false;
+          if (trigger.getAttribute("aria-expanded") !== "true") return false;
+          return portal.querySelectorAll(".foliplus-scheme-picker-item").length > 0;
+        }""",
+        timeout=3000,
     )
 
 
