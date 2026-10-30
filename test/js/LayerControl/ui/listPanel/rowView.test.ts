@@ -257,7 +257,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(cellInfo.typeSvg).toBe(Icons.ICON_GLOBE);
     expect(cellInfo.typeLabel).toContain("type_tile_map");
     // The tooltip's short word is the renamed pair (地图 / Map); both keys
-    // carry the _map suffix so the row never borrows the colour row's words.
+    // carry the _map suffix so the row never borrows the color row's words.
     expect(cellInfo.titleTypeLabel).toContain("type_tile_map_short");
   });
 

@@ -189,9 +189,9 @@ const firstStyleLeaf = (node: StyleCarrier): StyleSetter | null =>
   firstLeafWhere(node, isStyleSetter);
 
 /** The first leaf that can actually carry a fill — the same predicate the
- *  fill walk reaches, so the fill row reads the colour the layer paints.
+ *  fill walk reaches, so the fill row reads the color the layer paints.
  *  Reading the first `setStyle` leaf instead would hand a line-first mixed
- *  layer's line colour to the fill row: a line declares no fill, so its
+ *  layer's line color to the fill row: a line declares no fill, so its
  *  options are not the answer the polygon is answering for. */
 const firstFillLeaf = (node: StyleCarrier): StyleSetter | null =>
   firstLeafWhere(node, isArealStyleLeaf);
@@ -232,7 +232,7 @@ const styleBaseOf = (
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   // Each face reads from the carrier its own write reaches - fill from the
   // first areal leaf, stroke from the first setter. One shared carrier made a
-  // line-first mixed layer show the line's colour as its fill.
+  // line-first mixed layer show the line's color as its fill.
   const fillCarrier = layer ? firstFillLeaf(layer) : null;
   const strokeCarrier = layer ? firstStyleLeaf(layer) : null;
   const fillBag = fillCarrier ? styleBagOf(fillCarrier) : undefined;
@@ -297,7 +297,7 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
  *  pair would have written in two `setStyle` calls, in one.
  *
  *  A key the caller does not name keeps the author's own value, so an
- *  opacity-only commit keeps the author's colour and a colour-only commit
+ *  opacity-only commit keeps the author's color and a color-only commit
  *  keeps the author's opacity. `undefined` values never override. The
  *  visibility bit always lands explicitly: `true` when the caller claims the
  *  face, the author's own flag when it does not. Re-reads the captured bag

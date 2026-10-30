@@ -1,10 +1,10 @@
-// Shared colour-scheme picker — a trigger bar + dropdown listbox with
+// Shared color-scheme picker — a trigger bar + dropdown listbox with
 // keyboard navigation, outside-click dismissal, focus management, and
-// colour-bar preview.
+// color-bar preview.
 //
 // Consumers pass a trigger element (the bar they already render) and the
 // picker owns the dropdown lifecycle, keyboard handlers, outside-click,
-// focus return, hidden-select sync, and colour-bar drawing.
+// focus return, hidden-select sync, and color-bar drawing.
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
@@ -75,7 +75,7 @@ interface SchemePickerOptions {
    *  (or null when closed). Useful for consumers that need to track the
    *  dropdown reference (e.g. for test assertions). */
   onToggle?: (open: boolean, dropdown: HTMLElement | null) => void;
-  /** Colour-scale resolver: returns an array of `n` hex colours for a
+  /** color-scale resolver: returns an array of `n` hex colors for a
    *  scheme name.  Injected by the consumer so the picker stays free of
    *  core/ imports. */
   colorScale: (name: string, n: number) => string[];
@@ -98,9 +98,9 @@ interface SchemePicker {
   setValue(name: string): void;
   /** Select a scheme: close the dropdown, update all DOM, and call onChange. */
   selectScheme(name: string): void;
-  /** Update the number of classes and redraw all colour bars. */
+  /** Update the number of classes and redraw all color bars. */
   setNumClasses(n: number): void;
-  /** Redraw colour bars in an open dropdown (e.g. after numClasses changes). */
+  /** Redraw color bars in an open dropdown (e.g. after numClasses changes). */
   refresh(): void;
   /** Toggle the dropdown open/close. */
   toggle(): void;
@@ -163,7 +163,7 @@ const getInner = (trigger: HTMLElement): HTMLElement | null => {
   return el instanceof HTMLElement ? el : null;
 };
 
-// ── Colour-bar renderer ────────────────────────────────────────────────
+// ── color-bar renderer ────────────────────────────────────────────────
 
 const renderColorBar = (
   container: HTMLElement,
@@ -276,10 +276,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
         // current consumer-owned entry is not a choice.
         if (name && !state.disabledSchemes.includes(name)) selectScheme(state, name);
       }
-    } else if (key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeDropdown(state);
     }
   };
 
@@ -406,18 +402,11 @@ const mountDropdown = (state: InternalState) => {
     );
   });
 
-  // Outside-click handler — does NOT restore focus (user clicked elsewhere).
-  const onDocClick = (event: MouseEvent) => {
-    if (
-      state.dropdown &&
-      !state.trigger.contains(event.target as Node) &&
-      !state.dropdown.contains(event.target as Node)
-    ) {
-      closeDropdown(state, { restoreFocus: false });
-    }
-  };
-  document.addEventListener("click", onDocClick);
-  state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
+  // Outside-click dismissal is owned by the consumer's per-map overlay
+  // registry entry (core/overlayRegistry), not by this shared factory: common
+  // modules must not import core. The consumer registers the trigger as the
+  // panel and the dropdown as the portal, then calls `close({restoreFocus:false})`
+  // from the entry's close callback.
 
   // Focus the selected item now that the dropdown is in the DOM and all
   // listeners are installed. Doing this before append leaves the focus on the
@@ -508,7 +497,7 @@ const selectScheme = (state: InternalState, name: string) => {
   // Update trigger's title
   state.trigger.title = state.schemeLabel(name);
 
-  // Redraw the trigger's colour bar (the trigger's inner element)
+  // Redraw the trigger's color bar (the trigger's inner element)
   const barInner = getInner(state.trigger);
   if (barInner) {
     renderColorBar(
@@ -622,7 +611,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
 
   // Base structure classes are never replaced — consumer classes are additive
   // modifiers only. This prevents the CSS/DOM contract break that caused the
-  // "custom colour bar + native select both visible" screenshot bug.
+  // "custom color bar + native select both visible" screenshot bug.
   const consumerClasses = options.classes ?? {};
   // The base class is never replaced, so a consumer can only add a modifier.
   const withModifier = (base: string, extra: string | undefined): string =>
@@ -683,7 +672,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     state.trigger.setAttribute("aria-label", options.label ?? "Color scheme");
   }
 
-  // Set initial trigger title and draw the colour bar
+  // Set initial trigger title and draw the color bar
   state.trigger.title = state.schemeLabel(options.value);
   const initialBarInner = getInner(state.trigger);
   if (initialBarInner) {
@@ -723,7 +712,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       state.value = name;
       if (state.hiddenSelect) state.hiddenSelect.value = name;
       state.trigger.title = state.schemeLabel(name);
-      // Redraw trigger colour bar
+      // Redraw trigger color bar
       const barInner = getInner(state.trigger);
       if (barInner) {
         renderColorBar(

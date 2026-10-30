@@ -29,6 +29,7 @@ import {
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -236,7 +237,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // two-call form wrote the same face twice per leaf, which doubled the DOM
     // and SVG attribute work on top of the walk.
     if (hasOverride && values.fillColor !== undefined) {
-      // A colour commit is minimal: it replaces every key the previous arm
+      // A color commit is minimal: it replaces every key the previous arm
       // could have left stale, and the user's opacity never arrives here
       // unset - `fillOpacity` is set on this same payload whenever the user
       // has chosen one. Leaving the opacity unnamed keeps the author's value,
@@ -244,13 +245,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       commitStyleDim(node, values, FACE.FILL);
     } else if (hasOverride) {
       // An opacity-only commit replaces nothing but the opacity, so the
-      // previous arm's colour would ride under it: pull the author's keys
+      // previous arm's color would ride under it: pull the author's keys
       // back in the same payload. The pin below replaces any ramp getter
       // still holding this leaf.
       commitStyleDimMerged(node, values, FACE.FILL, true);
     } else {
       // No override left: restore the author's face rather than skipping the
-      // walk, or the previous arm's colour stays on the map until folium's
+      // walk, or the previous arm's color stays on the map until folium's
       // next mouseout happens to overwrite it.
       restoreStyleDim(node, FACE.FILL);
     }
@@ -537,11 +538,15 @@ const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
  *  destroy it when it closes or rebuilds the ramp detail; one entry per UI
  *  because a map owns one LayerControl instance. */
 const schemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
+/** Unregister for the picker's overlay-registry entry (one per UI). */
+const schemePickerOverlayByUi = new WeakMap<LayerUI, () => void>();
 
 /** Destroy the panel's scheme picker, if any. Idempotent; also called when a
  *  mode switch rebuilds the ramp detail so a stale picker cannot answer the
  *  next click. */
 const disposeFillRow = (ui: LayerUI): void => {
+  schemePickerOverlayByUi.get(ui)?.();
+  schemePickerOverlayByUi.delete(ui);
   schemePickerByUi.get(ui)?.destroy();
   schemePickerByUi.delete(ui);
 };
@@ -738,8 +743,8 @@ const writeFillRamp = (
   return next;
 };
 
-/** The solid arm's detail: one row holding the colour swatch and the
- *  fill-opacity number side by side (the border-row recipe). Colour and
+/** The solid arm's detail: one row holding the color swatch and the
+ *  fill-opacity number side by side (the border-row recipe). color and
  *  opacity are one idea — a fill without either half is rarely what the user
  *  means — so the arm stays on a single line instead of two stacked rows. */
 const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
@@ -775,7 +780,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
  *  primitives: the heatmap panel and this panel therefore share the row
  *  structure, the control types (native selects) and the option vocabularies
  *  (method order + 2..9 class counts from #core/classify). The scheme trigger
- *  shows the colour strip only, matching the heatmap trigger. */
+ *  shows the color strip only, matching the heatmap trigger. */
 const buildRampDetail = (
   ui: LayerUI,
   layerId: string,
@@ -1059,6 +1064,17 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     onChange: name => writeFillRamp(ui, layerId, { scheme: name }),
   });
   schemePickerByUi.set(ui, picker);
+  schemePickerOverlayByUi.set(
+    ui,
+    ensureOverlayRegistry(ui.c.map).register({
+      id: OVERLAY_IDS.PICKER_DROPDOWN,
+      isOpen: () => picker.getDropdown() !== null,
+      panels: () => [trigger],
+      close: ({ restoreFocus }) => picker.close({ restoreFocus }),
+      dismissOn: "click",
+      pressPriority: 850,
+    }),
+  );
 
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
@@ -1308,7 +1324,7 @@ const FILL_DIMENSION = registerDimension<{
   },
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
-   *  author's colour and a running ramp classifies on stale breaks. The
+   *  author's color and a running ramp classifies on stale breaks. The
    *  when-gate reads the SAME FILL_INTENT_KEYS array replayFillState's own
    *  loop reads, so the gate and the replay cannot drift: a new fill intent
    *  joins one array and is automatically both gated and replayed. The gate

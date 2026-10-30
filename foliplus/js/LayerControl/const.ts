@@ -237,6 +237,10 @@ const CLASSES = {
   FILTER_EMPTY: "foliplus-filter-empty",
   /** Header icon of the filter panel (a funnel glyph). */
   FILTER_ICON: "foliplus-layer-filter-icon",
+  /** The filter field row's read-only value: the dimension's field name, in
+   *  the style panel's read-only box frame (STYLE_FILL_READONLY) so the control
+   *  column matches every other row's. */
+  FILTER_FIELD_VALUE: "foliplus-filter-field-value",
   /** Read-only filter field name in the panel's field row. */
   FILTER_FIELD: "foliplus-filter-field",
   /** Host element of the shared dual-thumb Slider in the range row. */

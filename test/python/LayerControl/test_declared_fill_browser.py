@@ -1,7 +1,7 @@
 """Browser test: a declared fill ramp reaches the map and the panel at load.
 
 `foliplus={"fill": {...}}` is the author's fill declaration. The map must open
-painted by value (not on the author's flat colour), the style row must show the
+painted by value (not on the author's flat color), the style row must show the
 declared field / method / classes / scheme, and Reset must return to that
 declaration — the same "Reset returns to the author's declaration" contract the
 label declaration has. A later panel edit is the user's intent and must survive
@@ -78,7 +78,7 @@ def _make_page(browser, tmp_path):
 _ARM = _js("LayerControl/fill_author_arm")
 # Pick a palette the way a user does: open the trigger, press the row.
 _PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
-# Read the declared by-value row: arm, values and the painted colours.
+# Read the declared by-value row: arm, values and the painted colors.
 _READ_FILL = _js("LayerControl/fill_declared_read")
 
 
@@ -109,7 +109,7 @@ class TestDeclaredFillBrowser:
             )
             # The declaration is a read-time default: the map must be painted
             # by value before the user touches the panel. The row itself is not
-            # open yet, so only the painted colours are readable here.
+            # open yet, so only the painted colors are readable here.
             before_panel = page.evaluate(_READ_FILL)
             assert len(before_panel["fills"]) >= 2, (
                 f"the declared ramp did not reach the map at load: {before_panel}"
@@ -141,7 +141,7 @@ class TestDeclaredFillBrowser:
 
             # Reset clears the user's intent, so the declaration shows through
             # again — the declared scheme and the declared paint, not the
-            # author's flat colour.
+            # author's flat color.
             page.evaluate(_ARM, {"reset": True})
             page.wait_for_timeout(300)
             _open_style_panel(page)

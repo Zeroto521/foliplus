@@ -1,4 +1,4 @@
-// Active-row state: grip / more-button colour / bg colour (not glow). Used
+// Active-row state: grip / more-button color / bg color (not glow). Used
 // when asserting the row is on a specific surface.
 () => {
   const r = document.querySelector(".foliplus-layer-item.foliplus-active");
