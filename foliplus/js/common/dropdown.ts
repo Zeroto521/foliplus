@@ -91,6 +91,11 @@ interface DropdownOptions extends DropdownSurface {
   multiple?: boolean;
   /** Trigger text when nothing is selected (multiple mode / empty list). */
   placeholder?: string;
+  /** Take the first enabled item when nothing is selected. The opt-in for a
+   *  surface whose field domain has no empty state — see the default rule in
+   *  createDropdown: an empty value is a state, so this is never implicit for
+   *  a bridged select. */
+  defaultToFirst?: boolean;
   /** Accessible name; bridged mode defaults to the select's own aria-label. */
   ariaLabel?: string;
   /** Extra hook class, applied to the wrapper (same slot the select's own
@@ -733,17 +738,31 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   }
   wrapper.append(list);
 
-  // A standalone single-select with no value and no placeholder opens on its
-  // first enabled item: the control has no empty state to show. A dropdown
-  // that declares a placeholder (the filter's "Any") keeps the empty state on
-  // purpose — auto-picking there would silently filter the data — and so does
-  // every multi-select.
-  if (!native && !multiple && !opts.placeholder && state.values.size === 0) {
-    const first = state.items.find(item => !item.disabled);
-    if (first) state.values = new Set([first.value]);
+  if (native) syncFromNative(state);
+
+  // Empty is a state, not "uninitialized": a trigger with nothing selected
+  // keeps showing its placeholder (or nothing) unless the field domain behind
+  // it has no empty state to show. The standalone single-select without a
+  // placeholder is that case by construction — there is no prompt to show and
+  // nothing behind an empty pick — so it opens on its first enabled item. A
+  // declared placeholder (the filter's "Any") and every multi-select keep the
+  // empty state: auto-picking there would silently filter the data. A bridged
+  // select never takes this branch either — its empty value is whatever the
+  // native select reports, and in the heatmap that is a real state ("no source
+  // picked yet"), so a bridged surface whose domain truly has no empty state
+  // has to say so with `defaultToFirst`.
+  if (!state.multiple && state.values.size === 0) {
+    const takeFirst = opts.defaultToFirst ?? (!native && !opts.placeholder);
+    const first = takeFirst && state.items.find(item => !item.disabled);
+    if (first) {
+      state.values = new Set([first.value]);
+      // The native select is the value carrier in bridged mode: leaving it on
+      // "" would make the next refresh read the empty value back and undo the
+      // pick.
+      if (native) native.value = first.value;
+    }
   }
 
-  if (native) syncFromNative(state);
   renderLabel(state);
 
   const onTriggerClick = (): void => {

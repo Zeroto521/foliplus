@@ -47,9 +47,10 @@ const makeCell = (
 const bridged = (
   value: string,
   options: readonly { value: string; label: string; disabled?: boolean }[],
+  extra: Record<string, unknown> = {},
 ): { select: HTMLSelectElement; cell: HTMLElement; dropdown: Dropdown } => {
   const { select, cell } = makeCell(value, options);
-  const dropdown = createDropdown({ nativeSelect: select });
+  const dropdown = createDropdown({ nativeSelect: select, ...extra });
   cleanup.push(() => dropdown.destroy());
   return { select, cell, dropdown };
 };
@@ -1048,6 +1049,43 @@ describe("dropdown: remaining branches", () => {
     cleanup.push(() => dropdown.destroy());
     expect(dropdown.getValue()).toBe("");
     expect(labelOf(dropdown)).toBe("Any");
+  });
+
+  it("keeps a bridged select empty unless the surface opts in", () => {
+    // A bridged select reports whatever its own select holds; "" is a state
+    // (the heatmap's "no source picked yet"), never "not initialised yet".
+    const { select, dropdown } = bridged("", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    expect(dropdown.getValue()).toBe("");
+    expect(select.value).toBe("");
+  });
+
+  it("takes the first enabled item when a bridged surface asks for it", () => {
+    // The opt-in for a field domain with no empty state. The native select is
+    // the value carrier, so it has to be written too: leaving it on "" would
+    // let the next refresh read the empty value back and undo the pick.
+    const { select, dropdown } = bridged(
+      "",
+      [
+        { value: "", label: "Choose", disabled: true },
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Bee" },
+      ],
+      { defaultToFirst: true },
+    );
+    expect(select.value).toBe("a");
+    expect(dropdown.getValue()).toBe("a");
+    expect(labelOf(dropdown)).toBe("Alpha");
+    dropdown.refresh();
+    expect(labelOf(dropdown)).toBe("Alpha");
+  });
+
+  it("lets a call site opt out of the standalone default", () => {
+    const dropdown = make(three, { defaultToFirst: false });
+    expect(dropdown.getValue()).toBe("");
+    expect(dropdown.getValues()).toEqual([]);
   });
 
   it("never opens a single-select trigger on its placeholder", () => {
