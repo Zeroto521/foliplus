@@ -28,7 +28,7 @@
   }
   row.querySelector(".foliplus-layer-more-btn")?.click();
   const entry = document.querySelector(
-    ".foliplus-layer-more-menu li[data-action=layer-attributes]",
+    ".foliplus-layer-more-menu button[data-action=layer-attributes]",
   );
   if (!entry) {
     api.unregisterLayer(ID);

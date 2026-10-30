@@ -66,9 +66,9 @@ async () => {
     row.querySelector(".foliplus-layer-more-btn").click();
     await wait(120);
     const li = document.querySelector(
-      `.foliplus-layer-item[data-layer-id="${lid()}"] li[data-action="style-layer"]`,
+      `.foliplus-layer-item[data-layer-id="${lid()}"] button[data-action="style-layer"]`,
     );
-    if (!li || li.getAttribute("disabled")) return "style-disabled";
+    if (!li || li.getAttribute("aria-disabled") === "true") return "style-disabled";
     li.click();
     await wait(120);
     const host = document.querySelector(".foliplus-style-opacity-track");
@@ -110,7 +110,7 @@ async () => {
     await wait(120);
     const find = () =>
       document.querySelector(
-        `.foliplus-layer-item[data-layer-id="${lid()}"] li[data-action="delete-layer"]`,
+        `.foliplus-layer-item[data-layer-id="${lid()}"] button[data-action="delete-layer"]`,
       );
     const armed = find();
     if (!armed) return false;

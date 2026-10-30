@@ -5,7 +5,7 @@
   if (!row) return { ok: false, reason: "no-row" };
   row.querySelector(".foliplus-layer-more-btn").click();
   const item = row.querySelector(
-    '.foliplus-layer-more-menu li[data-action="filter-layer"]',
+    '.foliplus-layer-more-menu button[data-action="filter-layer"]',
   );
   if (!item) return { ok: false, reason: "no-filter-entry" };
   item.click();
