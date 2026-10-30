@@ -23,7 +23,6 @@
 - `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
 - Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
-- Overlay panels: Escape dismisses exactly one layer, and the overlay registry is its only owner — it closes the top-most open surface by stack rank, so a portalled scheme list or filter enum takes the first press and its row panel the next; row panels, the filter panel and the LayerControl container install no Escape handler of their own ([#807](https://github.com/Zeroto521/foliplus/pull/807))
 
 ### Removed
 
@@ -43,6 +42,7 @@
 - `Interaction`: Space/Enter keep their native meaning on buttons and links, and a focused menu entry runs its own action ([#755](https://github.com/Zeroto521/foliplus/pull/755), [#778](https://github.com/Zeroto521/foliplus/pull/778))
 - `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784))
 - Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
+- `HeatmapControl` / `LayerControl`: Escape dismisses one floating surface per press — the overlay registry (from #783) closes the top-most by rank, so a portalled picker or enum takes the first press and its panel the next ([#807](https://github.com/Zeroto521/foliplus/pull/807))
 
 ## [v0.4.1] (2026-10-18)
 
