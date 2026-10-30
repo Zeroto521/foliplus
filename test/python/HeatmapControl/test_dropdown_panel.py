@@ -385,8 +385,9 @@ class TestHeatmapDropdownPanelBrowser:
             assert not after["placeholder"], after
             assert after["triggerColor"] != before["triggerColor"], (
                 "picking must move the trigger off the muted placeholder ink, "
-                "got before=%s after=%s"
-                % (before["triggerColor"], after["triggerColor"])
+                "got before={} after={}".format(
+                    before["triggerColor"], after["triggerColor"]
+                )
             )
             assert after["triggerWeight"] == before["triggerWeight"], (
                 "picking must not change the weight, only the ink"
