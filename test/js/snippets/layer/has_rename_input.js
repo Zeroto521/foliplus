@@ -1,1 +1,1 @@
-() => !!document.querySelector('.foliplus-layer-rename-input')
+() => !!document.querySelector(".foliplus-layer-rename-input");

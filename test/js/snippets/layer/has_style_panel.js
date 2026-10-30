@@ -1,1 +1,1 @@
-() => !!document.querySelector('.foliplus-layer-style-panel')
+() => !!document.querySelector(".foliplus-layer-style-panel");
