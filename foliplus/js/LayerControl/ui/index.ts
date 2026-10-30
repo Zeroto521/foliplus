@@ -157,8 +157,6 @@ class LayerUI implements LayerUISurface {
   declare onDrop: ((event: DragEvent) => void) | null;
   /** Click handler for the "more" (⋮) button. */
   onMoreClick: ((event: Event) => void) | null;
-  /** Click handler for the dropdown menu items. */
-  onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
@@ -170,6 +168,7 @@ class LayerUI implements LayerUISurface {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
+  unsubscribeEscape: (() => void) | null;
   /** Unsubscribers for the controller-driven layer-signal events (item add /
    *  update / refresh, list rebuild, role count change, no-basemap
    *  change, content invalidation). Batched into one array so a single
@@ -216,9 +215,9 @@ class LayerUI implements LayerUISurface {
     this.colorSurface = null;
     this.unsubscribeCountChange = null;
     this.unsubscribeControlAttached = null;
+    this.unsubscribeEscape = null;
     this.unsubscribeLayerSignals = [];
     this.onMoreClick = null;
-    this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onZoomEnd = null;
   }

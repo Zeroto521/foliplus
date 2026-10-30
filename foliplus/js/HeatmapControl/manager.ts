@@ -993,6 +993,9 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
+      // The panel's field-row caption: the aggregation field is named by the
+      // field itself, so the caption is the owner's word for "Field".
+      this.T("filter_field"),
       { kept, total },
     );
   }

@@ -29,7 +29,7 @@ vi.mock("#foliplus/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
 }));
 
-/** Install a chroma stub that hands back a fixed colour list, whatever
+/** Install a chroma stub that hands back a fixed color list, whatever
  *  count was requested — used to force the out-of-bounds fallback. */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
@@ -143,7 +143,7 @@ describe("applyRampToLayer", () => {
   });
 
   it("restores the author's face for a leaf whose value is non-finite", () => {
-    // A leaf outside the ramp's reach is not left holding a colour the current
+    // A leaf outside the ramp's reach is not left holding a color the current
     // config cannot justify: it gets the author's face back, which is also how
     // the next apply undoes this one's output.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
@@ -171,7 +171,7 @@ describe("applyRampToLayer", () => {
   it("warns instead of degrading silently when simple-statistics is absent", () => {
     // The classifier reads one global the whole page shares, so a missing
     // `ss` cannot be fixed by editing the config. A quiet fallback would
-    // leave the map at the author's colour while the panel still says
+    // leave the map at the author's color while the panel still says
     // "quantile".
     installChroma(["#ff0000", "#00ff00"]);
     delete globalThis.ss;
@@ -206,7 +206,7 @@ describe("applyRampToLayer", () => {
 
   it("carries the layer-level opacity onto a leaf the ramp cannot classify", () => {
     // fillOpacity is chosen once for the layer, not per class, so a leaf
-    // outside the ramp's reach gets it too: the author's colour and
+    // outside the ramp's reach gets it too: the author's color and
     // visibility come back and the whole layer shares one transparency.
     installChroma(["#ff0000"]);
     intentValues = { fillOpacity: 0.4 };
@@ -258,7 +258,7 @@ describe("applyRampToLayer", () => {
     expect(line.setStyle).not.toHaveBeenCalled();
     expect(pinStyleOnHighlight).toHaveBeenCalledTimes(1);
     // Had 1 reached the classifier the two values would have split into two
-    // classes and the top value would have drawn the second colour; it drew
+    // classes and the top value would have drawn the second color; it drew
     // the first, so it classified alone.
     expect((area.setStyle as any).mock.calls[0][0].fillColor).toBe("#ff0000");
   });
@@ -268,7 +268,7 @@ describe("applyRampToLayer", () => {
     // apply - a custom Path, a third-party plugin, or an observer hook.
     // Both applies must paint their own values: a shared collection
     // would be cleared by the inner call and the outer one would repaint
-    // its surviving leaves with the author's colour.
+    // its surviving leaves with the author's color.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const outer = makeFeatureLayer([
       { properties: { value: 1 } },
@@ -288,7 +288,7 @@ describe("applyRampToLayer", () => {
         expect((leaf.setStyle as any).mock.calls[0][0].fillColor).toBeDefined();
       }
       // Two distinct values, two distinct classes - a cleared collection
-      // would have restored the author's colour to the second leaf.
+      // would have restored the author's color to the second leaf.
       expect(
         new Set(layer.leaves.map(l => (l.setStyle as any).mock.calls[0][0].fillColor)),
       ).toHaveLength(2);
@@ -312,7 +312,7 @@ describe("applyRampToLayer", () => {
     applyRampToLayer(ui, "overlay1", ramp);
     for (const leaf of layer.leaves) {
       expect(leaf.setStyle).toHaveBeenCalledTimes(2);
-      // Both the outer write and the re-entrant one painted a ramp colour
+      // Both the outer write and the re-entrant one painted a ramp color
       // for this leaf; a collection cleared by the inner pass would have
       // restored the author's face instead.
       expect((leaf.setStyle as any).mock.calls.at(-1)![0].fillColor).toBeDefined();
@@ -344,7 +344,7 @@ describe("applyRampToLayer", () => {
   it("restores the author's face for a layer with no finite values", () => {
     // Nothing to classify is not "leave everything as it is": if a previous
     // ramp already painted the leaves, that output must be undone, or the map
-    // would keep a colour the current config cannot justify.
+    // would keep a color the current config cannot justify.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
@@ -366,7 +366,7 @@ describe("applyRampToLayer", () => {
 
   it("restores a leaf the new field leaves behind", () => {
     // Switching the drive property can orphan leaves: the ones that still have
-    // a value get the new colour, the ones that do not go back to the
+    // a value get the new color, the ones that do not go back to the
     // author's face instead of keeping the previous ramp's output.
     installChroma(["#111111", "#222222", "#333333"]);
     const layer = makeFeatureLayer([
@@ -436,7 +436,7 @@ describe("applyRampToLayer", () => {
       fill: true,
     });
     // The failed ramp attaches an invalidating pin rather than a repainting
-    // one — the previous getter would replay a colour this ramp cannot
+    // one — the previous getter would replay a color this ramp cannot
     // justify.
     const pinCalls = (pinStyleOnHighlight as ReturnType<typeof vi.fn>).mock.calls;
     expect(pinGetterOf(pinCalls.length - 1)()).toBeNull();
@@ -446,7 +446,7 @@ describe("applyRampToLayer", () => {
     // Production resolves a stored ramp field the data no longer offers to the
     // first offered field before painting. The pin guard must resolve the live
     // record the same way: comparing the stale stored name against the resolved
-    // config used to fail, so the first mouseout dropped the ramp colour and
+    // config used to fail, so the first mouseout dropped the ramp color and
     // the leaf fell back to the author's face until the next apply.
     installChroma(["#111111"]);
     const layer = makeFeatureLayer([{ properties: { count: 5 } }]);
@@ -466,7 +466,7 @@ describe("applyRampToLayer", () => {
     expect((layer.leaves[0].setStyle as any).mock.calls[0][0].fillColor).toBe(
       "#111111",
     );
-    // The mouseout replay still owns the leaf: the ramp colour comes back
+    // The mouseout replay still owns the leaf: the ramp color comes back
     // instead of null (which would let folium's resetStyle win).
     expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
   });
@@ -476,7 +476,7 @@ describe("applyRampToLayer", () => {
     // intent store itself. Assert the fallback replays — and that it re-reads
     // the store on every fire rather than replaying the value frozen at build
     // time, which is what makes a caller dropping the argument a degradation
-    // instead of a silent stale-colour bug.
+    // instead of a silent stale-color bug.
     installChroma(["#111111"]);
     const ramp = makeRamp();
     intentValues = { fillRamp: ramp };
@@ -691,7 +691,7 @@ describe("applyRampToLayer", () => {
     }
   });
 
-  it("pin getter returns a colour payload when the config matches", () => {
+  it("pin getter returns a color payload when the config matches", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
@@ -770,7 +770,7 @@ describe("applyRampToLayer", () => {
 
   it("replays the live opacity over the author's face for a leaf the ramp cannot classify", () => {
     // The out-of-reach twin of the ramp's own opacity replay: the author's
-    // colour and fill flag ride folium's restore untouched, and only the
+    // color and fill flag ride folium's restore untouched, and only the
     // user's opacity is added on top. With none chosen the getter above
     // returns null and the restore stands.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
@@ -788,9 +788,9 @@ describe("applyRampToLayer", () => {
     expect(out!.fillOpacity).toBe(0.3);
   });
 
-  it("falls back to the last colour when the class index is out of bounds", () => {
-    // Chroma returns one colour for three classes, so classes 1 and 2 take
-    // the last available colour.
+  it("falls back to the last color when the class index is out of bounds", () => {
+    // Chroma returns one color for three classes, so classes 1 and 2 take
+    // the last available color.
     installChroma(["#ff0000"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
@@ -807,7 +807,7 @@ describe("applyRampToLayer", () => {
     }
   });
 
-  it("handles a single-value layer (one class, one colour)", () => {
+  it("handles a single-value layer (one class, one color)", () => {
     installChroma(["#ff0000"]);
     const layer = makeFeatureLayer([{ properties: { value: 42 } }]);
 

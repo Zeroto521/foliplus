@@ -358,11 +358,11 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     onKeyDown: null,
     // Lifecycle / dismiss handlers
     onMoreClick: null,
-    onMoreMenuClick: null,
     onMoreMapClick: null,
     onZoomEnd: null,
     unsubscribeCountChange: null,
     unsubscribeControlAttached: null,
+    unsubscribeEscape: null,
     focusController: {
       focusRect: null,
       focusingLayerId: null,
@@ -379,15 +379,15 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       dragEntry: null,
       lastDragHintAt: 0,
       lastDragOverItem: null,
-      pressInPanel: false,
       listCleanup: null,
     },
     overlayPanel: {
       activeRenameId: null,
       activeMenu: null,
       activeAttrsPanel: null,
-      attrsOutsideHandler: null,
-      styleOutsideHandler: null,
+      attrsOverlayUnregister: null,
+      filterOverlayUnregister: null,
+      styleOverlayUnregister: null,
       attrsUnsubscribe: null,
       styleUnsubscribe: null,
       styleRefresh: null,
@@ -421,7 +421,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       () => lp.lastDragOverItem,
       v => void (lp.lastDragOverItem = v as any),
     ],
-    ["pressInPanel", () => lp.pressInPanel, v => void (lp.pressInPanel = v as any)],
     ["interactionCleanup", () => lp.listCleanup, v => void (lp.listCleanup = v as any)],
     [
       "activeRenameId",
@@ -433,16 +432,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       "activeAttrsPanel",
       () => op.activeAttrsPanel,
       v => void (op.activeAttrsPanel = v as any),
-    ],
-    [
-      "attrsOutsideHandler",
-      () => op.attrsOutsideHandler,
-      v => void (op.attrsOutsideHandler = v as any),
-    ],
-    [
-      "styleOutsideHandler",
-      () => op.styleOutsideHandler,
-      v => void (op.styleOutsideHandler = v as any),
     ],
     [
       "attrsUnsubscribe",

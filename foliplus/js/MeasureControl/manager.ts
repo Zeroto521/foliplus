@@ -297,7 +297,7 @@ class MeasureManager {
     return {
       kind: "enum",
       field: CONST.FILTER.FIELD,
-      label: this.T("filter_type"),
+      label: this.T("filter_tool"),
       multi: true,
       options,
     };

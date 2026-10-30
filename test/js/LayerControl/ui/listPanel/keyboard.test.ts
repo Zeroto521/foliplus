@@ -394,6 +394,31 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
+    it("Escape from <body> closes the topmost menu and clears the cursor", () => {
+      // A pointer-opened menu leaves focus on its first item, but a
+      // programmatic open or a click that blurs can park focus on <body>.
+      // Escape is a layer-stack key, so the registry must still close it.
+      const overlay = findItem(ui, "overlay1");
+      const menuBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }),
+      );
+
+      expect(ui.overlayPanel.activeMenu).toBeNull();
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
     it("Escape finishes an inline rename and clears the cursor", () => {
       // The cursor must be on the row before the rename opens, otherwise
       // finishRename() re-syncs the cursor off the row and Escape has no
@@ -914,7 +939,9 @@ describe("LayerUI keyboard", () => {
       expect(ui.overlayPanel.activeMenu).not.toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
 
-      ui.handleKeyDown(keyEvent("Escape"));
+      // Real keydown: Escape is owned by the overlay registry now, so a direct
+      // ui.handleKeyDown() call would bypass the dispatcher under test.
+      pressKey(more as HTMLElement, "Escape");
       expect(ui.overlayPanel.activeMenu).toBeNull();
     });
   });

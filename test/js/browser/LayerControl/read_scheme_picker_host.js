@@ -1,5 +1,5 @@
 // Reads where the scheme picker's portalled list lives and whether the point at
-// a colour row's centre resolves into it.
+// a color row's centre resolves into it.
 //
 // The pseudo-fullscreen regression: the fallback is a covering container on the
 // map, so a list parked in <body> sat behind it and every row was unclickable.

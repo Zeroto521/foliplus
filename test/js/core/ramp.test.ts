@@ -1,5 +1,5 @@
-// Unit tests for core/ramp — the shared value → colour ramp
-// (breaks + scheme colours + the value → class bisection).
+// Unit tests for core/ramp — the shared value → color ramp
+// (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
@@ -21,8 +21,8 @@ afterEach(() => {
 });
 
 /** Install a chroma stub that hands back at most the requested number of the
- *  fixed colour list — counting the request is what `buildRamp` must get
- *  right, so the stub honours it rather than ignoring it. Passing one colour
+ *  fixed color list — counting the request is what `buildRamp` must get
+ *  right, so the stub honours it rather than ignoring it. Passing one color
  *  for a multi-class ramp forces the out-of-bounds fallback. */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
@@ -41,14 +41,14 @@ const EQUAL: { method: typeof METHOD.EQUAL; classes: number; scheme: string } = 
 };
 
 describe("buildRamp", () => {
-  it("requests colours for the break span, not the raw class count", () => {
+  it("requests colors for the break span, not the raw class count", () => {
     const colorsSpy = vi.fn(() => ["#1", "#2", "#3"]);
     const scaleSpy = vi.fn(() => ({ mode: () => ({ colors: colorsSpy }) }));
     globalThis.chroma = { scale: scaleSpy } as never;
 
     const ramp = buildRamp([1, 5, 9], EQUAL);
 
-    // 3 classes is 4 breaks, so the scale is asked for 3 colours.
+    // 3 classes is 4 breaks, so the scale is asked for 3 colors.
     expect(ramp.colors).toEqual(["#1", "#2", "#3"]);
     expect(scaleSpy).toHaveBeenCalledWith("Reds");
     expect(colorsSpy).toHaveBeenCalledWith(3);
@@ -68,7 +68,7 @@ describe("buildRamp", () => {
     installChroma(["#1", "#2"]);
 
     // 9 requested classes over 2 values degrades to 2 classes: breaks is
-    // `classes + 1`, so 3 breaks and 2 colours. Only a single value would
+    // `classes + 1`, so 3 breaks and 2 colors. Only a single value would
     // collapse the ramp to one class.
     const ramp = buildRamp([1, 9], { ...EQUAL, classes: 9 });
 
@@ -81,7 +81,7 @@ describe("buildRamp", () => {
   it("classOf bisects: a value on a break takes the lower class", () => {
     // Bisection rather than a linear scan, so a value exactly on a break
     // lands in the class below it and one past the final break keeps the
-    // last class instead of running off the colour table.
+    // last class instead of running off the color table.
     installChroma(["#1", "#2"]);
     const ramp = buildRamp([0, 10], { ...EQUAL, classes: 2 });
     expect(ramp.breaks).toEqual([0, 5, 10]);
@@ -103,9 +103,9 @@ describe("buildRamp", () => {
   });
 
   it("does not ask the palette when there is nothing to classify", () => {
-    // Real chroma answers a zero-colour request with the scheme's two
+    // Real chroma answers a zero-color request with the scheme's two
     // endpoints, so an empty ramp must not pass through the palette at all —
-    // otherwise the caller would paint an endpoint colour instead of the
+    // otherwise the caller would paint an endpoint color instead of the
     // fallback grey, and the empty contract would be unobservable.
     const scaleSpy = vi.fn(() => ({
       mode: () => ({ colors: () => ["#1", "#9"] }),
@@ -164,7 +164,7 @@ describe("buildRamp", () => {
 });
 
 describe("colorFor", () => {
-  it("returns the colour for the value's class", () => {
+  it("returns the color for the value's class", () => {
     installChroma(["#1", "#2", "#3"]);
     const ramp = buildRamp([1, 5, 9], EQUAL);
 
@@ -173,9 +173,9 @@ describe("colorFor", () => {
     expect(colorFor(ramp, 9)).toBe("#3");
   });
 
-  it("falls back to the last available colour when chroma returns fewer", () => {
-    // One colour requested for three classes: classes 1 and 2 are
-    // out of bounds and take the last available colour.
+  it("falls back to the last available color when chroma returns fewer", () => {
+    // One color requested for three classes: classes 1 and 2 are
+    // out of bounds and take the last available color.
     installChroma(["#only"]);
     const ramp = buildRamp([1, 5, 9], EQUAL);
 

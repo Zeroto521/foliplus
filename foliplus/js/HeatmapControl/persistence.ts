@@ -43,7 +43,7 @@ const LABEL_FORMATS: Record<NumberStyle, true> = {
  *  `scheme` is only checked for shape. chroma supports any ColorBrewer name
  *  and the Python side accepts custom palettes, so the closed set is not
  *  ours to decide; `getColorScale` degrades an unparsable name to the
- *  fallback colour, which is the one place that knowledge lives. */
+ *  fallback color, which is the one place that knowledge lives. */
 const parseSavedConfig = (raw: unknown): SavedConfig | null => {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
   const data = raw as Record<string, unknown>;

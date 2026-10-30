@@ -1,5 +1,5 @@
 /* ── Shared scheme picker ──
-   Common dropdown / colour-bar styles.  Auto-merged into
+   Common dropdown / color-bar styles.  Auto-merged into
    foliplus-common.min.css.  Trigger-bar and panel-layout rules stay in
    the consumer CSS.  Class names use the neutral
    `foliplus-scheme-picker-` prefix so consumers can override with
@@ -30,7 +30,7 @@
 /* ── Trigger ──
    The form-select-shaped combobox that opens the picker. One recipe for the
    heatmap panel and the layer style drawer: a div[role=combobox] because a
-   native select would paint its own chrome and hide the colour strip. Both
+   native select would paint its own chrome and hide the color strip. Both
    consumers keep their own class as a hook (behaviour, tests) and add nothing
    geometric. Width is not stated — the trigger fills the form control cell,
    which is the shared control-column width, so it lands on the same right edge
@@ -187,7 +187,7 @@
   box-shadow: var(--foliplus-focus-ring);
 }
 
-/* ── Colour bar inside a dropdown item ──
+/* ── color bar inside a dropdown item ──
    One height for the trigger's inner bar and these: the row keeps
    --foliplus-ctrl-size and centres an 18px swatch. Height is fixed (not
    stretched to the row) so selecting a scheme cannot change the swatch
@@ -205,7 +205,7 @@
   overflow: hidden;
 }
 
-/* ── Colour block (shared by the trigger bar and the dropdown bar) ── */
+/* ── color block (shared by the trigger bar and the dropdown bar) ── */
 .foliplus-scheme-picker-block {
   flex: 1;
   height: 100%;

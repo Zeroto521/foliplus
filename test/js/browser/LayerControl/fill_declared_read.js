@@ -1,6 +1,6 @@
 // Read the fill row of a layer whose fill the author *declared*
 // (`foliplus={"fill": {...}}`): which arm the row opens on, the values it
-// states, and the colours actually painted on the map.
+// states, and the colors actually painted on the map.
 //
 // Separate from `fill_author_read` on purpose: that probe describes the
 // read-only "Original colors" arm (#781), this one the declared by-value arm

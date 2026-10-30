@@ -9,6 +9,7 @@ import {
 } from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { safeColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
@@ -42,6 +43,8 @@ interface HeatmapControlUI {
   expandHookDone: boolean;
   /** Kept for backward compat — the picker's destroy function. */
   schemeBarCleanup: (() => void) | null;
+  /** Unregister for the scheme picker's overlay-registry entry. */
+  schemePickerOverlayUnregister: (() => void) | null;
   /** Destroy the scheme picker (called by HeatmapControl.destroy()). */
   schemePickerCleanup: (() => void) | null;
   toggleDropdown: (() => void) | null;
@@ -214,14 +217,25 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   });
 
-  // The picker owns its trigger click handler, keyboard handlers, outside-click,
-  // and focus management. We only need to expose the delegates for backward
-  // compat with tests and the HeatmapControl class.
+  // The picker owns its trigger click/keyboard handlers and focus management;
+  // outside-click dismissal is the consumer's per-map overlay-registry entry
+  // (common must not import core). We only need to expose the delegates for
+  // backward compat with tests and the HeatmapControl class.
   // schemeBarCleanup: transient reset (close dropdown) — called by
   // clearHeatmapCanvas when data is cleared. The picker stays alive.
   ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
+  ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
+    id: OVERLAY_IDS.PICKER_DROPDOWN,
+    isOpen: () => ctrl.schemePicker?.getDropdown() != null,
+    panels: () => [ctrl.schemeBar],
+    close: ({ restoreFocus }) => ctrl.schemePicker?.close({ restoreFocus }),
+    dismissOn: "click",
+    pressPriority: 850,
+  });
   // schemePickerCleanup: permanent destroy — called by HeatmapControl.destroy().
   ctrl.schemePickerCleanup = () => {
+    ctrl.schemePickerOverlayUnregister?.();
+    ctrl.schemePickerOverlayUnregister = null;
     ctrl.schemePicker?.destroy();
     ctrl.schemePicker = null;
   };
@@ -256,7 +270,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     // Drop the memo with the write: the reads below resolve through
     // effectiveField(), and a memo left over the previous column makes both
     // render caches (points + agg, keyed on that field) hit — the canvas
-    // keeps the old colouring until some later repaint.
+    // keeps the old coloring until some later repaint.
     ctrl.mgr.invalidateEffectiveField();
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     // The filter field is the aggregation field (read-only in the panel): a
@@ -293,7 +307,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
         parseInt(ctrl.classSelect.value, 10) || CLASS_COUNT.DEFAULT,
       ),
     );
-    // The picker owns the colour bar rendering — setNumClasses already
+    // The picker owns the color bar rendering — setNumClasses already
     // refreshes the dropdown items.
     ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
     ctrl.mgr.renderHexagons();
@@ -320,7 +334,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
-  // Initial colour bar render is handled by the picker's constructor.
+  // Initial color bar render is handled by the picker's constructor.
 
   // Nothing is selected yet, but the aggregation options still need their
   // initial availability. With a restored source selected, wait for initScan:
@@ -643,7 +657,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   // resetState restores the config default, which may not be in `schemes`.
   ctrl.mgr.scheme = resolveScheme(ctrl);
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
-  // The picker owns the colour bar — just tell it the new value and count.
+  // The picker owns the color bar — just tell it the new value and count.
   ctrl.schemePicker?.setValue(ctrl.mgr.scheme);
   ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
   updateFieldSelector(ctrl);
