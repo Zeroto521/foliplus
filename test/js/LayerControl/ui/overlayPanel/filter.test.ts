@@ -290,18 +290,18 @@ describe("LayerUI filter panel", () => {
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
       const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(
-        fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent,
-      ).toBe("Field");
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
       expect(
         fieldRow.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)!.textContent,
       ).toBe("magnitude");
       // Row 2 is the condition row: the owner's condition caption (or the
       // panel's own "Range") beside the slider.
       const sliderRow = fieldRow.nextElementSibling as HTMLElement;
-      expect(
-        sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent,
-      ).toBe("Range");
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Range",
+      );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
       const host = panel.querySelector(
