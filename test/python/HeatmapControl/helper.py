@@ -7,19 +7,12 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, heatmap_ready, make_browser_page
+from conftest import _js, heatmap_ready, make_browser_page, snippet
 
 from foliplus import HeatmapControl
 from foliplus._cdn_loader import load_cdn
 
-_H3_STUB = (
-    'window.h3={latLngToCell:function(){return ""},'
-    "cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},"
-    "cellToLatLng:function(){return [0,0]}};"
-    "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
-    "window.chroma={scale:function(){return{mode:function(){return{"
-    'colors:function(){return["#f00"]}}}}}};'
-)
+_H3_STUB = snippet("heatmap/h3_stub").strip()
 
 
 def _stub_html(html: str, *, marker: str = 'CONFIG = {"name": "HeatmapControl"') -> str:

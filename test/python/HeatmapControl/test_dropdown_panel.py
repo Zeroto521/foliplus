@@ -56,14 +56,7 @@ def _stub_native_fullscreen(html: str) -> str:
     FullscreenControl takes its pseudo-fullscreen fallback."""
     return html.replace(
         "<body>",
-        """<body>
-        <script>
-          Object.defineProperty(document, 'fullscreenEnabled', {
-            value: false, configurable: true,
-          });
-          document.exitFullscreen = undefined;
-          document.documentElement.requestFullscreen = undefined;
-        </script>""",
+        f"<body>\n        <script>\n          {snippet('common/fullscreen_stub').strip()}\n        </script>",
     )
 
 
