@@ -102,7 +102,7 @@ class TestButtonRadiusBrowser:
                 # corner-pink density check on raster timing.
                 page.wait_for_function(
                     _js("BaseControl/wait_button_hover_settled"),
-                    sel,
+                    arg=sel,
                     timeout=5000,
                 )
                 counts = self._corner_pink_counts(page, sel)

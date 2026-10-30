@@ -417,15 +417,12 @@ class TestExportCompositeBrowser:
 
             _run_export(page)
 
-            # The blend is only meaningful once both tile layers have actually
-            # painted into their panes; sampling before tiles rasterize reads a
-            # partial canvas and trips the >80% dominance check on timing alone.
-            # Wait for the renderer canvas to be captured *and* every tile image
-            # to be complete, instead of sampling on a fixed timeout.
+            # The blend is only meaningful once the renderer has painted both tile
+            # layers into its own canvas. The export renderer loads tiles via its
+            # own ImageBitmap fetch (renderer/tile.ts), independent of the map's
+            # DOM img.leaflet-tile nodes, so the correct gate is the captured canvas
+            # (non-empty + painted), not a DOM tile-complete predicate.
             _wait_export_canvas_ready(page)
-            page.wait_for_function(
-                _js("ExportControl/wait_tiles_loaded"), timeout=15000
-            )
 
             result = _sample_bg_pixels_in_export(page, match=[130, 45, 125])
             dominant = page.evaluate(_js("ExportControl/export_dominant_color"))
