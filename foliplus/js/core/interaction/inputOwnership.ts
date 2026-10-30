@@ -48,7 +48,7 @@ const NATIVE_KEYS: Record<Exclude<NativeClass, "none">, ReadonlySet<string> | "*
   // A link activates on Enter only. Space on a focused link scrolls the page
   // and is not an activation key, so foliplus keeps it.
   link: new Set(["Enter"]),
-  // A colour picker is the one step-family control that also activates from
+  // A color picker is the one step-family control that also activates from
   // the keyboard: Chromium fires its click from Enter and Space (measured on
   // a bare page), so it owns both plus every key its step family navigates
   // with. Range/date/time showed no such native click, so they stay `step`.
@@ -78,7 +78,7 @@ const STEP_TYPES = new Set([
   "month",
 ]);
 /** `input` types that combine the step keys with native activation: the
- *  colour picker is the only member today (Chromium opens it from Enter and
+ *  color picker is the only member today (Chromium opens it from Enter and
  *  Space alike). Kept a named set so adding a genuinely keyboard-activatable
  *  picker is a one-line change rather than a blanket grant to `step`. */
 const PICKER_TYPES = new Set(["color"]);

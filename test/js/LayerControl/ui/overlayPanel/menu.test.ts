@@ -494,7 +494,7 @@ describe("LayerUI menu", () => {
       expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
     });
 
-    it("renders a delete entry for the colour basemap, not disabled", () => {
+    it("renders a delete entry for the color basemap, not disabled", () => {
       const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
@@ -622,7 +622,7 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("arms on the first click and deletes on the second for the colour basemap", () => {
+    it("arms on the first click and deletes on the second for the color basemap", () => {
       const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;

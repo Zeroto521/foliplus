@@ -34,11 +34,11 @@ import { toggleFold } from "./drag.js";
  * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
  * not just this instance's container.
  *
- * The style drawer's scheme picker portals its colour list to <body> (or the
+ * The style drawer's scheme picker portals its color list to <body> (or the
  * fullscreen element), so that list matches none of the class tests below
  * while still belonging to the drawer. A press on it must keep the drawer and
  * the row cursor: closing here would tear the drawer down on the press that
- * selects a colour, before the click could land.
+ * selects a color, before the click could land.
  */
 
 const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
