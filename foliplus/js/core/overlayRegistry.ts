@@ -45,7 +45,7 @@ interface OverlayPress {
 
 interface OverlayEntry {
   /** Stable identity: the Escape order table is keyed by it ("layer.style",
-   *  "picker.dropdown", …). A duplicate id is rejected, never merged. */
+   *  "layer.style.picker.dropdown", …). A duplicate id is rejected, never merged. */
   id: string;
   /** Opening one entry closes the others in the group (top-layer exclusivity). */
   exclusiveGroup?: string;
@@ -125,7 +125,15 @@ type OverlayId = (typeof OVERLAY_IDS)[keyof typeof OVERLAY_IDS];
 /** Escape order: higher rank = closer to the top. It decides which entry owns
  *  a target when several contain it; it is not a "close everything in order"
  *  list. `layer.cursor` is deliberately absent: the row cursor is not an
- *  overlay and stays an unconditional fallback driven by onEscapeHandled. */
+ *  overlay and stays an unconditional fallback driven by onEscapeHandled.
+ *
+ * The two picker ids are deliberately not equal: the rank table is the
+ *  registry's strict total order (the contract test asserts ranks are
+ *  unique), and both pickers can be open at once on a shared map. The style
+ *  fill picker (850) stays the higher-ranked one so it wins `topmost()` when
+ *  open; the heatmap scheme picker (840) still ranks above every non-picker
+ *  surface. Both remain in the picker band above LAYER_MENU (800).
+ */
 const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
   [OVERLAY_IDS.LAYER_RENAME]: 900,
   [OVERLAY_IDS.LAYER_PICKER_DROPDOWN]: 850,
