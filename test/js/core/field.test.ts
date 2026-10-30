@@ -142,6 +142,10 @@ describe("categoricalPropertiesKeys", () => {
     ]);
     expect(categoricalPropertiesKeys(layer)).toEqual(["kind"]);
   });
+  it("skips leaves without a feature envelope", () => {
+    const layer = makeGroup([makeLeaf(undefined), makeLeaf({ kind: "forest" })]);
+    expect(categoricalPropertiesKeys(layer)).toEqual(["kind"]);
+  });
   it("returns an empty array for a layer with no string values", () => {
     expect(categoricalPropertiesKeys(makeGroup([]))).toEqual([]);
     expect(categoricalPropertiesKeys(makeLeaf({ id: 1 }))).toEqual([]);
@@ -194,6 +198,12 @@ describe("categoryDomain", () => {
   it("returns empty for a layer with no matching values", () => {
     const { values, overflow } = categoryDomain(makeGroup([]), "kind");
     expect(values).toEqual([]);
+    expect(overflow).toBe(false);
+  });
+  it("skips leaves without a feature envelope", () => {
+    const layer = makeGroup([makeLeaf(undefined), makeLeaf({ kind: "forest" })]);
+    const { values, overflow } = categoryDomain(layer, "kind");
+    expect(values).toEqual(["forest"]);
     expect(overflow).toBe(false);
   });
   it("returns empty for a missing field", () => {

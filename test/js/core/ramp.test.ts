@@ -210,6 +210,15 @@ describe("buildCategoryRamp", () => {
     expect(ramp.colors.size).toBe(0);
     expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
   });
+  it("paints the fallback grey when the palette is empty", () => {
+    // chroma returned no colors at all: every category must degrade to the
+    // shared fallback, not read palette[palette.length - 1] (undefined).
+    globalThis.chroma = { scale: () => ({ colors: () => [] }) } as never;
+    const ramp = buildCategoryRamp(["forest", "lake"], "Set3");
+    expect(ramp.colors.get("forest")).toBe(SCHEME_FALLBACK_COLOR);
+    expect(ramp.colors.get("lake")).toBe(SCHEME_FALLBACK_COLOR);
+    expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
+  });
   it("falls back to grey for unknown or missing values", () => {
     const ramp = buildCategoryRamp(["forest"], "Set3");
     expect(ramp.colors.get("unknown")).toBeUndefined();
