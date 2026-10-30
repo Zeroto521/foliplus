@@ -1085,6 +1085,20 @@ class HeatmapManager {
     }
     this.getSelectedPoints();
     const snapshot = this.cachedSnapshot;
+    // An empty (or not-yet-built) snapshot is a *timing* state, not a data
+    // defect: the seed runs from the panel build, which can precede the
+    // source's first paint, and getSelectedPoints rebuilds the snapshot only
+    // when the source id changed — a cache cleared by a content change can
+    // still be null here. Nothing below can be judged without data: the field
+    // binding would compare against an empty field list and the extent against
+    // a missing range. Stay quiet (debug only) and let the next rebuild retry;
+    // a report now would blame the author's declaration for an empty read and,
+    // being remembered in declarationWarned, would silence the real problem
+    // once the data lands.
+    if (!snapshot || snapshot.points.length === 0) {
+      this.log.debug("declared filter: the source snapshot is not populated yet");
+      return;
+    }
     const field = pickFilterField(snapshot, this.effectiveField());
     const declared = this.declaredFilter;
     if (declared.kind !== "atom") {
@@ -1099,25 +1113,14 @@ class HeatmapManager {
       );
       return;
     }
-    // The panel needs a numeric extent to render a range on: without one there
-    // is no row to show the declaration in, which is a data problem worth
-    // reporting. A declaration that spans the whole extent is different — the
-    // runtime reads that as "no filter" (a full-range atom would still exclude
-    // points missing the field), so it is a legal no-op, not a defect.
-    const bounds = snapshot?.ranges[field];
+    // The panel needs a numeric extent to render a range on: the source has
+    // points but this field carries no value on any of them, so there is no
+    // row to show the declaration in — a data problem worth reporting. A
+    // declaration that spans the whole extent is different — the runtime reads
+    // that as "no filter" (a full-range atom would still exclude points
+    // missing the field), so it is a legal no-op, not a defect.
+    const bounds = snapshot.ranges[field];
     if (!bounds) {
-      // An empty snapshot is a *timing* state, not a data defect: the seed
-      // runs from the panel build, which can precede the source's first
-      // paint, so there are no points to read an extent from yet. Reporting
-      // that as "no usable extent" would blame the author's declaration for
-      // an empty read — and, because the report is recorded in
-      // declarationWarned, it would silence the real problem on the retry
-      // after the data lands. Stay quiet (debug only) while there is no data;
-      // the seed runs again on the next rebuild.
-      if (!snapshot || snapshot.points.length === 0) {
-        this.log.debug("declared filter: the source snapshot is not populated yet");
-        return;
-      }
       this.warnDeclaredFilter(`"${field}" has no usable extent`);
       return;
     }

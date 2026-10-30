@@ -16,8 +16,15 @@ const RANGE = {
   range: [10, 50],
 } as LayerFilter;
 
+/** A populated snapshot: an extent exists because at least one point carries
+ *  a value, so the timing guard (empty snapshot = not painted yet) does not
+ *  swallow the seed. Cases that need the empty state set it explicitly. */
 const snapshot = (ranges: Record<string, [number, number]> = { score: [0, 100] }) =>
-  ({ points: [], numericFields: Object.keys(ranges), ranges }) as any;
+  ({
+    points: [{ value: ranges.score?.[0] ?? 0 }],
+    numericFields: Object.keys(ranges),
+    ranges,
+  }) as any;
 
 /** A manager whose source is selected and whose snapshot is already built:
  *  seedDeclaredFilter's inputs, without the LayerAPI scan. */
@@ -110,6 +117,22 @@ describe("declared heatmap filter — seed", () => {
     expect(debug).toHaveBeenCalledTimes(1);
     expect(String(debug.mock.calls[0][0])).toContain("not populated");
     expect(manager.declarationWarned.size).toBe(0);
+  });
+
+  it("a snapshot that was never built is not a data problem either", () => {
+    // The other arm of the same timing check: no snapshot object at all (the
+    // cache is cleared on a source or content change and the seed can run
+    // before getSelectedPoints rebuilds it). Still not a declaration defect.
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.cachedSnapshot = null;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const debug = vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+    expect(debug).toHaveBeenCalledTimes(1);
   });
 
   it("still reports the real missing extent once the frame arrives", () => {
