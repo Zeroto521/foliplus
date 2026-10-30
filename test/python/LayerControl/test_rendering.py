@@ -509,7 +509,8 @@ class TestLayerControlRendering:
         more_icon_hover = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "more-menu button:not([aria-disabled=true]):hover svg" in html[max(0, i - 60) : i + 60]
+            if "more-menu button:not([aria-disabled=true]):hover svg"
+            in html[max(0, i - 60) : i + 60]
         ]
         assert any(
             "color: var(--foliplus-text-primary)" in b for b in more_icon_hover

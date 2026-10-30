@@ -1198,8 +1198,12 @@ class TestLayerControlBrowser:
                 return page.evaluate(_js("LayerControl/menu_keyboard_read"))
 
             style_entry = '.foliplus-layer-more-menu button[data-action="style-layer"]'
-            attrs_entry = '.foliplus-layer-more-menu button[data-action="layer-attributes"]'
-            delete_entry = '.foliplus-layer-more-menu button[data-action="delete-layer"]'
+            attrs_entry = (
+                '.foliplus-layer-more-menu button[data-action="layer-attributes"]'
+            )
+            delete_entry = (
+                '.foliplus-layer-more-menu button[data-action="delete-layer"]'
+            )
 
             # Mouse baseline: each entry opens its own panel from a click, so
             # the keyboard cases below can assert identical outcomes.

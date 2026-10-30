@@ -281,7 +281,9 @@ class TestBaseControlRendering:
         results keep record ink on press.
         """
         css = read_css_dir("foliplus/css/common", "menu.css")
-        assert '.foliplus-layer-more-menu button:not([aria-disabled="true"]):active' in css
+        assert (
+            '.foliplus-layer-more-menu button:not([aria-disabled="true"]):active' in css
+        )
         assert "background: var(--foliplus-accent-soft-bg)" in css
         # Search result is a record: text stays text-primary on press too.
         assert ".foliplus-search-result-item:not([disabled]):active" in css
