@@ -269,6 +269,7 @@ class TestPickerCloseBrowser:
                     panelVisible: panel ? panel.getBoundingClientRect().height > 0 : false,
                     portalCount: document.querySelectorAll(".foliplus-scheme-picker-portal").length,
                     portalVisible: portal ? portal.getBoundingClientRect().height > 0 : false,
+                    portalConnected: portal ? portal.isConnected : false,
                     activeTag: ae ? String(ae.tagName) : null,
                     activeClass: ae ? String(ae.className) : null,
                     t: performance.now(),

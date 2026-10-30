@@ -1,6 +1,6 @@
-// Diagnostic recorder: captures the keydown dispatch + panel/portal mutations
-// around the Escape press. Injected by a temporary Python diagnostic; NOT an
-// assertion — it only records evidence to stdout. Removed after diagnosis.
+// Enhanced diagnostic recorder: keydown at window/document/bubble, DOM
+// relationship of the picker trigger<->portal, and panel/portal mutations.
+// TEMP — removed after diagnosis; assertions untouched.
 () => {
   const rec = { events: [], mutations: [], before: null, after: null };
   window.__escapeRec = rec;
@@ -16,8 +16,13 @@
       panelVisible: panel ? panel.getBoundingClientRect().height > 0 : false,
       portalCount: document.querySelectorAll(".foliplus-scheme-picker-portal").length,
       portalVisible: portal ? portal.getBoundingClientRect().height > 0 : false,
-      portalHost: portal && portal.parentElement ? portal.parentElement.className : null,
+      portalId: portal ? (portal.getAttribute("id") || null) : null,
+      portalConnected: portal ? portal.isConnected : false,
       triggerExpanded: trigger ? trigger.getAttribute("aria-expanded") : null,
+      triggerControls: trigger ? trigger.getAttribute("aria-controls") : null,
+      // count every element that looks like a common/dropdown popup or scheme picker
+      dropdownPopups: document.querySelectorAll(".foliplus-dropdown, .foliplus-scheme-picker-dropdown").length,
+      openTriggers: Array.from(document.querySelectorAll('[aria-expanded="true"]')).map(e => String(e.className).slice(0,60)),
       activeTag: ae ? String(ae.tagName) : null,
       activeClass: ae ? String(ae.className) : null,
       t: performance.now(),
@@ -26,8 +31,6 @@
 
   rec.before = snap();
 
-  // Capture + bubble document keydown listeners: how many dispatches, who
-  // stopped / prevented first, and what the event target was.
   const onKey = (phase) => (e) => {
     rec.events.push({
       phase,
@@ -38,11 +41,11 @@
       t: performance.now(),
     });
   };
-  document.addEventListener("keydown", onKey("capture"), true);
-  document.addEventListener("keydown", onKey("bubble"), false);
+  window.addEventListener("keydown", onKey("window-capture"), true);
+  document.addEventListener("keydown", onKey("document-capture"), true);
+  window.addEventListener("keydown", onKey("window-bubble"), false);
+  document.addEventListener("keydown", onKey("document-bubble"), false);
 
-  // MutationObserver: watch the style panel and the portal host for subtree
-  // removal / class changes, plus document.body for portal detach.
   const mo = new MutationObserver((muts) => {
     for (const m of muts) {
       const target = m.target;
@@ -50,7 +53,7 @@
       if (m.type === "childList") {
         rec.mutations.push({ type: "childList", added: m.addedNodes.length, removed: m.removedNodes.length, target: label, t: performance.now() });
       } else if (m.type === "attributes") {
-        rec.mutations.push({ type: "attributes", attr: m.attributeName, target: label, t: performance.now() });
+        rec.mutations.push({ type: "attributes", attr: m.attributeName, target: label, old: m.oldValue, t: performance.now() });
       }
     }
   });
