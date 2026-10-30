@@ -891,7 +891,7 @@ describe("DOM order diverges from registry order", () => {
     expect(ui.intentVisible("C")).toBe(false);
   });
 
-  it("toggleAll does not activate the colour layer when the base group is cleared", () => {
+  it("toggleAll does not activate the color layer when the base group is cleared", () => {
     // First-class basemaps: the color layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
     // color's own checkbox untouched (intent-only invariant).
@@ -1005,7 +1005,7 @@ describe("toggleAll base group", () => {
     expect(ui.intentVisible("B2")).toBe(true);
   });
 
-  it("does not touch the colour layer when the base group is toggled", () => {
+  it("does not touch the color layer when the base group is toggled", () => {
     // The color layer coexists with tile basemaps: toggling the base group
     // must not hide or show the color ?each carries its own checkbox and
     // its own visibility.
@@ -1032,7 +1032,7 @@ describe("unit helpers", () => {
     return { uiContainer } as unknown as LayerUI;
   };
 
-  it("getLayerItems returns every base row, the colour row included", () => {
+  it("getLayerItems returns every base row, the color row included", () => {
     const ui = makeUi();
     const items = getLayerItems(ui, ROLE.BASE);
     expect(items.length).toBe(2);

@@ -1,4 +1,4 @@
-// Computed colour of a design token — never hardcode a hex/rgb in tests.
+// Computed color of a design token — never hardcode a hex/rgb in tests.
 name => {
   const p = document.createElement("div");
   p.style.background = `var(${name})`;

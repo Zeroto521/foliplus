@@ -31,10 +31,10 @@ afterEach(() => {
 
 // The heatmap used to keep a private chroma wrapper; it now shares
 // core/palette with the value-based fill. These pin the promise that the
-// migration cannot move a colour: the chroma call chain is the one the
+// migration cannot move a color: the chroma call chain is the one the
 // retired function used, and the no-chroma fallback is the single grey the
 // heatmap border already degraded to.
-describe("shared colour scale — migration parity", () => {
+describe("shared color scale — migration parity", () => {
   it("the no-chroma fallback is the grey the heatmap already used", () => {
     expect(getColorScale("Reds", 4)).toEqual([
       SCHEME_FALLBACK_COLOR,
@@ -214,7 +214,7 @@ describe("aggregateData", () => {
     const result = aggregateData(pts, 4, "count", 3, "quantile", "Reds", vi.fn(), LOG);
     expect(result).not.toBeNull();
     // Two count-1 cells split equally into [1,1,1] - three breaks, so two
-    // colours, and a value inside the split stays in class 0 rather than
+    // colors, and a value inside the split stays in class 0 rather than
     // being bisected against an undefined break.
     expect(result!.classColors).toHaveLength(2);
     expect(result!.valueToClassIdx(1)).toBe(0);

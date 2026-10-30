@@ -3755,7 +3755,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     rampLayer.leaves.forEach(leaf => mouseoutOf(leaf)());
 
-    // Each leaf gets its own class colour back — not null, which would leave
+    // Each leaf gets its own class color back — not null, which would leave
     // folium's restore of the author's #aabbcc in force.
     expect(rampLayer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0])).toEqual([
       { fill: true, fillColor: "#111111" },
@@ -3849,7 +3849,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     const { ui, rampLayer } = declaredRampFixture({
       ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
     });
-    // The user takes the fill over with a solid colour: the declaration steps
+    // The user takes the fill over with a solid color: the declaration steps
     // aside (intent > declaration).
     setIntent(ui, "overlay1", "fillMode", "solid");
     setIntent(ui, "overlay1", "fillColor", "#123456");
@@ -3932,7 +3932,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     declare(layer as unknown as { options: Record<string, unknown> }, {
       // equal (not the jenks default): the classification tests carry no
       // simple-statistics global, and a failed build would paint the author's
-      // own colours back.
+      // own colors back.
       ramp: { field: "count", method: "equal" },
     });
     const { ui } = initFixture({

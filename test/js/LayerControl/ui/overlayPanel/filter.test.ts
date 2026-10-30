@@ -777,6 +777,38 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
+    it("Escape dismisses the popup then the panel without changing the picked values", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+      clickOption("marker");
+      clickOption("distance");
+
+      const committed = {
+        kind: "enum" as const,
+        field: "type",
+        values: ["marker", "distance"],
+      };
+      expect(selectedOf()).toEqual(["marker", "distance"]);
+      expect(owner.filter).toEqual(committed);
+
+      // The popup is the topmost layer: Escape closes it alone. The owner keeps
+      // the committed multi-selection through the close — Escape dismisses, it
+      // never rewrites what the user picked.
+      pressKey(optionEls()[0], "Escape");
+      expect(listOf()!.hidden).toBe(true);
+      expect(panelOf(item)).not.toBeNull();
+      expect(selectedOf()).toEqual(["marker", "distance"]);
+      expect(owner.filter).toEqual(committed);
+
+      // The next press closes the panel layer; the committed filter is untouched.
+      pressKey(triggerOf(item), "Escape");
+      expect(panelOf(item)).toBeNull();
+      expect(owner.filter).toEqual(committed);
+      spy.mockRestore();
+    });
+
     it("a press on an option row keeps the panel and the popup open", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();

@@ -116,7 +116,7 @@ const clearSpies = (): void => {
   }
 };
 
-/** Spy stub for chroma - returns a stable colour array so the classifier
+/** Spy stub for chroma - returns a stable color array so the classifier
  *  sees the same scale every tick. */
 const installChromaStub = (n: number): void => {
   globalThis.chroma = {

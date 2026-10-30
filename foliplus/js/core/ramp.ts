@@ -1,5 +1,5 @@
-// core/ramp — the shared value → colour ramp: ordered class breaks, the
-// scheme's per-class colours, and the value → class bisection.
+// core/ramp — the shared value → color ramp: ordered class breaks, the
+// scheme's per-class colors, and the value → class bisection.
 //
 // Consumed today by LayerControl's value-based fill (ui/style/fillRamp.ts),
 // which owns the layer walk, the styleBag commit, and the highlight pin.
@@ -10,7 +10,7 @@
 //
 // breaks.length - 1 is the class count: computeBreaks returns one boundary
 // per class plus the final bound, so colors is requested for the span, not
-// for the raw classes config (a 6-class quantile is 7 breaks, 6 colours).
+// for the raw classes config (a 6-class quantile is 7 breaks, 6 colors).
 import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
 
@@ -23,7 +23,7 @@ type RampConfig = {
   scheme: string;
 };
 
-/** A built ramp: ordered breaks, per-class colours, and the value → class
+/** A built ramp: ordered breaks, per-class colors, and the value → class
  *  index bisection. classOf always returns a non-negative index. */
 type ValueRamp = {
   breaks: number[];
@@ -46,8 +46,8 @@ type ValueRamp = {
  *  two ends are the only places a value can fall outside. */
 const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
   // Empty input short-circuits before the palette call: chroma answers a
-  // zero-colour request with the scheme's two endpoints, so an empty ramp
-  // would come back carrying real colours and colorFor would paint one of
+  // zero-color request with the scheme's two endpoints, so an empty ramp
+  // would come back carrying real colors and colorFor would paint one of
   // them instead of the fallback grey. The contract holds only if the array
   // is actually empty.
   if (values.length === 0) {
@@ -74,10 +74,10 @@ const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
   return { breaks, colors, classOf };
 };
 
-/** The colour for one value under a built ramp, carrying the two fallbacks
+/** The color for one value under a built ramp, carrying the two fallbacks
  *  a consumer would otherwise each re-derive: chroma (and its jsdom stub)
- *  may return fewer colours than requested, so an out-of-bounds class index
- *  takes the last available colour; an empty ramp degrades to the product's
+ *  may return fewer colors than requested, so an out-of-bounds class index
+ *  takes the last available color; an empty ramp degrades to the product's
  *  shared fallback grey, the same value an unreadable heatmap border uses. */
 const colorFor = (ramp: ValueRamp, value: number): string =>
   ramp.colors[ramp.classOf(value)] ??

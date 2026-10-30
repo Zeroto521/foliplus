@@ -1,5 +1,5 @@
 // Reads the style drawer and its scheme picker in one shot: what survived a
-// press, which colour the hidden select committed, and what the trigger shows.
+// press, which color the hidden select committed, and what the trigger shows.
 () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
   const dropdown = document.querySelector(".foliplus-scheme-picker-portal");
