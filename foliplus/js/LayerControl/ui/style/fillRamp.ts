@@ -2,7 +2,7 @@
 // fill dimension.
 //
 // Walks a layer's style leaves, reads `feature.properties[field]` per leaf,
-// builds the ramp once with `buildRamp` (breaks + colours + the value →
+// builds the ramp once with `buildRamp` (breaks + colors + the value →
 // class bisection, shared with the heatmap and the upcoming by-value icon
 // and size dimensions), and writes the per-leaf `fillColor` through
 // styleBag FACE.FILL — the same landing as the solid arm.
@@ -12,7 +12,7 @@
 // frame, so a scheme drag does not trigger a walk per input step.
 //
 // The user's solid-mode `fillOpacity` rides along on every fill leaf,
-// including ones the ramp cannot classify: a ramp replaces only the colour,
+// including ones the ramp cannot classify: a ramp replaces only the color,
 // so dropping the opacity here would make a mode switch back to solid silently
 // lose it, and a valueless leaf would keep the author's opacity next to the
 // user's on a classifiable neighbour of the same layer. `fillOpacity` is
@@ -54,7 +54,7 @@ type FeatureLeaf = StyleSetter & {
  *  The three reads walk into a third-party object, so each hop is its own
  *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
  *  is a throwing getter simply has no value. Letting it propagate aborts the
- *  whole layer's collection - no healthy sibling gets coloured - and re-throws
+ *  whole layer's collection - no healthy sibling gets colored - and re-throws
  *  later out of a Leaflet mouseout handler that is replaying the highlight.
  *
  *  Only the read is inside the boundary. `buildRamp`, `colorFor` and
@@ -111,14 +111,14 @@ const resolveFillMode = (
  *
  *  Two-pass walk: collect `feature.properties[field]` values, then write
  *  per-leaf fillColor via styleBag. Every fill leaf is written on every apply:
- *  one the ramp can classify gets the ramp's colour, one it cannot gets the
- *  author's own colour and `fill` flag back, and both get the user's opacity.
+ *  one the ramp can classify gets the ramp's color, one it cannot gets the
+ *  author's own color and `fill` flag back, and both get the user's opacity.
  *
  *  Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter
  *  that reads the live fillRamp intent and uses the cached breaks to
- *  re-derive the leaf's colour on mouseout. If the ramp config changed
+ *  re-derive the leaf's color on mouseout. If the ramp config changed
  *  since the cache was built, the getter returns null so folium's
- *  `resetStyle` is not overridden with a stale colour — the next
+ *  `resetStyle` is not overridden with a stale color — the next
  *  scheduler tick rebuilds the cache. */
 const applyRampToLayer = (
   ui: LayerUI,
@@ -128,7 +128,7 @@ const applyRampToLayer = (
    *  The caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing: a stored field the
    *  data no longer offers would otherwise compare unequal to the resolved one
-   *  and the mouseout replay would drop the ramp colour. Identity by default —
+   *  and the mouseout replay would drop the ramp color. Identity by default —
    *  a caller with no field list has nothing to resolve. */
   resolveStored: (stored: FillRampConfig) => FillRampConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
@@ -157,7 +157,7 @@ const applyRampToLayer = (
   // The collection is local to this call on purpose. A module-level scratch
   // would be shared with a re-entrant apply - a setStyle that triggers
   // another layer's ramp would clear this walk's entries mid-pass and the
-  // surviving leaves would be repainted with the author's colour - and it
+  // surviving leaves would be repainted with the author's color - and it
   // would keep every leaf of the last painted layer alive between applies.
   const values: number[] = [];
   const collected: CollectedLeaf[] = [];
@@ -180,7 +180,7 @@ const applyRampToLayer = (
   // method or palette name this client does not implement (only reachable by
   // bypassing the record validator), and anything unexpected. Reporting
   // matters because the alternative is the map silently keeping its author
-  // colour while the panel still claims the chosen method.
+  // color while the panel still claims the chosen method.
   let built: ReturnType<typeof buildRamp> | null = null;
   try {
     built = buildRamp(values, ramp);
@@ -188,7 +188,7 @@ const applyRampToLayer = (
     log.warn("value-based fill:", err);
   }
 
-  // `buildRamp` returns no colours when the sample cannot be split at all —
+  // `buildRamp` returns no colors when the sample cannot be split at all —
   // an empty ramp, or breaks with no span — which is the honest "nothing to
   // classify" answer. Read once, so the write pass and the pins share one
   // answer instead of each re-testing it.
@@ -203,14 +203,14 @@ const applyRampToLayer = (
     const write: Record<string, unknown> = {};
     if (opacity !== undefined) write.fillOpacity = opacity;
     if (scale !== null && value !== undefined) {
-      // The ramp owns this leaf's colour, so `fill` is lit and the author's
-      // colour is replaced. The payload stays minimal: a named colour replaces
+      // The ramp owns this leaf's color, so `fill` is lit and the author's
+      // color is replaced. The payload stays minimal: a named color replaces
       // whatever the previous arm left in that slot, and the opacity is named
       // only when the user chose one, so the author's stays in force.
       write.fillColor = colorFor(scale, value);
       commitStyleDim(leaf, write, FACE.FILL);
     } else {
-      // Outside the ramp's reach: the author's colour and `fill` flag —
+      // Outside the ramp's reach: the author's color and `fill` flag —
       // `fill: false` on a hollow layer — ride the merge untouched, but the
       // user's opacity still does. Restoring the whole face would leave the
       // author's opacity next to the user's on a classifiable neighbour of
@@ -223,10 +223,10 @@ const applyRampToLayer = (
       if (!stored) return null;
       // Resolve the live record exactly as the paint did, or a stale field
       // name compares unequal to the resolved config and the replay drops the
-      // ramp colour on the first mouseout.
+      // ramp color on the first mouseout.
       const currentRamp = resolveStored(stored);
       // The arm changed since the cache was built: the solid commit owns the
-      // leaf now, and this getter must not replay a colour the active mode
+      // leaf now, and this getter must not replay a color the active mode
       // does not own (a mode switch back to solid that leaves the ramp config
       // stored would otherwise re-apply the ramp on every mouseout).
       if (resolveFillMode(ui, layerId, currentRamp) !== "ramp") return null;
@@ -246,7 +246,7 @@ const applyRampToLayer = (
         );
       }
       // Out of the ramp's reach: folium's restore already gave the author's
-      // colour and `fill` flag back, so the only thing worth re-applying on
+      // color and `fill` flag back, so the only thing worth re-applying on
       // top of it is the user's opacity. With none chosen there is nothing
       // to add, and null lets the restore stand instead of rewriting it.
       if (op === undefined) return null;

@@ -262,7 +262,7 @@ describe("styleBaseOf", () => {
     // A mixed layer whose first leaf is a line: the fill row must show the
     // polygon the fill actually writes to, not the line the walk meets first.
     // The old single-carrier reader handed the line's options to the fill
-    // face, so the panel opened with a colour the layer never painted.
+    // face, so the panel opened with a color the layer never painted.
     const line = makeLeaf({ color: "#111111", fillColor: "#222222" });
     const polygon = makeArealLeaf({
       color: "#333333",
@@ -344,7 +344,7 @@ describe("styleBaseOf", () => {
     const line = makeLeaf({ color: "#111111" });
     const polygon = makeArealLeaf({ color: "#333333", fillColor: "#abcdef" });
     // The user's write captures the polygon's authored bag first, then mutates
-    // its live options. The fill face must still report the author's colour.
+    // its live options. The fill face must still report the author's color.
     commitStyleDim(polygon, { fillColor: "#ff0000" }, FACE.FILL);
     const group: any = {
       options: {},

@@ -1,4 +1,4 @@
-// Active-row state: grip / more-button colour / glow (boxShadow). Used to
+// Active-row state: grip / more-button color / glow (boxShadow). Used to
 // verify the row is visibly lit.
 () => {
   const r = document.querySelector(".foliplus-layer-item.foliplus-active");

@@ -38,7 +38,7 @@ const EDITABLE_KEYS = [...ARROWS, "Home", "End", "Enter", "Backspace"] as const;
 // except for links, Space).
 const ACTIVATE_KEYS = ["Enter", " "] as const;
 const LINK_KEYS = ["Enter"] as const;
-// A colour picker is the one STEP-family control that also activates from
+// A color picker is the one STEP-family control that also activates from
 // Enter/Space (Chromium fires its click for both, measured on a bare page),
 // so it keeps the step keys AND the activation keys.
 const PICKER_KEYS = [...STEP_KEYS, "Enter", " "] as const;
@@ -84,10 +84,10 @@ const ROWS: { label: string; cls: RowClass; make: () => HTMLElement }[] = [
     make: () => input(type),
   })),
   {
-    // A colour picker natively activates from Enter and Space too, so it is a
+    // A color picker natively activates from Enter and Space too, so it is a
     // family of its own rather than a blanket Enter/Space grant to every step
     // control — range/date/time showed no such native click. Its fill/label
-    // colour inputs live inside a panel row, which is exactly where a stolen
+    // color inputs live inside a panel row, which is exactly where a stolen
     // activation key toggles the layer behind the form.
     label: "input[type=color]",
     cls: "picker",
@@ -420,9 +420,9 @@ describe("native activators inside a row — not row shortcuts", () => {
   it.each([
     ["Space", " "],
     ["Enter", "Enter"],
-  ])("%s on a colour input keeps its native activation", (_label, key) => {
+  ])("%s on a color input keeps its native activation", (_label, key) => {
     // <input type=color> is what the style panel's Fill / Label Color row and
-    // the colour basemap's fill row render. Classified with the step family it
+    // the color basemap's fill row render. Classified with the step family it
     // owned arrows/Home/End only, so the row shortcut stole Enter/Space and
     // toggled the layer behind the form instead of opening the picker.
     const picker = document.createElement("input");

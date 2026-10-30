@@ -270,7 +270,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     // Drop the memo with the write: the reads below resolve through
     // effectiveField(), and a memo left over the previous column makes both
     // render caches (points + agg, keyed on that field) hit — the canvas
-    // keeps the old colouring until some later repaint.
+    // keeps the old coloring until some later repaint.
     ctrl.mgr.invalidateEffectiveField();
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     // The filter field is the aggregation field (read-only in the panel): a
@@ -307,7 +307,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
         parseInt(ctrl.classSelect.value, 10) || CLASS_COUNT.DEFAULT,
       ),
     );
-    // The picker owns the colour bar rendering — setNumClasses already
+    // The picker owns the color bar rendering — setNumClasses already
     // refreshes the dropdown items.
     ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
     ctrl.mgr.renderHexagons();
@@ -334,7 +334,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
-  // Initial colour bar render is handled by the picker's constructor.
+  // Initial color bar render is handled by the picker's constructor.
 
   // Nothing is selected yet, but the aggregation options still need their
   // initial availability. With a restored source selected, wait for initScan:
@@ -645,7 +645,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   // resetState restores the config default, which may not be in `schemes`.
   ctrl.mgr.scheme = resolveScheme(ctrl);
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
-  // The picker owns the colour bar — just tell it the new value and count.
+  // The picker owns the color bar — just tell it the new value and count.
   ctrl.schemePicker?.setValue(ctrl.mgr.scheme);
   ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
   updateFieldSelector(ctrl);

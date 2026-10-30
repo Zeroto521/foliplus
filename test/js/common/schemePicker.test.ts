@@ -6,13 +6,13 @@ import {
   createSchemePicker,
 } from "#common/schemePicker.js";
 
-// ── Colour-scale helper ────────────────────────────────────────────────
+// ── color-scale helper ────────────────────────────────────────────────
 
 const colorScale = vi.fn((name: string, n: number) => {
   if (typeof chroma === "undefined") {
     return Array(n).fill("#999");
   }
-  // Simulate chroma.scale().mode().colors() returning distinct colours.
+  // Simulate chroma.scale().mode().colors() returning distinct colors.
   return Array.from({ length: n }, (_, i) => {
     const hue = Math.round((i / n) * 360);
     return "hsl(" + hue + ", 70%, 50%)";
@@ -445,16 +445,16 @@ describe("hidden select sync", () => {
   });
 });
 
-// ── Colour blocks ──────────────────────────────────────────────────────
+// ── color blocks ──────────────────────────────────────────────────────
 
-describe("colour blocks", () => {
+describe("color blocks", () => {
   it("renders numClasses blocks in the trigger bar", () => {
     const { trigger } = makePicker({ numClasses: 4 });
     const inner = trigger.querySelector("[data-scheme-bar-inner]")!;
     expect(inner.children.length).toBe(4);
   });
 
-  it("renders colour blocks in each dropdown item", () => {
+  it("renders color blocks in each dropdown item", () => {
     const { picker, trigger } = makePicker({ numClasses: 3 });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const items = picker
@@ -868,8 +868,8 @@ describe("multiple pickers", () => {
 });
 // ── Failure paths and portal geometry ──────────────────────────────────
 
-describe("colour-scale fallback", () => {
-  it("renders neutral blocks when the injected colour scale throws", () => {
+describe("color-scale fallback", () => {
+  it("renders neutral blocks when the injected color scale throws", () => {
     const throwingScale = vi.fn(() => {
       throw new Error("scale boom");
     });

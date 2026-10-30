@@ -93,10 +93,10 @@ const LABEL_PRIORITY = 50;
 const isDeclaredFormat = (format: string): format is NumberStyle =>
   (Object.values(NUMBER_FORMAT) as NumberStyle[]).includes(format as NumberStyle);
 
-/** Whether a string is a hex colour the label renderer can paint — the panel's
- *  colour input and the built-in default are both hex, so anything else is a
+/** Whether a string is a hex color the label renderer can paint — the panel's
+ *  color input and the built-in default are both hex, so anything else is a
  *  typo and degrades to the token default instead of reaching the canvas.
- *  `#rgb` is accepted and normalised to `#rrggbb` so a declared colour and a
+ *  `#rgb` is accepted and normalised to `#rrggbb` so a declared color and a
  *  later panel edit compare equal. */
 const isDeclaredColor = (color: string): boolean =>
   /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
