@@ -98,7 +98,6 @@
   "LayerControl.border": "Border",
   "LayerControl.filter_layer": "Filter",
   "LayerControl.filter_layer_tooltip": "Filter this layer's data",
-  "LayerControl.filter_field": "Field",
   "LayerControl.filter_range_min": "Minimum value",
   "LayerControl.filter_range_max": "Maximum value",
   "LayerControl.filter_range": "Range",
