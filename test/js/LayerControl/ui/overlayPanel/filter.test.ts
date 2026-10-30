@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1207,14 +1208,16 @@ describe("LayerUI filter panel", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(true);
+      // The registry's press dispatcher carries the drag verdict the row
+      // needs (the old shared pressInPanel boolean is gone).
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict.
       document.body.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(false);
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(false);
     });
 
     it("a document-level mousedown (target = document) dismisses the panel", () => {
@@ -1374,24 +1377,24 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
   });
 
   describe("teardown", () => {
-    it("unbindEvents closes the filter panel and releases its document listener", () => {
+    it("unbindEvents closes the filter panel and releases its registry entry", () => {
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
       expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).not.toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
       ui.unbindEvents();
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
 
@@ -1404,7 +1407,7 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
-      expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     });
   });
 });
@@ -1537,11 +1540,66 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const item = findItem(ui, "pnt");
     ui.openFilterPanel(item);
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
-    ui.handleKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+    // The registry owns Escape: one document-capture press closes the panel,
+    // and the panel's own keydown path closes nothing (it is gone).
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
+  });
+
+  it("installs no keydown on the card — the registry is the only Escape owner", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    const seen: Array<{ target: EventTarget; type: string }> = [];
+    const original = EventTarget.prototype.addEventListener;
+    const spy = vi
+      .spyOn(EventTarget.prototype, "addEventListener")
+      .mockImplementation(function (
+        this: EventTarget,
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) {
+        seen.push({ target: this, type });
+        return original.call(this, type, listener, options);
+      });
+
+    ui.openFilterPanel(item);
+    spy.mockRestore();
+
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    expect(panel).not.toBeNull();
+    // The card owns no keyboard handling at all: Escape is the registry's one
+    // document-capture listener, and an open popup claims the key itself. A
+    // panel-level keydown here is exactly the second dispatcher C5 removed, so
+    // assert its absence rather than trusting the comment.
+    expect(seen.filter(s => s.target === panel && s.type === "keydown")).toEqual([]);
+    // The dismissal is a registry entry, not a listener pair owned by the card.
+    expect(ensureOverlayRegistry(ui.c.map).owningEntry(panel)?.id).toBe(
+      OVERLAY_IDS.LAYER_FILTER,
+    );
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    const entry = ensureOverlayRegistry(ui.c.map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_FILTER);
+    expect(entry?.panels()).toEqual([panel]);
+
+    ui.closeFilterPanel(false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("the row shows a 12px funnel + exact kept count + filtered title", () => {

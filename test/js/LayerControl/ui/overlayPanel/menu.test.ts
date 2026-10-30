@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
-import { MENU_ACTIONS } from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
+import {
+  MENU_ACTIONS,
+  handleMenuClick,
+} from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
@@ -57,6 +60,16 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("outside click closes the open menu through the overlay registry", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(item.querySelector(".foliplus-layer-more-menu")).not.toBeNull();
+
+      document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    });
+
     it("orders style, focus, rename, attributes, then delete behind a divider", () => {
       // Deliberate ordering, not append order: the primary configure action
       // leads, then the reversible view action, the one entry that writes to
@@ -457,7 +470,7 @@ describe("LayerUI menu", () => {
       // interaction.ts owns the click; synthesize the event it reads.
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: li });
-      handleMoreMenuClick(ui, event);
+      handleMenuClick(ui, event);
     }
 
     function deleteEntryOf(root: HTMLElement): HTMLLIElement {
@@ -901,6 +914,59 @@ describe("LayerUI menu", () => {
       expect(styleLi.getAttribute("aria-disabled")).toBe("true");
       ui.closeMoreMenu(false);
     });
+
+    it("stops an item press at the menu so it never becomes a map click", () => {
+      // A press inside the control must not also reach the map. Leaflet decides
+      // that by walking the event target's live parents for the control's
+      // `_leaflet_disable_click` marker (`_isClickDisabled`). An item action can
+      // close the menu — and the panel under it — mid-dispatch, which detaches
+      // the pressed <li>; the walk then finds no control ancestor and the press
+      // lands on the map (with a MeasureControl mode armed it drops a marker).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.click();
+
+      // The action still ran — the press is swallowed, not ignored.
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      expect(bubbled).not.toHaveBeenCalled();
+    });
+
+    it("its registry entry reports no containment once the menu closes", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      const entry = ensureOverlayRegistry(map).owningEntry(menu);
+      expect(entry?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+      expect(entry?.panels()).toEqual([menu]);
+
+      ui.closeMoreMenu(false);
+
+      // A late dispatch after the close asks the same closure, and it reads the
+      // live state — containment must be empty, not a detached menu.
+      expect(entry?.panels()).toEqual([]);
+    });
+
+    it("lets a press on the menu chrome bubble past the menu", () => {
+      // Only an item press is swallowed; the guard must not swallow everything
+      // the menu happens to contain (the registry still owes its own verdict).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      menu.click();
+
+      expect(bubbled).toHaveBeenCalled();
+    });
   });
 
   // ─────────────────── action dispatch matrix ───────────────────
@@ -931,13 +997,16 @@ describe("LayerUI menu", () => {
       return li;
     };
 
-    // Each `initFixture()` registers its own document-level click listener and
-    // this file builds one fixture per test, so a real `li.click()` would reach
-    // every stale handler and dispatch the action more than once. Call the
-    // delegation handler directly instead — it is the path the document
-    // listener invokes, and the listener wiring itself is covered elsewhere.
+    // The menu-local click listener invokes this handler; call it directly so
+    // the action table is tested without depending on registry wiring, which
+    // has its own menu-local/outside-click coverage above.
+    // The handler swallows the press (it must not reach the map), so the fake
+    // event carries the one method it calls on the real MouseEvent.
     const clickOn = (li: HTMLElement): void => {
-      handleMoreMenuClick(ui, { target: li } as unknown as Event);
+      handleMenuClick(ui, {
+        target: li,
+        stopPropagation: vi.fn(),
+      } as unknown as Event);
     };
 
     const pressKey = (li: HTMLElement, key: string): void => {

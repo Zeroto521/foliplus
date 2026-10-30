@@ -1,6 +1,7 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { HINT_DURATION } from "#core/hint.js";
 import { CAP_TIER } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom } from "#common/dom.js";
@@ -45,6 +46,31 @@ import { isFilterCapable } from "./filter.js";
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
+/** Click handler for the overflow menu items. The action itself is dispatched
+ *  by the menu's shared runner, so a click and a keyboard activation of the
+ *  same entry cannot diverge. Outside-click dismissal is the overlay
+ *  registry's LAYER_MENU entry, not this handler.
+ *
+ *  The press stops here: an action may close the menu (opening a panel tears it
+ *  down), and the browser keeps dispatching the click along the path it
+ *  computed before the target was detached. Leaflet decides whether a click
+ *  belongs to the map by walking the target's *live* parents up to its
+ *  container (`_isClickDisabled`); a detached target has no control ancestor
+ *  left to find the `_leaflet_disable_click` marker on, so the press would land
+ *  on the map as a real click — e.g. it drops a marker while a MeasureControl
+ *  mode is armed. Swallowing it here keeps the "a click inside the control is
+ *  not a map click" guarantee that `disableClickPropagation` gave us while the
+ *  menu sat in the document. */
+const handleMenuClick = (ui: LayerUI, event: Event): void => {
+  const target = event.target as HTMLElement;
+  const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
+  if (!menuItem) return;
+  event.stopPropagation();
+  // A disabled entry keeps the menu open so the user sees why (its tooltip
+  // carries the reason); the shared runner applies that rule for both inputs.
+  runMenuAction(ui, menuItem);
+};
+
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
@@ -213,8 +239,23 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     if (next && (next === item || item.contains(next))) return;
     if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
   });
+  // Menu item actions are dispatched locally: the old document-level click
+  // delegate was the only reason the menu needed a document listener.
+  menu.addEventListener("click", event => handleMenuClick(ui, event));
 
   ui.overlayPanel.activeMenu = { item, menu, layerId };
+  ui.overlayPanel.menuOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_MENU,
+    isOpen: () => ui.overlayPanel.activeMenu !== null,
+    panels: () => {
+      const active = ui.overlayPanel.activeMenu;
+      return active ? [active.menu] : [];
+    },
+    close: ({ restoreFocus }) => closeMoreMenu(ui, restoreFocus),
+    dismissOn: "click",
+    pressPriority: 800,
+    clearsCursorOnClose: true,
+  });
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   // The head is Filter when supported, Style otherwise — both are reversible
@@ -359,6 +400,8 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  ui.overlayPanel.menuOverlayUnregister?.();
+  ui.overlayPanel.menuOverlayUnregister = null;
   if (!ui.overlayPanel.activeMenu) return;
   const item = ui.overlayPanel.activeMenu.item;
   const menu = ui.overlayPanel.activeMenu.menu;
@@ -470,4 +513,11 @@ const runMenuAction = (
   if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
 };
 
-export { MENU_ACTIONS, activateDeleteItem, closeMoreMenu, openMoreMenu, runMenuAction };
+export {
+  MENU_ACTIONS,
+  activateDeleteItem,
+  closeMoreMenu,
+  handleMenuClick,
+  openMoreMenu,
+  runMenuAction,
+};

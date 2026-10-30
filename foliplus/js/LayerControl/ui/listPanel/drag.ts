@@ -1,5 +1,6 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
 import { HINT_DURATION } from "#core/hint.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
@@ -46,9 +47,9 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the
   // panel is a detail surface, not a drag handle, and it is a *descendant* of
   // the draggable row — so the browser reports the row as the drag source and
-  // the panel's own `dragstart` listener can never fire. The press is what
-  // carries the verdict (ui.listPanel.pressInPanel), not the drag event.
-  if (ui.listPanel.pressInPanel) {
+  // the panel's own `dragstart` listener can never fire. The registry's press
+  // dispatcher carries the verdict, not the drag event.
+  if (ensureOverlayRegistry(ui.c.map).lastPressInside()) {
     event.preventDefault();
     return;
   }
