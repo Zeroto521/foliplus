@@ -161,7 +161,7 @@ describe("declared heatmap filter — seed", () => {
 
   it("an unrelated save persists the seeded declaration", () => {
     // F5, pinned: the seeded filter lives in the same per-source store a panel
-    // write uses, so a save triggered by anything else (a colour change) makes
+    // write uses, so a save triggered by anything else (a color change) makes
     // it durable. Consequence documented on seedDeclaredFilter: after the
     // author changes the declaration, a user who ever saved another setting
     // keeps hitting the restored per-source filter first.

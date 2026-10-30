@@ -329,7 +329,7 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
-            // A seeded declaration lands here on any unrelated save (a colour
+            // A seeded declaration lands here on any unrelated save (a color
             // change), so it is restored as a per-source filter even after the
             // author changes or drops the declaration: a user who once saved
             // another setting keeps hitting the restored filter first. Accepted
@@ -1069,7 +1069,7 @@ class HeatmapManager {
    *
    *  Persistence caveat (deliberate, pinned by a test): the seeded filter
    *  lives in the same per-source store a panel write uses, so any later save
-   *  of an unrelated setting (a colour, a class count) persists it with the
+   *  of an unrelated setting (a color, a class count) persists it with the
    *  rest of the record. If the author then changes the declaration, a user
    *  who has ever saved another setting still hits the restored per-source
    *  filter first — the seed is skipped by layerFilters.has(sourceId) — until
