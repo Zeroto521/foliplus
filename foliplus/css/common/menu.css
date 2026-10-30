@@ -6,7 +6,7 @@
   overflow menu, and the row panels a layer row opens) share one visual
   recipe. Position, width, max-height and item layout stay per-component;
   this block owns the shell + hover/active states. The scheme picker has
-  its own recipe in common/scheme-picker.css (items carry colour bars and
+  its own recipe in common/scheme-picker.css (items carry color bars and
   a persistent selection border).
 
   Row panels join by their shared `foliplus-row-panel` class rather than by

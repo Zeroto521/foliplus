@@ -1,4 +1,4 @@
-// Reports the trigger's colour strip and the open list's item strips, plus the
+// Reports the trigger's color strip and the open list's item strips, plus the
 // layout lane the list's scrollbar takes and whether the list scrolls.
 triggerSelector => {
   const trigger = document.querySelector(triggerSelector);

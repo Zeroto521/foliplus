@@ -390,7 +390,7 @@ class TestLayerPaneRegisterBrowser:
             # is exactly what lets the black backdrop show through in
             # fullscreen. Lightness keeps it the intended light-base hatch.
             rgba = before["rgba"]
-            assert rgba is not None, f"unreadable background colour: {before}"
+            assert rgba is not None, f"unreadable background color: {before}"
             assert rgba["a"] == 1, (
                 f"no-basemap hatch must paint an opaque background, got {before['bg']}"
             )
