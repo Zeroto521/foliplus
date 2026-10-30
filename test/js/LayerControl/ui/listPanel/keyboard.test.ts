@@ -1286,6 +1286,20 @@ describe("LayerUI keyboard", () => {
       expect(focusLayer).toHaveBeenCalledTimes(1);
     });
 
+    it("an Arrow key on a focused menu button routes through the menu branch", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = attachedPanel(ui).querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      // The menu keyboard branch is arrow-only: ArrowLeft/ArrowRight still reach the
+      // shared dispatch table (the button owns Enter/Space, not the arrows).
+      ui.handleKeyDown(keyEvent("ArrowLeft"));
+      expect(focusLayer).toHaveBeenCalledWith("overlay1");
+    });
+
     it("Alt+Enter focuses the navigated layer row", () => {
       const items = ui.getNavigableItems();
       const item = findItem(ui, "overlay1");
