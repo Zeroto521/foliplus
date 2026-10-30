@@ -2318,7 +2318,6 @@ describe("MeasureManager — type filter", () => {
     const { manager } = makeManager();
 
     expect((manager as any).measureFilter).toBeUndefined();
-    expect((manager as any).declaredFilterWarned).toBe(true);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
@@ -2329,7 +2328,6 @@ describe("MeasureManager — type filter", () => {
     const { manager } = makeManager();
 
     expect((manager as any).measureFilter).toBeUndefined();
-    expect((manager as any).declaredFilterWarned).toBe(true);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 

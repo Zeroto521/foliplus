@@ -73,10 +73,10 @@ describe("declared heatmap filter — seed", () => {
 
   it("reports a field with no numeric extent and starts unfiltered", () => {
     const manager = seedable(RANGE as Record<string, unknown>);
-    // The field is listed as numeric but no point carries a value, so the
-    // panel has no range to render the declaration on.
+    // The source has points but the field carries no value on any of them, so
+    // the panel has no range to render the declaration on.
     manager.cachedSnapshot = {
-      points: [],
+      points: [{ value: 0 }],
       numericFields: ["score"],
       ranges: {},
     } as any;
@@ -86,6 +86,90 @@ describe("declared heatmap filter — seed", () => {
 
     expect(manager.layerFilters.has("pts")).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a snapshot that is not populated yet is not a data problem", () => {
+    // The seed runs from the panel build, which can precede the source's first
+    // paint. An empty snapshot then is timing, not a declaration defect:
+    // reporting it would blame the author's declaration for an empty read —
+    // and the report would be remembered in declarationWarned, silencing the
+    // real problem once the data arrives.
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.cachedSnapshot = {
+      points: [],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const debug = vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+    expect(debug).toHaveBeenCalledTimes(1);
+    expect(String(debug.mock.calls[0][0])).toContain("not populated");
+    expect(manager.declarationWarned.size).toBe(0);
+  });
+
+  it("still reports the real missing extent once the frame arrives", () => {
+    // Same manager, two phases: quiet while the snapshot is empty, then the
+    // genuine report is not swallowed by a flag the empty read would have set.
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.cachedSnapshot = {
+      points: [],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+    manager.cachedSnapshot = {
+      points: [{ value: 0 }],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    manager.seedDeclaredFilter();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][1])).toContain("no usable extent");
+  });
+
+  it("an unrelated save persists the seeded declaration", () => {
+    // F5, pinned: the seeded filter lives in the same per-source store a panel
+    // write uses, so a save triggered by anything else (a colour change) makes
+    // it durable. Consequence documented on seedDeclaredFilter: after the
+    // author changes the declaration, a user who ever saved another setting
+    // keeps hitting the restored per-source filter first.
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+
+    manager.saveConfig();
+    const saved = manager.loadSavedConfig();
+
+    expect(saved?.filters?.pts).toEqual(RANGE);
+    manager.clearSavedConfig();
+  });
+
+  it("seeds a hand-edited atom that carries no range to check", () => {
+    // F15: CONF can be hand-edited into an equality atom, which has no range
+    // for the extent-intersection guard to test. The guard is range-only on
+    // purpose; the atom passes through to the runtime's normalizer instead of
+    // being rejected as "outside the extent".
+    const manager = seedable({ kind: "atom", field: "score", op: "eq", value: 42 });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.get("pts")).toEqual({
+      kind: "atom",
+      field: "score",
+      op: "eq",
+      value: 42,
+    });
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("reports a declaration outside the extent and starts unfiltered", () => {

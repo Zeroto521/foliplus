@@ -126,9 +126,7 @@ class MeasureManager {
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
   private measureFilter: LayerFilter = undefined;
-  /** One-shot guard for the declared-filter warning: the declaration is read
-   *  once at construction, so one report is enough. */
-  private declaredFilterWarned = false;
+
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
    *  hides/shows a whole measurement through these, never through a redraw. */
   private readonly itemLeaves = new Map<string, L.Layer[]>();
@@ -510,10 +508,11 @@ class MeasureManager {
     return next;
   }
 
-  /** One warning per declared-filter problem (construction runs once). */
+  /** Report one declared-filter problem. No once-guard: the declaration is
+   *  read once at construction (declaredMeasureFilter), so each call site is
+   *  already a single report — a flag here would be a second copy of that
+   *  fact and an unreachable branch. */
   private warnDeclaredFilter(reason: string): void {
-    if (this.declaredFilterWarned) return;
-    this.declaredFilterWarned = true;
     this.log.warn("declared filter ignored:", reason);
   }
 

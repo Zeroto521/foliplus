@@ -132,7 +132,18 @@ def _range_atom(raw: Mapping[Any, Any], owner: str) -> dict[str, Any] | None:
 def _enum_atom(
     raw: Sequence[Any], owner: str, enum_field: str
 ) -> dict[str, Any] | None:
-    """The equality arm: a list of value names -> an enum atom."""
+    """The equality arm: a list of value names -> an enum atom.
+
+    Value names are not validated here on purpose: the measurement-type
+    vocabulary is the runtime's (MeasureControl/const.ts MEASURE_TYPE_*), so
+    the JS normalizer drops the names it does not know. A declaration naming
+    one unknown value among known ones therefore starts filtered on the known
+    values and drops the unknown one silently; only a declaration whose every
+    name is unknown is reported and ignored ("no declared value is a
+    measurement type", MeasureControl/manager.ts warnDeclaredFilter).
+    Duplicating the vocabulary here would be a second closed set to keep in
+    step with the runtime's.
+    """
     values: list[str] = []
     for item in raw:
         if not isinstance(item, str) or not item.strip():

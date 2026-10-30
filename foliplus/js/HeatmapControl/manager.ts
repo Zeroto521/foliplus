@@ -331,7 +331,9 @@ class HeatmapManager {
             field: this.field,
             // A seeded declaration lands here on any unrelated save (a colour
             // change), so it is restored as a per-source filter even after the
-            // author drops the declaration. Accepted: the record is visible in
+            // author changes or drops the declaration: a user who once saved
+            // another setting keeps hitting the restored filter first. Accepted
+            // (see seedDeclaredFilter): the record is visible in
             // the panel (the slider sits on the range) and Clear or Reset
             // removes it, while a seeded-vs-user marker on disk would be a
             // second ownership signal beside filtersTouched.
@@ -1060,7 +1062,17 @@ class HeatmapManager {
    *  snapshot and bound to the dimension the panel can actually edit. A
    *  declaration the panel cannot represent (an enum atom, a field the
    *  dimension does not carry, no numeric extent) is reported once and
-   *  ignored — never turned into a filter that hides the layer. */
+   *  ignored — never turned into a filter that hides the layer.
+   *
+   *  Persistence caveat (deliberate, pinned by a test): the seeded filter
+   *  lives in the same per-source store a panel write uses, so any later save
+   *  of an unrelated setting (a colour, a class count) persists it with the
+   *  rest of the record. If the author then changes the declaration, a user
+   *  who has ever saved another setting still hits the restored per-source
+   *  filter first — the seed is skipped by layerFilters.has(sourceId) — until
+   *  Clear or Reset. That is the cost of "the declaration is a starting
+   *  condition and the user owns the slot from the first write"; a second,
+   *  declaration-only store would make Reset and the filter panel disagree. */
   seedDeclaredFilter(): void {
     if (this.filtersTouched) return;
     const sourceId = this.selectedLayerId;
@@ -1094,6 +1106,18 @@ class HeatmapManager {
     // points missing the field), so it is a legal no-op, not a defect.
     const bounds = snapshot?.ranges[field];
     if (!bounds) {
+      // An empty snapshot is a *timing* state, not a data defect: the seed
+      // runs from the panel build, which can precede the source's first
+      // paint, so there are no points to read an extent from yet. Reporting
+      // that as "no usable extent" would blame the author's declaration for
+      // an empty read — and, because the report is recorded in
+      // declarationWarned, it would silence the real problem on the retry
+      // after the data lands. Stay quiet (debug only) while there is no data;
+      // the seed runs again on the next rebuild.
+      if (!snapshot || snapshot.points.length === 0) {
+        this.log.debug("declared filter: the source snapshot is not populated yet");
+        return;
+      }
       this.warnDeclaredFilter(`"${field}" has no usable extent`);
       return;
     }
