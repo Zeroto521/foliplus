@@ -95,8 +95,16 @@ class TestButtonRadiusBrowser:
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             for sel in ("#tb", "#tool", "#panel"):
                 page.hover(sel)
-                # Let the hover background/transform transition settle.
-                page.wait_for_timeout(300)
+                # Wait for the hover transition to actually finish
+                # (background-color reaches accent-light) instead of a fixed
+                # timeout. A mid-transition screenshot reads a partially-filled
+                # blend whose corners are not yet full pink, which flakes the
+                # corner-pink density check on raster timing.
+                page.wait_for_function(
+                    _js("BaseControl/wait_button_hover_settled"),
+                    sel,
+                    timeout=5000,
+                )
                 counts = self._corner_pink_counts(page, sel)
                 # A square corner would be all 36 pink; rounded corners leave gaps.
                 assert all(c < 36 for c in counts), (

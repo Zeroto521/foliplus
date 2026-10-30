@@ -12,6 +12,7 @@ from .helper import (
     _run_export,
     _sample_bg_pixels_in_export,
     _solid_tile_layer,
+    _wait_export_canvas_ready,
 )
 
 
@@ -416,6 +417,16 @@ class TestExportCompositeBrowser:
 
             _run_export(page)
 
+            # The blend is only meaningful once both tile layers have actually
+            # painted into their panes; sampling before tiles rasterize reads a
+            # partial canvas and trips the >80% dominance check on timing alone.
+            # Wait for the renderer canvas to be captured *and* every tile image
+            # to be complete, instead of sampling on a fixed timeout.
+            _wait_export_canvas_ready(page)
+            page.wait_for_function(
+                _js("ExportControl/wait_tiles_loaded"), timeout=15000
+            )
+
             result = _sample_bg_pixels_in_export(page, match=[130, 45, 125])
             dominant = page.evaluate(_js("ExportControl/export_dominant_color"))
             probe = page.evaluate(_js("ExportControl/probe_tile_loading"))
@@ -463,7 +474,11 @@ class TestExportCompositeBrowser:
             page.wait_for_function(
                 _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
-            page.wait_for_timeout(2000)
+            # Wait until the renderer canvas is captured and painted before
+            # reading pixels. The collapsed-control wait only proves the flow
+            # finished; the canvas may still be empty. A fixed wait_for_timeout
+            # is raster timing, which is the flake class this removes.
+            _wait_export_canvas_ready(page)
 
             # Read the captured canvas pixels and verify the marker was
             # drawn. The export canvas now has an opaque background fill, so
@@ -472,11 +487,19 @@ class TestExportCompositeBrowser:
             # opacity is reflected in the color blend rather than in alpha.
             #
             # The background is Leaflet's default gray (221, 221, 221). The
-            # marker is a red pin; even at 0.4 opacity the blended pixel is
-            # visibly different from gray. Count pixels that differ from the
+            # marker is drawn from a data-URI red icon (set in
+            # export_opacity_blend.js); even at 0.4 opacity the blended pixel
+            # is visibly different from gray. Count pixels that differ from the
             # background by more than tolerance 30 in any channel — this
             # catches "marker drawn at any opacity" and "marker not drawn
             # at all" (all pixels would be gray).
             result = page.evaluate(_js("ExportControl/marker_opacity_pixel_check"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, f"Marker pixels missing from export: {result}"
+            # The icon specifically (red-dominant pixels, the data-URI red
+            # PNG at 0.4 over gray) must be present -- not merely "something
+            # that is not background". This distinguishes a drawn red marker
+            # from a wrong-shape/wrong-color draw or a blank canvas.
+            assert result["markerPixels"] > 0, (
+                f"Red marker icon pixels missing from export: {result}"
+            )

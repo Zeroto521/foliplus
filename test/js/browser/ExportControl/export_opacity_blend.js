@@ -19,7 +19,25 @@
     name: "Opacity Marker",
     panes: [{ name: paneName }],
   });
-  const marker = L.marker([26.08, 119.3]);
+  // Two reasons for a data-URI icon instead of the Leaflet default:
+  // (1) Determinism: the default marker-icon.png is NOT in the offline CDN
+  //     cache (test/python/cdn.json has no marker-icon entry), so a bare
+  //     L.marker loads its icon over the network -- which the test route
+  //     blocks -- and the icon load fails silently. Whether the marker
+  //     paints at all becomes an icon-loading race, not a property of the
+  //     code under test.
+  // (2) Known color: the default icon is a blue pin (approx 46,133,203),
+  //     not "red" as the old docstring claimed. A solid red 230,30,30 icon
+  //     pins the blended color so the pixel assertion below is not coupled
+  //     to Leaflet's exact default pin artwork or version drift.
+  const icon = L.icon({
+    iconUrl: "data:image/png;base64," +
+      "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGN8" +
+      "Jif3nwEPYMInOXwUAAA19gIxetnLYAAAAABJRU5ErkJggg==",
+    iconSize: [8, 8],
+    iconAnchor: [4, 4],
+  });
+  const marker = L.marker([26.08, 119.3], { icon });
   g.mainLayer.addLayer(marker);
   g.register();
 

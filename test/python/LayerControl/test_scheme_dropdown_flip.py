@@ -154,6 +154,12 @@ def _open_layer_list(page) -> dict:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
+    # Wait for the portal to be positioned and stable across a frame before
+    # measuring. Reading the rect immediately after "attached" can observe a
+    # pre-layout box, making the flip verdict disagree with the rule on timing.
+    page.wait_for_function(
+        _js("common/wait_scheme_dropdown_settled"), timeout=5000
+    )
     return page.evaluate(_js("common/read_scheme_dropdown_placement"))
 
 
@@ -177,6 +183,11 @@ def _open_heatmap_list(page) -> dict:
     page.mouse.click(box["x"], box["y"])
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+    )
+    # Same settle-wait as _open_layer_list: the portal must be positioned and
+    # stable before measuring, or the flip verdict flakes on layout timing.
+    page.wait_for_function(
+        _js("common/wait_scheme_dropdown_settled"), timeout=5000
     )
     return page.evaluate(_js("common/read_scheme_dropdown_placement"))
 
