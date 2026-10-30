@@ -369,11 +369,25 @@ describe("LayerUI rename", () => {
       ui.focusLayer = focusSpy;
       ui.renameLayer = renameSpy;
 
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      });
+      // The button natively consumes Enter, so a manual keydown dispatch must
+      // NOT re-run the action — that would be the second dispatch the native
+      // button conversion eliminated. The native click is the one path.
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }) as unknown as KeyboardEvent,
+      );
+      expect(renameSpy).not.toHaveBeenCalled();
+      expect(focusSpy).not.toHaveBeenCalled();
+
+      // The browser fires a click from a button’s Enter/Space; that is the
+      // single dispatch, and it runs the entry’s own action (never focus).
+      li.click();
+      expect(renameSpy).toHaveBeenCalledWith("overlay1");
+      expect(focusSpy).not.toHaveBeenCalled();
+      // The menu closes like it does for a click on the same entry: it floats
+      // over the row whose label just became an input. Focus is not returned
+      // to the row, so the fresh input keeps it.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
+    });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
       expect(renameSpy).toHaveBeenCalledWith("overlay1");

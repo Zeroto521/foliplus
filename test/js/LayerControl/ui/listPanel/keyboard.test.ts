@@ -1263,6 +1263,29 @@ describe("LayerUI keyboard", () => {
       expect(focusLayer).toHaveBeenCalled();
     });
 
+    // Negative control for the single-dispatch contract: a focused menu
+    // <button> owns Enter/Space natively, so handleKeyDown must NOT re-run
+    // the action on Enter. If the keyboard branch ever re-takes Enter, this
+    // test goes red (handleKeyDown would call focusLayer before the native
+    // click does — the "second dispatch" the native button was meant to kill).
+    it("handleKeyDown does not re-run a menu action on Enter (native button owns it)", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = attachedPanel(ui).querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      // Enter on the focused button is the button’s activation key — the
+      // interaction manager stands aside and only the native click fires. A
+      // manual dispatch here would be a second, competing run of the action.
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(focusLayer).not.toHaveBeenCalled();
+      // The native click is the one legitimate dispatch; it does run the action.
+      li.click();
+      expect(focusLayer).toHaveBeenCalledTimes(1);
+    });
+
     it("Alt+Enter focuses the navigated layer row", () => {
       const items = ui.getNavigableItems();
       const item = findItem(ui, "overlay1");

@@ -222,14 +222,18 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         }
         break;
       }
-      // A menu item <button> is focused — an arrow runs the entry’s action.
-      // Enter/Space on a focused button are natively consumed by the button,
-      // so the interaction manager stands aside and the browser fires a native
-      // click (handleMenuClick) instead — those keys never reach this branch.
+      // A menu item <button> is focused. Enter/Space on it are the button’s
+      // native activation keys: the interaction manager stands aside and the
+      // browser fires a click — they never reach this branch. Only an arrow
+      // belongs to the menu keyboard branch; a manual Enter dispatch here
+      // would double-run the action (the native click already did).
       const menuBtn = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu button",
       ) ?? null) as HTMLElement | null;
       if (menuBtn && ui.overlayPanel.activeMenu) {
+        // Arrow-only: Enter/Space are the button’s own activation keys and
+        // must not be claimed by a manual dispatch here.
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") break;
         event.preventDefault();
         event.stopPropagation();
         // One shared dispatch table for click and keyboard: the entry’s own
