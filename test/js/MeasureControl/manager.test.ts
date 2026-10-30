@@ -1914,7 +1914,7 @@ describe("MeasureManager — type filter", () => {
       kind: "enum",
       field: CONST.FILTER.FIELD,
       multi: true,
-      label: manager.T("filter_type"),
+      label: manager.T("filter_tool"),
     });
     // Only the types that have a measurement are offered; the order is the
     // toolbar order.
