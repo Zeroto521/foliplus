@@ -252,6 +252,7 @@ class TestPickerCloseBrowser:
             # around the Escape press. Keeps assertions (test stays red) and
             # dumps ground-truth evidence to stdout. Remove after diagnosis.
             import json as _json
+
             _before = page.evaluate(_js("LayerControl/escape_diag_recorder"))
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
