@@ -56,7 +56,8 @@ const makeOwner = (values: number[]) => {
         {
           kind: "range",
           field: "magnitude",
-          label: "magnitude",
+          fieldLabel: "Field",
+          label: "Range",
           range,
           step: 1,
         },
@@ -281,16 +282,25 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field row: the dimension label sits in the label cell and the control
-      // cell holds the slider, so the owner's field name is not repeated.
+      // Row 1 is the field row: the owner's "Field" caption beside the
+      // read-only field name — two cells answering two questions, so the field
+      // name is never printed as the caption with an empty control cell.
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      expect(field.textContent).toBe("");
-      const row = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "magnitude",
-      );
+      const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(
+        fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent,
+      ).toBe("Field");
+      expect(
+        fieldRow.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)!.textContent,
+      ).toBe("magnitude");
+      // Row 2 is the condition row: the owner's condition caption (or the
+      // panel's own "Range") beside the slider.
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(
+        sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent,
+      ).toBe("Range");
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
       const host = panel.querySelector(
