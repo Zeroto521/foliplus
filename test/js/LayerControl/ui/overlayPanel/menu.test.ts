@@ -752,7 +752,7 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).toHaveBeenCalledWith("");
     });
 
-    it("native activation (Enter→click) arms then deletes the layer", () => {
+    it("native activation (Enter -> click) arms then deletes the layer", () => {
       const item = findItem(ui, "overlay1");
       // Open the menu the way the keyboard does: Enter on the ⋮ button. This
       // also establishes the row cursor that handleKeyDown needs in place.
