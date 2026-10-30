@@ -276,10 +276,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
         // current consumer-owned entry is not a choice.
         if (name && !state.disabledSchemes.includes(name)) selectScheme(state, name);
       }
-    } else if (key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeDropdown(state);
     }
   };
 
@@ -406,18 +402,11 @@ const mountDropdown = (state: InternalState) => {
     );
   });
 
-  // Outside-click handler — does NOT restore focus (user clicked elsewhere).
-  const onDocClick = (event: MouseEvent) => {
-    if (
-      state.dropdown &&
-      !state.trigger.contains(event.target as Node) &&
-      !state.dropdown.contains(event.target as Node)
-    ) {
-      closeDropdown(state, { restoreFocus: false });
-    }
-  };
-  document.addEventListener("click", onDocClick);
-  state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
+  // Outside-click dismissal is owned by the consumer's per-map overlay
+  // registry entry (core/overlayRegistry), not by this shared factory: common
+  // modules must not import core. The consumer registers the trigger as the
+  // panel and the dropdown as the portal, then calls `close({restoreFocus:false})`
+  // from the entry's close callback.
 
   // Focus the selected item now that the dropdown is in the DOM and all
   // listeners are installed. Doing this before append leaves the focus on the

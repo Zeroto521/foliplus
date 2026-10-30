@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -31,6 +32,7 @@ import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 import {
   GridLayer,
   attachedPanel,
@@ -140,6 +142,21 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const entry = ensureOverlayRegistry(map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    expect(entry?.panels()).toEqual([panel]);
+
+    closeStylePanel(ui, false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("builds on the shared panel vocabulary (header, content, close)", () => {
@@ -397,6 +414,12 @@ describe("LayerUI style panel", () => {
     row.className = "foliplus-scheme-picker-item";
     portal.appendChild(row);
     document.body.appendChild(portal);
+    // The picker registers its portalled list against its trigger (the
+    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // registration so the registry's press dispatcher can attribute the press
+    // to this drawer. Without it the node is an orphan <body> child and every
+    // dismiss predicate rightly calls the press "outside".
+    const releasePortal = registerPortalRoot(portal, panel);
 
     // Capture-phase listener on document: a bubbling press on the portalled row
     // is exactly what the browser delivers for a real click on the list.
@@ -404,6 +427,7 @@ describe("LayerUI style panel", () => {
 
     expect(panelOf(item)).toBe(panel);
     expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    releasePortal();
     portal.remove();
   });
 
@@ -1345,12 +1369,13 @@ describe("LayerUI style panel", () => {
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     checkbox.focus();
 
-    ui.handleKeyDown(
+    // Real keydown: the overlay registry owns Escape now.
+    checkbox.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
         key: "Escape",
-      }) as unknown as KeyboardEvent,
+      }),
     );
 
     expect(panelOf(item)).toBeUndefined();

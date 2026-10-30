@@ -194,6 +194,14 @@ const renderEnumBody = (
   const { row, control } = buildDimensionRow(dim.label);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
 
+  // Escape ownership stays with the shared dropdown while its list is open:
+  // common/dropdown claims the key on window capture and stops it there, so one
+  // press closes the popup and the next one reaches the LAYER_FILTER panel —
+  // "popup first, panel second", with the registry as the only panel
+  // dispatcher. If this body ever grows a bespoke portal/popup, register it as
+  // LAYER_FILTER (or PICKER_DROPDOWN) on the per-map overlay registry; never add
+  // a document keydown of its own, because the registry's rank table is the
+  // single Escape dispatcher.
   const dropdown = createDropdown({
     multiple: true,
     items: dim.options.map(option => ({
