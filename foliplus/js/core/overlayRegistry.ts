@@ -110,7 +110,8 @@ interface EscapeHandled {
  *  the two sets. */
 const OVERLAY_IDS = {
   LAYER_RENAME: "layer.rename",
-  PICKER_DROPDOWN: "picker.dropdown",
+  LAYER_PICKER_DROPDOWN: "layer.style.picker.dropdown",
+  HEATMAP_PICKER_DROPDOWN: "heatmap.picker.dropdown",
   LAYER_MENU: "layer.menu",
   LAYER_FILTER: "layer.filter",
   LAYER_ATTRS: "layer.attrs",
@@ -127,7 +128,8 @@ type OverlayId = (typeof OVERLAY_IDS)[keyof typeof OVERLAY_IDS];
  *  overlay and stays an unconditional fallback driven by onEscapeHandled. */
 const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
   [OVERLAY_IDS.LAYER_RENAME]: 900,
-  [OVERLAY_IDS.PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.LAYER_PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN]: 840,
   [OVERLAY_IDS.LAYER_MENU]: 800,
   [OVERLAY_IDS.LAYER_FILTER]: 700,
   [OVERLAY_IDS.LAYER_ATTRS]: 600,
