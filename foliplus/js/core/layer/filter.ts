@@ -51,13 +51,27 @@ type FilterExpr =
 type LayerFilter = FilterExpr | undefined;
 
 /** One dimension a filter-capable owner exposes to the panel. The owner
- *  localizes `label` (panel chrome never translates component vocabulary)
- *  and supplies the value domain: numeric extents for `range`, a closed
- *  option list for `enum`. The panel renders one dimension today; the array
- *  keeps a multi-dimension UI a new renderer rather than a model migration. */
+ *  localizes both captions (panel chrome never translates component
+ *  vocabulary) and supplies the value domain: numeric extents for `range`, a
+ *  closed option list for `enum`. The panel renders one dimension today; the
+ *  array keeps a multi-dimension UI a new renderer rather than a model
+ *  migration.
+ *
+ *  A `range` dimension renders two rows: the field row — `fieldLabel`
+ *  ("Field") over the read-only field name — and the condition row, where
+ *  `label` names the control ("Range"). `fieldLabel` is required and never
+ *  degrades to `field`: a raw field name in the caption column is the bug
+ *  this contract exists to prevent (#779 review), and an owner that cannot
+ *  localize the caption has not wired the panel, which should be a test
+ *  failure rather than a silent half-rendered row. */
 type FilterRangeDimension = {
   readonly kind: "range";
   readonly field: string;
+  /** Owner-localized caption of the read-only field row ("Field"). */
+  readonly fieldLabel: string;
+  /** Caption of the condition row ("Range"). Empty when the panel's own
+   *  wording applies — panel chrome, not component vocabulary, so `core`
+   *  cannot supply it. */
   readonly label: string;
   readonly range: readonly [number, number];
   readonly step: number;
@@ -368,8 +382,9 @@ const buildFilterModel = (
   snapshot: LayerSnapshot | null,
   filter: LayerFilter,
   preferredField: string,
+  fieldLabel: string,
   counts?: { kept: number; total: number },
-  label?: string,
+  label = "",
 ): LayerFilterModel | null => {
   if (!snapshot || snapshot.numericFields.length === 0) return null;
   const field = pickFilterField(snapshot, preferredField);
@@ -379,9 +394,13 @@ const buildFilterModel = (
       {
         kind: "range",
         field,
-        // The owner supplies a localized label; the raw field name is the
-        // fallback, matching the read-only field text #724 shipped.
-        label: label ?? field,
+        // Two captions, two rows: the field row names the dimension's field
+        // and the condition row names the control. Neither falls back to the
+        // raw field name — the panel would then print it as the caption and
+        // leave the read-only cell empty, which is the defect this shape
+        // replaces.
+        fieldLabel,
+        label,
         range,
         step: filterStep(range),
       },

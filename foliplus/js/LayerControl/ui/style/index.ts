@@ -312,7 +312,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // overlay includes the scheme picker's portalled list: it is mounted on
   // <body> to paint above the drawer, so it is outside the panel's subtree
   // while still being part of the interaction. A press there must not dismiss
-  // the drawer — that press is what selects a colour.
+  // the drawer — that press is what selects a color.
   // When the component's own panel changes a style value while this drawer is
   // open, pull the fresh values and refresh the controls. The shared module's
   // refresh reads from styleProvider and writes every control, skipping the

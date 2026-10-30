@@ -30,6 +30,19 @@
   .foliplus-layer-filter-panel .foliplus-filter-field {
     color: var(--foliplus-text-primary);
   }
+  /* Field row: the read-only field name in the style panel's read-only box
+     frame (STYLE_FILL_READONLY, style.css) — no second box recipe. It fills
+     the control column and clips a long field name instead of spilling into
+     the panel, the same treatment the style panel gives its readouts. */
+  .foliplus-layer-filter-panel .foliplus-style-fill-readonly {
+    width: 100%;
+    min-width: 0;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-field-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   /* Result readout: percentage + exact kept / total, left-aligned in the
      control column. Tabular figures so the numbers do not jump width as
      they change; the element carries aria-live=polite. */

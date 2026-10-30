@@ -26,7 +26,7 @@ const DEFAULT_SCHEMES = [
   "Viridis",
 ] as const;
 
-/** The one unreadable-colour fallback the product degrades to: a colour
+/** The one unreadable-color fallback the product degrades to: a color
  *  chroma cannot read, or a feature that declared no fill. Heatmap's hex
  *  fill and border, and the value-based fill's scale, all degrade to this
  *  one value instead of each component keeping its own. */
@@ -51,7 +51,7 @@ class PaletteConfigError extends Error {}
  *  Two failure classes, deliberately handled differently rather than both
  *  collapsing into the fallback:
  *    - chroma is absent (jsdom unit tests, headless contexts). That is the
- *      environment, not the config, so it returns the fallback colours.
+ *      environment, not the config, so it returns the fallback colors.
  *    - chroma is present and rejects the name. That is a config error, and
  *      it throws `PaletteConfigError` so each consumer can degrade the way
  *      its own axis allows: LayerControl restores the author's fill face,
@@ -72,11 +72,11 @@ const getColorScale = (name: string, n: number): string[] => {
 };
 
 /** `getColorScale` for a caller that must not fail: an unreadable name
- *  paints the fallback colour instead of aborting the control that asked.
+ *  paints the fallback color instead of aborting the control that asked.
  *  Both of Heatmap's call sites use this - a stale record must not stop the
  *  panel from mounting. LayerControl's ramp deliberately keeps the throwing
  *  form, because it can restore the author's fill face instead of painting
- *  a colour the user never chose. */
+ *  a color the user never chose. */
 const safeColorScale = (name: string, n: number): string[] => {
   try {
     return getColorScale(name, n);

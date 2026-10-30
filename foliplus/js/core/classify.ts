@@ -60,7 +60,7 @@ const needsSimpleStatistics = (method: ClassifyMethod): boolean =>
 
 /** Thrown when one of those methods runs on a page that never loaded
  *  `simple-statistics`. Callers can tell this apart from a recoverable
- *  failure (a palette name that degrades to the fallback colour): the
+ *  failure (a palette name that degrades to the fallback color): the
  *  dependency is missing for the whole page, so re-rendering cannot fix it
  *  and the absence must be reported, not only degraded. */
 class ClassifierDependencyError extends Error {}
@@ -116,7 +116,7 @@ const computeBreaks = (
   // Two is the floor, not three: the picker's own contract is 2-9 on both
   // sides (HeatmapControl.py's num_classes and the fill ramp's classes), so
   // asking for two classes must build two. Forcing three made the request a
-  // different request, and one the caller's colour scale did not match,
+  // different request, and one the caller's color scale did not match,
   // since the scale asks for exactly the class count it was handed.
   numClasses = Math.max(2, Math.min(numClasses, n));
 

@@ -1,13 +1,13 @@
 """Scheme picker host under native and pseudo fullscreen.
 
-The picker portals its colour list into the surface that covers the trigger.
+The picker portals its color list into the surface that covers the trigger.
 Native fullscreen is reported by the Fullscreen API; the FullscreenControl's
 pseudo-fullscreen fallback is a covering container (a class on the map
 container) that emits no `fullscreenchange`. A list parked in <body> therefore
-sat behind the pseudo container and every colour row was unclickable.
+sat behind the pseudo container and every color row was unclickable.
 
 These tests drive the real surfaces: a real press on the fullscreen toggle, a
-real press on the scheme trigger and a real press on a colour row. They assert
+real press on the scheme trigger and a real press on a color row. They assert
 the point at the row's centre resolves into the list (`elementFromPoint`), which
 is the user-visible contract the bug broke.
 """
@@ -140,7 +140,7 @@ class TestSchemePickerHostBrowser:
                 f"{host['hostTag']}.{host['hostClass']}"
             )
             assert host["hitInsideDropdown"], (
-                "the point at the colour row's centre must resolve inside the "
+                "the point at the color row's centre must resolve inside the "
                 f"list, hit {host['hitTag']}.{host['hitClass']}"
             )
 
@@ -149,7 +149,7 @@ class TestSchemePickerHostBrowser:
             page.mouse.click(host["targetX"], host["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
-                f"the colour press dismissed the drawer: {state}"
+                f"the color press dismissed the drawer: {state}"
             )
             assert state["triggerTitle"] == host["targetName"], (
                 f"the pick did not commit {host['targetName']}: {state}"
@@ -200,7 +200,7 @@ class TestSchemePickerHostBrowser:
                 f"{host['hostTag']}.{host['hostClass']}"
             )
             assert host["hitInsideDropdown"], (
-                "the point at the colour row's centre must resolve inside the "
+                "the point at the color row's centre must resolve inside the "
                 f"list, hit {host['hitTag']}.{host['hitClass']}"
             )
             assert not errors, f"JS errors: {errors}"

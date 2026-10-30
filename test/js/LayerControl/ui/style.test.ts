@@ -403,7 +403,7 @@ describe("LayerUI style panel", () => {
     // The picker portals its dropdown to <body> so the list can paint above
     // this drawer. The portal is outside the panel's subtree while still being
     // part of the overlay, so a dismiss predicate that only walks the subtree
-    // closes the drawer on the press that selects a colour.
+    // closes the drawer on the press that selects a color.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;

@@ -237,7 +237,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // two-call form wrote the same face twice per leaf, which doubled the DOM
     // and SVG attribute work on top of the walk.
     if (hasOverride && values.fillColor !== undefined) {
-      // A colour commit is minimal: it replaces every key the previous arm
+      // A color commit is minimal: it replaces every key the previous arm
       // could have left stale, and the user's opacity never arrives here
       // unset - `fillOpacity` is set on this same payload whenever the user
       // has chosen one. Leaving the opacity unnamed keeps the author's value,
@@ -245,13 +245,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       commitStyleDim(node, values, FACE.FILL);
     } else if (hasOverride) {
       // An opacity-only commit replaces nothing but the opacity, so the
-      // previous arm's colour would ride under it: pull the author's keys
+      // previous arm's color would ride under it: pull the author's keys
       // back in the same payload. The pin below replaces any ramp getter
       // still holding this leaf.
       commitStyleDimMerged(node, values, FACE.FILL, true);
     } else {
       // No override left: restore the author's face rather than skipping the
-      // walk, or the previous arm's colour stays on the map until folium's
+      // walk, or the previous arm's color stays on the map until folium's
       // next mouseout happens to overwrite it.
       restoreStyleDim(node, FACE.FILL);
     }
@@ -743,8 +743,8 @@ const writeFillRamp = (
   return next;
 };
 
-/** The solid arm's detail: one row holding the colour swatch and the
- *  fill-opacity number side by side (the border-row recipe). Colour and
+/** The solid arm's detail: one row holding the color swatch and the
+ *  fill-opacity number side by side (the border-row recipe). color and
  *  opacity are one idea — a fill without either half is rarely what the user
  *  means — so the arm stays on a single line instead of two stacked rows. */
 const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
@@ -780,7 +780,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
  *  primitives: the heatmap panel and this panel therefore share the row
  *  structure, the control types (native selects) and the option vocabularies
  *  (method order + 2..9 class counts from #core/classify). The scheme trigger
- *  shows the colour strip only, matching the heatmap trigger. */
+ *  shows the color strip only, matching the heatmap trigger. */
 const buildRampDetail = (
   ui: LayerUI,
   layerId: string,
@@ -1324,7 +1324,7 @@ const FILL_DIMENSION = registerDimension<{
   },
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
-   *  author's colour and a running ramp classifies on stale breaks. The
+   *  author's color and a running ramp classifies on stale breaks. The
    *  when-gate reads the SAME FILL_INTENT_KEYS array replayFillState's own
    *  loop reads, so the gate and the replay cannot drift: a new fill intent
    *  joins one array and is automatically both gated and replayed. The gate

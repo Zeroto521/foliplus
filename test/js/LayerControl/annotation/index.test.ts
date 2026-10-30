@@ -635,13 +635,13 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
     expect(cfg.collide).toBe(true);
     // `show` is a legal declaration key now, so an explicit `true` survives;
-    // `color` is legal too, but `green` is not a hex colour — it degrades to
+    // `color` is legal too, but `green` is not a hex color — it degrades to
     // the default rather than reaching the canvas as an invalid fill.
     expect(cfg.show).toBe(true);
     expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
   });
 
-  it("applies a declared colour and size, normalised and clamped", () => {
+  it("applies a declared color and size, normalised and clamped", () => {
     const { map } = makeMap();
     const layer = {
       options: {
