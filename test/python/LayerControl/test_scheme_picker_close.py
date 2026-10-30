@@ -96,6 +96,40 @@ def _make_page(browser, tmp_path):
     return make_browser_page(browser, tmp_path, html, "picker_close")
 
 
+# Capture console.warn during page setup to detect duplicate overlay ids.
+_WARN_PRELUDE = """
+  (() => {
+    const _w = console.warn;
+    window.__setupWarns = [];
+    console.warn = (...a) => { window.__setupWarns.push(String(a[0])); _w(...a); };
+  })();
+"""
+
+
+def _make_page_in_order(browser, tmp_path, layer_first: bool):
+    """Build a page with LayerControl + HeatmapControl in a chosen order.
+
+    Both controls share one map. Each registers a picker overlay entry on
+    the shared per-map registry; the registration order decides which entry
+    survives when both used the same id (the duplicate is rejected). This
+    helper pins the order so the regression test can prove that the fix makes
+    the outcome order-independent.
+    """
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    _polygon_layer().add_to(m)
+    _points_group().add_to(m)
+    if layer_first:
+        LayerControl(position="topright").add_to(m)
+        HeatmapControl(position="bottomleft").add_to(m)
+    else:
+        HeatmapControl(position="bottomleft").add_to(m)
+        LayerControl(position="topright").add_to(m)
+    html = _expose_heatmap(m.get_root().render())
+    return make_browser_page(
+        browser, tmp_path, html, "picker_close", prelude=_WARN_PRELUDE
+    )
+
+
 def _state(page) -> dict:
     return page.evaluate(_js("common/read_picker_panel_state"))
 
@@ -305,3 +339,37 @@ class TestPickerCloseBrowser:
                 timeout=3000,
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_escape_in_style_drawer_ignores_a_second_picker_on_the_same_map(
+        self, browser, tmp_path
+    ):
+        """One map, two picker-owning controls: Escape must close only the open list.
+
+        Both LayerControl and HeatmapControl register a picker overlay entry on
+        the shared per-map registry. Before the fix both used the same id, so the
+        second registration was a duplicate and was rejected, leaving one control
+        with no Escape-owning surface. With the style picker open, Escape must
+        close the list and leave the style drawer in place — regardless of which
+        control registered first. Both orders are exercised because the
+        duplicate-winner depended on registration order.
+        """
+        for layer_first in (True, False):
+            with use_page(
+                lambda b, t: _make_page_in_order(b, t, layer_first), browser, tmp_path
+            ) as (page, errors):
+                # No duplicate overlay id may be logged during setup: the fix
+                # namespaces the picker entry per consumer, so the two controls
+                # never collide.
+                _open_style_dropdown(page)
+                page.keyboard.press("Escape")
+                _wait_closed(page)
+                state = _state(page)
+                assert state["portalCount"] == 0, state
+                assert state["stylePanelOpen"], state
+                assert state["styleDrawerVisible"], state
+                warns = page.evaluate("() => window.__setupWarns || []")
+                dup = [w for w in warns if "duplicate overlay id" in w]
+                assert not dup, (
+                    f"duplicate overlay id warning (layer_first={layer_first}): {dup}"
+                )
+                assert not errors, f"JS errors (layer_first={layer_first}): {errors}"
