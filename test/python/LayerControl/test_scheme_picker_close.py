@@ -95,6 +95,7 @@ def _make_page(browser, tmp_path):
     html = _expose_heatmap(m.get_root().render())
     return make_browser_page(browser, tmp_path, html, "picker_close")
 
+
 # Capture console.warn during page setup to detect duplicate overlay ids.
 _WARN_PRELUDE = """
   (() => {
@@ -103,6 +104,7 @@ _WARN_PRELUDE = """
     console.warn = (...a) => { window.__setupWarns.push(String(a[0])); _w(...a); };
   })();
 """
+
 
 def _make_page_in_order(browser, tmp_path, layer_first: bool):
     """Build a page with LayerControl + HeatmapControl in a chosen order.
@@ -123,7 +125,9 @@ def _make_page_in_order(browser, tmp_path, layer_first: bool):
         HeatmapControl(position="bottomleft").add_to(m)
         LayerControl(position="topright").add_to(m)
     html = _expose_heatmap(m.get_root().render())
-    return make_browser_page(browser, tmp_path, html, "picker_close", prelude=_WARN_PRELUDE)
+    return make_browser_page(
+        browser, tmp_path, html, "picker_close", prelude=_WARN_PRELUDE
+    )
 
 
 def _state(page) -> dict:
@@ -274,7 +278,9 @@ class TestPickerCloseBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_escape_in_style_drawer_ignores_a_second_picker_on_the_same_map(self, browser, tmp_path):
+    def test_escape_in_style_drawer_ignores_a_second_picker_on_the_same_map(
+        self, browser, tmp_path
+    ):
         """One map, two picker-owning controls: Escape must close only the open list.
 
         Both LayerControl and HeatmapControl register a picker overlay entry on
@@ -301,5 +307,7 @@ class TestPickerCloseBrowser:
                 assert state["styleDrawerVisible"], state
                 warns = page.evaluate("() => window.__setupWarns || []")
                 dup = [w for w in warns if "duplicate overlay id" in w]
-                assert not dup, f"duplicate overlay id warning (layer_first={layer_first}): {dup}"
+                assert not dup, (
+                    f"duplicate overlay id warning (layer_first={layer_first}): {dup}"
+                )
                 assert not errors, f"JS errors (layer_first={layer_first}): {errors}"
