@@ -123,7 +123,7 @@
 /* Compact count select beside a flexed method select. The class count plays
    the same role as the border weight field, so it takes the same width token;
    the method select then absorbs the remainder and lands exactly on the border
-   colour swatch's width. Declared after `.foliplus-form-select` so it wins over
+   color swatch's width. Declared after `.foliplus-form-select` so it wins over
    that rule's full-width default at equal specificity. */
 .foliplus-classes-select {
   width: var(--foliplus-form-secondary-width);

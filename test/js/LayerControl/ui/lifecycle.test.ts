@@ -7,6 +7,7 @@ import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
@@ -276,7 +277,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.unsubscribeCountChange = null;
       ui.unsubscribeControlAttached = null;
       ui.onMoreClick = null;
-      ui.onMoreMenuClick = null;
       ui.onMoreMapClick = null;
       ui.onZoomEnd = null;
       ui.onChange = null;
@@ -920,6 +920,80 @@ const BEFORE_NOTIFY = [
   "dim.contentChange",
   "scheduleStyleDimApply(",
 ];
+
+describe("attachUI — the registry Escape subscription", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("clears the row cursor when the registry closes a cursor-owning surface", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    ui.openMoreMenu(item);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    // The close is the registry's; this subscription only translates the
+    // reported "the closed surface owned the cursor" flag into the row rule.
+    expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+  });
+
+  /** A registered-but-closed entry: the registry installs its Escape listener
+   *  (entries exist) and owns nothing, so the key arrives unhandled. The press
+   *  fields are inert — a closed entry never joins the press walk and Escape
+   *  order comes from the ESC_PRIORITY table — so they stay at their neutral
+   *  values rather than borrowing a live panel's priority, which would imply an
+   *  ordering this fixture does not exercise. */
+  const registerNeverOpen = () =>
+    ensureOverlayRegistry(map).register({
+      id: OVERLAY_IDS.LAYER_ATTRS,
+      isOpen: () => false,
+      panels: () => [],
+      close: () => {},
+      dismissOn: "click",
+      pressPriority: 0,
+    });
+
+  it("clears the row cursor for an unhandled Escape that landed inside the panel", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    // The one path where "nothing closed" still means "the cursor is in the
+    // panel": the key landed inside, but no entry owned it.
+    const unregister = registerNeverOpen();
+
+    item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    unregister();
+  });
+
+  it("leaves the row cursor alone for an unhandled Escape outside the panel", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    const unregister = registerNeverOpen();
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    unregister();
+  });
+});
 
 describe("onLayerItemCountChange — replay ordering", () => {
   const body = bodyLines("onLayerItemCountChange");

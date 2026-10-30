@@ -26,6 +26,8 @@ class OverlayPanel {
     menu: HTMLElement;
     layerId: string;
   } | null = null;
+  /** Unregister for the overflow menu's registry entry (installed while open). */
+  menuOverlayUnregister: (() => void) | null = null;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
     item: HTMLElement;
@@ -34,23 +36,20 @@ class OverlayPanel {
   } | null = null;
   /** Currently visible filter panel, or null. */
   activeFilterPanel: FilterPanelState | null = null;
-  /** Document capture-phase mousedown used to dismiss the attrs panel.
-   *  Capture is required because the layer control's
-   *  `disableClickPropagation` stops bubble-phase events from ever reaching
-   *  document. */
-  attrsOutsideHandler: ((event: MouseEvent) => void) | null = null;
-  /** Same capture-phase dismiss, for the filter panel. */
-  filterOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** Unregister for the attrs panel's registry entry (installed while open). */
+  attrsOverlayUnregister: (() => void) | null = null;
+  /** Unregister for the filter panel's registry entry (installed while open). */
+  filterOverlayUnregister: (() => void) | null = null;
   /** Unsubscribe for LAYER_FILTER_CHANGE / row-identity signals while the
    *  filter panel is open (external model changes and same-id replacement). */
   filterUnsubscribe: (() => void) | null = null;
-  /** Same capture-phase dismiss, for the style panel. */
-  styleOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** Unregister for the style panel's registry entry (installed while open). */
+  styleOverlayUnregister: (() => void) | null = null;
   /** The live style-drawer element while one is open, or null. Kept on the
-   *  overlay panel (not captured by each outside handler) so the dismiss
-   *  predicate scopes to *this* control's drawer: a page with two maps has two
-   *  drawers, and a document-wide query would scope the press to the first one
-   *  in DOM order. */
+   *  overlay panel (not captured by the registry entry) so a press predicate
+   *  scopes to *this* control's drawer: a page with two maps has two drawers,
+   *  and a document-wide query would scope the press to the first one in DOM
+   *  order. */
   stylePanelEl: HTMLElement | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
   attrsUnsubscribe: (() => void) | null = null;

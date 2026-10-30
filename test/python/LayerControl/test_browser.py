@@ -434,7 +434,7 @@ class TestLayerControlBrowser:
     def test_annotation_declared_color_and_size_reach_the_canvas(
         self, browser, tmp_path
     ):
-        """A declared colour/size paints the real canvas, and Reset restores it.
+        """A declared color/size paints the real canvas, and Reset restores it.
 
         Reads the annotation canvas pixels: the declared #00ff00 and size 24
         must be what is actually drawn (not merely what CONF/DOM says), a
@@ -1276,8 +1276,8 @@ class TestLayerControlBrowser:
         the row shortcut cancelled the key and toggled the layer checkbox
         behind the form instead of opening the picker. The native picker's
         visibility is unreliable headless — defaultPrevented plus the
-        untouched checkbox is the evidence. Both colour inputs are covered: a
-        data layer's Fill Color row and the solid-colour basemap's fill row.
+        untouched checkbox is the evidence. Both color inputs are covered: a
+        data layer's Fill Color row and the solid-color basemap's fill row.
         """
         geo = folium.GeoJson(_geo_mixed, name="Point layer")
         with use_page(
@@ -1304,10 +1304,10 @@ class TestLayerControlBrowser:
                         f"{layer}/{key}: the Fill Color input did not take focus: {arm}"
                     )
                     assert arm["focusedType"] == "color", (
-                        f"{layer}/{key}: focus is not a colour picker: {arm}"
+                        f"{layer}/{key}: focus is not a color picker: {arm}"
                     )
                     assert arm["colorInputs"] >= 1, (
-                        f"{layer}/{key}: the style panel has no colour input: {arm}"
+                        f"{layer}/{key}: the style panel has no color input: {arm}"
                     )
 
                     page.keyboard.press(key)
@@ -1321,7 +1321,7 @@ class TestLayerControlBrowser:
                         f"got {read['records']}"
                     )
                     assert presses[0]["prevented"] is False, (
-                        f"{layer}/{key}: foliplus cancelled the colour picker's "
+                        f"{layer}/{key}: foliplus cancelled the color picker's "
                         f"native activation key: {read['records']}"
                     )
                     assert read["styleOpen"] is True, (
@@ -1488,7 +1488,7 @@ class TestLayerControlBrowser:
             )
 
     def test_color_basemap_rename_updates_label_title(self, browser, tmp_path):
-        """A colour-basemap rename repaints text and label title together.
+        """A color-basemap rename repaints text and label title together.
 
         The basemap row has no registry entry — its rename goes through the
         intent store and updateItemLabel — so the resident full-name tooltip
@@ -1514,7 +1514,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(300)
             res = page.evaluate(_js("LayerControl/rename_color_basemap_and_read_label"))
-            assert res is not None, "colour basemap rename did not commit"
+            assert res is not None, "color basemap rename did not commit"
             assert res["label"] == "My Color", res
             assert res["labelTitle"] == "My Color", f"label title={res['labelTitle']!r}"
             assert not errors, f"JS errors: {errors}"
@@ -3051,7 +3051,7 @@ class TestLayerControlBrowser:
             assert result is not None
             # The retired tile-hidden contract must not be applied.
             assert result["tileHidden"] is False, (
-                "colour layer must not stamp foliplus-layer-tile-hidden"
+                "color layer must not stamp foliplus-layer-tile-hidden"
             )
             assert result["colorBg"] is True, "color item should have active class"
 
@@ -3086,9 +3086,9 @@ class TestLayerControlBrowser:
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state is not None
             assert state["hasCheckbox"] is True, (
-                "colour basemap row must have a real checkbox"
+                "color basemap row must have a real checkbox"
             )
-            assert state["checked"] is False, "colour basemap starts unchecked"
+            assert state["checked"] is False, "color basemap starts unchecked"
             assert state["active"] is False, "container starts without .foliplus-active"
 
             # Check the checkbox → container background takes effect.
@@ -5692,21 +5692,21 @@ class TestLayerControlBrowser:
 
     # ── scheme picker portal: the list is part of the drawer ────────────
     #
-    # The picker portals its colour list to <body> (or the fullscreen element)
+    # The picker portals its color list to <body> (or the fullscreen element)
     # so it can paint above the drawer that owns the trigger. A press on that
     # list therefore reaches the document-level dismiss listeners with a target
     # outside every panel class, while still being part of the drawer's
     # interaction: the drawer used to close at mousedown, before the click could
-    # select a colour. element.click() dispatches no mousedown, so these
+    # select a color. element.click() dispatches no mousedown, so these
     # regressions need Playwright's real mouse press.
 
     def test_style_scheme_portal_pick_keeps_the_drawer(self, browser, tmp_path):
-        """A real press on the portalled colour list keeps the drawer open.
+        """A real press on the portalled color list keeps the drawer open.
 
         The list lives on <body>, so the press has to be classified as part of
         the drawer's overlay rather than by the drawer's own subtree. The press
-        is what commits the colour: the drawer must survive it, the picker must
-        close behind it, and the hidden select, the trigger title and the colour
+        is what commits the color: the drawer must survive it, the picker must
+        close behind it, and the hidden select, the trigger title and the color
         bar must all show the chosen scheme — then the value has to survive a
         close and reopen, which rebuilds the drawer from the layer's own ramp
         state. A pick that tears the drawer down would drop the click entirely
@@ -5745,7 +5745,7 @@ class TestLayerControlBrowser:
             page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
-                f"the colour press dismissed the drawer: {state}"
+                f"the color press dismissed the drawer: {state}"
             )
             assert state["hiddenValue"] == target, (
                 f"the pick did not commit {target}: {state}"
@@ -5754,7 +5754,7 @@ class TestLayerControlBrowser:
                 f"the trigger still shows {state['triggerTitle']}, expected {target}"
             )
             assert state["barBlockColor"] != before["barBlockColor"], (
-                "the colour bar was not repainted for the new scheme: "
+                "the color bar was not repainted for the new scheme: "
                 f"{before['barBlockColor']} -> {state['barBlockColor']}"
             )
             assert not state["dropdownPresent"], (
@@ -5939,7 +5939,7 @@ class TestLayerControlBrowser:
             page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
-                f"a colour press under fullscreen dismissed the drawer: {state}"
+                f"a color press under fullscreen dismissed the drawer: {state}"
             )
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))

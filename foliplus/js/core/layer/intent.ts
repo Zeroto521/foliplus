@@ -9,13 +9,13 @@
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
-/** One arm of the value-based fill: which property drives the colour, how
+/** One arm of the value-based fill: which property drives the color, how
  *  the values are split, into how many classes, and which scheme paints
  *  them. `field` is the caller's key selection, the other three are the
  *  classifier + palette inputs (core/ramp.ts).
  *
  *  `kind` types the drive property. Absent means "numeric" — the only arm
- *  that exists yet — and "categorical" is reserved for the colour-by-category
+ *  that exists yet — and "categorical" is reserved for the color-by-category
  *  batch. A record that asks for a `kind` this client cannot build is dropped
  *  whole by the persistence reader rather than misapplied as a numeric ramp. */
 type FillRampConfig = {
@@ -173,7 +173,7 @@ type PersistedLayerState = {
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
   /** The value-based fill config the user set (field / method / classes /
-   *  scheme). The ramp arm owns the colour; solid-mode opacity still rides
+   *  scheme). The ramp arm owns the color; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
   fillRamp?: FillRampConfig;
   /** Which fill arm is active ("solid" | "ramp" | "original"); the inactive

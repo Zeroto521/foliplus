@@ -1,5 +1,6 @@
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
+import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -182,6 +183,15 @@ const installLeafletGlobals = () => {
   }) as unknown as typeof L.latLngBounds;
 };
 
+// The registry installs document-level press/Escape listeners; a test map is
+// never unloaded, so each fixture would leave its dispatcher behind and an
+// earlier test's still-open surface would swallow the next test's Escape.
+// Destroy the tracked registry after every test instead.
+const createdRegistries: OverlayRegistry[] = [];
+afterEach(() => {
+  for (const registry of createdRegistries.splice(0)) registry.destroy();
+});
+
 const initFixture = (
   options: {
     initialZoom?: number;
@@ -271,6 +281,8 @@ const initFixture = (
       hideHint: vi.fn(),
     },
   };
+
+  createdRegistries.push(ensureOverlayRegistry(map));
 
   // One class world for the fixture: installLeafletGlobals swaps in the
   // richer L mocks (fixture GridLayer/TileLayer/Marker...), and the carrier

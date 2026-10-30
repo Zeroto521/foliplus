@@ -123,16 +123,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/attr.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
-    reason: "attribute panel event bindings — pending migration to `this.on`",
+    reason:
+      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
-    n: 5,
+    n: 3,
     pairedOff: 0,
     reason:
-      "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
+      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
     f: "LayerControl/ui/focus/focusMarquee.ts",
@@ -143,22 +144,24 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/lifecycle.ts",
-    n: 12,
+    n: 11,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
+      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/overlayPanel/menu.ts",
-    n: 1,
+    n: 2,
     pairedOff: 0,
-    reason: "more-menu outside-click — pending migration to `this.on`",
+    reason:
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/style/index.ts",
-    n: 4,
+    n: 3,
     pairedOff: 0,
-    reason: "style-panel input / dropdown bindings — pending migration to `this.on`",
+    reason:
+      "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/slider.ts",
@@ -183,10 +186,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/schemePicker.ts",
-    n: 9,
+    n: 8,
     pairedOff: 0,
     reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
   {
     f: "common/dropdown.ts",

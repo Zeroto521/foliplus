@@ -3,7 +3,7 @@
 //
 // The picker opens on a real press, and the regression this supports lives in
 // the document mousedown capture phase — `element.click()` never triggers it.
-// The caller therefore presses the trigger and then the colour row with the
+// The caller therefore presses the trigger and then the color row with the
 // mouse; this probe only prepares the drawer and measures the points.
 async () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");

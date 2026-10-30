@@ -634,7 +634,7 @@ class LayerControl(BaseControl):
          - number format (``auto`` / ``int`` / ``comma`` / ``percent``)
        * - ``color``
          - ``#ffffff``
-         - label colour; hex only, ``#rgb`` is normalised to ``#rrggbb``
+         - label color; hex only, ``#rgb`` is normalised to ``#rrggbb``
        * - ``size``
          - ``11`` px
          - label font size in px, clamped to the panel's 6-32 range
@@ -666,7 +666,7 @@ class LayerControl(BaseControl):
          - Meaning
        * - ``mode``
          - ``ramp`` once ``ramp.field`` is declared, otherwise ``solid``
-         - fill arm: one colour (``solid``) or colour by value (``ramp``)
+         - fill arm: one color (``solid``) or color by value (``ramp``)
        * - ``ramp.field``
          - - (declaring it turns the ramp on)
          - the numeric feature property to classify
@@ -682,7 +682,7 @@ class LayerControl(BaseControl):
 
     Precedence matches the label declaration: the user's choice in the style
     panel wins, then the declaration, then the author's per-feature paint
-    (``explore``'s baked colours) and finally the built-in default. Reset
+    (``explore``'s baked colors) and finally the built-in default. Reset
     returns to the declared ramp. An invalid declaration only warns and falls
     back; it never paints a ramp the author did not ask for.
     """

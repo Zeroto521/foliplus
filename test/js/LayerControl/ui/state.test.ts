@@ -1245,7 +1245,7 @@ describe("event-driven row refresh", () => {
 
       for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalled();
       const colors = leaves.map(leaf => leaf.setStyle.mock.calls[0][0].fillColor);
-      // The ramp owns the colour: the extremes land in different classes.
+      // The ramp owns the color: the extremes land in different classes.
       expect(colors[0]).not.toBe(colors[colors.length - 1]);
     });
 

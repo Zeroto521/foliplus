@@ -100,11 +100,6 @@ class ListPanel {
   /** Last element the drag pointer hovered; used to move the
    *  `DRAG_OVER_TOP` / `DRAG_OVER_BOTTOM` class as the pointer moves. */
   lastDragOverItem: HTMLElement | null = null;
-  /** True when the current pointer press began inside a floating row panel.
-   *  Written by the panel's document-level capture handler; read by
-   *  `handleDragStart` because the drag event is dispatched on the row, not
-   *  the panel. */
-  pressInPanel: boolean = false;
   /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
    *  called once on unbind. */
   interactionCleanup?: () => void;
