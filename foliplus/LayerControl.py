@@ -549,7 +549,9 @@ def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
 
 def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
     """Report a refused caption once per (caption, agreement) pair."""
-    if not _should_report(("caption", caption, str(hits), str(total)), _refused_captions):
+    if not _should_report(
+        ("caption", caption, str(hits), str(total)), _refused_captions
+    ):
         return
     _log.warning(
         "LayerControl: the scale caption %r names a column, but only %d/%d "
