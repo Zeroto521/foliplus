@@ -19,7 +19,9 @@
   let sample = null;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] === 0) continue;
-    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const r = data[i],
+      g = data[i + 1],
+      b = data[i + 2];
     const isBg =
       Math.abs(r - 221) <= 30 && Math.abs(g - 221) <= 30 && Math.abs(b - 221) <= 30;
     if (!isBg) nonBg++;

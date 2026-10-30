@@ -31,7 +31,8 @@
   //     pins the blended color so the pixel assertion below is not coupled
   //     to Leaflet's exact default pin artwork or version drift.
   const icon = L.icon({
-    iconUrl: "data:image/png;base64," +
+    iconUrl:
+      "data:image/png;base64," +
       "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGN8" +
       "Jif3nwEPYMInOXwUAAA19gIxetnLYAAAAABJRU5ErkJggg==",
     iconSize: [8, 8],
