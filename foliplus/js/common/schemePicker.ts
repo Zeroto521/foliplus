@@ -15,6 +15,9 @@ import { registerPortalRoot } from "#common/portalRoot.js";
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
 const log = createLogger("schemePicker");
 
+/** Gap between the trigger and the dropdown, matching --foliplus-menu-gap. */
+const MENU_GAP = 4;
+
 // ── Class-name defaults ────────────────────────────────────────────────
 
 const DEFAULT_CLASSES = {
@@ -240,31 +243,43 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
   // ── Dropdown keyboard handler ──
 
+  // Same keyboard contract as common/dropdown.ts: Home/End/↑↓ walk the rows
+  // that can be picked (a consumer-owned current entry is skipped), Esc closes
+  // back to the trigger, and Tab closes without swallowing the default move.
+  const focusables = () =>
+    state.items.filter(item => item.getAttribute("aria-disabled") !== "true");
+
   const onKeydown = (event: KeyboardEvent) => {
     const key = event.key;
-    const idx = state.items.indexOf(document.activeElement as HTMLElement);
+    const rows = focusables();
+    const idx = rows.indexOf(document.activeElement as HTMLElement);
 
     if (key === "ArrowDown" || key === "Down") {
       event.preventDefault();
       event.stopPropagation();
-      const next = state.items.length > 0 ? (idx + 1) % state.items.length : 0;
-      state.items[next]?.focus();
+      if (rows.length > 0) {
+        const next = idx < 0 ? 0 : (idx + 1) % rows.length;
+        rows[next]?.focus();
+      }
     } else if (key === "ArrowUp" || key === "Up") {
       event.preventDefault();
       event.stopPropagation();
-      const prev =
-        state.items.length > 0
-          ? (idx - 1 + state.items.length) % state.items.length
-          : 0;
-      state.items[prev]?.focus();
+      if (rows.length > 0) {
+        const prev = idx < 0 ? rows.length - 1 : (idx - 1 + rows.length) % rows.length;
+        rows[prev]?.focus();
+      }
     } else if (key === "Home") {
       event.preventDefault();
       event.stopPropagation();
-      state.items[0]?.focus();
+      rows[0]?.focus();
     } else if (key === "End") {
       event.preventDefault();
       event.stopPropagation();
-      state.items[state.items.length - 1]?.focus();
+      rows[rows.length - 1]?.focus();
+    } else if (key === "Tab") {
+      // No preventDefault: closing first makes the browser continue Tab from
+      // the trigger instead of from the row that is about to be hidden.
+      closeDropdown(state, { restoreFocus: true });
     } else if (key === "Enter" || key === " ") {
       event.preventDefault();
       event.stopPropagation();
@@ -450,19 +465,26 @@ const positionDropdown = (state: InternalState, dropdown: HTMLElement) => {
   // portal host's width (e.g. document.body = 100%).
   dropdown.style.width = `${rect.width}px`;
   const dropdownRect = dropdown.getBoundingClientRect();
+  // The CSS shell carries the gap as a margin for the in-flow mount; a
+  // positioned dropdown states it in the offset instead, or the two would add.
+  dropdown.style.marginTop = "0px";
 
-  let top = rect.bottom;
+  // One flip rule for every dropdown surface (common/dropdown.ts): flip above
+  // only when the room below cannot show two rows AND the room above is
+  // larger. No per-surface special case.
+  const spaceBelow = vh - rect.bottom - MENU_GAP;
+  const spaceAbove = rect.top - MENU_GAP;
+  const fitsBelow = spaceBelow >= dropdownRect.height;
+  const up = !fitsBelow && spaceAbove > spaceBelow;
+
   let left = rect.left;
-
-  // Clamp right edge
   if (left + dropdownRect.width > vw - 8) {
     left = Math.max(8, vw - dropdownRect.width - 8);
   }
-  // Clamp bottom edge — flip above if needed
-  if (top + dropdownRect.height > vh - 8) {
-    top = rect.top - dropdownRect.height - 4;
-    if (top < 8) top = 8;
-  }
+  let top = up ? rect.top - dropdownRect.height - MENU_GAP : rect.bottom + MENU_GAP;
+  // Clamp both edges: a trigger near the bottom of a short viewport keeps the
+  // list on screen instead of running off it.
+  top = Math.max(8, Math.min(top, vh - 8 - dropdownRect.height));
 
   dropdown.style.top = `${top}px`;
   dropdown.style.left = `${left}px`;

@@ -482,7 +482,7 @@ describe("dropdown: popup geometry", () => {
     dropdown.open();
     const list = dropdown.getList() as HTMLElement;
     expect(list.style.position).toBe("fixed");
-    expect(list.style.top).toBe("138px");
+    expect(list.style.top).toBe("134px");
     expect(list.style.left).toBe("120px");
     expect(list.style.width).toBe("160px");
     expect(list.classList.contains("foliplus-dropdown-up")).toBe(false);
@@ -500,7 +500,7 @@ describe("dropdown: popup geometry", () => {
     const list = dropdown.getList() as HTMLElement;
     expect(list.classList.contains("foliplus-dropdown-up")).toBe(true);
     expect(list.style.top).toBe("");
-    expect(list.style.bottom).toBe("48px");
+    expect(list.style.bottom).toBe("44px");
     dropdown.close();
     restore();
   });
@@ -517,7 +517,7 @@ describe("dropdown: popup geometry", () => {
     pin(dropdown.trigger, 60, 30);
     window.dispatchEvent(new Event("scroll"));
     expect(dropdown.isOpen()).toBe(true);
-    expect((dropdown.getList() as HTMLElement).style.top).toBe("98px");
+    expect((dropdown.getList() as HTMLElement).style.top).toBe("94px");
     window.dispatchEvent(new Event("resize"));
     expect(dropdown.isOpen()).toBe(true);
     dropdown.close();
@@ -532,7 +532,7 @@ describe("dropdown: popup geometry", () => {
     const list = dropdown.getList() as HTMLElement;
     list.dispatchEvent(new Event("scroll", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(true);
-    expect(list.style.top).toBe("138px");
+    expect(list.style.top).toBe("134px");
     dropdown.close();
     restore();
   });

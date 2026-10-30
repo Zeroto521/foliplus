@@ -394,6 +394,20 @@
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
 
+  /* ── Dropdown / menu shell ──
+     One recipe for every dropdown surface (common/menu.css,
+     common/dropdown.css, common/scheme-picker.css): the gap under the
+     trigger, the row height, and the two row states. Components override
+     only their own geometry (strip inset, scrollbar lane), never these. */
+  --foliplus-menu-gap: var(--foliplus-size-4);
+  --foliplus-menu-row-h: var(--foliplus-ctrl-size);
+  --foliplus-menu-row-hover-bg: var(--foliplus-accent-light);
+  --foliplus-menu-row-hover-ink: var(--foliplus-accent-primary);
+  --foliplus-menu-row-selected-bg: var(--foliplus-accent-soft-bg);
+  --foliplus-menu-row-selected-bar: var(--foliplus-accent-primary);
+  --foliplus-menu-row-bar-width: 3px;
+  --foliplus-menu-max-width: 320px;
+
   /* ── Scheme picker (shared by HeatmapControl and LayerControl) ──
      Colour-strip inset. The trigger's strip and a dropdown item's strip use
      the same value so the two bars line up on both sides; the item subtracts

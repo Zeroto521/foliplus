@@ -43,7 +43,6 @@ const DROPDOWN_CLASSES = {
   list: "foliplus-dropdown-list",
   option: "foliplus-dropdown-option",
   optionLabel: "foliplus-dropdown-option-label",
-  check: "foliplus-dropdown-check",
   open: "foliplus-dropdown-open",
   up: "foliplus-dropdown-up",
   portal: "foliplus-dropdown-portal",
@@ -53,6 +52,9 @@ const DROPDOWN_CLASSES = {
 
 /** Vertical gap kept between the popup and the viewport edge. */
 const POPUP_EDGE_GAP = 8;
+/** Gap between the trigger and the popup, matching --foliplus-menu-gap so the
+ *  in-flow (CSS margin) and the portalled (inline offset) popups agree. */
+const POPUP_GAP = 4;
 /** Rows the popup shows before it scrolls internally. */
 const MAX_VISIBLE_ROWS = 8;
 /** A popup with less room than this below flips above the trigger. */
@@ -295,11 +297,11 @@ const positionList = (state: InternalState): void => {
   list.style.width = String(width) + "px";
   if (up) {
     list.style.top = "";
-    list.style.bottom = String(window.innerHeight - rect.top + POPUP_EDGE_GAP) + "px";
+    list.style.bottom = String(window.innerHeight - rect.top + POPUP_GAP) + "px";
     list.classList.add(DROPDOWN_CLASSES.up);
   } else {
     list.style.bottom = "";
-    list.style.top = String(rect.bottom + POPUP_EDGE_GAP) + "px";
+    list.style.top = String(rect.bottom + POPUP_GAP) + "px";
   }
   list.classList.add(DROPDOWN_CLASSES.portal);
   if (height < natural) list.style.maxHeight = String(Math.round(height)) + "px";
@@ -408,12 +410,6 @@ const renderOptions = (state: InternalState): void => {
         ...(item.disabled ? { disabled: "" } : {}),
         ...(item.title ? { title: item.title } : {}),
       },
-      state.multiple
-        ? dom.el("span", {
-            class: DROPDOWN_CLASSES.check,
-            "aria-hidden": "true",
-          })
-        : null,
       dom.el("span", { class: DROPDOWN_CLASSES.optionLabel }, item.label),
     ) as HTMLButtonElement;
     option.classList.toggle(DROPDOWN_CLASSES.selected, selected.has(item.value));
@@ -427,6 +423,18 @@ const syncFromNative = (state: InternalState): void => {
   if (!state.native) return;
   state.items = nativeItemsOf(state.native);
   state.values = new Set(state.native.value === "" ? [] : [state.native.value]);
+  // A bridged single select with no stored value opens on its first real
+  // option: that is the value the native select itself reports, so the
+  // trigger must show it instead of a placeholder. An empty-value prompt row
+  // (the heatmap's "pick a layer") is a state of its own and stays a
+  // placeholder — auto-picking a layer would paint a heatmap nobody asked for.
+  if (!state.multiple && state.values.size === 0) {
+    const first = state.items[0];
+    if (first && !first.disabled && first.value !== "") {
+      state.values = new Set([first.value]);
+      state.native.value = first.value;
+    }
+  }
 };
 
 const closeDropdown = (
