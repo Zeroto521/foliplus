@@ -476,7 +476,14 @@ class TestExportCompositeBrowser:
             # finished; the canvas may still be empty. A fixed wait_for_timeout
             # is raster timing, which is the flake class this removes.
             _wait_export_canvas_ready(page)
-
+            # The marker's icon image loads asynchronously (renderRemaining
+            # awaits loadImage before drawImage), so the canvas-ready gate
+            # (non-empty + opaque) can fire on the background fill before the
+            # marker is drawn. Wait for the red-dominant marker signature
+            # specifically -- the observable end state this test asserts on.
+            page.wait_for_function(
+                _js("ExportControl/wait_marker_drawn"), timeout=15000
+            )
             # Read the captured canvas pixels and verify the marker was
             # drawn. The export canvas now has an opaque background fill, so
             # the marker's alpha composites onto the background — the
