@@ -4,6 +4,12 @@
 () => {
   const rec = { events: [], mutations: [], before: null, after: null };
   window.__escapeRec = rec;
+  // Capture console warnings/errors (duplicate overlay id, double picker bind).
+  rec.console = [];
+  const origWarn = console.warn;
+  const origError = console.error;
+  console.warn = (...args) => { rec.console.push({ level: "warn", msg: String(args[0]).slice(0,160) }); origWarn(...args); };
+  console.error = (...args) => { rec.console.push({ level: "error", msg: String(args[0]).slice(0,160) }); origError(...args); };
 
   const snap = () => {
     const panel = document.querySelector(".foliplus-layer-style-panel");
