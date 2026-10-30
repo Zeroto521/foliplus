@@ -95,10 +95,14 @@ def _is_plumbing(filename: str) -> bool:
 def _caller_stacklevel() -> int:
     """Frames from warnings.warn out to the first frame that is the author's.
 
-    The depth differs per call path (_reject sits one frame further in than the
-    shape checks, and a render goes through the template machinery), so the
-    caller's frame is found by walking instead of hard-coding one number per
-    site. Same idea as _declared_filter._caller_stacklevel on the
+    A fixed stacklevel cannot work here, and that is a fact of the call path
+    rather than a guess: a declaration is read during the Jinja render, which
+    compiles the control template to a "<template>" frame and calls through its
+    own interpreter frames, so between this package and the author's cell sit
+    the template frame, jinja2 and folium. The depth also differs between call
+    paths (_reject sits one frame further in than the shape checks). Walking
+    out to the first frame that is not plumbing is therefore the only stable
+    rule. Same idea as _declared_filter._caller_stacklevel on the
     declared-filter branch (#805), kept as a private copy on purpose: the two
     branches land independently, and a shared module would be an add/add
     conflict to resolve for no behaviour. Fold them together in a follow-up

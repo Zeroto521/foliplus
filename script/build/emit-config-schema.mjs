@@ -178,6 +178,7 @@ const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
  *
  * Shape grammar (validated by _validate_shape on the Python side):
  *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
+ *   - "array_string" → TS string[] (the general list-of-strings leaf)
  *   - null → TS null
  *   - ["string", "number"] (every element a primitive name, ≥2 of them) →
  *     primitive union, unquoted

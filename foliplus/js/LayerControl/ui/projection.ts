@@ -27,11 +27,7 @@ const warnedZoomDeclarations = new Set<string>();
 
 type ZoomWarningKind = "payload" | "policy" | "row";
 
-const warnZoomOnce = (
-  id: string,
-  kind: ZoomWarningKind,
-  message: string,
-): void => {
+const warnZoomOnce = (id: string, kind: ZoomWarningKind, message: string): void => {
   const key = `${id}:${kind}`;
   if (warnedZoomDeclarations.has(key)) return;
   warnedZoomDeclarations.add(key);

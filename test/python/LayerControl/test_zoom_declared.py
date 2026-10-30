@@ -123,6 +123,26 @@ def test_a_repeated_render_repeats_no_declaration_warning():
     assert [w for w in second if "unknown foliplus key" in str(w.message)] == []
 
 
+def test_the_declaration_log_filter_clears_itself_at_capacity():
+    # The log filter is shared with the refused-caption path and capped at 64
+    # notes: past that it clears instead of growing without bound in a process
+    # that renders many maps. Pinned directly so the capacity branch is not
+    # dead code.
+    from foliplus.LayerControl import _refused_captions, _should_report
+
+    _refused_captions.clear()
+    for index in range(64):
+        assert _should_report(("test", str(index)))
+    assert len(_refused_captions) == 64
+
+    # A duplicate does not grow the set; the next new note clears at capacity
+    # and starts over instead of growing without bound.
+    assert not _should_report(("test", "0"))
+    assert _should_report(("test", "over-capacity"))
+    assert _refused_captions == {("test", "over-capacity")}
+    _refused_captions.clear()
+
+
 def test_a_warning_points_at_the_calling_cell():
     # The declaration is written in the user's own cell, so the warning has to
     # name that file: a warning pointing inside the library is not actionable
