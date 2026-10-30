@@ -122,11 +122,13 @@ def _caller_stacklevel() -> int:
 def _warn_foliplus(note: str, message: str) -> None:
     """Report one unusable foliplus={...} declaration at the line that wrote it.
 
-    De-duplicated through the same process-wide log filter as the refused
-    captions (see _should_report below): the note carries the layer name and
-    the defect, so one typo on three layers prints three attributable warnings
-    and re-rendering the same page stays quiet. Never raises: a typo in the
-    declaration namespace is a warning, not a page failure.
+    De-duplicated through the same process-wide log-filter mechanism as the
+    refused captions, but its own family store (see _should_report below and
+    the _foliplus_reports / _refused_captions split): the note carries the
+    layer name and the defect, so one typo on three layers prints three
+    attributable warnings and re-rendering the same page stays quiet. Never
+    raises: a typo in the declaration namespace is a warning, not a page
+    failure.
     """
     if not _should_report(("foliplus", note), _foliplus_reports):
         return
@@ -887,23 +889,34 @@ class LayerControl(BaseControl):
        :header-rows: 1
 
        * - Key
-         - Default
+         - Required
          - Meaning
        * - ``min``
-         - the map's minimum zoom
-         - lowest zoom at which the layer is visible (inclusive)
+         - yes
+         - lowest zoom at which the layer is visible (inclusive); must be
+           an integer
        * - ``max``
-         - the map's maximum zoom
-         - highest zoom at which the layer is visible (inclusive)
+         - yes
+         - highest zoom at which the layer is visible (inclusive); must be
+           an integer
+
+    Both keys are required and must be integers (``min <= max``); a
+    declaration missing one, or with a non-integer end, is rejected whole
+    — there is no "omit to take the map's range" form, so a one-sided or
+    malformed declaration warns and is ignored rather than silently
+    meaning something the author never wrote.
 
     Precedence matches the label and fill declarations: the user's choice in
     the style panel wins, then the declaration, then the map's own range. A
-    declaration that cannot intersect the map's zoom levels (author [20, 30]
-    on a map capped at 18) is not a reason to hide the layer: the policy
-    treats it as undeclared and warns once, and the panel's row is disabled
-    with a hint instead of offering a collapsed value a drag would persist.
-    An invalid declaration only warns and falls back; it never hides the
-    layer on a payload the author never saw validated.
+    stored user range always takes precedence — when the user has set one,
+    the row is never disabled even if the declaration cannot meet the map,
+    because the stored range is what the layer shows now. A declaration that
+    cannot intersect the map's zoom levels (author [20, 30] on a map capped
+    at 18) is not a reason to hide the layer: the policy treats it as
+    undeclared and warns once, and the panel's row is disabled with a hint
+    instead of offering a collapsed value a drag would persist. An invalid
+    declaration only warns and falls back; it never hides the layer on a
+    payload the author never saw validated.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

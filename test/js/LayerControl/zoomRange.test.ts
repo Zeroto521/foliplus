@@ -204,6 +204,32 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     expect(schedule).toHaveBeenCalled();
   });
 
+  it("the explicit {min,max} write refuses a collapsed declaration, same as the live pass", () => {
+    // P3-1: the {min,max} branch of the write descriptor has no production
+    // caller (commitZoomRange passes an empty patch), but it is guarded the
+    // same way as applyZoomRangeLive so a future caller cannot persist a
+    // collapsed declaration by hand. The fixture's layer is overlay1 with no
+    // declaration; give it one that cannot meet the map.
+    const fixture = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayer(),
+          zoom: { min: 20, max: 30 },
+        },
+      ],
+    });
+    trackMembership(fixture.map);
+    const schedule = vi.fn();
+    fixture.ui.c.persistence = { schedule } as never;
+    ZOOM_RANGE_DIMENSION.write!(fixture.ui, "overlay1", { min: 18, max: 18 });
+    expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
+    expect(schedule).not.toHaveBeenCalled();
+    fixture.manager.debouncedEnforce?.cancel?.();
+  });
+
   it("commit marks the live value and persists", () => {
     const schedule = vi.fn();
     ui.c.persistence = { schedule } as never;
@@ -399,9 +425,11 @@ it("disables the row when the declared range cannot meet the map, so a drag neve
   expect(row).toBeTruthy();
   const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
   expect(slider?.classList.contains("is-disabled")).toBe(true);
-  expect(row.getAttribute("aria-description")).toBe(
-    "LayerControl.style_zoom_range_unusable",
-  );
+  // The hint moved from the row's aria-description to a visually-hidden
+  // span the slider names via aria-describedby, so a screen reader hears it.
+  const hint = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_HINT}`);
+  expect(hint?.textContent).toBe("LayerControl.style_zoom_range_unusable");
+  expect(slider?.getAttribute("aria-describedby")).toBe(hint?.id);
 
   // The live pass refuses to write the collapsed value into the store.
   const liveRow = document.createElement("div");

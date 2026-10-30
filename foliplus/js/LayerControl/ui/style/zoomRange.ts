@@ -55,6 +55,30 @@ const sliderOfRow = (row: HTMLElement): Slider | undefined =>
     row.querySelector<HTMLElement>("." + CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL),
   );
 
+/** The row's screen-reader hint span: visually hidden, referenced by the
+ *  slider's aria-describedby so a screen reader names the disable reason.
+ *  Created on first sync (id = layerId), kept for the row's lifetime so the
+ *  id is stable across a usable/unusable flip. Visually hidden (not
+ *  display:none) so a screen reader still announces it.
+ *
+ *  A per-layer id (not a global counter) keeps the span findable without
+ *  re-reading a counter: the row is one per layer, so the id is unique in
+ *  the DOM. */
+const zoomRowHintOf = (row: HTMLElement, layerId: string): HTMLElement => {
+  const id = `foliplus-zoom-range-hint-${layerId}`;
+  let hint = row.querySelector<HTMLElement>("#" + id);
+  if (!hint) {
+    hint = dom.el("span", {
+      id,
+      class: CONST.CLASSES.STYLE_ZOOM_RANGE_HINT,
+      style:
+        "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;",
+    });
+    row.appendChild(hint);
+  }
+  return hint;
+};
+
 /** The row's [min, max] endpoints.
  *
  *  Three sources in priority order: the user's stored range (clamped to the
@@ -114,6 +138,10 @@ const syncZoomRangeRow = (
   const unusable = zoomRowUnusable(ui, layerInfo);
 
   const slider = sliderOfRow(row);
+  // The hint span lives on the row (visually hidden) and is referenced by the
+  // slider via aria-describedby, so a screen reader names the disable reason
+  // while the row itself stays out of the tab order.
+  const hint = zoomRowHintOf(row, layerId);
   if (slider) {
     slider.setDisabled(unusable);
     slider.setValue([min, max], { silent: true });
@@ -134,14 +162,16 @@ const syncZoomRangeRow = (
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
   if (unusable) {
     // The declaration cannot meet the map; the row is a read-only statement.
-    const hint = ui.T("style_zoom_range_unusable");
-    row.title = hint;
-    row.setAttribute("aria-description", hint);
+    const text = ui.T("style_zoom_range_unusable");
+    row.title = text;
+    hint.textContent = text;
+    slider?.setDescribedBy(hint.id);
   } else {
     row.title = outOfRange
       ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
       : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
-    row.removeAttribute("aria-description");
+    hint.textContent = "";
+    slider?.setDescribedBy(undefined);
   }
 };
 
@@ -281,11 +311,22 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   },
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
-   *  live preview (mark current intent); {min,max} writes then marks. */
+   *  live preview (mark current intent); {min,max} writes then marks.
+   *
+   *  The {min,max} branch has no production caller — `commitZoomRange`
+   *  (`applyZoomRangeLive` + this descriptor) is the only live path and passes
+   *  an empty patch, so a range can only enter the store through the live
+   *  preview that already ran the zoomRowUnusable guard. The explicit branch
+   *  is exercised by tests directly; keep it guarded too so a future caller
+   *  cannot persist a collapsed declaration by hand. */
   write: (ui, layerId, patch) => {
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
+      // Same rule as applyZoomRangeLive: a declaration that cannot meet the
+      // map must never be written as the user range (see zoomRowUnusable).
+      const layerInfo = ui.c.layerRegistry.get(layerId);
+      if (layerInfo && zoomRowUnusable(ui, layerInfo)) return;
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
       const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);

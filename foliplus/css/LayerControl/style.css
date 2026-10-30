@@ -48,6 +48,18 @@
       }
     }
   }
+
+  /* Visually-hidden hint span the disabled row's slider describes itself with
+     (aria-describedby). Clipped to 1px so it takes no layout space but stays
+     in the accessibility tree. */
+  .foliplus-zoom-range-hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 /* ── Fill mode block ──────────────────────────────────────────
    The mode row selects the fill arm; its detail rows sit flush underneath,

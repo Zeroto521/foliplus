@@ -218,6 +218,10 @@ const CLASSES = {
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
+  /** Visually-hidden span the slider's aria-describedby names, so a screen
+   *  reader hears the reason a disabled row cannot be edited (the declaration
+   *  cannot meet the map). Visually hidden, not display:none. */
+  STYLE_ZOOM_RANGE_HINT: "foliplus-zoom-range-hint",
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; a row adds only its own hook
      class for behaviour and tests. Geometry, marks and numbers are declared
