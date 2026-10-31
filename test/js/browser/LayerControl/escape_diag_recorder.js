@@ -8,8 +8,14 @@
   rec.console = [];
   const origWarn = console.warn;
   const origError = console.error;
-  console.warn = (...args) => { rec.console.push({ level: "warn", msg: String(args[0]).slice(0,160) }); origWarn(...args); };
-  console.error = (...args) => { rec.console.push({ level: "error", msg: String(args[0]).slice(0,160) }); origError(...args); };
+  console.warn = (...args) => {
+    rec.console.push({ level: "warn", msg: String(args[0]).slice(0, 160) });
+    origWarn(...args);
+  };
+  console.error = (...args) => {
+    rec.console.push({ level: "error", msg: String(args[0]).slice(0, 160) });
+    origError(...args);
+  };
 
   const snap = () => {
     const panel = document.querySelector(".foliplus-layer-style-panel");
@@ -22,19 +28,27 @@
       panelVisible: panel ? panel.getBoundingClientRect().height > 0 : false,
       portalCount: document.querySelectorAll(".foliplus-scheme-picker-portal").length,
       portalVisible: portal ? portal.getBoundingClientRect().height > 0 : false,
-      portalId: portal ? (portal.getAttribute("id") || null) : null,
+      portalId: portal ? portal.getAttribute("id") || null : null,
       portalConnected: portal ? portal.isConnected : false,
       triggerExpanded: trigger ? trigger.getAttribute("aria-expanded") : null,
       triggerControls: trigger ? trigger.getAttribute("aria-controls") : null,
       // count every element that looks like a common/dropdown popup or scheme picker
-      dropdownPopups: document.querySelectorAll(".foliplus-dropdown, .foliplus-scheme-picker-dropdown").length,
-      openTriggers: Array.from(document.querySelectorAll('[aria-expanded="true"]')).map(e => String(e.className).slice(0,60)),
-      schemeTriggers: Array.from(document.querySelectorAll(".foliplus-style-scheme-trigger")).map(e => ({
+      dropdownPopups: document.querySelectorAll(
+        ".foliplus-dropdown, .foliplus-scheme-picker-dropdown",
+      ).length,
+      openTriggers: Array.from(document.querySelectorAll('[aria-expanded="true"]')).map(
+        e => String(e.className).slice(0, 60),
+      ),
+      schemeTriggers: Array.from(
+        document.querySelectorAll(".foliplus-style-scheme-trigger"),
+      ).map(e => ({
         expanded: e.getAttribute("aria-expanded"),
         controls: e.getAttribute("aria-controls"),
-        cls: String(e.className).slice(0,50),
+        cls: String(e.className).slice(0, 50),
       })),
-      schemePortals: Array.from(document.querySelectorAll(".foliplus-scheme-picker-portal")).map(e => ({
+      schemePortals: Array.from(
+        document.querySelectorAll(".foliplus-scheme-picker-portal"),
+      ).map(e => ({
         id: e.getAttribute("id"),
         connected: e.isConnected,
         rect: e.getBoundingClientRect().height,
@@ -47,7 +61,7 @@
 
   rec.before = snap();
 
-  const onKey = (phase) => (e) => {
+  const onKey = phase => e => {
     rec.events.push({
       phase,
       key: e.key,
@@ -62,19 +76,42 @@
   window.addEventListener("keydown", onKey("window-bubble"), false);
   document.addEventListener("keydown", onKey("document-bubble"), false);
 
-  const mo = new MutationObserver((muts) => {
+  const mo = new MutationObserver(muts => {
     for (const m of muts) {
       const target = m.target;
-      const label = target && target.className ? String(target.className) : (target && target.tagName ? String(target.tagName) : "?");
+      const label =
+        target && target.className
+          ? String(target.className)
+          : target && target.tagName
+            ? String(target.tagName)
+            : "?";
       if (m.type === "childList") {
-        rec.mutations.push({ type: "childList", added: m.addedNodes.length, removed: m.removedNodes.length, target: label, t: performance.now() });
+        rec.mutations.push({
+          type: "childList",
+          added: m.addedNodes.length,
+          removed: m.removedNodes.length,
+          target: label,
+          t: performance.now(),
+        });
       } else if (m.type === "attributes") {
-        rec.mutations.push({ type: "attributes", attr: m.attributeName, target: label, old: m.oldValue, t: performance.now() });
+        rec.mutations.push({
+          type: "attributes",
+          attr: m.attributeName,
+          target: label,
+          old: m.oldValue,
+          t: performance.now(),
+        });
       }
     }
   });
   const panel = document.querySelector(".foliplus-layer-style-panel");
-  if (panel) mo.observe(panel, { childList: true, subtree: true, attributes: true, attributeOldValue: true });
+  if (panel)
+    mo.observe(panel, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+    });
   mo.observe(document.body, { childList: true, subtree: false });
 
   return rec.before;
