@@ -49,6 +49,71 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
   return keys;
 };
 
+/** Whether a property value can drive a categorical classification.
+ *
+ *  A category is a non-empty string. Numeric IDs (a column of numbers that
+ *  merely labels rows) are deliberately NOT categories: a "category" must be
+ *  a name the reader can tell apart, and a number column is a numeric
+ *  classification's input even when the user wants to color by it. The
+ *  value-based fill therefore never offers a number column to the category
+ *  arm — it is already the numeric arm's input. */
+const isCategoryValue = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0;
+
+/** Collect distinct categorical property keys across a layer's leaves, in
+ *  first-seen order. A field is offered only if at least one leaf carries a
+ *  non-empty string under it (the same "type upgrade" rule
+ *  `numericPropertiesKeys` uses for numbers). Fields whose values are all
+ *  numbers / null / empty strings are excluded — a number ID column is a
+ *  numeric field, not a category. */
+const categoricalPropertiesKeys = (layer: L.Layer): string[] => {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  walkLeaf(layer, leaf => {
+    const props = leafProperties(leaf);
+    if (!props) return;
+    for (const [name, value] of Object.entries(props)) {
+      if (seen.has(name)) continue;
+      if (!isCategoryValue(value)) continue;
+      seen.add(name);
+      keys.push(name);
+    }
+  });
+  return keys;
+};
+
+/** The distinct string values a categorical field takes across a layer, in
+ *  first-seen order, with the empty string dropped and non-string values
+ *  ignored (a mixed column contributes only its strings — a numeric ID value
+ *  in a text column is not a category label).
+ *
+ *  `cap` bounds the returned domain. When the layer carries more distinct
+ *  values than the cap, the result is truncated at `cap` and `overflow` is
+ *  true, so the caller can paint an "other" bucket instead of silently
+ *  dropping labels the user might expect to see. A cap of 0 is "no limit". */
+const categoryDomain = (
+  layer: L.Layer,
+  field: string,
+  cap = 0,
+): { values: string[]; overflow: boolean } => {
+  const values: string[] = [];
+  const seen = new Set<string>();
+  let overflow = false;
+  walkLeaf(layer, leaf => {
+    const props = leafProperties(leaf);
+    if (!props) return;
+    const value = props[field];
+    if (!isCategoryValue(value)) return;
+    if (seen.has(value)) return;
+    if (cap > 0 && values.length >= cap) {
+      overflow = true;
+      return;
+    }
+    seen.add(value);
+    values.push(value);
+  });
+  return { values, overflow };
+};
 /** Resolve a stored field name against the numeric fields a layer currently
  *  offers: the stored name wins when it is still present, otherwise the first
  *  offered field. The fill ramp paints with this rule; the heatmap's
@@ -59,4 +124,11 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
 const resolveField = (stored: string, fields: readonly string[]): string =>
   stored && fields.includes(stored) ? stored : (fields[0] ?? "");
 
-export { isNumericValue, numericPropertiesKeys, resolveField };
+export {
+  categoricalPropertiesKeys,
+  categoryDomain,
+  isCategoryValue,
+  isNumericValue,
+  numericPropertiesKeys,
+  resolveField,
+};
