@@ -447,9 +447,9 @@ const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement
   );
 
 /** The original-colors arm's read-only detail: the author's column, their
- *  colors and their count — three rows on the same label/control grid the
- *  by-value arm uses, so the readout lands on the column edge of the control
- *  it replaces instead of spilling across the panel.
+ *  colors, and the method + class-count pair on the same label/control grid
+ *  the by-value arm uses, so each readout lands on the column edge of the
+ *  control it replaces instead of spilling across the panel.
  *
  *  No select, no chevron and nothing clickable: these exist to classify data,
  *  and this arm is the author's presentation, not a user classification.
@@ -457,8 +457,7 @@ const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement
  *  2-9 class vocabulary and collapsed it to 9 on the first write.
  *
  *  The caption the row used to print on a line of its own is now the colors
- *  box's title and accessible name: the panel stays three rows tall and the
- *  sentence is still reachable. */
+ *  box's title and accessible name: the sentence is still reachable. */
 const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authorFill(ui, layerId);
   const rows: HTMLElement[] = [];
@@ -501,23 +500,61 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // ignored). The colors are information, not a control.
   colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
+
+  // Row order matches the by-value arm: Field, Method, Scheme. The method and
+  // class count share one row (the by-value rampForm classes row's shape): a
+  // single style_method label with two read-only boxes side by side, the method
+  // box filling the control column (the by-value method select's role) and the
+  // count box taking the compact secondary width (the class-count select's
+  // role), so the two arms read as one grid.
+  //
+  // The method readout is honest to the record. A continuous scale is a
+  // LinearColormap — the default explore mapping, an equally spaced interval
+  // ramp — and states Equal Interval. A stepped scale (the author passed a
+  // scheme whose breaks the classification chose) has no recorded method here,
+  // so the readout states a dash rather than guessing; a categorical layer (no
+  // paired scale) uses the same dash. The row always renders so the arm stays
+  // aligned with the by-value grid.
+  // The two readouts stay distinguishable to assistive tech the way the
+  // by-value selects do (the classes row keeps its own aria-labels): the
+  // method box is named by the method label, the count box by the class-count
+  // label. Both are readouts, never controls — the aria-label describes the
+  // value, not an action.
+  const methodBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
+    ),
+  );
+  // A bare div is a generic role: Chromium does expose the aria-label on it,
+  // but that is not guaranteed across AT/browsers (and "text" is not an ARIA
+  // role at all — it is a Safari/WebKit-ism). A standard namable role makes
+  // the name stable, so these readout groups take role="group" the way the
+  // colors box takes role="img".
+  methodBox.setAttribute("role", "group");
+  methodBox.setAttribute("aria-label", ui.T("style_method"));
+  const countBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      originalCount(author),
+    ),
+  );
+  countBox.setAttribute("role", "group");
+  countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
-    formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
+    formRow(
+      ui.T("style_method"),
+      inlineControls(methodBox, countBox),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
   );
 
   rows.push(
-    formRow(
-      ui.T("style_fill_classes"),
-      readOnlyBox(
-        CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
-        dom.el(
-          "span",
-          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-          originalCount(author),
-        ),
-      ),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    ),
+    formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
   );
   return rows;
 };

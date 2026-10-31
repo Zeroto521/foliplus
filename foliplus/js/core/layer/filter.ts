@@ -57,13 +57,13 @@ type LayerFilter = FilterExpr | undefined;
  *  array keeps a multi-dimension UI a new renderer rather than a model
  *  migration.
  *
- *  A `range` dimension renders two rows: the field row — `fieldLabel`
+ *  A `range` dimension renders up to two rows: the field row — `fieldLabel`
  *  ("Field") over the read-only field name — and the condition row, where
- *  `label` names the control ("Range"). `fieldLabel` is required and never
- *  degrades to `field`: a raw field name in the caption column is the bug
- *  this contract exists to prevent (#779 review), and an owner that cannot
- *  localize the caption has not wired the panel, which should be a test
- *  failure rather than a silent half-rendered row. */
+ *  `label` names the control ("Range"). The owner always passes a
+ *  `fieldLabel` (the Heatmap shows the aggregation field `field=` chose as a
+ *  read-only row, so the filter reads unambiguously). It must be a localized
+ *  caption and never degrades to `field`: a raw field name in the caption
+ *  column is the bug this contract exists to prevent (#779 review). */
 type FilterRangeDimension = {
   readonly kind: "range";
   readonly field: string;
@@ -394,10 +394,10 @@ const buildFilterModel = (
       {
         kind: "range",
         field,
-        // Two captions, two rows: the field row names the dimension's field
-        // and the condition row names the control. Neither falls back to the
-        // raw field name — the panel would then print it as the caption and
-        // leave the read-only cell empty, which is the defect this shape
+        // The field row names the dimension's field; the condition row names
+        // the control. fieldLabel is a localized caption that never falls back
+        // to the raw field name — the panel would then print it as the caption
+        // and leave the read-only cell empty, which is the defect this shape
         // replaces.
         fieldLabel,
         label,
