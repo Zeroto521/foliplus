@@ -76,15 +76,7 @@ def _zoom_to(page, zoom: int) -> None:
     page.evaluate("(z) => window.map.setZoom(z)", zoom)
     page.wait_for_function("(z) => window.map.getZoom() === z", arg=zoom, timeout=5000)
     page.wait_for_function(
-        """() => {
-          const api = window.map.foliplus && window.map.foliplus.LayerAPI;
-          const li = api && api.layers.find(l => l.name === "Declared");
-          if (!li || !li.layer) return false;
-          const z = window.map.getZoom();
-          const inRange = z >= 8 && z <= 12;
-          return window.map.hasLayer(li.layer) === inRange;
-        }""",
-        timeout=5000,
+        _js("LayerControl/wait_declared_zoom_membership"), timeout=5000
     )
 
 

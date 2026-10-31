@@ -746,45 +746,41 @@ class LayerControl(BaseControl):
       reloads.
     - 🏷️ Per-layer text labels via ``foliplus={"label": {"field": ...}}`` on
       the layer itself.
-    - ⌨️ Keyboard navigation across rows and panels (see Shortcuts below).
+    - ⌨️ Keyboard navigation across rows and panels (see the shortcuts table
+      below).
     - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
-    Shortcuts
-    ---------
+    .. rubric:: Shortcuts
+
     Focus a layer row by clicking it, then use:
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Action
-       * - ArrowUp
-         - Move focus to previous layer
-       * - ArrowDown
-         - Move focus to next layer
-       * - ArrowLeft
-         - Toggle visibility of focused layer (deselect)
-       * - ArrowRight
-         - Toggle visibility of focused layer (select)
-       * - Space
-         - Toggle visibility of focused layer
-       * - Enter
-         - Toggle visibility of focused layer
-       * - Ctrl+Up
-         - Move focused layer one position up
-       * - Ctrl+Down
-         - Move focused layer one position down
-       * - Escape
-         - Close the open rename, menu, attributes, filter, or style panel;
-           otherwise cancel focus and clear the keyboard cursor
-       * - Double-click row
-         - Zoom the map to that layer's extent (dashed rect). Hidden layers
-           show a hint instead. Also from the ⋮ menu or Alt+Enter.
-       * - Alt+Enter
-         - Zoom to the focused layer (same as double-click)
-       * - ⋮ menu
-         - Enter or Space activates the focused item, Tab moves between items,
-           Escape closes the menu
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Key              | Action                                                                                                                   |
+    +==================+==========================================================================================================================+
+    | ArrowUp          | Move focus to previous layer                                                                                             |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowDown        | Move focus to next layer                                                                                                 |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowLeft        | Toggle visibility of focused layer (deselect)                                                                            |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowRight       | Toggle visibility of focused layer (select)                                                                              |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Space            | Toggle visibility of focused layer                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Enter            | Toggle visibility of focused layer                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Ctrl+Up          | Move focused layer one position up                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Ctrl+Down        | Move focused layer one position down                                                                                     |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Escape           | Close the open rename, menu, attributes, filter, or style panel; otherwise cancel focus and clear the keyboard cursor    |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Double-click row | Zoom the map to that layer's extent (dashed rect). Hidden layers show a hint instead. Also from the ⋮ menu or Alt+Enter. |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Alt+Enter        | Zoom to the focused layer (same as double-click)                                                                         |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ⋮ menu           | Enter or Space activates the focused item, Tab moves between items, Escape closes the menu                               |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
@@ -792,146 +788,131 @@ class LayerControl(BaseControl):
     on click or keyboard focus. Their ⋮ "Focus layer" item is disabled
     (not-allowed cursor) — toggle visibility from the checkbox as usual.
 
-    Parameters
-    ----------
-    position : str, default "topleft"
-        One of "topleft", "topright", "bottomleft", "bottomright".
+    Args:
+        position (str, default "topleft"): one of "topleft", "topright",
+            "bottomleft", "bottomright".
+        label_collide (bool, default True): page-wide default for the per-layer
+            "avoid overlap" setting: when enabled, a layer's own labels thin
+            themselves out where they overlap. Labels from *different* layers
+            never avoid each other — the layers are stacked, so an upper layer
+            simply covers the lower one's. The style panel overrides this per
+            layer.
+        collapse_on_outside (bool, default False): whether a press outside the
+            panel collapses it. Off by default: the panel is a working surface
+            read at the same time as the map, and the map's busiest gesture is
+            drag-pan / click-select. The header close button collapses it
+            explicitly either way.
+        locale (str or LocaleConfig, optional): language code ("en", "zh") or a
+            LocaleConfig instance. Defaults to auto-detection, falling back to
+            English.
 
-    label_collide : bool, default True
-        Page-wide default for the per-layer "avoid overlap" setting: when
-        enabled, a layer's own labels thin themselves out where they overlap.
-        Labels from *different* layers never avoid each other — the layers are
-        stacked, so an upper layer simply covers the lower one's. The style
-        panel overrides this per layer.
+    Examples:
+        >>> import folium
+        >>> from foliplus import LayerControl
+        >>> m = folium.Map()
+        >>> LayerControl().add_to(m)
 
-    collapse_on_outside : bool, default False
-        Whether a press outside the panel collapses it. Off by default: the
-        panel is a working surface read at the same time as the map, and the
-        map's busiest gesture is drag-pan / click-select. The header close
-        button collapses it explicitly either way.
+        A layer may declare its own defaults on the layer itself, under the
+        ``foliplus=`` namespace. LayerControl reads them from
+        ``layer.options["foliplus"]``, so both ``explore`` and ``GeoJson``
+        carry a declaration the same way:
 
-    locale : str or LocaleConfig, optional
-        Language code ("en", "zh") or a LocaleConfig instance.
-        Defaults to auto-detection, falling back to English.
+        >>> import geopandas as gpd
+        >>> gdf = gpd.read_file("boundaries.geojson")
+        >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
 
-    Examples
-    --------
-    >>> import folium
-    >>> from foliplus import LayerControl
-    >>> m = folium.Map()
-    >>> LayerControl().add_to(m)
+        >>> folium.GeoJson(
+        ...     gdf,
+        ...     foliplus={"zoom": {"min": 8, "max": 12}},
+        ... ).add_to(m)
 
-    Notes
-    -----
-    A layer may declare its own label defaults on the layer itself:
+    Notes:
+        A layer may declare its label defaults under the ``label`` key:
 
-    >>> gdf.explore(
-    ...     foliplus={"label": {"field": "name", "collide": False}}
-    ... )
+        >>> gdf.explore(
+        ...     foliplus={"label": {"field": "name", "collide": False}}
+        ... )
 
-    .. list-table::
-       :header-rows: 1
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | Key         | Default                             | Meaning                                                      |
+    +=============+=====================================+==============================================================+
+    | ``field``   | labels stay off                     | the feature property to label; declaring it turns labels on  |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``format``  | ``auto``                            | number format (``auto`` / ``int`` / ``comma`` / ``percent``) |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``color``   | ``#ffffff``                         | label color; hex only, ``#rgb`` is normalised to ``#rrggbb`` |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``size``    | ``11`` px                           | label font size in px, clamped to the panel's 6-32 range     |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``collide`` | page-level ``label_collide``        | whether this layer's labels take part in overlap avoidance   |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
 
-       * - Key
-         - Default
-         - Meaning
-       * - ``field``
-         - labels stay off
-         - the feature property to label; declaring it turns labels on
-       * - ``format``
-         - ``auto``
-         - number format (``auto`` / ``int`` / ``comma`` / ``percent``)
-       * - ``color``
-         - ``#ffffff``
-         - label color; hex only, ``#rgb`` is normalised to ``#rrggbb``
-       * - ``size``
-         - ``11`` px
-         - label font size in px, clamped to the panel's 6-32 range
-       * - ``collide``
-         - page-level ``label_collide``
-         - whether this layer's labels take part in overlap avoidance
-       * - ``show``
-         - ``True`` once ``field`` is declared
-         - explicit on/off, so a field can be named without drawing
+        Keys stay short because the declaration's own namespace already says
+        label; the ``label_`` prefix belongs to the flat surfaces (Python
+        kwargs, CONF, locale). A declaration is the layer's default: a later
+        choice in the style panel is the user's intent and wins, and Reset
+        shows the declaration through again.
 
-    Keys stay short because the declaration's own namespace already says
-    label; the ``label_`` prefix belongs to the flat surfaces (Python
-    kwargs, CONF, locale). A declaration is the author's default: a later
-    choice in the style panel is the user's intent and wins, and Reset
-    shows the declaration through again.
+        A layer may declare its fill on the same per-layer namespace, under
+        the ``fill`` key:
 
-    A layer may declare its own fill on the same per-layer namespace, under
-    the ``fill`` key:
+        >>> gdf.explore(
+        ...     foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}}
+        ... )
 
-    >>> gdf.explore(
-    ...     foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}}
-    ... )
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | Key              | Default                                                       | Meaning                                                                  |
+    +==================+===============================================================+==========================================================================+
+    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill arm: one color (``solid``) or color by value (``ramp``)             |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.method``  | ``jenks``                                                     | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``) |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.classes`` | ``6``                                                         | number of classes, any integer ``>= 2`` (``12`` is a common example)     |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
 
-    .. list-table::
-       :header-rows: 1
+        Precedence matches the label declaration: the user's choice in the
+        style panel wins, then the declaration, then the layer's per-feature
+        paint (``explore``'s baked colors) and finally the built-in default.
+        Reset returns to the declared ramp. An invalid declaration only warns
+        and falls back; it is dropped rather than painted.
 
-       * - Key
-         - Default
-         - Meaning
-       * - ``mode``
-         - ``ramp`` once ``ramp.field`` is declared, otherwise ``solid``
-         - fill arm: one color (``solid``) or color by value (``ramp``)
-       * - ``ramp.field``
-         - - (declaring it turns the ramp on)
-         - the numeric feature property to classify
-       * - ``ramp.method``
-         - ``jenks``
-         - classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)
-       * - ``ramp.classes``
-         - ``6``
-         - number of classes, any integer ``>= 2`` (``12`` is a common example)
-       * - ``ramp.scheme``
-         - ``Viridis``
-         - palette name (the style panel's own candidates)
+        A layer may declare its own visible zoom range on the same per-layer
+        namespace, under the ``zoom`` key:
 
-    Precedence matches the label declaration: the user's choice in the style
-    panel wins, then the declaration, then the author's per-feature paint
-    (``explore``'s baked colors) and finally the built-in default. Reset
-    returns to the declared ramp. An invalid declaration only warns and falls
-    back; it never paints a ramp the author did not ask for.
+        >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
 
-    A layer may declare its own visible zoom range on the same per-layer
-    namespace, under the ``zoom`` key:
+    +---------+----------+----------------------------------------------------------------------------+
+    | Key     | Required | Meaning                                                                    |
+    +=========+==========+============================================================================+
+    | ``min`` | yes      | lowest zoom at which the layer is visible (inclusive); must be an integer  |
+    +---------+----------+----------------------------------------------------------------------------+
+    | ``max`` | yes      | highest zoom at which the layer is visible (inclusive); must be an integer |
+    +---------+----------+----------------------------------------------------------------------------+
 
-    >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+        Both keys are required and must be integers (``min <= max``); a
+        declaration missing one, or with a non-integer end, is rejected whole
+        — there is no "omit to take the map's range" form, so a one-sided or
+        malformed declaration warns once and is ignored rather than silently
+        meaning something the layer never declared.
 
-    .. list-table:
-       :header-rows: 1
-
-       * - Key
-         - Required
-         - Meaning
-       * - ``min``
-         - yes
-         - lowest zoom at which the layer is visible (inclusive); must be
-           an integer
-       * - ``max``
-         - yes
-         - highest zoom at which the layer is visible (inclusive); must be
-           an integer
-
-    Both keys are required and must be integers (``min <= max``); a
-    declaration missing one, or with a non-integer end, is rejected whole
-    — there is no "omit to take the map's range" form, so a one-sided or
-    malformed declaration warns and is ignored rather than silently
-    meaning something the author never wrote.
-
-    Precedence matches the label and fill declarations: the user's choice in
-    the style panel wins, then the declaration, then the map's own range. A
-    stored user range always takes precedence — when the user has set one,
-    the row is never disabled even if the declaration cannot meet the map,
-    because the stored range is what the layer shows now. A declaration that
-    cannot intersect the map's zoom levels (author [20, 30] on a map capped
-    at 18) is not a reason to hide the layer: the policy treats it as
-    undeclared and warns once, and the panel's row is disabled with a hint
-    instead of offering a collapsed value a drag would persist. An invalid
-    declaration only warns and falls back; it never hides the layer on a
-    payload the author never saw validated.
+        Precedence matches the label and fill declarations: the user's choice
+        in the style panel wins, then the declaration, then the map's own
+        range. A stored user range always takes precedence — when the user has
+        set one, the row is never disabled even if the declaration cannot meet
+        the map, because the stored range is what the layer shows now. A
+        declaration that cannot intersect the map's zoom levels (declared
+        [20, 30] on a map capped at 18) is not a reason to hide the layer: the
+        policy treats it as undeclared and warns once, and the panel's row is
+        disabled (not-allowed cursor) with a reason tooltip and a
+        screen-reader hint instead of offering a collapsed value a drag would
+        persist. An invalid declaration only warns and falls back; it never
+        hides the layer.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
