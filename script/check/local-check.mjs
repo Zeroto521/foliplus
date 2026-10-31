@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * local-checks.mjs — `make check` implementation.
+ * local-check.mjs — `make check` implementation.
  *
  * Runs the locally-reproducible subset of the CI gates on just the changed
  * files, plus the two cheap full-tree guards and the three cheap repo scripts
@@ -20,7 +20,7 @@
  *   8. Python tests         — pytest (non-browser) on dirs matching changed
  *      files, plus test/python/test_locale.py; build-js-dev runs first when a
  *      .py file changed
- *   9. repo scripts         — changelog_check --skip-exists, mojibake_check
+ *   9. repo scripts         — changelog_check --skip-exists, mojibake_check --all
  *      (full tree, batched), dead_barrel_export
  *
  * The diff base is merge-base(origin/main, HEAD) after a best-effort
@@ -28,7 +28,7 @@
  * origin/main ref is used and the actual base sha is printed). Working-tree
  * unstaged and staged changes are included. The pure mapping helpers are
  * exported so the path-mapping rules are unit-tested
- * (test/js/script/check/local-checks.test.ts).
+ * (test/js/script/check/local-check.test.ts).
  *
  * Windows note: the vitest shim (.foliplus/vite-spawn-patch.mjs) is mandatory
  * for every jsdom test run — without it Playwright/Vitest spawn fails with
@@ -350,7 +350,7 @@ const main = () => {
   );
   gate(
     "mojibake_check (full tree)",
-    "node script/check/mojibake-all.mjs",
+    "python script/check/mojibake_check.py --all",
     "a U+FFFD replacement char slipped in (encoding round-trip) — restore the original char",
   );
   gate(

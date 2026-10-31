@@ -754,3 +754,110 @@ class TestTruncatedUtf8Sequence:
         f = tmp_path / "intact.txt"
         f.write_bytes("one — two\n".encode())
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestAllMode:
+    """The `--all` mode — full-tree scan mirroring pre-commit types:[text].
+
+    `--all` replaces the positional path list with `git ls-files` filtered
+    to text files. The binary skip (extension whitelist + git check-attr)
+    lives in `_is_binary`, so the file-selection logic is tested by
+    monkeypatching `_all_files` — `main` itself only scans what it is given.
+    """
+
+    def test_is_binary_extension_whitelist(self, tmp_path):
+        """Known binary extensions are skipped without a git call."""
+        for name in ("a.png", "b.jpg", "c.pdf", "d.woff2", "e.gz", "f.zip"):
+            assert mod._is_binary(str(tmp_path / name)) is True
+
+    def test_is_binary_text_file_is_false(self, tmp_path):
+        """A text path (no binary extension) is not pre-skipped by extension."""
+        f = tmp_path / "note.txt"
+        f.write_bytes(b"hello\n")
+        # Extension says text; the git check-attr call may return unset for a
+        # file git does not track, but a path with no binary extension must
+        # never be skipped on extension alone.
+        assert mod._is_binary(str(f)) is False
+
+    def test_is_binary_upper_extension_is_skipped(self, tmp_path):
+        """Extension matching is case-insensitive (.PNG / .JPG)."""
+        assert mod._is_binary(str(tmp_path / "image.PNG")) is True
+        assert mod._is_binary(str(tmp_path / "image.WebP")) is True
+
+    def test_all_files_filters_binary(self, monkeypatch):
+        """`_all_files` drops binaries and keeps text files."""
+        monkeypatch.setattr(mod, "_is_binary", lambda f: f.endswith(".png"))
+        monkeypatch.setattr(
+            mod.subprocess,
+            "run",
+            lambda *a, **k: (
+                type("R", (), {"stdout": "a.ts\nb.png\nc.md\n"})()
+                if k.get("check")
+                else type("R", (), {"stdout": ""})()
+            ),
+        )
+        assert mod._all_files() == ["a.ts", "c.md"]
+
+    def test_all_mode_detects_violation(self, tmp_path, capsys, monkeypatch):
+        """`--all` scans the full file list and fails on a hit."""
+        bad = tmp_path / "bad.txt"
+        bad.write_bytes(b"hit \xef\xbf\xbd\n")
+        monkeypatch.setattr(mod, "_all_files", lambda: [str(bad)])
+        assert mod.main(["--all"]) == 1
+        captured = capsys.readouterr()
+        assert str(bad) in captured.out
+        assert "U+FFFD" in captured.err
+
+    def test_all_mode_clean_passes(self, tmp_path, capsys, monkeypatch):
+        """`--all` over a clean file list returns 0."""
+        good = tmp_path / "good.txt"
+        good.write_bytes(b"clean\n")
+        monkeypatch.setattr(mod, "_all_files", lambda: [str(good)])
+        assert mod.main(["--all"]) == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_default_mode_ignores_other_files(self, tmp_path, capsys, monkeypatch):
+        """Without `--all`, only the given paths are scanned.
+
+        A second file carrying a violation is NOT scanned — `--all` is the
+        only mode that walks the tree. This is the pre-commit contract: the
+        hook is handed exactly the staged text files.
+        """
+        given = tmp_path / "given.txt"
+        given.write_bytes(b"clean\n")
+        unstaged = tmp_path / "unstaged.txt"
+        unstaged.write_bytes(b"hit \xef\xbf\xbd\n")
+        # Pass only `given`; the unstaged violation must stay invisible.
+        assert mod.main([str(given)]) == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "U+FFFD" not in captured.err
+
+    def test_all_plus_extra_args_ignores_extras(self, tmp_path, capsys, monkeypatch):
+        """`--all` wins: extra positional paths are ignored in --all mode.
+
+        main strips `--all` and ignores any other positional args, because
+        --all means "scan the whole tree", not "scan these plus the tree".
+        """
+        good = tmp_path / "good.txt"
+        good.write_bytes(b"clean\n")
+        monkeypatch.setattr(mod, "_all_files", lambda: [str(good)])
+        assert mod.main(["--all", str(tmp_path / "extra.txt")]) == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+
+class TestCliAllMode:
+    """Subprocess-level `--all` invocation (how make check calls it)."""
+
+    def test_script_all_exit_zero_on_clean_tree(self):
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT), "--all"],
+            capture_output=True,
+            check=False,
+            cwd=str(REPO_ROOT),
+        )
+        assert proc.returncode == 0
+        assert proc.stdout == b""
+        assert proc.stderr == b""

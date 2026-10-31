@@ -61,9 +61,9 @@ lint:
 # tests I touched" workflow misses, without the full suite. The full JS/Python
 # suites, docs build, bundle build + size gates, and browser tests belong to
 # PR CI — this is the pre-push smoke that costs minutes, not tens of minutes.
-# See script/check/local-checks.mjs for the exact gate list and fix hints.
+# See script/check/local-check.mjs for the exact gate list and fix hints.
 check:
-	node script/check/local-checks.mjs
+	node script/check/local-check.mjs
 
 dist: build-js build-python
 

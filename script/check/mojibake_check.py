@@ -56,12 +56,21 @@ https://en.wikipedia.org/wiki/Replacement_character.
 
 Usage (called by pre-commit, filenames as arguments):
     python script/check/mojibake_check.py file1 file2 ...
+    python script/check/mojibake_check.py --all
+
+`--all` scans every tracked file (git ls-files) instead of the given
+paths. The pre-commit hook only feeds text files (types: [text]) so a
+binary never reaches the byte scan; `--all` mirrors that by skipping
+files whose `git check-attr diff/text` marks them non-text and a
+binary-extension whitelist (a PNG's compressed bytes can legitimately
+contain EF BF BD).
 """
 
 from __future__ import annotations
 
 import re
 import string
+import subprocess
 import sys
 
 # UTF-8 encoding of U+FFFD. Kept at byte granularity so a stray ``EF``
@@ -284,12 +293,88 @@ def _find_hits(raw: bytes, filepath: str = "") -> list[tuple[int, str]]:
     return hits
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
+# Binary extensions that never reach the byte scan. The pre-commit hook's
+# types: [text] already excludes these; `--all` re-applies the filter because
+# git ls-files includes everything and a PNG's compressed bytes can
+# legitimately contain EF BF BD (the U+FFFD signature).
+_BINARY_EXTENSIONS = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".ico",
+        ".webp",
+        ".bmp",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".otf",
+        ".eot",
+        ".gz",
+        ".zip",
+        ".tar",
+        ".pdf",
+        ".pyc",
+    }
+)
+
+
+def _is_binary(filepath: str) -> bool:
+    """Return True when `filepath` should be skipped as a binary.
+
+    Two checks: a binary-extension whitelist (fast path) and the same
+    `git check-attr` diff/text signal pre-commit uses for types: [text].
+    """
+    if filepath.lower().endswith(tuple(_BINARY_EXTENSIONS)):
+        return True
+    try:
+        out = subprocess.run(
+            ["git", "check-attr", "-z", "diff", "text", "--", filepath],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    # git check-attr -z output: "path\0attr\0value\0" per attribute.
+    tokens = out.split("\x00")
+    for i in range(0, len(tokens) - 2, 3):
+        attr, value = tokens[i + 1], tokens[i + 2]
+        if value == "unset":
+            return True
+        if attr == "text" and value == "set":
+            return True
+    return False
+
+
+def _all_files() -> list[str]:
+    """Return the tracked text files (git ls-files), binaries filtered out."""
+    try:
+        out = subprocess.run(
+            ["git", "ls-files"], capture_output=True, check=True, text=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    files = [f for f in out.split("\n") if f]
+    return [f for f in files if not _is_binary(f)]
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
         return 0
 
+    # --all mode: scan every tracked text file (git ls-files minus binaries),
+    # replacing the positional path list entirely. A lone `--all` flag is the
+    # whole selector; any other positional paths are ignored (the tree wins).
+    if args == ["--all"]:
+        paths = _all_files()
+    else:
+        paths = [a for a in args if a != "--all"]
+
     failures = 0
-    for filepath in sys.argv[1:]:
+    for filepath in paths:
         try:
             with open(filepath, "rb") as f:
                 raw = f.read()

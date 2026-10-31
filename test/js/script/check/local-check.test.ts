@@ -4,7 +4,7 @@ import {
   mapJsTests,
   mapPyTests,
   vitestCmd,
-} from "#script/check/local-checks.mjs";
+} from "#script/check/local-check.mjs";
 
 // The mapping helpers are pure: they take an injected existence probe, so the
 // path rules can be asserted without touching the real tree.
