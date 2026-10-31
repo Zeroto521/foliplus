@@ -105,7 +105,10 @@ def _range_atom(
         )
     unknown = sorted(str(key) for key in raw if key not in {"min", "max"})
     if unknown:
-        _warn(f"{owner}: filter= has unknown key(s) {unknown}; ignored")
+        _warn(
+            f"{owner}: filter= has unknown key(s) {unknown}; expected only "
+            f"'min' and 'max'; ignored"
+        )
         return None
     if "min" not in raw or "max" not in raw:
         _warn(
