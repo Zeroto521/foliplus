@@ -609,9 +609,15 @@ class TestExportCompositeBrowser:
 
         The marker is a bare ``L.marker`` (no icon option), registered through
         the LayerAPI into a foliplus pane (a bare ``map.addLayer`` marker is
-        not exported). The exported canvas is sampled in an 80x100 window that
-        covers the icon body, and the window must be blue-dominant among
-        non-transparent pixels.
+        not exported). The exported canvas is classified over its FULL area:
+        the background is opaque (the renderer fills the map container's
+        computed background, Leaflet's default #ddd, before any pass draws),
+        so an alpha>0 denominator would count the whole canvas and dilute the
+        icon. The colored denominator (chroma > 40) isolates the icon: the
+        blue marker body and its antialiased blue edge are colored, while the
+        neutral gray background and the neutral gray marker-shadow.png are
+        not. With tiles hidden, the only colored content is the default blue
+        marker icon, so blue/colored is the icon's own blue-dominant share.
         """
         with use_page(_make_page, browser, tmp_path, slug="export_bare_default") as (
             page,
@@ -635,41 +641,28 @@ class TestExportCompositeBrowser:
                 _js("ExportControl/wait_bare_marker_drawn"), timeout=15000
             )
 
-            page.evaluate(
-                _js("ExportControl/set_sample_window_params"),
-                {
-                    "windows": {"marker": state["window"]},
-                    # The default marker-icon.png main color is (46,133,203).
-                    # tol 40 admits the antialiased blue edge; alphaMin 100
-                    # keeps the icon body. (This path is not the primary
-                    # assertion -- the ratio check below is -- but it gives a
-                    # fast-fail hint if the window lands on the wrong spot.)
-                    "color": [46, 133, 203],
-                    "tol": 40,
-                    "alphaMin": 100,
-                },
-            )
             result = page.evaluate(
                 _js("ExportControl/sample_bare_default_window"),
             )
             assert result is not None, "Export canvas not captured"
-            assert result["total"] > 0, (
-                f"Marker window has no opaque pixels in export: {result}"
+            assert result["colored"] > 0, (
+                f"No colored content on export canvas - marker not drawn: {result}"
             )
             # Semantic invariant: the default Leaflet marker is a blue pin
-            # whose body fills well over half its 25x41 bbox. So among the
-            # window's opaque pixels the blue-dominant share must exceed half.
-            # The white outline and the gray background are explicitly NOT
-            # blue-dominant, so a blank canvas, a wrong-color draw, or a
-            # missing icon all fail this threshold. Threshold 0.5 (not a
-            # hand-tuned 0.55) keeps the semantic margin honest while still
-            # requiring the icon body to dominate.
+            # whose body fills well over half its colored bbox. So among the
+            # canvas's colored pixels the blue-dominant share must exceed half.
+            # The white outline, the neutral background, and the gray shadow
+            # are explicitly NOT blue-dominant, so a blank canvas, a
+            # wrong-color draw, or a missing icon all fail this threshold.
+            # Threshold 0.5 (not a hand-tuned 0.55) keeps the semantic margin
+            # honest while still requiring the icon body to dominate. The
+            # absolute blue floor (blue > 50) catches a partial draw that a
+            # ratio alone could mask.
             assert result["blue"] > 50, (
                 f"Default marker blue pixels missing from export: {result}"
             )
             assert result["ratio"] >= 0.5, (
-                f"Marker window not blue-dominant (ratio {result['ratio']:.3f}): "
-                f"{result}"
+                f"Marker not blue-dominant (ratio {result['ratio']:.3f}): {result}"
             )
             assert len(errors) == 0, (
                 f"JS errors on bare-default-marker export: {errors}"
