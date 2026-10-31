@@ -24,6 +24,5 @@
   "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl — please add LayerControl to the map first",
   "HeatmapControl.close_title": "Close",
   "HeatmapControl.meta_source_layer": "Source Layer",
-  "HeatmapControl.meta_agg_field": "Aggregation Field",
-  "HeatmapControl.filter_field": "Field"
+  "HeatmapControl.meta_agg_field": "Aggregation Field"
 }

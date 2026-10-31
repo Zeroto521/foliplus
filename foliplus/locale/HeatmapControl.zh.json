@@ -24,6 +24,5 @@
   "HeatmapControl.no_layercontrol": "HeatmapControl 组件依赖 LayerControl，请先添加 LayerControl 组件",
   "HeatmapControl.close_title": "关闭",
   "HeatmapControl.meta_source_layer": "源图层",
-  "HeatmapControl.meta_agg_field": "聚合字段",
-  "HeatmapControl.filter_field": "字段"
+  "HeatmapControl.meta_agg_field": "聚合字段"
 }
