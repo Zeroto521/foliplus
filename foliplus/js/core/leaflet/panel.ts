@@ -357,11 +357,18 @@ const fitRowPanel = (
 
   const below = bounds.bottom - anchorRect.bottom - gap;
   const above = anchorRect.top - bounds.top - gap;
-  // `scrollHeight` on a max-height-capped element is the *natural* content
-  // height, not the clipped one — reading it here is what lets us compare
-  // against the available strip on both sides. Fall back to the measured card
+  // The card itself is the flex column; its content box is the scroll
+  // container. Read the content's natural height and add back the non-content
+  // chrome (header, padding, border) so a long panel reports the height it
+  // would want, not the cap it currently has. Fall back to the measured card
   // height for a jsdom/unrendered panel whose scrollHeight is zero.
-  const natural = panel.scrollHeight || panel.getBoundingClientRect().height;
+  const cardHeight = panel.getBoundingClientRect().height;
+  const content = panel.querySelector(
+    ":scope > .foliplus-panel-content",
+  ) as HTMLElement | null;
+  const natural = content
+    ? Math.max(cardHeight, cardHeight - content.clientHeight + content.scrollHeight)
+    : panel.scrollHeight || cardHeight;
 
   const flipUp = below < natural && above > below;
   const room = Math.max(0, flipUp ? above : below);

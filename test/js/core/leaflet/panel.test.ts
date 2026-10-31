@@ -882,6 +882,27 @@ describe("pinRowPanel", () => {
     );
   });
 
+  it("reads the natural height from the content's scroll box", () => {
+    // The card is the flex column; `.foliplus-panel-content` is what scrolls.
+    // 300px of visible content over 700px of natural content adds 400px of
+    // unseen rows to the measured card, so the cap must use 800px, not 400px.
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    const content = document.createElement("div");
+    content.className = "foliplus-panel-content";
+    Object.defineProperty(content, "clientHeight", { value: 300 });
+    Object.defineProperty(content, "scrollHeight", { value: 700 });
+    panel.appendChild(content);
+
+    pinRowPanel(panel, row);
+
+    // 588px below the row, 98px above -> stay down and cap to the strip.
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "588px",
+    );
+  });
+
   it("keeps the last placement while the row is hidden (folded role)", () => {
     const { row, panel } = make({ width: 280, height: 200 });
     stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
