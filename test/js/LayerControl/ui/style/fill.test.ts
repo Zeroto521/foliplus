@@ -2934,6 +2934,11 @@ describe("fill row — original colors", () => {
     expect(method!.closest(".foliplus-form-row")).toBe(
       count!.closest(".foliplus-form-row"),
     );
+    // The two readouts stay distinguishable to assistive tech: the method box
+    // is named by the method label, the count box by the class-count label (the
+    // by-value classes row keeps the same split for its two selects).
+    expect(method!.getAttribute("aria-label")).toBe("LayerControl.style_method");
+    expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
       expect(box.getAttribute("aria-disabled")).toBe("true");

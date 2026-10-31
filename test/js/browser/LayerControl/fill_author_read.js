@@ -46,6 +46,8 @@
     column: readout(columnBox),
     count: readout(countBox),
     method: readout(methodBox),
+    methodAria: methodBox ? methodBox.getAttribute("aria-label") : null,
+    countAria: countBox ? countBox.getAttribute("aria-label") : null,
     caption: colors ? colors.title : null,
     // Geometry: the method and count share one row (the by-value classes row's
     // shape). The method readout fills the control column from its left edge,

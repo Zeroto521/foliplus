@@ -515,27 +515,33 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // so the readout states a dash rather than guessing; a categorical layer (no
   // paired scale) uses the same dash. The row always renders so the arm stays
   // aligned with the by-value grid.
+  // The two readouts stay distinguishable to assistive tech the way the
+  // by-value selects do (the classes row keeps its own aria-labels): the
+  // method box is named by the method label, the count box by the class-count
+  // label. Both are readouts, never controls — the aria-label describes the
+  // value, not an action.
+  const methodBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
+    ),
+  );
+  methodBox.setAttribute("aria-label", ui.T("style_method"));
+  const countBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      originalCount(author),
+    ),
+  );
+  countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
     formRow(
       ui.T("style_method"),
-      inlineControls(
-        readOnlyBox(
-          CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
-          dom.el(
-            "span",
-            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-            author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
-          ),
-        ),
-        readOnlyBox(
-          CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
-          dom.el(
-            "span",
-            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-            originalCount(author),
-          ),
-        ),
-      ),
+      inlineControls(methodBox, countBox),
       CONST.CLASSES.STYLE_FILL_ROW,
     ),
   );
