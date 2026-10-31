@@ -80,19 +80,25 @@ def _json_number(value: numbers.Real) -> int | float:
     return float(value)
 
 
-def _range_atom(raw: Mapping[Any, Any], owner: str) -> dict[str, Any] | None:
-    """The numeric arm: {field, between: [low, high]} -> a between atom.
+def _range_atom(
+    raw: Mapping[Any, Any], owner: str, bound_field: str | None
+) -> dict[str, Any] | None:
+    """The numeric arm: {between: [low, high]} -> a between atom on bound_field.
 
-    Endpoints leave here as JSON-native numbers (see ``_json_number``):
-    everything downstream of the AST is serialised, not interpreted.
+    The range is bound to the control's aggregation field (``field=``), never
+    written into the declaration: ``filter`` carries only the range, and the
+    field the runtime filters is the one the heatmap aggregates by. Writing a
+    ``field`` key inside ``filter`` is API misuse (the same information is the
+    ``field=`` argument) and raises ValueError. Endpoints leave here as
+    JSON-native numbers (see ``_json_number``): everything downstream of the
+    AST is serialised, not interpreted.
     """
-    field = raw.get("field")
-    if not isinstance(field, str) or not field.strip():
+    if "field" in raw:
         raise ValueError(
-            f"{owner}: filter= needs a non-empty 'field' naming the numeric "
-            f"field to filter; got {field!r}"
+            f"{owner}: drop 'field' from filter= — the range is bound to the "
+            f"aggregation field (field={bound_field!r})."
         )
-    unknown = sorted(str(key) for key in raw if key not in {"field", "between"})
+    unknown = sorted(str(key) for key in raw if key not in {"between"})
     if unknown:
         _warn(f"{owner}: filter= has unknown key(s) {unknown}; ignored")
         return None
@@ -121,9 +127,14 @@ def _range_atom(raw: Mapping[Any, Any], owner: str) -> dict[str, Any] | None:
     if low > high:
         _warn(f"{owner}: filter['between'] is inverted ({low} > {high}); ignored")
         return None
+    if not bound_field:
+        raise ValueError(
+            f"{owner}: filter= needs the aggregation field it binds to — pass "
+            f"field='<column>' (a value aggregation, not agg='count')."
+        )
     return {
         "kind": "atom",
-        "field": field.strip(),
+        "field": bound_field,
         "op": "between",
         "range": [_json_number(low), _json_number(high)],
     }
@@ -166,29 +177,33 @@ def normalize_declared_filter(
     owner: str,
     arm: FilterArm,
     enum_field: str | None = None,
+    bound_field: str | None = None,
 ) -> dict[str, Any] | None:
     """Normalise one control's filter= declaration into the shared AST.
 
     Two friendly arms, one AST:
 
-    - arm="range": a mapping with field + between -> a numeric range atom
-      (HeatmapControl; the field names the field the panel filters).
+    - arm="range": a mapping with between -> a numeric range atom bound to
+      bound_field (HeatmapControl; the range is bound to the aggregation field
+      field=, never written into the declaration).
     - arm="enum": a list of value names -> an enum atom (MeasureControl; the
       field is enum_field).
 
     Returns None for "not declared" and for "declared but unusable" - both
-    mean the runtime starts unfiltered, never filtered-to-empty. A missing or
-    non-string field is API misuse and raises ValueError: it fails in the
-    author's notebook cell, where the typo is, instead of being buried in a
-    warning among the page output.
+    mean the runtime starts unfiltered, never filtered-to-empty. A ``field``
+    key inside a range declaration is API misuse (the range is bound to the
+    aggregation field) and raises ValueError; a range declaration with no
+    bound field (no field=, or agg="count") also raises ValueError. It fails
+    in the author's notebook cell, where the typo is, instead of being buried
+    in a warning among the page output.
     """
     if raw is None:
         return None
     if arm == "range":
         if isinstance(raw, Mapping):
-            return _range_atom(raw, owner)
+            return _range_atom(raw, owner, bound_field)
         _warn(
-            f"{owner}: filter= must be a mapping with field/between; "
+            f"{owner}: filter= must be a mapping with between; "
             f"got {type(raw).__name__}; ignored"
         )
         return None

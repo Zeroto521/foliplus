@@ -53,8 +53,9 @@ class MeasureControl(BaseControl):
        * - Escape
          - Exit the current measurement mode, or exit edit mode
 
-    Args
-    ----
+    Parameters
+
+    ----------
     position : str, default "bottomright"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
@@ -97,20 +98,8 @@ class MeasureControl(BaseControl):
         cursor on GCJ02 / BD09 tile sets.
 
     filter : list[str], optional
-        Starting filter on the measurement types, as a list of type names::
-
-            MeasureControl(filter=["distance", "polygon"])
-
-        Names are the values the panel's filter row offers (``distance``,
-        ``polygon``, ``circle``, ``marker``). The runtime drops a name it
-        does not know rather than hiding every measurement, and a declaration
-        that keeps no type at all is reported once and ignored.
-
-        This is a starting condition, not user intent: it seeds the filter on
-        the first open, and the user's own filter wins from then on. Clearing
-        the filter row is a user write (the record then exists and says
-        "cleared"), so the declaration does not come back after a reload —
-        unlike ``HeatmapControl``, whose panel Clear is the factory Reset.
+        Starting filter on the measurement types. See Notes for the
+        declaration shape and the runtime's handling of unknown names.
 
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
@@ -134,37 +123,34 @@ class MeasureControl(BaseControl):
 
     Notes
     -----
-    **Filter arms.** The ``filter`` declaration has two shapes, one per control that
-    declares it. The range arm belongs to ``HeatmapControl`` and the enum arm to
-    ``MeasureControl``; each is normalised into the shared filter AST the runtime
-    already reads, so the panel shows exactly one condition row per declaration.
+    **Filter declaration.** ``filter`` is a list of measurement-type names (the
+    range arm, a ``between`` mapping, belongs to ``HeatmapControl``):
 
     .. list-table::
        :header-rows: 1
 
-       * - Arm
-         - Owner
-         - Declaration shape
-       * - Range
-         - ``HeatmapControl``
-         - ``{"field": ..., "between": [lo, hi]}``
-       * - Enum
-         - ``MeasureControl``
-         - ``["distance", "polygon", ...]``
+       * - Item
+         - Type
+         - Required
+         - Meaning
+       * - each element
+         - ``str``
+         - yes
+         - A measurement-type name the panel's filter row offers: ``distance``, ``polygon``, ``circle``, ``marker``.
 
-    **Three rules.**
+    **Situation → behavior.**
 
-    - *API misuse.* A missing or non-string ``field`` raises ``ValueError`` in
-      the cell that wrote the declaration — a declaration that names nothing is
-      a programming error, not a filter state.
-    - *Data shape.* A field the panel does not filter, no numeric extent, a range
-      outside the data, or a non-numeric bound is reported once with a warning and
-      treated as undeclared — the layer is never silently filtered to empty.
-    - *Starting condition.* The declaration seeds the filter on the first open;
-      the user's own filter — including an explicit clear or a persisted record —
-      wins from then on. The panel's Clear is the factory Reset (it drops the saved
-      record, so a reload re-applies the declaration), whereas a user-write Clear
-      keeps the declaration out.
+    .. list-table::
+       :header-rows: 1
+
+       * - Situation
+         - Behavior
+       * - A name the runtime does not know
+         - Dropped (not a filter that hides every measurement)
+       * - A declaration that keeps no type at all
+         - Reported once with a warning; treated as undeclared
+       * - User write, including an explicit clear or a persisted record
+         - Wins from then on; the declaration is a starting condition only
 
     Examples
     --------

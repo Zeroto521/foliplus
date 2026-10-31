@@ -49,8 +49,9 @@ class HeatmapControl(BaseControl):
        * - Escape (dropdown)
          - Close the dropdown without selecting
 
-    Args
-    ----
+    Parameters
+
+    ----------
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
@@ -75,30 +76,9 @@ class HeatmapControl(BaseControl):
         the user switches to a value aggregation.
 
     filter : dict, optional
-        Starting filter on the aggregation field, written as a mapping with
-        ``field`` and ``between``::
-
-            HeatmapControl(
-                field="score", filter={"field": "score", "between": [10, 50]}
-            )
-
-        ``field`` must name the field the panel filters — the same field the
-        heatmap aggregates by (``field`` above), because a hexagon's only
-        filterable dimension is that numeric range. A missing or non-string
-        ``field`` raises ``ValueError`` in the cell that wrote it; a
-        data-shaped problem (a field the panel does not filter, no numeric
-        extent, a range outside the data, a non-numeric bound) is reported once
-        with a warning and leaves the heatmap unfiltered. A range covering the
-        whole extent means "no filter" and is accepted silently.
-
-        This is a starting condition, not user intent: it seeds the filter on
-        the first open (a declared ``layer``, the automatic single-layer
-        selection, a restored source, and a source the user picks by hand), and
-        the user's own filter — including an explicit clear — wins from then
-        on. Note the asymmetry with the panel's Clear button: Clear is the
-        factory Reset, it drops the saved record, so after a reload the
-        declaration applies again. ``MeasureControl``'s filter row Clear is
-        a user write and keeps the declaration out.
+        Starting filter on the aggregation field: a mapping with ``between``
+        (the range is bound to ``field=``). See Notes for the declaration
+        shape and the two failure modes.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
@@ -156,37 +136,36 @@ class HeatmapControl(BaseControl):
 
     Notes
     -----
-    **Filter arms.** The ``filter`` declaration has two shapes, one per control that
-    declares it. The range arm belongs to ``HeatmapControl`` and the enum arm to
-    ``MeasureControl``; each is normalised into the shared filter AST the runtime
-    already reads, so the panel shows exactly one condition row per declaration.
+    **Filter declaration.** ``filter`` is a mapping with one key (the enum arm,
+    a list of measurement types, belongs to ``MeasureControl``):
 
     .. list-table::
        :header-rows: 1
 
-       * - Arm
-         - Owner
-         - Declaration shape
-       * - Range
-         - ``HeatmapControl``
-         - ``{"field": ..., "between": [lo, hi]}``
-       * - Enum
-         - ``MeasureControl``
-         - ``["distance", "polygon", ...]``
+       * - Key
+         - Type
+         - Required
+         - Meaning
+       * - ``between``
+         - ``[number, number]``
+         - yes
+         - Inclusive range on the aggregation field (``field=``).
 
-    **Three rules.**
+    **Situation → behavior.**
 
-    - *API misuse.* A missing or non-string ``field`` raises ``ValueError`` in
-      the cell that wrote the declaration — a declaration that names nothing is
-      a programming error, not a filter state.
-    - *Data shape.* A field the panel does not filter, no numeric extent, a range
-      outside the data, or a non-numeric bound is reported once with a warning and
-      treated as undeclared — the layer is never silently filtered to empty.
-    - *Starting condition.* The declaration seeds the filter on the first open;
-      the user's own filter — including an explicit clear or a persisted record —
-      wins from then on. The panel's Clear is the factory Reset (it drops the saved
-      record, so a reload re-applies the declaration), whereas a user-write Clear
-      keeps the declaration out.
+    .. list-table::
+       :header-rows: 1
+
+       * - Situation
+         - Behavior
+       * - ``field`` key inside ``filter``, or no aggregation field (no ``field=``, or ``agg="count"``)
+         - ``ValueError`` in the cell that wrote the declaration
+       * - Data-shaped problem (no numeric extent, range outside the data, non-numeric bound)
+         - Reported once with a warning; treated as undeclared — never silently filtered to empty
+       * - User write, including an explicit clear or a persisted record
+         - Wins from then on; the declaration is a starting condition only
+       * - Panel Clear (factory Reset)
+         - Drops the saved record, so a reload re-applies the declaration
 
     Examples
     --------
@@ -201,7 +180,7 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl(
-    ...     field="score", filter={"field": "score", "between": [10, 50]}
+    ...     field="score", filter={"between": [10, 50]}
     ... ).add_to(m)
     """
 
@@ -222,7 +201,7 @@ class HeatmapControl(BaseControl):
             str | None,
             FieldSpec(
                 ts="",
-                note="Aggregation field selected on first load; a persisted user selection wins.",
+                note="Aggregation field selected on first load (and the field a declared filter range binds to); a persisted user selection wins.",
             ),
         ] = None,
         filter: Annotated[
@@ -230,8 +209,9 @@ class HeatmapControl(BaseControl):
             FieldSpec(
                 ts="",
                 note=(
-                    "Declared filter on the aggregation field, normalised to the "
-                    "shared filter AST; a persisted user filter wins."
+                    "Declared filter on the aggregation field: a mapping with between "
+                    "(bound to field=), normalised to the shared filter AST; a persisted "
+                    "user filter wins."
                 ),
             ),
         ] = None,
@@ -265,11 +245,15 @@ class HeatmapControl(BaseControl):
         self.agg = agg
         self.field = field
         # The declaration is normalised here, at construction, so CONF carries
-        # the AST the runtime reads (never the friendly shape). A missing
-        # 'field' raises ValueError; a data-shaped problem warns and drops the
+        # the AST the runtime reads (never the friendly shape). A 'field' key
+        # inside the declaration, or a range with no aggregation field to bind
+        # to, raises ValueError; a data-shaped problem warns and drops the
         # declaration instead of filtering to nothing.
         self.filter = normalize_declared_filter(
-            filter, owner="HeatmapControl", arm="range"
+            filter,
+            owner="HeatmapControl",
+            arm="range",
+            bound_field=self.field,
         )
         self.method = method
         self.num_classes = num_classes
