@@ -289,7 +289,9 @@ describe("zoomRange resolved endpoints (rowEndpoints)", () => {
   });
 
   it("collapses a below-map stored range onto the map's floor", () => {
-    setIntent(ui, "overlay1", "zoomRange", [-5, 0]);
+    // Entirely below the floor: after clamping both ends land past each
+    // other (min 0 > max -5), so the band collapses onto the floor.
+    setIntent(ui, "overlay1", "zoomRange", [-10, -5]);
     const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
     expect(value).toEqual({ min: 0, max: 0 });
     clearIntent(ui, "overlay1", "zoomRange");
