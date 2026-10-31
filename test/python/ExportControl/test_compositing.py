@@ -146,6 +146,20 @@ class TestExportCompositeBrowser:
         ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
+            # A render that throws after the background fill leaves an
+            # ordinary-looking all-background canvas behind, and this gate then
+            # reports "label pixels missing" for a failure the product did
+            # report (a visible hint plus this console.error). Keep the
+            # exporter's own errors so the message says which one it was.
+            export_errors = []
+            page.on(
+                "console",
+                lambda m: (
+                    export_errors.append(m.text)
+                    if m.type == "error" and m.text.startswith("[ExportControl]")
+                    else None
+                ),
+            )
 
             state = page.evaluate(_js("ExportControl/annotation_canvas_in_export"))
             assert state is not None and state["canvas"] is True, state
@@ -182,7 +196,8 @@ class TestExportCompositeBrowser:
             result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
-                f"annotation label pixels missing from export: {result}"
+                f"annotation label pixels missing from export: {result}; "
+                f"exporter errors: {export_errors}"
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
