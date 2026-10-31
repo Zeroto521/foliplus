@@ -114,7 +114,7 @@ jobs:
       matrix:
         include:
           - python: "3.11"
-            folium: "0.14.0"
+            folium: "0.15.0"
           - python: "3.15"
             folium: "latest"
     steps:
@@ -209,3 +209,58 @@ jobs:
           report_type: test_results
           files: test-browser.junit.xml
           flags: ${{ job.name }}
+
+  # Informational gate over the browser probe corpus (test/js/browser).
+  # The `browser` job above runs the probes a Python test references; this job
+  # validates the corpus itself (parse + reference inventory) and runs a bounded
+  # headless-Chromium smoke. It is NOT a required check: `continue-on-error`
+  # keeps a red run from blocking a PR, and the pass/fail summary lands in the
+  # job summary plus the `browser-probe` artifact.
+  browser-probe:
+    name: browser-probe
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history needed for setuptools_scm to derive __version__ from tags.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-deps
+        with:
+          python-version: "3.15"
+
+      - run: uv sync --group test
+
+      - id: pwver
+        name: Resolve Playwright version
+        run: |
+          version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - run: uv run playwright install chromium
+
+      # Smoke first, inventory last: a corpus gate failure is the job's verdict.
+      - name: Headless Chromium smoke
+        run: >
+          uv run pytest -q -r a --color=yes -m browser
+          test/python/infra/test_browser_probe_smoke.py
+          -o junit_family=legacy --junitxml=browser-probe.junit.xml
+
+      - name: Probe inventory + parse gate
+        run: >
+          node script/check/browser-probe.mjs --strict --github-summary
+          --json browser-probe.json
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-probe
+          path: |
+            browser-probe.json
+            browser-probe.junit.xml
+          if-no-files-found: ignore

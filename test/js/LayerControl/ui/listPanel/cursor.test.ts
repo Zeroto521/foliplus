@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -11,6 +11,7 @@ import {
   getActiveLayerItem,
   getNavigableItems,
   moveActiveMarker,
+  reconcileCursorByIdentity,
   resolveActiveIdx,
   restoreCursor,
   setActiveItem,
@@ -18,7 +19,7 @@ import {
   syncListCursor,
 } from "#foliplus/LayerControl/ui/listPanel/cursor.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { attachWithGroup, findItem, initFixture } from "../fixture.js";
+import { attachWithGroup, attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI cursor (pure cursor primitives)", () => {
   let manager: LayerController;
@@ -33,11 +34,11 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -63,24 +64,24 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const overlay = findItem(ui, "overlay1");
       const base = findItem(ui, "base1");
 
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length).toBe(
-        0,
-      );
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
 
       setActiveItem(ui, indexFor("overlay1"));
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length).toBe(
-        1,
-      );
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(1);
       expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
     });
 
     it("with an out-of-range index clears the cursor", () => {
       setActiveItem(ui, -1);
       expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+      expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
   });
 
@@ -99,9 +100,9 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length).toBe(
-        1,
-      );
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(1);
       expect(ui.listPanel.activeIdx).toBe(indexFor("base1"));
     });
 
@@ -116,7 +117,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       detached.className = CONST.CLASSES.LAYER_ITEM;
       moveActiveMarker(ui, detached, ui.getNavigableItems());
       expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+      expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
   });
 
@@ -130,9 +131,9 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
       blurActiveItem(ui);
 
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length).toBe(
-        0,
-      );
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
       expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
     });
   });
@@ -144,10 +145,23 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
       clearActiveItem(ui);
 
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length).toBe(
-        0,
-      );
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
       expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("blurs a row focus that would otherwise resurrect the cursor", () => {
+      const row = findItem(ui, "overlay1");
+      setActiveItem(ui, indexFor("overlay1"));
+      expect(document.activeElement).toBe(row);
+
+      clearActiveItem(ui);
+
+      // resolveActiveIdx() reads DOM focus; leaving it on the row would turn
+      // the next sync into a re-activation of the cursor just cleared.
+      expect(document.activeElement).not.toBe(row);
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBeNull();
     });
   });
 
@@ -155,7 +169,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
   describe("getNavigableItems", () => {
     it("lists rows by class, so a checkbox-less row is reachable", () => {
-      const colorRow = ui.uiContainer.querySelector(
+      const colorRow = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
 
@@ -170,9 +184,17 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const bareRow = document.createElement("div");
       bareRow.className = CONST.CLASSES.LAYER_ITEM;
       bareRow.setAttribute(CONST.DATA.LAYER_ID, "no-checkbox");
-      ui.uiContainer.appendChild(bareRow);
+      attachedPanel(ui).appendChild(bareRow);
 
       expect(getNavigableItems(ui)).toContain(bareRow);
+    });
+
+    it("returns nothing once the panel is gone", () => {
+      // The roving-cursor reads that follow a teardown must come back empty
+      // rather than dereference the dead panel.
+      const { ui: fresh } = initFixture({});
+      fresh.c.uiContainer = null;
+      expect(getNavigableItems(fresh)).toEqual([]);
     });
   });
 
@@ -201,12 +223,12 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const overlayHeader = items.find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       )!;
       items.forEach(el => {
         if (
           el.classList.contains(CONST.CLASSES.LAYER_ITEM) &&
-          el.getAttribute("data-layer-type") === GROUP.OVERLAY
+          el.getAttribute("data-layer-type") === ROLE.OVERLAY
         ) {
           el.classList.add(CONST.CLASSES.GROUP_FOLDED);
         }
@@ -242,17 +264,17 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   // ─────────────────── cursorRef ───────────────────
 
   describe("cursorRef", () => {
-    it("returns the layer row id when the cursor is on a layer row", () => {
+    it("returns a layer-kind ref when the cursor is on a layer row", () => {
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
     });
 
-    it("returns the group id when the cursor is on a toggle-all row", () => {
-      const toggleRow = ui.uiContainer.querySelector(
-        `[data-group="${GROUP.OVERLAY}"]`,
+    it("returns a group-kind ref when the cursor is on a toggle-all row", () => {
+      const toggleRow = attachedPanel(ui).querySelector(
+        `[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
       setActiveItem(ui, ui.getNavigableItems().indexOf(toggleRow));
-      expect(cursorRef(ui)).toBe(GROUP.OVERLAY);
+      expect(cursorRef(ui)).toEqual({ kind: "role", role: ROLE.OVERLAY });
     });
 
     it("normalizes an out-of-range cursor to null", () => {
@@ -271,16 +293,16 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   describe("restoreCursor", () => {
     it("re-homes a folded group row onto its toggle-all row", () => {
       attachWithGroup(ui);
-      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
-      ui.uiContainer
+      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
+      attachedPanel(ui)
         .querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
         )
         .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
 
-      restoreCursor(ui, "overlay1");
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
 
-      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
       expect(ui.listPanel.activeIdx).toBe(
         ui.getNavigableItems().indexOf(lit as HTMLElement),
@@ -289,9 +311,9 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
     it("clears the cursor when the ref matches no row", () => {
       setActiveItem(ui, 0);
-      restoreCursor(ui, "ghost-layer");
+      restoreCursor(ui, { kind: "layer", id: "ghost-layer" });
       expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+      expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
 
     it("clears the cursor when ref is null", () => {
@@ -303,11 +325,69 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
     it("restores the cursor to the same layer row after a rebuild", () => {
       const ref = cursorRef(ui);
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
       // Simulate rebuild: cursor was saved from an earlier render.
-      restoreCursor(ui, ref ?? "overlay1");
-      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      restoreCursor(ui, ref ?? { kind: "layer", id: "overlay1" });
+      const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.getAttribute(CONST.DATA.LAYER_ID)).toBe("overlay1");
+    });
+
+    it("keys a layer ref by kind, never by bare string", () => {
+      // The kind tag is the collision guard: a layer legitimately named
+      // "overlay" must not resolve to the overlay group header, even though
+      // the header sits ahead of every layer row in the panel.
+      setActiveItem(ui, indexFor("overlay1"));
+      const header = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-role="overlay"]`,
+      ) as HTMLElement;
+      expect(header).not.toBeNull();
+
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.getNavigableItems()[ui.listPanel.activeIdx ?? -1]).not.toBe(header);
+    });
+
+    it("reads a row with neither key as null", () => {
+      // refOf's defensive tail: a navigable-classed element that carries
+      // neither a layer id nor a group carries no identity at all. Stripping
+      // the keys off the focused row drives cursorRef through that branch.
+      const row = findItem(ui, "overlay1");
+      setActiveItem(ui, indexFor("overlay1"));
+      row.removeAttribute(CONST.DATA.LAYER_ID);
+      row.removeAttribute("data-role");
+
+      expect(cursorRef(ui)).toBeNull();
+    });
+  });
+
+  // ─────────────────── reconcileCursorByIdentity ───────────────────
+
+  describe("reconcileCursorByIdentity", () => {
+    it("clears a stale activeIdx when the captured ref is null", () => {
+      syncListCursor(ui);
+      const items = ui.getNavigableItems();
+      // A cursor that outlived its rows: the stored index is past the end,
+      // so cursorRef() normalizes it to null. Re-homing must clear the
+      // ledger instead of clamping that stale index onto the last row.
+      ui.listPanel.activeIdx = items.length + 3;
+      items[items.length - 1].classList.add(CONST.CLASSES.FOCUSED);
+      items[items.length - 1].focus();
+
+      reconcileCursorByIdentity(ui, null);
+
+      expect(ui.listPanel.activeIdx).toBeNull();
+      // The focused row must not keep DOM focus either: resolveActiveIdx()
+      // would read it back on the next navigation and revive the cursor.
+      expect(document.activeElement).not.toBe(items[items.length - 1]);
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBeNull();
+      expect(ui.listPanel.listCursor?.index).toBe(-1);
+      // The roving tab stop falls back to the first row, not the clamped last.
+      expect(items[0].tabIndex).toBe(0);
+      expect(items.filter(el => el.tabIndex === 0)).toHaveLength(1);
+      expect(items[items.length - 1].tabIndex).toBe(-1);
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
     });
   });
 
@@ -371,7 +451,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const cursor = ui.listPanel.listCursor;
       expect(cursor).not.toBeNull();
       // Detach the container; a late timer tick must not touch a detached root.
-      ui.uiContainer.remove();
+      attachedPanel(ui).remove();
       expect(() => syncListCursor(ui)).not.toThrow();
       expect(ui.listPanel.listCursor).toBe(cursor);
     });

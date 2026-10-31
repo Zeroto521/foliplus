@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Z_INDEX } from "#foliplus/core/layer/const.js";
 import {
-  ANNOTATION_Z_OFFSET,
   FOCUS_Z,
+  LABEL_Z_OFFSET,
   focusLayerZ,
   topSlotZ,
   zFor,
@@ -24,10 +24,10 @@ describe("zFor slots", () => {
   });
 
   it("prices base-group layers from the tile base", () => {
-    expect(zFor({ index: 0, count: 2, group: "base" })).toBe(
+    expect(zFor({ index: 0, count: 2, role: "base" })).toBe(
       Z_INDEX.TILE_BASE + 2 * Z_INDEX.STEP,
     );
-    expect(zFor({ index: 1, count: 2, group: "base" })).toBe(
+    expect(zFor({ index: 1, count: 2, role: "base" })).toBe(
       Z_INDEX.TILE_BASE + Z_INDEX.STEP,
     );
   });
@@ -39,10 +39,22 @@ describe("zFor slots", () => {
   });
 
   it("prices an annotation pane one step above its layer, not at its own order", () => {
-    expect(ANNOTATION_Z_OFFSET).toBe(1);
+    expect(LABEL_Z_OFFSET).toBe(1);
     const slot = zFor({ index: 1, count: 3 });
-    expect(zFor({ index: 1, count: 3, role: "annotation" })).toBe(slot + 1);
-    expect(zFor({ index: 1, count: 3, role: "annotation", order: 4 })).toBe(slot + 1);
+    expect(zFor({ index: 1, count: 3, paneRole: "label" })).toBe(slot + 1);
+    expect(zFor({ index: 1, count: 3, paneRole: "label", order: 4 })).toBe(slot + 1);
+  });
+
+  it("prices a shadow pane one step below its layer, ignoring its order", () => {
+    // The marker-shadow pane must paint under its icon by pane ladder, not
+    // DOM order: Leaflet writes `pos.y + zIndexOffset` onto icons, which goes
+    // negative near the viewport top — where a negative-z positioned element
+    // paints BELOW a z:auto sibling. One step down keeps it under its own
+    // icons and above the next layer's slot (STEP = 10). Like annotation,
+    // the role decides; `order` is ignored.
+    const slot = zFor({ index: 1, count: 3 });
+    expect(zFor({ index: 1, count: 3, paneRole: "shadow" })).toBe(slot - 1);
+    expect(zFor({ index: 1, count: 3, paneRole: "shadow", order: 4 })).toBe(slot - 1);
   });
 
   it("prices a pane at the stack base while no slot has been claimed", () => {
@@ -69,9 +81,9 @@ describe("zFor slots", () => {
   it("prices an absolute base instead of a slot", () => {
     expect(zFor({ base: 8990 })).toBe(8990);
     expect(zFor({ base: 8990, order: 2 })).toBe(8992);
-    expect(zFor({ base: 8990, role: "annotation" })).toBe(8991);
+    expect(zFor({ base: 8990, paneRole: "label" })).toBe(8991);
     // The base wins over index/count/group.
-    expect(zFor({ base: 8990, index: 0, count: 9, group: "base" })).toBe(8990);
+    expect(zFor({ base: 8990, index: 0, count: 9, role: "base" })).toBe(8990);
   });
 });
 
@@ -88,7 +100,7 @@ describe("the focus ladder", () => {
   });
 
   it("prices the panes above the raised layer in order: labels, markers, tooltip, popup", () => {
-    expect(zFor({ base: focusLayerZ(), role: "annotation" })).toBe(8991);
+    expect(zFor({ base: focusLayerZ(), paneRole: "label" })).toBe(8991);
     expect(zFor({ base: focusLayerZ(), order: 2 })).toBe(8992);
     expect(zFor({ base: focusLayerZ(), order: 3 })).toBe(8993);
     expect(zFor({ base: focusLayerZ(), order: 4 })).toBe(8994);

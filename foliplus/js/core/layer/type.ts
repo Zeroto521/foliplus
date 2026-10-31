@@ -4,6 +4,8 @@
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
 import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
+import type { LayerFilter, LayerFilterModel } from "./filter.js";
+import type { LayerRole } from "./role.js";
 
 /** One layer's projection: intent (persisted) and the derived policy state
  *  together, so a diff sees both in one comparison.
@@ -62,9 +64,11 @@ interface LayerCarrier {
   custom?: unknown;
 }
 
-/** What a layer's surface can actually be asked to do, computed once at
- *  materialization by `LayerSurface` (which alone knows the panes it owns and
- *  the shape of its content — runtime probes pin each value).
+/** What a layer's surface can actually be asked to do, resolved by
+ *  `LayerSurface` (which alone knows the panes it owns and the shape of its
+ *  content). The object's identity is stable; its tree-backed slots are
+ *  re-derived on every audit, because a capability is a projection of the
+ *  current tree — not a fact frozen at registration.
  *
  *  Read-only on `LayerInfo` as a projection, never persisted: a caller-supplied
  *  `capabilities` in `RegisterLayerOpts` would let a third party claim support
@@ -82,7 +86,7 @@ interface LayerCapabilities {
    *      without a fill), Marker, canvas, MarkerCluster, and native setter
    *      surfaces (ImageOverlay / GridLayer) all fall out.
    *
-   *  Same probe-and-cache contract as `stroke`. */
+   *  Probe-derived and re-read on each audit — same contract as `stroke`. */
   fill: "native" | "none";
   /** Whether the layer's tree has a write carrier for stroke (border):
    *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
@@ -92,10 +96,25 @@ interface LayerCapabilities {
    *      non-vector surface (canvas, color basemap, MarkerCluster, native
    *      ImageOverlay / GridLayer) have no vector stroke axis.
    *
-   *  Probe-derived, cached per surface. The probe result is part of
-   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
-   *  rebuild through `matches`. */
+   *  Probe-derived and re-read on each audit (`refreshCapabilities`).
+   *  Deliberately NOT part of the face identity: a tree change updates the
+   *  projection instead of rebuilding the surface, so a degraded capability
+   *  can recover on a later audit. */
   stroke: "native" | "none";
+  /** Whether the layer's tree has a write carrier for size — a fixed pixel
+   *  radius:
+   *    - "native" — a `getRadius` leaf with a numeric `_radius` exists
+   *      (`L.CircleMarker`). The write walks `eachLayer` and calls `setRadius`
+   *      per leaf.
+   *    - "none"   — no pixel-radius leaf. `L.Circle` is excluded on purpose:
+   *      its radius is in metres (`_mRadius`), so one shared px row could not
+   *      write both without inventing a unit for one of them. Polyline,
+   *      Marker, canvas, MarkerCluster, the color basemap and the native
+   *      setter surfaces (ImageOverlay / GridLayer) also fall out.
+   *
+   *  Probe-derived and re-read on each audit — same contract as `stroke` /
+   *  `fill`. */
+  size: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -104,7 +123,8 @@ interface LayerCapabilities {
    *      children take one CSS write on the pane; self-drawn canvases bake
    *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
    *      canvas does not force a GPU composite buffer. The tier still reports
-   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
+   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier belongs to a separate
+   *      capabilities concern.
    *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
    *      pane write would fade the individual markers but not the cluster —
@@ -134,7 +154,7 @@ interface LayerCapabilities {
    *      so without another union change. */
   visibility: "native" | "pane" | "none";
   /** Whether the layer can host a label (annotation) pane:
-   *    - "pane" — the registration edge declared a `role: "annotation"`
+   *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
    *      the style panel's Label section is honest to render.
@@ -146,7 +166,7 @@ interface LayerCapabilities {
    *  the pane itself are one fact and can never disagree — and a
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
-   *  `matches` (the fill / stroke probe's path). */
+   *  `matches` — the declaration changed, not merely a capability. */
   annotation: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
@@ -178,12 +198,21 @@ interface RegisterLayerOpts {
   /** Third-party carrier payload for `kind: "custom"`. Shape only — the
    *  public registerDimension door stays closed. */
   custom?: unknown;
-  group?: "base" | "overlay";
+  /** Declared layer role. Absent registers an overlay. */
+  role?: LayerRole;
+  /** Author's declarative per-feature fill, computed once by Python at render
+   *  time from the GeoJson features' `__folium_color` property (geopandas
+   *  explore output). Absent for every other layer. */
+  fillAuthor?: FillAuthor | null;
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
    *  Absent means the author did not specify; readers default it to `true`
    *  (folium's own default), so the registry does not have to invent a
    *  value the caller never gave. */
   show?: boolean;
+  /** Author's declared zoom range — mirrors CONFIG `data[].zoom`, which
+   *  Python normalises from the `foliplus={"zoom": {...}}` declaration.
+   *  Absent means the author did not declare one. */
+  zoom?: AuthorZoomRange | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -238,6 +267,13 @@ interface RegisterLayerOpts {
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** Filter capability — see {@link LayerFilterModel}. Declared only by the
+   *  component that owns the row's data (HeatmapControl today); the filter
+   *  panel reads through the provider and writes through the setter, so the
+   *  owner's internal state is never touched from outside. Null (the
+   *  default) means the row is not filterable. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -252,6 +288,72 @@ interface RegisterLayerOpts {
    *  the returned object override the static `meta` (dynamic wins, static is
    *  fallback). */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** @internal One-shot commit sink installed by LayerFactory on its own
+   *  registration options. The registration's registry write point reports the
+   *  exact `LayerInfo` it committed through it, before any post-commit step
+   *  (materialize, pane wiring, notification fan-out) can fail, so the
+   *  factory's rollback can drop that entry by identity rather than by bare
+   *  id. Not part of the public registration contract. */
+  onCommitted?: ((entry: LayerInfo) => void) | null;
+}
+
+/** The color scale geopandas mounted on the map for an explore layer.
+ *
+ *  Claimed only through the author's own caption: the caption must name a
+ *  numeric property of the layer and the sampled feature colors must confirm
+ *  the scale. The caption is the declaration and the colors are the veto, so a
+ *  plain ``legend=False`` layer that merely shares a property name with a
+ *  foreign scale is not given it. Two columns with equivalent colors (an affine
+ *  pair such as area / area_ha) cannot be told apart by any color check: the
+ *  first caption in render order keeps the scale, and the second layer ships
+ *  its colors without a field. */
+interface FillAuthorScale {
+  /** A continuous ``LinearColormap``, or a classified ``StepColormap``. */
+  kind: "continuous" | "stepped";
+  /** The column the caption names. A paired scale always carries it (a scale
+   *  is only shipped when its caption is a property of the layer); the
+   *  optional shape keeps a hand-built record safe, and the panel then draws
+   *  the strip without naming a field. */
+  column?: string;
+  vmin: number;
+  vmax: number;
+  /** Stepped scales only: how many classes the author drew. */
+  levels?: number;
+}
+
+/** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
+interface FillAuthor {
+  /** True when the layer paints at least two distinct colors. */
+  perFeature: boolean;
+  /** How many distinct colors the layer paints. Exact up to the 4,096-feature
+   *  scan budget; above it a strided sample counts them, so a rare color can be
+   *  missed and the record then reads as fewer colors (a one-color reading also
+   *  turns `perFeature` off). Before a scale pairs, this is the honest count. */
+  distinct: number;
+  /** The strip the panel draws: a continuous scale sampled to 64 colors, a
+   *  stepped scale's own blocks, or the layer's distinct colors when neither
+   *  exists. The own-color arm keeps the values verbatim, so a `missing_kwds`
+   *  CSS name such as `lightgrey` can sit among hex stops. */
+  stops: string[];
+  /** True when the layer paints more distinct colors than the strip samples,
+   *  so `distinct` is a cap (the panel shows "64+"). */
+  capped?: boolean;
+  /** Absent when the author declared no scale for this layer, or when the
+   *  scale's caption belonged to another layer (the panel then shows the strip
+   *  without a field, and a stepped layer keeps its colors but not its levels
+   *  or breaks — the deliberate cost of never guessing a column). */
+  scale?: FillAuthorScale;
+}
+
+/** An author-declared zoom range — the normalised `foliplus={"zoom": {...}}`
+ *  layer declaration, carried from CONFIG `data[].zoom`.
+ *
+ *  One shape on both sides of the bridge (Python emits `{min, max}`, every
+ *  read site consumes `{min, max}`), so no site converts it and no site can
+ *  silently swap endpoints the way a positional tuple invites. */
+interface AuthorZoomRange {
+  min: number;
+  max: number;
 }
 
 /** A layer entry in the ordered registry (read-only view). */
@@ -275,7 +377,7 @@ interface LayerInfo {
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
-  group: "base" | "overlay";
+  role: LayerRole;
   /** Author's declared initial visibility — carried from CONFIG `data[].show`
    *  (Python's `item.show` on the folium Layer). Absent means the author did
    *  not declare one; the UI reads it through `?? true` (folium's own
@@ -302,6 +404,9 @@ interface LayerInfo {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** Python CONFIG defaults for the delegated style fields. See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** See {@link RegisterLayerOpts.filterProvider}. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -311,6 +416,14 @@ interface LayerInfo {
   meta?: Record<string, string | number> | null;
   /** Dynamic meta provider — pull on demand, never cached. */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** Author's declarative per-feature fill (explore layers only). */
+  fillAuthor?: FillAuthor | null;
+  /** Author's declared zoom range (CONFIG `data[].zoom`). Absent/null means
+   *  the author declared nothing: the visibility policy stays unconstrained
+   *  and the zoom-range row opens on the map's own range. A *policy* input
+   *  (`inZoomRange`), never a carrier write — foliplus does not write
+   *  `layer.options.minZoom/maxZoom` (see `ui/apply.ts`). */
+  zoom?: AuthorZoomRange | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
@@ -319,10 +432,13 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane` and `renderer`; nothing else:
- *    - Both are Leaflet's own, and the two a correct draw position actually
- *      needs (Leaflet reads `pane` only at attach time and ignores a group's
- *      for its children, so both must be written to survive a re-attach).
+ *  is `pane`, `renderer` (a Path only), and `shadowPane` (a Marker only) —
+ *  nothing else:
+ *    - All three are Leaflet's own, and the ones a correct draw position
+ *      actually needs (Leaflet reads `pane` only at attach time and ignores a
+ *      group's for its children, so both must be written to survive a
+ *      re-attach; `shadowPane` is re-read at every `_initIcon`, so writing it
+ *      keeps a later `setIcon` inside the layer's own shadow pane).
  */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
@@ -337,7 +453,7 @@ interface PinnableNode extends L.Layer {
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
-/** What a surface's pane is for. `annotation` and `preview` have no producer
+/** What a surface's pane is for. `label` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
  *  rather than a local invention.
@@ -356,7 +472,7 @@ type PaneRole = (typeof PANE_ROLE)[keyof typeof PANE_ROLE];
  *      (the removed `bumpPanes` + `CHILD_PANE_STEP` pair).
  *    - `role` is what the planned z convergence (`z = f(layerIndex, role)`)
  *      and the per-role renderer defaults will read, and it is where the
- *      `annotation` / `preview` panes get their name once the components that
+ *      `label` / `preview` panes get their name once the components that
  *      declare them exist.
  *
  *  Today `LayerFactory` derives both from the entry's index, so nothing
@@ -409,9 +525,11 @@ interface LayerSurface {
    *  consulted for ordinary data layers. `invalidate()` drops the cache; the
    *  next call re-probes. */
   geometryType: () => string | null;
-  /** Drop the cached geometry type. Called by the manager whenever the
-   *  layer's content can change (createLayers add/remove/clear, runtime
-   *  layeradd) so the next read re-probes. */
+  /** Drop the cached geometry type and carrier probe, and mark the surface
+   *  content-dirty. Called by the manager whenever the layer's content can
+   *  change (createLayers add/remove/clear, runtime layeradd) so the next
+   *  read re-probes and the next `materialize()` re-pins and re-derives
+   *  capabilities — the hook that lets a degrade recover. */
   invalidate: () => void;
   /** Write the layer's position-based base z onto every pane it paints into,
    *  adding each pane's own draw offset.
@@ -470,6 +588,9 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
 }
 
@@ -489,6 +610,9 @@ interface CreateCanvasOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -547,7 +671,7 @@ interface CreateColorOpts {
 
 /** Return type of the color-surface factory — the solid-color basemap's
  *  rendering face, owned by a dedicated pane so it participates in the
- *  layer z ladder like any other base-group member. */
+ *  layer z ladder like any other base-role member. */
 interface CreateColorAPI {
   /** The canvas element that carries the fill (inside the color pane). Built
    *  at `createColor` time and mounted into its pane when `register()` runs;
@@ -629,6 +753,8 @@ interface CreateSurfaceOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
   /** See {@link RegisterLayerOpts.onOpacity}. */
   onOpacity?: ((opacity: number) => void) | null;
@@ -804,6 +930,16 @@ interface LayerAPI {
   extractPoints: (
     id: string,
   ) => Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>;
+  /** Read-only traversal of a layer's point markers — the lazy twin of
+   *  `extractPoints`: same marker filter, but no coordinate extraction and no
+   *  per-point allocation, so a field scan over a 10k-leaf layer does not pay
+   *  for objects it never reads. `extractPoints` keeps its contract.
+   *
+   *  Optional: a component bundle can pair with an older `foliplus-common`
+   *  runtime that predates this method (the shared bundle is versioned
+   *  independently), and the lightweight API stub may skip it. Callers fall
+   *  back to `extractPoints` when it is absent. */
+  forEachPoint?: (id: string, fn: (marker: L.Marker | L.CircleMarker) => void) => void;
   getLayerPanes: (layer: L.Layer) => string[];
   getLayersByType: (
     type: string,
@@ -813,12 +949,12 @@ interface LayerAPI {
   getFeatureCount?: (id: string) => number | null;
   /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
   touchLayer?: (id: string) => boolean;
-  /** Move a layer one position toward index 0, respecting group boundaries.
-   *  False if already at the top, at a group boundary, or unknown.
+  /** Move a layer one position toward index 0, respecting role boundaries.
+   *  False if already at the top, at a role boundary, or unknown.
    *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerUp?: (id: string) => boolean;
-  /** Move a layer one position away from index 0, respecting group boundaries.
-   *  False if already at the bottom of its group or unknown.
+  /** Move a layer one position away from index 0, respecting role boundaries.
+   *  False if already at the bottom of its role or unknown.
    *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerDown?: (id: string) => boolean;
 }
@@ -829,13 +965,13 @@ interface ZArgs {
   index?: number;
   /** How many layers the registry holds — the step multiplier. */
   count?: number;
-  /** Base-group layers (tile basemaps and the solid-color basemap) share the
-   *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
-   *  within a group = visual stack order, since both share one `STEP`. */
-  group?: "base" | "overlay";
-  /** The pane's role in its layer's draw stack. Only `annotation` prices a
+  /** Base-role layers (tile basemaps and the solid-color basemap) share the
+   *  lower `TILE_BASE` ladder; overlay-role layers use `BASE`. Row order
+   *  within a role = visual stack order, since both share one `STEP`. */
+  role?: LayerRole;
+  /** The pane's role in its layer's draw stack. Only `label` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
-  role?: PaneRole;
+  paneRole?: PaneRole;
   /** The pane's draw offset within its layer (`PaneSpec.order`). */
   order?: number;
   /** An absolute base z instead of a slot — the focus lift. */
@@ -883,7 +1019,17 @@ interface LayerSnapshot {
   readonly ranges: Readonly<Record<string, readonly [number, number]>>;
 }
 
+/** What a registration actually did to the registry — the content-vs-placement
+ *  split consumers (controller events, UI rows, the future folder tree) key
+ *  on. Without folders, placement is the registry index and the kinds are
+ *  insert / content-replace; a retirement announces through the settled
+ *  operation instead, so no remove kind exists yet. */
+type LayerMutation =
+  | { kind: "insert"; entry: LayerInfo; index: number }
+  | { kind: "replace-content"; previous: LayerInfo; entry: LayerInfo; index: number };
+
 export type {
+  AuthorZoomRange,
   CreateCanvasAPI,
   CreateCanvasOpts,
   CreateColorAPI,
@@ -897,6 +1043,7 @@ export type {
   LayerKind,
   LayerCapabilities,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerSurface,
   PaneHandle,

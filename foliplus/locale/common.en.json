@@ -17,5 +17,6 @@
   "foliplus.label_format_percent": "Percent",
   "foliplus.label_size": "Label Font Size",
   "foliplus.label_style": "Color / Font Size",
-  "foliplus.label_tooltip": "Show text labels on features"
+  "foliplus.label_tooltip": "Show text labels on features",
+  "foliplus.option_disabled": "Unavailable"
 }

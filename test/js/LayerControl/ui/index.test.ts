@@ -3,13 +3,14 @@
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -36,7 +37,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
     const applySpy = vi.spyOn(ui, "applyStyleLabelState");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).toHaveBeenCalledTimes(1);
     expect(applySpy).toHaveBeenCalledTimes(1);
@@ -46,7 +47,7 @@ describe("LayerUI shell — event subscriptions", () => {
     (ui.uiContainer as HTMLElement).remove();
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).not.toHaveBeenCalled();
   });
@@ -93,7 +94,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const lateLayer = {
       id: "late1",
       name: "Late",
-      group: "overlay",
+      role: "overlay",
       kind: "vector",
       layer: {
         options: {},
@@ -176,13 +177,13 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveFoldState persists the folded-group set", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.listPanel.foldedGroups = new Set(["overlays"]);
+    ui.listPanel.foldedRoles = new Set(["overlays"]);
 
     ui.saveFoldState();
 
     expect(save).toHaveBeenCalled();
-    const fields = save.mock.calls[0][0] as { foldedGroups: () => string[] };
-    expect(fields.foldedGroups()).toEqual(["overlays"]);
+    const fields = save.mock.calls[0][0] as { foldedRoles: () => string[] };
+    expect(fields.foldedRoles()).toEqual(["overlays"]);
   });
 
   it("saveNamesState persists the rename map", () => {
@@ -227,7 +228,7 @@ describe("LayerUI shell — delegates", () => {
     // through the same visibility carrier + debounced z-order write-through
     // as any other layer.
     const enforce = vi.spyOn(manager, "debouncedEnforce");
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const checkbox = colorItem.querySelector(
@@ -255,7 +256,7 @@ describe("LayerUI shell — delegates", () => {
   it("getLayerItems() returns the overlay rows for the overlay group", () => {
     // Covers the delegate wrapper at L379: the method exists for external
     // callers, so a single call suffices to cover the delegate line.
-    const items = ui.getLayerItems(GROUP.OVERLAY);
+    const items = ui.getLayerItems(ROLE.OVERLAY);
     expect(items.length).toBeGreaterThanOrEqual(1);
     // Every returned item is a layer-item with the overlay group.
     for (const el of items) {
@@ -263,7 +264,7 @@ describe("LayerUI shell — delegates", () => {
     }
   });
 
-  it("resetSolidBasemap() delegates to the colour module and flushes state", () => {
+  it("resetSolidBasemap() delegates to the color module and flushes state", () => {
     // The manager's deleteLayer reaches this method rather than the color
     // module directly. The delegate exists so the bus-driven signal handler
     // has a single seam to spy on.
@@ -304,11 +305,11 @@ describe("LayerUI shell — delegates", () => {
   });
 
   it("syncToggleAll / syncNoBasemap delegates reach the visibility module", () => {
-    expect(() => ui.syncToggleAll(GROUP.OVERLAY)).not.toThrow();
+    expect(() => ui.syncToggleAll(ROLE.OVERLAY)).not.toThrow();
     expect(() => ui.syncNoBasemap()).not.toThrow();
   });
 
-  it("hideSolidBasemap delegates to the colour module", () => {
+  it("hideSolidBasemap delegates to the color module", () => {
     const setVisible = vi.fn();
     ui.c.createColor = vi.fn(() => ({
       element: document.createElement("canvas"),

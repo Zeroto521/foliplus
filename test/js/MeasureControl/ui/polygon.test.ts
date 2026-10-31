@@ -439,9 +439,10 @@ describe("attachPolygonUI — drag flow", () => {
       { lat: 3, lng: 1 },
     ];
     const finalPoly = { on: vi.fn(), setLatLngs: vi.fn() };
+    const mgr = makeMgr();
 
     UI.attachPolygonUI(
-      makeMgr() as any,
+      mgr as any,
       {
         layers: { removeLayer: vi.fn(), addLayer: vi.fn(l => l), unregister: vi.fn() },
         finalPoly,
@@ -465,6 +466,11 @@ describe("attachPolygonUI — drag flow", () => {
       { lat: 3, lng: 1 },
     ]);
     expect(finalPoly.setLatLngs).toHaveBeenCalledWith(points);
+    // Rebuilding the segment labels replaces the old leaves: the registry drops
+    // the detached ones and takes the new ones, so a later show replay cannot
+    // resurrect the replaced labels.
+    expect(mgr.removeItemLeaves).toHaveBeenCalledWith("test-id", expect.any(Array));
+    expect(mgr.addItemLeaves).toHaveBeenCalledWith("test-id", expect.any(Array));
   });
 
   it("calls onUpdate from the node drag onEnd", () => {

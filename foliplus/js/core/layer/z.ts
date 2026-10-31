@@ -31,13 +31,23 @@
 // recreate the "two places must stay in sync" problem this file exists to end.
 //
 // Pure: no DOM, no CONFIG, no Leaflet.
-import { GROUP, PANE_ROLE, Z_INDEX } from "./const.js";
+import { PANE_ROLE, ROLE, Z_INDEX } from "./const.js";
 import type { ZArgs } from "./type.js";
 
 /** A layer's label pane rides one step above its own panes: the labels cover
  *  that layer's geometry, and the next layer up still covers the labels — the
  *  stack the panel shows. */
-const ANNOTATION_Z_OFFSET = 1;
+const LABEL_Z_OFFSET = 1;
+
+/** A layer's marker-shadow pane rides one step BELOW its own panes: a shadow
+ *  must paint under its icon no matter what inline z the icon carries.
+ *  Leaflet writes `pos.y + zIndexOffset` onto marker icons (latitude
+ *  stacking), which goes negative near the viewport top or under a negative
+ *  offset — and CSS paints a negative-z positioned element BELOW a z:auto
+ *  sibling, so DOM order alone cannot keep the shadow down. The pane
+ *  boundary is the one ordering that survives: the icons' inline z competes
+ *  inside the base pane's stacking context, never against the shadow pane. */
+const SHADOW_Z_OFFSET = -1;
 
 /** The z the focus spotlight writes. Layer panes start at `Z_INDEX.BASE` and
  *  step by `Z_INDEX.STEP`, so both values sit clear above any layer stack: the
@@ -66,20 +76,22 @@ const focusLayerZ = (): number => FOCUS_Z.overlay - FOCUS_Z.gap;
 const zFor = ({
   index = 0,
   count = index,
-  group = GROUP.OVERLAY,
-  role = PANE_ROLE.BASE,
+  role = ROLE.OVERLAY,
+  paneRole = PANE_ROLE.BASE,
   order = 0,
   base,
 }: ZArgs): number => {
   const slot =
     base ??
-    (group === GROUP.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
+    (role === ROLE.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
       (count - index) * Z_INDEX.STEP;
-  return role === PANE_ROLE.ANNOTATION ? slot + ANNOTATION_Z_OFFSET : slot + order;
+  if (paneRole === PANE_ROLE.LABEL) return slot + LABEL_Z_OFFSET;
+  if (paneRole === PANE_ROLE.SHADOW) return slot + SHADOW_Z_OFFSET;
+  return slot + order;
 };
 
 /** The z one step above the topmost layer's slot — the base for the three
  *  native-pane offsets (popup / tooltip / marker) in `LayerController.enforceOrder`. */
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
-export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
+export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };

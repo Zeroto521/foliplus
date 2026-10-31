@@ -2,8 +2,10 @@
 //
 // Opened from a data layer's ⋮ menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
-// scroll, close affordance), exactly like the attributes panel — so there is
-// no JS positioning and no scroll/resize bookkeeping to clean up.
+// scroll, close affordance), exactly like the attributes panel. The shared
+// pinRowPanel keeps the fixed-position card under that row while the list
+// scrolls, so the whole card stays inside the viewport instead of being clipped
+// by the list's scroll box.
 //
 // Split from ui/style.ts. Owns the panel assembly (renderStylePanel),
 // the event-binding skeleton (openStylePanel) and the teardown
@@ -12,7 +14,8 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -23,15 +26,17 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
+import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, resetLayerFill } from "./fill.js";
+import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { bindSizeRow, resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
@@ -39,7 +44,7 @@ import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
  *  neither a capable Label dimension nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
-  // via styleSetters — render those instead of the annotation panel.
+  // via styleSetters — render those instead of the label panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
@@ -88,7 +93,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
  *  layer's own row — the same "drop below the trigger" rule the attributes
- *  panel uses — so it needs no positioning code at all. */
+ *  panel uses — through the shared fixed-position pin, so it is not clipped by
+ *  the row list's scroll box. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (!layerId) return;
 
@@ -96,7 +102,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // whatever the user had open and then fail to open anything. The panel
   // render stays after closeOverlays — `renderDelegatedStylePanel` sets
   // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
-  const item = ui.uiContainer.querySelector(
+  const item = ui.uiContainer?.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
@@ -110,6 +116,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // The mousedown is stopped here; whether the press landed inside the panel is
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
+  ui.overlayPanel.stylePanelEl = panel;
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
@@ -152,6 +159,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
     if (fillRow) bindFillRow(ui, layerId, fillRow);
+    // Size rides the same flavour as fill: the delegated drawer never renders it.
+    const sizeRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_SIZE_ROW}`,
+    ) as HTMLElement | null;
+    if (sizeRow) bindSizeRow(ui, layerId, sizeRow);
   }
 
   // The slider rows wire their own live/commit callbacks when the primitive is
@@ -161,7 +173,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     // Delegated label controls handle their own changes (stopPropagation on
-    // the shared root). Only the annotation panel's changes reach here.
+    // the shared root). Only the label panel's changes reach here.
     if (delegated) return;
     if (
       t instanceof HTMLInputElement &&
@@ -169,8 +181,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ) {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
-      // leaving it at the auto sentinel is what makes the picker read "Auto" and
-      // what lets the layer keep labeling itself if its columns change.
+      // the picker already shows a concrete field, and leaving the stored value
+      // untouched is what lets a fieldless config keep resolving to the layer's
+      // default as its columns change.
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;
@@ -187,7 +200,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (fmtRow) {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
-      applyPatch(ui, layerId, { show, field: chosen });
+      applyPatch(ui, layerId, { show });
     } else if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
@@ -229,17 +242,36 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // closes — the same header-dismiss affordance the attrs panel uses.
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
+    // A press inside the control must not reach the map as a click. Closing the
+    // panel (Reset or header) detaches it mid-dispatch, so the click would keep
+    // walking its original path with no live control ancestor — swallow it here
+    // (the same guarantee as the ⋮ menu and the other row panels).
     if (t.closest(".foliplus-style-reset-btn")) {
+      event.stopPropagation();
+      // The whole Reset is one operation: every dimension restores first, then
+      // the delegated defaults (or the label config drop), then the panel
+      // closes, and only then does the single notify go out. A notify fired by
+      // one dimension mid-operation would hand a subscriber a panel that is
+      // still open, and a subscriber that tears the control down would take
+      // this handler's own closeStylePanel lookup with it.
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
+      // Size is LayerControl-owned too: restore the author's radius and drop
+      // the persisted value, so a reload does not re-apply it.
+      resetLayerSize(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
-      // Opacity is LayerControl-owned in both flavours: always restore 1.
-      resetLayerOpacity(ui, layerId);
-      // Zoom range is LayerControl-owned: reset to the full map range.
-      resetLayerZoomRange(ui, layerId);
+      // Opacity and zoom range are LayerControl-owned in both flavours.
+      // publish = false keeps their notify here, at the operation boundary.
+      const moved: ProjectionDelta[] = [];
+      for (const delta of [
+        resetLayerOpacity(ui, layerId, false),
+        resetLayerZoomRange(ui, layerId, false),
+      ]) {
+        if (delta) moved.push(delta);
+      }
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
         // the values — never write localStorage or annotation config here.
@@ -259,34 +291,36 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         resetStyleLabel(ui, layerId);
       }
       closeStylePanel(ui, true);
+      // One notify for the whole operation, merged across its dimensions and
+      // resolved against the registry at publish time: if the entry is gone
+      // by then, the lookup returns nothing and nothing goes out.
+      const settled = moved.reduce<ProjectionDelta>(
+        (acc, d) => ({
+          wroteVisible: acc.wroteVisible || d.wroteVisible,
+          intentMoved: acc.intentMoved || d.intentMoved,
+        }),
+        NO_DELTA,
+      );
+      notifyDelta(ui, ui.c.layerRegistry.get(layerId), settled);
       return;
     }
-    if (t.closest(".foliplus-panel-header")) closeStylePanel(ui, true);
+    if (t.closest(".foliplus-panel-header")) {
+      event.stopPropagation();
+      closeStylePanel(ui, true);
+    }
   });
 
   item.style.position = "relative";
   item.appendChild(panel);
+  pinRowPanel(panel, item);
 
-  // Document capture dismiss (attrs recipe): disableClickPropagation on the
-  // layer control stops bubble-phase mousedown from reaching document, so a
-  // press on the map or another foliplus control would never close the
-  // panel otherwise.
-  ui.overlayPanel.styleOutsideHandler = (event: MouseEvent) => {
-    const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
-    if (!t || typeof t.closest !== "function") {
-      closeStylePanel(ui, false);
-      return;
-    }
-    if (t.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) {
-      ui.listPanel.pressInPanel = true;
-      return;
-    }
-    ui.listPanel.pressInPanel = false;
-    closeStylePanel(ui, false);
-  };
-  document.addEventListener("mousedown", ui.overlayPanel.styleOutsideHandler, true);
-
+  // Register the open surface with the per-map overlay registry. The
+  // registry owns the document capture-phase mousedown dispatcher, so this
+  // panel no longer installs a document listener of its own. The drawer's
+  // overlay includes the scheme picker's portalled list: it is mounted on
+  // <body> to paint above the drawer, so it is outside the panel's subtree
+  // while still being part of the interaction. A press there must not dismiss
+  // the drawer — that press is what selects a color.
   // When the component's own panel changes a style value while this drawer is
   // open, pull the fresh values and refresh the controls. The shared module's
   // refresh reads from styleProvider and writes every control, skipping the
@@ -305,47 +339,58 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
-  // zoomend handler (ui.onZoomEnd) updates the effective-shown for every
-  // layer; this one only updates the row's visual state.
+  // zoomend handler (ui.onZoomEnd) drives the sweep; it calls this hook after
+  // the sweep settles so the notify below reads the new chrome. The same
+  // hook also serves basemap switches, which re-price every layer's range
+  // without firing zoomend — see listPanel/visibility.js.
   const zoomRangeRow = panel.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (zoomRangeRow) {
     ui.overlayPanel.styleZoomEndHandler = () => {
-      syncZoomRangeRow(ui, layerId, zoomRangeRow);
+      if (zoomRangeRow.isConnected) syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
-    ui.c.map.on("zoomend", ui.overlayPanel.styleZoomEndHandler);
   }
 
   ui.overlayPanel.stylePanelLayerId = layerId;
+  ui.overlayPanel.styleOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_STYLE,
+    isOpen: () => ui.overlayPanel.stylePanelLayerId !== null,
+    panels: () => {
+      const container = ui.uiContainer;
+      const currentPanel = container?.querySelector(
+        `.${CONST.CLASSES.STYLE_PANEL}`,
+      ) as HTMLElement | null;
+      return currentPanel ? [currentPanel] : [];
+    },
+    close: ({ restoreFocus }) => closeStylePanel(ui, restoreFocus),
+    dismissOn: "mousedown",
+    pressPriority: 500,
+    clearsCursorOnClose: true,
+  });
 };
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
 const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
-  // A pending apply frame (fill and/or border) must land before the panel
-  // disappears: closing is a commit boundary, not a cancel (reset cancels
-  // explicitly). One hook covers both faces.
+  // A pending apply frame (any face — fill / stroke / size / label) must land
+  // before the panel disappears: closing is a commit boundary, not a cancel
+  // (reset cancels explicitly). One hook covers every face, scoped to this UI
+  // so another map's same-id frame is never flushed or dropped.
   if (ui.overlayPanel.stylePanelLayerId) {
-    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId);
+    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId, ui);
   }
-  if (ui.overlayPanel.styleOutsideHandler) {
-    document.removeEventListener(
-      "mousedown",
-      ui.overlayPanel.styleOutsideHandler,
-      true,
-    );
-    ui.overlayPanel.styleOutsideHandler = null;
-  }
+  ui.overlayPanel.styleOverlayUnregister?.();
+  ui.overlayPanel.styleOverlayUnregister = null;
+  ui.overlayPanel.stylePanelEl = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;
-  if (ui.overlayPanel.styleZoomEndHandler) {
-    ui.c.map.off("zoomend", ui.overlayPanel.styleZoomEndHandler);
-    ui.overlayPanel.styleZoomEndHandler = null;
-  }
-  // No panel, no panel press: a stale verdict would block the next real drag.
-  ui.listPanel.pressInPanel = false;
-  const panel = ui.uiContainer.querySelector(
+  ui.overlayPanel.styleZoomEndHandler = null;
+  // Flushing the panel's live slider sessions can announce, and a subscriber
+  // that destroys the manager mid-notify has already nulled the container.
+  // Skip the lookup rather than deref null; the DOM is gone either way.
+  const container = ui.uiContainer;
+  const panel = container?.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   if (!panel) {
@@ -353,6 +398,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     return;
   }
   const item = panel.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+  // The ramp detail's scheme picker owns document-level listeners while its
+  // listbox is open; the panel is being removed, so destroy it first or the
+  // next open would leave a picker answering clicks for a dead trigger.
+  disposeFillRow(ui);
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).
@@ -361,6 +410,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // the change event. Only a session that actually moved emits.
   finishSlidersIn(panel);
   ui.overlayPanel.stylePanelLayerId = null;
+  unpinRowPanel(item);
   panel.remove();
   if (setFocus) item?.focus();
 };
@@ -373,9 +423,10 @@ export { closeStylePanel, openStylePanel };
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
+  invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";
 export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
 export { layerHasStyleDelegation } from "./delegated.js";
-export { replayFillState } from "./fill.js";
+export { replayDeclaredFill, replayFillState } from "./fill.js";

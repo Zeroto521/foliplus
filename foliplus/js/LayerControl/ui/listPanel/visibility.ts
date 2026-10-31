@@ -1,16 +1,30 @@
-// LayerControl UI — Checkbox / group-toggle visibility.
-import { GROUP, paintsAtZoom } from "#core/layer/index.js";
+// LayerControl UI — Checkbox / role-toggle visibility.
+import { ROLE, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjection, applyProjectionAll } from "../apply.js";
+import {
+  type ProjectionBatch,
+  type ProjectionDelta,
+  type ProjectionDeltaItem,
+  applyProjection,
+  applyProjectionAll,
+  notifyDeltas,
+} from "../apply.js";
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 
-const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
-  return ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}${group === GROUP.BASE ? `[data-layer-type="${GROUP.BASE}"]` : `:not([data-layer-type="${GROUP.BASE}"])`}`,
-  );
+/** The rows of one role, in DOM order. A panel that is gone has none — the
+ *  callers are all reconcile paths that run at least once against a torn-down
+ *  control (a timer, a queued bulk toggle). */
+const getLayerItems = (ui: LayerUI, role: string): Element[] => {
+  const container = ui.uiContainer;
+  if (!container) return [];
+  const inGroup =
+    role === ROLE.BASE
+      ? `[data-layer-type="${ROLE.BASE}"]`
+      : `:not([data-layer-type="${ROLE.BASE}"])`;
+  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -21,7 +35,7 @@ const basePaints = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
   paintsAtZoom(ui.c.map, layerInfo.layer ?? ui.c.findLayer(layerInfo)) &&
   currentOpacity(ui, layerInfo) > 0;
 
-/** A′ no-basemap hatch: paint on the map container and swap the group label
+/** A′ no-basemap hatch: paint on the map container and swap the role label
  *  to `no_base_map_label` when zero basemaps are visible. The hatch is CSS
  *  `background-image` on the Leaflet container, which ExportControl's
  *  resolveExportBackground deliberately skips (it reads only
@@ -34,7 +48,7 @@ const basePaints = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
  *  empty. */
 const syncNoBasemap = (ui: LayerUI): void => {
   const anyBaseVisible = ui.c.layers.some(
-    li => li.group === GROUP.BASE && basePaints(ui, li),
+    li => li.role === ROLE.BASE && basePaints(ui, li),
   );
   ui.c.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   // The label lives on the panel, which may not be attached yet when the
@@ -42,15 +56,16 @@ const syncNoBasemap = (ui: LayerUI): void => {
   // thin stubs and teardown states have none) — the hatch is the contract,
   // the label is a cosmetic companion.
   const label = ui.uiContainer?.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
   if (label) {
     label.textContent = ui.T(anyBaseVisible ? "base_map_label" : "no_base_map_label");
   }
 };
 
-const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
-  const items = getLayerItems(ui, group);
+const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
+  const items = getLayerItems(ui, role);
+  const moved = new Map<string, ProjectionDelta>();
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -71,7 +86,8 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // setVisibleIntent recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
     // needed.
-    applyProjection(ui, id);
+    const delta = applyProjection(ui, id);
+    if (delta.wroteVisible || delta.intentMoved) moved.set(id, delta);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
@@ -79,32 +95,50 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // batch).
   saveState(ui);
 
-  // Reconcile the group's count from intent: every row's intent was just
+  // Reconcile the role's count from intent: every row's intent was just
   // rewritten, so a full scan is correct and cheap here (batch operation).
-  syncToggleAll(ui, group);
+  syncToggleAll(ui, role);
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
+
+  // Announce last, in registry order: the loop above walked the DOM, which can
+  // diverge from the registry on a late registration, and a subscriber that
+  // re-enters during this notify must see the finished count and hatch.
+  //
+  // Order by walking the registry against the Map, not by sorting — a
+  // comparator needs an `indexOf` per call and that is a linear identity scan
+  // of the registry, so sorting pays a full scan for every comparison. The
+  // entry travels with the delta: `notifyDeltas` re-checks the live registry at
+  // delivery, so a layer a subscriber unregistered — or re-registered under the
+  // same id — inside an earlier delivery here is not announced on behalf of
+  // the entry that now holds that id.
+  const announced: ProjectionDeltaItem[] = [];
+  for (const layerInfo of ui.c.layers) {
+    const delta = moved.get(layerInfo.id);
+    if (delta) announced.push({ id: layerInfo.id, delta, entry: layerInfo });
+  }
+  notifyDeltas(ui, announced);
 };
 
-/** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
+/** Full rescan that populates `ui.listPanel.checkedCount[role]` from the DOM + intent,
  *  then writes the toggle-all checkbox off the fresh count. Called only at
  *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
-const syncToggleAll = (ui: LayerUI, group: string) => {
-  const row = ui.uiContainer.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
+const syncToggleAll = (ui: LayerUI, role: string) => {
+  const row = ui.uiContainer?.querySelector(
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
   if (!row) return;
   const allCb = row.querySelector(
     '[data-role="toggle-all"]',
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  const items = getLayerItems(ui, group);
+  const items = getLayerItems(ui, role);
   let total = 0;
   let on = 0;
   // Count intent, not the painted box: a row whose checkbox is painted from
-  // a stale state must not skew the group state it is about to set.
+  // a stale state must not skew the role state it is about to set.
   for (const item of Array.from(items)) {
     total++;
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
@@ -116,31 +150,31 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
   ui.listPanel.checkedCount ??= {};
-  ui.listPanel.checkedCount[group] = { total, on };
-  writeToggleAllCheckbox(ui, allCb, group);
+  ui.listPanel.checkedCount[role] = { total, on };
+  writeToggleAllCheckbox(ui, allCb, role);
 };
 
 /** Write the toggle-all checkbox straight from the cached `checkedCount`.
  *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
  *  single-row click path so the tri-state is fresh in the same frame. */
-const syncToggleAllFromCount = (ui: LayerUI, group: string): void => {
-  const row = ui.uiContainer.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
+const syncToggleAllFromCount = (ui: LayerUI, role: string): void => {
+  const row = ui.uiContainer?.querySelector(
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
   if (!row) return;
   const allCb = row.querySelector(
     '[data-role="toggle-all"]',
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  writeToggleAllCheckbox(ui, allCb, group);
+  writeToggleAllCheckbox(ui, allCb, role);
 };
 
 const writeToggleAllCheckbox = (
   ui: LayerUI,
   allCb: HTMLInputElement,
-  group: string,
+  role: string,
 ): void => {
-  const c = ui.listPanel.checkedCount?.[group] ?? { total: 0, on: 0 };
+  const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
   const allChecked = c.total > 0 && c.on === c.total;
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
@@ -152,7 +186,7 @@ const writeToggleAllCheckbox = (
   );
 };
 
-/** Incrementally update the group's `checkedCount.on` by `delta` (typically
+/** Incrementally update the role's `checkedCount.on` by `delta` (typically
  *  +1 or -1 for a single-row toggle), then refresh the toggle-all checkbox
  *  off the fresh count. O(1) per call — the hot path `applyVisibility`
  *  uses this instead of the full rescan.
@@ -163,14 +197,14 @@ const writeToggleAllCheckbox = (
  *  already reflects the transition this caller just recorded, so no delta
  *  needs applying. After the first reconcile the counter is populated and
  *  every later call is O(1). */
-const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
-  if (!ui.listPanel.checkedCount?.[group]) {
-    syncToggleAll(ui, group);
+const bumpCheckedCount = (ui: LayerUI, role: string, delta: number): void => {
+  if (!ui.listPanel.checkedCount?.[role]) {
+    syncToggleAll(ui, role);
     return;
   }
-  const c = ui.listPanel.checkedCount[group];
+  const c = ui.listPanel.checkedCount[role];
   c.on += delta;
-  syncToggleAllFromCount(ui, group);
+  syncToggleAllFromCount(ui, role);
 };
 
 /**
@@ -181,7 +215,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * takes the same transition on either source (a change event or
  * {@link LayerUI.setVisibleIntent}): map membership, the canvas-only callback, the
  * `visible` flag, the row's checkbox + tooltip + active class, the persisted
- * hidden intent, the group toggle-all, and the debounced z-order enforcement.
+ * hidden intent, the role toggle-all, and the debounced z-order enforcement.
  *
  * The user's intent is recorded first, then the executor re-projects — the
  * single writer of map membership for this layer. The old code wrote the
@@ -191,12 +225,12 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * The tri-state counter is updated incrementally (O(1)) rather than by a
  * full rescan: the rescan is the reconcile path (attach, insert, delete,
  * reload, bulk toggleAll), so a single-row click does not walk every row in
- * the group.
+ * the role.
  *
  * `syncNoBasemap` only reads base rows through `basePaints` (paint
  * observation); an overlay toggle cannot change that count, so this path
  * skips it for overlays and only calls it for base rows where the hatch
- * and the group label are the user-visible output.
+ * and the role label are the user-visible output.
  *
  * @returns true if the layer id resolved to a registry entry.
  */
@@ -209,22 +243,23 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   const oldChecked = intentVisibleOf(ui, id);
   setVisibleIntent(ui, id, visible);
-  applyProjection(ui, id);
+  const ownDelta = applyProjection(ui, id);
 
-  // Paint last: the cell reads the intent this transition just recorded.
+  // Paint after the projection lands: the cell reads the intent this
+  // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   // Incremental tri-state: O(1) count update rather than a full rescan.
   const newChecked = intentVisibleOf(ui, id);
-  const group = layerInfo.group;
+  const role = layerInfo.role;
   const delta = newChecked === oldChecked ? 0 : newChecked ? 1 : -1;
-  bumpCheckedCount(ui, group, delta);
+  bumpCheckedCount(ui, role, delta);
 
   // Overlay toggles cannot change the visible-basemap count (syncNoBasemap
-  // only reads `group === GROUP.BASE`), so skip for overlay: the call was pure O(n) waste
+  // only reads `role === ROLE.BASE`), so skip for overlay: the call was pure O(n) waste
   // on the click hot path. Base toggles still call it synchronously — the
-  // hatch and the group label are user-visible, cannot be deferred.
-  if (layerInfo.group === GROUP.BASE) syncNoBasemap(ui);
+  // hatch and the role label are user-visible, cannot be deferred.
+  if (layerInfo.role === ROLE.BASE) syncNoBasemap(ui);
 
   // Base check/uncheck changes the attribution table immediately: Leaflet's
   // layeradd/layerremove fires addAttribution/removeAttribution synchronously,
@@ -232,17 +267,28 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // bases' attrs, or a lingering removed base's attr) render for ~50ms — a
   // visible flicker. Sync the attribution table right after the check state
   // is updated, before debouncedEnforce re-prices z-order.
-  if (layerInfo.group === GROUP.BASE) ui.c.syncAttribution();
+  if (layerInfo.role === ROLE.BASE) ui.c.syncAttribution();
 
   ui.c.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
-  if (layerInfo.group === GROUP.BASE) {
-    applyProjectionAll(ui);
+  let swept: ProjectionBatch = [];
+  if (layerInfo.role === ROLE.BASE) {
+    swept = applyProjectionAll(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
   }
+
+  // Announce last — the row paint, the tri-state count, the basemap hatch and
+  // the attribution table are all settled, so a subscriber that re-enters here
+  // sees the finished panel. The own-layer delta goes out before the sweep's:
+  // it is the layer the user acted on, and the sweep's own entry for it is
+  // empty (the first pass above already wrote its baseline). One operation, not
+  // two calls: a consumer that throws on the own layer must not strand the
+  // sweep's layers, whose baselines are already committed and would never
+  // announce again on a retry.
+  notifyDeltas(ui, [{ id: layerInfo.id, delta: ownDelta, entry: layerInfo }, ...swept]);
 
   return true;
 };

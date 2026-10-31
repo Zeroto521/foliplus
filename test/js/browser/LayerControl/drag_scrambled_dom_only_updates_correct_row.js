@@ -37,16 +37,14 @@
   // alpha's registry index — so a DOM-position read reports a self-drop.
   if (domOrder[betaIdx] === "beta" || domOrder.indexOf("beta") !== regIdx("alpha")) {
     throw new Error(
-      "no usable registry/DOM divergence (dom " +
-        JSON.stringify(domOrder) +
-        ", registry " +
-        JSON.stringify(beforeRegistry) +
-        ")",
+      `no usable registry/DOM divergence (dom ${JSON.stringify(domOrder)}, registry ${JSON.stringify(beforeRegistry)})`,
     );
   }
 
-  // Drag alpha (registry idx of alpha) onto beta.
-  ui.listPanel.dragIdx = regIdx("alpha");
+  // Drag alpha (registry idx of alpha) onto beta. The session is armed with
+  // the registry entry itself — the drop re-resolves its position, so the
+  // scrambled DOM cannot re-point the move at a neighbor.
+  ui.listPanel.dragEntry = m.layers[regIdx("alpha")];
   ui.onDrop({
     target: rowById("beta"),
     preventDefault: () => {},
@@ -64,6 +62,6 @@
     registryMoved: afterRegistry.join(",") !== beforeRegistry.join(","),
     // Panel and registry must agree once the drop has settled.
     panelMatchesRegistry: domIds().join(",") === afterRegistry.join(","),
-    dragDisarmed: ui.listPanel.dragIdx === null,
+    dragDisarmed: ui.listPanel.dragEntry === null,
   };
 };

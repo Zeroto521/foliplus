@@ -2,15 +2,27 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import { type LayerInfo, findLayer } from "#core/layer/index.js";
+import {
+  type LayerInfo,
+  contentPanesOf,
+  findLayer,
+  labelPaneNameOf,
+} from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
-import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
-  collectLayerMarkers,
+  type PaneSnapshot,
+  renderCanvasElement,
+  renderCanvasSnapshot,
+  renderPaneCanvas,
+  snapshotPaneCanvases,
+} from "./canvas.js";
+import {
+  collectLayerShadows,
+  collectPaneRoots,
   renderFontAwesome,
   renderMarkers,
   renderRemaining,
@@ -24,11 +36,64 @@ import { isCorsBlocked, pooledEach } from "./util.js";
 const T = createScopedTranslator(CONFIG);
 const log = createLogger(CONFIG.name);
 
+/** Panes a layer's content walk must visit: what the layer API reports, minus
+ *  every pane the export's shadow channel owns.
+ *
+ *  `shadowPanes` is collected across the whole export before the first pane is
+ *  resolved (see `render()`), not per layer: a custom shadow pane can be
+ *  shared by several layers, and layer A's content walk must not paint the pane
+ *  that carries layer B's shadows either.  The subtraction also keeps the
+ *  channel single-source — a pane named as a shadow is drawn once, by the
+ *  shadow pass, from the owning leaves, never as a content root.
+ *
+ *  The subtraction itself lives in `core/layer/carrierTarget`, next to the
+ *  writer's carrier token: both sides read one declaration of "the panes this
+ *  layer's paint lives in", so a write and an export cannot wander apart. */
+const resolveExportPanes = (
+  layer: L.Layer,
+  shadowPanes: ReadonlySet<string>,
+): string[] =>
+  contentPanesOf(map.foliplus?.LayerAPI?.getLayerPanes(layer) ?? [], shadowPanes);
+
+/** Report a shadow image the canvas could not read back.  A cross-origin
+ *  `shadowUrl` without CORS headers is the usual cause; the shadow is left out
+ *  of the picture, so say so instead of producing a silently shadowless
+ *  export. */
+const warnShadowLoadFailure = (src: string, error: unknown): void => {
+  log.warn(
+    `marker shadow left out of the export: "${src}" could not be loaded (cross-origin images need CORS headers)`,
+    error,
+  );
+};
+
+/** Wait one animation frame so the browser commits layout the caller just
+ *  forced.  `session.doRender` hides the export chrome and reads
+ *  `offsetHeight` in the same task that calls `render()`; a rect read before
+ *  that layout is committed is a transient one (a shadow pane measured at
+ *  (-128,-72) painted its shadow 256x144 canvas px away from the icon — the
+ *  "icon drawn, shadow missing" export).  One frame before the first pass makes
+ *  every measurement read the settled layout; the draw passes still re-measure
+ *  right before drawing, which is the second half of the same guard. */
+const nextFrame = (): Promise<void> =>
+  new Promise(resolve => requestAnimationFrame(() => resolve()));
+
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.
 // render() orchestrates the passes in painter's-algorithm order:
 //   1. tiles → 2. SVG → 3. canvas → 4. markers (sprites) → 5. FontAwesome →
 //   6. text labels → 7. remaining (img, inline SVG, bg-color)
+
+/** One layer as the export saw it when it started: the resolved carrier, its
+ *  callback canvas, and the visibility intent. Every pass below reads this
+ *  record, never the live registry. */
+type RenderEntry = {
+  info: LayerInfo;
+  layer: L.Layer | null;
+  /** The layer's callback canvas (HeatmapControl, solid basemap) when it has
+   *  one. Named `surface` so it cannot be confused with the output canvas. */
+  surface: HTMLCanvasElement | undefined;
+  visible: boolean;
+};
 
 class ExportRenderer {
   map: L.Map;
@@ -37,6 +102,15 @@ class ExportRenderer {
    *  appended to by the tile passes.  The manager reads this after render()
    *  resolves to warn about CORS-blocked tile sources. */
   tileFailures: TileLoadStats[] = [];
+  /** What the last render() drew: the snapshot size, the layers it actually
+   *  painted, and how many label canvases had to be left out. Internal to the
+   *  JS side — the manager may report on it, but it is not part of the
+   *  Python-facing result contract. */
+  lastStats: {
+    layers: number;
+    drawn: number;
+    labelCanvasesMissing: number;
+  } = { layers: 0, drawn: 0, labelCanvasesMissing: 0 };
 
   constructor(map: L.Map) {
     this.map = map;
@@ -152,10 +226,58 @@ class ExportRenderer {
     // 2. All layers — iterate in LayerControl API order bottom-to-top.
     // Each layer may contain Tile, SVG, Canvas, and/or Marker elements, so we
     // render all passes per-layer to preserve cross-technology z-order.
-    // Uses api.layers (read-only view of LayerInfoRegistry's ordered array).
+    //
+    // The layer list is SNAPSHOTTED here, synchronously, before the first
+    // await. `api.layers` is a live Proxy over the registry's mutable array,
+    // and the passes below sit on tile loads for seconds; re-reading it after
+    // those awaits let a change that landed mid-export decide what an
+    // already-started export contains. When the whole list came back empty,
+    // the export silently degraded to the background fill — no warning, and
+    // the caller had no way to tell a complete image from an empty one.
+    //
+    // The snapshot makes the export answer one question: the map the user saw
+    // when they pressed Export. A layer registered or unregistered after this
+    // point does not join (or leave) the image — that is the contract, not an
+    // oversight.
     const api = map.foliplus!.LayerAPI;
-    const layers = api?.layers;
-    if (layers) {
+    const entries: RenderEntry[] = api?.layers
+      ? Array.from(api.layers, info => ({
+          info,
+          layer: this.resolveLayer(info),
+          surface: info.canvas ?? undefined,
+          visible: api.intentVisible?.(info.id) ?? true,
+        }))
+      : [];
+    // What this export will draw, decided from the snapshot for the same
+    // reason: an entry with no carrier and no callback canvas contributes
+    // nothing, and counting it would leave the layer range short of its top.
+    const passable = entries.filter(
+      ({ layer, surface, visible }) =>
+        visible &&
+        (surface != null ||
+          (layer != null && !(layer instanceof L.TileLayer && layerUrl(layer)))),
+    );
+    // Task-22: freeze each layer's label canvas pixels synchronously, before the
+    // first await. The label pass used to read the live canvas via toDataURL at
+    // pass time, but the tile wait + nextFrame between here and that pass is an
+    // async window where an annotation refresh can clear or re-mount the canvas;
+    // the export then came back label-free with no warning. The snapshot makes
+    // the export answer the question the user saw when they pressed Export.
+    // Keyed by layer id so the label pass reads its own layer's frozen pixels,
+    // not whatever the pane holds at pass time.
+    const labelSnapshots = new Map<string, PaneSnapshot>();
+    for (const { info, visible } of entries) {
+      if (!visible) continue;
+      const labelPane = this.map.getPane(labelPaneNameOf(info.id));
+      if (!labelPane) continue;
+      labelSnapshots.set(
+        info.id,
+        snapshotPaneCanvases(this.container, rc, labelPane, CONST.SEL.LABEL_CANVAS),
+      );
+    }
+    let drawn = 0;
+    const labelCanvasesMissing: string[] = [];
+    if (entries.length) {
       // Progress is reported as a share of every tile across all visible tile
       // layers, not per layer: with several visible TileLayers each of a
       // different tile count, per-layer percentages would restart at 0 and the
@@ -182,13 +304,8 @@ class ExportRenderer {
           count: number;
           layer: L.TileLayer;
         }> = [];
-        for (const layerInfo of layers) {
-          const layer = this.resolveLayer(layerInfo);
-          if (
-            !(api.intentVisible?.(layerInfo.id) ?? true) ||
-            !(layer instanceof L.TileLayer) ||
-            !layerUrl(layer)
-          ) {
+        for (const { layer, visible } of entries) {
+          if (!visible || !(layer instanceof L.TileLayer) || !layerUrl(layer)) {
             continue;
           }
           const tiles = this.tilePositions(
@@ -221,32 +338,69 @@ class ExportRenderer {
         }
       }
 
-      // Only layers that can actually paint are in the denominator: an entry
-      // with no layer and no canvas contributes nothing, and counting it would
-      // leave the layer range permanently short of its top.  The filter must
-      // stay in step with what the loop body consumes, since every surviving
-      // entry is counted as one unit of progress.
-      const passable = layers.filter(layerInfo => {
-        const layer = this.resolveLayer(layerInfo);
-        return (
-          (api.intentVisible?.(layerInfo.id) ?? true) &&
-          (layerInfo.canvas ??
-            (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+      // The shadow channel is resolved before anything is drawn, over every
+      // registered layer:
+      //   - each layer's shadow roots come from its own leaves
+      //     (`collectLayerShadows`), so a shadow is found wherever it is
+      //     mounted — the layer's own pane, Leaflet's shared `shadowPane`, or a
+      //     custom pane several layers share;
+      //   - the REAL parent pane of each admitted shadow is accumulated
+      //     export-wide (never the declared `options.shadowPane` name, which can
+      //     collide with a content pane) and subtracted from EVERY layer's
+      //     content panes: a shared shadow pane must not be walked as content
+      //     by any of its layers, or the same shadows would be painted twice
+      //     (once below the icon, once as marker roots above it).
+      // A shadow element is drawn once per export (the Set is keyed by the
+      // element, not the pane): two layers pointing at one shared pane each
+      // contribute only their own leaves' shadows.
+      // The caller hid the chrome and forced a reflow in this same task; one
+      // frame makes the browser commit that layout before any pass reads a
+      // rect (see nextFrame).  Without it the first shadow pass measures a
+      // transient box and paints the shadow off its icon.
+      await nextFrame();
+
+      const shadowPaneNames = new Set<string>();
+      const shadowRootsByLayer = new Map<LayerInfo, HTMLElement[]>();
+      for (const { info, layer } of entries) {
+        // Every entry gets an answer — [] when the layer cannot be resolved —
+        // so the draw loop reads its own key instead of carrying a fallback.
+        shadowRootsByLayer.set(
+          info,
+          layer ? this.collectLayerShadows(layer, shadowPaneNames) : [],
         );
-      });
-      let done = 0;
+      }
+      const drawnShadowRoots = new Set<HTMLElement>();
+
       for (let i = passable.length - 1; i >= 0; i--) {
-        const layerInfo = passable[i];
-        const layer = this.resolveLayer(layerInfo);
+        const { info, layer, surface } = passable[i];
 
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
-        if (layerInfo.canvas) {
-          await this.renderCanvasElement(rc, layerInfo.canvas);
-          done++;
+        if (surface) {
+          await this.renderCanvasElement(rc, surface);
+          drawn++;
         } else if (layer) {
-          // SVG paths, Canvas elements, and Markers in this layer's panes
-          const panes = api.getLayerPanes(layer);
-          for (const paneName of panes) {
+          // The layer's own shadows go down first: a shadow sits one z-step
+          // BELOW the icon it belongs to (its pane is under the base pane), so
+          // it has to be on the canvas before the content and the icons.  Roots
+          // are claimed only after the list is built, so a layer whose shadows
+          // are all already drawn cannot block anything.
+          const shadowRoots = shadowRootsByLayer
+            .get(info)!
+            .filter(root => !drawnShadowRoots.has(root));
+          for (const root of shadowRoots) drawnShadowRoots.add(root);
+          if (shadowRoots.length) {
+            await this.renderRemaining(rc, shadowRoots, warnShadowLoadFailure);
+          }
+
+          // SVG paths, Canvas elements, and Markers in this layer's panes.
+          // The label pane is NOT part of the generic walk — its labels
+          // are drawn by the dedicated pass right below, and the generic
+          // canvas sweep would draw them a second time (double-painted
+          // labels, deepened alpha).
+          const contentPanes = this.resolveExportPanes(layer, shadowPaneNames).filter(
+            paneName => !paneName.startsWith(CONST.LABEL_PANE_PREFIX),
+          );
+          for (const paneName of contentPanes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
             await this.renderPaneSVG(rc, pane);
@@ -255,18 +409,34 @@ class ExportRenderer {
 
           // The layer's annotation labels sit one z-step above its content, in
           // a pane the content walk never visits (created with map.createPane).
-          // Drawing them here — right after this layer, before the next layer
-          // up — keeps the export's stack order identical to the map's: a layer
-          // above covers this layer's labels.
-          const labelPane = this.map.getPane(
-            CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
-          );
-          if (labelPane) {
-            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+          // They are drawn right after the layer's content — before the next
+          // layer up covers them — so the export's stack order matches the map's.
+          // The pixels are the snapshot frozen when the export started
+          // (task-22), not the live canvas: a refresh in the async window
+          // between the snapshot and this pass would otherwise blank the labels
+          // silently, and drawing the snapshot keeps the export exactly what the
+          // user saw when they pressed Export.
+          const snapshot = labelSnapshots.get(info.id);
+          if (snapshot) {
+            // Loss, not "no labels configured": the pane held a canvas at
+            // snapshot time but nothing made it into the snapshot — a canvas
+            // that was too small / out of crop / failed toDataURL, or one that
+            // the pane no longer holds because a refresh recreated it. A pane
+            // that declared labels but never had a canvas (labels off) is NOT
+            // a loss and must not be reported.
+            if (snapshot.held > snapshot.snaps.length) {
+              labelCanvasesMissing.push(info.id);
+            }
+            for (const snap of snapshot.snaps) {
+              await renderCanvasSnapshot(rc, snap);
+            }
           }
 
-          // Markers and divIcons in this layer
-          const markerRoots = this.collectLayerMarkers(layer);
+          // Markers and divIcons in this layer.  The sweep takes the resolved
+          // content panes, not the raw `getLayerPanes` answer: the resolver
+          // has already removed every shadow pane, and a shadow must never be
+          // admitted as a marker root — it would paint on top of its icon.
+          const markerRoots = this.collectPaneRoots(contentPanes);
           if (markerRoots.length) {
             await this.renderMarkers(rc, markerRoots);
             await this.renderFontAwesome(rc, markerRoots);
@@ -274,13 +444,32 @@ class ExportRenderer {
             await this.renderRemaining(rc, markerRoots);
           }
         }
-        done++;
+        drawn++;
         rc.onProgress?.(
-          ExportRenderer.mapPhase(done / passable.length, ExportRenderer.PHASES.layers),
+          ExportRenderer.mapPhase(
+            drawn / passable.length,
+            ExportRenderer.PHASES.layers,
+          ),
+        );
+      }
+
+      // Fail loud, once. A layer whose label pane exists but whose label canvas
+      // does not was labelled when the export started and lost the canvas
+      // mid-flight; that used to be a silent omission from the image. One
+      // aggregated line, because per-layer warnings on a dense map would bury
+      // the signal they are meant to carry.
+      if (labelCanvasesMissing.length > 0) {
+        log.warn(
+          `annotation labels left out of the export: label canvas missing for ${labelCanvasesMissing.join(",")}`,
         );
       }
     }
 
+    this.lastStats = {
+      layers: entries.length,
+      drawn,
+      labelCanvasesMissing: labelCanvasesMissing.length,
+    };
     return canvas;
   }
 
@@ -325,9 +514,22 @@ class ExportRenderer {
     return renderPaneCanvas(this.container, rc, pane, selector);
   }
 
-  /** Collect markers belonging to a specific layer's panes. */
-  collectLayerMarkers(layer: L.Layer): HTMLElement[] {
-    return collectLayerMarkers(layer);
+  /** Panes this layer's content walk must visit, with every shadow pane in
+   *  `shadowPanes` removed. */
+  resolveExportPanes(layer: L.Layer, shadowPanes: ReadonlySet<string>): string[] {
+    return resolveExportPanes(layer, shadowPanes);
+  }
+
+  /** Collect this layer's marker-shadow roots and record the pane names they
+   *  actually ride in (the export-wide exclusion set). */
+  collectLayerShadows(layer: L.Layer, paneNames: Set<string>): HTMLElement[] {
+    return collectLayerShadows(layer, paneNames);
+  }
+
+  /** Collect exportable roots from a set of panes — the marker-pass
+   *  admission filter, shared by the content and shadow walks. */
+  collectPaneRoots(paneNames: readonly string[]): HTMLElement[] {
+    return collectPaneRoots(paneNames);
   }
 
   /** Render markers with background-image sprites. */
@@ -346,9 +548,15 @@ class ExportRenderer {
   }
 
   /** Render remaining icon types not handled by other passes:
-   *  <img> → fallback sprite → inline SVG → background-color fill. */
-  async renderRemaining(rc: RenderCtx, markerRoots: HTMLElement[]) {
-    return renderRemaining(this.container, rc, markerRoots);
+   *  <img> → fallback sprite → inline SVG → background-color fill.  The shadow
+   *  channel passes `onLoadError` so a shadow the canvas cannot read back is
+   *  reported instead of silently missing. */
+  async renderRemaining(
+    rc: RenderCtx,
+    markerRoots: HTMLElement[],
+    onLoadError?: (src: string, error: unknown) => void,
+  ) {
+    return renderRemaining(this.container, rc, markerRoots, onLoadError);
   }
 }
 

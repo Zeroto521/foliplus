@@ -2,12 +2,22 @@
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
-import { GROUP } from "./const.js";
+import { ROLE } from "./const.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 
 // Mutating methods blocked on the read-only view.
 const log = createLogger("LayerInfoRegistry");
+
+/** Reject a position the array mutators cannot honour. `max` is inclusive:
+ *  `insertAt` may append at `items.length`, `reorder` may not. Without this
+ *  the splice coerces (`"1"`, `2.5`, `NaN`) or writes past the end, and the
+ *  ordering backstop would be the thing corrupting the order. */
+const assertIndex = (method: string, idx: number, max: number): void => {
+  if (!Number.isInteger(idx) || idx < 0 || idx > max) {
+    throw new Error(log.msg(`${method}: index ${String(idx)} is outside 0..${max}`));
+  }
+};
 
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
@@ -57,7 +67,7 @@ const carrierFor = (
  * Ordered layer info list with O(1) id index.
  *
  * **Public API (read-only, safe for external callers):**
- *   `size` / `at(i)` / `get(id)` / `has(id)` / `firstBaseIdx`
+ *   `size` / `at(i)` / `get(id)` / `has(id)` / `indexOfId(id)` / `firstBaseIdx`
  *
  * **Internal (Manager only, not for external use):**
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
@@ -71,14 +81,23 @@ const carrierFor = (
  *   `api.bringLayerToFront(id)`  — reorder
  */
 class LayerInfoRegistry {
+  /** Ordered entries. Direct mutation is unsupported: it desynchronizes
+   *  `byId` and the id → position map. Go through the methods below; a
+   *  caller that injects corruption must run a structural method (or
+   *  `upsert`) before trusting `indexOfId` again. */
   items: LayerInfo[];
   byId: Map<string, LayerInfo>;
+  /** id → live array position. Maintained by every structural mutator so the
+   *  drag hot path resolves a row without an O(N) scan per event. */
+  private indexById: Map<string, number>;
   _firstBaseIdx: number;
   view: LayerInfo[];
 
   constructor(data: LayerInfo[] = [], map?: L.Map) {
     this.items = data.map(l => this.createLayerInfo(l, undefined, map));
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.indexById = new Map();
+    this.reindex();
     this._firstBaseIdx = -1;
     this.refreshFirstBaseIdx();
     this.view = this.createReadonlyView();
@@ -134,7 +153,9 @@ class LayerInfoRegistry {
       opacity: authorOpacity,
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
-      group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
+      // The one write point for a layer's role: a re-registration keeps the
+      // role it already had, and a fresh layer defaults to overlay.
+      role: opts.role ?? existingLi?.role ?? ROLE.OVERLAY,
       // Carried, never normalised: a caller that declared nothing leaves it
       // absent, and the seed sites apply folium's `true` default. Normalising
       // here would make every reader's `?? true` dead code — and would invent
@@ -161,6 +182,8 @@ class LayerInfoRegistry {
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
+      filterProvider: opts.filterProvider ?? existingLi?.filterProvider ?? null,
+      filterSetter: opts.filterSetter ?? existingLi?.filterSetter ?? null,
       styleDefaultsProvider:
         opts.styleDefaultsProvider ?? existingLi?.styleDefaultsProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
@@ -172,6 +195,11 @@ class LayerInfoRegistry {
       updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
       meta: opts.meta ?? existingLi?.meta ?? null,
       metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
+      fillAuthor: opts.fillAuthor ?? existingLi?.fillAuthor ?? null,
+      // Carried the same way `fillAuthor` is: CONF `data[].zoom` reaches this
+      // entry through the bulk build's `opts`, and a re-registration that does
+      // not resend it keeps the declared range (`existingLi.zoom`).
+      zoom: opts.zoom ?? existingLi?.zoom ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
@@ -180,7 +208,7 @@ class LayerInfoRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === GROUP.BASE));
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.role === ROLE.BASE));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -245,37 +273,134 @@ class LayerInfoRegistry {
     return this.items.indexOf(layerInfo);
   }
 
+  /** Live array position of an id, or -1. Identity still belongs to `at()`:
+   *  an id that now names a replacement resolves to a position, not to the
+   *  entry a gesture armed with. */
+  indexOfId(id: string): number {
+    return this.indexById.get(id) ?? -1;
+  }
+
+  /** Rebuild the id → position map after a mutation that shifted indices. */
+  private reindex(): void {
+    this.indexById = new Map();
+    for (let i = 0; i < this.items.length; i++) {
+      this.indexById.set(this.items[i].id, i);
+    }
+  }
+
+  /** First position the base block may occupy. With no base yet the block is
+   *  empty and starts at the end, so the only legal base insertion is an
+   *  append — never in front of the overlay block. */
+  private baseBlockStart(): number {
+    return this._firstBaseIdx === -1 ? this.items.length : this._firstBaseIdx;
+  }
+
+  /** Reject an id that is already registered. `prepend` / `insertAt` are
+   *  insertion paths; an update belongs to `upsert`, and a duplicate here
+   *  would put two list entries behind one `byId` slot. */
+  private assertNewId(method: string, id: string): void {
+    if (this.byId.has(id)) {
+      throw new Error(
+        log.msg(`${method}: "${id}" is already registered — update through upsert`),
+      );
+    }
+  }
+
+  /** Enforce the overlay-before-base partition at the write edge. `idx` is
+   *  the insertion position in `0..items.length`; a base may land at or after
+   *  the base block's start, an overlay only before it. */
+  private assertPlacement(method: string, layerInfo: LayerInfo, idx: number): void {
+    const firstBase = this.baseBlockStart();
+    const valid = layerInfo.role === ROLE.BASE ? idx >= firstBase : idx <= firstBase;
+    if (!valid) {
+      throw new Error(
+        log.msg(
+          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ${idx} — the base block starts at ${firstBase}`,
+        ),
+      );
+    }
+  }
+
   /** Iterate in order (keeps `for...of` and spread working). */
   [Symbol.iterator]() {
     return this.items[Symbol.iterator]();
   }
 
-  /** Insert or update in place — never reorders an existing layer. */
+  /** Insert or update in place — never reorders an existing layer, and
+   *  refuses to change one's role: an in-place swap keeps the slot, so a
+   *  role change would strand the entry in the wrong block with a stale
+   *  boundary. A NEW entry enters through the same placement gate as
+   *  `insertAt` (overlays before the base block, bases appended), so upsert
+   *  cannot be the second structural write that bypasses the partition. The
+   *  registry enforces this itself, not through its callers — the
+   *  controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
-    if (existing) {
-      const idx = this.items.indexOf(existing);
-      this.items[idx] = layerInfo;
-    } else {
-      this.items.push(layerInfo);
-      this.refreshFirstBaseIdx();
+    if (!existing) {
+      // A new entry enters at its block's edge: push() would let an overlay
+      // land after the base block when bases already exist. `insertAt` owns
+      // the placement gate and the derived-map rebuild.
+      this.insertAt(
+        layerInfo,
+        layerInfo.role === ROLE.BASE ? this.items.length : this.baseBlockStart(),
+      );
+      return layerInfo;
     }
+    if (existing.role !== layerInfo.role) {
+      throw new Error(
+        log.msg(
+          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
+        ),
+      );
+    }
+    const idx = this.items.indexOf(existing);
+    if (idx === -1) {
+      // The id and the list disagree (a lost delete, a bad replace). Repair
+      // the whole registry from the list — appending only this entry would
+      // leave a stale `byId` / positions for every other mismatch behind.
+      this.items.push(layerInfo);
+      this.byId = new Map(this.items.map(l => [l.id, l]));
+      this.reindex();
+      this.refreshFirstBaseIdx();
+      return layerInfo;
+    }
+    // An in-place swap keeps the slot and cannot change the role (the gate
+    // above), so neither the position nor `firstBaseIdx` can move.
+    this.items[idx] = layerInfo;
     this.byId.set(layerInfo.id, layerInfo);
     return layerInfo;
   }
 
-  /** Insert at the front (used for new overlay layers). */
+  /** Insert at the front (used for new overlay layers). A base layer is
+   *  refused: index 0 lives inside the overlay block, and letting one land
+   *  there would break the partition this class exists to keep. */
   prepend(layerInfo: LayerInfo): LayerInfo {
+    this.assertNewId("prepend", layerInfo.id);
+    if (layerInfo.role === ROLE.BASE) {
+      throw new Error(
+        log.msg(
+          `prepend: "${layerInfo.id}" is a base layer — index 0 lives in the overlay block`,
+        ),
+      );
+    }
     this.items.unshift(layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  /** Insert before the given index (used for new base layers). */
+  /** Insert before the given index (used for new base layers). `idx` may be
+   *  `items.length` (append); anything else is refused by `assertIndex`.
+   *  The placement gate keeps the overlay/base partition intact, and an id
+   *  already in the registry is refused — updates belong to `upsert`. */
   insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
+    this.assertNewId("insertAt", layerInfo.id);
+    assertIndex("insertAt", idx, this.items.length);
+    this.assertPlacement("insertAt", layerInfo, idx);
     this.items.splice(idx, 0, layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
@@ -286,37 +411,66 @@ class LayerInfoRegistry {
     const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
     this.byId.delete(id);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  /** Move an existing layer to index 0 (bring to front). */
+  /** Move an existing layer to index 0 (bring to front). Refuses a base
+   *  layer: index 0 lives inside the overlay block, and the partition is
+   *  the registry's own invariant, not its callers' responsibility. */
   moveToFront(id: string): LayerInfo | null {
     const layerInfo = this.byId.get(id);
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
+    if (layerInfo.role === ROLE.BASE) {
+      throw new Error(
+        log.msg(
+          `moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`,
+        ),
+      );
+    }
     this.items.splice(idx, 1);
     this.items.unshift(layerInfo);
+    this.reindex();
     return layerInfo;
   }
 
-  /** Swap order of two positions (drag-and-drop). */
+  /** Swap order of two positions (drag-and-drop). Both positions must sit
+   *  on the same side of the overlay/base boundary — the public reorder
+   *  entries gate with `canReorderBetween`, and this is the backstop that
+   *  keeps the partition invariant when a caller forgets. */
   reorder(fromIdx: number, toIdx: number) {
+    assertIndex("reorder(fromIdx)", fromIdx, this.items.length - 1);
+    assertIndex("reorder(toIdx)", toIdx, this.items.length - 1);
+    const firstBase = this._firstBaseIdx;
+    const side = (i: number): number => (firstBase !== -1 && i >= firstBase ? 1 : 0);
+    if (side(fromIdx) !== side(toIdx)) {
+      throw new Error(
+        log.msg(
+          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary (firstBaseIdx=${firstBase})`,
+        ),
+      );
+    }
     const [moved] = this.items.splice(fromIdx, 1);
     this.items.splice(toIdx, 0, moved);
+    this.reindex();
+    this.refreshFirstBaseIdx();
   }
 
   /** Rebuild both list and index from a new ordered array. */
   replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.reindex();
     this.refreshFirstBaseIdx();
   }
 
   clear() {
     this.items.splice(0, this.items.length);
     this.byId.clear();
+    this.indexById.clear();
     this.refreshFirstBaseIdx();
   }
 
@@ -325,17 +479,18 @@ class LayerInfoRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo?.group === GROUP.BASE) bases.push(layerInfo);
+      if (layerInfo?.role === ROLE.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.reindex();
     this.refreshFirstBaseIdx();
   }
 
   /**
    * Check whether a layer at fromIdx can be reordered to toIdx.
-   * Only same-group (base ↔ base or overlay ↔ overlay) reordering is allowed. */
+   * Only same-role (base ↔ base or overlay ↔ overlay) reordering is allowed. */
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
     if (fromIdx == null || toIdx == null) return false;
     if (fromIdx < 0 || toIdx < 0) return false;
@@ -343,12 +498,12 @@ class LayerInfoRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (from.group !== to.group) return false;
+    if (from.role !== to.role) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;
 
-    if (from.group !== GROUP.BASE) {
+    if (from.role !== ROLE.BASE) {
       const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
       return fromIdx <= overlayEnd && toIdx <= overlayEnd;
     }

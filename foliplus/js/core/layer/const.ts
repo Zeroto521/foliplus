@@ -24,7 +24,7 @@ const HIDDEN = "hidden";
 
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
- *  ANNOTATION_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
+ *  LABEL_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus-pane-";
 
 /** Pane name prefix for a layer's annotation labels (LayerControl
@@ -34,10 +34,10 @@ const FALLBACK_PANE_PREFIX = "foliplus-pane-";
  *  walks each layer's label pane right after its content so the exported
  *  stack order matches the map's. Owned by core so both sides read one
  *  definition and the pane-prefix family cannot drift. */
-const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+const LABEL_PANE_PREFIX = "foliplus-label-";
 
 /** Pane name prefix for `createCanvas` overlays (HeatmapControl).
- *  Hyphenated like `foliplus-annotation-*` — these are named, component-owned
+ *  Hyphenated like `foliplus-label-*` — these are named, component-owned
  *  panes, not the auto-generated fallback family. The canvas mounts here so
  *  z-order, focus hide, and export walk the same pane model as every other
  *  layer. */
@@ -75,10 +75,13 @@ const GEOM_TYPE = {
   CUSTOM: "custom",
 };
 
-/** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
- *  Owned by core so z / registry / factory compare against one definition;
- *  consumers import it from the `core/layer` barrel. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
+/** Layer role names — the vocabulary behind `LayerInfo.role` ("base" |
+ *  "overlay"). Owned by core so z / registry / factory compare against one
+ *  definition; consumers import it from the `core/layer` barrel.
+ *
+ *  Named ROLE because it says what the layer *is*. The UI section is projected
+ *  from it by `sectionOf` (role.ts) rather than being a second string. */
+const ROLE = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
  *  | "solid" | "cluster" | "custom"). Owned by core so the factory, registry,
@@ -102,13 +105,14 @@ const KIND = {
 const NO_FEATURE_TREE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 /** Dimension-key names — the shared word face of `LayerDimension.key`,
- *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "border" |
- *  "zoomRange" | "annotation"). Owned by core so the style registry and the
- *  capability contract read one definition; `LayerDimKey` in type.ts derives
- *  from it, so the vocabulary cannot drift. */
+ *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "size" |
+ *  "border" | "zoomRange" | "annotation"). Owned by core so the style
+ *  registry and the capability contract read one definition; `LayerDimKey`
+ *  in type.ts derives from it, so the vocabulary cannot drift. */
 const DIM = {
   OPACITY: "opacity",
   FILL: "fill",
+  SIZE: "size",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
   ANNOTATION: "annotation",
@@ -125,15 +129,43 @@ const CAP_TIER = {
 } as const;
 
 /** Pane-role names — the `PaneSpec.role` vocabulary
- *  ("base" | "sub" | "annotation" | "preview"). Owned by core so z
- *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s annotation /
+ *  ("base" | "sub" | "shadow" | "label" | "preview"). Owned by core so z
+ *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s label /
  *  focus rules read one definition; `PaneRole` in type.ts derives from it,
- *  so the vocabulary cannot drift. */
+ *  so the vocabulary cannot drift.
+ *
+ *  `shadow` never appears in a declared `PaneSpec`: it is the role of the
+ *  per-layer marker-shadow pane a `LayerSurface` synthesizes (see
+ *  `addShadowPane` there). Keeping it in this vocabulary is what lets z
+ *  arithmetic and the focus rules price or exclude it without a name-pattern
+ *  check. */
 const PANE_ROLE = {
   BASE: "base",
   SUB: "sub",
-  ANNOTATION: "annotation",
+  SHADOW: "shadow",
+  LABEL: "label",
   PREVIEW: "preview",
+} as const;
+
+/** The roles a caller may put in a declared `PaneSpec`: `PANE_ROLE` minus
+ *  `shadow`. The shadow pane is internal — the per-layer marker-shadow pane a
+ *  `LayerSurface` synthesizes — so accepting it in a declaration would price
+ *  and move shadows the declaring layer does not own. */
+const DECLARED_PANE_ROLES: readonly string[] = [
+  PANE_ROLE.BASE,
+  PANE_ROLE.SUB,
+  PANE_ROLE.LABEL,
+  PANE_ROLE.PREVIEW,
+];
+
+/** Fixed owners for the panes that belong to no surface. Every `ensurePane`
+ *  booking must name an owner, so a pane owned by nobody still names somebody
+ *  — and the name has to be stable, or the re-book that follows reads it as a
+ *  collision. The `@` prefix is outside the id space a layer id can take. */
+const PANE_OWNER = {
+  /** LayerControl's focus spotlight pane (the inverse mask and the rectangle).
+   *  Created once, outlives every focus, and is never a layer's carrier. */
+  FOCUS: "@focus",
 } as const;
 
 /** Surface-content kind names — the discriminator vocabulary of
@@ -150,21 +182,23 @@ const CONTENT_KIND = {
 } as const;
 
 export {
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   CACHE,
   CANVAS_PANE_PREFIX,
   CAP_TIER,
   COLOR_PANE_PREFIX,
   CONTENT_KIND,
+  DECLARED_PANE_ROLES,
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
-  GROUP,
   HIDDEN,
   KIND,
   NO_FEATURE_TREE_KINDS,
   PANE_NAME_PATTERN,
+  PANE_OWNER,
   PANE_ROLE,
   RECURSION,
+  ROLE,
   Z_INDEX,
 };

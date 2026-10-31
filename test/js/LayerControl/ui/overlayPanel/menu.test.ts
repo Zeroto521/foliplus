@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nativeConsumesKey } from "#core/interaction/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
+import {
+  MENU_ACTIONS,
+  handleMenuClick,
+} from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI menu", () => {
   let manager: LayerController;
@@ -23,11 +28,11 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -56,40 +61,76 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
-    it("orders the entries focus, style, rename, attributes, then delete behind a divider", () => {
-      // Deliberate ordering, not append order: the view action leads (the
-      // trigger-adjacent slot is the mis-click zone), then the style panel,
-      // then the one entry that writes to the layer, the display-only
-      // attributes entry, and finally the destructive one behind its own
-      // separator.
+    it("outside click closes the open menu through the overlay registry", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(item.querySelector(".foliplus-layer-more-menu")).not.toBeNull();
+
+      document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    });
+
+    it("orders style, focus, rename, attributes, then delete behind a divider", () => {
+      // Deliberate ordering, not append order: the primary configure action
+      // leads, then the reversible view action, the one entry that writes to
+      // the layer, the display-only attributes entry, and finally the
+      // destructive one behind its own separator. A row without the filter
+      // capability renders NO filter entry (not a disabled one).
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
 
       const actions = Array.from(
-        item.querySelectorAll(".foliplus-layer-more-menu li"),
+        item.querySelectorAll(".foliplus-layer-more-menu button"),
       ).map(li => (li as HTMLElement).dataset.action);
       expect(actions).toEqual([
-        CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.RENAME_LAYER,
         CONST.ACTION.ATTRS_LAYER,
-        undefined, // the divider above the destructive entry
         CONST.ACTION.DELETE_LAYER,
       ]);
     });
 
+    it("leads with Filter on a capability row, then style, focus, rename, attributes", () => {
+      manager.registerLayer({
+        id: "filterable",
+        name: "Filterable",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "filterable");
+
+      ui.openMoreMenu(item);
+
+      const actions = Array.from(
+        item.querySelectorAll(".foliplus-layer-more-menu button"),
+      ).map(li => (li as HTMLElement).dataset.action);
+      expect(actions.slice(0, 5)).toEqual([
+        CONST.ACTION.FILTER_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.FOCUS_LAYER,
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
+      ]);
+    });
+
     it("creates a menu with the focus-layer action", () => {
+      // A native <button> is focusable without tabindex — the item is no longer
+      // a tabindex="0" li, so the attribute must be absent, not "0".
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       );
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
-      expect(li?.getAttribute("tabindex")).toBe("0");
+      expect(li?.getAttribute("tabindex")).toBeNull();
       expect(li?.getAttribute("title")).toBeDefined();
     });
 
@@ -152,11 +193,11 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action='layer-attributes']`,
+        `.foliplus-layer-more-menu button[data-action='layer-attributes']`,
       );
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
-      expect(li?.getAttribute("tabindex")).toBe("0");
+      expect(li?.getAttribute("tabindex")).toBeNull();
     });
 
     it("closes when Tab moves focus out of the menu", () => {
@@ -195,7 +236,7 @@ describe("LayerUI menu", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
-      const second = menu.querySelectorAll("li")[1]! as HTMLElement;
+      const second = menu.querySelectorAll("button")[1]! as HTMLElement;
 
       menu.dispatchEvent(
         new FocusEvent("focusout", { bubbles: true, relatedTarget: second }),
@@ -208,7 +249,7 @@ describe("LayerUI menu", () => {
     it("opens without crashing when the item has no data-layer-id", () => {
       const item = document.createElement("div");
       item.className = "foliplus-layer-item";
-      ui.uiContainer.appendChild(item);
+      attachedPanel(ui).appendChild(item);
       ui.openMoreMenu(item);
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
@@ -217,16 +258,16 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "delegated1",
         name: "Heatmap",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: { labelShow: vi.fn() },
       } as any);
       const item = findItem(ui, "delegated1");
       ui.openMoreMenu(item);
       const styleLi = item.querySelector(
-        "li[data-action='style-layer']",
+        "button[data-action='style-layer']",
       ) as HTMLElement;
-      expect(styleLi.getAttribute("disabled")).toBeNull();
+      expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
     });
   });
 
@@ -250,7 +291,7 @@ describe("LayerUI menu", () => {
     });
 
     it("color layer has more button (rename entry point)", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
@@ -271,10 +312,10 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement | null;
       expect(li).not.toBeNull();
-      expect(li?.getAttribute("disabled")).toBe("disabled");
+      expect(li?.getAttribute("aria-disabled")).toBe("true");
       expect(li?.getAttribute("title")).toBeDefined();
     });
 
@@ -291,7 +332,7 @@ describe("LayerUI menu", () => {
       ui.focusLayer = focusSpy;
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       li.click();
 
@@ -305,10 +346,10 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement | null;
       expect(li).not.toBeNull();
-      expect(li?.getAttribute("disabled")).toBe("disabled");
+      expect(li?.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("double-click on a base basemap row does not call focusLayer", () => {
@@ -324,17 +365,17 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement | null;
-      expect(li?.getAttribute("disabled")).toBeNull();
+      expect(li?.getAttribute("aria-disabled")).not.toBe("true");
     });
 
-    it("Enter on a visible menu item triggers focusLayer and closes the menu", () => {
+    it("a focused menu button’s Enter fires one native click that triggers focusLayer and closes the menu", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       li.focus();
       expect(document.activeElement).toBe(li);
@@ -342,18 +383,13 @@ describe("LayerUI menu", () => {
       const focusSpy = vi.fn();
       ui.focusLayer = focusSpy;
 
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      });
-      ui.handleKeyDown(event as unknown as KeyboardEvent);
+      li.click();
 
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("Enter on a disabled menu item shows a hint and does not call focusLayer", () => {
+    it("a focused disabled menu button’s Enter fires one click that shows a hint and does not call focusLayer", () => {
       const checkbox = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
@@ -363,7 +399,7 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       li.focus();
 
@@ -373,12 +409,7 @@ describe("LayerUI menu", () => {
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      });
-      ui.handleKeyDown(event as unknown as KeyboardEvent);
+      li.click();
 
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
@@ -390,26 +421,21 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
 
-    it("Enter on a disabled menu item with no title shows no hint", () => {
+    it("a focused disabled menu button’s Enter with no title shows no hint", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
-      li.setAttribute("disabled", "disabled");
+      li.setAttribute("aria-disabled", "true");
       li.removeAttribute("title");
       li.focus();
 
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      });
-      ui.handleKeyDown(event as unknown as KeyboardEvent);
+      li.click();
 
       // The title is the reason, and no builder leaves it empty — with none
       // there is nothing to say rather than a message about the wrong entry.
@@ -431,12 +457,12 @@ describe("LayerUI menu", () => {
       // interaction.ts owns the click; synthesize the event it reads.
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: li });
-      handleMoreMenuClick(ui, event);
+      handleMenuClick(ui, event);
     }
 
     function deleteEntryOf(root: HTMLElement): HTMLLIElement {
       return root.querySelector(
-        `li[data-action="${CONST.ACTION.DELETE_LAYER}"]`,
+        `button[data-action="${CONST.ACTION.DELETE_LAYER}"]`,
       ) as HTMLLIElement;
     }
 
@@ -446,17 +472,20 @@ describe("LayerUI menu", () => {
 
       const lis = Array.from(item.querySelectorAll(".foliplus-layer-more-menu > li"));
       const divider = lis.find(li => li.classList.contains(CONST.CLASSES.MENU_DIVIDER));
-      const deleteLi = lis.find(
-        li => (li as HTMLElement).dataset.action === CONST.ACTION.DELETE_LAYER,
-      );
+      const deleteBtn = item.querySelector(
+        `button[data-action="${CONST.ACTION.DELETE_LAYER}"]`,
+      ) as HTMLElement | null;
       expect(divider).toBeDefined();
-      expect(deleteLi).toBeDefined();
-      expect(lis.indexOf(divider!)).toBe(lis.length - 2);
-      expect(deleteLi!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteBtn).not.toBeNull();
+      // The divider is the item immediately before the destructive entry.
+      expect(divider!.nextElementSibling).toBe(deleteBtn);
+      expect(deleteBtn!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
+        false,
+      );
     });
 
-    it("renders a delete entry for the colour basemap, not disabled", () => {
-      const colorItem = ui.uiContainer.querySelector(
+    it("renders a delete entry for the color basemap, not disabled", () => {
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openMoreMenu(colorItem);
@@ -483,14 +512,14 @@ describe("LayerUI menu", () => {
         config: {},
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="folium_fg"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
 
       ui.openMoreMenu(item);
       expect(
-        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+        item.querySelector(`button[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
       ).not.toBeNull();
       expect(item.querySelector(".foliplus-layer-more-menu-divider")).not.toBeNull();
     });
@@ -504,14 +533,14 @@ describe("LayerUI menu", () => {
 
       // The row carries its identity in data-layer-id, and a component layer
       // row gets a more-menu too — the menu just must not offer a delete.
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="search1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
 
       ui.openMoreMenu(item);
       expect(
-        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+        item.querySelector(`button[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
       ).toBeNull();
       expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
     });
@@ -526,14 +555,14 @@ describe("LayerUI menu", () => {
         config: {},
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="orphan1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
 
       ui.openMoreMenu(item);
       expect(
-        item.querySelector(`li[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
+        item.querySelector(`button[data-action="${CONST.ACTION.DELETE_LAYER}"]`),
       ).toBeNull();
       expect(item.querySelector(".foliplus-layer-more-menu-divider")).toBeNull();
     });
@@ -545,12 +574,12 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "measure1",
         name: "Measure",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: { labelShow: vi.fn() },
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="measure1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
@@ -559,7 +588,7 @@ describe("LayerUI menu", () => {
 
       const deleteLi = deleteEntryOf(item);
       expect(deleteLi).not.toBeNull();
-      expect(deleteLi.getAttribute("disabled")).toBeNull();
+      expect(deleteLi.getAttribute("aria-disabled")).not.toBe("true");
       expect(deleteLi.dataset.mode).toBe("clear");
       expect(deleteLi.title).toBe("LayerControl.clear_data_tooltip");
     });
@@ -583,8 +612,8 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("arms on the first click and deletes on the second for the colour basemap", () => {
-      const item = ui.uiContainer.querySelector(
+    it("arms on the first click and deletes on the second for the color basemap", () => {
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openMoreMenu(item);
@@ -630,11 +659,11 @@ describe("LayerUI menu", () => {
       manager.registerLayer({
         id: "measure1",
         name: "Measure",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: {},
       } as never);
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="measure1"]`,
       ) as HTMLElement;
       ui.openMoreMenu(item);
@@ -723,7 +752,7 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).toHaveBeenCalledWith("");
     });
 
-    it("keyboard Enter arms then deletes the layer", () => {
+    it("native activation (Enter -> click) arms then deletes the layer", () => {
       const item = findItem(ui, "overlay1");
       // Open the menu the way the keyboard does: Enter on the ⋮ button. This
       // also establishes the row cursor that handleKeyDown needs in place.
@@ -740,18 +769,12 @@ describe("LayerUI menu", () => {
 
       const deleteLi = deleteEntryOf(item);
       deleteLi.focus();
-      const enter = (): KeyboardEvent =>
-        new KeyboardEvent("keydown", {
-          key: "Enter",
-          bubbles: true,
-          cancelable: true,
-        });
 
-      ui.handleKeyDown(enter());
+      deleteLi.click();
       expect(deleteSpy).not.toHaveBeenCalled();
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
 
-      ui.handleKeyDown(enter());
+      deleteLi.click();
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
@@ -771,13 +794,13 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const focusLi = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
-      expect(focusLi.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi.getAttribute("aria-disabled")).toBe("true");
       expect(focusLi.getAttribute("title")).toBe("LayerControl.focus_layer_no_bounds");
 
       const styleLi = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='style-layer']",
+        ".foliplus-layer-more-menu button[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
       ui.closeMoreMenu(false);
@@ -831,7 +854,7 @@ describe("LayerUI menu", () => {
 
       const menu = item.querySelector(".foliplus-layer-more-menu");
       expect(menu).not.toBeNull();
-      expect(menu!.querySelectorAll("li").length).toBeGreaterThan(0);
+      expect(menu!.querySelectorAll("button").length).toBeGreaterThan(0);
       ui.closeMoreMenu(false);
     });
 
@@ -845,9 +868,9 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const styleLi = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='style-layer']",
+        ".foliplus-layer-more-menu button[data-action='style-layer']",
       ) as HTMLElement;
-      expect(styleLi.getAttribute("disabled")).toBeNull();
+      expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
       ui.closeMoreMenu(false);
     });
 
@@ -870,10 +893,285 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
 
       const styleLi = item.querySelector(
-        ".foliplus-layer-more-menu li[data-action='style-layer']",
+        ".foliplus-layer-more-menu button[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("aria-disabled")).toBe("true");
       ui.closeMoreMenu(false);
+    });
+
+    it("stops an item press at the menu so it never becomes a map click", () => {
+      // A press inside the control must not also reach the map. Leaflet decides
+      // that by walking the event target's live parents for the control's
+      // `_leaflet_disable_click` marker (`_isClickDisabled`). An item action can
+      // close the menu — and the panel under it — mid-dispatch, which detaches
+      // the pressed <li>; the walk then finds no control ancestor and the press
+      // lands on the map (with a MeasureControl mode armed it drops a marker).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.click();
+
+      // The action still ran — the press is swallowed, not ignored.
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      expect(bubbled).not.toHaveBeenCalled();
+    });
+
+    it("its registry entry reports no containment once the menu closes", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      const entry = ensureOverlayRegistry(map).owningEntry(menu);
+      expect(entry?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+      expect(entry?.panels()).toEqual([menu]);
+
+      ui.closeMoreMenu(false);
+
+      // A late dispatch after the close asks the same closure, and it reads the
+      // live state — containment must be empty, not a detached menu.
+      expect(entry?.panels()).toEqual([]);
+    });
+
+    it("lets a press on the menu chrome bubble past the menu", () => {
+      // Only an item press is swallowed; the guard must not swallow everything
+      // the menu happens to contain (the registry still owes its own verdict).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      menu.click();
+
+      expect(bubbled).toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────── action dispatch matrix ───────────────────
+  // One dispatch table (`MENU_ACTIONS`) serves both inputs. The keyboard path
+  // used to know three of the six actions and sent the rest to focus-layer, so
+  // Style and Attributes opened nothing and showed a "cannot focus" hint
+  // instead. Every action is pinned against both inputs here — exhaustively,
+  // over the CONST.ACTION enum.
+  describe("action dispatch matrix", () => {
+    const spyUi = () => ({
+      filter: vi.spyOn(ui, "openFilterPanel").mockImplementation(() => {}),
+      style: vi.spyOn(ui, "openStylePanel").mockImplementation(() => {}),
+      focus: vi.spyOn(ui, "focusLayer").mockImplementation(() => {}),
+      rename: vi.spyOn(ui, "renameLayer").mockImplementation(() => {}),
+      attrs: vi.spyOn(ui, "openAttrsPanel").mockImplementation(() => {}),
+      del: vi.spyOn(ui.c, "deleteLayer").mockImplementation(() => true),
+    });
+
+    const openMenuFor = (item: HTMLElement): HTMLElement => {
+      ui.openMoreMenu(item);
+      return item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+    };
+
+    const entryFor = (menu: HTMLElement, action: string): HTMLElement => {
+      const li = menu.querySelector(`button[data-action="${action}"]`) as HTMLElement;
+      expect(li).not.toBeNull();
+      expect(li.getAttribute("aria-disabled")).not.toBe("true");
+      return li;
+    };
+
+    // The menu-local click listener invokes this handler; call it directly so
+    // the action table is tested without depending on registry wiring, which
+    // has its own menu-local/outside-click coverage above.
+    // The handler swallows the press (it must not reach the map), so the fake
+    // event carries the one method it calls on the real MouseEvent.
+    const clickOn = (li: HTMLElement): void => {
+      handleMenuClick(ui, {
+        target: li,
+        stopPropagation: vi.fn(),
+      } as unknown as Event);
+    };
+
+    const pressKey = (li: HTMLElement): void => {
+      li.focus();
+      // A native <button> turns Enter/Space into a click, and the interaction
+      // manager stands aside for those keys (nativeConsumesKey -> activate),
+      // so the browser fires exactly one click. jsdom does not synthesize the
+      // native activation, so the test dispatches the click the browser would
+      // deliver — the single dispatch shared by mouse and keyboard.
+      li.click();
+    };
+
+    const activate = (
+      item: HTMLElement,
+      action: string,
+      how: "click" | "enter" | "space",
+    ): void => {
+      const li = entryFor(openMenuFor(item), action);
+      if (how === "click") {
+        clickOn(li);
+        return;
+      }
+      pressKey(li);
+    };
+
+    const menuGone = (item: HTMLElement): boolean =>
+      item.querySelector(".foliplus-layer-more-menu") === null;
+
+    it("covers every CONST.ACTION value in the table", () => {
+      expect(Object.keys(MENU_ACTIONS).sort()).toEqual(
+        Object.values(CONST.ACTION).sort(),
+      );
+      for (const action of Object.values(CONST.ACTION)) {
+        expect(typeof MENU_ACTIONS[action]).toBe("function");
+      }
+    });
+
+    // The single-dispatch guarantee: a native <button> consumes Enter/Space
+    // (the interaction manager stands aside, so the browser fires exactly one
+    // click), while arrows are NOT consumed and still route to the keyboard
+    // branch. This pins the "no second dispatch" contract that the native
+    // button conversion is built on.
+    it("a menu button owns Enter/Space natively but not the arrows", () => {
+      const item = findItem(ui, "overlay1");
+      const btn = entryFor(openMenuFor(item), CONST.ACTION.STYLE_LAYER);
+      expect(btn.tagName.toLowerCase()).toBe("button");
+      // Enter/Space are the button’s native activation keys: the manager
+      // stands aside, so no manual dispatch competes with the native click.
+      expect(nativeConsumesKey(btn, "Enter")).toBe(true);
+      expect(nativeConsumesKey(btn, " ")).toBe(true);
+      // Arrows are not a button activation key: the manager dispatches them
+      // to handleKeyDown, which keeps the menu-item branch for arrows.
+      expect(nativeConsumesKey(btn, "ArrowLeft")).toBe(false);
+      expect(nativeConsumesKey(btn, "ArrowRight")).toBe(false);
+    });
+
+    it("runs style-layer on click and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "click");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs style-layer on Enter and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "enter");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on click and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "click");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on Enter and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "enter");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    // Space shares the activation key group with Enter, so the same fix must
+    // hold there — the report listed both keys.
+    it("runs style-layer on Space without falling through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "space");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on Space without falling through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "space");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs focus-layer on click and on Enter", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.FOCUS_LAYER, "click");
+      expect(spies.focus).toHaveBeenLastCalledWith("overlay1");
+      activate(item, CONST.ACTION.FOCUS_LAYER, "enter");
+      expect(spies.focus).toHaveBeenCalledTimes(2);
+      expect(spies.focus).toHaveBeenLastCalledWith("overlay1");
+    });
+
+    it("runs rename-layer on click and on Enter", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.RENAME_LAYER, "click");
+      expect(spies.rename).toHaveBeenLastCalledWith("overlay1");
+      activate(item, CONST.ACTION.RENAME_LAYER, "enter");
+      expect(spies.rename).toHaveBeenCalledTimes(2);
+      expect(spies.rename).toHaveBeenLastCalledWith("overlay1");
+    });
+
+    it("runs the two-step delete on click (arms, then deletes)", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      const menu = openMenuFor(item);
+      const li = entryFor(menu, CONST.ACTION.DELETE_LAYER);
+
+      clickOn(li);
+      expect(spies.del).not.toHaveBeenCalled();
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(menuGone(item)).toBe(false);
+
+      clickOn(li);
+      expect(spies.del).toHaveBeenCalledWith("overlay1");
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs the two-step delete on Enter (arms, then deletes)", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      const li = entryFor(openMenuFor(item), CONST.ACTION.DELETE_LAYER);
+
+      pressKey(li);
+      expect(spies.del).not.toHaveBeenCalled();
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(menuGone(item)).toBe(false);
+
+      pressKey(li);
+      expect(spies.del).toHaveBeenCalledWith("overlay1");
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs filter-layer on click and on Enter for a filter-capable row", () => {
+      manager.registerLayer({
+        id: "filterable1",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: vi.fn(),
+        filterSetter: vi.fn(),
+      } as any);
+      const spies = spyUi();
+      const item = findItem(ui, "filterable1");
+
+      activate(item, CONST.ACTION.FILTER_LAYER, "click");
+      expect(spies.filter).toHaveBeenLastCalledWith(item);
+
+      activate(item, CONST.ACTION.FILTER_LAYER, "enter");
+      expect(spies.filter).toHaveBeenCalledTimes(2);
+      expect(spies.filter).toHaveBeenLastCalledWith(item);
     });
   });
 

@@ -1,41 +1,56 @@
 () => {
-  // Focus-mode hide rule for Leaflet's native UI panes. `focus.css` already
-  // hides every `foliplus-layer-pane:not(foliplus-focus-pane):not(foliplus-focus-basemap)`
-  // while `.foliplus-is-focus-mode` is on — but marker shadows, hover
-  // tooltips, and popups live in Leaflet's own `leaflet-{shadow,tooltip,popup}-pane`
-  // divs (per the shadow-pane-ownership rule; markers are not migrated off
-  // shadowPane). Without dedicated rules on the native panes, they escape the
-  // focus-mode spotlight: a shadow keeps painting, a tooltip gets lifted above
-  // by `liftZ("tooltipPane", 3)` on focus, and a popup can still open during
-  // the focus animation.
+  // Focus-mode hide rules. `focus.css` hides every
+  // `foliplus-layer-pane:not(foliplus-focus-pane):not(foliplus-focus-basemap)`
+  // while `.foliplus-is-focus-mode` is on — and marker shadows ARE
+  // foliplus-layer-panes now: each marker layer carries its own shadow pane
+  // (PaneRole.SHADOW, moved in by PaneManager.pinLateContent), so the layer
+  // rule hides a non-focused layer's shadows while the focused layer keeps
+  // its own. The shared `leaflet-shadow-pane` has no dedicated rule anymore
+  // (the blanket hide this probe used to pin took the focused marker layer's
+  // own shadows down with everyone else's). Hover tooltips and popups still
+  // live in Leaflet's own `leaflet-{tooltip,popup}-pane` divs outside any
+  // layer pane, so their two dedicated rules remain — a tooltip gets lifted
+  // above the mask by `liftZ("tooltipPane", 3)` on focus, and a popup can
+  // open during the focus animation.
   //
-  // This probe pins the three dedicated selectors end-to-end: sample
-  // `getComputedStyle(pane).visibility` before and after a focus on a polygon
-  // layer. All three native panes are always in the DOM after `L.map()` init;
-  // the tooltip pane's `.leaflet-tooltip` is opened programmatically (hover
-  // timing is unreliable in headless), and the shadow pane is guaranteed to
-  // carry an element by seeding a synthetic `.leaflet-shadow-image` — the
-  // CSS rule is what pins, and we want the assertion to have something to
-  // observe. The popup pane is a pure CSS-contract check (we do not open a
-  // popup here — that is covered by `popup_closes_on_focus`).
+  // This probe seeds a synthetic shadow into the test marker's layer shadow
+  // pane (folium's awesome-marker icons carry no shadow of their own), then
+  // samples computed visibility before / during / after a focus on a
+  // polygon layer. The tooltip is opened programmatically via `openTooltip`
+  // (hover timing is unreliable in headless); the popup pane is a pure
+  // CSS-contract check (popup opening is covered by `popup_closes_on_focus`).
   const map = window.map;
   const ctrl = window.__layerCtrl;
   if (!map || !ctrl) return { error: "map or ctrl not found" };
 
-  // Seed a shadow element so the shadow-pane hide rule has something to
-  // observe. Real markers in folium (awesome-markers default) do not carry a
-  // shadow, so we inject one here — the CSS rule is pane-scoped, and the
-  // element just has to exist for the visibility assertion to be meaningful.
-  const shadowPane = map.getPane("shadowPane");
-  if (shadowPane && !shadowPane.querySelector(".leaflet-shadow-image")) {
+  // Pane elements carry their NAME as a class (`leaflet-<name>-pane`), not
+  // an id — Leaflet's createPane never sets an id. Derive the marker layer's
+  // shadow pane from the icon pane's class token: base name
+  // `foliplus-pane-75` → shadow pane class `leaflet-foliplus-pane-75-shadow-pane`.
+  const iconPane = window.__testMarker?.getElement?.()?.parentElement ?? null;
+  const shadowPaneClass = iconPane
+    ? (() => {
+        const stem = Array.from(iconPane.classList).find(
+          c => c !== "leaflet-pane" && c.startsWith("leaflet-") && c.endsWith("-pane"),
+        );
+        return stem
+          ? `leaflet-${stem.slice("leaflet-".length, -"-pane".length)}-shadow-pane`
+          : null;
+      })()
+    : null;
+  const markerShadowPane = shadowPaneClass
+    ? iconPane.parentElement.querySelector(`.${shadowPaneClass}`)
+    : null;
+  const shadowPaneId = shadowPaneClass;
+  if (markerShadowPane && !markerShadowPane.querySelector(".foliplus-shadow-probe")) {
     const shadow = document.createElement("div");
-    shadow.className = "leaflet-shadow-image";
+    shadow.className = "foliplus-shadow-probe";
     shadow.style.position = "absolute";
     shadow.style.width = "41px";
     shadow.style.height = "41px";
     shadow.style.left = "0";
     shadow.style.top = "0";
-    shadowPane.appendChild(shadow);
+    markerShadowPane.appendChild(shadow);
   }
 
   const read = () => {
@@ -45,14 +60,20 @@
         ? { present: true, visibility: getComputedStyle(el).visibility }
         : { present: false, visibility: null };
     };
+    const probe = document.querySelector(".foliplus-shadow-probe");
     return {
       containerFocus: map.getContainer().classList.contains("foliplus-is-focus-mode"),
+      // Leaflet's shared shadow pane — no dedicated rule anymore.
       shadowPane: readOne(".leaflet-shadow-pane"),
+      // The test marker layer's own shadow pane and the probe inside it.
+      markerShadowPane: shadowPaneClass ? readOne(`.${shadowPaneClass}`) : null,
+      shadowProbe: probe
+        ? { present: true, visibility: getComputedStyle(probe).visibility }
+        : { present: false, visibility: null },
       tooltipPane: readOne(".leaflet-tooltip-pane"),
       popupPane: readOne(".leaflet-popup-pane"),
       // Prove the panes actually hold something worth hiding — otherwise the
-      // `visibility: hidden` assertion would pass vacuously.
-      shadowImage: !!document.querySelector(".leaflet-shadow-image"),
+      // `visibility: hidden` assertions would pass vacuously.
       tooltipEl: !!document.querySelector(".leaflet-tooltip"),
     };
   };
@@ -92,6 +113,7 @@
                 during,
                 after: read(),
                 uiPresent: !!ui,
+                shadowPaneId,
               });
             });
           });

@@ -305,7 +305,7 @@ LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
 LAYER_MODULE_TOKENS = {
     "focus.css": ".foliplus-focus-rect",
     "row.css": ".foliplus-layer-dragging",
-    "menu.css": ".foliplus-layer-more-menu li",
+    "menu.css": ".foliplus-layer-more-menu button",
     "attr.css": ".foliplus-layer-attrs-panel",
     "control.css": 'input[type="checkbox"]',
     "map-state.css": "@keyframes foliplus-drag-pulse",
@@ -320,6 +320,7 @@ LAYER_IMPORT_ORDER = [
     "row.css",
     "menu.css",
     "attr.css",
+    "filter.css",
     "control.css",
     "map-state.css",
     "rename.css",

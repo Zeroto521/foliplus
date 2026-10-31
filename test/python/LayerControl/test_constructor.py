@@ -68,7 +68,7 @@ class TestLayerControlConstructor:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         m.render()
 
-        flags = {d["name"]: d["group"] for d in ctrl._config["data"]}
+        flags = {d["name"]: d["role"] for d in ctrl._config["data"]}
         assert flags["OSM"] == "base", f"OSM should be base: {flags}"
         assert flags["Points"] == "overlay", f"Points should be overlay: {flags}"
 
@@ -93,7 +93,7 @@ class TestLayerControlConstructor:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(ctrl)
         m.render()
 
-        flags = {d["name"]: d["group"] for d in ctrl._config["data"]}
+        flags = {d["name"]: d["role"] for d in ctrl._config["data"]}
         assert flags["Carto"] == "base", f"Carto should be base: {flags}"
         assert flags["Points"] == "overlay", f"Points should be overlay: {flags}"
 

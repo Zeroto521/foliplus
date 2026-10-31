@@ -1,9 +1,12 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
+  dismissFocus,
   drawFocusMask,
   drawFocusRect,
   focusDisabledLocaleKey,
@@ -21,15 +24,45 @@ import {
 } from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
-import { GROUP, type LayerInfo, focusLayerZ } from "#foliplus/core/layer/index.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
+import { ensureInteraction } from "#foliplus/core/interaction/index.js";
+import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
   attachWithGroup,
+  attachedPanel,
   findItem,
   initFixture,
   makePane,
+  oneOverlay,
+  polygonLayerWith,
+  polygonLayerWithoutBounds,
 } from "../fixture.js";
+
+// ── Interaction-manager teardown ─────────────────────────────────────
+// Every fixture attaches a panel, so LayerControl registers its keyboard
+// shortcuts through the per-map InteractionManager. That manager keeps a
+// MutationObserver on document.body for as long as the map lives, and a
+// fixture map never fires "unload" (its `on` is a spy), so the observer
+// outlives the test file. jsdom then tears the document down, mutates it, and
+// the queued mutation callbacks run after `HTMLElement` is gone — a wall of
+// ReferenceError on stderr that never changes the exit code but buries real
+// errors. Track every map a fixture creates and destroy its interaction
+// manager with the file. `ensureInteraction` returns the cached manager when
+// one exists, and creating-then-destroying one for a map that never registered
+// is harmless.
+const fixtureMaps: any[] = [];
+const trackFixture = <T extends { map?: any }>(fixture: T): T => {
+  if (fixture?.map) fixtureMaps.push(fixture.map);
+  return fixture;
+};
+
+afterEach(() => {
+  for (const fixtureMap of fixtureMaps.splice(0)) {
+    ensureInteraction(fixtureMap).destroy();
+  }
+});
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
 // core/mode owns guardBlocked() and ModeManager.setMode(); these tests cover
@@ -94,7 +127,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
     // below would hit the real clock.
     vi.clearAllMocks();
     modeMocks._reset();
-    const fixture = initFixture();
+    const fixture = trackFixture(initFixture());
     vi.useFakeTimers();
     ui = fixture.ui;
     map = fixture.map;
@@ -165,7 +198,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
   });
 
   it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
-    const { manager, ui } = initFixture();
+    const { manager, ui } = trackFixture(initFixture());
 
     ui.focusLayer("overlay1");
     expect(getModeSpy("LayerControl")).toBe("focusing");
@@ -238,7 +271,7 @@ describe("LayerUI focus", () => {
   let map: any;
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui, map } = trackFixture(initFixture()));
     // Fold tests need two overlay layers, so overlay1 isn't collapsed into the
     // single-child "no toggle-all" layout. Registered here (not in the tests)
     // because initFixture() flushes the 300ms initTypesAndVisibility timeout
@@ -247,19 +280,25 @@ describe("LayerUI focus", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
-    // Folded-group state is persisted to localStorage, so a fold from one test
+    // Folded-role state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
     // already-folded.
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
   afterEach(() => {
+    // Cancel a focus the test left live. Its auto-dismiss timer stays armed
+    // after the test ends and calls dismissFocus during the file teardown,
+    // where the console output it produces races the worker's closing console
+    // RPC. Cancelling first makes that stale callback a no-op: it only
+    // dismisses while the rect it captured is still the live one.
+    if (ui?.isFocusing()) ui.cancelFocus();
     // Drop the debounced enforceOrder before tearing down the DOM — a real
     // timer would otherwise fire after body.innerHTML = "" and hit a detached
     // container (PaneManager.ensurePane).
@@ -334,7 +373,9 @@ describe("LayerUI focus", () => {
     });
 
     it("caps maxZoom at map.getMaxZoom() when current + step exceeds it", () => {
-      ({ manager, ui, map } = initFixture({ initialZoom: 17, maxZoom: 18 }));
+      ({ manager, ui, map } = trackFixture(
+        initFixture({ initialZoom: 17, maxZoom: 18 }),
+      ));
 
       ui.focusLayer("overlay1");
 
@@ -1088,7 +1129,7 @@ describe("LayerUI focus", () => {
 
       // The layer's labels ride one step above the raised layer (focusedZ + 1),
       // so they stay readable over its geometry — and get no glow of their own.
-      const labelPane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay2")!;
+      const labelPane = panes.get(`${CONST.LABEL_PANE_PREFIX}overlay2`)!;
       expect(labelPane.style.zIndex).toBe(
         String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
       );
@@ -1247,7 +1288,7 @@ describe("LayerUI focus", () => {
       // lift just skips it, the rest of the ladder still works.
       const panes = new Map<string, HTMLElement>();
       map.getPane.mockImplementation((name: string) => {
-        if (name.startsWith(CONST.ANNOTATION_PANE_PREFIX)) return null;
+        if (name.startsWith(CONST.LABEL_PANE_PREFIX)) return null;
         if (!panes.has(name)) panes.set(name, makePane());
         return panes.get(name)!;
       });
@@ -1406,30 +1447,21 @@ describe("LayerUI focus", () => {
       });
 
       // ── Leaflet's native UI panes get their own hide rules ──
-      // HIDE_RULE only touches `foliplus-layer-pane`. Marker shadows, hover
-      // tooltips, and popups live in Leaflet's `leaflet-*-pane` divs (the
-      // shadow stays in `shadowPane` per the pane-ownership rule from the
-      // marker-shadow fix), so they escape the foliplus rule entirely. Three
-      // dedicated selectors hide them during focus — one per native pane.
-      // These matchers must be kept in sync with `focus.css`: delete one of
-      // the three selectors and the matching case below goes red.
+      // HIDE_RULE only touches `foliplus-layer-pane`. Hover tooltips and
+      // popups live in Leaflet's `leaflet-*-pane` divs and escape the foliplus
+      // rule entirely, so two dedicated selectors hide them during focus —
+      // one per native pane. Marker shadows do NOT need one anymore: each
+      // marker layer carries its own shadow pane (`PaneRole.SHADOW`,
+      // moved in by `PaneManager.pinLateContent`), so HIDE_RULE hides a
+      // non-focused layer's shadows and the focused layer keeps its own —
+      // the global `.leaflet-shadow-pane { visibility: hidden }` rule this
+      // used to pair with is gone. These matchers must be kept in sync with
+      // `focus.css`: delete one of the two selectors and the matching case
+      // below goes red.
       const NATIVE_PANE_RULES: Record<string, string> = {
-        "shadow-pane": ".foliplus-is-focus-mode .leaflet-shadow-pane",
         "tooltip-pane": ".foliplus-is-focus-mode .leaflet-tooltip-pane",
         "popup-pane": ".foliplus-is-focus-mode .leaflet-popup-pane",
       };
-
-      it("hides Leaflet's shadow pane during focus (marker shadows escape the foliplus rule)", () => {
-        const container = makeContainer(true);
-        const shadowPane = document.createElement("div");
-        shadowPane.classList.add("leaflet-shadow-pane");
-        container.appendChild(shadowPane);
-        document.body.appendChild(container);
-
-        expect(document.querySelectorAll(NATIVE_PANE_RULES["shadow-pane"])).toContain(
-          shadowPane,
-        );
-      });
 
       it("hides Leaflet's tooltip pane during focus (hover tooltips escape the foliplus rule)", () => {
         const container = makeContainer(true);
@@ -1453,6 +1485,23 @@ describe("LayerUI focus", () => {
         expect(document.querySelectorAll(NATIVE_PANE_RULES["popup-pane"])).toContain(
           popupPane,
         );
+      });
+
+      it("focus.css carries no shadow-pane rule anymore (shadows are layer-owned panes)", () => {
+        // Selector-shape checks (like the two above) only prove what a
+        // selector WOULD match — querySelectorAll reads DOM structure, not
+        // CSS. The removed blanket hide needs a file-level assertion: the
+        // old `.leaflet-shadow-pane { visibility: hidden }` took the focused
+        // marker layer's own shadows down with everyone else's, and shadows
+        // are foliplus layer panes now (PaneRole.SHADOW), covered by the
+        // layer-pane rule above.
+        const css = readFileSync(
+          resolve(".", "foliplus/css/LayerControl/focus.css"),
+          "utf8",
+        );
+        expect(css).not.toContain("leaflet-shadow-pane");
+        expect(css).toContain(".foliplus-is-focus-mode .leaflet-tooltip-pane");
+        expect(css).toContain(".foliplus-is-focus-mode .leaflet-popup-pane");
       });
 
       it("the native pane rules do not match when focus is not active", () => {
@@ -1485,7 +1534,7 @@ describe("LayerUI focus", () => {
         manager.registerLayer({
           id,
           name: id,
-          group: "base",
+          role: "base",
           layer: { options: {} },
           paneName: `${id}Pane`,
         });
@@ -1552,7 +1601,7 @@ describe("LayerUI focus", () => {
         // cover that defensive branch: no base may be marked, no throw.
         const realSurfaceFor = ui.c.surfaceFor.bind(ui.c);
         vi.spyOn(ui.c, "surfaceFor").mockImplementation(((li: LayerInfo) =>
-          li.group === GROUP.BASE
+          li.role === ROLE.BASE
             ? null
             : realSurfaceFor(li)) as unknown as typeof ui.c.surfaceFor);
 
@@ -1655,7 +1704,7 @@ describe("LayerUI focus", () => {
     it("does NOT focus the layer on a dblclick of the rename input", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       ui.renameLayer("overlay1");
-      const input = ui.uiContainer.querySelector(
+      const input = attachedPanel(ui).querySelector(
         `.${CONST.CLASSES.RENAME_INPUT}`,
       ) as HTMLElement;
       expect(input).not.toBeNull();
@@ -1672,7 +1721,7 @@ describe("LayerUI focus", () => {
       ) as HTMLElement;
       menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       const menuItem = overlay.querySelector(
-        ".foliplus-layer-more-menu li",
+        ".foliplus-layer-more-menu button",
       ) as HTMLElement;
       expect(menuItem).not.toBeNull();
       ui.handleDblClick({ target: menuItem, bubbles: true } as unknown as MouseEvent);
@@ -2024,7 +2073,7 @@ describe("LayerUI focus", () => {
   // filter, or the indices below drift and the cursor lands on the wrong row.
   const navigableItems = () =>
     Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       ),
     );
@@ -2039,7 +2088,7 @@ describe("LayerUI focus", () => {
       } = {},
     ) => {
       const item = document.createElement("div");
-      if (opts.color) item.dataset.layerType = GROUP.BASE;
+      if (opts.color) item.dataset.layerType = ROLE.BASE;
       if (opts.type !== undefined) item.dataset.layerType = opts.type;
       if (opts.checked !== undefined) {
         const box = document.createElement("input");
@@ -2058,7 +2107,7 @@ describe("LayerUI focus", () => {
 
     it("returns 'base' for a color-picker or basemap row", () => {
       expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE }))).toBe("base");
     });
 
     it("returns 'hidden' for a hidden row", () => {
@@ -2070,14 +2119,14 @@ describe("LayerUI focus", () => {
       // not the row is on. Consulted first (as they once were) they would let
       // an off basemap keep an enabled Style entry, so the unchecked check has
       // to come ahead of them.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: false }))).toBe(
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE, checked: false }))).toBe(
         "hidden",
       );
       expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
         "hidden",
       );
       // A checked basemap keeps the basemap verdict: no extent to focus on.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: true }))).toBe(
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE, checked: true }))).toBe(
         "base",
       );
       expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
@@ -2154,7 +2203,7 @@ describe("LayerUI focus", () => {
       const bare = document.createElement("div");
       bare.className = CONST.CLASSES.LAYER_ITEM;
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
-      ui.uiContainer.appendChild(bare);
+      attachedPanel(ui).appendChild(bare);
       ui.listPanel.activeIdx = navigableItems().indexOf(bare);
       expect(getActiveLayerItem(ui)).toBe(bare);
       const changes = vi.fn();
@@ -2220,6 +2269,22 @@ describe("LayerUI focus", () => {
 
       drawFocusMask(ui, layerBounds());
       expect(ui.focusController.focusRenderer).toBe(renderer);
+    });
+
+    it("aborts the mask when the focus pane is not acquireable", () => {
+      // Defensive: a focus pane held by someone else (or repainted with
+      // foreign content) means the mask has nowhere to draw — the abort must
+      // leave no renderer behind and not throw.
+      const ensureSpy = vi
+        .spyOn(ui.c.panes, "ensurePane")
+        .mockReturnValue({ pane: null, renderer: null });
+      try {
+        expect(() => drawFocusMask(ui, layerBounds())).not.toThrow();
+        expect(ui.focusController.focusRenderer).toBeNull();
+        expect(ensureSpy).toHaveBeenCalled();
+      } finally {
+        ensureSpy.mockRestore();
+      }
     });
 
     it("omits the renderer from the rect options when none is active", () => {
@@ -2291,7 +2356,7 @@ describe("LayerUI focus", () => {
       const info = {
         id: "heat1",
         name: "Heat",
-        group: "overlay",
+        role: "overlay",
         canvas,
         ...(paneName ? { paneName } : {}),
       } as LayerInfo;
@@ -2335,7 +2400,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        group: "overlay",
+        role: "overlay",
         paneName: "missing-pane",
       } as LayerInfo);
       expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
@@ -2345,7 +2410,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        group: "overlay",
+        role: "overlay",
       } as LayerInfo);
       expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });
@@ -2414,5 +2479,145 @@ describe("LayerUI focus", () => {
       expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
       expect(getPaneSpy).toHaveBeenCalledWith("phantom_pane");
     });
+  });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a focus cancel inside the rectangle announce is not undone", () => {
+  // The rectangle branch draws the mask, the rect, the row highlight and the
+  // auto-cancel, and only then announces. A subscriber that cancels inside
+  // that notify wins: nothing after the announce re-arms the focus, so a
+  // focus kicked off by focusLayer cannot still be live when it returns.
+  const { ui, map, layer, onMap } = trackFixture(oneOverlay());
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.fitBounds).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a focus cancel inside the flyTo announce is not undone", () => {
+  // The flyTo branch takes the same ordering: fly to the center, highlight
+  // the row, register the auto-cancel, and only then announce.
+  const { ui, map, layer, onMap } = trackFixture(
+    oneOverlay(() => polygonLayerWith([30, 100], [30.0001, 100.0001])),
+  );
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.flyTo).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a rejected focus leaves no membership change behind", () => {
+  // A layer the policy had pulled off rejoins the map so its bounds can be
+  // read. When those bounds turn out unusable the re-add goes back, so the
+  // call announces nothing and leaves the map as it found it.
+  const { ui, layer, onMap } = trackFixture(oneOverlay(polygonLayerWithoutBounds));
+  onMap.set(layer, false);
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+
+  expect(onMap.get(layer)).toBe(false);
+  expect(seen).toEqual([]);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("dismissFocus releases a stuck focusing mode when the focus UI state is gone", () => {
+  const { ui, map } = trackFixture(initFixture());
+  // This suite mocks core/mode, whose fake ensureModes does not wire
+  // map.foliplus.modes the way the real one does; emulate that wiring so the
+  // production recovery path can read the live mode without installing.
+  const modes = ensureModes(map) as {
+    setMode: (component: string, mode: string | null) => void;
+    getMode: (component: string) => string | null;
+  };
+  (map as any).foliplus = { ...(map as any).foliplus, modes };
+  // Simulate a past half-commit: mode registered, focus UI state never landed
+  // (isFocusing is driven by the focus state, not by the mode).
+  modes.setMode(ui.config.name, "focusing");
+  expect(ui.isFocusing()).toBe(false);
+
+  dismissFocus(ui);
+
+  expect(modes.getMode(ui.config.name)).toBeNull();
+  expect(ui.isFocusing()).toBe(false);
+});
+
+describe("dismissFocus finalization", () => {
+  it("removes focus visuals even when a pane restore throws", () => {
+    window.localStorage.clear();
+    const { ui } = trackFixture(initFixture());
+    const warn = vi.spyOn(ui.log, "warn");
+    const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
+
+    ui.focusController.focusedPaneRestores = [
+      ["restore-z:markerPane", () => undefined],
+      [
+        "surface:overlay1",
+        () => {
+          throw new Error("pane gone");
+        },
+      ],
+    ];
+    const rect = {} as L.Layer;
+    const mask = {} as L.Polygon;
+    const renderer = {} as L.SVG;
+    ui.focusController.focusRect = rect;
+    ui.focusController.focusMask = mask;
+    ui.focusController.focusRenderer = renderer;
+
+    expect(() => dismissFocus(ui)).not.toThrow();
+
+    expect(removeLayer).toHaveBeenCalledWith(rect);
+    expect(removeLayer).toHaveBeenCalledWith(mask);
+    expect(removeLayer).toHaveBeenCalledWith(renderer);
+    expect(ui.focusController.focusRect).toBeNull();
+    expect(ui.focusController.focusMask).toBeNull();
+    expect(ui.focusController.focusRenderer).toBeNull();
+    expect(ui.focusController.focusedPaneRestores).toEqual([]);
+    expect(
+      warn.mock.calls.some(call => String(call[0]).includes("surface:overlay1")),
+    ).toBe(true);
+  });
+
+  it("still tears down the mask when a step before the restores throws", () => {
+    window.localStorage.clear();
+    const { ui } = trackFixture(initFixture());
+    const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
+    // Step 5 of the teardown, before the pane restores: this is the failure that
+    // used to skip every visual removal and leave the map dimmed.
+    vi.spyOn(ui.c.annotation, "setFocusFilter").mockImplementation(() => {
+      throw new Error("annotation teardown failed");
+    });
+    const mask = {} as L.Polygon;
+    ui.focusController.focusMask = mask;
+    ui.focusController.focusingLayerId = "overlay1";
+
+    expect(() => dismissFocus(ui)).not.toThrow();
+
+    expect(removeLayer).toHaveBeenCalledWith(mask);
+    expect(ui.focusController.focusMask).toBeNull();
+    expect(ui.focusController.focusingLayerId).toBeNull();
   });
 });

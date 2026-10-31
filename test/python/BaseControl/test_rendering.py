@@ -89,6 +89,25 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-fullscreen" in css
         assert "--foliplus-z-index-top" in css
 
+    def test_portal_popup_carries_a_z_index_token(self):
+        """The portalled dropdown list must outrank an expanded panel.
+
+        An expanded panel raises its .leaflet-bottom section to base+9 (9999),
+        above the floating band the menu shell gives the list. Without its own
+        z-index the popup is painted under the panel — the five heatmap
+        controls then look dead while the DOM still has the listbox. Assert the
+        rule references the ladder token rather than pinning a number here.
+        """
+        css = read_css_dir("foliplus/css/common", "dropdown.css")
+        marker = ".foliplus-dropdown-list.foliplus-dropdown-portal"
+        assert marker in css
+        rule = css[css.index(marker) :]
+        rule = rule[: rule.index("}")]
+        assert "z-index: var(--foliplus-z-index-" in rule, (
+            "the portalled dropdown list needs a z-index from the token ladder "
+            f"(got rule: {rule!r})"
+        )
+
     def test_z_policy_table_landing(self):
         """The three-family z policy table has a single landing in token.css."""
         css = read_css_dir("foliplus/css/common", "token.css")
@@ -102,7 +121,7 @@ class TestBaseControlRendering:
     def test_z_policy_export_scale_row_is_in_export_ladder(self):
         """The policy table's export-scale row is 9490 (export-base - 10), not 850.
 
-        T241 reported 850 colliding with the layer-z band; the row moves with
+        The old 850 collided with the layer-z band; the row moves with
         the value so the table stays the single source of stacking intent.
         """
         css = read_css_dir("foliplus/css/common", "token.css")
@@ -262,18 +281,20 @@ class TestBaseControlRendering:
         results keep record ink on press.
         """
         css = read_css_dir("foliplus/css/common", "menu.css")
-        assert "):not([disabled]):active" in css
+        assert (
+            '.foliplus-layer-more-menu button:not([aria-disabled="true"]):active' in css
+        )
         assert "background: var(--foliplus-accent-soft-bg)" in css
         # Search result is a record: text stays text-primary on press too.
         assert ".foliplus-search-result-item:not([disabled]):active" in css
         assert "color: var(--foliplus-text-primary)" in css
         # Disabled menu entries keep their muted non-answer.
-        assert ".foliplus-layer-more-menu li[disabled]:active" in css
+        assert '.foliplus-layer-more-menu button[aria-disabled="true"]:active' in css
 
     def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
         """Layer overflow menu items take the shared focus-ring + fast transition."""
         css = read_css_dir("foliplus/css/LayerControl", "menu.css")
-        idx = css.find(".foliplus-layer-more-menu li:focus-visible")
+        idx = css.find(".foliplus-layer-more-menu button:focus-visible")
         assert idx != -1
         block = css[idx : css.index("}", idx)]
         assert "var(--foliplus-focus-ring)" in block

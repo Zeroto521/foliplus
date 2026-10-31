@@ -1,4 +1,10 @@
 /** Layer Control SVG icons. */
+/** Checkmark glyph for the filter enum's multi-select options. */
+const ICON_CHECK = `
+  <svg viewBox="0 0 24 24">
+    <path d="M5 13 L10 18 L19 6"/>
+  </svg>`;
+
 const ICON_LAYERS = `
   <svg viewBox="0 0 24 24">
     <polygon points="12 2 22 7 12 12 2 7"/>
@@ -82,10 +88,18 @@ const ICON_STYLE = `
     <path d="M5 4 H19 M12 4 V20"/>
   </svg>`;
 
+/** "Layer filter" glyph — a funnel (the classic filter mark). */
+const ICON_FILTER = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 5 H21 L14 13 V20 L10 18 V13 Z"/>
+  </svg>`;
+
 export {
+  ICON_CHECK,
   ICON_COLOR,
   ICON_DRAG_HANDLE,
   ICON_EMPTY,
+  ICON_FILTER,
   ICON_FOCUS,
   ICON_FOLD,
   ICON_LAYERS,

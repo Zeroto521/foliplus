@@ -1,7 +1,7 @@
 // LayerControl annotation — per-layer text-label rendering.
 //
 // Labels are drawn on one canvas per layer, each mounted in its layer's own
-// annotation pane, so they take their layer's place in the stack: a layer above
+// label pane, so they take their layer's place in the stack: a layer above
 // covers them, they cover the layers below.
 //
 // Collision is per layer too, by design: the z-order already expresses "who
@@ -12,15 +12,18 @@ import { areaCentroid } from "#core/geo/index.js";
 import {
   type Box,
   type LabelField,
-  autoLabelField,
   collectLabelFields,
+  resolveSelectedField,
   withinRect,
 } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
+import { finalize } from "#common/finalize.js";
+import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#common/format.js";
+import { createLogger } from "#common/log.js";
 import type { CanvasLabelStyle } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { AnnotationConfig } from "../type.js";
@@ -32,6 +35,12 @@ import {
   layoutLabel,
   planLabelLayout,
 } from "./layout.js";
+
+// The component's prefix, not the folder's: `Annotation` is an internal
+// subsystem name a user never sees, and every diagnostic from a mounted
+// LayerControl should grep as `[LayerControl]` — the same rule the UI modules
+// follow through `ui.log`.
+const log = createLogger("LayerControl");
 
 /** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
@@ -59,7 +68,8 @@ type FoliplusLayerOptions = {
  *  Hand-written rather than schema-generated: the value never crosses from
  *  Python, so there is no Python source for the generator to read. */
 type FoliplusDeclaration = {
-  annotation?: Partial<AnnotationConfig>;
+  /** The author-facing key. */
+  label?: Partial<AnnotationConfig>;
   [key: string]: unknown;
 };
 
@@ -83,12 +93,25 @@ const LABEL_PRIORITY = 50;
 const isDeclaredFormat = (format: string): format is NumberStyle =>
   (Object.values(NUMBER_FORMAT) as NumberStyle[]).includes(format as NumberStyle);
 
+/** Whether a string is a hex color the label renderer can paint — the panel's
+ *  color input and the built-in default are both hex, so anything else is a
+ *  typo and degrades to the token default instead of reaching the canvas.
+ *  `#rgb` is accepted and normalised to `#rrggbb` so a declared color and a
+ *  later panel edit compare equal. */
+const isDeclaredColor = (color: string): boolean =>
+  /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
+
 /** The annotation keys an author declared for one layer — a PARTIAL record:
  *  only the keys actually declared are returned. An absent key must stay
  *  absent so the default below it survives the merge; coercing a full config
  *  (`coerceAnnotationFields`, ui/style/label.ts) would read an undeclared
  *  `collide` as `true` and shadow the page-level `label_collide` — the author
- *  named one field and the whole page's avoidance silently changed. */
+ *  named one field and the whole page's avoidance silently changed.
+ *
+ *  Keys stay SHORT here because the declaration's own `label` namespace
+ *  already says label: the `label_` prefix belongs to the flat surfaces
+ *  (Python kwargs, CONF, locale), where `show`/`color` would collide with
+ *  other parameters. */
 const pickDeclaredAnnotation = (
   raw: Partial<AnnotationConfig> | undefined,
 ): Partial<AnnotationConfig> => {
@@ -97,6 +120,14 @@ const pickDeclaredAnnotation = (
   if (typeof raw.field === "string") out.field = raw.field;
   if (typeof raw.format === "string" && isDeclaredFormat(raw.format)) {
     out.format = raw.format;
+  }
+  if (typeof raw.color === "string" && isDeclaredColor(raw.color)) {
+    out.color = normalizeHexColor(raw.color);
+  }
+  // The panel clamps the size input to the shared bounds; a declaration goes
+  // through the same clamp so a hand-written 99px cannot reach the canvas.
+  if (typeof raw.size === "number" && Number.isFinite(raw.size)) {
+    out.size = clampLabelSize(raw.size);
   }
   if (typeof raw.collide === "boolean") out.collide = raw.collide;
   // Declaring a field turns the layer's labels on — the built-in default is off,
@@ -114,7 +145,7 @@ const pickDeclaredAnnotation = (
  * by LayerUI.
  *
  * Panes are NOT this manager's anymore: the label pane is a declared
- * `role: "annotation"` PaneSpec of the layer's surface, created when the
+ * `role: "label"` PaneSpec of the layer's surface, created when the
  * surface materializes (the registration edge declares it iff the layer has
  * labelable fields — `LayerController.withAnnotationSpec`). This manager only
  * mounts and unmounts the canvas inside that pane, so the pane's lifetime,
@@ -125,8 +156,9 @@ class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
   private readonly config: Map<string, AnnotationConfig>;
-  /** Resolved auto field per layer, dropped when its features can change. */
-  private readonly autoFieldCache: Map<string, string>;
+  /** The field each layer's labels read, resolved from its config and its
+   *  fields. Dropped when the config or the layer's features change. */
+  private readonly resolvedFieldCache: Map<string, string>;
   /** Author-declared annotation keys per id. Cached: getConfig runs once per
    *  layer per frame (refreshPan → layerSpec/paintStyle), and a declaration
    *  is static for the life of the page, so the tree walk underneath runs once. */
@@ -150,9 +182,12 @@ class AnnotationManager {
    *  paint style: re-reading six CSS variables per throttled frame is pure
    *  overhead, and the tokens only change with the theme. */
   private cachedSpec: LabelSpec | null = null;
-  /** mapPane's position at the last full plan — the pan fast path translates
-   *  the planned boxes by the delta from it instead of re-planning. */
-  private planOrigin: { x: number; y: number } | null = null;
+  /** Where mapPane sat when each layer's current plan was made — the pan
+   *  fast path translates that layer's planned boxes by the delta from its
+   *  own origin instead of re-planning. Per layer because plans are per
+   *  layer: a content-change repaint at time T re-stamps only that layer's
+   *  origin, never the origin of layers planned earlier. */
+  private readonly planOrigins = new Map<string, { x: number; y: number }>();
   /** What the last full plan handed each canvas, kept for the pan translate. */
   private readonly lastPlanned = new Map<string, PlannedLabel[]>();
 
@@ -160,7 +195,7 @@ class AnnotationManager {
     this.map = opts.map;
     this.layerFind = opts.layerFind;
     this.config = new Map();
-    this.autoFieldCache = new Map();
+    this.resolvedFieldCache = new Map();
     this.authorCache = new Map();
 
     // The same event contract HeatmapControl's canvas uses. A pan translates
@@ -194,33 +229,37 @@ class AnnotationManager {
     // used to fire for (markers and overlays the other controls add), which is
     // why HeatmapControl switched the same way.
     this.unsubscribe.push(
-      events.on(EVENTS.LAYER_CHANGE, payload => {
-        // Guard: third-party or historical bare emit (no payload).
-        // All product emit sites carry {id, kind} — a missing payload here
-        // means an external caller fired the event without the contract.
-        // Fallback to full refresh (repaint every label-bearing layer), which
-        // is the old raw layeradd/layerremove behavior.
-        if (!payload) {
-          this.refresh();
-          return;
-        }
-        const { id, kind } = payload;
-        // A tile basemap, a solid color face, and a self-drawn canvas never
-        // get an annotation pane — the registration edge declares it only for
-        // a labelable feature tree — so they can never own a canvas to repaint.
-        if (NO_FEATURE_TREE_KINDS.has(kind)) return;
-        this.onLayerMembership(id);
-      }),
+      events.on(
+        EVENTS.LAYER_CHANGE,
+        payload => {
+          // Guard: third-party or historical bare emit (no payload).
+          // All product emit sites carry {id, kind} — a missing payload here
+          // means an external caller fired the event without the contract.
+          // Fallback to full refresh (repaint every label-bearing layer), which
+          // is the old raw layeradd/layerremove behavior.
+          if (!payload) {
+            this.refresh();
+            return;
+          }
+          const { id, kind } = payload;
+          // A tile basemap, a solid color face, and a self-drawn canvas never
+          // get an label pane — the registration edge declares it only for
+          // a labelable feature tree — so they can never own a canvas to repaint.
+          if (NO_FEATURE_TREE_KINDS.has(kind)) return;
+          this.onLayerMembership(id);
+        },
+        "internal",
+      ),
       // Export safety: the exporter's locked path grows the container and shifts
       // the view, then captures on the very next frame — so the redraw here is
       // synchronous. A throttled one would land a frame late and the capture
       // would read the pre-export canvas.
-      events.on(EVENTS.BEFORE_EXPORT, () => this.refresh()),
-      events.on(EVENTS.AFTER_EXPORT, () => this.refresh()),
+      events.on(EVENTS.BEFORE_EXPORT, () => this.refresh(), "internal"),
+      events.on(EVENTS.AFTER_EXPORT, () => this.refresh(), "internal"),
     );
   }
 
-  /** The built-in default annotation config (labels off, auto field, auto
+  /** The built-in default annotation config (labels off, no field chosen, auto
    *  format, page-level collide) — the bottom layer of getConfig's merge. */
   defaultConfig(): AnnotationConfig {
     return {
@@ -262,13 +301,15 @@ class AnnotationManager {
     // that arrives later, for the life of the page. Only a resolved namespace
     // is static and cacheable.
     if (!declared) return {};
-    const out = pickDeclaredAnnotation(declared.annotation);
+    const out = pickDeclaredAnnotation(declared.label);
     this.authorCache.set(id, out); // the declaration is static once resolved
     return out;
   }
 
   setConfig(id: string, cfg: AnnotationConfig): void {
     this.config.set(id, cfg);
+    // The config may name a different field; the next render re-resolves.
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Delete a layer's config entry — the Reset path. Removing rather than
@@ -280,6 +321,7 @@ class AnnotationManager {
    *  layer, not the user, so only `destroyLayer` drops that entry. */
   clearConfig(id: string): void {
     this.config.delete(id);
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Whether a layer already carries a config. Distinguishes "never configured"
@@ -305,7 +347,7 @@ class AnnotationManager {
    *  The *walk* runs through core/labelField's collector; what stays local is
    *  the leaf traversal. HeatmapControl keeps its own collection (fed from
    *  extractPoints, numeric only) but shares the bare-name field contract,
-   *  the auto pick, and `bareFieldName` for legacy configs. */
+   *  the default pick, and `bareFieldName` for legacy configs. */
   collectFields(id: string): LabelField[] {
     const layer = this.layerFind(id);
     if (!layer) return [];
@@ -376,27 +418,30 @@ class AnnotationManager {
     return null;
   }
 
-  /** The field a layer's labels read: the one the config names, or — when the
-   *  config leaves it open (`field: ""`, what the picker's "Auto" entry means) —
-   *  the shared auto pick over the layer's fields.
+  /** The field a layer's labels read: the configured field while the layer
+   *  still offers it, otherwise the layer's default pick (first numeric, else
+   *  first).
    *
    *  Resolved at render time rather than written into the config, so a layer
-   *  whose columns change keeps labeling itself instead of being pinned to a
-   *  field name that no longer exists. */
+   *  whose columns change keeps labeling itself: a stored name that is gone
+   *  falls back to the default, and a config that never named one re-derives it
+   *  instead of being pinned to a field the user never chose. A fieldless layer
+   *  resolves to "" — the caller treats that as "no labels". */
   resolveField(id: string): string {
-    const explicit = this.getConfig(id).field;
-    if (explicit) return explicit;
-    const cached = this.autoFieldCache.get(id);
+    const cached = this.resolvedFieldCache.get(id);
     if (cached !== undefined) return cached;
-    const picked = autoLabelField(this.collectFields(id));
-    this.autoFieldCache.set(id, picked);
+    const picked = resolveSelectedField(
+      this.getConfig(id).field,
+      this.collectFields(id),
+    );
+    this.resolvedFieldCache.set(id, picked);
     return picked;
   }
 
-  /** Drop a layer's cached auto pick. Called when its features can change, so
-   *  the next render re-samples the columns. */
-  invalidateAutoField(id: string): void {
-    this.autoFieldCache.delete(id);
+  /** Drop a layer's resolved field. Called when the user's config or the
+   *  layer's features change, so the next render re-resolves. */
+  invalidateResolvedField(id: string): void {
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Format a value for display according to the configured style.
@@ -414,15 +459,27 @@ class AnnotationManager {
    *  single tear-down + re-build rather than two separate paths).
    *  Returns the labels the plan was given: callers that track them (and the
    *  tests, which assert on "nothing was drawn") read that instead of walking
-   *  the canvas. */
+   *  the canvas.
+   *
+   *  The repaint is per layer: one final paint of this layer's canvas, never
+   *  a paint-[]-then-refresh-all pair. Collision is per layer by design, so
+   *  no other layer's plan changes when this one rebuilds — and M layers
+   *  replaying in the same frame cost M repaints, not M². Zoom / pan /
+   *  resize / export still go through the full `refresh()`. */
   renderLabels(id: string): LayerLabel[] {
-    this.clearLabels(id);
+    // Unconditional and idempotent: a stale plan left behind by an earlier
+    // clear (or a canvas whose labels map already dropped) must not survive
+    // this render just because labelsByLayer no longer has the id.
+    const clearAnd = (): [] => {
+      this.clearLabels(id);
+      return [];
+    };
     const cfg = this.getConfig(id);
-    if (!cfg.show) return [];
+    if (!cfg.show) return clearAnd();
     const field = this.resolveField(id);
-    if (!field) return [];
+    if (!field) return clearAnd();
     const layer = this.layerFind(id);
-    if (!layer) return [];
+    if (!layer) return clearAnd();
     const locale = CONFIG.locale_code ?? "en";
     const labels: LayerLabel[] = [];
 
@@ -448,20 +505,36 @@ class AnnotationManager {
     if (labels.length > 0) {
       this.labelsByLayer.set(id, labels);
       this.ensureCanvas(id);
+      this.refreshLayer(id);
+    } else {
+      this.clearLabels(id);
     }
-    this.refresh();
     return labels;
   }
 
-  /** Remove every annotation label that belongs to a given layer. */
+  /** Remove every annotation label that belongs to a given layer, and the
+   *  pan plan built from them. One repaint — this layer's own canvas,
+   *  painted empty.
+   *
+   *  The plan maps are cleared FIRST, and unconditionally: `refreshPan`
+   *  translates a layer from `lastPlanned` + `planOrigins`, so leaving them
+   *  behind lets a pan repaint the labels this call just removed (show=false,
+   *  field gone, layer unloaded). Deleting them before the labelsByLayer
+   *  early return also heals a state where the labels map already dropped but
+   *  a plan survived.
+   *
+   *  Per-layer boundary: only this id's plan and canvas are touched. Collision
+   *  is per layer by design, so no other layer's boxes or origin change —
+   *  clearing one layer can never re-plan or shift another. */
   clearLabels(id: string): void {
+    this.lastPlanned.delete(id);
+    this.planOrigins.delete(id);
     if (!this.labelsByLayer.delete(id)) return;
     this.canvases.get(id)?.paint([]);
-    this.refresh();
   }
 
   /** Bake the layer's opacity slider value into this layer's label canvas
-   *  (R11) and repaint. The annotation pane no longer takes the CSS opacity
+   *  (R11) and repaint. The label pane no longer takes the CSS opacity
    *  write — baking is the sole carrier so labels do not double-compound
    *  with the vector data panes' CSS.
    *
@@ -473,7 +546,7 @@ class AnnotationManager {
     this.canvases.get(id)?.setLayerAlpha(alpha);
   }
 
-  /** Tear down a layer's rendering state — labels, canvas, auto-field
+  /** Tear down a layer's rendering state — labels, canvas, resolved-field
    *  cache — but KEEP its config: an unregister is a teardown, not a
    *  delete, and the stored label intent has to survive it. The `layers`
    *  live source re-reads `configEntries` on every flush, so dropping the
@@ -482,7 +555,7 @@ class AnnotationManager {
   unloadLayer(id: string): void {
     this.clearLabels(id);
     this.dropCanvas(id);
-    this.autoFieldCache.delete(id);
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Forget a layer entirely — rendering state AND config. `deleteLayer`
@@ -496,14 +569,29 @@ class AnnotationManager {
   }
 
   destroy(): void {
-    this.mapCleanup();
-    this.unsubscribe.forEach(off => off());
+    // Snapshot the canvases themselves, not their ids: a step that removes the
+    // last reference can let a re-entrant `ensureCanvas` mount a replacement
+    // under the same id, and an id lookup at step time would destroy that new
+    // canvas instead of the one this teardown owns.
+    const canvases = [...this.canvases];
+    finalize(
+      [
+        ["map-cleanup", () => this.mapCleanup()],
+        ...this.unsubscribe.map((off, i) => [`unsubscribe:${i}`, off] as const),
+        ...canvases.map(
+          ([id, canvas]) => [`canvas:${id}`, () => canvas.destroy()] as const,
+        ),
+      ],
+      failure => log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain state resets: they cannot throw, and a failed step must not leave
+    // config for a torn-down manager readable.
     this.unsubscribe.length = 0;
-    for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
+    this.canvases.clear();
     this.lastPlanned.clear();
-    this.planOrigin = null;
+    this.planOrigins.clear();
     this.config.clear();
-    this.autoFieldCache.clear();
+    this.resolvedFieldCache.clear();
     this.authorCache.clear();
     this.layerAlphas.clear();
   }
@@ -538,18 +626,7 @@ class AnnotationManager {
    *  instead of matching layer objects, so a repaint is one map lookup rather
    *  than a walk of every canvas comparing stamps. */
   private readonly onLayerMembership = (id: string): void => {
-    const canvas = this.canvases.get(id);
-    if (!canvas) return;
-    const container = this.map.getContainer();
-    const viewport = {
-      x: 0,
-      y: 0,
-      w: container.clientWidth,
-      h: container.clientHeight,
-    };
-    const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
-    this.lastPlanned.set(id, planned);
-    canvas.paint(planned, this.paintStyle(container, id));
+    this.refreshLayer(id);
   };
 
   /** Plan each visible layer's labels independently, then hand every canvas its
@@ -567,17 +644,42 @@ class AnnotationManager {
       w: container.clientWidth,
       h: container.clientHeight,
     };
-    // Remember where the mapPane sat while planning — the pan fast path
+    // Remember where mapPane sat while planning — the pan fast path
     // translates by the delta from here (same source latLngToContainerPoint
     // uses, so the translate matches a re-plan exactly).
     const mapPane = this.map.getPanes().mapPane;
-    this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
+    const origin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
+    this.planOrigins.clear();
     for (const [id, canvas] of this.canvases) {
       const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
       this.lastPlanned.set(id, planned);
+      if (origin) this.planOrigins.set(id, origin);
       canvas.paint(planned, this.paintStyle(container, id));
     }
+  }
+
+  /** Repaint ONE layer's canvas from its current labels — the content-change
+   *  and membership path. Only that layer's plan runs: other layers' boxes
+   *  and collision decisions stand (collision is per layer by design), so
+   *  one layer's change costs one repaint, not one per layer on the map.
+   *  Geometry-wide changes (zoom / resize / export / a settled pan) still
+   *  go through the full `refresh()`. */
+  private refreshLayer(id: string): void {
+    const canvas = this.canvases.get(id);
+    if (!canvas) return;
+    const container = this.map.getContainer();
+    const viewport = {
+      x: 0,
+      y: 0,
+      w: container.clientWidth,
+      h: container.clientHeight,
+    };
+    const planned = this.plannedFor(id, this.layerSpec(container, id), viewport);
+    this.lastPlanned.set(id, planned);
+    const mapPane = this.map.getPanes().mapPane;
+    if (mapPane) this.planOrigins.set(id, { ...L.DomUtil.getPosition(mapPane) });
+    canvas.paint(planned, this.paintStyle(container, id));
   }
 
   /** Per-layer layout spec: shared tokens, with that layer's font size. */
@@ -605,13 +707,10 @@ class AnnotationManager {
     if (this.canvases.size === 0) return;
     const mapPane = this.map.getPanes().mapPane;
     const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
-    if (!this.planOrigin || !pos) {
+    if (!pos) {
       this.refresh();
       return;
     }
-    const dx = pos.x - this.planOrigin.x;
-    const dy = pos.y - this.planOrigin.y;
-    if (dx === 0 && dy === 0) return;
     const container = this.map.getContainer();
     const viewport = {
       x: 0,
@@ -621,14 +720,24 @@ class AnnotationManager {
     };
     for (const [id, canvas] of this.canvases) {
       const planned = this.lastPlanned.get(id);
-      if (!planned) {
-        // A canvas born after the last full plan (a layer enabled mid-pan)
-        // has nothing to translate — plan it properly.
+      const origin = planned ? this.planOrigins.get(id) : undefined;
+      if (!planned || !origin) {
+        // A canvas born after its layer's last plan (a layer enabled
+        // mid-pan, or one planned without a pane origin) has nothing to
+        // translate — plan it properly, stamped with the origin it planned
+        // at, so the NEXT pan can translate it like everyone else.
         const fresh = this.plannedFor(id, this.layerSpec(container, id), viewport);
         this.lastPlanned.set(id, fresh);
+        // Snapshot, like every planning path: the pane position object can be
+        // reused/mutated by Leaflet, and a live reference would track the
+        // current pos so dx stays 0 and this layer stops translating.
+        this.planOrigins.set(id, { ...pos });
         canvas.paint(fresh, this.paintStyle(container, id));
         continue;
       }
+      const dx = pos.x - origin.x;
+      const dy = pos.y - origin.y;
+      if (dx === 0 && dy === 0) continue;
       canvas.paint(
         withinRect(
           planned.map(label => ({
@@ -695,7 +804,7 @@ class AnnotationManager {
     return !!layer && this.map.hasLayer(layer);
   }
 
-  /** Mount a layer's label canvas into its surface-declared annotation pane.
+  /** Mount a layer's label canvas into its surface-declared label pane.
    *
    *  The pane already exists — the registration edge declared it alongside
    *  the capability (`withAnnotationSpec`), so the surface created it with
@@ -705,9 +814,9 @@ class AnnotationManager {
    *  a value written while labels were off still lands. */
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
-    const pane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + id);
+    const pane = this.map.getPane(CONST.LABEL_PANE_PREFIX + id);
     if (!pane) return; // no declared carrier (capability "none") — no labels
-    pane.classList.add("foliplus-annotation-pane");
+    pane.classList.add("foliplus-label-pane");
     const canvas = new AnnotationCanvas(this.map, pane);
     this.canvases.set(id, canvas);
     const alpha = this.layerAlphas.get(id);
@@ -719,8 +828,19 @@ class AnnotationManager {
    *  face so the same id can register again without rebuilding its panes
    *  (the core `LayerSurface.destroy` contract); only the canvas is ours. */
   private dropCanvas(id: string): void {
-    this.canvases.get(id)?.destroy();
-    this.canvases.delete(id);
+    // `finally`, not `finalize`: one invariant (the entry must leave the map),
+    // and it must hold on every exit path — including the one where destroy()
+    // throws. A single reset is what finally is for.
+    try {
+      this.canvases.get(id)?.destroy();
+    } finally {
+      this.canvases.delete(id);
+      // The plan belonged to the canvas. A same-id re-registration that draws
+      // no labels must not inherit the old plan and have it translated on the
+      // first pan by a fresh canvas.
+      this.lastPlanned.delete(id);
+      this.planOrigins.delete(id);
+    }
   }
 }
 

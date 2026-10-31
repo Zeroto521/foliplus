@@ -51,7 +51,7 @@ describe("RegisterLayerOpts", () => {
     const notArray = make().createLayerInfo({ id: "l1", paneSpecs: "pane" });
 
     // @ts-expect-error group is "base" | "overlay"
-    const notBool = make().createLayerInfo({ id: "l1", group: "true" });
+    const notBool = make().createLayerInfo({ id: "l1", role: "true" });
 
     // @ts-expect-error opacity is number
     const notNumber = make().createLayerInfo({ id: "l1", opacity: "half" });
@@ -60,7 +60,7 @@ describe("RegisterLayerOpts", () => {
     // so garbage at a declared key lands in the registry verbatim. This is
     // what callers are protected from by the type alone.
     expect(notArray.paneSpecs).toBe("pane");
-    expect(notBool.group).toBe("true");
+    expect(notBool.role).toBe("true");
     expect(notNumber.opacity).toBe("half");
   });
 
@@ -89,9 +89,7 @@ describe("RegisterLayerOpts", () => {
     // A well-formed payload must compile untouched — closing the record must
     // not force callers to cast or drop fields. parseSVG round-trips this as
     // an SVG node and back, so assert on content rather than an exact echo.
-    const svg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
-      '<rect x="0" y="0" width="16" height="16"/></svg>';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16"/></svg>`;
 
     const paneSpecs: PaneSpec[] = [
       { role: "base", order: 0, name: "a" },
@@ -102,7 +100,7 @@ describe("RegisterLayerOpts", () => {
       id: "l1",
       name: "L1",
       layer,
-      group: "overlay",
+      role: "overlay",
       paneName: "myPane",
       paneSpecs,
       iconSvg: svg,
@@ -120,7 +118,7 @@ describe("RegisterLayerOpts", () => {
     expect(info).toMatchObject({
       id: "l1",
       name: "L1",
-      group: "overlay",
+      role: "overlay",
       paneName: "myPane",
       paneSpecs,
       opacity: 0.5,

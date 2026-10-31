@@ -2,14 +2,41 @@
 // sequence and the layer-count-change refresh. These are the null-guard rails
 // in the two public functions, not the happy path (which the shell test and
 // the individual handler suites already exercise).
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
+import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { toggleAll, toggleFold } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { findItem, initFixture } from "./fixture.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import {
+  rebuildList,
+  toggleAll,
+  toggleFold,
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { commitBorderColor } from "#foliplus/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { registerDimension } from "#foliplus/LayerControl/ui/style/registry.js";
+import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
+import {
+  FACE,
+  flushStyleDimApplies,
+  flushStyleDimApply,
+  hasStyleDimApply,
+  scheduleStyleDimApply,
+} from "#foliplus/LayerControl/ui/style/styleBag.js";
+import {
+  attachedPanel,
+  findItem,
+  initFixture,
+  oneOverlay,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 
 vi.mock("#foliplus/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<
@@ -47,7 +74,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const orphan = document.createElement("input");
       orphan.type = "checkbox";
       orphan.setAttribute("data-role", "toggle-all");
-      orphan.dataset.group = GROUP.OVERLAY;
+      orphan.dataset.role = ROLE.OVERLAY;
       // Fire a synthetic event directly at the ui.onChange handler, bypassing
       // the container delegation (the container listener would only see it if
       // the checkbox were inside uiContainer, which is the case we already
@@ -56,15 +83,15 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(orphan.checked).toBe(false);
     });
 
-    it("onChange: a toggle-all row without data-group falls back to empty group", () => {
-      // Covers the ?? "" fallback on the row's data-group: toggleAll must be
+    it("onChange: a toggle-all row without data-role falls back to empty role", () => {
+      // Covers the ?? "" fallback on the row's data-role: toggleAll must be
       // called with the empty string, not undefined, when the row is misconfigured.
       const toggleAllSpy = vi.mocked(toggleAll);
 
-      const row = ui.uiContainer.querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+      const row = attachedPanel(ui).querySelector(
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
-      row.removeAttribute("data-group");
+      row.removeAttribute("data-role");
       const checkbox = row.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.checked = true;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
@@ -82,20 +109,20 @@ describe("LayerUI lifecycle — defensive rails", () => {
       vi.spyOn(ui.listPanel.listCursor!, "setIndex").mockImplementation(setIndexSpy);
 
       const orphan = document.createElement("div");
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       orphan.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       expect(ui.listPanel.activeIdx).toBeNull();
       expect(setIndexSpy).not.toHaveBeenCalled();
     });
 
-    it("onClick: a toggle-all row without data-group toggles the empty group", () => {
+    it("onClick: a toggle-all row without data-role toggles the empty group", () => {
       const toggleFoldSpy = vi.mocked(toggleFold);
 
-      const row = ui.uiContainer.querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+      const row = attachedPanel(ui).querySelector(
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
-      row.removeAttribute("data-group");
+      row.removeAttribute("data-role");
       // Click the row's fold button (a descendant that is not itself a toggle
       // control), so the second guard `el.closest('[data-role="toggle-all"]')`
       // is false and we reach the toggleFold call.
@@ -117,7 +144,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const showSolidBasemapSpy = vi
         .spyOn(ui, "showSolidBasemap")
         .mockImplementation(() => {});
-      const colorRow = ui.uiContainer.querySelector<HTMLElement>(
+      const colorRow = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       );
       expect(colorRow).toBeTruthy();
@@ -220,7 +247,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // loop must continue past it rather than calling getFeatureCount(undefined).
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ui.refreshAllCounts();
@@ -250,7 +277,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.unsubscribeCountChange = null;
       ui.unsubscribeControlAttached = null;
       ui.onMoreClick = null;
-      ui.onMoreMenuClick = null;
       ui.onMoreMapClick = null;
       ui.onZoomEnd = null;
       ui.onChange = null;
@@ -327,40 +353,77 @@ describe("LayerUI lifecycle — defensive rails", () => {
   });
 
   describe("LAYER_ITEM_UPDATED signal handler", () => {
+    it("repaints the row label title from the registry's new name", () => {
+      // A re-registration refreshes the label through updateItemLabel: the
+      // text and its resident tooltip both move to the new name — the hover
+      // must not keep announcing the previous one.
+      const label = () =>
+        findItem(ui, "overlay1").querySelector(
+          `.${CONST.CLASSES.LAYER_LABEL}`,
+        ) as HTMLElement;
+      const before = label().title;
+      expect(before).not.toBe("Renamed By Update");
+
+      manager.layerRegistry.get("overlay1")!.name = "Renamed By Update";
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, { id: "overlay1" });
+
+      expect(label().textContent).toBe("Renamed By Update");
+      expect(label().title).toBe("Renamed By Update");
+      expect(label().title).not.toBe(before);
+    });
+
     it("no-ops when the id is not in the registry", () => {
       // Covers the `if (!layerInfo) return` guard: a stale id (unregistered
       // after the event was emitted, or a third-party bundle emitting an
       // id the panel does not track) must be a silent no-op, not a null
       // deref on updateLayerItemLabel / invalidateFields.
-      const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      const rowsBefore = attachedPanel(ui).querySelectorAll(
+        CONST.SEL.LAYER_ITEM,
+      ).length;
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {
           id: "never-registered",
         }),
       ).not.toThrow();
-      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
+      expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
         rowsBefore,
       );
     });
   });
 
   describe("LAYER_LIST_REBUILD signal handler", () => {
-    it("re-renders the list and refreshes row counts", () => {
-      // The manager emits LAYER_LIST_REBUILD after a reorder/undo that
-      // touches the DOM wholesale. The handler runs renderInitialList,
-      // initTypesAndVisibility, and refreshAllCounts in sequence, so we
-      // assert on the resulting DOM: rows preserved, counts re-resolved.
-      vi.spyOn(manager, "getFeatureCount").mockReturnValue(3);
+    it("relocates rows in place without repainting them", () => {
+      // The manager emits LAYER_LIST_REBUILD after a reorder (moveLayerUp/
+      // Down, bringLayerToFront). A position change alters no count or
+      // checkbox, so the handler relocates rows instead of rebuilding them:
+      // the row element — and its possibly-stale content — survives the
+      // signal untouched.
       const item = findItem(ui, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
       countCol.textContent = "stale";
 
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
 
-      const rebuilt = ui.uiContainer.querySelector(
+      const survived = findItem(ui, "overlay1");
+      expect(survived).toBe(item);
+      expect(survived.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("stale");
+    });
+
+    it("the full rebuild the fold/attach paths take still refreshes row counts", () => {
+      // rebuildList is off the reorder path but still owns fold and attach:
+      // rows are re-created and counts re-resolved there.
+      vi.spyOn(manager, "getFeatureCount").mockReturnValue(3);
+      const before = findItem(ui, "overlay1");
+      const countCol = before.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
+      countCol.textContent = "stale";
+
+      rebuildList(ui);
+
+      const rebuilt = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"]`,
       ) as HTMLElement;
       expect(rebuilt).not.toBeNull();
+      expect(rebuilt).not.toBe(before);
       expect(rebuilt.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("3");
     });
 
@@ -370,23 +433,25 @@ describe("LayerUI lifecycle — defensive rails", () => {
         ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
       ).not.toThrow();
       expect(
-        ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length,
+        attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length,
       ).toBeGreaterThanOrEqual(1);
     });
 
     it("unbindEvents tears down every layer-signal subscription", () => {
       // After unbindEvents, another LAYER_LIST_REBUILD must be a no-op:
       // renderInitialList would otherwise rebuild the whole panel.
-      const before = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      const before = attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length;
       ui.unbindEvents();
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
-      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(before);
+      expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
+        before,
+      );
     });
 
     it("drag handlers are wired and dispatch to the drag module", () => {
       // The bindLayerEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
       // must route DOM events to the ui/* module functions without throwing.
-      const row = ui.uiContainer.querySelector(
+      const row = attachedPanel(ui).querySelector(
         `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="overlay1"]`,
       ) as HTMLElement;
       const evt = (type: string): Event =>
@@ -405,5 +470,541 @@ describe("LayerUI lifecycle — defensive rails", () => {
         ui.onMoreMapClick?.(null as any);
       }).not.toThrow();
     });
+  });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a zoomend announces after the open row's out-of-range chrome has settled", () => {
+  // The map-level zoomend handler used to be one of two independent zoomend
+  // listeners: the controller's sweep ran first and announced, and the
+  // panel's row chrome caught up only after that notify had already fired.
+  // A subscriber reading the row during the announce therefore saw the
+  // pre-zoom "in range" face even though the current level was outside.
+  // The sweep now syncs the open row before it publishes.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 6]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  expect(ui.c.map.getZoom()).toBe(5);
+
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+    false,
+  );
+
+  // Move past the range: the sweep removes the layer, and the row's
+  // out-of-range state has to be true by the time the notify fires.
+  ui.c.map.getZoom = vi.fn(() => 8);
+
+  const outOfRangeAtDelivery: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    outOfRangeAtDelivery.push(
+      row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE),
+    );
+  });
+
+  ui.onZoomEnd?.();
+
+  expect(onMap.get(layer)).toBe(false);
+  expect(outOfRangeAtDelivery).toEqual([true]);
+  expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+    true,
+  );
+});
+
+it("an attach whose replay destroys the control leaves no panel behind", () => {
+  // The stored hide disagrees with the map (folium put the layer back before
+  // this script ran), so the attach sweep has a membership flip to announce.
+  // Tearing the control down there must end the attach entry before it
+  // schedules the init timer. The tail behind that notify happens to tolerate
+  // a missing panel today, so the lock is the end state plus the timer: a
+  // future continuation that does not tolerate it would surface here.
+  let initSpy: ReturnType<typeof vi.spyOn> | null = null;
+  const { manager, ui } = initFixture({
+    seed: { layers: { overlay1: { overrides: ["visible"], visible: false } } },
+    beforeAttach: (m, u) => {
+      initSpy = vi.spyOn(u, "initTypesAndVisibility");
+      u.events.on(EVENTS.LAYER_CHANGE, () => {
+        if (!m.isDestroyed) m.destroy();
+      });
+    },
+  });
+
+  expect(manager.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+  expect(initSpy).not.toHaveBeenCalled();
+});
+
+it("an init pass announces after the label replay has landed", () => {
+  // The init timer replays the persisted state and then repaints label
+  // configs. Both land before the pass's own round goes out, so a subscriber
+  // reading the panel during the CHANGE sees the finished pass rather than a
+  // list whose labels are still the previous generation's. The first init
+  // also registers the color basemap, whose own registration round precedes
+  // the label replay — that round belongs to the registration entry, so the
+  // contract locked here is the pass's: by the time its notifications start,
+  // the replay has landed.
+  const layer = polygonLayer();
+  let labelsAtDelivery: number | null = null;
+  const { manager } = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer }],
+    afterAttach: (m, u) => {
+      const onMap = trackMembership(m.map);
+      onMap.set(layer, true);
+      m.map.removeLayer(layer);
+      // Installed after attach, so the count belongs to this entry's run.
+      const labelSpy = vi.spyOn(u, "applyStyleLabelState");
+      u.events.on(EVENTS.LAYER_CHANGE, () => {
+        labelsAtDelivery = labelSpy.mock.calls.length;
+      });
+    },
+  });
+
+  expect(labelsAtDelivery).toBe(1);
+  expect(manager.isDestroyed).toBe(false);
+});
+
+it("a control-attached re-run announces after the label replay has landed", () => {
+  // Same boundary on the re-run path: a later component attaching re-triggers
+  // the init pass, and the label replay is part of that pass.
+  const { ui, manager } = oneOverlay();
+  setIntent(ui, "overlay1", "visible", false);
+  ui.intentStore.seedProvenance("overlay1", ["visible"]);
+  const labelSpy = vi.spyOn(ui, "applyStyleLabelState");
+
+  let labelsAtDelivery: number | null = null;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    labelsAtDelivery = labelSpy.mock.calls.length;
+  });
+
+  ui.events.publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+  expect(labelsAtDelivery).toBe(1);
+  expect(manager.isDestroyed).toBe(false);
+});
+
+it("isLive tracks the attached panel", () => {
+  // isLive is the one-question teardown check: true while the panel is
+  // attached, false once a subscriber has retired the control.
+  const { manager, ui } = initFixture({});
+  expect(ui.isLive).toBe(true);
+  manager.destroy();
+  expect(ui.isLive).toBe(false);
+});
+
+describe("onLayerItemCountChange — the registry replays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  // One layer that qualifies for every replaying face: an areal setStyle
+  // leaf (fill + stroke — a getRadius leaf is areal too, so the dot joins
+  // the fill walk) and a pixel-radius leaf (size). Labels ride along for
+  // free: the hub queues the face for any overlay row, and the gate inside
+  // replayLabelState decides at run time whether anything renders.
+  const arealLeaf = (): any => ({
+    options: { color: "#00ff00", weight: 1, fillColor: "#0000ff" },
+    setStyle: vi.fn(),
+    feature: { geometry: { type: "Polygon" } },
+    getLatLngs: () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ],
+  });
+
+  const radiusLeaf = (radius = 10): any => {
+    const leaf: any = {
+      options: { radius, color: "#000000", weight: 2 },
+      _radius: radius,
+      setStyle: vi.fn(),
+    };
+    leaf.getRadius = () => leaf._radius;
+    leaf.setRadius = vi.fn((px: number) => {
+      leaf._radius = px;
+      leaf.options.radius = px;
+      return leaf;
+    });
+    return leaf;
+  };
+
+  const groupWith = (children: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    }),
+  });
+
+  const withGroup = (children: any[]) =>
+    initFixture({
+      data: [
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("queues every replaying face and lands all of them", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    const children = [areal, dot];
+    ({ manager, ui, map } = withGroup(children));
+    // Labels on: the annotation policy's when-gate must pass for its face
+    // to be queued at all.
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    commitFillColor(ui, "grp1", "#ff0000");
+    commitBorderColor(ui, "grp1", "#0000dd");
+    commitSize(ui, "grp1", 30);
+    // Land the commit walks first, so the assertions below count only the
+    // content-change replay.
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+    dot.setRadius.mockClear();
+
+    // A leaf lands while the user already has every dimension chosen.
+    const late = radiusLeaf(4);
+    children.push(late);
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be queued`).toBe(true);
+    }
+
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ fillColor: "#ff0000" }),
+    );
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "#0000dd" }),
+    );
+    // The late radius leaf receives the stored size; the early one already
+    // shows it, and the size replay's skip held.
+    expect(late.setRadius).toHaveBeenCalledWith(30);
+    expect(dot.setRadius).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a layer the user never touched", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    ({ manager, ui, map } = withGroup([areal, dot]));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels");
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    flushStyleDimApplies("grp1");
+
+    expect(areal.setStyle).not.toHaveBeenCalled();
+    expect(dot.setStyle).not.toHaveBeenCalled();
+    expect(dot.setRadius).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
+  it("control destroy reclaims every pending replay", () => {
+    const children: any[] = [arealLeaf()];
+    ({ manager, ui, map } = withGroup(children));
+    // Give the policies something to replay: an intent for the fill face,
+    // labels on for the label face — without them the when-gates allocate
+    // no boxes at all, and there would be nothing to reclaim.
+    commitFillColor(ui, "grp1", "#ff0000");
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
+
+    manager.destroy();
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be dropped`).toBe(false);
+    }
+  });
+
+  it("a label field arriving late upgrades the annotation capability before the label frame", () => {
+    const children: any[] = [];
+    ({ manager, ui, map } = withGroup(children));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    // An empty group has no labelable field: the surface declares the
+    // annotation capability "none" and there is no annotation pane.
+    const surfaceOf = () => ui.c.surfaceFor(manager.layerRegistry.get("grp1")!);
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+
+    // The first labelable leaf lands. The row refresh inside the SAME
+    // count-change re-probes the surface synchronously — the capability
+    // upgrades and the pane exists before the scheduled label frame runs.
+    children.push({
+      options: {},
+      feature: { properties: { name: "late" } },
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).not.toBe("none");
+
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(1);
+
+    // The last field disappears: the re-probe downgrades the capability,
+    // and a later content change still schedules the label face (the gate
+    // is the config, not the capability) — the run itself is the no-op.
+    children.length = 0;
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(2);
+  });
+
+  it("destroying one control does not reclaim another control's pending replay", () => {
+    // Two LayerControls on one page: each owns its scheduler scope. Ids can
+    // repeat across maps ("grp1"), so an owner-less teardown would cancel the
+    // other map's trailing write — the exact cross-map leak this pins.
+    const first = withGroup([arealLeaf()]);
+    commitFillColor(first.ui, "grp1", "#ff0000");
+    ensureEvents(first.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(true);
+
+    const second = withGroup([arealLeaf()]);
+    commitFillColor(second.ui, "grp1", "#00ff00");
+    ensureEvents(second.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+    });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+
+    first.manager.destroy();
+
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(false);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+    // The surviving control still lands its own frame.
+    flushStyleDimApply(FACE.FILL, "grp1", second.ui);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(false);
+    second.manager.destroy();
+  });
+
+  it("a late failure reports through the map that owns the frame", () => {
+    const first = withGroup([arealLeaf()]);
+    first.map.foliplus.onError = vi.fn();
+    const second = withGroup([arealLeaf()]);
+    second.map.foliplus.onError = vi.fn();
+
+    scheduleStyleDimApply(
+      FACE.LABEL,
+      "grp1",
+      () => {
+        throw new Error("label boom");
+      },
+      { source: EVENTS.LAYER_ITEM_COUNT_CHANGE, owner: first.ui },
+    );
+    flushStyleDimApply(FACE.LABEL, "grp1", first.ui);
+
+    expect(first.map.foliplus.onError).toHaveBeenCalledTimes(1);
+    expect(first.map.foliplus.onError.mock.calls[0][0]).toBe(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+    );
+    expect(second.map.foliplus.onError).not.toHaveBeenCalled();
+    first.manager.destroy();
+    second.manager.destroy();
+  });
+
+  it("runs a sync content-change policy inline and leaves the frame policies queued", () => {
+    const areal = arealLeaf();
+    ({ manager, ui, map } = withGroup([areal]));
+    // A stored fill intent makes the fill policy's when-gate pass, so the same
+    // registry loop holds a sync and a frame policy to tell apart.
+    commitFillColor(ui, "grp1", "#ff0000");
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+
+    const syncRun = vi.fn();
+    // No built-in dimension declares the sync arm; a test dimension takes it.
+    // Registration is per module graph, and this is the file's last test.
+    registerDimension({
+      key: "test.dim.sync-policy",
+      gate: () => true,
+      value: () => undefined,
+      row: () => document.createElement("div"),
+      contentChange: { kind: "sync", run: syncRun },
+    } as unknown as LayerDimension<unknown>);
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+
+    // The sync half already ran — no frame flush needed.
+    expect(syncRun).toHaveBeenCalledTimes(1);
+    // The frame half of the same loop is still coalesced into its next frame.
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalled();
+    manager.destroy();
+  });
+});
+
+const ROOT = resolve(".");
+const LIFECYCLE = resolve(ROOT, "foliplus/js/LayerControl/ui/lifecycle.ts");
+
+// ── Static guard: every replay is queued before the notify ────────
+//
+// `onLayerItemCountChange` is the hook three dimensions have had to claim
+// in sequence — #727 fill, #723 event settling, #726 size — and each one
+// was a three-way merge by hand. The rule that keeps it correct is an
+// ORDERING rule, not a type rule, so TypeScript cannot catch a breach:
+// every dimension replay has to be queued before `notifyDelta` publishes,
+// because the notify is the step that can still go wrong.
+//
+// Two failure modes, both silent:
+//
+//   - A projection consumer throws. Everything after the notify is skipped,
+//     so a replay queued below it never runs: the map keeps the authored
+//     values while the panel shows the chosen one.
+//
+//   - A consumer unregisters the layer reentrantly. The LAYER_ITEM_REMOVED
+//     teardown has already dropped the queued tasks, so a replay scheduled
+//     after that point creates a task for an id that is already gone.
+//
+// Neither fails a build. This scan is what pins the order. It is anchored
+// on the full call text rather than on a bare name, so a comment that
+// mentions the step cannot satisfy it.
+
+// CRLF-tolerant: the checkout may carry Windows endings, and a stray `\r`
+// would make the closing-brace comparison miss its own line.
+const LINES = readFileSync(LIFECYCLE, "utf8").split(/\r?\n/);
+
+/** The lines of one top-level arrow function, by its declaration name. */
+const bodyLines = (decl: string): string[] => {
+  const start = LINES.findIndex(l => l.startsWith(`const ${decl} = (`));
+  expect(start, `${decl} not found`).toBeGreaterThan(-1);
+  const end = LINES.slice(start).findIndex(l => l === "};");
+  expect(end, `${decl} has no closing brace`).toBeGreaterThan(-1);
+  return LINES.slice(start, start + end);
+};
+
+/** The 0-based lines inside `body` that mention `needle`. */
+const at = (body: string[], needle: string) =>
+  body.map((line, i) => (line.includes(needle) ? i : -1)).filter(i => i >= 0);
+
+// The steps that must finish before the notify publishes. applyProjection
+// because its return value is the delta the notify carries — opacity replays
+// explicitly, its delta IS the notify's payload, so it cannot ride the
+// registry loop. listDimensions because it IS the replay: every other
+// dimension declares its mandatory contentChange policy there, and the loop
+// is what executes them — the scheduler call inside it must also precede the
+// notify. The needles pin presence and position, not each dimension —
+// per-face coverage lives in the behavioral tests (ui/style/*.test.ts,
+// ui/style/registry).
+const BEFORE_NOTIFY = [
+  "applyProjection(",
+  "listDimensions(",
+  "dim.contentChange",
+  "scheduleStyleDimApply(",
+];
+
+describe("attachUI — the registry Escape subscription", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("clears the row cursor when the registry closes a cursor-owning surface", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    ui.openMoreMenu(item);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    // The close is the registry's; this subscription only translates the
+    // reported "the closed surface owned the cursor" flag into the row rule.
+    expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+  });
+
+  /** A registered-but-closed entry: the registry installs its Escape listener
+   *  (entries exist) and owns nothing, so the key arrives unhandled. The press
+   *  fields are inert — a closed entry never joins the press walk and Escape
+   *  order comes from the ESC_PRIORITY table — so they stay at their neutral
+   *  values rather than borrowing a live panel's priority, which would imply an
+   *  ordering this fixture does not exercise. */
+  const registerNeverOpen = () =>
+    ensureOverlayRegistry(map).register({
+      id: OVERLAY_IDS.LAYER_ATTRS,
+      isOpen: () => false,
+      panels: () => [],
+      close: () => {},
+      dismissOn: "click",
+      pressPriority: 0,
+    });
+
+  it("clears the row cursor for an unhandled Escape that landed inside the panel", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    // The one path where "nothing closed" still means "the cursor is in the
+    // panel": the key landed inside, but no entry owned it.
+    const unregister = registerNeverOpen();
+
+    item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    unregister();
+  });
+
+  it("leaves the row cursor alone for an unhandled Escape outside the panel", () => {
+    const item = findItem(ui, "overlay1");
+    item.classList.add(CONST.CLASSES.FOCUSED);
+    const unregister = registerNeverOpen();
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    unregister();
+  });
+});
+
+describe("onLayerItemCountChange — replay ordering", () => {
+  const body = bodyLines("onLayerItemCountChange");
+
+  it("the notify is the last step of the operation", () => {
+    const notify = at(body, "notifyDelta(");
+    expect(notify, "the operation must publish").toHaveLength(1);
+    for (const step of BEFORE_NOTIFY) {
+      const steps = at(body, step);
+      expect(steps, `${step} must be reached`).toHaveLength(1);
+      expect(steps[0], `${step} must precede the notify`).toBeLessThan(notify[0]);
+    }
   });
 });

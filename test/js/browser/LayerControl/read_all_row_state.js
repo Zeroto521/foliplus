@@ -1,5 +1,5 @@
 // Reads every row's composite state: bg, glow, drag-handle opacity, more
-// button colour, type-icon colour.
+// button color, type-icon color.
 () =>
   [...document.querySelectorAll(".foliplus-layer-item")].map(r => {
     const cs = getComputedStyle(r);

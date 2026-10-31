@@ -24,7 +24,7 @@
     <img src="https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg" alt="Codecov">
   </a>
   <a href="https://foliplus.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://readthedocs.org/projects/foliplus/badge/?version=latest" alt="Documentation">
+    <img src="https://img.shields.io/readthedocs/foliplus?version=latest" alt="Documentation">
   </a>
 </p>
 
@@ -77,6 +77,6 @@ All of this happens without manual wiring — foliplus handles it internally.
 
 ## Compatibility
 
-Requires `folium>=0.14.0`. Leaflet is not a Python dependency — the TypeScript controls run against the Leaflet Folium injects into the page.
+Requires `folium>=0.15.0`. Leaflet is not a Python dependency — the TypeScript controls run against the Leaflet Folium injects into the page.
 
 CI runs the full suite on Folium's Leaflet (1.9.3) and a bring-up smoke on Leaflet 1.0.0 for pages that load a different pin.

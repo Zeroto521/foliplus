@@ -31,7 +31,7 @@
   if (!row) return { error: "heatmap row not found", id: li.id };
   row.querySelector(".foliplus-layer-more-btn").click();
   const menuItem = document.querySelector(
-    `.foliplus-layer-item[data-layer-id="${li.id}"] li[data-action="style-layer"]`,
+    `.foliplus-layer-item[data-layer-id="${li.id}"] button[data-action="style-layer"]`,
   );
   if (!menuItem) return { error: "Style menu item not enabled", id: li.id };
   menuItem.click();
@@ -78,9 +78,7 @@
   // Document-order skeleton, so a mismatch names the shape that produced it.
   const struct = [...panel.querySelectorAll(sel)].map(
     n =>
-      `${pos(n)}` +
-      `:${kindOf(n)}` +
-      `:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
+      `${pos(n)}:${kindOf(n)}:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
   );
 
   const host = zoomRow.querySelector(".foliplus-style-zoom-range-control");

@@ -20,8 +20,7 @@ const requireFoliplus = (map: L.Map): MapFoliplus => {
   if (!ns) {
     throw new Error(
       log.msg(
-        "no per-map namespace on this L.Map — did the runtime fail to " +
-          "initialize? Component entry should call an ensure* factory first.",
+        `no per-map namespace on this L.Map — did the runtime fail to initialize? Component entry should call an ensure* factory first.`,
       ),
     );
   }

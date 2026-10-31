@@ -70,6 +70,44 @@ describe("BaseControl", () => {
     expect(seen[0]).toMatchObject({ component: "TestCtrl" });
   });
 
+  it("records a CONTROL_ATTACHED consumer failure without blocking the mount", () => {
+    const seen: unknown[] = [];
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    const bus = ensureEvents(map);
+    bus.on(EVENTS.CONTROL_ATTACHED, () => {
+      throw new Error("attach boom");
+    });
+    bus.on(EVENTS.CONTROL_ATTACHED, p => seen.push(p));
+
+    // CONTROL_ATTACHED is a notification: listeners all run, the failure is
+    // recorded, and the control still mounts.
+    expect(() => ctrl.onAdd()).not.toThrow();
+    expect(seen).toHaveLength(1);
+  });
+
+  it("treats a missing map namespace as best-effort, not a consumer failure", () => {
+    const container = document.createElement("div");
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return container;
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = null as never;
+
+    // `ensureEvents(null)` throws while seeding the namespace; that is the one
+    // failure onAdd tolerates, and it still returns the built container.
+    expect(ctrl.onAdd()).toBe(container);
+  });
+
   it("onAdd still works without an event bus (stub map)", () => {
     // map without foliplus: ensureEvents installs a bus, emit is a no-op —
     // onAdd must not throw.
@@ -536,10 +574,11 @@ describe("BaseControl", () => {
       c._map = m as unknown as L.Map;
       c.onAdd();
 
-      // Mid-cycle sanity: the map has exactly one listener, and no
+      // Mid-cycle sanity: the control's zoomend listener plus the event
+      // bus's per-map unload teardown (ensureEvents wires it), and no
       // cleanup has fired this cycle yet.
-      expect(m.listenerCount()).toBe(1);
-      expect(document.querySelector("#cycle-" + i)).not.toBeNull();
+      expect(m.listenerCount()).toBe(2);
+      expect(document.querySelector(`#cycle-${i}`)).not.toBeNull();
       const beforeThisCycle = i;
 
       c.onRemove();
@@ -550,7 +589,9 @@ describe("BaseControl", () => {
       // addTo — so the container staying in the DOM is not a leak here.
       // What matters is that the *listener table* is empty and every
       // effect cleanup has run exactly once per cycle.
-      expect(m.listenerCount(), `cycle ${i}: leftover map listener`).toBe(0);
+      // The control released its zoomend listener; the bus's unload teardown
+      // intentionally lives for the map's lifetime, not the control's.
+      expect(m.listenerCount(), `cycle ${i}: leftover map listener`).toBe(1);
       expect(
         cleanupSpy,
         `cycle ${i}: effect cleanup did not run`,
@@ -613,6 +654,37 @@ describe("BaseControl", () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(ctrl.cleanups).toHaveLength(0);
     expect((ctrl as any).ac).toBeNull();
+  });
+
+  it("reports the step that threw and still unbinds the rest of the mount", () => {
+    // The isolation is only as good as its report: a silently swallowed
+    // cleanup failure would leave a leaked listener with nothing to grep for.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const later = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onAdd();
+    const signal = ctrl.signal;
+    ctrl.effect(() => () => {
+      throw new Error("cleanup boom");
+    });
+    ctrl.effect(() => later);
+
+    expect(() => ctrl.onRemove()).not.toThrow();
+
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(signal.aborted).toBe(true);
+    expect(
+      warn.mock.calls.some(call =>
+        String(call[0]).includes('onRemove step "cleanup:0" threw'),
+      ),
+    ).toBe(true);
   });
 
   it("the tracked surface is on / onMap / effect, with no legacy aliases", () => {

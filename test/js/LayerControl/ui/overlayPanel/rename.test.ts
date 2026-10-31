@@ -4,7 +4,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerController;
@@ -21,11 +21,11 @@ describe("LayerUI rename", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -60,11 +60,11 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement | null;
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
-      expect(li?.getAttribute("disabled")).toBeNull();
+      expect(li?.getAttribute("aria-disabled")).not.toBe("true");
     });
 
     it("openMoreMenu includes a rename-layer item for a base layer too", () => {
@@ -73,7 +73,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
       expect(li).not.toBeNull();
     });
@@ -88,14 +88,14 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const renameLi = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement | null;
-      expect(renameLi?.getAttribute("disabled")).toBeNull();
+      expect(renameLi?.getAttribute("aria-disabled")).not.toBe("true");
       // (focus-layer item in the same menu IS disabled.)
       const focusLi = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
       );
-      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi?.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("clicking rename-layer opens an inline input inside the label", () => {
@@ -103,7 +103,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement;
       li.click();
 
@@ -242,6 +242,9 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(getIntent(ui, "overlay1", "name")).toBe("Changed");
+      // The label's resident tooltip follows the text write: both are written
+      // by updateItemLabel, so a hover cannot keep announcing the old name.
+      expect(label.title).toBe("Changed");
     });
 
     it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
@@ -262,6 +265,7 @@ describe("LayerUI rename", () => {
 
       expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
       expect(checkbox.title).toBe(tooltip);
+      expect(label.title).toBe("Renamed");
     });
 
     it("renaming the color basemap updates the color input's aria-label too", () => {
@@ -289,12 +293,37 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(item.querySelector("label")!.textContent).toBe("My Color");
+      // The basemap row renames through the same write point, so its label
+      // title follows too.
+      expect((item.querySelector("label") as HTMLLabelElement).title).toBe("My Color");
       expect(colorInput.getAttribute("aria-label")).toBe("My Color");
       // The row tooltip is the TYPE label, a different slot from the name —
       // a rename must not move into it.
       const tooltip = item.getAttribute("title");
       expect(tooltip).not.toBe("My Color");
       expect(tooltip).not.toBe("");
+    });
+
+    it("keeps the renamed label title through hover and a state re-projection", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "Changed";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      expect(label.title).toBe("Changed");
+
+      // A pointer event no longer re-measures/clears it (the delegated
+      // overflow handler is gone)…
+      label.dispatchEvent(new Event("pointerover", { bubbles: true }));
+      expect(label.title).toBe("Changed");
+
+      // …and a later state projection rewrites the same name, not the old one.
+      ui.applyUserState();
+      expect(label.title).toBe("Changed");
+      // The row tooltip stays the count · type sentence: never the name.
+      expect(item.title).not.toContain("Changed");
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
@@ -330,7 +359,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement;
       li.focus();
       expect(document.activeElement).toBe(li);
@@ -340,17 +369,28 @@ describe("LayerUI rename", () => {
       ui.focusLayer = focusSpy;
       ui.renameLayer = renameSpy;
 
-      const event = new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-      });
-      ui.handleKeyDown(event as unknown as KeyboardEvent);
+      // The button natively consumes Enter, so a manual keydown dispatch must
+      // NOT re-run the action — that would be the second dispatch the native
+      // button conversion eliminated. The native click is the one path.
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as KeyboardEvent,
+      );
+      expect(renameSpy).not.toHaveBeenCalled();
+      expect(focusSpy).not.toHaveBeenCalled();
 
+      // The browser fires a click from a button’s Enter/Space; that is the
+      // single dispatch, and it runs the entry’s own action (never focus).
+      li.click();
       expect(renameSpy).toHaveBeenCalledWith("overlay1");
       expect(focusSpy).not.toHaveBeenCalled();
-      // Menu stays open — renameLayer opens an inline input, not a menu close.
-      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      // The menu closes like it does for a click on the same entry: it floats
+      // over the row whose label just became an input. Focus is not returned
+      // to the row, so the fresh input keeps it.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
     it("Enter in the rename input does not bubble to the container handler (no toggle)", () => {
@@ -385,24 +425,24 @@ describe("LayerUI rename", () => {
     // ─────────── color basemap (outside layerRegistry) ───────────
 
     it("color layer more menu shows a disabled focus-layer item", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openMoreMenu(colorItem as HTMLElement);
 
       const focusLi = colorItem.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
       ) as HTMLElement | null;
       const renameLi = colorItem.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
       expect(focusLi).not.toBeNull();
-      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi?.getAttribute("aria-disabled")).toBe("true");
       expect(renameLi).not.toBeNull();
     });
 
     it("renameLayer(SOLID_BASEMAP_ID) opens an inline input seeded with the displayed name", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       // Capture the label the UI already shows (locale "Solid Color") BEFORE
@@ -421,7 +461,7 @@ describe("LayerUI rename", () => {
     });
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.renameLayer(CONST.SOLID_BASEMAP_ID);
@@ -449,7 +489,7 @@ describe("LayerUI rename", () => {
       ui.loadPersistedState();
       ui.applyUserState();
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
@@ -464,7 +504,7 @@ describe("LayerUI rename", () => {
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
       ui.renameLayer(CONST.SOLID_BASEMAP_ID);
-      const firstLabel = ui.uiContainer.querySelector(
+      const firstLabel = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"] label`,
       )!;
       // The rename input lives inside the label; the first bare `input` in the
@@ -478,7 +518,7 @@ describe("LayerUI rename", () => {
       ui.renderInitialList();
       ui.initTypesAndVisibility();
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("My Base");

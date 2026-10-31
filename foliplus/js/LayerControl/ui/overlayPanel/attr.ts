@@ -1,7 +1,8 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
@@ -62,27 +63,40 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // a geometry type it never had; a custom layer ships its own logo instead
   // of a geometry glyph — same rowView decision tree, same labels.
   const isBaseLayer = layerInfo
-    ? layerInfo.group === GROUP.BASE
-    : item.dataset.layerType === GROUP.BASE;
+    ? layerInfo.role === ROLE.BASE
+    : item.dataset.layerType === ROLE.BASE;
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer
-      ? "type_base"
+      ? "type_tile_map"
       : layerInfo?.iconSvg
         ? "type_custom"
         : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
+    // The count is the layer's own unit and agrees with the row: a filtered
+    // owner reports kept / total (2,500 / 6,000), an unfiltered one the single
+    // count. Both numbers come from the same filterProvider model the row
+    // reads — the panel invents no second count source.
+    const model =
+      layerInfo && typeof layerInfo.filterProvider === "function"
+        ? layerInfo.filterProvider()
+        : null;
     const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
-    // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted — and `comma` defaults to one fraction digit, which
-    // would render a whole number as "1,234.0", so pass 0 explicitly.
-    addRow(
-      ui.T("attr_feature_count"),
-      count == null
+    // The panel is the detail view, so counts are grouped (1,234) rather than
+    // compacted — and `comma` defaults to one fraction digit, which would
+    // render a whole number as "1,234.0", so pass 0 explicitly.
+    const grouped = (n: number): string =>
+      formatNumber(n, "comma", ui.config.locale_code, 0);
+    const value = model?.filter
+      ? ui
+          .T("attr_feature_count_pair")
+          .replace("{kept}", grouped(model.kept))
+          .replace("{total}", grouped(model.total))
+      : count == null
         ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.config.locale_code, 0),
-    );
+        : grouped(count);
+    addRow(ui.T("attr_feature_count"), value);
   }
   addRow(
     ui.T("attr_source"),
@@ -187,62 +201,60 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   }
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
-  // The × sits inside the header, so one listener covers both.
-  header.addEventListener("click", () => closeAttrsPanel(ui, true));
+  // The × sits inside the header, so one listener covers both. The press is
+  // stopped here (the same guarantee as the ⋮ menu): closing the panel removes
+  // it mid-dispatch, so the click would otherwise keep walking its original
+  // path with no live control ancestor and land on the map.
+  header.addEventListener("click", e => {
+    e.stopPropagation();
+    closeAttrsPanel(ui, true);
+  });
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
   // stopped here (the row's own handlers live on the container), and which side
-  // of the panel the press landed on is recorded by the outside handler below —
-  // `dragstart` is dispatched on the draggable row, so it cannot answer that.
+  // of the panel the press landed on is recorded by the overlay registry's
+  // press dispatcher below — `dragstart` is dispatched on the draggable row, so
+  // it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
   item.style.position = "relative";
   item.appendChild(panel);
+  pinRowPanel(panel, item);
 
-  // Document capture dismiss (attrs recipe): disableClickPropagation on the
-  // layer control stops bubble-phase mousedown from reaching document, so a
-  // press on the map or another foliplus control would never close the
-  // panel otherwise. Capture also gives this handler the first look at every
-  // press, which is what makes it the right place to record the drag verdict.
-  ui.overlayPanel.attrsOutsideHandler = (event: MouseEvent) => {
-    const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
-    if (!t || typeof t.closest !== "function") {
-      closeAttrsPanel(ui, false);
-      return;
-    }
-    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
-      ui.listPanel.pressInPanel = true;
-      return;
-    }
-    ui.listPanel.pressInPanel = false;
-    closeAttrsPanel(ui, false);
-  };
-  document.addEventListener("mousedown", ui.overlayPanel.attrsOutsideHandler, true);
-
+  // Register the open surface with the per-map overlay registry. The
+  // registry installs the document capture-phase mousedown listener for every
+  // registered entry, so this panel no longer owns a document listener of its
+  // own: the layer control's disableClickPropagation means bubble mousedown
+  // never reaches document, and the registry's capture dispatcher is the one
+  // place that answers "outside this panel".
   ui.overlayPanel.activeAttrsPanel = { item, panel, layerId };
+  ui.overlayPanel.attrsOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_ATTRS,
+    isOpen: () => ui.overlayPanel.activeAttrsPanel !== null,
+    panels: () => {
+      const active = ui.overlayPanel.activeAttrsPanel;
+      return active ? [active.panel] : [];
+    },
+    close: ({ restoreFocus }) => closeAttrsPanel(ui, restoreFocus),
+    dismissOn: "mousedown",
+    pressPriority: 600,
+    clearsCursorOnClose: true,
+  });
 };
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
 const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
-  if (ui.overlayPanel.attrsOutsideHandler) {
-    document.removeEventListener(
-      "mousedown",
-      ui.overlayPanel.attrsOutsideHandler,
-      true,
-    );
-    ui.overlayPanel.attrsOutsideHandler = null;
-  }
+  ui.overlayPanel.attrsOverlayUnregister?.();
+  ui.overlayPanel.attrsOverlayUnregister = null;
   if (ui.overlayPanel.attrsUnsubscribe) {
     ui.overlayPanel.attrsUnsubscribe();
     ui.overlayPanel.attrsUnsubscribe = null;
   }
-  // No panel, no panel press: a stale verdict would block the next real drag.
-  ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeAttrsPanel) return;
   const item = ui.overlayPanel.activeAttrsPanel.item;
+  unpinRowPanel(item);
   ui.overlayPanel.activeAttrsPanel.panel.remove();
   ui.overlayPanel.activeAttrsPanel = null;
   if (setFocus) item.focus();

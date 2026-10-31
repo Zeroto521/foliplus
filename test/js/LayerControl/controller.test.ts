@@ -20,13 +20,20 @@ import {
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
-  GROUP,
+  ROLE,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
-import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
+import * as coreLayer from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
-import { TEST_ENV } from "./ui/fixture.js";
+import {
+  TEST_ENV,
+  attachWithGroup,
+  attachedPanel,
+  initFixture,
+  polygonLayer,
+  trackMembership,
+} from "./ui/fixture.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -57,6 +64,34 @@ class GridLayer {
 class TileLayer extends GridLayer {
   options: Record<string, unknown> = { attribution: "© OpenStreetMap" };
   setZIndex = vi.fn();
+}
+
+/** A container with Leaflet's `eachLayer`/`hasLayer` surface. The fixture's
+ *  `L.layerGroup` is a stub, so carrier recovery tests build the tree
+ *  explicitly and call `manager.onLayerAdd` / `onLayerRemove` directly. */
+class TestGroup {
+  options: Record<string, unknown> = {};
+  children: unknown[];
+  constructor(children: unknown[] = []) {
+    this.children = children;
+  }
+  eachLayer(fn: (child: unknown) => void): void {
+    this.children.forEach(fn);
+  }
+  addLayer(layer: unknown): this {
+    this.children.push(layer);
+    return this;
+  }
+  removeLayer(layer: unknown): this {
+    this.children = this.children.filter(child => child !== layer);
+    return this;
+  }
+  hasLayer(layer: unknown): boolean {
+    return this.children.includes(layer);
+  }
+  getLayers(): unknown[] {
+    return this.children.slice();
+  }
 }
 
 // ===========================================================================
@@ -207,11 +242,11 @@ describe("LayerController", () => {
     };
 
     manager = new LayerController(map, [
-      { id: "overlay1", name: "Points", group: "overlay" },
+      { id: "overlay1", name: "Points", role: "overlay" },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: new TileLayer(),
         paneName: "tilePane",
       },
@@ -228,7 +263,7 @@ describe("LayerController", () => {
     // rides on options.zIndex (which only works inside a shared pane).
     const grid = new GridLayer();
     manager.map.hasLayer.mockReturnValue(true);
-    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, group: "base" });
+    manager.registerLayer({ id: "grid1", name: "Grid", layer: grid, role: "base" });
     manager.enforceOrder();
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
@@ -236,7 +271,7 @@ describe("LayerController", () => {
   it("slots a layer's label pane just above that layer", () => {
     manager.map.hasLayer.mockReturnValue(true);
     // Labelable overlay: the registration edge declares the
-    // `role: "annotation"` spec, the surface materializes it, and the
+    // `role: "label"` spec, the surface materializes it, and the
     // ordering pass prices it through the same `zFor` ladder as every other
     // PaneHandle (role annotation = one step above the slot) — no
     // name-keyed spot-write in enforceOrder anymore.
@@ -249,7 +284,7 @@ describe("LayerController", () => {
     manager.registerLayer({
       id: "labelable",
       name: "Labelable",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         feature: { properties: { name: "x" } },
@@ -260,10 +295,12 @@ describe("LayerController", () => {
     const li = manager.layerRegistry.get("labelable")!;
     const annName = manager
       .surfaceFor(li)
-      .paneNames.find(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX));
+      .paneNames.find(name => name.startsWith(CONST.LABEL_PANE_PREFIX));
     expect(annName).toBeDefined();
-    const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.group);
-    expect(panes.get(annName!)!.style.zIndex).toBe(String(slotZ + ANNOTATION_Z_OFFSET));
+    const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.role);
+    expect(panes.get(annName!)!.style.zIndex).toBe(
+      String(slotZ + coreLayer.LABEL_Z_OFFSET),
+    );
   });
 
   it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
@@ -275,7 +312,7 @@ describe("LayerController", () => {
       {
         id: "keepcfg",
         name: "KeepCfg",
-        group: "overlay",
+        role: "overlay",
         layer: {
           options: {},
           feature: { properties: { n: 1 } },
@@ -314,28 +351,26 @@ describe("LayerController", () => {
 
   it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
     // `withAnnotationSpec` appends the probe's spec only when nobody has
-    // declared one: a caller that owns its own `role: "annotation"` pane
+    // declared one: a caller that owns its own `role: "label"` pane
     // keeps that name — the probe must not stack a second label pane next
     // to it, and the capability reads whichever spec came in.
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
       id: "foreignAnn",
       name: "ForeignAnn",
-      group: "overlay",
+      role: "overlay",
       // Labelable, so the probe alone WOULD append its own spec.
       layer: {
         options: {},
         feature: { properties: { name: "x" } },
       } as unknown as L.Layer,
-      paneSpecs: [{ role: "annotation", order: 1, name: "custom-annotation-pane" }],
+      paneSpecs: [{ role: "label", order: 1, name: "custom-annotation-pane" }],
     });
 
     const li = manager.layerRegistry.get("foreignAnn")!;
     const names = manager.surfaceFor(li).paneNames;
     expect(names).toContain("custom-annotation-pane");
-    expect(names.some(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX))).toBe(
-      false,
-    );
+    expect(names.some(name => name.startsWith(CONST.LABEL_PANE_PREFIX))).toBe(false);
     expect(manager.surfaceFor(li).capabilities.annotation).toBe("pane");
   });
 
@@ -343,7 +378,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
-      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? null : realGetPane(name),
+      name === `${CONST.LABEL_PANE_PREFIX}base1` ? null : realGetPane(name),
     );
 
     expect(() => manager.enforceOrder()).not.toThrow();
@@ -536,7 +571,7 @@ describe("LayerController", () => {
   });
 
   it("routes AnnotationManager's pane wiring through the surface", () => {
-    // The label pane is the surface's (declared `role: "annotation"` spec
+    // The label pane is the surface's (declared `role: "label"` spec
     // from the registration edge, materialized and class-stamped by
     // PaneManager); AnnotationManager only mounts canvases into it. This
     // test drives the real chain end-to-end: surfaceFor declares the pane,
@@ -562,7 +597,7 @@ describe("LayerController", () => {
       feature: { properties: { name: "hello" } },
     } as unknown as L.Layer;
     const m = new LayerController(map, [
-      { id: "lbl", name: "Lbl", group: "overlay", layer: leaf },
+      { id: "lbl", name: "Lbl", role: "overlay", layer: leaf },
     ]);
     m.map.hasLayer.mockReturnValue(true);
     // The panel gate is what resolves the surface in production (the menu /
@@ -577,14 +612,17 @@ describe("LayerController", () => {
       format: "default" as any,
       collide: false,
     });
-    vi.spyOn(m.annotation as any, "refresh").mockImplementation(() => {});
+    // renderLabels ends in refreshLayer (the per-layer repaint) — stubbed
+    // here because this fixture's map has no projection; the pane wiring
+    // under test happens before it.
+    vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
-    const paneName = CONST.ANNOTATION_PANE_PREFIX + "lbl";
+    const paneName = `${CONST.LABEL_PANE_PREFIX}lbl`;
     const pane = paneRegistry[paneName];
     expect(pane).toBeDefined();
     expect(pane!.classList.contains("foliplus-layer-pane")).toBe(true);
-    expect(pane!.classList.contains("foliplus-annotation-pane")).toBe(true);
+    expect(pane!.classList.contains("foliplus-label-pane")).toBe(true);
 
     m.unregisterLayer("lbl");
     // The pane is declared, so it survives like every other declared pane
@@ -688,7 +726,7 @@ describe("LayerController", () => {
       layer: { options: {} },
     });
     manager.layerRegistry.get("no-surface")!.type = GEOM_TYPE.POINT;
-    manager.surfaces.delete("no-surface");
+    manager.surfaceIndex.delete("no-surface");
     expect(manager.getLayerType("no-surface")).toBe(GEOM_TYPE.POINT);
   });
 
@@ -696,6 +734,62 @@ describe("LayerController", () => {
     const spy = vi.spyOn(manager.surfaces, "get");
     manager.invalidateType("never-registered");
     expect(spy).toHaveBeenCalledWith("never-registered");
+  });
+
+  // ── SurfaceIndex: the two directions are one write ──
+
+  it("books a surface in both directions and drops them together", () => {
+    window.L.stamp = stableStamp;
+    const layer = new window.L.Polygon();
+    manager.registerLayer({ id: "idx1", name: "Idx", layer });
+    const surface = manager.surfaces.get("idx1")!;
+    expect(manager.surfaceIndex.get("idx1")).toBe(surface);
+    expect(manager.surfaceIndex.getByLayer(layer)).toBe(surface);
+    expect(manager.surfaceIndex.getByStamp(window.L.stamp(layer))).toBe(surface);
+
+    expect(manager.unregisterLayer("idx1")).toBe(true);
+    expect(manager.surfaces.has("idx1")).toBe(false);
+    expect(manager.surfaceIndex.getByLayer(layer)).toBeUndefined();
+  });
+
+  it("drops the superseded layer's reverse edge on a same-id re-registration", () => {
+    window.L.stamp = stableStamp;
+    const first = new window.L.Polygon();
+    manager.registerLayer({ id: "idx2", name: "Idx", layer: first });
+    const surfaceA = manager.surfaces.get("idx2")!;
+
+    const second = new window.L.Polygon();
+    manager.registerLayer({ id: "idx2", name: "Idx 2", layer: second });
+    const surfaceB = manager.surfaces.get("idx2")!;
+
+    expect(surfaceB).not.toBe(surfaceA);
+    expect(manager.surfaceIndex.getByLayer(first)).toBeUndefined();
+    expect(manager.surfaceIndex.getByLayer(second)).toBe(surfaceB);
+    manager.surfaceIndex.assertConsistent(new Set(manager.layers.map(l => l.id)));
+
+    expect(manager.unregisterLayer("idx2")).toBe(true);
+    expect(manager.surfaces.has("idx2")).toBe(false);
+    manager.surfaceIndex.assertConsistent(new Set(manager.layers.map(l => l.id)));
+  });
+
+  it("keeps both directions consistent across register, delete and unregister", () => {
+    window.L.stamp = stableStamp;
+    const registryIds = () => new Set(manager.layers.map(l => l.id));
+    manager.registerLayer({ id: "no-layer", name: "No layer" });
+    manager.registerLayer({
+      id: "with-layer",
+      name: "With",
+      layer: new window.L.Polygon(),
+    });
+    manager.surfaceIndex.assertConsistent(registryIds());
+
+    manager.deleteLayer("no-layer");
+    manager.surfaceIndex.assertConsistent(registryIds());
+
+    manager.unregisterLayer("with-layer");
+    manager.surfaceIndex.assertConsistent(registryIds());
+    expect(manager.surfaces.has("no-layer")).toBe(false);
+    expect(manager.surfaces.has("with-layer")).toBe(false);
   });
 
   it("getLayerType caches the resolved type on the layer info", () => {
@@ -736,9 +830,10 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      applyUserState: vi.fn(),
+      // The replay entry point always returns a round; the stub has to honour it.
+      applyUserState: vi.fn(() => []),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({
       id: "new1",
       name: "New",
@@ -750,8 +845,8 @@ describe("LayerController", () => {
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "new1",
     });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: "overlay",
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+      role: "overlay",
     });
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
@@ -886,13 +981,13 @@ describe("LayerController", () => {
     // Mock the uiContainer and the ui that reads it.
     const container = document.createElement("div");
     container.innerHTML = `
-      <div class="foliplus-layer-toggle-all" data-group="overlay">
+      <div class="foliplus-layer-toggle-all" data-role="overlay">
         <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
       </div>
       <div class="foliplus-layer-item" data-layer-id="a">
         <div class="foliplus-checkbox"><input type="checkbox" /></div>
       </div>
-      <div class="foliplus-layer-toggle-all" data-group="base">
+      <div class="foliplus-layer-toggle-all" data-role="base">
         <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
       </div>
       <div class="foliplus-layer-item" data-layer-id="color" data-layer-type="base">
@@ -924,7 +1019,7 @@ describe("LayerController", () => {
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
     try {
-      manager.registerLayer({ id: "late", name: "Late", group: "overlay" });
+      manager.registerLayer({ id: "late", name: "Late", role: "overlay" });
       const arrived = new window.L.Path();
       map._layers["late"] = arrived;
       const onChange = vi.fn();
@@ -948,7 +1043,7 @@ describe("LayerController", () => {
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
     try {
-      manager.registerLayer({ id: "pending", name: "Pending", group: "overlay" });
+      manager.registerLayer({ id: "pending", name: "Pending", role: "overlay" });
       map._layers["pending"] = new window.L.Path();
       const onChange = vi.fn();
       manager.events.on(EVENTS.LAYER_CHANGE, onChange);
@@ -973,7 +1068,7 @@ describe("LayerController", () => {
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
     try {
-      manager.registerLayer({ id: "late", name: "Late", group: "base" });
+      manager.registerLayer({ id: "late", name: "Late", role: "base" });
       const arrived = new window.L.TileLayer();
       map._layers["late"] = arrived;
 
@@ -1002,7 +1097,7 @@ describe("LayerController", () => {
     // right `layer`, `carrier.layer`, and `kind` from the start — and the
     // fix must not disturb that path.
     const tile = new window.L.TileLayer();
-    manager.registerLayer({ id: "early", name: "Early", group: "base", layer: tile });
+    manager.registerLayer({ id: "early", name: "Early", role: "base", layer: tile });
 
     const info = manager.layerRegistry.get("early")!;
     expect(info.layer).toBe(tile);
@@ -1035,12 +1130,12 @@ describe("LayerController", () => {
       manager.registerLayer({
         id: "custom",
         name: "C",
-        group: "overlay",
+        role: "overlay",
         custom: { x: 1 },
       });
       const tile = new window.L.TileLayer();
       map._layers["tileLate"] = tile;
-      manager.registerLayer({ id: "tileLate", name: "TL", group: "base" });
+      manager.registerLayer({ id: "tileLate", name: "TL", role: "base" });
       manager.onLayerAdd({ layer: tile });
 
       const noCarrierKinds = new Set(["canvas", "solid", "custom"]);
@@ -1113,8 +1208,8 @@ describe("LayerController", () => {
     // Re-register base1 with the test instance; base2 registers ahead of it
     // (insertAt firstBaseIdx) but is invisible, so base1 is the topmost
     // visible tile whose attribution wins.
-    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, group: "base" });
-    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, group: "base" });
+    manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, role: "base" });
+    manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, role: "base" });
     manager.enforceOrder();
     expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
   });
@@ -1130,12 +1225,12 @@ describe("LayerController", () => {
     const custom = new TileLayer();
     custom.options.attribution = "Custom base";
     manager.map.hasLayer.mockImplementation((l: any) => l === osm || l === custom);
-    manager.registerLayer({ id: "osm", name: "OSM", layer: osm, group: "base" });
+    manager.registerLayer({ id: "osm", name: "OSM", layer: osm, role: "base" });
     manager.registerLayer({
       id: "custom",
       name: "Custom",
       layer: custom,
-      group: "base",
+      role: "base",
     });
     // Seed a stale entry as if Leaflet's layeradd for osm had already run.
     const ac = map.attributionControl;
@@ -1158,8 +1253,8 @@ describe("LayerController", () => {
     const tileA = new TileLayer();
     const tileB = new TileLayer();
     manager.map.hasLayer.mockImplementation((l: any) => l === tileB);
-    manager.registerLayer({ id: "baseA", name: "A", layer: tileA, group: "base" });
-    manager.registerLayer({ id: "baseB", name: "B", layer: tileB, group: "base" });
+    manager.registerLayer({ id: "baseA", name: "A", layer: tileA, role: "base" });
+    manager.registerLayer({ id: "baseB", name: "B", layer: tileB, role: "base" });
     const overlayInfo = manager.layerRegistry.get("overlay1")!;
     // Force the interleaved layout: an invisible base, then the overlay, then
     // a visible base — the visible tile must still win.
@@ -1180,7 +1275,7 @@ describe("LayerController", () => {
     // remembered value.
     const tile = new TileLayer();
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "base1", name: "OSM", layer: tile, group: "base" });
+    manager.registerLayer({ id: "base1", name: "OSM", layer: tile, role: "base" });
 
     const attr = map.attributionControl;
     manager.syncAttribution();
@@ -1204,8 +1299,8 @@ describe("LayerController", () => {
     const tileB = new TileLayer();
     tileB.options.attribution = "B attr";
     manager.map.hasLayer.mockImplementation((l: any) => l === tileA || l === tileB);
-    manager.registerLayer({ id: "bA", name: "A", layer: tileA, group: "base" });
-    manager.registerLayer({ id: "bB", name: "B", layer: tileB, group: "base" });
+    manager.registerLayer({ id: "bA", name: "A", layer: tileA, role: "base" });
+    manager.registerLayer({ id: "bB", name: "B", layer: tileB, role: "base" });
     // B registers second → inserted at firstBaseIdx → index 0 → topmost
     expect(manager.desiredAttribution()).toBe("B attr");
   });
@@ -1213,7 +1308,7 @@ describe("LayerController", () => {
   it("desiredAttribution skips non-TileLayer layers", () => {
     const nonTile = { options: {} } as unknown as L.Layer;
     manager.map.hasLayer.mockImplementation((l: any) => l === nonTile);
-    manager.registerLayer({ id: "ng", name: "NG", layer: nonTile, group: "base" });
+    manager.registerLayer({ id: "ng", name: "NG", layer: nonTile, role: "base" });
     expect(manager.desiredAttribution()).toBe("");
   });
 
@@ -1223,7 +1318,7 @@ describe("LayerController", () => {
     tile.options.maxZoom = 5;
     manager.map.getZoom.mockReturnValue(10);
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "hidden", name: "H", layer: tile, group: "base" });
+    manager.registerLayer({ id: "hidden", name: "H", layer: tile, role: "base" });
     expect(manager.desiredAttribution()).toBe("");
   });
 
@@ -1232,7 +1327,7 @@ describe("LayerController", () => {
   it("syncAttribution skips redraw when the table is already settled", () => {
     const tile = new TileLayer(); // default attribution
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, role: "base" });
 
     const ac = map.attributionControl;
     const updateSpy = vi.fn();
@@ -1251,7 +1346,7 @@ describe("LayerController", () => {
   it("syncAttribution rebuilds when Leaflet added a second entry behind our back", () => {
     const tile = new TileLayer(); // default attribution
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, role: "base" });
 
     const ac = map.attributionControl;
     const updateSpy = vi.fn();
@@ -1285,8 +1380,8 @@ describe("LayerController", () => {
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["overlay1", "base1"]);
       const m = new LayerController(map, [
-        { id: "base1", name: "B", group: "base" },
-        { id: "overlay1", name: "O", group: "overlay" },
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
       spy.mockRestore();
@@ -1297,8 +1392,8 @@ describe("LayerController", () => {
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
       const m = new LayerController(map, [
-        { id: "base1", name: "B", group: "base" },
-        { id: "overlay1", name: "O", group: "overlay" },
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
       spy.mockRestore();
@@ -1307,7 +1402,7 @@ describe("LayerController", () => {
     it("ignores non-array storage data", () => {
       const spy = vi.spyOn(Storage, "loadRecord").mockReturnValue("nope");
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay" },
+        { id: "overlay1", name: "O", role: "overlay" },
       ]);
       // falls back to the initial (insertion) order
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
@@ -1321,8 +1416,8 @@ describe("LayerController", () => {
       // against a registry that has since grown.
       const spy = vi.spyOn(Storage, "loadRecord");
       new LayerController(map, [
-        { id: "base1", name: "B", group: "base" },
-        { id: "overlay1", name: "O", group: "overlay" },
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
       ]);
       const keys = spy.mock.calls.map(c => c[0]);
       expect(keys).toEqual([CONST.STORAGE.KEY]);
@@ -1342,11 +1437,11 @@ describe("LayerController", () => {
     it("places a late registration at its persisted position", () => {
       seedStorage({ order: ["B", "H", "A"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
 
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["B", "H", "A"]);
     });
@@ -1357,11 +1452,11 @@ describe("LayerController", () => {
       // rightmost of the layers that exist, not the topmost.
       seedStorage({ order: ["B", "A", "H"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
 
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
     });
@@ -1371,9 +1466,9 @@ describe("LayerController", () => {
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
       seedStorage({ order: ["X", "G", "Y"] });
-      const m = new LayerController(map, [{ id: "Y", name: "Y", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "Y", name: "Y", role: "overlay" }]);
 
-      m.registerLayer({ id: "X", name: "X", group: "overlay" });
+      m.registerLayer({ id: "X", name: "X", role: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
     });
@@ -1384,8 +1479,8 @@ describe("LayerController", () => {
       // neighbor's shifted-down index.
       seedStorage({ order: ["A", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       m.layerRegistry.reorder(0, 1);
       expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
@@ -1397,7 +1492,7 @@ describe("LayerController", () => {
 
     it("leaves the registry alone for an id that is not registered", () => {
       seedStorage({ order: ["A"] });
-      const m = new LayerController(map, [{ id: "A", name: "A", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
 
       expect(() => m.replaySavedOrder("ghost")).not.toThrow();
       expect(m.layers.map(l => l.id)).toEqual(["A"]);
@@ -1409,10 +1504,10 @@ describe("LayerController", () => {
       // relative order at the bottom.
       seedStorage({ order: ["D"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
-        { id: "C", name: "C", group: "overlay" },
-        { id: "D", name: "D", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
+        { id: "D", name: "D", role: "overlay" },
       ]);
       m.layerRegistry.reorder(0, 2);
       expect(m.layers.map(l => l.id)).toEqual(["A", "B", "D", "C"]);
@@ -1430,15 +1525,15 @@ describe("LayerController", () => {
       // sequence is a user arrangement.
       seedStorage({});
       const m = new LayerController(map, [
-        { id: "fg", name: "FG", group: "overlay" },
-        { id: "tile", name: "Tile", group: "base" },
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
       ]);
       m.registerLayer({
         id: "foliplus_color_map",
         name: "Color",
-        group: "base",
+        role: "base",
       });
-      m.registerLayer({ id: "X", name: "X", group: "overlay" });
+      m.registerLayer({ id: "X", name: "X", role: "overlay" });
       m.persistence.flushAll();
 
       const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
@@ -1455,13 +1550,13 @@ describe("LayerController", () => {
       // does not: the snapshot is what was on screen.
       seedStorage({ order: ["fg", "tile"] });
       const m = new LayerController(map, [
-        { id: "fg", name: "FG", group: "overlay" },
-        { id: "tile", name: "Tile", group: "base" },
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
       ]);
       m.registerLayer({
         id: "foliplus_color_map",
         name: "Color",
-        group: "base",
+        role: "base",
       });
       expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
 
@@ -1480,13 +1575,13 @@ describe("LayerController", () => {
       // was treated as attach timing and dropped from every write, so the
       // reload fell back to the registration order (bottom of the base group).
       const m = new LayerController(map, [
-        { id: "fg", name: "FG", group: "overlay" },
-        { id: "tile", name: "Tile", group: "base" },
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
       ]);
       m.registerLayer({
         id: "foliplus_color_map",
         name: "Color",
-        group: "base",
+        role: "base",
         baseInsert: "bottom",
       });
       // Registration order: fg, tile, color (color at the bottom, as createColor
@@ -1508,13 +1603,13 @@ describe("LayerController", () => {
       // (baseInsert bottom), which must replay the dragged slot from the
       // record instead of sinking to the bottom of the base block.
       const reloaded = new LayerController(map, [
-        { id: "fg", name: "FG", group: "overlay" },
-        { id: "tile", name: "Tile", group: "base" },
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
       ]);
       reloaded.registerLayer({
         id: "foliplus_color_map",
         name: "Color",
-        group: "base",
+        role: "base",
         baseInsert: "bottom",
       });
       expect(reloaded.layers.map(l => l.id)).toEqual([
@@ -1530,8 +1625,8 @@ describe("LayerController", () => {
       // lands at the end of the base block (the registry end), not at the end
       // of the overlay block — the overlay-before-base invariant holds.
       seedStorage({ order: ["fg", "baseA", "baseB"] });
-      const m = new LayerController(map, [{ id: "fg", name: "FG", group: "overlay" }]);
-      m.registerLayer({ id: "baseA", name: "A", group: "base" });
+      const m = new LayerController(map, [{ id: "fg", name: "FG", role: "overlay" }]);
+      m.registerLayer({ id: "baseA", name: "A", role: "base" });
 
       // Neither baseB nor anything else is registered below baseA in the
       // stored order, so the fallback is the base-block end: below the
@@ -1553,10 +1648,10 @@ describe("LayerController", () => {
       // saveOrder would otherwise re-insert an id that is still live.
       seedStorage({ order: ["A", "H", "B", "C"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
-        { id: "C", name: "C", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
       ]);
       m.unregisterLayer("H");
 
@@ -1567,9 +1662,9 @@ describe("LayerController", () => {
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
@@ -1584,14 +1679,14 @@ describe("LayerController", () => {
     it("returns false for an id that is not in savedOrder", () => {
       seedStorage({ order: ["A", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       expect(m.forgetSavedOrder("never")).toBe(false);
     });
 
     it("returns false when savedOrder is null (fresh page)", () => {
-      const m = new LayerController(map, [{ id: "A", name: "A", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
       expect((m as any).order.savedOrder).toBeNull();
       expect(m.forgetSavedOrder("A")).toBe(false);
     });
@@ -1599,16 +1694,16 @@ describe("LayerController", () => {
     it("does NOT add the id to removedIds — the layer stays registerable", () => {
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
 
       expect((m as any).order.removedIds.has("H")).toBe(false);
       // And a subsequent registration actually works:
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
     });
 
@@ -1618,13 +1713,13 @@ describe("LayerController", () => {
       // id has no stored rank anymore.
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
 
       expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
     });
@@ -1635,10 +1730,10 @@ describe("LayerController", () => {
       // the next construction.
       seedStorage({ order: ["A", "H", "B", "C"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
-        { id: "C", name: "C", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
       ]);
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
@@ -1647,9 +1742,9 @@ describe("LayerController", () => {
       // Simulate reload: a fresh manager reads the record and gets neighbors
       // in the same relative order.
       const fresh = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
-        { id: "C", name: "C", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
       ]);
       expect(fresh.layers.map(l => l.id)).toEqual(["A", "B", "C"]);
     });
@@ -1663,8 +1758,8 @@ describe("LayerController", () => {
   describe("dropPersistedLayerState", () => {
     it("drops the intent row and its provenance, keeps the id registerable", () => {
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
       ]);
       const save = vi.fn(() => saveState(m.ui!));
       m.ui = {
@@ -1698,30 +1793,30 @@ describe("LayerController", () => {
       expect(save).toHaveBeenCalledTimes(1);
       // A clear is not a delete: the id stays registerable.
       expect((m as any).order.removedIds.has("H")).toBe(false);
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
     });
 
     it("drops the stored order slot too, so a redraw lands at the top", () => {
       seedStorage({ order: ["A", "H", "B"] });
       const m = new LayerController(map, [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "H", name: "H", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ]);
       m.unregisterLayer("H");
 
       expect(m.dropPersistedLayerState("H")).toBe(true);
 
       expect((m as any).order.savedOrder).toEqual(["A", "B"]);
-      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
     });
 
     it("returns false when nothing was stored for the id", () => {
       // No panel and no stored order — a clear of a layer the user never
       // touched erases nothing, and must say so rather than throwing.
-      const m = new LayerController(map, [{ id: "H", name: "H", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
       expect(m.dropPersistedLayerState("H")).toBe(false);
     });
 
@@ -1738,7 +1833,7 @@ describe("LayerController", () => {
           },
         },
       });
-      const m = new LayerController(map, [{ id: "H", name: "H", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
       const save = vi.fn(() => saveState(m.ui!));
       m.ui = {
         c: m,
@@ -1764,9 +1859,9 @@ describe("LayerController", () => {
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {
-    const m2 = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m2 = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     const li = m2.layers[0];
-    expect(li).toMatchObject({ id: "a", name: "A", group: "overlay" });
+    expect(li).toMatchObject({ id: "a", name: "A", role: "overlay" });
     for (const key of ["paneName", "iconSvg", "type", "canvas"]) {
       expect(key in li).toBe(true);
     }
@@ -1879,9 +1974,40 @@ describe("LayerController", () => {
   it("BEFORE_EXPORT flushes the pending order before the exporter captures", () => {
     // A debounced reorder would otherwise land after the capture, exporting the
     // stale z-order the panel already showed.
-    const spy = vi.spyOn(manager, "enforceOrder").mockImplementation(() => {});
-    manager.events.emit(EVENTS.BEFORE_EXPORT as string);
+    const spy = vi
+      .spyOn(manager, "enforceOrder")
+      .mockImplementation(() => ({ failed: [], skipped: false }));
+    manager.events.publish(EVENTS.BEFORE_EXPORT as string);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("BEFORE_EXPORT warns when a layer cannot be priced, and the capture still runs", () => {
+    // The pass isolates layers, so the export continues either way — but a
+    // stale z in the capture is invisible in the image, so it must be logged.
+    // `env.log` defaults to one shared logger for every controller built with
+    // the no-op env, so the spy is restored rather than left in place.
+    const log = (manager as any).log as { warn: (...args: unknown[]) => void };
+    const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+    const order = vi
+      .spyOn(manager, "enforceOrder")
+      .mockReturnValue({ failed: ["bad", "worse"], skipped: false });
+    const captured: string[] = [];
+    const off = manager.events.on(EVENTS.BEFORE_EXPORT as string, () =>
+      captured.push("capture"),
+    );
+
+    try {
+      manager.events.publish(EVENTS.BEFORE_EXPORT as string);
+
+      expect(warn).toHaveBeenCalledWith(
+        "enforceOrder failed for 2 layer(s) before export: bad, worse",
+      );
+      expect(captured).toEqual(["capture"]);
+    } finally {
+      off();
+      warn.mockRestore();
+      order.mockRestore();
+    }
   });
 
   it("a runtime content change routes through invalidateType and the live count", () => {
@@ -1910,7 +2036,7 @@ describe("LayerController", () => {
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
     const m2 = new LayerController(map, [
-      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
+      { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
     vi.spyOn(console, "warn").mockImplementation(warn);
@@ -1933,10 +2059,10 @@ describe("LayerController", () => {
 
   it("registerLayer appends a base layer when no base exists yet", () => {
     const m2 = new LayerController(map, [
-      { id: "only_overlay", name: "O", group: "overlay" },
+      { id: "only_overlay", name: "O", role: "overlay" },
     ]);
     map.hasLayer.mockReturnValue(false);
-    m2.registerLayer({ id: "first_base", name: "B", group: "base" });
+    m2.registerLayer({ id: "first_base", name: "B", role: "base" });
     expect(m2.layerRegistry.firstBaseIdx).toBe(1);
   });
 
@@ -1952,9 +2078,10 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      applyUserState: vi.fn(),
+      // The replay entry point always returns a round; the stub has to honour it.
+      applyUserState: vi.fn(() => []),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
       id: "overlay1",
@@ -1963,15 +2090,517 @@ describe("LayerController", () => {
       id: "overlay1",
     });
     // A re-registration is how the API says the layer's content changed, so the
-    // cached field list — and the auto field resolved from it — must be dropped.
+    // cached field list — and the field resolved from it — must be dropped.
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "overlay1",
     });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: "overlay",
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+      role: "overlay",
     });
     // Opacity is stored per-id; re-registration may swap the live layer/canvas.
     expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("re-registering with a different group is refused before any mutation", () => {
+    // A layer's group is its role for the id's lifetime — z ladder,
+    // attribution, basemap semantics, panel section. Changing it in place
+    // would strand the row in the old section with a stale section boundary
+    // and a broken overlay-before-base partition, so the gate refuses
+    // before a single mutation lands.
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "T", name: "T", role: "base" },
+      ],
+    });
+    const rowA = attachedPanel(ui).querySelector(
+      `[${CONST.DATA.LAYER_ID}="A"]`,
+    ) as HTMLElement;
+    const seen: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => seen.push(`change:${p.id}`));
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, p => seen.push(`added:${p.id}`));
+    ui.events.on(EVENTS.LAYER_ITEM_UPDATED, p => seen.push(`updated:${p.id}`));
+
+    // Same group or no group is an ordinary content refresh.
+    expect(() =>
+      manager.registerLayer({ id: "A", name: "A2", role: "overlay" }),
+    ).not.toThrow();
+    expect(() => manager.registerLayer({ id: "A", name: "A3" })).not.toThrow();
+
+    // A different group is a role change, in both directions.
+    expect(() => manager.registerLayer({ id: "A", name: "A", role: "base" })).toThrow(
+      /role change/,
+    );
+    expect(() =>
+      manager.registerLayer({ id: "T", name: "T", role: "overlay" }),
+    ).toThrow(/role change/);
+
+    // Nothing moved: partition, cached boundary, the row's section. The only
+    // announcements are the two ordinary refreshes above — nothing for T,
+    // no added rows.
+    expect(manager.layers.map(l => `${l.id}:${l.role}`)).toEqual([
+      "A:overlay",
+      "T:base",
+      `${CONST.SOLID_BASEMAP_ID}:base`,
+    ]);
+    expect(manager.layerRegistry.firstBaseIdx).toBe(
+      manager.layers.findIndex(l => l.role === ROLE.BASE),
+    );
+    expect(rowA.getAttribute("data-layer-type")).toBe("overlay");
+    expect(seen.filter(e => e.startsWith("updated"))).toHaveLength(2);
+    expect(seen.filter(e => e.startsWith("change"))).toHaveLength(2);
+    expect(seen.every(e => e.endsWith(":A"))).toBe(true);
+  });
+
+  it("a cross-role re-registration after unregister replays its order role-locally", () => {
+    // The gate says "unregister first"; that path must stay safe. A's old
+    // saved rank sits above B, but A is now a base and B an overlay — an
+    // unconditional replay would push A into the overlay block and strand
+    // the boundary.
+    const { manager } = initFixture({
+      seed: { order: ["A", "B"] },
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "T", name: "T", role: "base" },
+      ],
+    });
+
+    manager.unregisterLayer("A");
+    manager.registerLayer({ id: "A", name: "A", role: "base" });
+
+    const firstBase = manager.layers.findIndex(l => l.role === ROLE.BASE);
+    expect(firstBase).not.toBe(-1);
+    expect(manager.layers.slice(0, firstBase).every(l => l.role !== ROLE.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+  });
+
+  it("a stored record that interleaves roles still replays partitioned", () => {
+    // A corrupted or legacy record ranks T(base) above B(overlay) above
+    // A(base). The full replay sorts per role and concatenates, so the
+    // overlay block never inherits a base.
+    const { manager } = initFixture({
+      seed: { order: ["T", "B", "A"] },
+      data: [
+        { id: "A", name: "A", role: "base" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "T", name: "T", role: "base" },
+      ],
+    });
+
+    const firstBase = manager.layers.findIndex(l => l.role === ROLE.BASE);
+    expect(manager.layers.slice(0, firstBase).every(l => l.role !== ROLE.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+    expect(manager.layers[0].id).toBe("B");
+  });
+
+  it("a failed canvas registration leaves no authority and a clean face", () => {
+    // A second owner tries an id the registry already holds as base; the
+    // controller refuses its implicit overlay role. The factory must not
+    // report success, must not keep the face mounted, and its unregister
+    // must not touch the legal owner.
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "A", name: "A" });
+
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.registered()).toBe(false);
+    // The face was prepared for mount and rolled back: no pane parent. (The
+    // fixture's panes are detached divs, so "connected" is read through the
+    // parent link, not isConnected.)
+    expect(canvas.canvas.parentElement).toBeNull();
+    canvas.unregister();
+    expect(manager.layerRegistry.get("A")?.role).toBe("base");
+
+    // A second failure while the conflict persists: the rollback is
+    // idempotent — the face was already detached, nothing to undo.
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.canvas.parentElement).toBeNull();
+
+    // Once the conflict is gone, the same surface retries for real.
+    manager.unregisterLayer("A");
+    canvas.register();
+    expect(canvas.registered()).toBe(true);
+    expect(canvas.canvas.parentElement).not.toBeNull();
+    canvas.unregister();
+    expect(canvas.registered()).toBe(false);
+  });
+
+  it("a refused canvas pane does not mask the role gate's error", () => {
+    // P2-1: a foreign element already occupies the canvas pane name, so
+    // mountFace leaves facePane null. The registration then fails the role
+    // gate; the rollback must not dereference the pane it never got, or the
+    // caller sees a TypeError instead of the role error.
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", role: "base" }],
+    });
+    const foreignPane = document.createElement("div");
+    foreignPane.appendChild(document.createElement("canvas"));
+    const paneName = "foliplus-canvas-A";
+    const realGetPane = manager.map.getPane;
+    manager.map.getPane = vi.fn((name: string) =>
+      name === paneName ? foreignPane : realGetPane(name),
+    );
+
+    const canvas = manager.createCanvas({ id: "A", name: "A" });
+
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    // The refused pane kept only its own content.
+    expect(foreignPane.childElementCount).toBe(1);
+
+    // A second attempt re-runs the transaction and still reports the role
+    // error: the failed rollback did not poison the surface.
+    expect(() => canvas.register()).toThrow(/role change/);
+  });
+
+  it("a registration that throws after commit drops its own entry", () => {
+    // The controller commits the registry entry before the notification
+    // fan-out; a throwing consumer makes registerLayer throw after that
+    // commit. The factory's rollback must still remove the entry it committed,
+    // or the id stays registered with no surface painting it.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id === "heat") throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+  });
+
+  it("a failed registration leaves a same-id replacement alone", () => {
+    // A subscriber can retire the committed entry and install a replacement
+    // inside the same fan-out. The rollback must compare the commit token's
+    // identity, not the id, or it deletes the replacement's entry.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
+  it("a registration retired and replaced without a throw fails closed", () => {
+    // P2-1b: the same-id swap does not have to throw. The controller's retired
+    // path returns null after the notify, so the factory's catch never runs —
+    // and the old read-back leased the replacement's entry as this surface's
+    // own. The outer unregister then deleted the replacement by bare id.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+    });
+
+    expect(() => canvas.register()).not.toThrow();
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+
+    // The failed registration holds no authority over the id.
+    canvas.unregister();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
+  it("a registration whose materialize throws drops its committed entry", () => {
+    // P1c: the commit token used to be handed over only after registerEntry
+    // returned, so a throw inside it (pane materialize / DOM work) left a
+    // committed registry entry the factory never learned about — a ghost with
+    // no row and no surface to reclaim it.
+    const { manager } = initFixture({
+      data: [{ id: "base1", name: "OSM", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const surfaceFor = vi.spyOn(manager.domain, "surfaceFor").mockReturnValue({
+      materialize: () => {
+        throw new Error("materialize boom");
+      },
+    } as never);
+
+    expect(() => canvas.register()).toThrow("materialize boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    surfaceFor.mockRestore();
+  });
+
+  it("announces no LAYER_CHANGE for a registration that rolls back", () => {
+    // P2-6: the projection CHANGE (absorbed from applyUserState) and the
+    // registration CHANGE used to go out after the failing notify, so a
+    // consumer that re-reads the registry saw the layer appear and then vanish.
+    // A CHANGE for an id that is still registered at delivery time is exactly
+    // that ghost announcement; only the rollback's retirement retraction (the
+    // id is gone by then) may survive.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", role: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const announcements: { id: string; registered: boolean }[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload =>
+      announcements.push({
+        id: payload.id,
+        registered: manager.layerRegistry.has(payload.id),
+      }),
+    );
+    let thrown = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || thrown) return;
+      thrown = true;
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    expect(announcements.filter(entry => entry.registered)).toEqual([]);
+  });
+
+  it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", role: "overlay" }],
+    });
+    const first = manager.createCanvas({ id: "A", name: "A" });
+    first.register();
+    expect(first.registered()).toBe(true);
+
+    // A second surface replaces the entry under the same id; the first
+    // owner's lease has lapsed.
+    const second = manager.createCanvas({ id: "A", name: "A2" });
+    second.register();
+    first.unregister();
+
+    // The registry stays with the replacement, and the lapsed surface ends
+    // in its terminal state: not registered anymore, face hidden — the old
+    // canvas must not keep drawing under the replacement's.
+    expect(manager.layerRegistry.has("A")).toBe(true);
+    expect(first.registered()).toBe(false);
+    expect(first.canvas.classList.contains("hidden")).toBe(true);
+
+    second.unregister();
+    expect(manager.layerRegistry.has("A")).toBe(false);
+  });
+
+  it("a failing pricing pass still saves the arrangement it committed", () => {
+    // commitReorder's local-commit rule: the persisted order agrees with the
+    // live registry whatever happens to the steps that follow the registry
+    // move — a throwing pricing pass must not leave the record lagging.
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    const save = vi.spyOn(manager, "saveOrder");
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    // The save is an owed step, not an alternative: finalize runs it even
+    // though the pricing pass threw.
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(manager.layers[0].id).toBe("B");
+    expect((manager as any).order.savedOrder?.[0]).toBe("B");
+    // The rows follow the committed arrangement too: a stale panel was the
+    // visible half of the old failure path, and the row-order signal now
+    // lands before the error surfaces.
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    // The operation still never opened: no announcement for a half-committed move.
+    expect(changes).toEqual([]);
+  });
+
+  it("syncs rows when only saveOrder fails, then throws the save error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("save boom");
+
+    // The registry move is a local commit: rows follow it even though the
+    // persisted snapshot failed, and no CHANGE is announced for the partial
+    // commit (the operation never opens).
+    expect(manager.layers[0].id).toBe("B");
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    expect(changes).toEqual([]);
+  });
+
+  it("reports both commit failures and throws the first one", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    // Both owed steps ran, and the second failure is recorded instead of
+    // replacing the first.
+    expect(warn).toHaveBeenCalledWith(
+      'reorder commit step "save-order" failed after an earlier error',
+      expect.any(Error),
+    );
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    warn.mockRestore();
+  });
+
+  it("a pre-attach pricing failure syncs nothing and still rethrows", () => {
+    // No UI yet: the failure path still owes the rethrow but has no panel to
+    // signal. This is the coin's other side of the attached-failure tests.
+    const m = new LayerController(map, [
+      { id: "A", name: "A", role: "overlay" },
+      { id: "B", name: "B", role: "overlay" },
+    ]);
+    vi.spyOn(m, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+
+    expect(() => m.moveLayerUp("B")).toThrow("order boom");
+    expect(m.layers[0].id).toBe("B");
+  });
+
+  it("a throwing row-sync subscriber cannot replace the commit error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+      throw new Error("sync boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    expect(warn).toHaveBeenCalledWith(
+      "reorder panel sync failed after a commit error",
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
+  it("a throwing map teardown still converges the retirement", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", role: "overlay", layer: polygonLayer() }],
+    });
+    ui.listPanel.dragEntry = manager.layerRegistry.get("A")!;
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.unregisterLayer("A")).toThrow("map boom");
+
+    // The local ledger converged despite the throw: registry, gesture,
+    // DOM row, and the owed CHANGE all landed.
+    expect(manager.layerRegistry.has("A")).toBe(false);
+    expect(ui.listPanel.dragEntry).toBeNull();
+    expect(attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
+    expect(changes).toContain("A");
+  });
+
+  it("a throwing map teardown still converges a user delete", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", role: "overlay", layer: polygonLayer() }],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.deleteLayer("A")).toThrow("map boom");
+
+    // The delete's persistent effects and its fan-out all landed before the
+    // map error surfaced: entry gone, id pruned as deleted, CHANGE owed.
+    expect(manager.layerRegistry.has("A")).toBe(false);
+    expect((manager as any).order.removedIds.has("A")).toBe(true);
+    expect(changes).toContain("A");
+  });
+
+  it("a throwing map teardown still converges a color-basemap delete", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", role: "overlay", layer: polygonLayer() }],
+    });
+    // The color entry registers with a canvas, no Leaflet layer; give it one
+    // so the map teardown path (and its throw) is real.
+    manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!.layer = polygonLayer();
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toThrow("map boom");
+
+    expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+    expect(changes).toContain(CONST.SOLID_BASEMAP_ID);
   });
 
   it("re-registration re-applies stored opacity onto a replaced canvas", () => {
@@ -2040,8 +2669,67 @@ describe("LayerController", () => {
     expect(manager.unregisterLayer("overlay1")).toBe(true);
   });
 
+  it("retires the row it started with when the id is re-registered mid-teardown", () => {
+    // The registry entry is gone before the steps run, so a `remove` listener
+    // inside `clear-layer-tree` can register the same id again and mount a
+    // second row. The retirement owns the element it captured when it started,
+    // not whatever currently answers to the id — otherwise the teardown deletes
+    // the replacement's row and leaves the dead one behind.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", role: "overlay", layer });
+    const original = document.createElement("div");
+    original.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(original);
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const decoy = document.createElement("div");
+    decoy.setAttribute("data-layer-id", "overlay1");
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      // A row for the freshly registered replacement, in front of the original.
+      manager.uiContainer!.prepend(decoy);
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(manager.uiContainer.contains(original)).toBe(false);
+    expect(manager.uiContainer.contains(decoy)).toBe(true);
+  });
+
+  it("still retires the captured row when the panel goes away mid-teardown", () => {
+    // The row is captured before the steps, so a remove handler that tears the
+    // whole control down (nulling `uiContainer`) must not strand it: the row is
+    // removed anyway, and only the group/toggle-all rescan is skipped because
+    // there is no panel left to rescan.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", role: "overlay", layer });
+    const row = document.createElement("div");
+    row.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(row);
+    const container = manager.uiContainer;
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      manager.uiContainer = null;
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(container.contains(row)).toBe(false);
+  });
+
   it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
-    // The unregister sweep's sync call reads `layerInfo.group === "base"` to pick the
+    // The unregister sweep's sync call reads `layerInfo.role === "base"` to pick the
     // group to rescan. Existing tests only unregister overlays, so the BASE
     // branch of the ternary would silently rot without a pin.
     manager.map.hasLayer.mockReturnValue(false);
@@ -2049,10 +2737,10 @@ describe("LayerController", () => {
       intentStore: makeStore(),
       saveState: vi.fn(),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     expect(manager.unregisterLayer("base1")).toBe(true);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: GROUP.BASE,
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+      role: ROLE.BASE,
     });
   });
 
@@ -2228,8 +2916,8 @@ describe("LayerController", () => {
       layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
     });
     const m = new LayerController(map, [
-      { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
-      { id: "base1", name: "B", group: "base", layer: { options: {} } },
+      { id: "overlay1", name: "O", role: "overlay", layer: { options: {} } },
+      { id: "base1", name: "B", role: "base", layer: { options: {} } },
     ]);
     m.annotation.setConfig("overlay1", {
       show: true,
@@ -2284,8 +2972,8 @@ describe("LayerController", () => {
     // from it on the same flush as removed.
     seedStorage({ order: ["overlay1", "base1"] });
     const m = new LayerController(map, [
-      { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
-      { id: "base1", name: "B", group: "base", layer: { options: {} } },
+      { id: "overlay1", name: "O", role: "overlay", layer: { options: {} } },
+      { id: "base1", name: "B", role: "base", layer: { options: {} } },
     ]);
     m.map.hasLayer.mockReturnValue(false);
 
@@ -2309,8 +2997,8 @@ describe("LayerController", () => {
     // on the next reload.
     seedStorage({ removed: ["gone"] });
     const m = new LayerController(map, [
-      { id: "gone", name: "G", group: "overlay", layer: { options: {} } },
-      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
+      { id: "gone", name: "G", role: "overlay", layer: { options: {} } },
+      { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
 
     expect(m.layers.map(l => l.id)).toEqual(["kept"]);
@@ -2329,8 +3017,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     map.removeLayer = removeLayer;
     const m = new LayerController(map, [
-      { id: "gone", name: "G", group: "overlay" },
-      { id: "kept", name: "K", group: "overlay" },
+      { id: "gone", name: "G", role: "overlay" },
+      { id: "kept", name: "K", role: "overlay" },
     ]);
 
     expect(m.layers.map(l => l.id)).toEqual(["kept"]);
@@ -2344,7 +3032,7 @@ describe("LayerController", () => {
     // a late Heatmap/Measure component) instead of just dropping the layer.
     seedStorage({ removed: ["gone"] });
     const m = new LayerController(map, [
-      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
+      { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
     vi.spyOn(console, "warn").mockImplementation(warn);
@@ -2363,7 +3051,7 @@ describe("LayerController", () => {
     // not start getting refused.
     seedStorage({ removed: ["gone"] });
     const m = new LayerController(map, [
-      { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
+      { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
 
     m.registerLayer({ id: "other", name: "Other" });
@@ -2391,10 +3079,11 @@ describe("LayerController", () => {
     // A map without LayerControl on it has a manager with a registry but no
     // panel: destroy still must unbind the layeradd listener and clear the
     // registry.
-    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     expect(m.uiContainer).toBeNull();
     m.destroy();
     expect(map.off).toHaveBeenCalledWith("layeradd", m.onLayerAdd);
+    expect(map.off).toHaveBeenCalledWith("layerremove", m.onLayerRemove);
     expect(m.isDestroyed).toBe(true);
     expect(m.layerRegistry.size).toBe(0);
   });
@@ -2402,17 +3091,25 @@ describe("LayerController", () => {
   it("onLayerAdd is a no-op once the manager is destroyed", () => {
     // A destroyed manager must ignore stray layeradd events, including ones
     // fired before its off() takes effect in the same teardown pass.
-    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.onLayerAdd({ layer: { options: {} } } as any);
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("onLayerRemove is a no-op once the manager is destroyed", () => {
+    const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
+    const spy = vi.spyOn(m, "enforceOrder");
+    m.destroy();
+    expect(() => m.onLayerRemove({ layer: { options: {} } } as any)).not.toThrow();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("debouncedEnforce skips scheduling once destroyed", () => {
     // A register/unregister racing the teardown must not reschedule a
     // z-order pass on a manager that no longer has a map.
-    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.debouncedEnforce();
@@ -2423,8 +3120,8 @@ describe("LayerController", () => {
     // persistence.destroy cancels the timer, so the UI's flush in unbindEvents
     // must run first — otherwise the last reorder in the debounce window is lost.
     const m = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
@@ -2441,7 +3138,7 @@ describe("LayerController", () => {
   it("destroy flushes a pending intent write instead of cancelling it", () => {
     // Same ordering for per-layer intent: a hide just before teardown must
     // survive a reload, which is the whole point of the flush.
-    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
     m.persistence.schedule({
@@ -2476,6 +3173,146 @@ describe("LayerController", () => {
     expect(window.L.svg).not.toHaveBeenCalled();
   });
 
+  it("re-registering an id under a new layer releases the old surface's panes", () => {
+    // Same id, new layer object: the old surface's synthesized base pane and
+    // marker-shadow pane are the OLD layer's carrier — a replacement that
+    // leaves them claimed would grow one orphan pane per re-register.
+    manager.map.hasLayer.mockReturnValue(true);
+    const first = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: first });
+    const oldSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    expect(oldSurface.paneNames.length).toBeGreaterThan(0);
+    const destroySpy = vi.spyOn(oldSurface, "destroy");
+
+    const second = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: second });
+    const newSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    // The replacement released the old face (its synthesized base pane and
+    // marker-shadow pane) before claiming the id for the new one, AND the old
+    // layer left the map — otherwise it would keep painting as an
+    // unmanageable ghost next to the new layer.
+    expect(newSurface).not.toBe(oldSurface);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(manager.map.removeLayer).toHaveBeenCalledWith(first);
+  });
+
+  it("a layeradd marks only the owning surface dirty", () => {
+    // One group gaining a leaf must not rescan every registered tree: the
+    // handler attributes the arrival by stamp, then by group membership.
+    manager.map.hasLayer.mockReturnValue(true);
+    const groupA = { options: {}, eachLayer: vi.fn() };
+    const groupB = { options: {}, eachLayer: vi.fn() };
+    manager.registerLayer({ id: "ga", name: "A", layer: groupA as never });
+    manager.registerLayer({ id: "gb", name: "B", layer: groupB as never });
+    const surfaceA = manager.surfaces.get("ga")!;
+    const surfaceB = manager.surfaces.get("gb")!;
+    const spyA = vi.spyOn(surfaceA, "markContentDirty");
+    const spyB = vi.spyOn(surfaceB, "markContentDirty");
+
+    // A leaf joining group A: attributed to A (membership scan), not to B,
+    // and not to the global sweep.
+    const leaf = { options: {} } as never;
+    groupA.eachLayer = vi.fn();
+    (groupA as unknown as { hasLayer: (l: unknown) => boolean }).hasLayer = vi.fn(
+      () => true,
+    );
+    manager.onLayerAdd({ layer: leaf } as never);
+
+    expect(spyA).toHaveBeenCalledTimes(1);
+    expect(spyB).not.toHaveBeenCalled();
+  });
+
+  it("a leaf recorded at the write point attributes to its surface in O(1)", () => {
+    // createLayers' addLayer records the child -> group stamp (write-point
+    // index); the handler reads the surface off the group's stamp without
+    // running a membership scan at all.
+    manager.map.hasLayer.mockReturnValue(true);
+    const group = Object.assign({}, { options: {} });
+    manager.registerLayer({ id: "gm", name: "M", layer: group as never });
+    const surface = manager.surfaces.get("gm")!;
+    const spy = vi.spyOn(surface, "markContentDirty");
+    const leaf = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf as never, group as never);
+
+    manager.onLayerAdd({ layer: leaf } as never);
+    expect(spy).toHaveBeenCalledTimes(1);
+    // A second leaf of the SAME group, also indexed, is O(1) as well.
+    const leaf2 = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf2 as never, group as never);
+    manager.onLayerAdd({ layer: leaf2 } as never);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("a leaf indexed to a registered surface marks that surface and no other", () => {
+    // The O(1) path this index exists for: the leaf itself is not a
+    // registered layer, so `directSurface` misses, and the child-ownership
+    // record is the only claim. Because it claims, the fallback branch (a
+    // membership scan, then the global sweep) must not run — if it did, one
+    // add would still rescan every registered tree.
+    //
+    // The stamp has to be identity-stable for any of this to hold: the shared
+    // mock is a per-call counter, so every lookup below would miss and the
+    // handler would quietly take the sweep instead.
+    // Fake timers so the debounced enforce this schedules cannot fire after
+    // the test ends — a pending timer on a torn-down fixture is how a
+    // green file turns into a flaky one on a loaded runner.
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      const owned = new window.L.TileLayer();
+      manager.registerLayer({ id: "gi", name: "Indexed", layer: owned });
+      manager.registerLayer({
+        id: "gother",
+        name: "Other",
+        layer: new window.L.TileLayer(),
+      });
+      const indexed = manager.surfaces.get("gi")!;
+      const other = manager.surfaces.get("gother")!;
+      const indexedSpy = vi.spyOn(indexed, "markContentDirty");
+      const otherSpy = vi.spyOn(other, "markContentDirty");
+
+      const leaf = { options: {} } as never;
+      manager.panes.rememberChildOwnership(leaf as never, owned as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      expect(indexedSpy).toHaveBeenCalledTimes(1);
+      expect(otherSpy).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
+  it("treats a recorded owner with no live surface as no claim at all", () => {
+    // The write-point index can outlive the surface that wrote it (an
+    // unregister between the record and the add). The lookup answers null,
+    // and "recorded but gone" must not read as a claim — the handler falls
+    // through to the global sweep instead, which is the conservative answer
+    // for an arrival nothing provably owns.
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({ id: "gi", name: "I", layer: new window.L.TileLayer() });
+      const indexed = manager.surfaces.get("gi")!;
+      const spy = vi.spyOn(indexed, "markContentDirty");
+      const leaf = { options: {} } as never;
+      // A parent stamp no registered surface owns.
+      manager.panes.rememberChildOwnership(leaf as never, { options: {} } as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      // The sweep marked it — once, and for the reason above, not because the
+      // index claimed it.
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.
@@ -2501,7 +3338,7 @@ describe("LayerController", () => {
     // ladder writes there instead.
     const tile = new TileLayer();
     manager.map.hasLayer.mockReturnValue(true);
-    manager.registerLayer({ id: "t1", name: "T", layer: tile, group: "base" });
+    manager.registerLayer({ id: "t1", name: "T", layer: tile, role: "base" });
     manager.enforceOrder();
     expect(tile.setZIndex).not.toHaveBeenCalled();
   });
@@ -2557,6 +3394,47 @@ describe("LayerController", () => {
     });
     const pts = manager.extractPoints("pts");
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
+  });
+
+  it("forEachPoint walks markers without extracting coordinates", () => {
+    // The lazy twin of extractPoints: field scans only read the marker, so
+    // the traversal must not allocate {lat, lng, marker} or call getLatLng.
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
+    window.L.Marker = Marker;
+    const first = new Marker() as any;
+    first.feature = { type: "Feature" };
+    first.getLatLng = vi.fn(() => ({ lat: 1, lng: 2 }));
+    first.options = {};
+    const second = new Marker() as any;
+    second.feature = { type: "Feature" };
+    second.getLatLng = vi.fn(() => ({ lat: 3, lng: 4 }));
+    second.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "lazy",
+      name: "Lazy",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(first);
+          cb(second);
+          cb(first);
+        },
+        options: {},
+      } as any,
+    });
+
+    const seen: unknown[] = [];
+    manager.forEachPoint("lazy", marker => seen.push(marker));
+
+    // Both markers reached the callback, and no coordinate extraction paid.
+    expect(seen).toContain(first);
+    expect(seen).toContain(second);
+    expect(first.getLatLng).not.toHaveBeenCalled();
+    expect(second.getLatLng).not.toHaveBeenCalled();
   });
 
   it("extractPoints excludes label markers (no double-counting)", () => {
@@ -2658,7 +3536,7 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "top", name: "Top", layer: { options: {} } });
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
@@ -2670,7 +3548,7 @@ describe("LayerController", () => {
       id: "b",
       name: "B",
       layer: new TileLayer(),
-      group: "base",
+      role: "base",
     });
     const orderBefore = manager.layers.map(l => l.id);
     manager.bringLayerToFront("b");
@@ -2720,7 +3598,7 @@ describe("LayerController", () => {
         id: "b1",
         name: "B",
         layer: { options: {} },
-        group: "base",
+        role: "base",
       });
       expect(manager.getFeatureCount("b1")).toBe(null);
     });
@@ -2827,7 +3705,7 @@ describe("LayerController", () => {
         id: "b1",
         name: "B",
         layer: { options: {} },
-        group: "base",
+        role: "base",
       });
       const bus = map.foliplus!.events;
       const handler = vi.fn();
@@ -2893,7 +3771,7 @@ describe("LayerController", () => {
   it("syncAttribution clears the table when the visible base leaves", () => {
     const tile = new TileLayer();
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, role: "base" });
     manager.enforceOrder();
     expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
     // flip visibility off → no base visible → table emptied
@@ -2966,19 +3844,18 @@ describe("LayerController", () => {
       expect(save).toHaveBeenCalledTimes(1);
     });
 
-    it("still retires a user layer through unregisterLayer and removedIds", () => {
+    it("retires a user layer and records the removed id", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
       expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
     });
 
-    it("returns false when unregisterLayer fails for a user layer", () => {
+    it("returns false when the entry is already gone", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+      manager.unregisterLayer("overlay1");
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
       expect((manager as any).order.removedIds.has("overlay1")).toBe(false);
@@ -2994,22 +3871,22 @@ describe("LayerController", () => {
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
       } as any;
-      const emitSpy = vi.spyOn(manager.events, "emit");
+      const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: GROUP.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: ROLE.BASE,
       });
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     });
 
-    it("clears the colour basemap — unregisters but keeps the id registerable", () => {
+    it("clears the color basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
-        group: "base",
+        name: "color",
+        role: "base",
         layer: { options: {} },
       } as any);
 
@@ -3019,46 +3896,44 @@ describe("LayerController", () => {
         resetSolidBasemap: resetSpy,
         invalidateFields: vi.fn(),
       } as any;
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
-      const emitSpy = vi.spyOn(manager.events, "emit");
+      const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(resetSpy).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: GROUP.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: ROLE.BASE,
       });
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
-    it("clears the colour basemap without a panel attached", () => {
+    it("clears the color basemap without a panel attached", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
-        group: "base",
+        name: "color",
+        role: "base",
         layer: { options: {} },
       } as any);
       manager.ui = null;
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
-    it("returns false when the colour basemap cannot be unregistered", () => {
+    it("returns false when the color basemap cannot be unregistered", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
-        group: "base",
+        name: "color",
+        role: "base",
         layer: { options: {} },
       } as any);
-      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+      manager.layerRegistry.remove(CONST.SOLID_BASEMAP_ID);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
@@ -3068,11 +3943,11 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
       manager.uiContainer.innerHTML = `
-        <div class="foliplus-layer-toggle-all" data-group="overlay">
+        <div class="foliplus-layer-toggle-all" data-role="overlay">
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
-        <div class="foliplus-layer-toggle-all" data-group="base">
+        <div class="foliplus-layer-toggle-all" data-role="base">
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
@@ -3092,28 +3967,28 @@ describe("LayerController", () => {
 
       expect(
         manager.uiContainer.querySelector(
-          `.foliplus-layer-toggle-all[data-group="overlay"]`,
+          `.foliplus-layer-toggle-all[data-role="overlay"]`,
         ),
       ).toBeNull();
       expect(
         manager.uiContainer.querySelector(
-          `.foliplus-layer-toggle-all[data-group="base"]`,
+          `.foliplus-layer-toggle-all[data-role="base"]`,
         ),
       ).not.toBeNull();
     });
 
-    it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
+    it("removes the base toggle-all row when the last non-color base layer is deleted", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
-        group: "base",
+        name: "color",
+        role: "base",
         layer: { options: {} },
       } as any);
       manager.uiContainer = document.createElement("div");
       manager.uiContainer.innerHTML = `
         <div class="foliplus-layer-item" data-layer-id="overlay1" data-layer-type="overlay"></div>
-        <div class="foliplus-layer-toggle-all" data-group="base">
+        <div class="foliplus-layer-toggle-all" data-role="base">
           <div class="foliplus-checkbox"><input type="checkbox" data-role="toggle-all" /></div>
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
@@ -3140,15 +4015,331 @@ describe("LayerController", () => {
       expect(manager.deleteLayer("base1")).toBe(true);
 
       expect(
-        manager.uiContainer.querySelector(
-          `[data-group="base"][data-role="toggle-all"]`,
-        ),
+        manager.uiContainer.querySelector(`[data-role="base"][data-role="toggle-all"]`),
       ).toBeNull();
       expect(
         manager.uiContainer.querySelector(
           `[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`,
         ),
       ).not.toBeNull();
+    });
+  });
+
+  describe("lifecycle operations settle their whole fan-out", () => {
+    it("a throwing row signal stops the registration before its CHANGE", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      manager.events.on(EVENTS.LAYER_ITEM_ADDED, () => {
+        throw new Error("item boom");
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+      expect(() =>
+        manager.registerLayer({
+          id: "new1",
+          name: "New",
+          layer: { options: {} },
+        } as any),
+      ).toThrow("item boom");
+
+      // P2-6: a failure recorded by the row signal dooms this registration. The
+      // factory-backed path rolls the entry back; this direct LayerAPI call has
+      // no surface to roll back, but the registration CHANGE must not announce a
+      // layer whose registration already failed (consumers would see it appear
+      // and, for the factory path, vanish again).
+      expect(changes).toEqual([]);
+      expect(manager.layerRegistry.has("new1")).toBe(true);
+    });
+
+    it("a throwing CHANGE consumer does not cut off LAYER_REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("change boom");
+
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    });
+
+    it("a throwing consumer cannot leave a user delete half-applied", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(() => manager.deleteLayer("overlay1")).toThrow("change boom");
+
+      // The retirement and every persisted prune committed before the fan-out;
+      // a retry no longer finds an entry, so the delete cannot silently
+      // degrade into a re-registerable unregister.
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.deleteLayer("overlay1")).toBe(false);
+    });
+
+    it("a throwing DELETED consumer does not starve the component owner or the prune", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        layer: { options: {} },
+        styleSetters: { color: vi.fn() },
+      } as any);
+      const owner = vi.fn();
+      const deleteEntrySpy = vi.spyOn((manager as any).domain, "deleteEntry");
+      manager.events.on(EVENTS.LAYER_DELETED, () => {
+        throw new Error("deleted boom");
+      });
+      manager.events.on(EVENTS.LAYER_DELETED, owner);
+
+      expect(() => manager.deleteLayer("measure1")).toThrow("deleted boom");
+
+      // The owner handler and LayerControl cleanup both ran even though a
+      // consumer ahead of them threw.
+      expect(owner).toHaveBeenCalledWith({ id: "measure1" });
+      expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
+      // Component clear keeps the id registerable for the next draw.
+      expect(manager.layerRegistry.has("measure1")).toBe(true);
+    });
+
+    it("a throwing rebuild signal does not cut off the reorder CHANGE", () => {
+      const m = new LayerController(map, [
+        { id: "a", name: "A", role: "overlay" },
+        { id: "b", name: "B", role: "overlay" },
+      ]);
+      m.uiContainer = document.createElement("div");
+      m.ui = {} as any;
+      const changes: string[] = [];
+      m.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+        throw new Error("list boom");
+      });
+      m.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+      expect(() => m.moveLayerUp("b")).toThrow("list boom");
+
+      expect(changes).toEqual(["b"]);
+      expect(m.layers[0].id).toBe("b");
+    });
+
+    it("a throwing consumer does not cut off a late-attach CHANGE", () => {
+      const realStamp = window.L.stamp;
+      window.L.stamp = stableStamp;
+      try {
+        manager.registerLayer({ id: "late2", name: "Late2", role: "overlay" });
+        const arrived = new window.L.Path();
+        map._layers["late2"] = arrived;
+        const seen: string[] = [];
+        manager.events.on(EVENTS.LAYER_CHANGE, () => {
+          throw new Error("late boom");
+        });
+        manager.events.on(EVENTS.LAYER_CHANGE, payload => seen.push(payload.id));
+
+        expect(() => manager.onLayerAdd({ layer: arrived })).toThrow("late boom");
+
+        expect(seen).toEqual(["late2"]);
+      } finally {
+        window.L.stamp = realStamp;
+      }
+    });
+
+    it("a replacement registered inside the retirement CHANGE gets no stale LAYER_REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1") return;
+        if (manager.layerRegistry.has("overlay1")) return;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Replacement",
+          role: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The id is live again, so the rest of the old retirement would assert
+      // a false "gone" state; the replacement announced its own CHANGE.
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Replacement");
+    });
+
+    it("a replacement registered inside LAYER_ITEM_REMOVED stops the rest of the retirement", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      // A panel is required for the replacement to announce its registration
+      // CHANGE (a pre-attach register only queues the entry).
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_ITEM_REMOVED, payload => {
+        if (payload.id !== "overlay1") return;
+        if (manager.layerRegistry.has("overlay1")) return;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Replacement2",
+          role: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // Only the replacement registration CHANGE is announced; the old
+      // retirement contributes no count/change/removed after its first event.
+      expect(changes).toEqual(["overlay1"]);
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Replacement2");
+    });
+
+    it("a replacement registered and unregistered inside the fan-out still stops the old REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const removed: string[] = [];
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1" || swapped) return;
+        swapped = true;
+        // Swap a replacement in, then immediately swap it out again inside the
+        // same fan-out. Existence alone would let the old retirement re-pass
+        // its gate and repeat LAYER_REMOVED.
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Swap",
+          role: "overlay",
+          layer: { options: {} },
+        });
+        manager.unregisterLayer("overlay1");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The inner unregister announced the removal once; the outer retirement
+      // noticed the replacement and stayed silent — no identity-less repeat.
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    });
+
+    it("a replacement registered inside LAYER_ROLE_COUNT_CHANGED stops before the old change and removal", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      const removed: string[] = [];
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_ROLE_COUNT_CHANGED, payload => {
+        if (payload.role !== "overlay" || swapped) return;
+        swapped = true;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Repl",
+          role: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // Only the replacement's registration CHANGE is announced; the old
+      // retirement stops right after its first group-count sync.
+      expect(changes).toEqual(["overlay1"]);
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Repl");
+    });
+
+    it("a different id registering during a retirement does not stop the retirement", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const removed: string[] = [];
+      let otherDone = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1" || otherDone) return;
+        otherDone = true;
+        manager.registerLayer({
+          id: "other",
+          name: "Other",
+          role: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The identity listener only reacts to the retired id, so a different
+      // id registering in between is irrelevant — the retirement completes.
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("other")).toBe(true);
+    });
+
+    it("a replacement registered inside a solid-basemap delete skips the old reset and extra events", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.SOLID_BASEMAP_ID,
+        name: "color",
+        role: "base",
+        layer: { options: {} },
+      } as any);
+      const reset = vi.fn();
+      manager.ui = {
+        intentStore: makeStore(),
+        resetSolidBasemap: reset,
+        invalidateFields: vi.fn(),
+      } as any;
+      const noBase = vi.fn();
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== CONST.SOLID_BASEMAP_ID || swapped) return;
+        swapped = true;
+        manager.registerLayer({
+          id: CONST.SOLID_BASEMAP_ID,
+          name: "NewColour",
+          role: "base",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, noBase);
+
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
+
+      // The old delete's post-announcement housekeeping is gated on the full
+      // retirement having been announced: a replacement consumed it, so the
+      // reset and the extra signals are skipped.
+      expect(reset).not.toHaveBeenCalled();
+      expect(noBase).not.toHaveBeenCalled();
+      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).toBe("NewColour");
     });
   });
 });
@@ -3265,9 +4456,9 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moves an overlay one position up", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "c", name: "C", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "c", name: "C", role: "overlay" },
     ]);
     expect(manager.moveLayerUp("b")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -3277,23 +4468,23 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("returns false when layer is already at top", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
   it("returns false for unknown layer id", () => {
-    manager = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    manager = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     expect(manager.moveLayerUp("unknown")).toBe(false);
   });
 
   it("does not move base layer past overlay boundary", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "base1", name: "Base", group: "base" },
-      { id: "base2", name: "Base2", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "base1", name: "Base", role: "base" },
+      { id: "base2", name: "Base2", role: "base" },
     ]);
     expect(manager.moveLayerUp("base2")).toBe(true);
     expect(manager.layers[2].id).toBe("base2");
@@ -3302,9 +4493,9 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moves an overlay one position down", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "c", name: "C", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "c", name: "C", role: "overlay" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -3314,26 +4505,26 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("returns false when layer is already at bottom of group", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     expect(manager.moveLayerDown("b")).toBe(false);
   });
 
   it("does not move overlay past base boundary", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base", group: "base" },
-      { id: "base2", name: "Base2", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base", role: "base" },
+      { id: "base2", name: "Base2", role: "base" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("moves base layer down within base group", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
-      { id: "base2", name: "Base2", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
+      { id: "base2", name: "Base2", role: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(true);
     expect(manager.layers[1].id).toBe("base2");
@@ -3342,9 +4533,9 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp and moveLayerDown are inverse operations", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "c", name: "C", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "c", name: "C", role: "overlay" },
     ]);
     manager.moveLayerUp("c");
     expect(manager.layers).toEqual(
@@ -3366,8 +4557,8 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("maintains z-index order after move", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     manager.moveLayerUp("b");
     const zB = manager.computeZIndex(
@@ -3382,17 +4573,17 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false when only one layer exists", () => {
-    manager = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    manager = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     expect(manager.moveLayerUp("a")).toBe(false);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("moves first overlay to the top of overlay group", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "c", name: "C", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "c", name: "C", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     expect(manager.moveLayerUp("b")).toBe(true);
     expect(manager.layers[0].id).toBe("b");
@@ -3403,19 +4594,19 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("does not move overlay that is the only overlay into base group", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("reorder works across multiple base layers", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
-      { id: "base2", name: "Base2", group: "base" },
-      { id: "base3", name: "Base3", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
+      { id: "base2", name: "Base2", role: "base" },
+      { id: "base3", name: "Base3", role: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(true);
     expect(manager.moveLayerDown("base1")).toBe(true);
@@ -3427,8 +4618,8 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp calls enforceOrder", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerUp("b");
@@ -3437,32 +4628,32 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerDown returns false when layer is already at bottom of base group", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     expect(manager.moveLayerDown("base1")).toBe(false);
   });
 
   it("moveLayerUp returns false when layer is the only overlay", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     expect(manager.moveLayerUp("a")).toBe(false);
   });
 
   it("moveLayerUp returns false when layer is the only base map", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     expect(manager.moveLayerUp("base1")).toBe(false);
   });
 
   it("moveLayerDown calls enforceOrder", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
     manager.moveLayerDown("a");
@@ -3475,24 +4666,24 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     // the reorder paths do, so a missing emit silently breaks drag + keyboard
     // reordering. Attach a bare ui + uiContainer to reach the branch.
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerUp("b");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
   it("moveLayerDown rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
     ]);
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerDown("a");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
@@ -3510,9 +4701,9 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     vi.clearAllTimers();
     window.localStorage.clear();
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "b", name: "B", group: "overlay" },
-      { id: "c", name: "C", group: "overlay" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "b", name: "B", role: "overlay" },
+      { id: "c", name: "C", role: "overlay" },
     ]);
     const onLayerChange = vi.fn();
     manager.events.on(EVENTS.LAYER_CHANGE, onLayerChange);
@@ -3538,8 +4729,8 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     // check and the early return, these catch it; the per-case behavior itself
     // is covered by the boundary tests above.
     manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay" },
-      { id: "base1", name: "Base1", group: "base" },
+      { id: "a", name: "A", role: "overlay" },
+      { id: "base1", name: "Base1", role: "base" },
     ]);
     // Spy before the act: an unspy'd method assertion is a no-op claim.
     const enforceSpy = vi.spyOn(manager, "enforceOrder");
@@ -3663,7 +4854,7 @@ describe("LayerController user-assigned names", () => {
     const extLayer = { options: {} };
 
     manager = new LayerController(map, [
-      { id: "ext", name: "Provider Layer", group: "overlay", layer: extLayer },
+      { id: "ext", name: "Provider Layer", role: "overlay", layer: extLayer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
@@ -3675,7 +4866,7 @@ describe("LayerController user-assigned names", () => {
     // `opts.name` over the existing value, reverting the panel to the
     // original on the next render or reload.
     manager.ui!.renameLayer("ext");
-    const item = manager.ui!.uiContainer.querySelector(
+    const item = manager.ui!.uiContainer!.querySelector(
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;
@@ -3698,7 +4889,7 @@ describe("LayerController user-assigned names", () => {
     // before `attachUI` — but after the LayerController constructor, which has
     // already built the registry that loadPersistedState reads against.
     const fresh = new LayerController(map, [
-      { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
+      { id: "ext", name: "Provider Layer", role: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh, TEST_ENV);
     window.localStorage.setItem(
@@ -3721,7 +4912,7 @@ describe("LayerController user-assigned names", () => {
     // rename survives the attach and is projected the moment the layer
     // registers. A registry filter here would have reverted it on every reload.
     const fresh = new LayerController(map, [
-      { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
+      { id: "ext", name: "Provider Layer", role: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh, TEST_ENV);
     window.localStorage.setItem(
@@ -3742,7 +4933,7 @@ describe("LayerController user-assigned names", () => {
     // A fresh id has no existing entry, so the caller's `opts.name` wins
     // instead of the registry defaulting to the id.
     const fresh = new LayerController(map, [
-      { id: "fresh", name: "Fresh Layer", group: "overlay", layer: { options: {} } },
+      { id: "fresh", name: "Fresh Layer", role: "overlay", layer: { options: {} } },
     ]);
 
     expect(fresh.layerRegistry.get("fresh")?.name).toBe("Fresh Layer");
@@ -3941,5 +5132,1130 @@ describe("LayerController user-assigned names", () => {
         (view as unknown[]).push({} as never);
       }).toThrow();
     });
+  });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a registration announces after the group count has settled", () => {
+  // The registration entry inserts the row, replays the stored state,
+  // refreshes the row cells and syncs the group count before it publishes —
+  // so the first CHANGE the new layer gets out already names the full
+  // group. Announcing from the row insertion itself would have handed a
+  // subscriber the count taken before that row existed.
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "one", name: "One", role: "overlay", layer: polygonLayer() },
+      { id: "two", name: "Two", role: "overlay", layer: polygonLayer() },
+      {
+        id: "three",
+        name: "Three",
+        role: "overlay",
+        layer: polygonLayer(),
+      },
+    ],
+  });
+  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
+    total: 3,
+    on: 3,
+  });
+
+  // The late layer arrives already hidden: a stored dimension is the only
+  // state a late registration can carry, and it is the delta the entry
+  // holds until the row and the count have settled.
+  setIntent(ui, "fourth", "visible", false);
+  ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+  const countsAtDelivery: { total: number; on: number }[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    countsAtDelivery.push({ ...ui.listPanel.checkedCount[ROLE.OVERLAY] });
+  });
+
+  manager.registerLayer({
+    id: "fourth",
+    name: "Fourth",
+    role: "overlay",
+    layer: polygonLayer(),
+  });
+
+  expect(countsAtDelivery.length).toBeGreaterThan(0);
+  expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
+});
+
+it("a register whose notify destroys the control returns null", () => {
+  // The projection delta goes out last, but before the entry returns it still
+  // publishes the separate registration CHANGE and reads the row back out of
+  // the container. A subscriber that tears the control down inside that
+  // notify takes the container and the registry with it: a second emission
+  // would announce for an entry that no longer exists, and the row lookup
+  // would deref a null container.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  // Tracked membership keeps the projection's diff real instead of a
+  // constant, and leaves the teardown sweep with nothing new to say: the
+  // one delivery below is the projection's, so a registration CHANGE would
+  // show up as a second.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+  // A stored dimension is what gives the projection something to write — a
+  // late registration arrives hidden, and that flip is the delta the
+  // subscriber tears down on.
+  setIntent(ui, "fourth", "visible", false);
+  ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 1) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      role: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(1);
+  expect(onMap.get(layer)).toBe(false);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a register whose notify unregisters the entry returns null", () => {
+  // The same boundary with the entry retired instead of the control: the id
+  // is mapped to nothing, so the registration CHANGE would announce for a
+  // layer that is already gone. Two CHANGEs are expected — the projection's,
+  // then the unregister's own — not a third for the registration.
+  const { ui, manager } = initFixture();
+
+  setIntent(ui, "second", "visible", false);
+  ui.intentStore.seedProvenance("second", ["visible"]);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "second" && changes.length === 1) {
+      manager.unregisterLayer("second");
+    }
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      role: "overlay",
+      layer: polygonLayer(),
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(ui.c.layerRegistry.has("second")).toBe(false);
+});
+
+it("a register whose final notify destroys the control returns null", () => {
+  // A layer that is already on the map and has no stored dimension carries no
+  // projection delta, so the registration CHANGE is its only notify. It is
+  // the last statement before the row is read back out of the container: a
+  // subscriber that tears the control down there leaves a null container, and
+  // the row lookup is reached by nothing else.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  // Tracked membership keeps the teardown sweep from gaining a second opinion
+  // about this layer, so the one delivery below is the registration's and a
+  // spurious emit would show up as another.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 1) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      role: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(1);
+  expect(ui.c.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+});
+
+it("a register whose final notify destroys the control after a projection delta returns null", () => {
+  // The saved range hides the layer, so the registration carries a real
+  // projection delta and gets two notifies: the projection's first, then its
+  // own registration CHANGE. Tearing the control down in the second one
+  // exercises the same boundary on the path that already had one notify.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+  setIntent(ui, "fourth", "zoomRange", [0, 1]);
+  ui.intentStore.seedProvenance("fourth", ["zoomRange"]);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 2) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      role: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(2);
+  expect(onMap.get(layer)).toBe(false);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a register whose final notify unregisters the entry returns null", () => {
+  // The entry retired instead of the control, and by the registration's own
+  // notify rather than the projection's: two CHANGEs are expected — the
+  // registration's, then the unregister's own — not a third.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "second") return;
+    changes.push(payload.id);
+    if (changes.length === 1) manager.unregisterLayer("second");
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      role: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(ui.c.layerRegistry.has("second")).toBe(false);
+});
+
+it("a register replaced under the same id inside the final notify returns null", () => {
+  // A re-registration with the same id replaces the entry this call created,
+  // so handing back its row would hand back another instance's row. The inner
+  // call carries no projection delta of its own, so it announces only once
+  // and the outer call is left to notice the swap.
+  const { ui, manager } = initFixture();
+  const onMap = trackMembership(ui.c.map);
+  const layer = polygonLayer();
+  onMap.set(layer, true);
+  const replacement = polygonLayer();
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "second") return;
+    changes.push(payload.id);
+    if (changes.length === 1) {
+      manager.registerLayer({
+        id: "second",
+        name: "Second",
+        role: "overlay",
+        layer: replacement,
+      });
+    }
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      role: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(onMap.get(replacement)).toBe(true);
+  expect(ui.c.layerRegistry.get("second")?.layer).toBe(replacement);
+});
+
+it("a reorder announces after the row list has been rebuilt", () => {
+  // The list rebuild is the reorder's own side effect, so it lands before the
+  // notify: a subscriber reading the row order out of the panel during the
+  // CHANGE sees the arrangement that was just made, not the one that is
+  // about to be rendered.
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: polygonLayer() },
+      { id: "beta", name: "Beta", role: "overlay", layer: polygonLayer() },
+      { id: "gamma", name: "Gamma", role: "overlay", layer: polygonLayer() },
+    ],
+  });
+  const { children } = attachWithGroup(ui);
+  const order = () =>
+    children()
+      .map(row => row.dataset.layerId)
+      .join(",");
+  expect(order()).toBe("alpha,beta,gamma");
+
+  const orderAtDelivery: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "alpha") return;
+    orderAtDelivery.push(order());
+  });
+
+  expect(manager.moveLayerDown("alpha")).toBe(true);
+  expect(orderAtDelivery).toEqual(["beta,alpha,gamma"]);
+  expect(order()).toBe("beta,alpha,gamma");
+});
+
+it("a reorder whose rebuild signal destroys the control announces nothing more", () => {
+  // The rebuild signal's fan-out is the reorder's own side-effect window: the
+  // in-tree subscriber relocates the rows, and a third-party subscriber (the
+  // panel is a public event surface) can tear the control down in the same
+  // emit. The reorder's own CHANGE is suppressed — the registry went with the
+  // control, so there is nothing left to announce the arrangement against.
+  // The move itself already landed, so the arrangement stands regardless.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
+    ],
+  });
+
+  const changes: string[] = [];
+  let orderAtSignal: string[] | null = null;
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    orderAtSignal = manager.layers
+      .filter(layerInfo => layerInfo.role === ROLE.OVERLAY)
+      .map(layerInfo => layerInfo.id);
+    ui.c.destroy();
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+  expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+  expect(changes).toEqual([]);
+  expect(ui.c.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+  // The reorder had already happened when the signal fired: the arrangement
+  // the subscriber saw was the finished one. Overlay entries only — the
+  // color basemap is a base-group layer outside this arrangement.
+  expect(orderAtSignal).toEqual(["beta", "alpha"]);
+});
+
+it("a reorder whose rebuild signal retires its layer announces no reorder", () => {
+  // The entry moved instead of the control going away: a subscriber that
+  // retires the moved layer inside the signal has removed the thing the
+  // reorder would announce for.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
+    ],
+  });
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    manager.unregisterLayer("alpha");
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+  expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+  // The unregister's own CHANGE for alpha — and no second one: the reorder
+  // would announce an entry nobody holds any more.
+  expect(changes).toEqual(["alpha"]);
+  expect(ui.c.layerRegistry.has("alpha")).toBe(false);
+});
+
+it("a rebuild signal delivers an already-settled panel", () => {
+  // A reorder relocates rows in place, so unlike the bare-rows rebuild the
+  // panel never stops being settled: every subscriber in the signal's
+  // fan-out — in-tree first, third parties after — reads the finished
+  // arrangement, the preserved row faces and the readiness flag. What a
+  // subscriber sees at delivery is what the panel looks like when the
+  // operation returns.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const layerGamma = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
+      { id: "gamma", name: "Gamma", role: "overlay", layer: layerGamma },
+    ],
+  });
+  // A row the user hid through the real visibility path: a reorder must not
+  // repaint it, so it still reads unchecked at signal delivery.
+  manager.setVisible("gamma", false);
+
+  const snapshot = () => {
+    const rows = Array.from(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
+      ),
+    );
+    return {
+      order: rows.map(row => row.dataset.layerId).join(","),
+      checked: rows.map(
+        row =>
+          (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+      ),
+      active: rows.map(row => row.classList.contains(CONST.CLASSES.ACTIVE)),
+      counts: rows.map(
+        row => row.querySelector(`.${CONST.CLASSES.COUNT_COL}`)?.textContent,
+      ),
+      ready: attachedPanel(ui).getAttribute("data-ready"),
+    };
+  };
+
+  let atDelivery: ReturnType<typeof snapshot> | null = null;
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!atDelivery) atDelivery = snapshot();
+  });
+
+  expect(manager.moveLayerDown("alpha")).toBe(true);
+
+  expect(atDelivery).toEqual(snapshot());
+  expect(atDelivery).toMatchObject({
+    order: "beta,alpha,gamma",
+    checked: [true, true, false],
+    active: [true, true, false],
+    ready: "true",
+  });
+});
+
+it("a bringLayerToFront whose rebuild signal destroys the control announces nothing", () => {
+  // Same retirement window as the move entries: a subscriber that destroys
+  // the control inside the signal leaves no registry to announce the
+  // reorder against.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
+    ],
+  });
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!manager.isDestroyed) manager.destroy();
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+  expect(() => manager.bringLayerToFront("beta")).not.toThrow();
+  expect(changes).toEqual([]);
+  expect(manager.isDestroyed).toBe(true);
+});
+
+it("a moveLayerUp whose rebuild signal destroys the control announces nothing", () => {
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
+    ],
+  });
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!manager.isDestroyed) manager.destroy();
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+  expect(manager.moveLayerUp("beta")).toBe(true);
+  expect(changes).toEqual([]);
+  expect(manager.isDestroyed).toBe(true);
+});
+
+describe("retireEntry finalization", () => {
+  it("unloads the annotation even when the row step throws", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay" },
+        { id: "base1", name: "OSM", role: "base" },
+      ],
+    });
+    const unload = vi.spyOn(manager.annotation, "unloadLayer");
+    const container = (ui as unknown as { uiContainer: HTMLElement }).uiContainer;
+    const original = container.querySelector.bind(container);
+    let armed = true;
+    container.querySelector = ((sel: string) => {
+      if (armed && String(sel).includes("data-layer-id")) {
+        armed = false;
+        throw new Error("panel read failed");
+      }
+      return original(sel);
+    }) as typeof container.querySelector;
+
+    try {
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("panel read failed");
+    } finally {
+      // The fixture owns this element; drop the own-property patch so the
+      // prototype's querySelector is back for whatever runs next.
+      Reflect.deleteProperty(container, "querySelector");
+    }
+    expect(unload.mock.calls.some(c => c[0] === "overlay1")).toBe(true);
+    expect(manager.layerRegistry.has("overlay1")).toBe(false);
+  });
+
+  it("reports every failing step, not only the one it hands back", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+    vi.spyOn(manager.annotation, "unloadLayer").mockImplementation(() => {
+      throw new Error("labels stuck");
+    });
+
+    // The first failure remains the caller's contract...
+    expect(() => manager.unregisterLayer("overlay1")).toThrow("map boom");
+
+    // ...but the second failing step is no longer silent.
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "detach-from-map" threw',
+      expect.any(Error),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "unload-annotation" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
+  it("runs the drag cancel as an isolated finalize step", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const entry = manager.layerRegistry.get("overlay1")!;
+    ui.listPanel.dragEntry = entry;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const container = attachedPanel(ui);
+    const original = container.querySelectorAll.bind(container);
+    let armed = true;
+    container.querySelectorAll = ((selector: string) => {
+      if (armed && String(selector).includes(CONST.SEL.LAYER_ITEM)) {
+        armed = false;
+        throw new Error("drag boom");
+      }
+      return original(selector);
+    }) as typeof container.querySelectorAll;
+
+    try {
+      // The drag step fails first, but the row, map and cursor convergence
+      // behind it still runs and its failure is reported.
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("drag boom");
+    } finally {
+      Reflect.deleteProperty(container, "querySelectorAll");
+    }
+
+    expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    expect(
+      attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="overlay1"]`),
+    ).toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "cancel-drag" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+});
+
+describe("enforceOrder isolation", () => {
+  it("prices the rest of the stack and reports the layer that failed", () => {
+    window.localStorage.clear();
+    const { manager, map } = initFixture({
+      data: [
+        { id: "a", name: "A", role: "overlay" },
+        { id: "bad", name: "Bad", role: "overlay" },
+        { id: "c", name: "C", role: "overlay" },
+      ],
+    });
+    const bad = manager.surfaceFor(manager.layerRegistry.get("bad")!);
+    const c = manager.surfaceFor(manager.layerRegistry.get("c")!);
+    vi.spyOn(bad, "setZ").mockImplementation(() => {
+      throw new Error("no z");
+    });
+    const cSetZ = vi.spyOn(c, "setZ");
+    map.getPane.mockClear();
+
+    const { failed, skipped } = manager.enforceOrder();
+
+    expect(failed).toEqual(["bad"]);
+    expect(skipped).toBe(false);
+    expect(cSetZ).toHaveBeenCalled();
+    // The shared panes are priced after the registry pass, so a failed layer
+    // must not leave markers/tooltips/popups at their default z.
+    const priced = map.getPane.mock.calls.map(([name]: [string]) => name);
+    expect(priced).toEqual(
+      expect.arrayContaining(["popupPane", "tooltipPane", "markerPane"]),
+    );
+  });
+
+  it("a re-entrant pass reports `skipped` and leaves the result to the running pass", () => {
+    // A layer that reorders while being priced (a listener reacting to setZ)
+    // reaches `enforceOrder` from inside a pass. The inner call must not report
+    // a half-priced stack — the outer pass owns the answer.
+    window.localStorage.clear();
+    const { manager } = initFixture({
+      data: [{ id: "a", name: "A", role: "overlay" }],
+    });
+    const domain = (manager as any).domain as { enforceOrder: () => string[] };
+    const real = domain.enforceOrder.bind(domain);
+    const inner: Array<{ failed: readonly string[]; skipped: boolean }> = [];
+    const outer = vi.spyOn(domain, "enforceOrder").mockImplementation(() => {
+      inner.push(manager.enforceOrder());
+      return real();
+    });
+
+    try {
+      expect(manager.enforceOrder()).toEqual({ failed: [], skipped: false });
+      expect(inner).toEqual([{ failed: [], skipped: true }]);
+      expect(outer).toHaveBeenCalledTimes(1);
+    } finally {
+      outer.mockRestore();
+    }
+  });
+});
+
+describe("destroy finalization", () => {
+  it("reports the failing step, keeps tearing down, and still installs the stub API", () => {
+    window.localStorage.clear();
+    const { manager, map } = initFixture({
+      data: [{ id: "overlay1", name: "Polygons", role: "overlay" }],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const unbind = vi.spyOn(manager.ui!, "unbindEvents");
+    vi.spyOn(manager.annotation, "destroy").mockImplementation(() => {
+      throw new Error("labels stuck");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // The steps behind the failure still ran.
+    expect(unbind).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "destroy-annotation" threw',
+      expect.any(Error),
+    );
+    // Last step, and the one consumers depend on: a half-destroyed manager
+    // must not stay mounted as the map's LayerAPI.
+    expect(map.foliplus.LayerAPI.registerLayer({ id: "x" } as never)).toBeNull();
+    expect(manager.isDestroyed).toBe(true);
+    warn.mockRestore();
+  });
+});
+
+describe("carrier recovery (controller wiring)", () => {
+  it("recovers opacity after a content removal attributed by layerremove", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "recover-direct",
+      name: "Recover",
+      layer: group as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-direct")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreignEl = document.createElement("div");
+    const foreign = { options: {}, getElement: () => foreignEl };
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    // Leaflet fires `layerremove` while the group still holds the child;
+    // mark first, then let the group finish the removal — the production
+    // order for `LayerGroup.removeLayer`.
+    manager.onLayerRemove({ layer: foreign } as never);
+    group.removeLayer(foreign);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("attributes a nested group's content change without an owner scan", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "recover-nested",
+      name: "Nested",
+      layer: outer as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-nested")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    // A nested leaf has no O(1) owner signal (no stamp index, no write-point
+    // row, no `hasLayer` on the root), so the event marks every live surface
+    // and the pass re-audits each tree once — the behavior survives, the
+    // per-surface tree scan does not.
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    inner.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    manager.onLayerRemove({ layer: foreign } as never);
+    inner.removeLayer(foreign);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("re-audits a same-layer re-registration without a layeradd", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    const opts = {
+      id: "recover-rereg",
+      name: "Rereg",
+      layer: group as unknown as L.Layer,
+    };
+    manager.registerLayer(opts);
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-rereg")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    group.addLayer(foreign);
+    // No layeradd is fired: same-object re-registration is the change signal.
+    manager.registerLayer(opts);
+    expect(surface.capabilities.opacity).toBe("none");
+
+    group.removeLayer(foreign);
+    manager.registerLayer(opts);
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("re-audits after invalidateType without a manual enforce", async () => {
+    // The registration schedules its own ordering pass. This test settles
+    // that pass BEFORE the DOM-only change, so it can only pass because
+    // `invalidateType` scheduled one — otherwise (the pre-fix behavior) the
+    // registration pass is what audits the change and the test is a no-op
+    // that also passes on the unfixed code.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    vi.useFakeTimers();
+    try {
+      const group = new TestGroup([new window.L.Path()]);
+      manager.registerLayer({
+        id: "invalidate-only",
+        name: "Inv",
+        layer: group as unknown as L.Layer,
+      });
+      const surface = manager.surfaceFor(manager.layerRegistry.get("invalidate-only")!);
+      await vi.advanceTimersByTimeAsync(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(surface.capabilities.opacity).toBe("pane");
+
+      const foreignEl = document.createElement("div");
+      const foreign = { options: {}, getElement: () => foreignEl };
+      group.addLayer(foreign);
+      // No layeradd/layerremove: a DOM-only tree change. Only the invalidate
+      // hook can tell the ordering pass to re-audit.
+      manager.invalidateType("invalidate-only");
+      // Nothing has been audited yet — the pass is still pending.
+      expect(surface.capabilities.opacity).toBe("pane");
+      await vi.advanceTimersByTimeAsync(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(surface.capabilities.opacity).toBe("none");
+
+      group.removeLayer(foreign);
+      manager.invalidateType("invalidate-only");
+      await vi.advanceTimersByTimeAsync(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(surface.capabilities.opacity).toBe("pane");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not mark a surface or schedule a pass for its own hide/show", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "own-membership",
+      name: "Own",
+      layer: group as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("own-membership")!);
+    // Settle the registration pass, then spy: a hide/show of the registered
+    // layer is map membership, not content, so it must neither mark the
+    // surface nor queue an ordering pass.
+    manager.debouncedEnforce.cancel();
+    vi.useFakeTimers();
+    const mark = vi.spyOn(surface, "markContentDirty");
+    const pass = vi.spyOn(manager, "enforceOrder");
+    try {
+      manager.onLayerRemove({ layer: group } as never);
+      vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(mark).not.toHaveBeenCalled();
+      expect(pass).not.toHaveBeenCalled();
+    } finally {
+      mark.mockRestore();
+      pass.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("short-circuits attribution for a registered layer's own hide/show", () => {
+    // With Leaflet's identity-stable stamp the first O(1) signal answers: the
+    // registered layer resolves from the index's layer-stamp direction, so a
+    // hide/show returns
+    // before the O(surfaces) scans and cannot mark a neighbouring tree dirty —
+    // the optimization the fallback path in the test above cannot exercise.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      const group = new TestGroup([new window.L.Path()]);
+      manager.registerLayer({ id: "own-stamp", name: "Own", layer: group as never });
+      manager.registerLayer({
+        id: "other-stamp",
+        name: "Other",
+        layer: new TestGroup([new window.L.Path()]) as never,
+      });
+      const surface = manager.surfaceFor(manager.layerRegistry.get("own-stamp")!);
+      const other = manager.surfaceFor(manager.layerRegistry.get("other-stamp")!);
+      manager.debouncedEnforce.cancel();
+      const mark = vi.spyOn(surface, "markContentDirty");
+      const otherMark = vi.spyOn(other, "markContentDirty");
+      const pass = vi.spyOn(manager, "enforceOrder");
+      manager.onLayerRemove({ layer: group } as never);
+      vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(mark).not.toHaveBeenCalled();
+      expect(otherMark).not.toHaveBeenCalled();
+      expect(pass).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
+  it("marks surfaces for an unattributed add without scanning any tree", () => {
+    // The old fallback ran one `findNode` per live surface for every event it
+    // could not attribute — O(sum of tree sizes) per event, and again on every
+    // re-add after a remove. The fallback now marks each live surface once
+    // (O(surfaces)) and lets the coalesced pass walk each dirty tree once.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    vi.useFakeTimers();
+    const findSpy = vi.spyOn(coreLayer, "findNode");
+    try {
+      const surfaces = [];
+      for (let i = 0; i < 5; i++) {
+        const leaves = Array.from({ length: 40 }, () => new window.L.Path());
+        manager.registerLayer({
+          id: `scan${i}` as never,
+          name: `Scan ${i}`,
+          layer: new TestGroup(leaves) as unknown as L.Layer,
+        });
+        surfaces.push(manager.surfaceFor(manager.layerRegistry.get(`scan${i}`)!));
+      }
+      const marks = surfaces.map(surface => vi.spyOn(surface, "markContentDirty"));
+
+      // A layer nothing provably owns (a third-party control's own layer).
+      manager.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } } as never);
+
+      expect(findSpy).not.toHaveBeenCalled();
+      for (const mark of marks) expect(mark).toHaveBeenCalledTimes(1);
+    } finally {
+      findSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not rescan the trees when a nested leaf is removed and re-added", () => {
+    // The regression the cache delete-on-remove left behind: a remove lost the
+    // reverse entry, so the re-add paid a full owner scan again. Neither event
+    // may scan now — both take the mark-all fallback.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "re-add",
+      name: "Re-add",
+      layer: outer as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("re-add")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+    const findSpy = vi.spyOn(coreLayer, "findNode");
+    try {
+      const foreign = { options: {}, getElement: () => document.createElement("div") };
+      inner.addLayer(foreign);
+      manager.onLayerAdd({ layer: foreign } as never);
+      manager.enforceOrder();
+      expect(surface.capabilities.opacity).toBe("none");
+
+      // Remove (tree becomes migratable again), then re-add: neither the
+      // remove nor the re-add may scan a tree for the owner.
+      manager.onLayerRemove({ layer: foreign } as never);
+      inner.removeLayer(foreign);
+      manager.enforceOrder();
+      expect(surface.capabilities.opacity).toBe("pane");
+
+      inner.addLayer(foreign);
+      manager.onLayerAdd({ layer: foreign } as never);
+      manager.enforceOrder();
+
+      expect(findSpy).not.toHaveBeenCalled();
+      expect(surface.capabilities.opacity).toBe("none");
+    } finally {
+      findSpy.mockRestore();
+    }
+  });
+
+  it("re-audits the new owner when a nested leaf moves without a layerremove", () => {
+    // Probe V5: the reverse cache pointed at A after the first attribution, and
+    // a blind hit marked A only. B then kept reporting opacity "pane" while its
+    // tree already held a foreign leaf. A stale cache may never steer the mark.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const innerA = new TestGroup([new window.L.Path()]);
+    const outerA = new TestGroup([innerA]);
+    const outerB = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "move-a",
+      name: "A",
+      layer: outerA as unknown as L.Layer,
+    });
+    manager.registerLayer({
+      id: "move-b",
+      name: "B",
+      layer: outerB as unknown as L.Layer,
+    });
+    const surfaceA = manager.surfaceFor(manager.layerRegistry.get("move-a")!);
+    const surfaceB = manager.surfaceFor(manager.layerRegistry.get("move-b")!);
+    manager.enforceOrder();
+    expect(surfaceA.capabilities.opacity).toBe("pane");
+    expect(surfaceB.capabilities.opacity).toBe("pane");
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    innerA.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surfaceA.capabilities.opacity).toBe("none");
+
+    // Move WITHOUT a layerremove: a detached source group does not propagate
+    // child removals, so no re-attribution event reaches the controller.
+    innerA.removeLayer(foreign);
+    outerB.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+
+    // B holds the leaf now, so B must report the degrade. A is left
+    // conservatively degraded: nothing told the controller that A lost the
+    // leaf (that is the missing `layerremove`), and a stale "none" hides a
+    // control rather than offering one that writes into a foreign pane.
+    expect(surfaceB.capabilities.opacity).toBe("none");
+  });
+
+  it("confirms a direct-child attribution before trusting a stale cache", () => {
+    // A cached owner that no longer holds the leaf must be dropped, not
+    // returned: the surface that holds it now is the one that has to re-audit.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const groupA = new TestGroup([new window.L.Path()]);
+    const groupB = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "own-a",
+      name: "A",
+      layer: groupA as unknown as L.Layer,
+    });
+    manager.registerLayer({
+      id: "own-b",
+      name: "B",
+      layer: groupB as unknown as L.Layer,
+    });
+    const surfaceA = manager.surfaceFor(manager.layerRegistry.get("own-a")!);
+    const surfaceB = manager.surfaceFor(manager.layerRegistry.get("own-b")!);
+    manager.enforceOrder();
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    groupA.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surfaceA.capabilities.opacity).toBe("none");
+
+    groupA.removeLayer(foreign);
+    groupB.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+
+    expect(surfaceB.capabilities.opacity).toBe("none");
+    expect(surfaceA.capabilities.opacity).toBe("pane");
+  });
+
+  it("treats a throwing hasLayer as no ownership evidence", () => {
+    // Third-party groups are hostile inputs: hasLayer can throw. Attribution
+    // must read that as "cannot confirm" (fail closed) instead of letting an
+    // event handler die, and the O(surfaces) fallback still marks the live
+    // trees once.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const hostile = {
+      options: {},
+      eachLayer: vi.fn(),
+      hasLayer: vi.fn(() => {
+        throw new Error("hasLayer boom");
+      }),
+    };
+    manager.registerLayer({
+      id: "hostile-has-layer",
+      name: "Hostile",
+      layer: hostile as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("hostile-has-layer")!);
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    const mark = vi.spyOn(surface, "markContentDirty");
+    try {
+      expect(() => manager.onLayerAdd({ layer: foreign } as never)).not.toThrow();
+      // Confirmation failed, so the fallback marked the one live tree.
+      expect(mark).toHaveBeenCalledTimes(1);
+      expect(hostile.hasLayer).toHaveBeenCalled();
+    } finally {
+      mark.mockRestore();
+    }
+  });
+
+  it("announces a capability change only when the projection actually moved", () => {
+    // The style-panel live refresh rides this event. It has to fire on a
+    // degrade and on a recovery, and stay silent on a pass that changed
+    // nothing (the ordering pass runs on ordinary reorders too).
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "caps",
+      name: "Caps",
+      layer: group as unknown as L.Layer,
+    });
+    // Seed the snapshot silently: the first observation of a surface is not a
+    // change.
+    manager.enforceOrder();
+    const seen: Array<{ id: string }> = [];
+    manager.events.on(EVENTS.LAYER_CAPABILITY_CHANGED, payload => seen.push(payload));
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(seen).toEqual([{ id: "caps" }]);
+
+    // Unchanged projection: the next pass must not re-announce it.
+    manager.enforceOrder();
+    expect(seen).toHaveLength(1);
+
+    // Recovery is a change too.
+    manager.onLayerRemove({ layer: foreign } as never);
+    group.removeLayer(foreign);
+    manager.enforceOrder();
+    expect(seen).toEqual([{ id: "caps" }, { id: "caps" }]);
+  });
+
+  it("drops a reverse-index entry whose surface retired", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "retired-cache",
+      name: "Retired",
+      layer: outer as unknown as L.Layer,
+    });
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    inner.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.unregisterLayer("retired-cache");
+
+    expect(() => manager.onLayerRemove({ layer: foreign } as never)).not.toThrow();
+  });
+
+  it("re-attributes after a cached owner retired instead of steering its mark", () => {
+    // The reverse cache outlives a surface: a direct child is attributed, then
+    // its owner is unregistered (the surface retires, the WeakMap row is still
+    // there), and a late event for the same leaf arrives. The stale row must be
+    // dropped before anything is trusted — never marked onto the retired face,
+    // and the live scan decides the new owner.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const ownerGroup = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "retired-owner",
+      name: "Owner",
+      layer: ownerGroup as unknown as L.Layer,
+    });
+    const survivorGroup = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "retired-survivor",
+      name: "Survivor",
+      layer: survivorGroup as unknown as L.Layer,
+    });
+    const owner = manager.surfaceFor(manager.layerRegistry.get("retired-owner")!);
+    const survivor = manager.surfaceFor(manager.layerRegistry.get("retired-survivor")!);
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    ownerGroup.addLayer(foreign);
+    // Direct membership, so this attribution is cached for the leaf.
+    manager.onLayerAdd({ layer: foreign } as never);
+
+    manager.unregisterLayer("retired-owner");
+    expect(owner.retired).toBe(true);
+
+    const ownerMark = vi.spyOn(owner, "markContentDirty");
+    const survivorMark = vi.spyOn(survivor, "markContentDirty");
+    try {
+      expect(() => manager.onLayerAdd({ layer: foreign } as never)).not.toThrow();
+      expect(ownerMark).not.toHaveBeenCalled();
+      // Unattributed now (no live tree holds it): the mark-all fallback marks
+      // the one live tree-bearing surface.
+      expect(survivorMark).toHaveBeenCalledTimes(1);
+    } finally {
+      ownerMark.mockRestore();
+      survivorMark.mockRestore();
+    }
+  });
+
+  it("does not schedule an enforce after destroy", () => {
+    const { manager } = initFixture({ data: [] });
+    manager.destroy();
+    expect(() => manager.invalidateType("gone")).not.toThrow();
   });
 });

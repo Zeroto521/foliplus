@@ -264,6 +264,13 @@ declare global {
     registerHintIcon: (key: string, iconSvg: string) => void;
     /** Per-map cross-component event bus. */
     events: CoreEventBus;
+    /** Optional per-map diagnostic hook: called with the event name and the
+     *  error whenever a notification broadcast records a consumer failure,
+     *  and when a scheduled style apply fails on a late frame — the event
+     *  name is the sourcing event for a content-change replay, or
+     *  "foliplus:style:apply" for a panel write. Lets a host observe a
+     *  broken subscriber instead of grepping console. */
+    onError?: (event: string, error: unknown) => void;
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */

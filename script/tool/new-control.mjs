@@ -287,11 +287,11 @@ new ${name}({ position: CONFIG.position }).addTo(map);
   ]) {
     files.set(
       `foliplus/locale/${name}.${code}.json`,
-      JSON.stringify(
+      `${JSON.stringify(
         { "locale.name": label, "locale.code": code, [localeKey]: title },
         null,
         2,
-      ) + "\n",
+      )}\n`,
     );
   }
 
@@ -366,7 +366,7 @@ const scaffoldControl = (opts, root = ROOT) => {
       throw err;
     }
     if (after === before) {
-      if (!before.includes(name)) skipped.push(rel(path) + " (already present)");
+      if (!before.includes(name)) skipped.push(`${rel(path)} (already present)`);
       return;
     }
     writeFileSync(path, after.replace(/\n/g, eol), "utf-8");

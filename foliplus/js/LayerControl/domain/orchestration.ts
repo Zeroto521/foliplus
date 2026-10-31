@@ -7,30 +7,31 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
-import { EVENTS, type EventBus } from "#core/event/index.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
-  GROUP,
   INTENT,
   KIND,
   type LayerFactory,
   type LayerInfo,
   type LayerInfoRegistry,
-  type LayerKind,
+  type LayerMutation,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
   type PaneManager,
   type PaneSpec,
+  ROLE,
   type RegisterLayerOpts,
+  type SurfaceIndex,
   findLayer as findLayerUtil,
+  labelPaneNameOf,
   paintsAtZoom,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
+import { finalizeEach } from "#common/finalize.js";
 import type { AnnotationManager } from "../annotation/index.js";
-import * as CONST from "../const.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";
 
@@ -52,29 +53,27 @@ const withAnnotationSpec = (
   layer: L.Layer | null,
 ): PaneSpec[] => {
   const paneSpecs = layerInfo.paneSpecs ?? [];
-  if (paneSpecs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return paneSpecs;
+  if (paneSpecs.some(spec => spec.role === PANE_ROLE.LABEL)) return paneSpecs;
   if (!layer || !hasLabelField(layer)) return paneSpecs;
   return [
     ...paneSpecs,
     {
-      role: PANE_ROLE.ANNOTATION,
+      role: PANE_ROLE.LABEL,
       order: paneSpecs.length,
-      name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+      name: labelPaneNameOf(layerInfo.id),
     },
   ];
 };
 
 class LayerOrchestration {
   private map: L.Map;
-  private events: EventBus;
   private layerRegistry: LayerInfoRegistry;
   private panes: PaneManager;
   private factory: LayerFactory;
   private order: LayerOrder;
   private persistence: LayerPersistence;
   private annotation: AnnotationManager;
-  private surfaces: Map<string, LayerSurface>;
-  private surfacesByLayer: Map<number, LayerSurface>;
+  private surfaceIndex: SurfaceIndex;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
@@ -95,30 +94,26 @@ class LayerOrchestration {
   };
   constructor(deps: {
     map: L.Map;
-    events: EventBus;
     layerRegistry: LayerInfoRegistry;
     panes: PaneManager;
     factory: LayerFactory;
     order: LayerOrder;
     persistence: LayerPersistence;
     annotation: AnnotationManager;
-    surfaces: Map<string, LayerSurface>;
-    surfacesByLayer: Map<number, LayerSurface>;
+    surfaceIndex: SurfaceIndex;
     getIntentStore: () => LayerIntentStore;
   }) {
     this.deps = {
       getIntentStore: deps.getIntentStore,
     };
     this.map = deps.map;
-    this.events = deps.events;
     this.layerRegistry = deps.layerRegistry;
     this.panes = deps.panes;
     this.factory = deps.factory;
     this.order = deps.order;
     this.persistence = deps.persistence;
     this.annotation = deps.annotation;
-    this.surfaces = deps.surfaces;
-    this.surfacesByLayer = deps.surfacesByLayer;
+    this.surfaceIndex = deps.surfaceIndex;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -134,10 +129,6 @@ class LayerOrchestration {
       this.map,
       typeof idOrInfo === "string" ? idOrInfo : (layerInfo?.id ?? ""),
     );
-  }
-
-  emitLayerChange(id: string, kind: LayerKind): void {
-    this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
   }
 
   hasUnresolvedLayers(): boolean {
@@ -175,7 +166,7 @@ class LayerOrchestration {
       i++
     ) {
       const layerInfo = this.layers[i];
-      if (layerInfo.group !== GROUP.BASE) continue;
+      if (layerInfo.role !== ROLE.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (!paintsAtZoom(this.map, layer)) continue;
@@ -245,25 +236,29 @@ class LayerOrchestration {
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
     };
-    const existing = this.surfaces.get(layerInfo.id);
+    const existing = this.surfaceIndex.get(layerInfo.id);
     if (existing?.matches(surfaceFace)) return existing;
-    if (existing?.layer) {
-      // The layer object (or its declaration) was replaced. Drop the stamp
-      // index entry for the superseded layer, or a lookup by it would keep
-      // answering with a surface nobody paints into anymore.
-      this.surfacesByLayer.delete(L.stamp(existing.layer));
+    if (existing) {
+      // The layer object (or its declaration) was replaced. Release the old
+      // surface's resources before the new face takes the id: its
+      // synthesized base pane and marker-shadow pane would otherwise linger
+      // as unowned DOM, and the replacement's claim on its own pane names
+      // would collide with a stale claim. The reverse edge goes first so a
+      // lookup by the superseded layer cannot answer with a surface nobody
+      // paints into anymore.
+      if (existing.layer) this.surfaceIndex.deleteByLayer(existing.layer);
+      existing.destroy();
     }
     const surface = new LayerSurface(this.panes, surfaceFace);
-    this.surfaces.set(layerInfo.id, surface);
-    if (surfaceFace.layer) {
-      this.surfacesByLayer.set(L.stamp(surfaceFace.layer), surface);
-    }
+    // One write books both directions; a same-id replacement drops the old
+    // stamp edge as part of the same call.
+    this.surfaceIndex.register(surface);
     return surface;
   }
 
   /** The surface that currently paints a live layer, or null. */
   surfaceForLayer(layer: L.Layer): LayerSurface | null {
-    return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
+    return this.surfaceIndex.getByLayer(layer) ?? null;
   }
 
   /** Panes a registered layer's content lives in, including the pane its
@@ -286,38 +281,17 @@ class LayerOrchestration {
    *  panes around the ladder.
    *
    *  The controller holds the re-entry guard (`isEnforcing`) and the debounce
-   *  cancellation; this pass assumes it is safe to run. */
-  enforceOrder() {
-    // Give every layer a surface and reprice its z.
-    for (let i = 0; i < this.layers.length; i++) {
-      const layerInfo = this.layers[i];
-      const layer = this.findLayer(layerInfo);
-      // Base-group layers (tile basemaps + the solid-color basemap) share
-      // the 200 ladder, so a color pane interleaves with tile basemaps
-      // row-by-row. Overlay-group layers use the 600 ladder.
-      const slot = { index: i, count: this.layers.length, group: layerInfo.group };
-      const z = zFor(slot);
-
-      // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
-      // they own a dedicated pane that must still take its place in the stack.
-      if (!layer) {
-        const surface = this.surfaceFor(layerInfo);
-        surface.materialize();
-        surface.setZ(z);
-        continue;
-      }
-
-      if (!this.map.hasLayer(layer)) continue;
-
-      const surface = this.surfaceFor(layerInfo);
-      surface.materialize();
-      // One write covers every pane the face owns — including the
-      // `role: "annotation"` label pane, a PaneHandle since the surface
-      // materialized it. The ordering pass used to spot-write that pane by
-      // name here; `writeZ` prices it through the same `zFor({ role:
-      // "annotation" })` ladder now, so the special case is gone.
-      surface.setZ(z);
-    }
+   *  cancellation; this pass assumes it is safe to run.
+   *
+   *  @returns the ids that could not be priced, in registry order — empty on a
+   *    clean pass. A throwing layer must not strand the layers above it.
+   */
+  enforceOrder(): string[] {
+    const failed = finalizeEach(
+      this.layers,
+      (layerInfo, i) => this.priceLayer(layerInfo, i),
+      layerInfo => layerInfo.id,
+    );
 
     // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
     // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
@@ -331,6 +305,40 @@ class LayerOrchestration {
     if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
     const markerPaneEl = this.map.getPane("markerPane");
     if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+
+    return failed.map(f => f.item.id);
+  }
+
+  /** Price one layer: resolve (or build) its surface, materialize the face and
+   *  write its slot's z. Split out so a throw is attributable to exactly one
+   *  layer. */
+  private priceLayer(layerInfo: LayerInfo, index: number): void {
+    const layer = this.findLayer(layerInfo);
+    // Base-role layers (tile basemaps + the solid-color basemap) share
+    // the 200 ladder, so a color pane interleaves with tile basemaps
+    // row-by-row. Overlay-role layers use the 600 ladder.
+    const slot = { index, count: this.layers.length, role: layerInfo.role };
+    const z = zFor(slot);
+
+    // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+    // they own a dedicated pane that must still take its place in the stack.
+    if (!layer) {
+      const surface = this.surfaceFor(layerInfo);
+      surface.materialize();
+      surface.setZ(z);
+      return;
+    }
+
+    if (!this.map.hasLayer(layer)) return;
+
+    const surface = this.surfaceFor(layerInfo);
+    surface.materialize();
+    // One write covers every pane the face owns — including the
+    // `role: "label"` label pane, a PaneHandle since the surface
+    // materialized it. The ordering pass used to spot-write that pane by
+    // name here; `writeZ` prices it through the same `zFor({ paneRole:
+    // "label" })` ladder now, so the special case is gone.
+    surface.setZ(z);
   }
 
   /** The domain half of {@link LayerController.registerLayer}: build or update
@@ -351,13 +359,39 @@ class LayerOrchestration {
   registerEntry(
     opts: RegisterLayerOpts,
     hasUi: boolean,
-  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+  ): {
+    layerInfo: LayerInfo;
+    hidden: boolean;
+    mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
+  } {
     const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
+
+    // Same-layer re-registration is the caller's "this layer changed"
+    // signal. `matches()` no longer probes content, so drop the cached audit
+    // here — the `materialize()` below then re-pins the tree and re-derives
+    // the capability projection (a tree that became migratable again recovers
+    // without waiting for a `layeradd`). A replaced layer object rebuilds the
+    // surface anyway; the mark on the old surface is harmless.
+    if (existingLi) this.surfaceIndex.get(opts.id)?.markContentDirty();
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.group === GROUP.BASE) {
+    // Same id, new layer object: the old layer is being replaced, not
+    // joined. Retire it from the map BEFORE the registry forgets it —
+    // otherwise it keeps painting as an unmanageable ghost (no row, no
+    // opacity, no focus, no sort can reach it) for as long as the session
+    // lives. Same-object re-registration (the "this layer changed" signal)
+    // is untouched.
+    if (
+      existingLi?.layer &&
+      opts.layer &&
+      existingLi.layer !== opts.layer &&
+      this.map.hasLayer(existingLi.layer)
+    ) {
+      this.map.removeLayer(existingLi.layer);
+    }
+
+    if (existingLi) this.layerRegistry.upsert(layerInfo);
+    else if (layerInfo.role === ROLE.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
       if (firstBaseIdx === -1 || atBottom) {
@@ -367,6 +401,16 @@ class LayerOrchestration {
       }
       this.order.placeAtSavedSlot(layerInfo);
     } else this.order.insertOverlayAt(layerInfo);
+
+    // Report the committed entry through the factory's one-shot sink HERE, at
+    // the registry write point and before anything below can throw. A token
+    // that arrives after this point leaves a committed-but-unannounced entry
+    // behind when `materialize()` (pane / DOM work) or a later step fails:
+    // the factory's rollback drops only the entry it was told about, so the
+    // ghost would otherwise stay in the registry with no row and no surface.
+    // The controller no longer forwards this — the write point is the only
+    // place that knows the entry exists before it can fail.
+    opts.onCommitted?.(layerInfo);
 
     // Give the layer its rendering face and materialize it *before* it joins
     // the map. `options.pane` is read by `map.addLayer` and ignored afterwards,
@@ -384,7 +428,15 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
-    return { layerInfo, existingIdx, hidden };
+    // The insertion outcome carries the live position after the whole
+    // placement (upsert in place, or insert + saved-slot replay), so no
+    // pre-mutation index has to survive the call.
+    const index = this.layerRegistry.indexOf(layerInfo);
+    const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
+      existingLi
+        ? { kind: "replace-content", previous: existingLi, entry: layerInfo, index }
+        : { kind: "insert", entry: layerInfo, index };
+    return { layerInfo, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the
@@ -416,9 +468,12 @@ class LayerOrchestration {
     // never touches a live layer's renderer or path nodes. Only the pane the
     // surface synthesized goes away: a declared pane survives, because
     // re-registering the same id must not have to rebuild it.
-    this.surfaces.get(id)?.destroy();
-    this.surfaces.delete(id);
-    if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
+    this.surfaceIndex.get(id)?.destroy();
+    this.surfaceIndex.delete(id);
+    // The surface's own layer may not be the one `findLayer` resolved (a
+    // corrupted row); dropping the independently-resolved stamp keeps the
+    // teardown complete either way.
+    if (layerStamp !== null) this.surfaceIndex.deleteByStamp(layerStamp);
     // Drop child-pane bookkeeping for layers that no longer use them.
     this.panes.sweepChildPanes(this.layers);
     return { layerInfo, layer, layerStamp };

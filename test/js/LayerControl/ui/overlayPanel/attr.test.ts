@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI attrs", () => {
   let manager: LayerController;
@@ -22,11 +23,11 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -55,6 +56,21 @@ describe("LayerUI attrs", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openAttrsPanel() / closeAttrsPanel()", () => {
+    it("its registry entry reports no containment once the panel is gone", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`) as HTMLElement;
+      const entry = ensureOverlayRegistry(map).owningEntry(panel);
+      expect(entry?.id).toBe(OVERLAY_IDS.LAYER_ATTRS);
+      expect(entry?.panels()).toEqual([panel]);
+
+      ui.closeAttrsPanel(false);
+
+      // A late dispatch after the close asks the same closure, and it reads the
+      // live state — containment must be empty, not a detached panel.
+      expect(entry?.panels()).toEqual([]);
+    });
+
     const rows = (panel: HTMLElement): Array<[string, string]> =>
       Array.from(panel.querySelectorAll(".foliplus-form-row")).map(
         r =>
@@ -186,7 +202,7 @@ describe("LayerUI attrs", () => {
       const ghost = document.createElement("div");
       ghost.className = CONST.CLASSES.LAYER_ITEM;
       ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
-      ui.uiContainer.appendChild(ghost);
+      attachedPanel(ui).appendChild(ghost);
 
       ui.openAttrsPanel(ghost);
 
@@ -359,7 +375,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("color basemap shows type and no provenance rows", () => {
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
 
@@ -380,15 +396,15 @@ describe("LayerUI attrs", () => {
     });
 
     it("names the type row by what the layer is, not by a missing geometry", () => {
-      manager.registerLayer({ id: "attr-base1", group: "base" });
+      manager.registerLayer({ id: "attr-base1", role: "base" });
       const baseItem = findItem(ui, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(
         rows(baseItem.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
-      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_tile_map"]);
 
       ui.closeAttrsPanel(false);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openAttrsPanel(colorItem);
@@ -444,10 +460,105 @@ describe("LayerUI attrs", () => {
 
       const count = rows(
         item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
-      ).find(([k]) => k === "LayerControl.attr_feature_count")?.[1];
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
       // `comma` is language-agnostic (always en grouping) and the panel passes
       // fractionDigits 0, so the value is exactly "1,234" — not "1,234.0".
       expect(count).toBe("1,234");
+    });
+
+    it("shows kept / total for a filtered owner, in the row's own unit", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) =>
+          key === "attr_feature_count_pair" ? "{kept} / {total}" : key,
+        );
+      manager.registerLayer({
+        id: "pnt_pair",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          dimensions: [
+            {
+              kind: "range",
+              field: "value",
+              fieldLabel: "Field",
+              label: "Range",
+              range: [0, 10],
+              step: 1,
+            },
+          ],
+          filter: { kind: "atom", field: "value", op: "between", range: [2, 8] },
+          kept: 2500,
+          total: 6000,
+        }),
+        filterSetter: () => {},
+      });
+
+      const item = findItem(ui, "pnt_pair");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      // Grouped, exact integers from the same filterProvider model the row
+      // reads: the panel invents no second count source.
+      expect(value).toBe("2,500 / 6,000");
+      spy.mockRestore();
+    });
+
+    it("shows the single grouped count while no filter is committed", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) =>
+          key === "attr_feature_count_pair" ? "{kept} / {total}" : key,
+        );
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(1234);
+      manager.registerLayer({
+        id: "pnt_unfiltered",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          dimensions: [
+            {
+              kind: "range",
+              field: "value",
+              fieldLabel: "Field",
+              label: "Range",
+              range: [0, 10],
+              step: 1,
+            },
+          ],
+          filter: undefined,
+          kept: 900,
+          total: 1234,
+        }),
+        filterSetter: () => {},
+      });
+
+      const item = findItem(ui, "pnt_unfiltered");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      expect(value).toBe("1,234");
+      expect(value).not.toContain(" / ");
+      spy.mockRestore();
+    });
+
+    it("keeps the empty slot when the layer publishes no count", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) => (key === "attr_empty" ? "No data" : key));
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(null);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      expect(value).toBe("No data");
+      spy.mockRestore();
     });
 
     it("builds on the shared panel vocabulary (header, content, form rows)", () => {
@@ -560,16 +671,17 @@ describe("LayerUI attrs", () => {
 
     it("records the drag verdict on the press and drops it when the panel closes", () => {
       // The row is the drag source for any press in the row, panel included, and
-      // `dragstart` cannot say where the press began — so the verdict is recorded
-      // here, on the press, and read by handleDragStart.
+      // `dragstart` cannot say where the press began — so the registry records
+      // the verdict on the press and handleDragStart reads it.
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
+      const registry = ensureOverlayRegistry(map);
 
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
-      expect(ui.listPanel.pressInPanel).toBe(true);
+      expect(registry.lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict, so a stale
       // `true` cannot cancel the next legitimate drag.
@@ -577,7 +689,7 @@ describe("LayerUI attrs", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(false);
+      expect(registry.lastPressInside()).toBe(false);
     });
 
     it("Escape closes an open attributes panel and returns focus to its row", () => {
@@ -589,12 +701,13 @@ describe("LayerUI attrs", () => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
 
-      ui.handleKeyDown(
+      // Real keydown: the overlay registry owns Escape now.
+      checkbox.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
           cancelable: true,
           key: "Escape",
-        }) as unknown as KeyboardEvent,
+        }),
       );
 
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
@@ -616,12 +729,13 @@ describe("LayerUI attrs", () => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
 
-      ui.handleKeyDown(
+      // Real keydown: the overlay registry owns Escape now.
+      checkbox.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
           cancelable: true,
           key: "Escape",
-        }) as unknown as KeyboardEvent,
+        }),
       );
 
       expect(ui.overlayPanel.activeMenu).toBeNull();
@@ -747,6 +861,27 @@ describe("LayerUI attrs", () => {
 
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+    });
+
+    it("header click closes the panel without bubbling to the map", () => {
+      // A press on the header (or the × inside it) must not also become a map
+      // click: closing the panel removes it mid-dispatch, so the click would
+      // otherwise keep walking its original path with no live control ancestor
+      // and land on the map (the same guarantee as the ⋮ menu — #807).
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const header = panel.querySelector(".foliplus-panel-header") as HTMLElement;
+      header.click();
+
+      // The panel still closes…
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+      // …and the press was swallowed, never reaching the row / map.
+      expect(bubbled).not.toHaveBeenCalled();
     });
   });
 

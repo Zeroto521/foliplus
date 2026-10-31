@@ -87,7 +87,7 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
  * This is the label-pane capability probe: `LayerController.surfaceFor` runs it
  * over a registration entry's tree on every surface resolution, so it stops
  * work at the first hit instead of sampling every key like the collector.
- * A `true` here is what appends the `role: "annotation"` PaneSpec — the
+ * A `true` here is what appends the `role: "label"` PaneSpec — the
  * capability declaration and this probe are one fact.
  */
 const hasLabelField = (layer: L.Layer): boolean => {
@@ -114,33 +114,25 @@ const isNumericField = (fields: LabelField[], name: string): boolean =>
   fields.find(f => f.name === name)?.numeric ?? false;
 
 /**
- * The field to use when the user has not picked one: the first numeric field,
- * because a label exists to show a value, falling back to the first field at
- * all when the layer holds no numbers.
+ * The field to use when the user has not picked one, or when the stored pick no
+ * longer exists: the first numeric field, because a label exists to show a
+ * value, falling back to the first field at all when the layer holds no
+ * numbers. A fieldless layer yields "" — the caller then has nothing to draw.
  */
-const autoLabelField = (fields: LabelField[]): string =>
+const defaultLabelField = (fields: LabelField[]): string =>
   (fields.find(f => f.numeric) ?? fields[0])?.name ?? "";
 
 /**
- * The value a label-field `<select>` uses to mean "let foliplus choose".
- *
- * The empty string: an explicit field is always a non-empty name, so the
- * sentinel can never collide with a real option, and a `<select>`'s own empty
- * value already reads as "nothing picked yet". Both components that offer a
- * field picker — the heatmap's aggregation field and the annotation panel's
- * label field — use it, so "auto" means one thing across the product.
- */
-const AUTO_FIELD = "";
-
-/**
- * What a label-field `<select>`'s current value means: the explicit field it
- * names, or — for the {@link AUTO_FIELD} sentinel — the shared auto pick over
- * the fields that select offered. Takes the offered `fields` rather than
+ * The field a label-field `<select>` should show for a stored value: the stored
+ * field while the layer still offers it, otherwise {@link defaultLabelField}.
+ * Every label-field control renders from a concrete field name, so there is no
+ * "let foliplus choose" option left to interpret — the fallback is only the
+ * default this picker starts on. Takes the offered `fields` rather than
  * re-deriving them, so a caller that already collected (and cached) them pays
  * nothing to resolve.
  */
 const resolveSelectedField = (value: string, fields: LabelField[]): string =>
-  value || autoLabelField(fields);
+  fields.some(f => f.name === value) ? value : defaultLabelField(fields);
 
 /**
  * Normalize a field id to its bare `feature.properties` key.
@@ -155,12 +147,11 @@ const bareFieldName = (field: string): string =>
   field.startsWith("properties.") ? field.slice("properties.".length) : field;
 
 export {
-  AUTO_FIELD,
-  autoLabelField,
   bareFieldName,
   collectLabelFields,
+  defaultLabelField,
   hasLabelField,
   isNumericField,
   resolveSelectedField,
-  type LabelField,
 };
+export type { LabelField };

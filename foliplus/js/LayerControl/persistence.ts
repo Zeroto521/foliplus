@@ -1,3 +1,4 @@
+import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
@@ -16,31 +17,50 @@ import type {
 type LiveState = {
   order?: () => string[];
   removed?: () => string[];
-  foldedGroups?: () => string[];
+  foldedRoles?: () => string[];
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 
-/** Shape version of the persisted record: a positive integer, incremented only
- *  when the record's shape changes. `parseRecord` is per-segment tolerant, so a
- *  stored value that does not match is left alone (the segment is treated as
- *  absent); every write stamps `RECORD_VERSION`, which is what brings the
- *  record up to date. Presence, not value, is the compatibility marker — a
- *  record without a `version` is read as-is and re-stamped on the next write.
+/** Compatibility version of the persisted record: bumped only when the stored
+ *  shape needs migrating, or when an old record would otherwise read with a
+ *  different meaning. Adding an optional field whose absence keeps the old
+ *  behavior does not bump it — `fillRamp` / `fillMode` keep this at 3, an old
+ *  record still reads as solid, and a ramp record without a mode reads as ramp
+ *  through the compatibility branch. So does a rename-free internal refactor
+ *  or a UI-only change.
+ *
+ *  `parseRecord` is per-segment tolerant, so a stored value that does not
+ *  match is left alone (the segment is treated as absent); every write stamps
+ *  `RECORD_VERSION`, which is what brings the record up to date. Presence,
+ *  not value, is the compatibility marker — a record without a `version` is
+ *  read as-is and re-stamped on the next write.
+ *
+ *  No reader dispatches on the number: nothing migrates on load, so a bump is
+ *  not a migration by itself. When a bump is genuinely needed — a field an old
+ *  record cannot be safely derived for, a rename or move, a changed default
+ *  meaning — ship the old-version read path, an unknown-future-version policy,
+ *  and round-trip tests with it.
  *
  *  2 → 3: the label config moved into `layers[id].annotation` (a style
- *  dimension of the layer, not a parallel segment). v2 records still read —
- *  their `annotations[id]` entries are the fallback when the new key is
- *  absent, and the segment is passed through on every write untouched. */
-const RECORD_VERSION = 3;
+ *  dimension of the layer, not a parallel segment), which needs a
+ *  compatibility read, so it did bump. v2 records still read — their
+ *  `annotations[id]` entries are the fallback when the new key is absent, and
+ *  the segment is passed through on every write untouched.
+ *
+ *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
+ *  no compatibility read: the field rename is a breaking change accepted for
+ *  this release, so an old v3 record still loads but its fold state is
+ *  dropped, and the next write stamps v4. */
+const RECORD_VERSION = 4;
 
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedGroups: [],
+  foldedRoles: [],
   renamedNames: {},
   annotations: {},
   layers: {},
@@ -72,6 +92,36 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
     : null;
 };
 
+/** A stored value-based-fill config: non-empty field / method / scheme
+ *  strings, a whole class count inside the picker's 2-9 bounds, and a `kind`
+ *  this client can build. The defaults live on the UI side, so the record
+ *  carries only an explicit choice — a record missing one is dropped rather
+ *  than guessed at. All three names are tested for non-whitespace and all
+ *  three are stored verbatim. `field` is a data key, and a GeoJSON property
+ *  called " score " is a different key from "score" (RFC 7946 section 3.2 with
+ *  RFC 8259 section 4: a member name is a string and its whitespace is part
+ *  of it), so rewriting the key on read would silently miss every feature
+ *  after a reload, or read the other column when both spellings exist.
+ *  `method` and `scheme` are protocol names that no caller writes with
+ *  padding; keeping them as stored leaves any stray space visible in the
+ *  record instead of normalising it away.
+ *
+ *  The bounds themselves live in `isFillRampConfig`, shared with the LIVE
+ *  presence rule. `kind` accepts only absence or "numeric" - the categorical
+ *  arm is not implemented, so a record that asks for it is dropped whole
+ *  rather than painted as a numeric ramp - and the returned object strips an
+ *  explicit "numeric", which is the default, so persisting it would add no
+ *  information and the stored record keeps reading "kindless = numeric". */
+const parseFillRamp = (raw: unknown): FillRampConfig | null => {
+  if (!isFillRampConfig(raw)) return null;
+  return {
+    field: raw.field,
+    method: raw.method,
+    scheme: raw.scheme,
+    classes: raw.classes,
+  };
+};
+
 /** A border width inside the shared bounds — the same constants the number
  *  field is confined to, so a stored value can never ask for a width the UI
  *  cannot display. */
@@ -81,6 +131,16 @@ const isBorderWeight = (value: unknown): value is number =>
   value >= BORDER_WEIGHT.MIN &&
   value <= BORDER_WEIGHT.MAX;
 
+/** A stored size: a finite pixel radius the panel's number field can display.
+ *  Rounded first because the field steps by one, then confined to the shared
+ *  [SIZE.MIN, SIZE.MAX] bounds — outside them the value is dropped (its
+ *  provenance marker with it) rather than clamped, so a corrupt entry cannot
+ *  silently resize the layer. */
+const parseSize = (raw: unknown): number | null => {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  return rounded >= CONST.SIZE.MIN && rounded <= CONST.SIZE.MAX ? rounded : null;
+};
 /** A hex color the panel's border and fill rows would accept: `#rgb` or
  *  `#rrggbb`. Longer / shorter strings and non-hex characters are dropped so a
  *  corrupt entry cannot leak a broken value into <input type=color>. */
@@ -101,11 +161,19 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
+  fillRamp: data => parseFillRamp(data.fillRamp),
+  fillMode: data =>
+    data.fillMode === "solid" ||
+    data.fillMode === "ramp" ||
+    data.fillMode === "original"
+      ? data.fillMode
+      : null,
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
+  size: data => parseSize(data.size),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
@@ -185,10 +253,10 @@ const parseRecord = (raw: unknown): PersistedRecord => {
     record.removed = data.removed as string[];
   }
   if (
-    Array.isArray(data.foldedGroups) &&
-    data.foldedGroups.every(group => typeof group === "string")
+    Array.isArray(data.foldedRoles) &&
+    data.foldedRoles.every(role => typeof role === "string")
   ) {
-    record.foldedGroups = data.foldedGroups as string[];
+    record.foldedRoles = data.foldedRoles as string[];
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
@@ -233,7 +301,7 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
     version: RECORD_VERSION,
     order: fields.order ? fields.order() : record.order,
     removed,
-    foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
+    foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     annotations: dropRemoved(record.annotations),
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),

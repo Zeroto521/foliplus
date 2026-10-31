@@ -2,9 +2,10 @@
   Annotation style panel
   Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
   the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
-  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
-  width, card chrome and header come from one place. This block only sizes the
-  label glyph and states the two controls form.css does not cover.
+  attributes panel gets from `createRowPanel` (core/leaflet/panel.ts), so width,
+  card chrome and header come from one place; the viewport anchoring comes from
+  `pinRowPanel` (core/leaflet/panel.ts). This block only sizes the label glyph
+  and states the controls form.css does not cover.
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
@@ -47,4 +48,67 @@
       }
     }
   }
+}
+/* ── Fill mode block ──────────────────────────────────────────
+   The mode row selects the fill arm; its detail rows sit flush underneath,
+   same label column. No divider: the rows are one group with the mode row. */
+.foliplus-style-fill-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--foliplus-space-xs);
+}
+
+/* Original-colors detail: the author's own presentation, read-only. Every row
+   is a FORM_ROW on the same label/control grid as the by-value arm, and the
+   control cell holds a box with the form-control frame — so the readout lands
+   on the same right edge as the select it replaces instead of spilling across
+   the panel. No chevron, no focus ring and no hover/active feedback: nothing
+   in this arm opens, toggles or edits. */
+.foliplus-style-fill-readonly {
+  display: flex;
+  align-items: center;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-space-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  color: var(--foliplus-text-primary);
+  font-size: var(--foliplus-font-size-sm);
+  cursor: default;
+}
+
+.foliplus-style-fill-original-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The colors box carries the gradient edge to edge, the same inset the scheme
+   trigger gives its bar — one box, one ordered ramp, no per-color blocks to
+   overflow the control column. */
+.foliplus-style-fill-original-colors {
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
+}
+
+.foliplus-style-fill-original-strip {
+  flex: 1;
+  height: 10px;
+  border-radius: var(--foliplus-radius-sm);
+}
+
+/* Scheme trigger and color strip: the shared scheme-picker recipe
+   (common/scheme-picker.css) owns the box, the chevron and the bar geometry.
+   `.foliplus-style-scheme-trigger` / `.foliplus-style-scheme-bar` stay on the
+   elements as this panel's behaviour and test hooks, with no geometry here. */
+
+/* The size row's px field sits at the right edge of the control column — the
+   numeric column the border row's weight field also occupies — while its value
+   stays horizontally centered inside the box. */
+.foliplus-style-size-row .foliplus-form-inline {
+  justify-content: flex-end;
+}
+
+.foliplus-style-size-input {
+  text-align: center;
 }

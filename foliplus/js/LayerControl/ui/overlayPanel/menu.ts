@@ -1,5 +1,7 @@
 // LayerControl UI — Overflow (⋮) menu.
+import { HINT_DURATION } from "#core/hint.js";
 import { CAP_TIER } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom } from "#common/dom.js";
@@ -8,6 +10,7 @@ import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
+import { isFilterCapable } from "./filter.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -15,24 +18,27 @@ import { closeOverlays } from "../teardown.js";
  *
  * Order is deliberate, not append order:
  *
- *   1. Focus      — a view action on the map: nothing written, highest use, and
- *                   it has its own Escape-cancel path.
+ *   1. Filter     — the primary data action on a capability row; RENDERED
+ *                   ONLY when the row declares the filter capability. An
+ *                   unsupported layer gets no entry at all (not a disabled
+ *                   one): a control that can never run is noise.
  *   2. Style      — opens the layer's style panel.
- *   3. Rename     — writes to the layer itself; the only entry that hands focus
+ *   3. Focus      — a view action on the map: nothing written.
+ *   4. Rename     — writes to the layer itself; the only entry that hands focus
  *                   to a long-lived inline editor.
- *   4. Attributes — opens the read-only detail panel. Display-only, never
+ *   5. Attributes — opens the read-only detail panel. Display-only, never
  *                   disabled, so it closes the quiet part of the list.
- *   5. Delete     — behind a divider, the one destructive entry. Armed in
+ *   6. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
  *                   rendered for every layer. The label varies by semantics:
  *                   "Delete Layer" for user-owned data layers, "Clear Data"
  *                   for component-owned layers.
  *
- * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
- * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
- * vertically centered in the row, so when the menu appears the pointer is *above
- * its top edge* — nearest entry #1. The second click of an impatient
- * double-click lands there, so it holds the reversible view action.
+ * The trigger-adjacent slot is the mis-click zone: the menu opens downward from
+ * the row's bottom edge (`top: 100%`) while the ⋮ button is vertically centered,
+ * so when the menu appears the pointer is *above* its top edge — nearest entry
+ * #1. Filter/Style lead because a double-click there is still recoverable (both
+ * are reversible), never the destructive tail.
  *
  * Known cost: the menu lives inside the panel's scrolling content, so it
  * overflows that box by a few px on a low row. The trailing entry is the first
@@ -40,6 +46,39 @@ import { closeOverlays } from "../teardown.js";
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
+/** Click handler for the overflow menu items. The action itself is dispatched
+ *  by the menu's shared runner, so a click and a keyboard activation of the
+ *  same entry cannot diverge. Outside-click dismissal is the overlay
+ *  registry's LAYER_MENU entry, not this handler.
+ *
+ *  The press stops here: an action may close the menu (opening a panel tears it
+ *  down), and the browser keeps dispatching the click along the path it
+ *  computed before the target was detached. Leaflet decides whether a click
+ *  belongs to the map by walking the target's *live* parents up to its
+ *  container (`_isClickDisabled`); a detached target has no control ancestor
+ *  left to find the `_leaflet_disable_click` marker on, so the press would land
+ *  on the map as a real click — e.g. it drops a marker while a MeasureControl
+ *  mode is armed. Swallowing it here keeps the "a click inside the control is
+ *  not a map click" guarantee that `disableClickPropagation` gave us while the
+ *  menu sat in the document. */
+const handleMenuClick = (ui: LayerUI, event: Event): void => {
+  const target = event.target as HTMLElement;
+  const menuItem = target.closest(
+    `.foliplus-layer-more-menu button`,
+  ) as HTMLElement | null;
+  if (!menuItem) return;
+  event.stopPropagation();
+  // A disabled entry keeps the menu open so the user sees why (its tooltip
+  // carries the reason); the shared runner applies that rule for both inputs.
+  // A native button fires its click from Enter/Space with `detail === 0` (the
+  // keyboard-originated marker), so the disabled reason is surfaced as a hint
+  // only for a keyboard user — a mouse click on a disabled entry stays silent
+  // (its tooltip already explains it), preserving the old input split.
+  runMenuAction(ui, menuItem, {
+    explainDisabled: (event as MouseEvent).detail === 0,
+  });
+};
+
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
@@ -57,26 +96,33 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ? ui.T(focusDisabledLocaleKey(focusReason))
       : ui.T("focus_layer_tooltip");
 
-  const itemAttrs = {
-    "data-action": "focus-layer",
-    role: "menuitem",
-    tabindex: "0",
-    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
-    "aria-disabled": focusDisabled ? "true" : "false",
-  };
-
-  menu.appendChild(
-    dom.el("li", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
-  );
-
-  if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
+  // Filter leads when the row declares the capability. Unsupported rows get
+  // NO entry: a permanently disabled control is noise; a new capability only
+  // adds its own gate without changing this rule.
+  const filterSupported = layerSupportsFilter(ui, layerId);
+  if (filterSupported) {
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.FILTER_LAYER,
+          role: "menuitem",
+          title: ui.T("filter_layer_tooltip"),
+          "aria-disabled": "false",
+        },
+        { html: SVGs.ICON_FILTER },
+        ui.T("filter_layer"),
+      ),
+    );
+  }
 
   // The Style menu entry is the surface for the per-layer style panel — the
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
   //
-  // R5: capability-driven gate. A layer whose surface reports opacity and
+  // Capability-driven gate. A layer whose surface reports opacity and
   // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
   // dimensions, so the panel is disabled unless it still has label fields or
   // style delegation to configure.
@@ -100,11 +146,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: styleDisabled
           ? ui.T("style_label_no_data")
           : ui.T("style_layer_tooltip"),
@@ -114,17 +160,31 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ui.T("style_layer"),
     ),
   );
-  if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
+
+  // Focus follows Style: the reversible view action keeps a fixed, safe slot
+  // just after the configure action instead of opening the menu (a double-
+  // click on the trigger must never land on the destructive tail).
+  const itemAttrs = {
+    type: "button",
+    "data-action": "focus-layer",
+    role: "menuitem",
+    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
+    "aria-disabled": focusDisabled ? "true" : "false",
+  };
+
+  menu.appendChild(
+    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+  );
 
   // Rename writes to the layer itself, so it sits above the display-only
   // entry rather than at the tail of the working actions.
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: ui.T("rename_layer_tooltip"),
       },
       { html: Icons.ICON_EDIT },
@@ -136,11 +196,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // still has name / source / visibility to show.
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.ATTRS_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.ICON_INFO },
@@ -184,13 +244,29 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     if (next && (next === item || item.contains(next))) return;
     if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
   });
+  // Menu item actions are dispatched locally: the old document-level click
+  // delegate was the only reason the menu needed a document listener.
+  menu.addEventListener("click", event => handleMenuClick(ui, event));
 
   ui.overlayPanel.activeMenu = { item, menu, layerId };
+  ui.overlayPanel.menuOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_MENU,
+    isOpen: () => ui.overlayPanel.activeMenu !== null,
+    panels: () => {
+      const active = ui.overlayPanel.activeMenu;
+      return active ? [active.menu] : [];
+    },
+    close: ({ restoreFocus }) => closeMoreMenu(ui, restoreFocus),
+    dismissOn: "click",
+    pressPriority: 800,
+    clearsCursorOnClose: true,
+  });
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
-  // The focus-layer entry is always appended first, so this is a straight cast.
+  // The head is Filter when supported, Style otherwise — both are reversible
+  // actions, so the trigger-adjacent slot is always safe.
   (
-    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu li") as HTMLElement
+    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu button") as HTMLElement
   ).focus();
 };
 
@@ -239,6 +315,16 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
 };
 
+/** Gate for the ⋮ filter entry. A row is filterable only
+ *  when it declares the explicit filter capability (`filterProvider` +
+ *  `filterSetter` — the component that owns the row's data, HeatmapControl
+ *  today). Never inferred from `styleSetters`: MeasureControl declares
+ *  style delegation too and its rows are not filterable. The panel's
+ *  reads and writes derive from the same declaration, so the gate, the
+ *  panel and the owner cannot drift apart. */
+const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean =>
+  isFilterCapable(ui.c.layerRegistry.get(layerId));
+
 const buildDeleteItem = (
   ui: LayerUI,
   mode: Exclude<DeleteMode, "absent">,
@@ -251,12 +337,12 @@ const buildDeleteItem = (
   );
   const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
-    "li",
+    "button",
     {
+      type: "button",
       "data-action": CONST.ACTION.DELETE_LAYER,
       "data-mode": mode,
       role: "menuitem",
-      tabindex: "0",
       title: tooltip,
     },
     { html: Icons.ICON_DELETE },
@@ -319,6 +405,8 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  ui.overlayPanel.menuOverlayUnregister?.();
+  ui.overlayPanel.menuOverlayUnregister = null;
   if (!ui.overlayPanel.activeMenu) return;
   const item = ui.overlayPanel.activeMenu.item;
   const menu = ui.overlayPanel.activeMenu.menu;
@@ -331,4 +419,110 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (setFocus) item.focus();
 };
 
-export { activateDeleteItem, closeMoreMenu, openMoreMenu };
+/** Every action the overflow menu renders, keyed by its `data-action` value. */
+type MenuAction = (typeof CONST.ACTION)[keyof typeof CONST.ACTION];
+
+interface MenuActionResult {
+  /** Whether the menu closes once the action ran. */
+  closeMenu: boolean;
+  /** Whether a closing menu returns focus to the layer row. Rename keeps focus
+   *  in the inline editor instead: restoring the row would blur the fresh
+   *  input and commit the pre-edit value. */
+  restoreRowFocus: boolean;
+}
+
+/** The row a menu entry acts on. The menu state is the source of truth; an
+ *  entry detached from its menu falls back to itself, as it always has for a
+ *  click on a menu that lost its state. */
+const menuRow = (ui: LayerUI, menuItem: HTMLElement): HTMLElement =>
+  ui.overlayPanel.activeMenu?.item ?? menuItem;
+
+/** The layer id the open menu belongs to. */
+const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId ?? "";
+
+/** One dispatch table for every menu action. The click handler and the keyboard
+ *  handler both go through `runMenuAction`, so an entry cannot work with one
+ *  input and do something else with the other — the two lists used to drift
+ *  (keyboard knew three of the six actions and sent the rest to focus-layer).
+ *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
+ *  typecheck until its branch exists here. */
+const MENU_ACTIONS: Record<
+  MenuAction,
+  (ui: LayerUI, menuItem: HTMLElement) => MenuActionResult
+> = {
+  [CONST.ACTION.FILTER_LAYER]: (ui, menuItem) => {
+    ui.openFilterPanel(menuRow(ui, menuItem));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.STYLE_LAYER]: ui => {
+    ui.openStylePanel(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.FOCUS_LAYER]: ui => {
+    ui.focusLayer(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.RENAME_LAYER]: ui => {
+    ui.renameLayer(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: false };
+  },
+  [CONST.ACTION.ATTRS_LAYER]: (ui, menuItem) => {
+    // Anchored to the menu's own row: the menu state is the source of truth
+    // for which row owns it, and the entry itself is the fallback.
+    ui.openAttrsPanel(menuRow(ui, menuItem));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.DELETE_LAYER]: (ui, menuItem) => {
+    // Armed in place: the first activation only arms, so the menu stays open
+    // and the confirming label is visible; the second one deletes.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
+    }
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+};
+
+/**
+ * Run the action a menu entry carries. Shared by the delegated click handler
+ * and the keyboard handler (`ArrowLeft/ArrowRight/Space/Enter` on a focused
+ * entry): one input-agnostic path, no divergence.
+ *
+ * `explainDisabled` is the one deliberate input difference: a click on a
+ * disabled entry stays silent (its tooltip already explains it), while the
+ * keyboard path surfaces that same title as a hint — a keyboard user gets no
+ * tooltip hover.
+ */
+const runMenuAction = (
+  ui: LayerUI,
+  menuItem: HTMLElement,
+  options: { explainDisabled?: boolean } = {},
+): void => {
+  if (menuItem.getAttribute("aria-disabled") === "true") {
+    if (options.explainDisabled) {
+      const reason = menuItem.getAttribute("title");
+      if (reason) {
+        ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
+      }
+    }
+    return;
+  }
+  const action = menuItem.getAttribute("data-action") ?? "";
+  const handler = MENU_ACTIONS[action as MenuAction];
+  if (!handler) {
+    // Unknown action: close and return focus, matching the old click
+    // fallthrough for any entry the table does not know.
+    ui.closeMoreMenu(true);
+    return;
+  }
+  const outcome = handler(ui, menuItem);
+  if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
+};
+
+export {
+  MENU_ACTIONS,
+  activateDeleteItem,
+  closeMoreMenu,
+  handleMenuClick,
+  openMoreMenu,
+  runMenuAction,
+};

@@ -10,6 +10,7 @@
 // Cross-subsystem and intra-subsystem callers all take LayerUI and reach
 // into `ui.listPanel.*` directly; no module receives a bare ListPanel.
 import type { ListCursor } from "#core/interaction/index.js";
+import type { LayerInfo } from "#core/layer/index.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -18,6 +19,7 @@ import {
   getActiveLayerItem,
   getNavigableItems,
   moveActiveMarker,
+  reconcileCursorByIdentity,
   resolveActiveIdx,
   restoreCursor,
   setActiveItem,
@@ -25,6 +27,7 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -39,10 +42,12 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
-  reindexAfterMove,
+  markSettled,
+  rebuildList,
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "./list.js";
 import {
@@ -72,9 +77,9 @@ import {
  *  persist across page reloads except what `state.ts` writes through the
  *  `ui.c.persistence` channel. */
 class ListPanel {
-  /** Per-group fold state. Persisted through `ui.c.persistence` on change. */
-  foldedGroups: Set<string> = new Set();
-  /** Per-group tri-state checkbox counts. Rebuilt by the full-scan
+  /** Per-role fold state. Persisted through `ui.c.persistence` on change. */
+  foldedRoles: Set<string> = new Set();
+  /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by
    *  `bumpCheckedCount` on each single-row toggle. */
   checkedCount: Record<string, { total: number; on: number }> = {};
@@ -83,19 +88,18 @@ class ListPanel {
   activeIdx: number | null = null;
   /** Shared ARIA roving-tabindex controller on the panel's row set. */
   listCursor: ListCursor | null = null;
-  /** Index of the row currently being dragged, or null. */
-  dragIdx: number | null = null;
+  /** The registry entry the in-flight drag armed with, or null. Identity,
+   *  not position: the gesture spans events and timers, and reordering in
+   *  between would re-point a saved index at a neighbor — the entry is
+   *  re-resolved through the registry at every use, which also retires the
+   *  session when the entry is unregistered or replaced under its id. */
+  dragEntry: LayerInfo | null = null;
   /** Wall-clock timestamp of the last drag hint shown; used to enforce the
    *  hint cooldown so a fast drag does not spam the tooltip. */
   lastDragHintAt: number = 0;
   /** Last element the drag pointer hovered; used to move the
    *  `DRAG_OVER_TOP` / `DRAG_OVER_BOTTOM` class as the pointer moves. */
   lastDragOverItem: HTMLElement | null = null;
-  /** True when the current pointer press began inside a floating row panel.
-   *  Written by the panel's document-level capture handler; read by
-   *  `handleDragStart` because the drag event is dispatched on the row, not
-   *  the panel. */
-  pressInPanel: boolean = false;
   /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
    *  called once on unbind. */
   interactionCleanup?: () => void;
@@ -103,6 +107,9 @@ class ListPanel {
 
 export {
   initTypesAndVisibility,
+  markSettled,
+  rebuildList,
+  syncRowOrder,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,
@@ -110,19 +117,10 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
-  reindexAfterMove,
 };
 export { ListPanel };
-export {
-  applyRowView,
-  buildRowCell,
-  displayName,
-  inZoomRange,
-  rowView,
-  type RowCell,
-  type RowLabels,
-  type RowView,
-};
+export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export type { RowCell, RowLabels, RowView };
 export {
   toggleFold,
   handleDragStart,
@@ -131,11 +129,13 @@ export {
   handleDragLeave,
   handleDrop,
   handleDragEnd,
+  clearDragState,
 };
 export {
   syncListCursor,
   cursorRef,
   restoreCursor,
+  reconcileCursorByIdentity,
   getNavigableItems,
   findVisibleNeighbor,
   getActiveLayerItem,

@@ -14,6 +14,20 @@
    vocabulary as the fold panels — but anchored under its row rather than
    folded into the control, so the caller mounts it on the row.
 
+   The default is the plain row-anchored card: `position: absolute` under the
+   row, inside whatever scroll box the row lives in. That is what a caller that
+   only uses `createRowPanel` (e.g. a filter panel mounted in the layer list)
+   gets — it keeps the historic behaviour and must not need any placement code.
+
+   A caller whose rows live in the fold panel's scrolling content opts into
+   `foliplus-is-pinned`; `pinRowPanel` adds it and places the card from the
+   anchor row's client rect (`core/leaflet/panel.ts`). Without it the card was
+   clipped at the scroll box's edge, so the lower half of the style panel (the
+   scheme row and the reset footer) was unreachable: fixed positioning escapes
+   the clip because no ancestor of the rows carries a transform/filter/contain,
+   and the placement code keeps the card under the row as the list scrolls or
+   the window resizes.
+
    `.foliplus-panel` is a *horizontal* fold container (`align-items:
    flex-start`), which for a column panel leaves the header and the content at
    their own text width inside a full-width card. `stretch` is what makes the
@@ -31,9 +45,9 @@
   flex-direction: column;
   align-items: stretch;
   width: var(--foliplus-panel-width);
-  /* createRowPanel writes `--foliplus-row-panel-max-height` from the
-     measured anchor-to-viewport space; the token fallback keeps an older
-     page without the JS placement working as before. */
+  /* The placement code writes `--foliplus-row-panel-max-height` from the
+     measured space between the anchor and the map's edge; the token fallback
+     keeps an older page without the JS placement working as before. */
   max-height: var(--foliplus-row-panel-max-height, var(--foliplus-panel-max-height));
   padding: 0;
   overflow-x: hidden;
@@ -43,19 +57,39 @@
   color: var(--foliplus-text-primary);
   cursor: default;
 
-  /* Detail rows carry the shared label/control geometry; the panel only adds
-     its own horizontal inset. */
-  .foliplus-form-row {
-    padding: 0 var(--foliplus-space-lg);
+  /* The card carries a 1px border, so its content box is 2px narrower than a
+     fold panel's. These overrides take that border out of the shared inset —
+     long hands only, so the shorthand's vertical values stay — which keeps the
+     label, control and footer edges on the fold panels' lines. The derived
+     value is a token (common/token.css), not a second inset owner. */
+  .foliplus-form-row,
+  .foliplus-btn-row {
+    padding-left: var(--foliplus-row-panel-inset-x);
+    padding-right: var(--foliplus-row-panel-inset-x);
   }
 
-  /* Flip upward when the row is near the owner control's visible bottom.
-     `bottom: 100%` anchors the panel above the row and the same
-     `--foliplus-row-panel-max-height` still caps it inside the space above. */
-  &.foliplus-row-panel-up {
-    top: auto;
-    bottom: 100%;
+  .foliplus-section-divider {
+    margin-left: var(--foliplus-row-panel-inset-x);
+    margin-right: var(--foliplus-row-panel-inset-x);
   }
+}
+
+/* ── Pinned row panel (opt-in) ──
+   Only `pinRowPanel` adds this class, and only to a panel it also places from
+   its anchor row. The fixed box escapes the layer list's scroll clip; top/left
+   stay 0 here because the script writes the measured coordinates before paint,
+   and these values are the pre-measure fallback. The z band must clear the fold
+   panel's expanded bar/section, which sit at floating +1 / +9. */
+.foliplus-panel.foliplus-row-panel.foliplus-is-pinned {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: auto;
+  z-index: var(--foliplus-z-index-floating);
+  /* The card is fixed but still a DOM child of the layer list's scroll box, so
+     a wheel over it would chain to the list and move the row (and the card
+     with it) beneath the pointer. Keep the scroll inside the card. */
+  overscroll-behavior: contain;
 }
 
 /* ── Container ── */
@@ -71,7 +105,7 @@
      the footer row keeps under its button — one value, --foliplus-space-md, for all three
      vertical distances (see the button-row recipe in common/button.css). */
   .foliplus-section-divider {
-    margin: var(--foliplus-space-md) var(--foliplus-space-lg);
+    margin: var(--foliplus-space-md) var(--foliplus-panel-inset-x);
   }
 
   /* ── Panel Wrapper (visible when expanded) ── */

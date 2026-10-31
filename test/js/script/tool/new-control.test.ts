@@ -75,7 +75,7 @@ const LOCALE_PY = `_JS_USED_KEYS = {
 
 /** Minimal repo fixture that scaffoldControl can patch. */
 function mkFixture(files: Record<string, string>): string {
-  const root = join(tmpdir(), "new-control-test-" + Date.now() + Math.random());
+  const root = join(tmpdir(), `new-control-test-${Date.now()}${Math.random()}`);
   for (const [rel, content] of Object.entries(files)) {
     const path = join(root, ...rel.split("/"));
     mkdirSync(join(path, ".."), { recursive: true });
@@ -440,6 +440,21 @@ describe("scaffoldControl", () => {
     expect(again.created).toEqual([]);
     expect(again.patched).toEqual([]);
     expect(again.skipped.length).toBeGreaterThan(0);
+  });
+
+  it("reports a no-op registry patch as already present", () => {
+    // An __init__.py with neither the BaseControl import anchor nor an
+    // `__all__` block leaves patchInitPy with nothing to patch. The file is
+    // reported instead of silently passing as "patched".
+    tmpRoot = mkFixture({
+      ...FIXTURE,
+      "foliplus/__init__.py": "# package init without registries\n",
+    });
+    const result = scaffoldControl(
+      { name: "FooControl", description: "Foo." },
+      tmpRoot,
+    );
+    expect(result.skipped).toContain("foliplus/__init__.py (already present)");
   });
 
   it("uses CRLF-preserving patches when the fixture is CRLF", () => {

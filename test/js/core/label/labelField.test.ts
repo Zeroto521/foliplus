@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  AUTO_FIELD,
-  autoLabelField,
   bareFieldName,
   collectLabelFields,
+  defaultLabelField,
   hasLabelField,
   isNumericField,
   resolveSelectedField,
@@ -142,10 +141,10 @@ describe("isNumericField", () => {
   });
 });
 
-describe("autoLabelField", () => {
+describe("defaultLabelField", () => {
   it("prefers the first numeric field", () => {
     expect(
-      autoLabelField([
+      defaultLabelField([
         { name: "name", numeric: false },
         { name: "count", numeric: true },
         { name: "share", numeric: true },
@@ -155,7 +154,7 @@ describe("autoLabelField", () => {
 
   it("falls back to the first field when nothing is numeric", () => {
     expect(
-      autoLabelField([
+      defaultLabelField([
         { name: "name", numeric: false },
         { name: "note", numeric: false },
       ]),
@@ -163,7 +162,7 @@ describe("autoLabelField", () => {
   });
 
   it("returns an empty string for a fieldless layer", () => {
-    expect(autoLabelField([])).toBe("");
+    expect(defaultLabelField([])).toBe("");
   });
 });
 
@@ -173,19 +172,25 @@ describe("resolveSelectedField", () => {
     { name: "count", numeric: true },
   ];
 
-  it("keeps an explicit choice", () => {
+  it("keeps a choice the layer still offers", () => {
     expect(resolveSelectedField("name", fields)).toBe("name");
     expect(resolveSelectedField("count", fields)).toBe("count");
   });
 
-  it("resolves the auto sentinel to the shared auto pick", () => {
-    expect(AUTO_FIELD).toBe("");
-    expect(resolveSelectedField(AUTO_FIELD, fields)).toBe("count");
+  it("falls back to the default when the stored field is gone", () => {
+    // A stored name outlives a re-registered layer's columns; the select shows
+    // the layer's default rather than an option that is not on the list.
+    expect(resolveSelectedField("retired", fields)).toBe("count");
   });
 
-  it("resolves the sentinel to empty for a fieldless layer", () => {
+  it("falls back to the default when nothing is stored", () => {
+    expect(resolveSelectedField("", fields)).toBe("count");
+  });
+
+  it("resolves to empty for a fieldless layer", () => {
     // Nothing to render — the caller treats "" as "no labels".
-    expect(resolveSelectedField(AUTO_FIELD, [])).toBe("");
+    expect(resolveSelectedField("", [])).toBe("");
+    expect(resolveSelectedField("retired", [])).toBe("");
   });
 });
 

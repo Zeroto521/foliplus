@@ -3,11 +3,12 @@
 // handler and the mousedown/dblclick listeners that call into it.
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
-import { activateDeleteItem } from "../overlayPanel/menu.js";
+import { runMenuAction } from "../overlayPanel/menu.js";
 import type { LayerUI } from "../surface.js";
 import {
   blurActiveItem,
@@ -31,6 +32,12 @@ import { toggleFold } from "./drag.js";
  * a fold button (which rebuilds the list) stays inside the panel and won't
  * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
  * not just this instance's container.
+ *
+ * The style drawer's scheme picker portals its color list to <body> (or the
+ * fullscreen element), so that list matches none of the class tests below
+ * while still belonging to the drawer. A press on it must keep the drawer and
+ * the row cursor: closing here would tear the drawer down on the press that
+ * selects a color, before the click could land.
  */
 
 const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
@@ -44,11 +51,24 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   // The attributes panel and the style panel are floating surfaces anchored
   // to their row: a press anywhere outside them dismisses them, panel and
   // map alike. One surface per press — the overflow menu keeps its own
-  // click-delegated close in interaction.ts, and Escape pops the menu before
-  // the panels.
+  // click-delegated close in interaction.ts, and the registry's Escape
+  // dispatcher closes the topmost surface.
+  // Ownership, not global membership: this control's drawer is the scope, so a
+  // portalled list mounted for *its* trigger counts as inside it and a list
+  // mounted for another surface does not. The element comes off the overlay
+  // panel's own state — a document-wide query would pick the first drawer on a
+  // page with two maps, which is the multi-instance form of the same bug.
+  const stylePanel = ui.overlayPanel.stylePanelEl;
+  const inStyleOverlay =
+    !!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ||
+    isInsideOverlay(target, stylePanel);
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
-  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
-  if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
+  if (!inStyleOverlay) ui.closeStylePanel(false);
+  // The portalled list floats over the map, like the drawer itself: a press
+  // there is still "inside" the row's surface, so the keyboard cursor stays.
+  if (!inStyleOverlay && !target.closest(".foliplus-layer-ctrl")) {
+    clearActiveItem(ui);
+  }
 };
 
 /** Reindex all layer items after a move, preserving the active focus position.
@@ -69,38 +89,32 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
  *   ArrowUp / ArrowDown - Navigate between layer items
  *   ArrowLeft / ArrowRight / Space / Enter - Toggle visibility of focused layer
  *   Ctrl+ArrowUp / Ctrl+ArrowDown - Move focused layer up/down in z-order
- *   Escape - Cancel: inline rename, overflow menu, the attributes panel,
- *     the layer focus overlay, or the row keyboard cursor
+ *   Escape - The overlay registry closes the topmost surface; this handler
+ *     cancels an inline rename, the layer focus overlay, and the row cursor
  */
 const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
-  // Escape discharges whatever is open, in the order the user would
-  // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
-  // cursor guard below: the point of Escape is to drop the cursor.
+  // Escape is owned by the per-map overlay registry: its capture-phase
+  // dispatcher closes exactly the highest-ranked open surface (menu, picker,
+  // filter enum, filter/attrs/style panel) and stops the event. This handler
+  // therefore only sees the leftovers: an inline rename (the registry passes
+  // Escape through to the editor), the focus spotlight (a map overlay, not a
+  // DOM surface), and the row cursor. It runs before the cursor guard below:
+  // the point of Escape is to drop the cursor.
   if (event.key === "Escape") {
     if (ui.overlayPanel.activeRenameId) {
       // finishRename() removes the input, which blurs it to `<body>`.
       // Restore the row focus the rename started from before dropping the
-      // cursor: a cursor parked on <body> leaves the panel unreachable —      // the very next arrow key would not reach this handler. The focusin
+      // cursor: a cursor parked on <body> leaves the panel unreachable —
+      // the very next arrow key would not reach this handler. The focusin
       // that fires on the restored row may re-apply the class; the
       // escapeClearCursor() below runs last and wins.
       const layerId = ui.overlayPanel.activeRenameId;
       ui.finishRename();
       focusLayerRow(ui, layerId);
-    } else if (ui.overlayPanel.activeMenu) {
-      // closeMoreMenu returns focus to the row, so the cursor must be
-      // dropped after it rather than before.
-      ui.closeMoreMenu(true);
-    } else if (ui.overlayPanel.activeAttrsPanel) {
-      // The attributes panel and the overflow menu both float from the same
-      // ⋮ button, so Escape dismisses whichever is on top.
-      ui.closeAttrsPanel(true);
-    } else if (ui.overlayPanel.stylePanelLayerId) {
-      // The style panel floats from the same ⋮ button; Escape dismisses it
-      // and returns focus to its row (the panel's own controls consume the
-      // key first, so this is the fallback for Escape from the row, the map,
-      // or a control that does not handle it).
-      ui.closeStylePanel(true);
     } else if (ui.isFocusing()) {
+      // The spotlight is map chrome, not a registered DOM surface: Escape
+      // from inside the panel still cancels it, while a press outside the
+      // panel never reaches this handler.
       ui.cancelFocus();
     }
     escapeClearCursor(ui);
@@ -189,7 +203,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         if (menuItem) ui.openMoreMenu(menuItem);
         break;
       }
-      // The chevron button is focused — that key folds the group, not
+      // The chevron button is focused — that key folds the role, not
       // select-all. Left untouched, resolveActiveIdx() walks up from the
       // button to its toggle-all row and the row checkbox flips instead.
       if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
@@ -198,42 +212,34 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.group ?? "");
+        if (row) {
+          // Every toggle-all row is rendered with data-role (list.ts writes it
+          // unconditionally, empty role included), so the empty fallback only
+          // serves a row built by hand without the attribute.
+          /* v8 ignore next -- the renderer always writes data-role on this row */
+          toggleFold(ui, row.dataset.role ?? "");
+        }
         break;
       }
-      // Menu item (li) is focused — trigger the focus-layer action.
-      // Skip disabled items so the hidden-layer guard applies to keyboard too.
-      const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
-        ".foliplus-layer-more-menu li",
+      // A menu item <button> is focused. Enter/Space on it are the button’s
+      // native activation keys: the interaction manager stands aside and the
+      // browser fires a click — they never reach this branch. Only an arrow
+      // belongs to the menu keyboard branch; a manual Enter dispatch here
+      // would double-run the action (the native click already did).
+      const menuBtn = ((document.activeElement as HTMLElement | null)?.closest?.(
+        ".foliplus-layer-more-menu button",
       ) ?? null) as HTMLElement | null;
-      if (menuLi && ui.overlayPanel.activeMenu) {
+      if (menuBtn && ui.overlayPanel.activeMenu) {
+        // Arrow-only: Enter/Space are the button’s own activation keys and
+        // must not be claimed by a manual dispatch here.
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") break;
         event.preventDefault();
         event.stopPropagation();
-        const action = menuLi.getAttribute("data-action") ?? "";
-        if (menuLi.getAttribute("disabled")) {
-          // The entry's own title carries the reason (no useful extent, hidden
-          // row, no labelable fields, color basemap cannot be deleted), so it
-          // is the hint too — a fixed "cannot focus" string would be wrong for
-          // every disabled entry but focus. Every menu builder sets a title, so
-          // an entry without one has nothing to say.
-          const reason = menuLi.getAttribute("title");
-          if (reason) {
-            ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
-          }
-          break;
-        }
-        if (action === CONST.ACTION.DELETE_LAYER) {
-          // Armed in place like the click path: the first Enter arms, the
-          // second deletes. While armed the menu stays open.
-          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
-          break;
-        }
-        if (action === CONST.ACTION.RENAME_LAYER) {
-          ui.renameLayer(ui.overlayPanel.activeMenu.layerId);
-        } else {
-          ui.focusLayer(ui.overlayPanel.activeMenu.layerId);
-          ui.closeMoreMenu(true);
-        }
+        // One shared dispatch table for click and keyboard: the entry’s own
+        // action runs, never a fallback to focus-layer. A disabled entry keeps
+        // the menu open and surfaces its title as a hint (a keyboard user gets
+        // no tooltip hover).
+        runMenuAction(ui, menuBtn, { explainDisabled: true });
         break;
       }
       event.preventDefault();
@@ -297,7 +303,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // Base basemap has no meaningful extent to zoom to — explain instead of
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
-  if (item.dataset.layerType === GROUP.BASE) {
+  if (item.dataset.layerType === ROLE.BASE) {
     showFocusDisabledHint(ui, "base");
     return;
   }

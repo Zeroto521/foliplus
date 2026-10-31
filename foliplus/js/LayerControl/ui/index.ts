@@ -10,7 +10,7 @@ import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
@@ -39,7 +39,7 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
-  reindexAfterMove,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -54,6 +54,7 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel, openFilterPanel } from "./overlayPanel/filter.js";
 import { OverlayPanel } from "./overlayPanel/index.js";
 import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
@@ -73,9 +74,15 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
+  replayDeclaredFill,
   replayFillState,
 } from "./style/index.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import { applySizeToLayer } from "./style/size.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  setStyleApplyFailureReporter,
+} from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
 
 /** UI Controller for LayerControl.
@@ -85,7 +92,7 @@ import type { LayerUI as LayerUISurface } from "./surface.js";
  *  - focusController:  focus spotlight + inverse mask
  *
  *  Cross-cutting code reads state through the subsystem handle
- *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
+ *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.activeMenu`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI implements LayerUISurface {
@@ -150,8 +157,6 @@ class LayerUI implements LayerUISurface {
   declare onDrop: ((event: DragEvent) => void) | null;
   /** Click handler for the "more" (⋮) button. */
   onMoreClick: ((event: Event) => void) | null;
-  /** Click handler for the dropdown menu items. */
-  onMoreMenuClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   /** Map zoomend handler — re-evaluates every layer's effective-shown after
@@ -163,8 +168,9 @@ class LayerUI implements LayerUISurface {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
+  unsubscribeEscape: (() => void) | null;
   /** Unsubscribers for the controller-driven layer-signal events (item add /
-   *  update / refresh, list rebuild, group count change, no-basemap
+   *  update / refresh, list rebuild, role count change, no-basemap
    *  change, content invalidation). Batched into one array so a single
    *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
@@ -184,6 +190,16 @@ class LayerUI implements LayerUISurface {
     this.T = env.T;
     this._ = env._;
     this.log = env.log;
+    // The style scheduler's trailing frames need an async failure channel:
+    // the operation that scheduled them has long returned, so a throw can
+    // no longer ride its error contract. Route it to the map's diagnostic
+    // hook — the same channel notification consumer failures use — so a
+    // host observes it instead of catching a stray rAF error. The reporter
+    // is scoped to this UI: another LayerControl's late frame reports to
+    // its own map, and this one stops reporting once the UI is released.
+    setStyleApplyFailureReporter(failure => {
+      this.c.map.foliplus?.onError?.(failure.source, failure.error);
+    }, this);
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
@@ -199,9 +215,9 @@ class LayerUI implements LayerUISurface {
     this.colorSurface = null;
     this.unsubscribeCountChange = null;
     this.unsubscribeControlAttached = null;
+    this.unsubscribeEscape = null;
     this.unsubscribeLayerSignals = [];
     this.onMoreClick = null;
-    this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onZoomEnd = null;
   }
@@ -211,9 +227,19 @@ class LayerUI implements LayerUISurface {
     return this.controller;
   }
 
-  /** The attached panel container. Only valid after attachUI(). */
-  get uiContainer(): HTMLElement {
-    return this.c.uiContainer!;
+  /** The attached panel container. Null before attachUI() and after a
+   *  teardown — the type says so, because a subscriber can retire the control
+   *  inside any notify and every continuation then has to decide for itself
+   *  whether it still has a panel to paint into. */
+  get uiContainer(): HTMLElement | null {
+    return this.c.uiContainer;
+  }
+
+  /** Whether the panel is still attached. A subscriber can retire the control
+   *  inside any notify, so a continuation that reached into the panel without
+   *  asking first would deref a null container. */
+  get isLive(): boolean {
+    return !!this.uiContainer;
   }
 
   /**
@@ -259,12 +285,16 @@ class LayerUI implements LayerUISurface {
   saveState() {
     return saveState(this);
   }
-  applyUserState(id?: string) {
-    applyUserState(this, id);
-    // The executor carries visible / opacity / zoomRange only. Border and
-    // fill are direct setStyle writes, so without their own replay a reload
-    // would restore the drawer's swatch while the map kept the author's
-    // values. Hooked here rather than in state.ts to keep state.ts free of
+  /** Replay stored state for one layer (or every layer) and return the round.
+   *  This method does NOT publish: it collects what moved so the caller can
+   *  settle its own rows, counts and chrome first, then `notifyDeltas` itself.
+   *  Calling it and ignoring the result silently drops the notifications. */
+  applyUserState(id?: string): ProjectionBatch {
+    const moved = applyUserState(this, id);
+    // The executor carries visible / opacity / zoomRange only. Border, fill
+    // and size are direct Leaflet writes (setStyle / setRadius), so without
+    // their own replay a reload would restore the drawer's swatch while the
+    // map kept the author's values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
@@ -275,11 +305,28 @@ class LayerUI implements LayerUISurface {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
+    //
+    // The round goes back to the caller rather than out of here: the entry that
+    // owns the replay also owns the rows, counts and chrome it has to settle
+    // before announcing, and only it knows when that is done.
     const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
+      applySizeToLayer(this, layerId);
     }
+    // Author-declared fills are read-time defaults, not stored overrides, so
+    // the provenance loop above never reaches a layer the user left alone.
+    // The attach sweep is the only pass that covers the initial registry, so
+    // replay them here — otherwise a declared ramp stays unpainted until the
+    // first panel touch. (The id-specified path above already replayed its
+    // own layer; this is the full-sweep half.)
+    if (id === undefined) {
+      for (const layerInfo of this.c.layerRegistry.layers) {
+        replayDeclaredFill(this, layerInfo.id);
+      }
+    }
+    return moved;
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);
@@ -310,21 +357,23 @@ class LayerUI implements LayerUISurface {
     return initLayerItem(this, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this);
+    // The rebuild entry owns rows, counts, readiness and the round; a caller
+    // that just moved a layer only has to ask for it.
+    return rebuildList(this);
   }
 
   // ── delegates: visibility ──
-  getLayerItems(group: string) {
-    return getLayerItems(this, group);
+  getLayerItems(role: string) {
+    return getLayerItems(this, role);
   }
-  toggleAll(group: string, newState: boolean) {
-    return toggleAll(this, group, newState);
+  toggleAll(role: string, newState: boolean) {
+    return toggleAll(this, role, newState);
   }
-  syncToggleAll(group: string) {
-    return syncToggleAll(this, group);
+  syncToggleAll(role: string) {
+    return syncToggleAll(this, role);
   }
-  syncToggleAllFromCount(group: string) {
-    return syncToggleAllFromCount(this, group);
+  syncToggleAllFromCount(role: string) {
+    return syncToggleAllFromCount(this, role);
   }
   syncNoBasemap() {
     return syncNoBasemap(this);
@@ -344,6 +393,9 @@ class LayerUI implements LayerUISurface {
   applyProjection(layerId: string) {
     return applyProjection(this, layerId);
   }
+  /** Sweep every layer's projection and return the round. Same contract as
+   *  `applyUserState`: the sweep's side effects land here, the notifications
+   *  are the caller's — ignore the result and the round is dropped. */
   applyProjectionAll() {
     return applyProjectionAll(this);
   }
@@ -412,6 +464,12 @@ class LayerUI implements LayerUISurface {
   closeStylePanel(setFocus: boolean) {
     return closeStylePanel(this, setFocus);
   }
+  openFilterPanel(item: HTMLElement) {
+    return openFilterPanel(this, item);
+  }
+  closeFilterPanel(setFocus: boolean) {
+    return closeFilterPanel(this, setFocus);
+  }
   /** Part of the surface `controller` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
@@ -419,11 +477,20 @@ class LayerUI implements LayerUISurface {
     return invalidateFields(this, layerId);
   }
   /** Unregister teardown for the style-apply schedulers: cancel any pending
-   *  rAF walk and free the Map entries (both faces in one pass) so a
-   *  churning map cannot accumulate boxes keyed by dead ids. Manager drives
-   *  this from `unregisterLayer` — the single drop hook. */
+   *  rAF walk and free the Map entries (every face — fill / stroke / size /
+   *  label — in one pass) so a churning map cannot accumulate boxes keyed by
+   *  dead ids. Manager drives this from `unregisterLayer` — the single drop
+   *  hook — and the drop is scoped to this UI. */
   dropStyleDimApplies(layerId: string) {
-    return dropStyleDimApplies(layerId);
+    return dropStyleDimApplies(layerId, this);
+  }
+  /** Release everything this UI owns in the style-apply scheduler: pending
+   *  frames cancelled and the failure reporter detached. Scoped to this UI —
+   *  another map's in-flight writes are not touched. Idempotent; the
+   *  controller calls it on destroy and `unbindEvents` calls it on a
+   *  standalone teardown. */
+  releaseStyleApplies() {
+    return releaseStyleApplyOwner(this);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function

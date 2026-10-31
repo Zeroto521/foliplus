@@ -2,15 +2,18 @@
 // ready-signal re-entry. Split out of ui/index.ts (34.2). The LayerUI class
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "../const.js";
+import { handleMoreClick, registerInteractions } from "../interaction.js";
 import {
-  handleMoreClick,
-  handleMoreMenuClick,
-  registerInteractions,
-} from "../interaction.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+  NO_DELTA,
+  applyProjection,
+  applyProjectionAll,
+  notifyDelta,
+  notifyDeltas,
+} from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
 import { dismissFocus } from "./focus/index.js";
@@ -22,6 +25,7 @@ import {
   syncListCursor,
 } from "./listPanel/cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -32,9 +36,10 @@ import {
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
-  initTypesAndVisibility,
   insertLayerItem,
+  markSettled,
   renderInitialList,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
 import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
@@ -46,11 +51,22 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
-import { closeStylePanel, invalidateFields } from "./style/index.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import {
+  closeStylePanel,
+  invalidateFieldCache,
+  invalidateFields,
+  openStylePanel,
+} from "./style/index.js";
+import { listDimensions } from "./style/registry.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  scheduleStyleDimApply,
+} from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -63,6 +79,21 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   loadPersistedState(ui);
   renderInitialList(ui);
   bindLayerEvents(ui);
+  // The registry owns Escape for every floating surface; this subscription
+  // only translates its outcome into the row-cursor rule. A handled close of a
+  // cursor-owning surface clears the cursor once; an unhandled Escape whose
+  // target sits inside the panel (no surface open) also clears it. Surfaces
+  // such as the scheme picker do not own the row cursor, so their Escape
+  // leaves it alone.
+  ui.unsubscribeEscape = ensureOverlayRegistry(ui.c.map).onEscapeHandled(payload => {
+    if (payload.handled) {
+      if (payload.clearsCursorOnClose) blurActiveItem(ui);
+      return;
+    }
+    if (payload.target && ui.uiContainer?.contains(payload.target)) {
+      blurActiveItem(ui);
+    }
+  });
 
   while (ui.c.pendingRegistrations.length) {
     const layerInfo = ui.c.pendingRegistrations.shift();
@@ -75,7 +106,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // function) so the border and fill dimensions are replayed too — the
   // initial layers never go through registerLayer, which is where the
   // id-specified path replays them for late registrations.
-  ui.applyUserState();
+  const moved = ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);
@@ -97,13 +128,26 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   subscribeControlAttached(ui);
   setTimeout(() => {
     if (!ui.uiContainer?.isConnected) return;
-    ui.initTypesAndVisibility();
+    const replayed = ui.initTypesAndVisibility();
     // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
     // are added after the control's own script, so that event has already
     // fired by the time their registry entries exist, and a page with only a
     // LayerControl would never have its label config applied. Idempotent.
     ui.applyStyleLabelState();
+    // Second, deliberate settle+notify: this is the compensation round for
+    // late-bound layers (their IDs only resolve once the page's layer globals
+    // exist). The synchronous attach round above already settled and announced
+    // the registry-as-seen; keep the two rounds separate, because this one can
+    // carry extra flips the outer one could not have known about.
+    markSettled(ui);
+    notifyDeltas(ui, replayed);
   }, 0);
+
+  markSettled(ui);
+  // The round goes out last: every row is painted, the counts agree with them
+  // and the readiness flag is up, so a subscriber that re-enters reads a
+  // finished panel.
+  notifyDeltas(ui, moved);
 };
 
 /** Re-run the init pass when another control finishes attaching. Unsubscribes
@@ -115,10 +159,12 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
 const subscribeControlAttached = (ui: LayerUI): void => {
   ui.unsubscribeControlAttached = ui.events.on(EVENTS.CONTROL_ATTACHED, () => {
     if (!ui.uiContainer?.isConnected) return;
-    ui.initTypesAndVisibility();
+    const replayed = ui.initTypesAndVisibility();
     // Re-apply is idempotent: a late-registered layer may just now have
     // a resolvable feature set (and thus labelable fields).
     ui.applyStyleLabelState();
+    markSettled(ui);
+    notifyDeltas(ui, replayed);
   });
 };
 
@@ -137,15 +183,15 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // Derive the target state from the actual layer selection rather than
       // checkbox.checked — the browser resets indeterminate before the change
       // event fires, making it impossible to detect the pre-click state.
-      const group = row.dataset.group ?? "";
-      const items = getLayerItems(ui, group);
+      const role = row.dataset.role ?? "";
+      const items = getLayerItems(ui, role);
       const noneChecked = Array.from(items).every((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
         return !c?.checked;
       });
-      toggleAll(ui, group, noneChecked);
+      toggleAll(ui, role, noneChecked);
       return;
     }
     handleChange(ui, event);
@@ -182,7 +228,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
 
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
-    toggleFold(ui, toggleAllEl.dataset.group ?? "");
+    toggleFold(ui, toggleAllEl.dataset.role ?? "");
   };
 
   ui.onDragStart = event => handleDragStart(ui, event);
@@ -249,19 +295,24 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
   // works for rows created after bindLayerEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
-  ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
   ui.onMoreMapClick = () => closeMoreMenu(ui, false);
   container.addEventListener("click", ui.onMoreClick);
-  // Menu click must be on document because the menu is positioned absolute
-  // and may visually overflow the panel bounds.
-  document.addEventListener("click", ui.onMoreMenuClick);
   ui.c.map.on("click", ui.onMoreMapClick);
   // A zoom change re-evaluates every layer's effective-shown: a layer whose
   // stored range excludes the new level is hidden, and one whose range
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
   // pipeline so the checkbox / intents.visible / overrides stay untouched (#329).
-  ui.onZoomEnd = () => applyProjectionAll(ui);
+  // One settled round, not a mid-sweep spray: every layer is diffed first,
+  // then each moved layer announces once, in registry order. The open style
+  // panel's row sync runs in the same coordinator — projection, basemap
+  // hatch, then row chrome, then the notify — so a subscriber that reads the
+  // row sees the settled face rather than the pre-zoom out-of-range state.
+  ui.onZoomEnd = () => {
+    const swept = applyProjectionAll(ui);
+    ui.overlayPanel.styleZoomEndHandler?.();
+    notifyDeltas(ui, swept);
+  };
   ui.c.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
   // by InteractionManager via registerInteractions() in interaction.ts,
@@ -283,35 +334,72 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // before; the id-only payload keeps the bus a signal channel, and the
   // registry lookup here is the single source of the row's current shape.
   const registry = ui.c.layerRegistry;
+  // LayerControl owns these signals; its own handlers must run before any
+  // external observer, regardless of who subscribed first (phase "internal").
+  const subscribe = <E extends keyof EventPayloadMap>(
+    event: E,
+    handler: (payload: EventPayloadMap[E]) => void,
+  ): (() => void) => bus.on(event, handler, "internal");
   const signalHandlers: Array<() => void> = [];
   signalHandlers.push(
-    bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) insertLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
       updateLayerItemLabel(ui, layerInfo);
       invalidateFields(ui, payload.id);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) initLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui, payload.id);
-      dropStyleDimApplies(payload.id);
+    // A capability is a projection of the live tree, and the style panel
+    // gates its rows on it at OPEN time (opacity, fill, border, size). A
+    // recovery — the foreign leaf that forced the degrade leaves — must
+    // reach the panel that is already open, or the user has to close and
+    // reopen it to see the row come back. Re-render that one panel; every
+    // other open overlay is untouched.
+    subscribe(EVENTS.LAYER_CAPABILITY_CHANGED, (payload: { id: string }) => {
+      if (ui.overlayPanel.stylePanelLayerId === payload.id) {
+        openStylePanel(ui, payload.id);
+      }
     }),
-    bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
-      syncToggleAll(ui, payload.group);
+    // A committed filter repaints the owner row: funnel + count in that
+    // row's own unit. The owner publishes after its render settled, so this
+    // repaint reads the final model (not the mid-drag one).
+    subscribe(EVENTS.LAYER_FILTER_CHANGE, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (!layerInfo || !ui.uiContainer) return;
+      const item = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(payload.id)}"]`,
+      );
+      if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
     }),
-    bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      renderInitialList(ui);
-      initTypesAndVisibility(ui);
-      refreshAllCounts(ui);
+    subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
+      // Cache drop only: unregister already tore the labels and their canvas
+      // down (annotation.unloadLayer runs before this event is emitted), and
+      // renderLabels for a gone layer rebuilds nothing — a replay here would
+      // be a walk for its own sake.
+      invalidateFieldCache(ui, payload.id);
+      dropStyleDimApplies(payload.id, ui);
     }),
-    bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
+    subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
+      syncToggleAll(ui, payload.role);
+    }),
+    subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
+      // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
+      // bringLayerToFront, the drag drop's reorderLayer) have already
+      // updated the registry, repriced z and saved the order through the
+      // controller's commit funnel, and a position change alters no count,
+      // checkbox or readiness. So this handler relocates displaced rows
+      // instead of rebuilding the panel — the full rebuildList stays on the
+      // paths that change membership or row structure (fold, attach).
+      syncRowOrder(ui);
+    }),
+    subscribe(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
     }),
     // Overlay mutual exclusion — each subsystem closes itself when it hears
@@ -319,11 +407,12 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => {
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui);
     }),
   );
@@ -341,8 +430,12 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   ) as HTMLElement | null;
   if (!item) return;
   const layerInfo = ui.c.layerRegistry.get(id);
-  if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui, id);
+  if (!layerInfo || layerInfo.role === ROLE.BASE) return;
+  // Cheap sync cache drop — the row rebuild below re-reads the field lists,
+  // so they must not survive the content that just landed. The label rebuild
+  // itself is the most expensive of the replays (full tree walk + canvas
+  // repaint), so it is coalesced with the other faces further down.
+  invalidateFieldCache(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
@@ -355,10 +448,46 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // carry the value), so the executor's runtime `applied` row is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
+  let opacityDelta = NO_DELTA;
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
     ui.runtimeStore.deleteApplied(id);
-    applyProjection(ui, id);
+    opacityDelta = applyProjection(ui, id);
   }
+
+  // Opacity replays explicitly above: its return value IS the delta the
+  // notify carries below, so it cannot ride the registry loop. Every other
+  // dimension declares its `contentChange` policy on the descriptor — the
+  // single place a dimension states what a content change owes it, and the
+  // type makes the field mandatory, so a new dimension cannot silently skip
+  // the decision. The hub owns the mechanics every policy shares: sync
+  // policies run inline (inside the terminal event's error contract), frame
+  // policies schedule through the coalescer with the sourcing event
+  // attached, and the `when` gate answers before any box is allocated.
+  // Registry order is module-import order, not a semantic order: the
+  // replaying faces are independent (each schedules its own coalesced
+  // walk), and a future ordering dependency must be sorted explicitly, not
+  // inferred from the loop.
+  //
+  // Every replay is queued before the notify, not after: a projection
+  // consumer can throw or unregister the layer, and the scheduled replay must
+  // already exist for the teardown's LAYER_ITEM_REMOVED to drop it —
+  // scheduling after a throw would skip the replay entirely, and scheduling
+  // after a reentrant unregister would create a task for an id that is
+  // already gone. The notify stays the last step of the operation.
+  for (const dim of listDimensions()) {
+    const policy = dim.contentChange;
+    if (policy.kind === "none") continue;
+    if (policy.kind === "sync") {
+      policy.run(ui, id);
+      continue;
+    }
+    if (policy.when?.(ui, id) === false) continue;
+    scheduleStyleDimApply(policy.face, id, () => policy.run(ui, id), {
+      source: EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      owner: ui,
+    });
+  }
+  notifyDelta(ui, layerInfo, opacityDelta);
 };
 
 /** Repaint every layer row from its cell — count, type, tooltip and box. */
@@ -376,8 +505,20 @@ const refreshAllCounts = (ui: LayerUI): void => {
 };
 
 const unbindEvents = (ui: LayerUI): void => {
+  // The unmount boundary owns in-flight gesture state: once the drag
+  // listeners below come off, no later native dragend can arrive to finish
+  // the cleanup. Pure session state clears even when the panel is already
+  // gone, which is why this runs before the container guard.
+  clearDragState(ui);
+  ui.unsubscribeEscape?.();
+  ui.unsubscribeEscape = null;
   const container = ui.uiContainer;
-  if (!container) return;
+  if (!container) {
+    // No panel to close, but the UI still owns whatever it scheduled — a
+    // detached UI must not leave a trailing frame (or its reporter) behind.
+    releaseStyleApplyOwner(ui);
+    return;
+  }
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
   // here would only reach whatever subscribers are still listening, so call
@@ -385,6 +526,8 @@ const unbindEvents = (ui: LayerUI): void => {
   // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
+  closeAttrsPanel(ui, false);
+  closeFilterPanel(ui, false);
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);
@@ -398,9 +541,6 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onDrop) container.removeEventListener("drop", ui.onDrop);
   if (ui.onDragEnd) container.removeEventListener("dragend", ui.onDragEnd);
   if (ui.onMoreClick) container.removeEventListener("click", ui.onMoreClick);
-  if (ui.onMoreMenuClick) {
-    document.removeEventListener("click", ui.onMoreMenuClick);
-  }
   if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);
   clearActiveItem(ui);
@@ -415,7 +555,7 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.onFocusIn = ui.onFocusOut = null;
   ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;
   ui.onDrop = ui.onDragEnd = null;
-  ui.onMoreClick = ui.onMoreMenuClick = null;
+  ui.onMoreClick = null;
   ui.onMoreMapClick = null;
   ui.onZoomEnd = null;
   if (ui.unsubscribeCountChange) {
@@ -428,6 +568,10 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   for (const off of ui.unsubscribeLayerSignals) off();
   ui.unsubscribeLayerSignals = [];
+  // Last: closeStylePanel above flushed the panel's trailing writes, so
+  // releasing the scheduler here cancels only frames that no longer have a
+  // UI to land on. Scoped to this UI — another map keeps its own boxes.
+  releaseStyleApplyOwner(ui);
 };
 
 export {

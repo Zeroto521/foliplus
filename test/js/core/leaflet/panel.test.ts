@@ -1,4 +1,4 @@
-import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -9,9 +9,10 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
-  measureRowPanelPlacement,
-  observeRowPanelPlacement,
+  pinRowPanel,
+  unpinRowPanel,
 } from "#core/leaflet/index.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
 // but panel.js also needs on/off/stop — stub them here.
@@ -254,6 +255,35 @@ describe("bindOutsideCollapse", () => {
     inside.addEventListener("click", () => inside.remove());
     inside.click();
     expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("keeps the panel open for a press on a registered portal root", () => {
+    // The shared dropdown mounts its open list on <body> and registers that
+    // node under the trigger it was mounted for. A press on a row is then an
+    // inside press for the panel that owns that trigger, even though the node
+    // is not a descendant of the panel. (Attribution itself — and the fact
+    // that one overlay's list is *not* inside another's — is asserted in
+    // common/portalRoot.test.ts, where the predicate is the unit under test;
+    // bindOutsideCollapse deliberately shares one "inside" verdict per event
+    // across its bindings, so nested/sister panels cannot collapse each
+    // other.)
+    const container = makePanel();
+    const portalList = document.createElement("div");
+    const row = document.createElement("button");
+    portalList.appendChild(row);
+    document.body.appendChild(portalList);
+    const release = registerPortalRoot(portalList, container);
+    try {
+      bindOutsideCollapse({ container });
+      row.click();
+      expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+      expect(container.classList.contains("foliplus-is-collapsed")).toBe(false);
+    } finally {
+      release();
+    }
+    // Once released the same node is ordinary page furniture again.
+    row.click();
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
   });
 
   it("skips collapse when skipCheck returns true", () => {
@@ -769,321 +799,177 @@ describe("createRowPanel", () => {
   });
 });
 
-describe("measureRowPanelPlacement", () => {
-  // Build a panel inside a fake `.leaflet-container` and give each element a
-  // mocked `getBoundingClientRect`. jsdom returns zeroed rects by default, so
-  // without this the arithmetic collapses and the tests would prove nothing.
-  const makePlacement = (opts: {
-    mapTop: number;
-    mapBottom: number;
-    anchorTop: number;
-    anchorBottom: number;
-    naturalHeight: number;
-  }) => {
-    const map = document.createElement("div");
-    map.className = "leaflet-container";
-    document.body.appendChild(map);
+describe("pinRowPanel", () => {
+  type Box = { top: number; left: number; width: number; height: number };
 
-    const row = document.createElement("div");
-    row.className = "foliplus-layer-item";
-    map.appendChild(row);
-
-    const panel = document.createElement("div");
-    panel.className = "foliplus-panel foliplus-row-panel";
-    row.appendChild(panel);
-
-    const rect = (top: number, bottom: number, left = 12, width = 280): DOMRect =>
+  const stubBox = (el: HTMLElement, box: Box): void => {
+    el.getBoundingClientRect = () =>
       ({
-        top,
-        bottom,
-        left,
-        right: left + width,
-        width,
-        height: bottom - top,
-        x: left,
-        y: top,
-        toJSON() {
-          return this;
-        },
+        top: box.top,
+        left: box.left,
+        width: box.width,
+        height: box.height,
+        right: box.left + box.width,
+        bottom: box.top + box.height,
+        x: box.left,
+        y: box.top,
+        toJSON: () => ({}),
       }) as DOMRect;
-
-    vi.spyOn(map, "getBoundingClientRect").mockReturnValue(
-      rect(opts.mapTop, opts.mapBottom, 0, 1280),
-    );
-    vi.spyOn(row, "getBoundingClientRect").mockReturnValue(
-      rect(opts.anchorTop, opts.anchorBottom),
-    );
-    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue(
-      rect(opts.anchorBottom, opts.anchorBottom + opts.naturalHeight),
-    );
-    Object.defineProperty(panel, "scrollHeight", {
-      value: opts.naturalHeight,
-      configurable: true,
-    });
-
-    return { map, row, panel };
   };
 
+  const setViewport = (width: number, height: number): void => {
+    Object.defineProperty(window, "innerWidth", {
+      value: width,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: height,
+      configurable: true,
+    });
+  };
+
+  const make = (card: { width: number; height: number }) => {
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    document.body.append(row, panel);
+    stubBox(panel, { top: 0, left: 0, ...card });
+    return { row, panel };
+  };
+
+  beforeEach(() => setViewport(1024, 720));
   afterEach(() => {
-    vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
 
-  it("keeps the panel below the anchor when there is room for the content", () => {
-    const { panel } = makePlacement({
-      mapTop: 0,
-      mapBottom: 720,
-      anchorTop: 100,
-      anchorBottom: 137,
-      naturalHeight: 243,
-    });
-    measureRowPanelPlacement(panel);
+  it("drops the card under its row, right-aligned with it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
 
-    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
-    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
-      "243px",
-    );
+    pinRowPanel(panel, row);
+
+    // Right edge == row right (310), clamped inside the viewport.
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
   });
 
-  it("caps the panel at the visible strip below when the content is taller", () => {
-    // Anchor sits 213px above the map's bottom edge with 300px of content:
-    // the panel would run 87px past the map's `overflow: hidden` edge, so
-    // the visible cap trims it and the content scrolls inside. Above (150)
-    // is not wider than below, so the panel stays put.
-    const { panel } = makePlacement({
-      mapTop: 0,
-      mapBottom: 400,
-      anchorTop: 150,
-      anchorBottom: 187,
-      naturalHeight: 300,
-    });
-    measureRowPanelPlacement(panel);
+  it("flips upward when the strip below the row is the tight side", () => {
+    // A bottom-row anchor has 88px below it and 598px above: the card lands
+    // above the row and keeps its full natural height inside the upper strip.
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 600, left: 10, width: 300, height: 30 });
 
-    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
-    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
-      "213px",
-    );
-  });
-
-  it("flips the panel upward when the space below is the tight side", () => {
-    // Bottom row: 70px below, 613px above, content 300px. The strip below is
-    // the tight side, so the panel re-anchors above the row and takes the full
-    // natural height inside the space above.
-    const { panel } = makePlacement({
-      mapTop: 0,
-      mapBottom: 720,
-      anchorTop: 613,
-      anchorBottom: 650,
-      naturalHeight: 300,
-    });
-    measureRowPanelPlacement(panel);
+    pinRowPanel(panel, row);
 
     expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    expect(panel.style.top).toBe("198px");
     expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
-      "300px",
+      "400px",
     );
   });
 
-  it("holds the floor when neither strip is tall enough for the content", () => {
-    // 60px above, 40px below, content 300px. Both strips are tighter than the
-    // content and the flip condition prefers the wider strip (above), so the
-    // panel lands in the 120px floor and lets the content scroll inside.
-    const { panel } = makePlacement({
-      mapTop: 0,
-      mapBottom: 100,
-      anchorTop: 60,
-      anchorBottom: 100,
-      naturalHeight: 300,
-    });
-    measureRowPanelPlacement(panel);
+  it("caps a long card to the strip below its row", () => {
+    // 388px below, 298px above, 600px of content: flipping would be tighter,
+    // so the card stays under the row and its content scrolls inside the cap.
+    const { row, panel } = make({ width: 280, height: 600 });
+    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
 
-    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
-    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
-      "120px",
-    );
-  });
+    pinRowPanel(panel, row);
 
-  it("does not touch a panel that is not inside a map container", () => {
-    // Called before the panel has been mounted on its row: no ancestor to
-    // measure against, so the token fallback in the CSS takes over.
-    const row = document.createElement("div");
-    document.body.appendChild(row);
-    const panel = document.createElement("div");
-    panel.className = "foliplus-panel foliplus-row-panel";
-    row.appendChild(panel);
-
-    measureRowPanelPlacement(panel);
-
-    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe("");
     expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
-  });
-});
-
-describe("observeRowPanelPlacement", () => {
-  // Mock MutationObserver so we can control when the callback fires.
-  let moCallback: MutationCallback | null = null;
-  const moDisconnect = vi.fn();
-  const moObserve = vi.fn();
-
-  // Mock ResizeObserver so we can track observe/disconnect calls.
-  const roInstances: { observe: Mock; disconnect: Mock }[] = [];
-
-  beforeEach(() => {
-    moCallback = null;
-    moDisconnect.mockClear();
-    moObserve.mockClear();
-    roInstances.length = 0;
-
-    (globalThis as any).MutationObserver = class {
-      constructor(cb: MutationCallback) {
-        moCallback = cb;
-      }
-      observe = moObserve;
-      disconnect = moDisconnect;
-      takeRecords() {
-        return [];
-      }
-    };
-
-    (globalThis as any).ResizeObserver = class {
-      observe = vi.fn();
-      disconnect = vi.fn();
-      constructor(_cb: () => void) {
-        const inst = { observe: this.observe, disconnect: this.disconnect };
-        roInstances.push(inst);
-      }
-    };
+    expect(panel.style.top).toBe("332px");
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "388px",
+    );
   });
 
-  afterEach(() => {
-    delete (globalThis as any).MutationObserver;
-    delete (globalThis as any).ResizeObserver;
-    document.body.innerHTML = "";
-    vi.restoreAllMocks();
+  it("keeps the last placement while the row is hidden (folded role)", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+
+    stubBox(row, { top: 0, left: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
   });
 
-  function makePanelWithMap(): { panel: HTMLElement; mapEl: HTMLElement } {
-    const mapEl = document.createElement("div");
-    mapEl.className = "leaflet-container";
-    document.body.appendChild(mapEl);
-    const row = document.createElement("div");
-    row.className = "foliplus-layer-item";
-    mapEl.appendChild(row);
-    const panel = document.createElement("div");
-    panel.className = "foliplus-panel foliplus-row-panel";
-    row.appendChild(panel);
-    return { panel, mapEl };
-  }
+  it("follows the row on a scroll and a resize", () => {
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.top).toBe("332px");
 
-  function triggerObsCallback() {
-    if (moCallback) moCallback([], undefined as any);
-  }
+    stubBox(row, { top: 200, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+    expect(panel.style.top).toBe("232px");
 
-  it("calls measure and sets up observers when the panel is connected", () => {
-    const { panel, mapEl } = makePanelWithMap();
-    const resizeSpy = vi.fn();
-    const realAdd = window.addEventListener;
-    vi.spyOn(window, "addEventListener").mockImplementation((type, listener) => {
-      if (type === "resize") resizeSpy(listener);
-      else realAdd.call(window, type, listener);
+    stubBox(row, { top: 100, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("scroll"));
+    expect(panel.style.top).toBe("132px");
+    // Placement never writes an inline height cap.
+    expect(panel.style.maxHeight).toBe("");
+  });
+
+  it("stops following once unpinned", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.top).toBe("132px");
+
+    unpinRowPanel(row);
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("drops a detached card instead of positioning it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    const placed = panel.style.top;
+
+    panel.remove();
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    expect(() => window.dispatchEvent(new Event("resize"))).not.toThrow();
+    expect(panel.style.top).toBe(placed);
+  });
+
+  it("accepts a missing row on unpin", () => {
+    // Close paths read the row back off the card; a card whose row was rebuilt
+    // away answers null, and unpinning must stay a no-op instead of throwing.
+    expect(() => unpinRowPanel(null)).not.toThrow();
+  });
+
+  it("adds the pinned marker on pin and takes it off on unpin", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+
+    pinRowPanel(panel, row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(true);
+
+    unpinRowPanel(row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+  });
+
+  it("leaves a createRowPanel card unpinned (plain absolute row card)", () => {
+    // #724's filter panel builds a row panel without knowing about pinning.
+    // The shared shell must keep working for it: no marker, no inline
+    // placement, so it renders as the plain row-anchored absolute card.
+    const { panel } = createRowPanel({
+      cssClass: "foliplus-filter-panel",
+      title: "Filter",
+      iconSvg: "<svg></svg>",
+      closeTitle: "Close",
+      iconClass: "foliplus-header-icon",
     });
 
-    observeRowPanelPlacement(panel);
-    triggerObsCallback();
-
-    // A ResizeObserver was created and observing the map element.
-    expect(roInstances.length).toBe(1);
-    expect(roInstances[0].observe).toHaveBeenCalledWith(mapEl);
-    // The window resize listener was added (the throttled measure function).
-    expect(resizeSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not create a ResizeObserver when there is no map element", () => {
-    const row = document.createElement("div");
-    document.body.appendChild(row);
-    const panel = document.createElement("div");
-    panel.className = "foliplus-panel foliplus-row-panel";
-    row.appendChild(panel);
-
-    observeRowPanelPlacement(panel);
-    triggerObsCallback();
-
-    expect(roInstances.length).toBe(0);
-  });
-
-  it("does not create a ResizeObserver when ResizeObserver is not available", () => {
-    const { panel } = makePanelWithMap();
-    delete (globalThis as any).ResizeObserver;
-
-    observeRowPanelPlacement(panel);
-    triggerObsCallback();
-
-    expect(roInstances.length).toBe(0);
-  });
-
-  it("disconnects observers when the panel is removed from the DOM", () => {
-    const { panel } = makePanelWithMap();
-    observeRowPanelPlacement(panel);
-    triggerObsCallback();
-
-    // Detach the panel — the MutationObserver callback fires on next microtask.
-    panel.remove();
-    triggerObsCallback();
-
-    // The ResizeObserver was disconnected.
-    expect(roInstances.length).toBe(1);
-    expect(roInstances[0].disconnect).toHaveBeenCalled();
-  });
-
-  it("cleanup function disconnects the MutationObserver", () => {
-    const { panel } = makePanelWithMap();
-    const cleanup = observeRowPanelPlacement(panel);
-
-    cleanup();
-
-    expect(moDisconnect).toHaveBeenCalled();
-  });
-
-  it("cleanup is idempotent — double invocation is safe", () => {
-    const { panel } = makePanelWithMap();
-    const cleanup = observeRowPanelPlacement(panel);
-
-    cleanup();
-    cleanup();
-
-    // disconnect is called twice but MutationObserver.disconnect is idempotent.
-    expect(moDisconnect).toHaveBeenCalledTimes(2);
-  });
-
-  it("activate is idempotent — double callback while connected is a no-op", () => {
-    const { panel: panel } = makePanelWithMap();
-    observeRowPanelPlacement(panel);
-
-    triggerObsCallback(); // first activation
-    triggerObsCallback(); // second — should be no-op
-
-    // Only one ResizeObserver was created.
-    expect(roInstances.length).toBe(1);
-  });
-
-  it("re-activates when the panel is re-attached after removal", () => {
-    const { panel } = makePanelWithMap();
-    const row = panel.parentElement!;
-    observeRowPanelPlacement(panel);
-    triggerObsCallback(); // activate
-
-    panel.remove();
-    triggerObsCallback(); // deactivate
-    expect(roInstances[0].disconnect).toHaveBeenCalled();
-
-    // Re-attach the panel.
-    row.appendChild(panel);
-    triggerObsCallback(); // re-activate
-
-    expect(roInstances.length).toBe(2);
-    // The new ResizeObserver observes the same map element (the panel's
-    // ancestor). We can't easily capture the mapEl here without duplicating
-    // the setup, so we just check that observe was called.
-    expect(roInstances[1].observe).toHaveBeenCalled();
+    expect(panel.classList.contains("foliplus-row-panel")).toBe(true);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+    expect(panel.style.position).toBe("");
+    expect(panel.style.top).toBe("");
+    expect(panel.style.left).toBe("");
   });
 });

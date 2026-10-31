@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASS_COUNT } from "#core/classify.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -16,11 +17,16 @@ import {
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import {
+  MAX_STOPS,
+  originalGradient,
+} from "#foliplus/LayerControl/ui/style/originalColor.js";
+import {
   FACE,
   dropStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
+import { dropdownOf } from "#common/dropdown.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
@@ -28,6 +34,11 @@ import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
  *  gate in `layerCanFill` admits the layer. The parent's eachLayer callback
  *  dispatches to each child, matching how Leaflet LayerGroup.setStyle walks
  *  its tree. */
+/** The visible control of a bridged style select: the shared dropdown trigger.
+ *  Accessible names live there; the select itself is hidden behind it. */
+const triggerOf = (select: HTMLSelectElement): HTMLButtonElement =>
+  dropdownOf(select)!.trigger;
+
 const makeFillableLayer = () => {
   const makeLeaf = (options: { fillColor?: string; fillOpacity?: number }) => {
     const leaf = new L.Polygon() as L.Polygon & {
@@ -38,9 +49,12 @@ const makeFillableLayer = () => {
     leaf.setStyle = vi.fn();
     return leaf;
   };
+  // One color across leaves: this fixture is the "author paints one fill"
+  // layer, so the fill row keeps its normal solid/ramp arms. Per-feature
+  // detection has its own fixture below.
   const leaves = [
     makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true } as any),
-    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7, fill: true } as any),
+    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.7, fill: true } as any),
   ];
   const parent = {
     options: {},
@@ -57,6 +71,21 @@ const makeFillableLayer = () => {
   return parent as unknown as L.Layer & { leaves: typeof leaves };
 };
 
+/** One coordinate ring. A fillable stub has to advertise the areal
+ *  duck-type `walkFillLeaves` matches through `isArealStyleLeaf` - a bare
+ *  setter-only object would otherwise fall out of the walk entirely.
+ */
+const RING = () => [
+  [
+    { lat: 0, lng: 0 },
+    { lat: 1, lng: 0 },
+    { lat: 0, lng: 1 },
+  ],
+];
+
+/** The style write a leaf spy records. */
+type StyleWrite = { fillColor?: string; fillOpacity?: number; fill?: boolean };
+
 /** Build a LayerController/UI fixture with a real fillable overlay layer
  *  registered under `overlay1`, replacing the fixture's bare polygon duck. */
 const initWithFillLayer = () => {
@@ -70,13 +99,13 @@ const initWithFillLayer = () => {
       {
         id: "overlay1",
         name: "Polygons",
-        group: "overlay",
+        role: "overlay",
         layer: fillLayer,
       },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -84,6 +113,200 @@ const initWithFillLayer = () => {
   });
   ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   return { manager, ui, map, fillLayer };
+};
+
+/** A fillable layer the author paints per feature: leaves carry distinct
+ *  fill colors, so the fill row's detected state is "feature". */
+const makePerFeatureLayer = (colors: readonly string[]) => {
+  const makeLeaf = (color: string, value: number) => {
+    const leaf = new L.Polygon() as L.Polygon & {
+      options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+      feature: { properties: { count: number } };
+      setStyle: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+    };
+    leaf.options = { fillColor: color, fillOpacity: 0.5, fill: true };
+    // explore output: the color and the column value live on the feature.
+    leaf.feature = {
+      properties: { __folium_color: color, cat: `c${value}`, count: value },
+    };
+    leaf.setStyle = vi.fn();
+    leaf.on = vi.fn();
+    return leaf;
+  };
+  const leaves = colors.map((color, i) => makeLeaf(color, i + 1));
+  const parent = {
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) =>
+      leaves.forEach(child => fn(child)),
+    ),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+    leaves,
+  };
+  return parent as unknown as L.Layer & { leaves: typeof leaves };
+};
+
+const initWithPerFeatureLayer = ({
+  colors = ["#0d0887", "#f0f921"] as readonly string[],
+  perFeature = true,
+  fillAuthor = perFeature
+    ? { perFeature: true, distinct: colors.length, stops: [...colors] }
+    : { perFeature: false, distinct: 1, stops: colors.slice(0, 1) },
+  withProperties = true,
+}: {
+  colors?: readonly string[];
+  perFeature?: boolean;
+  fillAuthor?: {
+    perFeature: boolean;
+    distinct: number;
+    stops: string[];
+    scale?: unknown;
+  } | null;
+  withProperties?: boolean;
+} = {}) => {
+  installLeafletGlobals();
+  const layer = makePerFeatureLayer(colors);
+  if (!withProperties) {
+    for (const leaf of layer.leaves) {
+      delete (leaf.feature as { properties?: unknown }).properties;
+    }
+  }
+  const { manager, ui } = initFixture({
+    data: [
+      {
+        id: "feature1",
+        name: "Per feature",
+        role: "overlay",
+        layer,
+        fillAuthor,
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+  return { manager, ui, layer };
+};
+
+/** A layer the author paints from a colormap: the fill row must open on the
+ *  read-only original-colors state over the author's own scale. */
+const initWithAuthorScale = ({
+  stops = ["#0d0887", "#6a00a8", "#b12a90"] as readonly string[],
+  scale = {
+    kind: "continuous" as const,
+    column: "score",
+    vmin: 10,
+    vmax: 30,
+  },
+  distinct = stops.length,
+  capped = false,
+}: {
+  stops?: readonly string[];
+  scale?: {
+    kind: "continuous" | "stepped";
+    column?: string;
+    vmin: number;
+    vmax: number;
+    levels?: number;
+    breaks?: number[];
+  } | null;
+  distinct?: number;
+  capped?: boolean;
+} = {}) => {
+  installLeafletGlobals();
+  const layer = makePerFeatureLayer(stops);
+  layer.leaves.forEach((leaf: { feature: unknown }, index: number) => {
+    const feature = leaf.feature as { properties: Record<string, unknown> };
+    feature.properties.score = (index + 1) * 10;
+  });
+  const { manager, ui } = initFixture({
+    data: [
+      {
+        id: "overlay1",
+        name: "Original",
+        role: "overlay",
+        layer,
+        fillAuthor: {
+          perFeature: true,
+          distinct,
+          stops: [...stops],
+          ...(capped ? { capped: true } : {}),
+          ...(scale ? { scale } : {}),
+        },
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("overlay1", [{ name: "score", numeric: true }]);
+  return { manager, ui, layer };
+};
+/** A fillable layer whose leaves carry a numeric
+ *  `feature.properties.count`, so the ramp arm has values to classify. */
+const makeRampedLayer = (values: number[]) => {
+  const makeLeaf = (value: number) => {
+    const leaf = new L.Polygon() as {
+      options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+      feature: { properties: { count: number } };
+      setStyle: ReturnType<typeof vi.fn<(style: StyleWrite) => void>>;
+      on: ReturnType<typeof vi.fn>;
+    };
+    leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+    leaf.feature = { properties: { count: value } };
+    leaf.setStyle = vi.fn();
+    leaf.on = vi.fn();
+    return leaf;
+  };
+  const leaves = values.map(makeLeaf);
+  const parent = {
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) =>
+      leaves.forEach(child => fn(child)),
+    ),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+    leaves,
+  };
+  // Deliberately not intersected with L.Layer: the test suite declares L as
+  // any, so an L.Layer & {...} intersection collapses to any and the callback
+  // parameter in a .map over leaves loses its type.
+  return parent as { leaves: typeof leaves };
+};
+
+/** Fixture with a rampable overlay layer — leaves carry `count` so
+ *  `applyRampToLayer` has values to classify. */
+const initWithRampedLayer = (values: number[] = [1, 5, 9]) => {
+  installLeafletGlobals();
+  const rampLayer = makeRampedLayer(values);
+  const { manager, ui } = initFixture({
+    data: [
+      { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
+      {
+        id: "base1",
+        name: "OSM",
+        role: "base",
+        layer: { options: {}, setZIndex: vi.fn() } as never,
+        paneName: "tilePane",
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
+  return { manager, ui, rampLayer };
+};
+
+/** Install a chroma stub that hands back a fixed color list, whatever count
+ *  was requested. */
+const installChroma = (colors: string[]): void => {
+  globalThis.chroma = {
+    scale: () => ({
+      mode: () => ({
+        colors: () => colors,
+      }),
+    }),
+  } as never;
 };
 
 /** Commit then force the deferred apply to land — the commit channel is
@@ -144,13 +367,19 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
-  it("the fill row's label matches the row's aria-label key", () => {
-    // Same key twice keeps label text and screen-reader name honest.
+  it("the mode row's label matches the trigger's aria-label key", () => {
+    // The row that owns the mode control reads "Fill"; the swatch's aria-label
+    // stays the color key, so neither one lies about what it names.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
     const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent;
-    expect(labelText).toBe(fillInput(item)!.getAttribute("aria-label"));
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(labelText).toBe("LayerControl.style_fill_mode");
+    expect(triggerOf(select).getAttribute("aria-label")).toBe(labelText);
+    expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
   it("the swatch defaults to the authored paint when no fill is committed", () => {
@@ -180,7 +409,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      group: "base",
+      role: "base",
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });
@@ -552,7 +781,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const opacity = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -560,7 +789,10 @@ describe("LayerUI style panel — fill color", () => {
     opacity.value = "40";
     opacity.dispatchEvent(new Event("change", { bubbles: true }));
 
+    // An opacity-only commit pulls the author's color back in the same
+    // payload, so nothing an earlier arm left can sit under the opacity.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#aabbcc",
       fillOpacity: 0.4,
       fill: true,
     });
@@ -578,7 +810,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -606,7 +838,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
@@ -632,7 +864,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
@@ -652,14 +884,39 @@ describe("LayerUI style panel — fill color", () => {
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#aabbcc",
       opacity: 0.5,
+      mode: "solid",
     });
     commitNow(ui, "overlay1", "color", "#445566");
     commitNow(ui, "overlay1", "opacity", 80);
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#445566",
       opacity: 0.8,
+      mode: "solid",
     });
     expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
+  });
+
+  it("FILL_DIMENSION.value reports the ramp arm when the map is painted by value", () => {
+    // A ramp config without an explicit mode is the pre-fillMode record shape
+    // and still paints the ramp, so the descriptor must say "ramp" rather than
+    // the stored mode's solid fallback — or the panel would claim solid while
+    // the map is painted by value.
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    // An explicit solid mode wins over a stored ramp config — the config is
+    // kept for the next switch but the arm is solid.
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({ mode: "solid" });
   });
 
   it("unregister drops the fill scheduler entry — no Map residue for dead ids", () => {
@@ -711,7 +968,10 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.8);
     applyFillToLayer(ui, "overlay1");
 
+    // The author's color rides the same payload: the opacity does not hide
+    // a color the leaf never claimed.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#aabbcc",
       fillOpacity: 0.8,
       fill: true,
     });
@@ -755,6 +1015,8 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -787,6 +1049,8 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn(),
     };
@@ -803,6 +1067,8 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -827,6 +1093,8 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -846,6 +1114,8 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -873,11 +1143,15 @@ describe("LayerUI style panel — fill color", () => {
     const leaves = [
       {
         options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+        feature: { geometry: { type: "Polygon" } },
+        getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
       },
       {
         options: { fillColor: "#ddeeff", fillOpacity: 0.7, fill: true },
+        feature: { geometry: { type: "Polygon" } },
+        getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
       },
@@ -925,6 +1199,8 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(function (
         this: { options: Record<string, unknown> },
         s: Record<string, unknown>,
@@ -950,7 +1226,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: CONST.SOLID_BASEMAP_ID,
       name: "Color",
-      group: "base",
+      role: "base",
       color: CONST.COLOR.DEFAULT,
     });
     const li = manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!;
@@ -1135,7 +1411,7 @@ describe("LayerUI style panel — fill color", () => {
       fill: true,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#ddeeff",
+      fillColor: "#aabbcc",
       fillOpacity: 0.7,
       fill: true,
     });
@@ -1163,7 +1439,7 @@ describe("LayerUI style panel — fill color", () => {
       fill: false,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#ddeeff",
+      fillColor: "#aabbcc",
       fillOpacity: 0.7,
       fill: false,
     });
@@ -1216,21 +1492,167 @@ describe("buildFillRow", () => {
     vi.clearAllMocks();
   });
 
-  it("emits a FORM_ROW with the row class and the swatch input", () => {
+  it("emits the fill block: mode row + detail slot with the swatch input", () => {
     const row = buildFillRow(ui, "overlay1");
 
-    expect(row.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
-    expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_ROW)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_BLOCK)).toBe(true);
+    const modeRow = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement;
+    expect(modeRow.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
+    ).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`)).not.toBeNull();
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
   });
 
-  it("the label renders the locale key's translated value", () => {
+  it("the mode row renders the locale key's translated value", () => {
     const row = buildFillRow(ui, "overlay1");
     const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
-    expect(label?.textContent).toBe("LayerControl.style_fill");
+    expect(label?.textContent).toBe("LayerControl.style_fill_mode");
+  });
+
+  it("defaults to the solid arm with the by-value option available", () => {
+    const row = buildFillRow(ui, "overlay1");
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const rampOption = select.querySelector(
+      'option[value="ramp"]',
+    ) as HTMLOptionElement;
+
+    expect(select.value).toBe("solid");
+    expect(rampOption.disabled).toBe(false);
+  });
+
+  it("renders only the solid arm when the layer has no numeric field", () => {
+    const fixture = initWithFillLayer();
+    // Count is the only numeric property; make it a string-only layer.
+    fixture.manager.registerLayer({
+      id: "textonly",
+      name: "Text",
+      role: "overlay",
+      layer: (() => {
+        const leaf = new L.Polygon() as L.Polygon & {
+          options: Record<string, unknown>;
+          feature: { properties: Record<string, unknown> };
+          setStyle: ReturnType<typeof vi.fn>;
+        };
+        leaf.options = { fillColor: "#aabbcc", fill: true };
+        leaf.feature = { properties: { name: "a" } };
+        leaf.setStyle = vi.fn();
+        return {
+          options: {},
+          eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 0, lng: 0 }),
+            getNorthEast: () => ({ lat: 1, lng: 1 }),
+          }),
+        };
+      })(),
+    });
+    fixture.ui.runtimeStore.setFields("textonly", [{ name: "name", numeric: false }]);
+
+    const row = buildFillRow(fixture.ui, "textonly");
+
+    // No mode select at all: a layer with one honest arm does not get a
+    // dropdown that can only ever show that arm. No hint text either.
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`),
+    ).not.toBeNull();
+  });
+
+  it("puts the solid arm's color and opacity in one row", () => {
+    const row = buildFillRow(ui, "overlay1");
+    const fillRows = row.querySelectorAll(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
+
+    // One detail row (plus the mode row above it): color and opacity share it.
+    expect(fillRows.length).toBe(2);
+    const detailRow = fillRows[1];
+    expect(
+      detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(
+      detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`),
+    ).not.toBeNull();
+  });
+
+  it("renders the ramp detail when a stored config says ramp", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 4,
+      scheme: "Reds",
+    } as never);
+
+    const row = buildFillRow(ui, "overlay1");
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const fieldSelect = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    const methodSelect = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+    const trigger = row.querySelector(`.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`);
+
+    expect(select.value).toBe("ramp");
+    expect(fieldSelect.value).toBe("count");
+    expect(methodSelect.value).toBe("equal");
+    expect(classes.value).toBe("4");
+    expect(trigger).not.toBeNull();
+    expect(trigger!.textContent?.trim()).toBe("");
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
+  });
+
+  it("labels the ramp row by method and names both selects distinctly", () => {
+    // One visible label for two selects: it reads by the primary control —
+    // the classification method — the same word the heatmap panel shows. The
+    // class count is announced by the count select's own aria label, so the
+    // pair stays distinguishable to a screen reader.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 4,
+      scheme: "Reds",
+    } as never);
+
+    const row = buildFillRow(ui, "overlay1");
+    const method = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+    const label = method
+      .closest(`.${CONST.CLASSES.FORM_ROW}`)!
+      .querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+
+    expect(label?.textContent).toBe("LayerControl.style_method");
+    expect(triggerOf(method).getAttribute("aria-label")).toBe(
+      "LayerControl.style_method",
+    );
+    expect(triggerOf(classes).getAttribute("aria-label")).toBe(
+      "LayerControl.style_fill_classes",
+    );
+    expect(triggerOf(method).getAttribute("aria-label")).not.toBe(
+      triggerOf(classes).getAttribute("aria-label"),
+    );
   });
 
   it("falls back to the Leaflet default for an unregistered layer", () => {
@@ -1348,6 +1770,8 @@ describe("buildFillRow", () => {
     const svgFill = vi.fn();
     const path = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       _path: { setAttribute: svgFill },
       _renderer: true as any,
       setStyle: vi.fn(function (this: any, style: Record<string, unknown>) {
@@ -1375,6 +1799,8 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1393,6 +1819,8 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1412,6 +1840,8 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1461,6 +1891,8 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1535,6 +1967,20 @@ describe("replayFillState", () => {
     expect(() => replayFillState(ui, "ghost")).not.toThrow();
   });
 
+  it("its content-change gate reads the same intent-key set the replay does", () => {
+    // One array (FILL_INTENT_KEYS) feeds both the gate and the replay loop.
+    // Pin the agreement at the boundary: no stored key gates the frame off,
+    // a stored key gates it on — so a future intent cannot be replayed
+    // without also passing the gate, or vice versa.
+    const policy = FILL_DIMENSION.contentChange;
+    expect(policy.kind).toBe("frame");
+    const when = (policy as { when?: (u: LayerUI, id: string) => boolean }).when!;
+    expect(when(ui, "overlay1")).toBe(false);
+
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    expect(when(ui, "overlay1")).toBe(true);
+  });
+
   it("attachUI replays a stored fill onto a registered layer", () => {
     // Regression: the initial layers never go through registerLayer (where
     // the id-specified replay lives), so attach itself must replay fill —
@@ -1550,11 +1996,11 @@ describe("replayFillState", () => {
     );
     const fixture = initFixture({
       data: [
-        { id: "overlay1", name: "Polygons", group: "overlay", layer: fillLayer },
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: fillLayer },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -1565,6 +2011,2211 @@ describe("replayFillState", () => {
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
       fill: true,
+    });
+  });
+
+  it("attachUI replays a persisted ramp — a reload keeps the value colors", () => {
+    // Regression: a persisted ramp with no solid color used to fall through
+    // the empty-intent guard and paint nothing after a reload.
+    const rampLayer = makeRampedLayer([1, 5, 9]);
+    installChroma(["#111111", "#222222", "#333333"]);
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: {
+          overlay1: {
+            fillMode: "ramp",
+            fillRamp: {
+              kind: "numeric",
+              field: "count",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillMode", "fillRamp"],
+          },
+        },
+      }),
+    );
+    const fixture = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    fixture.manager.ui!.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+    ]);
+
+    expect(getIntent(fixture.manager.ui!, "overlay1", "fillMode")).toBe("ramp");
+    // The redundant default never reaches the apply path.
+    expect(
+      getIntent(fixture.manager.ui!, "overlay1", "fillRamp")?.kind,
+    ).toBeUndefined();
+    // Each leaf got the color of its own value class, not the author's.
+    const colors = rampLayer.leaves.map(
+      leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
+    );
+    expect(colors).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("replays a persisted fillOpacity alongside the ramp color", () => {
+    const fixture = initWithRampedLayer([1, 5, 9]);
+    installChroma(["#111111", "#222222", "#333333"]);
+    setIntent(fixture.ui, "overlay1", "fillMode", "ramp");
+    setIntent(fixture.ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+    // The solid arm's opacity survives the mode switch — the ramp replaces
+    // only the color.
+    setIntent(fixture.ui, "overlay1", "fillOpacity", 0.25);
+
+    replayFillState(fixture.ui, "overlay1");
+
+    expect(fixture.rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fillOpacity: 0.25,
+      fill: true,
+    });
+  });
+});
+
+describe("applyFillToLayer — fillMode dispatch", () => {
+  const RAMP = {
+    field: "count",
+    method: "equal" as const,
+    classes: 3,
+    scheme: "Reds",
+  };
+  const COLORS = ["#111111", "#222222", "#333333"];
+
+  let manager: LayerController;
+  let ui: LayerUI;
+  let rampLayer: ReturnType<typeof makeRampedLayer>;
+
+  beforeEach(() => {
+    installChroma(COLORS);
+    const fixture = initWithRampedLayer([1, 5, 9]);
+    manager = fixture.manager;
+    ui = fixture.ui;
+    rampLayer = fixture.rampLayer;
+  });
+
+  afterEach(() => {
+    delete globalThis.chroma;
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const paintedColors = (): string[] =>
+    rampLayer.leaves.map(
+      leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
+    );
+
+  it("fillMode=ramp paints by value and ignores the stored solid color", () => {
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
+  it("a ramp config with no explicit mode paints the ramp", () => {
+    // The pre-fillMode record shape: the config's presence alone selects the
+    // arm, so a persisted record written before fillMode existed still paints.
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
+  it("resolves a stored field the data no longer offers, for display and paint", () => {
+    // A stored ramp can outlive its column (a streamed layer replaced its
+    // features). The row and the map must agree on the column in use: both
+    // resolve the stale name to the first offered field. Before the shared
+    // resolution the row showed that field while the map degraded to the
+    // author's face.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", { ...RAMP, field: "gone" });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count" },
+    });
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
+  it("fillMode=solid never reads the ramp config", () => {
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#ff0000",
+      fill: true,
+    });
+  });
+
+  it("a mode=ramp record with no config falls back to the authored face", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+
+    applyFillToLayer(ui, "overlay1");
+
+    // Neither arm has a value, so nothing is written — the author's fill stays.
+    expect(rampLayer.leaves[0].setStyle).not.toHaveBeenCalled();
+  });
+
+  it("the ramp arm carries the user's solid-mode opacity", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    setIntent(ui, "overlay1", "fillOpacity", 0.25);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fillOpacity: 0.25,
+      fill: true,
+    });
+  });
+
+  it("the ramp arm omits the opacity when the user never set one", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    // The author's declared opacity stays in force instead of being zeroed.
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fill: true,
+    });
+  });
+
+  it("switching back to solid with no solid override restores the author's face", () => {
+    // A solid apply with nothing to own must clear the ramp's output, not
+    // skip the walk: a skipped walk leaves the previous arm's color on the
+    // map. The ramp config stays stored for the next switch.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+
+    for (const leaf of rampLayer.leaves) {
+      expect(leaf.setStyle.mock.calls.at(-1)![0]).toEqual({
+        fillColor: "#aabbcc",
+        fillOpacity: 0.5,
+        fill: true,
+      });
+    }
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
+  it("an opacity-only solid apply after a ramp restores the author's color", () => {
+    // Solid owns the whole fill face, so the color has to come back to the
+    // author's too — otherwise the ramp's color would sit under the user's
+    // opacity.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+    applyFillToLayer(ui, "overlay1");
+
+    // One call, not a restore then a commit: the author's color and `fill`
+    // flag ride the same payload as the user's opacity, so the ramp's color
+    // is replaced rather than left sitting under it.
+    const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
+    expect(calls.at(-1)).toEqual({
+      fillColor: "#aabbcc",
+      fillOpacity: 0.4,
+      fill: true,
+    });
+  });
+
+  it("a color-only solid apply after a ramp preserves the author's opacity", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillColor", "#777777");
+    applyFillToLayer(ui, "overlay1");
+
+    // One call, color only. The author's opacity is left in place rather
+    // than rewritten, so the ramp's color is replaced without touching it -
+    // `toEqual` above rejects a payload that carried a fillOpacity at all.
+    const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
+    expect(calls.at(-1)).toEqual({ fillColor: "#777777", fill: true });
+  });
+
+  it("a switch back to the ramp repaints it, with the stored config kept", () => {
+    // Both directions: the inactive config is never deleted, only ignored, so
+    // the ramp comes back exactly where it left off.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
+  it("a ramp arm on a color basemap paints nothing rather than the stored solid", () => {
+    // A basemap has no leaves to classify, so the ramp must degrade to the
+    // pane's existing paint - and it must not fall through to the solid arm,
+    // which would paint the stored solid color while the panel claims ramp.
+    // The ramp config stays stored, so a later switch back has something to
+    // restore against.
+    manager.registerLayer({
+      id: CONST.SOLID_BASEMAP_ID,
+      name: "Color",
+      role: "base",
+      color: CONST.COLOR.DEFAULT,
+    });
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillMode", "ramp");
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp", RAMP);
+
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
+
+    expect(ui.currentColor).not.toBe("#ff0000");
+    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
+    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp")).toEqual(RAMP);
+  });
+
+  it("FILL_DIMENSION.write selects the ramp arm and paints on the next frame", () => {
+    const schedule = vi.fn();
+    ui.c.persistence = { schedule } as never;
+
+    FILL_DIMENSION.write!(ui, "overlay1", {
+      mode: "ramp",
+      ramp: RAMP,
+      opacity: 0.4,
+    });
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+    expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+
+    flushStyleDimApply(FACE.FILL, "overlay1");
+    const last = rampLayer.leaves[0].setStyle.mock.calls.at(-1)![0];
+    expect(last.fillColor).toBe(COLORS[0]);
+    expect(last.fillOpacity).toBe(0.4);
+  });
+
+  it("FILL_DIMENSION.write with a solid patch leaves the ramp arm stored", () => {
+    // The writer writes the keys it is given and no more: a color pick while
+    // the ramp arm is active must not delete the stored ramp, which is what a
+    // mode switch back restores.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
+
+    expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
+  it("a solid switch leaves the author's face in force on mouseout", () => {
+    // The ramp config stays stored across the switch (it is the arm's
+    // next-time state, not evidence the arm is active), so the getter a ramp
+    // apply registered is still reachable. The solid arm has to take the leaf
+    // back, or the next mouseout would repaint the ramp over the author's
+    // face. The getter's own mode check is asserted in fillRamp.test.ts.
+    const handlers: Array<() => void> = [];
+    const leaf = {
+      options: { fillColor: "#112233", fillOpacity: 0.6, fill: false },
+      feature: { properties: { count: 1 }, geometry: { type: "Polygon" } },
+      getLatLngs: RING,
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handlers.push(fn);
+      }),
+    };
+    rampLayer.leaves[0] = leaf as never;
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    // folium's mouseout restores the author's face; the ramp's getter repays
+    // the ramp color on top of it.
+    leaf.setStyle({ fillColor: "#112233", fillOpacity: 0.6, fill: false });
+    handlers[0]();
+    expect(leaf.setStyle.mock.calls.at(-1)![0].fillColor).toBe(COLORS[0]);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+    leaf.setStyle.mockClear();
+
+    // Re-registering the key replaces the ramp's getter instead of stacking a
+    // second closure, so the leaf still holds one mouseout handler.
+    expect(handlers).toHaveLength(1);
+
+    // folium's mouseout restores the author's face...
+    leaf.setStyle({ fillColor: "#112233", fillOpacity: 0.6, fill: false });
+    // ...and the (now solid) getter leaves it alone.
+    handlers[0]();
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+  });
+
+  it("reset clears both the ramp config and the mode", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    setIntent(ui, "overlay1", "fillOpacity", 0.25);
+
+    resetLayerFill(ui, "overlay1");
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(false);
+    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(false);
+  });
+});
+
+const makeLeaf = (value: number) => {
+  const leaf = new L.Polygon() as {
+    options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+    feature: { properties: Record<string, unknown> };
+    setStyle: ReturnType<typeof vi.fn<(style: StyleWrite) => void>>;
+    on: ReturnType<typeof vi.fn>;
+  };
+  leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+  leaf.feature = { properties: { count: value } };
+  leaf.setStyle = vi.fn();
+  leaf.on = vi.fn();
+  return leaf;
+};
+
+const makeLayer = (values: number[]) => {
+  const leaves = values.map(makeLeaf);
+  const parent = {
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+    leaves,
+  };
+  return parent as { leaves: typeof leaves };
+};
+
+const initWithValues = (values: number[] = [1, 5, 9]) => {
+  installLeafletGlobals();
+  const layer = makeLayer(values);
+  const { manager, ui } = initFixture({
+    data: [
+      { id: "overlay1", name: "Polygons", role: "overlay", layer },
+      {
+        id: "base1",
+        name: "OSM",
+        role: "base",
+        layer: { options: {}, setZIndex: vi.fn() } as never,
+        paneName: "tilePane",
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
+  return { manager, ui, layer };
+};
+
+const openPanel = (ui: LayerUI): HTMLElement => {
+  const item = findItem(ui, "overlay1");
+  ui.openStylePanel("overlay1");
+  const block = item.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_BLOCK}`,
+  ) as HTMLElement | null;
+  expect(block).not.toBeNull();
+  return block!;
+};
+
+const modeSelect = (block: HTMLElement): HTMLSelectElement =>
+  block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
+
+const details = (block: HTMLElement): HTMLElement =>
+  block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
+
+const switchMode = (block: HTMLElement, mode: "solid" | "ramp" | "original"): void => {
+  const select = modeSelect(block);
+  select.value = mode;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
+const flushFill = (): void => flushStyleDimApply(FACE.FILL, "overlay1");
+
+describe("fill mode row — solid ↔ color by value", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let layer: ReturnType<typeof makeLayer>;
+
+  beforeEach(() => {
+    ({ manager, ui, layer } = initWithValues());
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("switching to by-value seeds the default ramp and repaints per leaf", () => {
+    installChroma(["#111111", "#222222", "#333333", "#444444", "#555555", "#666666"]);
+    const block = openPanel(ui);
+
+    switchMode(block, "ramp");
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual({
+      kind: "numeric",
+      field: "count",
+      method: CONST.RAMP.METHOD_DEFAULT,
+      classes: CLASS_COUNT.DEFAULT,
+      scheme: CONST.RAMP.SCHEME_DEFAULT,
+    });
+    // jenks/quantile read the simple-statistics CDN global, which jsdom does
+    // not load; equal interval classifies on its own, so the paint assertion
+    // below exercises the real ramp colors.
+    const method = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    method.value = "equal";
+    method.dispatchEvent(new Event("change", { bubbles: true }));
+    flushFill();
+    const rampColors = [
+      "#111111",
+      "#222222",
+      "#333333",
+      "#444444",
+      "#555555",
+      "#666666",
+    ];
+    for (const leaf of layer.leaves) {
+      const call = leaf.setStyle.mock.calls.at(-1)?.[0];
+      expect(rampColors).toContain(call?.fillColor);
+    }
+    // The detail slot now shows the ramp arm's three rows.
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+    ).not.toBeNull();
+  });
+
+  it("switching back to solid keeps the ramp config for the next switch", () => {
+    installChroma(["#111111", "#222222"]);
+    const block = openPanel(ui);
+    switchMode(block, "ramp");
+    switchMode(block, "solid");
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("solid");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "count" });
+    // The solid arm is back: swatch + opacity, no ramp controls.
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+    ).toBeNull();
+  });
+
+  it("renders no mode select and writes no mode when there is no numeric field", () => {
+    // A text-only layer: the field cache has no numeric entry and the tree
+    // walk fallback finds no finite number either.
+    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    for (const leaf of layer.leaves) {
+      leaf.feature.properties = { name: "a" };
+    }
+    const block = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", block);
+
+    expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+  });
+
+  it("a color basemap keeps the single-swatch row (solid only)", () => {
+    manager.registerLayer({
+      id: "colormap",
+      name: "Color",
+      role: "base",
+      color: "#3366cc",
+      canvas: document.createElement("canvas"),
+    });
+    const row = buildFillRow(ui, "colormap");
+    bindFillRow(ui, "colormap", row);
+
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
+    const color = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+    expect(color).not.toBeNull();
+    // The single row binds the same live swatch the solid arm uses.
+    color.value = "#123456";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    flushFill();
+    expect(getIntent(ui, "colormap", "fillColor")).toBe("#123456");
+  });
+
+  it("falls back to the tree walk when the field cache is empty", () => {
+    // The cache can be cold (or hold only labelable text fields) while the
+    // features still carry numbers; the ramp field list must not go empty.
+    ui.runtimeStore.setFields("overlay1", []);
+    const block = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", block);
+    const select = modeSelect(block);
+
+    expect(
+      (select.querySelector('option[value="ramp"]') as HTMLOptionElement).disabled,
+    ).toBe(false);
+    switchMode(block, "ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "count" });
+  });
+
+  it("shows the stored ramp as solid when the layer has no numeric field", () => {
+    // A record can outlive the data it was built for (field removed). The
+    // panel must fall back to the solid arm instead of showing a ramp select
+    // whose detail cannot classify anything.
+    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    for (const leaf of layer.leaves) {
+      leaf.feature.properties = { name: "a" };
+    }
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+
+    const block = buildFillRow(ui, "overlay1");
+
+    // One honest arm: solid controls, no mode select, no ramp detail.
+    expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+    ).toBeNull();
+  });
+});
+
+describe("fill ramp detail — field / method / classes / scheme", () => {
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    ({ ui } = initWithValues());
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("field selection writes the ramp field", () => {
+    // Two numeric fields so a real choice exists (the field list is native).
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "score", numeric: true },
+    ]);
+    const block = openPanel(ui);
+    const select = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(select.value).toBe("count");
+
+    select.value = "score";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
+  });
+
+  it("shows the first field when the stored field is no longer offered", () => {
+    // Options come from the current data; a stored field that disappeared
+    // cannot stay selected, or the select would render blank.
+    ui.runtimeStore.setFields("overlay1", [{ name: "score", numeric: true }]);
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+
+    const block = buildFillRow(ui, "overlay1");
+    const field = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(Array.from(field.options).map(o => o.value)).toEqual(["score"]);
+    expect(field.value).toBe("score");
+  });
+
+  it("method selection writes the ramp method", () => {
+    const block = openPanel(ui);
+    const method = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    method.value = "equal";
+    method.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ method: "equal" });
+  });
+
+  it("class count select writes the chosen count and offers the shared range", () => {
+    const block = openPanel(ui);
+    const classes = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+
+    // Same vocabulary as the heatmap: a select over the 2..9 range, never a
+    // free number input.
+    expect(Array.from(classes.options).map(o => o.value)).toEqual(
+      Array.from({ length: CLASS_COUNT.MAX - CLASS_COUNT.MIN + 1 }, (_, i) =>
+        String(CLASS_COUNT.MIN + i),
+      ),
+    );
+    classes.value = "5";
+    classes.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 5 });
+  });
+
+  it("shared scheme picker selection writes the scheme (strip only, no name)", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    // The trigger shows the color strip only; the scheme name lives on the
+    // tooltip (picker contract), matching the heatmap trigger.
+    expect(trigger.textContent?.trim()).toBe("");
+    expect(trigger.title).toBe("Blues");
+
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const item = document.querySelector(
+      '.foliplus-scheme-picker-item[data-scheme-name="Reds"]',
+    ) as HTMLElement;
+    expect(item).not.toBeNull();
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ scheme: "Reds" });
+    expect(trigger.title).toBe("Reds");
+  });
+
+  it("outside click closes the open picker through the overlay registry", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+  });
+
+  it("Escape closes the picker first, then the style panel (one layer per press)", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    const escape = (): KeyboardEvent => {
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      document.body.dispatchEvent(event);
+      return event;
+    };
+
+    // Topmost is the picker (ESC_PRIORITY 850), even though focus is on body.
+    escape();
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+
+    escape();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+  });
+
+  it("closing the panel destroys the open picker's dropdown", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    closeStylePanel(ui, false);
+
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+  });
+});
+
+describe("fill row — original colors", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const selector = (name: string): string => `.${name}`;
+
+  const blockOf = (ui: LayerUI): HTMLElement => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    return item.querySelector(selector(CONST.CLASSES.STYLE_FILL_BLOCK)) as HTMLElement;
+  };
+
+  const boxOf = (row: HTMLElement, name: string): HTMLElement =>
+    details(row).querySelector(selector(name)) as HTMLElement;
+
+  const colorsBoxOf = (row: HTMLElement): HTMLElement =>
+    boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS);
+
+  const stripOf = (row: HTMLElement): HTMLElement =>
+    boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP);
+
+  const readoutOf = (row: HTMLElement, name: string): string =>
+    (
+      boxOf(row, name).querySelector(
+        selector(CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE),
+      ) as HTMLElement
+    ).textContent as string;
+
+  const labelsOf = (row: HTMLElement): (string | null)[] =>
+    [...details(row).children].map(
+      child => (child.querySelector(".foliplus-form-label") as HTMLElement).textContent,
+    );
+
+  /** Stops a gradient carries: every stop names two positions. */
+  const countStops = (gradient: string): number =>
+    (gradient.match(/%/g) ?? []).length / 2;
+
+  it("opens on the author's colors and offers the arm as a choice", () => {
+    const { ui, layer } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+    const option = select.querySelector(
+      'option[value="original"]',
+    ) as HTMLOptionElement | null;
+
+    // The state a layer opens in is still the author's own paint...
+    expect(select.value).toBe("original");
+    // ...and it is now a state the user can come back to, so its option is a
+    // real option, named like the arm it selects.
+    expect(option).not.toBeNull();
+    expect(option!.disabled).toBe(false);
+    expect(option!.textContent).toBe("LayerControl.style_fill_per_feature");
+    // Opening writes no intent: the map keeps the author's own paint until the
+    // user picks an arm.
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("puts every readout on the by-value arm's row grid", () => {
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const children = [...details(row).children];
+
+    // One FORM_ROW per readout. The raw strip and caption divs are gone — they
+    // escaped the label/control grid and are what overflowed the panel.
+    expect(children.length).toBe(3);
+    for (const child of children) {
+      expect(child.classList.contains("foliplus-form-row")).toBe(true);
+      expect(child.querySelector(".foliplus-form-label")).not.toBeNull();
+      expect(child.querySelector(".foliplus-form-control")).not.toBeNull();
+    }
+    expect(labelsOf(row)).toEqual([
+      "LayerControl.style_fill_field",
+      "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_classes",
+    ]);
+    // The strip lives inside a row's control cell, never directly in the
+    // detail slot.
+    const strip = stripOf(row);
+    expect(strip.closest(".foliplus-form-row")).not.toBeNull();
+    expect(strip.parentElement).toBe(colorsBoxOf(row));
+    expect(colorsBoxOf(row).classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(
+      true,
+    );
+  });
+
+  it("states the column, the colors and the count as readouts", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 3 },
+    });
+    const row = blockOf(ui);
+
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
+    // The caption moved from a line of its own onto the colors box: the panel
+    // stays three rows tall and the sentence is still reachable.
+    expect(colorsBoxOf(row).title).toBe("LayerControl.style_fill_original_levels");
+    expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
+      "LayerControl.style_fill_original_levels",
+    );
+    // An accessible name only applies to a role that accepts one: the bar is
+    // information (an image of the author's colors), not a control.
+    expect(colorsBoxOf(row).getAttribute("role")).toBe("img");
+  });
+
+  it("offers nothing interactive in the read-only detail", () => {
+    const { ui } = initWithAuthorScale();
+    const detail = details(blockOf(ui));
+
+    expect(detail.querySelector("select")).toBeNull();
+    expect(detail.querySelector("input")).toBeNull();
+    expect(detail.querySelector('[role="combobox"]')).toBeNull();
+    expect(detail.querySelector("[tabindex]")).toBeNull();
+    const boxes = [
+      ...detail.querySelectorAll(selector(CONST.CLASSES.STYLE_FILL_READONLY)),
+    ];
+    expect(boxes.length).toBe(3);
+    for (const box of boxes) {
+      expect(box.getAttribute("aria-disabled")).toBe("true");
+    }
+  });
+
+  it("names the colors by what the author drew", () => {
+    const stepped = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },
+    });
+    expect(colorsBoxOf(blockOf(stepped.ui)).title).toBe(
+      "LayerControl.style_fill_original_levels",
+    );
+
+    // A continuous scale has no count to state: the number row says so.
+    const continuous = initWithAuthorScale();
+    expect(
+      readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
+    ).toBe("—");
+    expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
+      "LayerControl.style_fill_original_continuous",
+    );
+
+    const fallback = initWithAuthorScale({ scale: null, distinct: 64, capped: true });
+    expect(colorsBoxOf(blockOf(fallback.ui)).title).toBe(
+      "LayerControl.style_fill_original_colors",
+    );
+    expect(
+      readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
+    ).toBe("64+");
+  });
+
+  it("keeps the author's scale order in the gradient", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+    });
+    const gradient = stripOf(blockOf(ui)).style.background;
+
+    expect(gradient.startsWith("linear-gradient(90deg,")).toBe(true);
+    // Author order, first color at 0% and last at 100%: the bar is the
+    // author's ramp, not a re-sorted set.
+    expect(gradient).toContain("rgb(13, 8, 135) 0.00%");
+    expect(gradient).toContain("rgb(177, 42, 144) 100.00%");
+    const first = gradient.indexOf("rgb(13, 8, 135)");
+    const middle = gradient.indexOf("rgb(106, 0, 168)");
+    const last = gradient.indexOf("rgb(177, 42, 144)");
+    expect(first).toBeGreaterThan(-1);
+    expect(middle).toBeGreaterThan(first);
+    expect(last).toBeGreaterThan(middle);
+  });
+
+  it("draws a stepped scale as hard bands", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 3 },
+    });
+    const gradient = stripOf(blockOf(ui)).style.background;
+
+    // Each color owns an equal slice: a band edge repeats the color's position
+    // instead of interpolating across it.
+    expect(gradient).toContain("rgb(13, 8, 135) 0.00% 33.33%");
+    expect(gradient).toContain("rgb(106, 0, 168) 33.33% 66.67%");
+    expect(gradient).toContain("rgb(177, 42, 144) 66.67% 100.00%");
+  });
+
+  it("ranks a categorical layer deterministically and samples it down", () => {
+    const colors = [
+      "#2ca25f",
+      "#99d8c9",
+      "#c51b8a",
+      "#f768a1",
+      "#41b6c4",
+      "#253494",
+      "lightgrey",
+      "#ffffcc",
+      "#a1dab4",
+      "#fe9929",
+      "#d95f0e",
+      "#993404",
+      "#5ab4ac",
+      "#01665e",
+      "#c7e9b4",
+      "#7fcdbb",
+      "#edf8b1",
+      "#e34a33",
+      "#b30000",
+      "#045a8d",
+    ];
+    const first = initWithAuthorScale({
+      stops: colors,
+      scale: null,
+      distinct: 20,
+      capped: true,
+    });
+    const second = initWithAuthorScale({
+      stops: colors,
+      scale: null,
+      distinct: 20,
+      capped: true,
+    });
+
+    // The same color set paints the same bar on every render: the order is a
+    // function of the colors, never of the feature order they were found in.
+    expect(stripOf(blockOf(first.ui)).style.background).toBe(
+      stripOf(blockOf(second.ui)).style.background,
+    );
+    // 64+ colors are sampled down instead of flooding the control column with
+    // blocks, and the real count stays stated on the box.
+    const gradient = originalGradient(colors, null);
+    expect(gradient).toBe(originalGradient(colors, null));
+    expect(countStops(gradient)).toBeGreaterThan(1);
+    expect(countStops(gradient)).toBeLessThanOrEqual(MAX_STOPS);
+    // A CSS keyword the author's missing_kwds declared stays verbatim.
+    expect(originalGradient(["#000000", "lightgrey"], null)).toContain("lightgrey");
+  });
+
+  it("ranks every color notation it understands, and keeps the rest stable", () => {
+    // Hex, alpha hex, rgb() with channels and with percentages all rank by
+    // hue; a notation it cannot read (a CSS keyword, an hsl() function) still
+    // produces one deterministic bar instead of dropping the color.
+    const stops = [
+      "rgb(255, 0, 0)",
+      "rgba(0, 0, 255, 0.5)",
+      "rgb(100% 0% 0%)",
+      "#00ff00",
+      "#0000ffcc",
+      "hsl(240 100% 50%)",
+      "#12",
+    ];
+    const first = originalGradient(stops, null);
+    expect(first).toBe(originalGradient(stops, null));
+    // Verbatim: every stop the author declared survives into the bar.
+    for (const stop of ["rgb(255, 0, 0)", "rgb(100% 0% 0%)", "hsl(240 100% 50%)"]) {
+      expect(first).toContain(stop);
+    }
+    // Nothing to draw and a single color cannot make a gradient: the bar is
+    // empty and the one color, not a broken linear-gradient.
+    expect(originalGradient([], null)).toBe("");
+    expect(originalGradient(["#123456"], null)).toBe("#123456");
+  });
+
+  it("keeps a stable order for ties, grays and malformed stops", () => {
+    // Same hue at two lightnesses, two notations of one color, a gray with no
+    // hue at all, a malformed rgb() and the empty string: every one of them
+    // either ranks on an axis or falls into the named bucket, so the bar is
+    // still deterministic instead of depending on the author's feature order.
+    const stops = [
+      "#ff0000",
+      "#800000",
+      "rgb(255, 0, 0)",
+      "#808080",
+      "rgb(1 2)",
+      "rgb(a b c)",
+      "",
+      "#ff0000",
+    ];
+    const bar = originalGradient(stops, null);
+    expect(bar).toBe(originalGradient(stops, null));
+    // The empty string and the repeat dropped out; every declared color stayed.
+    expect(bar).not.toContain(";;");
+    expect(bar).toContain("#ff0000");
+    expect(bar).toContain("rgb(1 2)");
+  });
+
+  it("draws the colors without a field row when the scale named no column", () => {
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "continuous", vmin: 10, vmax: 30 },
+    });
+    const row = blockOf(ui);
+
+    // A scale the author could not be paired with still has the real colors,
+    // so the bar renders; the panel must not invent a field name.
+    expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
+    expect(labelsOf(row)).toEqual([
+      "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_classes",
+    ]);
+  });
+
+  it("seeds the by-value arm with the shared defaults", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    // The seed is the user's own classification: the shared six classes on
+    // jenks/Viridis over the column the author actually drew — never the
+    // author's color count, so a 43-color palette cannot collapse to 9.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      field: "score",
+      method: "jenks",
+      classes: CLASS_COUNT.DEFAULT,
+      scheme: "Viridis",
+    });
+    // The original arm stays offered: it is a state the user can return to.
+    expect(select.value).toBe("ramp");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+    // The ramp detail is the user's classification now.
+    expect(
+      details(row).querySelector(selector(CONST.CLASSES.STYLE_FILL_METHOD_SELECT)),
+    ).not.toBeNull();
+  });
+
+  it("honours the author stepped class count when the panel can carry it", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },
+    });
+    const select = modeSelect(blockOf(ui));
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      field: "score",
+      classes: 5,
+    });
+  });
+
+  it("falls back to the default class count past the panel vocabulary", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 12 },
+    });
+    const select = modeSelect(blockOf(ui));
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      classes: CLASS_COUNT.DEFAULT,
+    });
+  });
+
+  it("seeds from the first numeric field when the scale names no column", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "continuous", vmin: 10, vmax: 30 },
+    });
+    const select = modeSelect(blockOf(ui));
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
+  });
+
+  it("leaves the by-value arm out when the layer offers no numeric field", () => {
+    const { ui, layer } = initWithAuthorScale();
+    for (const leaf of layer.leaves as Array<{
+      feature: { properties: Record<string, unknown> };
+    }>) {
+      delete leaf.feature.properties.score;
+      delete leaf.feature.properties.count;
+    }
+    ui.runtimeStore.setFields("overlay1", []);
+
+    const select = modeSelect(blockOf(ui));
+    expect(select.value).toBe("original");
+    expect(select.querySelector('option[value="ramp"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+  });
+
+  it("keeps the original colors when only the opacity was overridden", () => {
+    const { ui } = initWithAuthorScale();
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+
+    // The author's per-feature colors are still what the layer paints; only a
+    // fill mode intent takes the arm over.
+    expect(modeSelect(blockOf(ui)).value).toBe("original");
+  });
+
+  it("shows the stored arm but keeps the original one offered", () => {
+    const { ui } = initWithAuthorScale();
+    setIntent(ui, "overlay1", "fillMode", "solid");
+
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+    expect(
+      row.querySelector(selector(CONST.CLASSES.STYLE_FILL_COLOR_INPUT)),
+    ).not.toBeNull();
+  });
+
+  it("switching from the original colors to solid seeds and paints one color", () => {
+    const { ui, layer } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    expect(getIntent(ui, "overlay1", "fillColor")).toBe("#0d0887");
+    for (const leaf of layer.leaves) {
+      expect(leaf.setStyle).toHaveBeenLastCalledWith({
+        fillColor: "#0d0887",
+        fill: true,
+      });
+    }
+  });
+
+  it("switching back to the original colors releases the override", () => {
+    const { ui, layer } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    // The mode is stored — the choice survives a reload — and the map paints
+    // each leaf's own author color again, not the single one.
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("original");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#6a00a8",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    // Back in the read-only detail: no classification control renders.
+    expect(details(row).querySelector("select")).toBeNull();
+  });
+});
+describe("fill ramp persistence and reset", () => {
+  let ui: LayerUI;
+  let layer: ReturnType<typeof makeLayer>;
+
+  beforeEach(() => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    ({ ui, layer } = initWithValues());
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("reopening the panel shows the stored arm and replays the ramp", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      // Equal interval: no simple-statistics dependency in jsdom.
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    } as never);
+
+    replayFillState(ui, "overlay1");
+    flushFill();
+    expect(layer.leaves[0].setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ fillColor: "#111111" }),
+    );
+
+    const block = openPanel(ui);
+    expect(modeSelect(block).value).toBe("ramp");
+    expect(
+      (
+        details(block).querySelector(
+          `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("count");
+  });
+
+  it("reset clears both arms' intents and the panel opens solid", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+
+    resetLayerFill(ui, "overlay1");
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
+
+    const block = openPanel(ui);
+    expect(modeSelect(block).value).toBe("solid");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+  });
+
+  it("clearIntent on the ramp keeps the solid arm untouched", () => {
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+
+    clearIntent(ui, "overlay1", "fillRamp");
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillColor")).toBe("#123456");
+    const block = openPanel(ui);
+    expect(modeSelect(block).value).toBe("solid");
+  });
+});
+
+describe("fill mode switch after the layer's fields changed", () => {
+  it("writes nothing when the numeric field disappeared under the open panel", () => {
+    // The data can lose its numeric property while the style panel is open (a
+    // streamed replacement, a filter). Switching to by-value then has no field
+    // to classify, so the write is rejected instead of persisting a ramp with
+    // an empty field.
+    const fixture = initWithFillLayer();
+    fixture.ui.openStylePanel("overlay1");
+    const item = findItem(fixture.ui, "overlay1");
+    const select = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+
+    fixture.ui.runtimeStore.setFields("overlay1", []);
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change"));
+
+    expect(getIntent(fixture.ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(fixture.ui, "overlay1", "fillRamp")).toBeUndefined();
+  });
+});
+
+describe("content-change replay", () => {
+  it("repaints every leaf from the stored fill", () => {
+    // The frame the content-change scheduler runs owns the repaint: without it
+    // a streamed addData keeps the new features at the author's color.
+    const fixture = initWithFillLayer();
+    setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
+    setIntent(fixture.ui, "overlay1", "fillOpacity", 0.4);
+
+    const policy = FILL_DIMENSION.contentChange as {
+      run: (ui: LayerUI, layerId: string) => void;
+    };
+    policy.run(fixture.ui, "overlay1");
+
+    for (const leaf of fixture.fillLayer.leaves) {
+      expect(leaf.setStyle).toHaveBeenCalledWith({
+        fillColor: "#123456",
+        fillOpacity: 0.4,
+        fill: true,
+      });
+    }
+  });
+});
+
+describe("fill row — original colors option", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const modeSelect = (row: HTMLElement): HTMLSelectElement =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
+
+  it("offers the original colors beside the other arms", () => {
+    const { ui } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    const select = modeSelect(row);
+    const option = select.querySelector(
+      'option[value="original"]',
+    ) as HTMLOptionElement;
+
+    // The state the layer opens in, now offered as a real option: the author's
+    // colors can be left and come back to.
+    expect(select.value).toBe("original");
+    expect(option.disabled).toBe(false);
+    expect(option.textContent).toBe("LayerControl.style_fill_per_feature");
+    expect(select.querySelector('option[value="solid"]')).not.toBeNull();
+    expect(select.querySelector('option[value="ramp"]')).not.toBeNull();
+    // The explanation is a tooltip on the control, not a paragraph in the
+    // drawer: the panel keeps one row and the reason is still reachable.
+    expect(row.querySelector(".foliplus-style-fill-note")).toBeNull();
+    expect(select.title).toBe("LayerControl.style_fill_per_feature_note");
+    expect(select.getAttribute("aria-description")).toBe(
+      "LayerControl.style_fill_per_feature_note",
+    );
+    expect(option.title).toBe("LayerControl.style_fill_per_feature_note");
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
+  });
+
+  it("keeps the solid arm when the leaves share one color", () => {
+    const { ui } = initWithPerFeatureLayer({
+      colors: ["#aabbcc", "#aabbcc"],
+      perFeature: false,
+    });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).toBeNull();
+  });
+
+  it("keeps the solid arm for a layer without the explore color property", () => {
+    const { ui } = initWithPerFeatureLayer({
+      perFeature: false,
+      fillAuthor: null,
+      withProperties: false,
+    });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).toBeNull();
+  });
+
+  it("keeps the original colors offered after the user chose solid", () => {
+    const { ui } = initWithPerFeatureLayer();
+    setIntent(ui, "feature1", "fillMode", "solid");
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    // The way back: the arm is still on the layer, so the option stays.
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+  });
+
+  it("does not offer the state for an empty layer", () => {
+    const { ui } = initWithPerFeatureLayer({ colors: [], perFeature: false });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).toBeNull();
+  });
+
+  it("choosing solid takes the paint over and binds the swatch", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+
+    expect(getIntent(ui, "feature1", "fillMode")).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    // The choice must also reach the map: seeded from the swatch base, so the
+    // row and the paint agree instead of claiming one color for many.
+    expect(getIntent(ui, "feature1", "fillColor")).toBe("#0d0887");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fill: true,
+    });
+  });
+
+  it("choosing the original colors back stores the choice and repaints", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+    for (const leaf of layer.leaves as Array<{ setStyle: { mockClear: () => void } }>) {
+      leaf.setStyle.mockClear();
+    }
+
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+
+    // The arm is stored, so it survives a reload and a mode switch in either
+    // direction; the map goes back to each leaf's own author color.
+    expect(getIntent(ui, "feature1", "fillMode")).toBe("original");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    // The read-only detail is back and holds nothing to operate.
+    const detail = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
+    ) as HTMLElement;
+    expect(detail.querySelector("select")).toBeNull();
+  });
+
+  it("opens on by-value when only a ramp config is stored", () => {
+    const { ui } = initWithPerFeatureLayer();
+    // The pre-fillMode record shape: a stored config and no mode means the
+    // user already classified, so the row reads by-value rather than original.
+    setIntent(ui, "feature1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    });
+
+    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("ramp");
+  });
+
+  it("choosing the arm it is already in writes nothing", () => {
+    const { ui } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+
+    modeSelect(row).dispatchEvent(new Event("change", { bubbles: true }));
+
+    // The row opens on the author's colors without an intent; re-selecting the
+    // arm it is already in must not turn that into a stored one.
+    expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
+  });
+
+  it("does not replay a stale override on mouseout once back in the original arm", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    let handler: (() => void) | null = null;
+    for (const leaf of layer.leaves as Array<{ on: unknown }>) {
+      leaf.on = vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      });
+    }
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    // A solid write installs the highlight pin; going back to the author's
+    // colors must leave folium's own mouseout restore in force, or the user's
+    // old solid color would repaint over the author's colors on every hover.
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+
+    for (const leaf of layer.leaves as Array<{ setStyle: { mockClear: () => void } }>) {
+      leaf.setStyle.mockClear();
+    }
+    handler!();
+
+    for (const leaf of layer.leaves as Array<{ setStyle: unknown }>) {
+      expect(leaf.setStyle).not.toHaveBeenCalled();
+    }
+  });
+
+  it("reset restores every leaf's own author color and the original arm", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    commitNow(ui, "feature1", "color", "#ff0000");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#ff0000",
+      fill: true,
+    });
+
+    resetLayerFill(ui, "feature1");
+
+    // Each leaf returns to its OWN author color — not the first leaf's.
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("original");
+  });
+
+  it("reset falls back to the leaf bag when a feature lost the property", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    commitNow(ui, "feature1", "color", "#ff0000");
+    // A feature the author left uncolored: the lazy read reports null for it,
+    // so reset restores that leaf captured bag rather than a neighbour color.
+    delete (layer.leaves[1].feature as { properties?: unknown }).properties;
+
+    resetLayerFill(ui, "feature1");
+
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+  });
+
+  it("reset falls back to the fill defaults when no bag was captured", () => {
+    // No prior write captured a style bag, so the author replay has to fall
+    // back to the shared fill defaults rather than read stale options.
+    const { ui, layer } = initWithPerFeatureLayer();
+
+    resetLayerFill(ui, "feature1");
+
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+  });
+});
+
+describe("declared fill — foliplus={'fill': ...}", () => {
+  /** Stamp the author declaration on a carrier BEFORE it is registered: the
+   *  reader caches per layer object, the way a folium layer's options are
+   *  final once it exists. */
+  const declare = (
+    layer: { options: Record<string, unknown> },
+    fill: unknown,
+  ): void => {
+    layer.options.foliplus = { fill };
+  };
+
+  const declaredRampFixture = (fill: unknown) => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const rampLayer = makeRampedLayer([1, 5, 9]);
+    declare(rampLayer as unknown as { options: Record<string, unknown> }, fill);
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    return { manager, ui, rampLayer };
+  };
+
+  /** The last fillColor each leaf was painted with. */
+  const paintedColors = (layer: ReturnType<typeof makeRampedLayer>): unknown[] =>
+    layer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0].fillColor);
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("paints the declared ramp at attach, before any panel touch", () => {
+    // The declaration is a read-time default, so nothing in the intent store
+    // replays it: the attach sweep has to paint it or the map would open on
+    // the author's flat face until the first panel edit.
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("paints every declared layer in one attach sweep", () => {
+    // The sweep remembers what it already painted per UI, so a second declared
+    // layer is painted by the same pass instead of only the first one — the
+    // memo is keyed per control, not per layer.
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const declareRamp = (layer: ReturnType<typeof makeRampedLayer>) => {
+      (layer as unknown as { options: Record<string, unknown> }).options.foliplus = {
+        fill: {
+          ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+        },
+      };
+      return layer;
+    };
+    const first = declareRamp(makeRampedLayer([1, 5, 9]));
+    const second = declareRamp(makeRampedLayer([1, 5, 9]));
+
+    initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: first },
+        { id: "overlay2", name: "Polygons II", role: "overlay", layer: second },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+    expect(paintedColors(first)).toEqual(["#111111", "#222222", "#333333"]);
+    expect(paintedColors(second)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("replays the declared ramp on mouseout instead of folium's author face", () => {
+    // The highlight pin's live reader is the declaration chain, not the intent
+    // store: with no user record a pin reading intent alone returns null, and
+    // folium's resetStyle puts the author's flat face back on the first hover.
+    // Dropping that reader from the apply call is invisible to every paint
+    // assertion above, so this is the test that holds the replay wiring.
+    const { rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // The pin is registered by the attach paint; folium's own mouseout handler
+    // is the one it has to beat.
+    const mouseoutOf = (leaf: { on: ReturnType<typeof vi.fn> }): (() => void) =>
+      leaf.on.mock.calls.find(call => call[0] === "mouseout")?.[1] as () => void;
+    for (const leaf of rampLayer.leaves) leaf.setStyle.mockClear();
+
+    rampLayer.leaves.forEach(leaf => mouseoutOf(leaf)());
+
+    // Each leaf gets its own class color back — not null, which would leave
+    // folium's restore of the author's #aabbcc in force.
+    expect(rampLayer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0])).toEqual([
+      { fill: true, fillColor: "#111111" },
+      { fill: true, fillColor: "#222222" },
+      { fill: true, fillColor: "#333333" },
+    ]);
+  });
+
+  it("opens the panel on the declared arm with the declared values", () => {
+    const { ui } = declaredRampFixture({
+      mode: "ramp",
+      ramp: { field: "count", method: "quantile", classes: 4, scheme: "Blues" },
+    });
+
+    const row = buildFillRow(ui, "overlay1");
+    const mode = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const field = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    const method = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("ramp");
+    expect(field.value).toBe("count");
+    expect(method.value).toBe("quantile");
+    expect(classes.value).toBe("4");
+    // A declared ramp is an instruction, not a display approximation of the
+    // author's palette: no per-feature/author note contradicts it.
+    expect(mode.title).toBe("");
+    // No author per-feature paint on this layer, so there is no "Original
+    // colors" arm to offer beside the declared ramp.
+    expect(mode.querySelector('option[value="original"]')).toBeNull();
+  });
+
+  it("shows a declared class count outside the editable range and converges on edit", () => {
+    // The declared count is the author's data, so the panel states 12 even
+    // though the picker only offers 2..9 — the same extra-option path an
+    // author palette with 12 classes takes. Only a user write has to satisfy
+    // the persisted vocabulary, so the first edit collapses the count.
+    const { ui } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 12, scheme: "Reds" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      ramp: { classes: 12 },
+    });
+
+    const row = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", row);
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(classes.value).toBe("12");
+    expect(classes.querySelector('option[value="12"]')).not.toBeNull();
+    // The bridged select is hidden, so the explanation rides the trigger the
+    // user actually sees; the row does not look broken next to a 2..9 list.
+    expect(triggerOf(classes).title).toBe(
+      "LayerControl.style_fill_classes_out_of_range",
+    );
+
+    classes.value = "9";
+    classes.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // The declaration itself is untouched; only the user's record converges.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 9 });
+
+    // Same panel, same row: the trigger label, its tooltip and the open list
+    // all state the committed count. Leaving the declared count's presentation
+    // behind showed 9 under the out-of-range tooltip with 12 still listed, and
+    // picking that 12 again displayed 12 while the intent clamped to 9.
+    expect(triggerOf(classes).textContent).toBe("9");
+    expect(triggerOf(classes).title).toBe("9");
+    const classesDropdown = dropdownOf(classes)!;
+    classesDropdown.open();
+    expect(
+      Array.from(classesDropdown.getList()!.querySelectorAll('[role="option"]')).map(
+        option => option.textContent,
+      ),
+    ).toEqual(["2", "3", "4", "5", "6", "7", "8", "9"]);
+    classesDropdown.close();
+  });
+
+  it("Reset returns to the declared ramp after the user took the fill over", () => {
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // The user takes the fill over with a solid color: the declaration steps
+    // aside (intent > declaration).
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    applyFillToLayer(ui, "overlay1");
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fillColor: "#123456" }),
+    );
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+
+    resetLayerFill(ui, "overlay1");
+
+    // Reset clears the intent, so the declaration is what shows through — the
+    // same "Reset returns to the author's declaration" contract the annotation
+    // dimension has.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("keeps the user's stored ramp over the declaration", () => {
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // A different palette so the paint proves which config won.
+    installChroma(["#aaaaaa", "#bbbbbb", "#cccccc"]);
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Blues",
+    });
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors(rampLayer)).toEqual(["#aaaaaa", "#bbbbbb", "#cccccc"]);
+    const method = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(method.value).toBe("equal");
+    // The user's record is what the panel reads, not the declaration.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      scheme: "Blues",
+    });
+  });
+
+  it("ignores a declaration whose column the data does not offer", () => {
+    const { ui } = declaredRampFixture({
+      ramp: { field: "missing", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    // Not silently re-pointed at "count": the whole declaration falls back to
+    // the solid arm instead of painting a column the author never named.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    const mode = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(mode.value).toBe("solid");
+  });
+
+  it("a declared mode=solid ignores a ramp given beside it", () => {
+    const { ui } = declaredRampFixture({
+      mode: "solid",
+      ramp: { field: "count" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    const mode = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(mode.value).toBe("solid");
+  });
+
+  it("takes the declared ramp over the detected per-feature paint", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, {
+      // equal (not the jenks default): the classification tests carry no
+      // simple-statistics global, and a failed build would paint the author's
+      // own colors back.
+      ramp: { field: "count", method: "equal" },
+    });
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: { perFeature: true, fields: [] },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+
+    const mode = buildFillRow(ui, "feature1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("ramp");
+    // The three arms survive a declaration: the author's paint is still under
+    // the ramp, so "Original colors" stays selectable beside it.
+    expect(mode.querySelector('option[value="original"]')).not.toBeNull();
+    // The note explains that arm, which is still on offer, so it does not
+    // contradict the declared ramp beside it.
+    expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
+    const rampColors = ["#111111", "#222222", "#333333"];
+    expect(
+      layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+        rampColors.includes(leaf.setStyle.mock.calls.at(-1)?.[0].fillColor as string),
+      ),
+    ).toBe(true);
+  });
+
+  /** A layer that both declares a ramp and paints its own per-feature face:
+   *  the two boundary corollaries below are the two orders these can resolve
+   *  in, and they differ only by whether the user has spoken. */
+  const declaredOverAuthor = (fill: unknown) => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, fill);
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: {
+            perFeature: true,
+            distinct: 2,
+            stops: ["#0d0887", "#f0f921"],
+          },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+    return { ui, layer, row: () => buildFillRow(ui, "feature1") };
+  };
+
+  it("corollary ②: with no intent, the declaration outranks the author's presentation", () => {
+    const { ui, layer, row } = declaredOverAuthor({
+      ramp: { field: "count", method: "equal" },
+    });
+
+    // Nobody has chosen yet, and the layer does paint per feature: the
+    // declared ramp is still the arm the panel and the map show.
+    expect(modeSelect(row()).value).toBe("ramp");
+    expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "feature1", "fillRamp")).toBeUndefined();
+    const rampColors = ["#111111", "#222222", "#333333"];
+    expect(
+      layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+        rampColors.includes(leaf.setStyle.mock.calls.at(-1)?.[0].fillColor as string),
+      ),
+    ).toBe(true);
+  });
+
+  it("corollary ①: an explicit Original colors pick beats the declaration", () => {
+    const { ui, layer, row } = declaredOverAuthor({
+      ramp: { field: "count", method: "equal" },
+    });
+
+    // The one exception to "the declaration outranks": the user's own pick.
+    setIntent(ui, "feature1", "fillMode", "original");
+    applyFillToLayer(ui, "feature1");
+
+    expect(FILL_DIMENSION.value!(ui, "feature1")?.mode).toBe("original");
+    const block = row();
+    expect(modeSelect(block).value).toBe("original");
+    // The Original colors arm is read-only: the author's presentation, with no
+    // control to edit it.
+    expect(details(block).querySelector("select")).toBeNull();
+    // The map follows the author's presentation again, not the ramp.
+    expect(
+      layer.leaves.map(
+        (leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+          leaf.setStyle.mock.calls.at(-1)?.[0].fillColor,
+      ),
+    ).toEqual(["#0d0887", "#f0f921"]);
+  });
+
+  it("a declared mode=solid leaves the per-feature display alone", () => {
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, {
+      mode: "solid",
+    });
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: {
+            perFeature: true,
+            distinct: 2,
+            stops: ["#0d0887", "#f0f921"],
+          },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+
+    const mode = buildFillRow(ui, "feature1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("original");
+    expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
+  });
+
+  it("its content-change gate opens for a declared ramp", () => {
+    const { ui } = declaredRampFixture({ ramp: { field: "count" } });
+    const when = (
+      FILL_DIMENSION.contentChange as {
+        when?: (u: LayerUI, id: string) => boolean;
+      }
+    ).when!;
+
+    expect(when(ui, "overlay1")).toBe(true);
+  });
+
+  describe("reconnection — the layer is removed, then added again", () => {
+    /** The fill row's own readout: panel values, not manager internals. */
+    const readFillRow = (ui: LayerUI, id: string) => {
+      const row = buildFillRow(ui, id);
+      const value = (selector: string) =>
+        (row.querySelector(selector) as HTMLSelectElement | null)?.value;
+      return {
+        mode: value(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
+        field: value(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+        method: value(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
+        classes: value(`.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`),
+      };
+    };
+
+    it("paints the declared ramp again after the layer is re-registered", () => {
+      const { manager, rampLayer } = declaredRampFixture({
+        ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      });
+      expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+
+      // A reconnect is a fresh mount of the same layer: drop the recorded
+      // writes so the assertion below can only pass if the ramp is painted
+      // again, not if the attach-time call is still on the mock.
+      rampLayer.leaves.forEach(leaf => leaf.setStyle.mockClear());
+      manager.unregisterLayer("overlay1");
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer: rampLayer,
+      });
+
+      // The declaration is a read-time default, not stored state: a reconnect
+      // has to replay it, or the map falls back to the author's flat face.
+      expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+    });
+
+    it("keeps the declared panel values and writes no intent on reconnect", () => {
+      const { manager, ui, rampLayer } = declaredRampFixture({
+        ramp: { field: "count", method: "equal", classes: 4, scheme: "Blues" },
+      });
+      const before = readFillRow(ui, "overlay1");
+
+      manager.unregisterLayer("overlay1");
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer: rampLayer,
+      });
+
+      const after = readFillRow(ui, "overlay1");
+      expect(after).toEqual(before);
+      expect(after.mode).toBe("ramp");
+      expect(after.field).toBe("count");
+      expect(after.method).toBe("equal");
+      expect(after.classes).toBe("4");
+      // A reconnect replays the author's declaration; it must not be mistaken
+      // for a user pick, or Reset would stop returning to the declaration.
+      const intentKeys = ["fillColor", "fillOpacity", "fillMode", "fillRamp"] as const;
+      for (const key of intentKeys) {
+        expect(getIntent(ui, "overlay1", key)).toBeUndefined();
+      }
+    });
+
+    it("keeps the author's read-only per-feature state after a reconnect", () => {
+      installLeafletGlobals();
+      const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+      const fillAuthor = {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0d0887", "#f0f921"],
+      };
+      const { manager, ui } = initFixture({
+        data: [
+          {
+            id: "feature1",
+            name: "Per feature",
+            role: "overlay",
+            layer,
+            fillAuthor,
+          },
+        ],
+      });
+      ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+      expect(readFillRow(ui, "feature1").mode).toBe("original");
+
+      manager.unregisterLayer("feature1");
+      manager.registerLayer({
+        id: "feature1",
+        name: "Per feature",
+        role: "overlay",
+        layer,
+        fillAuthor,
+      });
+
+      // The detected state is the author's paint, not a fallback: a reconnect
+      // must not degrade it into the solid arm.
+      const mode = buildFillRow(ui, "feature1").querySelector(
+        `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+      ) as HTMLSelectElement;
+      expect(mode.value).toBe("original");
+      expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
+    });
+
+    it("keeps the user's intent across a reconnect — intent outranks the declaration", () => {
+      const { manager, ui, rampLayer } = declaredRampFixture({
+        ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      });
+      setIntent(ui, "overlay1", "fillMode", "ramp");
+      setIntent(ui, "overlay1", "fillRamp", {
+        kind: "numeric",
+        field: "count",
+        method: "equal",
+        classes: 4,
+        scheme: "Blues",
+      });
+      applyFillToLayer(ui, "overlay1");
+      rampLayer.leaves.forEach(leaf => leaf.setStyle.mockClear());
+
+      manager.unregisterLayer("overlay1");
+      manager.registerLayer({
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer: rampLayer,
+      });
+
+      // The user's record survives the reconnect and still wins over the
+      // declaration: the panel reports the user's ramp, not the declared one.
+      expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+        mode: "ramp",
+        ramp: { method: "equal", classes: 4, scheme: "Blues" },
+      });
+      expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 4 });
+      expect(
+        paintedColors(rampLayer).filter(color => color !== undefined),
+      ).toHaveLength(3);
     });
   });
 });

@@ -153,7 +153,7 @@ class TestRowPressScopeBrowser:
 
             # Press on the first menu item (focus-layer).
             item = page.locator(
-                ".foliplus-layer-more-menu.open li[data-action='focus-layer']"
+                ".foliplus-layer-more-menu.open button[data-action='focus-layer']"
             )
             item.hover()
             page.mouse.down()

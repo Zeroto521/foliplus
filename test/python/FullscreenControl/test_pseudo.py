@@ -115,13 +115,14 @@ class TestFullscreenPseudoBrowser:
         finally:
             page.close()
 
-    def test_native_reject_reports_unsupported_hint(self, browser, tmp_path):
-        """A rejected requestFullscreen reports the unsupported hint.
+    def test_native_reject_falls_back_to_pseudo(self, browser, tmp_path):
+        """A rejected requestFullscreen falls back to pseudo-fullscreen.
 
         The native API is present but every request fails — the realistic
-        shape of a browser policy denial. Reject must not run `updateUI`,
-        which would announce "Entered fullscreen" for a click that just
-        failed.
+        shape of a browser policy denial. Reject must not dead-end on a
+        hint: the container lands in pseudo mode so the click still
+        maximizes the map, and the hint explains the fallback instead of
+        announcing "Entered fullscreen" for a click that just failed.
         """
         page, errors = make_browser_page(
             browser, tmp_path, _native_html(locale="en"), "fullscreen_reject"
@@ -134,23 +135,21 @@ class TestFullscreenPseudoBrowser:
             page.evaluate(_js("FullscreenControl/simulate_request_fullscreen_reject"))
             page.click(".foliplus-fullscreen-toggle")
             page.wait_for_function(
-                _js("FullscreenControl/read_hint_says_unsupported"),
+                _js("FullscreenControl/read_hint_says_fallback"),
                 timeout=5000,
             )
 
-            # Nothing entered fullscreen.
+            # Pseudo mode engaged; no native fullscreen session exists.
             assert (
                 page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
             )
-            assert not page.evaluate(_js("FullscreenControl/read_pseudo_fullscreen_on"))
-            # The toggle was not re-drawn into the "entered" state either.
-            icon = page.evaluate(_js("FullscreenControl/read_toggle_path_d"))
-            assert "M8 3H5" in icon, (
-                f"toggle re-drew into the entered state: {icon[:12]}"
-            )
+            assert page.evaluate(_js("FullscreenControl/read_pseudo_fullscreen_on"))
+            # The pseudo UI applied (hide_self hides the zoom buttons).
+            hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
+            assert hidden, "zoom not hidden after the pseudo fallback"
             # And the user is told the truth instead of "entered fullscreen".
             hint = page.evaluate(_js("FullscreenControl/read_hint_text"))
-            assert "not available" in hint.lower(), f"unexpected reject hint: {hint!r}"
+            assert "maximized" in hint.lower(), f"unexpected reject hint: {hint!r}"
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()

@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { CLASS_COUNT } from "#core/classify.js";
+import { EVENTS, SettledOperation, ensureEvents } from "#core/event/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { BORDER_WEIGHT } from "#foliplus/common/form.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
+import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
+import { makeConfig, makeCtrl, makeManager, makeManagerOn } from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -32,12 +36,11 @@ describe("getPointValue", () => {
 });
 
 describe("getPointValue — additional gaps", () => {
-  it("uses autoFieldKey when field is empty", () => {
+  it("falls back to 1 when field is empty", () => {
     const m = makeManager();
     m.agg = CONST.AGG.SUM;
     m.field = "";
-    m.autoFieldKey = "value";
-    expect(m.getPointValue({ value: 42 })).toBe(42);
+    expect(m.getPointValue({ value: 42 })).toBe(1);
   });
 
   it("uses field when it is set", () => {
@@ -61,9 +64,8 @@ describe("getPointValue — additional gaps", () => {
 });
 
 describe("HeatmapManager — caching & lifecycle", () => {
-  it("clearHeatmapCanvas resets autoFieldKey and all caches", () => {
+  it("clearHeatmapCanvas resets all caches", () => {
     const m = makeManager();
-    m.autoFieldKey = "price";
     m.cachedFeatures = { f: 1 } as any;
     m.cachedAgg = { key: "k", data: "d" } as any;
     m.cachedPoints = { key: "p", pts: [] } as any;
@@ -80,7 +82,6 @@ describe("HeatmapManager — caching & lifecycle", () => {
     m.field = "price";
     m.method = "quantile";
     m.numClasses = 9;
-    m.autoFieldKey = "price";
 
     // A zoom that lands on no features runs clearHeatmapCanvas through the
     // render empty path — the selection is a user choice, not a render artifact.
@@ -91,21 +92,17 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.field).toBe("price");
     expect(m.method).toBe("quantile");
     expect(m.numClasses).toBe(9);
-    expect(m.autoFieldKey).toBe("price");
   });
 
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
     const m = makeManager();
     const schemeBarCleanup = vi.fn();
-    const dropdownCleanup = vi.fn();
     m.ui = {
       ...makeCtrl(m, makeConfig()),
       schemeBarCleanup,
-      dropdownCleanup,
     };
     m.clearHeatmapCanvas();
     expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
-    expect(dropdownCleanup).toHaveBeenCalledTimes(1);
   });
 
   it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {
@@ -250,12 +247,23 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.resolveLabelStyle().font).toContain("18px");
   });
 
+  /** Stub the lazy point traversal the field scan reads. `forEachPoint` is
+   *  the extractPoints twin that hands the marker to the callback without
+   *  building coordinates, so the tests feed markers directly. */
+  const mockMarkers = (...markers: Array<Record<string, unknown>>) => {
+    window.map.foliplus.LayerAPI.forEachPoint = vi.fn(
+      (_id: string, fn: (marker: unknown) => void) => {
+        markers.forEach(marker => fn(marker));
+      },
+    );
+  };
+
   it("collectFields gathers numeric properties once", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { feature: { properties: { price: 1, name: "x" } } } },
-      { marker: { feature: { properties: { price: 2 } } } },
-    ]);
+    mockMarkers(
+      { feature: { properties: { price: 1, name: "x" } } },
+      { feature: { properties: { price: 2 } } },
+    );
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
     expect(fields).toContain("price");
     expect(fields).not.toContain("name");
@@ -264,9 +272,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 42, feature: { properties: { price: 1 } } } },
-    ]);
+    mockMarkers({ value: 42, feature: { properties: { price: 1 } } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
     expect(fields).toContain("price");
@@ -274,24 +280,18 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric options.value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { options: { value: 99 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers({ options: { value: 99 }, feature: { properties: {} } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("options.value");
   });
 
   it("collectFields skips non-numeric value and options.value", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      {
-        marker: {
-          value: "not-a-number",
-          options: { value: undefined },
-          feature: { properties: { price: 1 } },
-        },
-      },
-    ]);
+    mockMarkers({
+      value: "not-a-number",
+      options: { value: undefined },
+      feature: { properties: { price: 1 } },
+    });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).not.toContain("value");
     expect(fields).not.toContain("options.value");
@@ -300,30 +300,36 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields deduplicates value and options.value across markers", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 1, feature: { properties: {} } } },
-      { marker: { value: 2, options: { value: 3 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers(
+      { value: 1, feature: { properties: {} } },
+      { value: 2, options: { value: 3 }, feature: { properties: {} } },
+    );
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields.filter(f => f === "value")).toHaveLength(1);
     expect(fields.filter(f => f === "options.value")).toHaveLength(1);
   });
 
-  it("collectFields skips markers with no marker object", () => {
+  it("collectFields falls back to extractPoints on a LayerAPI without forEachPoint", () => {
+    // A component bundle can pair with an older common runtime: the scan must
+    // stay correct (just slower) when the lazy traversal is absent.
     const m = makeManager();
+    window.map.foliplus.LayerAPI.forEachPoint = undefined;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: null },
-      { marker: { feature: { properties: { price: 1 } } } },
+      { lat: 0, lng: 0, marker: { feature: { properties: { price: 3 } } } },
     ]);
-    const fields = m.collectFields([{ id: "a" }]);
-    expect(fields).toContain("price");
+    expect(m.collectFields([{ id: "a" }])).toContain("price");
+  });
+
+  it("collectFields walks every listed layer through the lazy point traversal", () => {
+    const m = makeManager();
+    mockMarkers({ feature: { properties: { price: 1 } } });
+    m.collectFields([{ id: "a" }, { id: "b" }]);
+    expect(window.map.foliplus.LayerAPI.forEachPoint).toHaveBeenCalledTimes(2);
   });
 
   it("collectFields still enumerates value when feature.properties is absent", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 7 } },
-    ]);
+    mockMarkers({ value: 7 });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
   });
@@ -506,6 +512,23 @@ describe("renderFeatures", () => {
     m.renderFeatures([{ type: "Feature" }] as any);
     expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
+
+  it("count broadcast is settled — a thrower does not starve later consumers", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const bus = ensureEvents(m.map);
+    const seen: string[] = [];
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, () => {
+      throw new Error("count boom");
+    });
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => m.renderFeatures([{ type: "Feature" }] as any)).toThrow("count boom");
+
+    expect(seen).toEqual([m.layerId]);
+    expect(m.cachedFeatures).toEqual([{ type: "Feature" }]);
+  });
 });
 
 describe("renderHexagons", () => {
@@ -524,7 +547,7 @@ describe("renderHexagons", () => {
     m.map = { _container: {}, getZoom: () => 5 };
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
-      key: "layer1|count||2|jenks|Reds|6",
+      key: "layer1|2|count||jenks|Reds|6|",
       data: {
         hexCells: {},
         getAggValue: () => 0,
@@ -538,20 +561,6 @@ describe("renderHexagons", () => {
   });
 });
 
-describe("wrapper delegation & the registration snapshot", () => {
-  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
-    const m = makeManager();
-    const mod = await import("#core/classify.js");
-    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
-    try {
-      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
-      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
-    } finally {
-      spy.mockRestore();
-    }
-  });
-});
-
 describe("HeatmapManager — export event subscriptions", () => {
   // The two export handlers are named methods, so the tests below assert on
   // them.  A bus that stopped delivering — or a subscription that went
@@ -562,7 +571,7 @@ describe("HeatmapManager — export event subscriptions", () => {
   it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
     const m = makeManager();
     const beforeSpy = vi.spyOn(m, "onBeforeExport");
-    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    ensureEvents(m.map).publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(m.renderAll).toBe(true);
   });
@@ -588,7 +597,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
     bus.on(EVENTS.AFTER_EXPORT, probeAfter);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
 
     expect(beforeSpy).not.toHaveBeenCalled();
@@ -612,11 +621,11 @@ describe("HeatmapManager — export event subscriptions", () => {
     const afterSpy = vi.spyOn(m, "onAfterExport");
     const bus = ensureEvents(m.map);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(afterSpy).not.toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(2);
     expect(afterSpy).toHaveBeenCalledTimes(1);
@@ -687,7 +696,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(m.cachedFeatures).toBeNull();
     expect(m.overlay.unregister).toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     expect(m.renderAll).toBe(false);
@@ -848,7 +857,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(m.hasScanned).toBe(false);
 
     // LayerControl (or any control) finishing attach re-triggers the scan.
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
 
@@ -893,7 +902,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     cleanup();
     cleanup(); // second call is a no-op
 
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
     // Unsubscribed — no further scan ran, and no late settle.
@@ -1268,7 +1277,7 @@ describe("HeatmapManager — style delegation", () => {
     // this.map.foliplus (makeCtrl wires the same object).
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelShow!(true);
@@ -1283,7 +1292,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelFormat!("comma");
@@ -1473,7 +1482,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(2.5);
@@ -1512,7 +1521,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderColor!("#00ff00");
@@ -1548,6 +1557,12 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    // Only the two user-facing rows are published: the internal source id
+    // is not panel content, and a raw meta entry would render as one.
+    expect(Object.keys(m.sourceMeta).sort()).toEqual([
+      "HeatmapControl.meta_agg_field",
+      "HeatmapControl.meta_source_layer",
+    ]);
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
   });
 
@@ -1564,17 +1579,16 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("uses the auto field when field is empty", () => {
+  it("omits the aggregation field when the stored field is empty", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
     m.agg = "avg";
     m.field = "";
-    m.autoFieldKey = "properties.dwell";
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
   it("clears both rows when no layer is selected", () => {
@@ -1675,7 +1689,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.selectedLayerId = "pts";
     m.agg = CONST.AGG.SUM;
     m.field = "price";
-    m.autoFieldKey = "price";
     m.scheme = "Greens";
     m.numClasses = 8;
     m.method = "quantile";
@@ -1687,7 +1700,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
 
     // State back to the declared defaults, no stale selection left behind.
     expect(m.selectedLayerId).toBeNull();
-    expect(m.autoFieldKey).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
     expect(m.method).toBe(config.method);
@@ -1723,7 +1735,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.field = "price";
     m.scheme = "Greens";
     m.numClasses = 8;
-    m.autoFieldKey = "price";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
     const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
@@ -1734,7 +1745,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(saveSpy).toHaveBeenCalledTimes(1);
     expect(clearSaved).not.toHaveBeenCalled();
     expect(m.selectedLayerId).toBeNull();
-    expect(m.autoFieldKey).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
     expect(m.scheme).toBe("Reds");
@@ -1757,8 +1767,8 @@ describe("constructor — CONFIG fallbacks", () => {
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.scheme).toBe("Reds");
     expect(m.method).toBe("jenks");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.borderColor).toBe(CONST.GRAY);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
+    expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
 
@@ -1769,8 +1779,11 @@ describe("featureCountProvider", () => {
     expect(opts.featureCountProvider()).toBe(0);
   });
 
-  it("returns the feature count when cachedFeatures is set", () => {
+  it("returns the filtered feature count when cachedFeatures is set", () => {
     const m = makeManager();
+    // cachedFeatures is the drawn (post-filter) set: the Attributes panel and
+    // the row therefore report the kept features, while the unfiltered cell
+    // total lives only in getFilterModel / the filter panel's Result.
     m.cachedFeatures = [{}, {}, {}] as any;
     const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
     expect(opts.featureCountProvider()).toBe(3);
@@ -2088,18 +2101,9 @@ describe("resetState — CONFIG fallbacks", () => {
       color_scheme: undefined,
     });
     expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
     expect(m.method).toBe("jenks");
     expect(m.scheme).toBe("Reds");
-  });
-});
-
-describe("computeBreaks", () => {
-  it("delegates to computeBreaksFn", () => {
-    const m = makeManager();
-    const result = m.computeBreaks([1, 2, 3, 4, 5], 3, "jenks");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -2243,5 +2247,517 @@ describe("redrawHeatmap — preserveCss branch", () => {
     expect(canvas.style.opacity).toBe("0.5");
     // layerAlpha is restored to the original value after the draw pass.
     expect(getLayerAlpha(canvas)).toBeCloseTo(0.5);
+  });
+});
+
+// ── Source content-signal integration (real LayerAPI chain) ──
+//
+// The unit tests elsewhere clear the caches by hand before calling
+// renderHexagons, which proves the revalidation algorithm but not the runtime
+// chain. These tests drive the real chain instead:
+//
+//   LayerAPI.createLayers() handle addLayer / removeLayer / clearLayers
+//     → LayerFactory's patched group → controller.refreshCount
+//     → LAYER_ITEM_COUNT_CHANGE on the shared bus
+//     → HeatmapManager's source-content listener
+//     → cache invalidation + debounced renderHexagons
+//
+// The map is the real LayerController fixture (test/js/LayerControl/ui), so
+// the bus, the registry and the factory are the production instances; only
+// the heatmap's own draw is stubbed (jsdom has no 2D canvas).
+/** A real-enough layer role: the factory patches and walks its children. */
+class FakeGroup {
+  options: Record<string, unknown> = {};
+  private children = new Set<unknown>();
+
+  addLayer(layer: unknown): this {
+    this.children.add(layer);
+    return this;
+  }
+  removeLayer(layer: unknown): this {
+    this.children.delete(layer);
+    return this;
+  }
+  clearLayers(): this {
+    this.children.clear();
+    return this;
+  }
+  hasLayer(layer: unknown): boolean {
+    return this.children.has(layer);
+  }
+  getLayers(): unknown[] {
+    return [...this.children];
+  }
+  eachLayer(fn: (layer: unknown) => void): void {
+    [...this.children].forEach(fn);
+  }
+}
+
+/** A Marker instance the controller's `extractPoints` accepts: `instanceof
+ *  L.Marker`, a `feature` bag and a `getLatLng`, plus the folium `value`
+ *  contract the heatmap reads. */
+const makeMarker = (value: number) => {
+  const marker = new (
+    window.L.Marker as unknown as new () => Record<string, unknown>
+  )();
+  marker.options = {};
+  marker.value = value;
+  marker.feature = { properties: {} };
+  marker.getLatLng = () => ({ lat: 26 + value / 1000, lng: 119 + value / 1000 });
+  return marker;
+};
+
+const SCAN_DEBOUNCE = 200;
+
+describe("HeatmapControl source content signal (LayerAPI integration)", () => {
+  let ctrl: LayerController;
+  let map: any;
+  let mgr: HeatmapManager;
+  let src: ReturnType<LayerController["createLayers"]>;
+  let filterSpy: ReturnType<typeof vi.fn<(payload: { id: string }) => void>>;
+
+  /** Flush both debounces the manager uses for layer/content changes. */
+  const flushScans = () => vi.advanceTimersByTime(SCAN_DEBOUNCE + 50);
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    const fixture = initFixture();
+    ctrl = fixture.manager;
+    map = fixture.map;
+    trackMembership(map);
+
+    // The factory creates its groups through L.layerGroup — give it a real
+    // one so addLayer/removeLayer/clearLayers actually move children.
+    window.L.layerGroup = vi.fn(() => new FakeGroup()) as any;
+
+    mgr = makeManagerOn(map);
+    // One hex cell per marker: the fixture stub returns a constant cell, but
+    // these assertions are about the owner-unit counts (cells kept / total),
+    // so distinct cells keep the mapping to the old point totals legible.
+    (globalThis.h3 as any).latLngToCell = vi.fn(
+      (lat: number, lng: number) => `${lat}:${lng}`,
+    );
+    // HeatmapManager reads the LayerAPI through the free `map` global
+    // (window.map) in getSelectedPoints / publishCount. Point it at the real
+    // controller mounted on the fixture map.
+    window.map.foliplus = map.foliplus;
+    vi.spyOn(mgr, "redrawHeatmap").mockImplementation(() => {});
+
+    vi.useFakeTimers();
+    src = ctrl.createLayers({
+      id: "src",
+      name: "Source",
+      panes: [{ name: "srcPane" }],
+    });
+    filterSpy = vi.fn<(payload: { id: string }) => void>();
+    mgr.events.on(EVENTS.LAYER_FILTER_CHANGE, filterSpy);
+  });
+
+  afterEach(() => {
+    mgr?.onSourceContentChange?.cancel?.();
+    mgr?.onLayerChange?.cancel?.();
+    ctrl?.debouncedEnforce?.cancel?.();
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  /** Register the source with its initial points, flush the registration
+   *  scan, then hand the manager the source row the production scan would
+   *  have built (the fixture's source is a vector row, so the type filter
+   *  drops it from `getLayersByType("point")`). */
+  const selectSource = (values: number[]) => {
+    const markers = values.map(makeMarker);
+    markers.forEach(marker => src.addLayer(marker as unknown as L.Layer));
+    flushScans();
+    mgr.selectedLayerId = "src";
+    mgr.pointLayers = [
+      { id: "src", name: "Source", layer: src.mainLayer, count: values.length },
+    ];
+    return markers;
+  };
+
+  it("re-renders from a real addLayer and updates the panel model range", () => {
+    const markers = selectSource([10, 30]);
+    mgr.renderHexagons();
+    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({
+      kind: "range",
+      range: [10, 30],
+    });
+
+    // Move the content through the public API: the values now span [1, 5].
+    // removeLayer keeps the row registered (only clearLayers retires it), so
+    // this is a data update, not a source departure.
+    markers.forEach(marker => src.removeLayer(marker as unknown as L.Layer));
+    src.addLayer(makeMarker(1) as unknown as L.Layer);
+    src.addLayer(makeMarker(5) as unknown as L.Layer);
+
+    // The count signal drops the extraction caches synchronously, before the
+    // debounced repaint — a panel read in between must not answer from the
+    // retired snapshot.
+    expect((mgr as any).cachedPoints).toBeNull();
+    expect((mgr as any).cachedSnapshot).toBeNull();
+
+    flushScans();
+
+    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({
+      kind: "range",
+      range: [1, 5],
+    });
+    expect(mgr.getFilterModel()!.total).toBe(2);
+  });
+
+  it("a real content change clamps a committed filter and notifies once", () => {
+    const markers = selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.setFilter({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+    expect(mgr.getFilterModel()!.filter).toBeDefined();
+    filterSpy.mockClear();
+
+    markers.forEach(marker => src.removeLayer(marker as unknown as L.Layer));
+    src.addLayer(makeMarker(1) as unknown as L.Layer);
+    src.addLayer(makeMarker(5) as unknown as L.Layer);
+    flushScans();
+
+    // [10, 20] cannot intersect [1, 5]: the stored band clamps to the only
+    // still-valid point, and the one notification lands after the render.
+    expect(mgr.getFilterModel()!.filter).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [5, 5],
+    });
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+    expect(filterSpy).toHaveBeenCalledWith({ id: mgr.layerId });
+  });
+
+  it("notifies a content change even when the stored filter survives", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.setFilter({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+    expect(mgr.getFilterModel()!.kept).toBe(1);
+    filterSpy.mockClear();
+
+    // An added point inside the committed band leaves [10, 20] valid and
+    // unchanged, but `kept` moves 1 → 2. An open panel's live readout is
+    // derived from that model, so the content signal owes a notification even
+    // without a clamp.
+    src.addLayer(makeMarker(15) as unknown as L.Layer);
+    flushScans();
+
+    const model = mgr.getFilterModel()!;
+    expect(model.filter).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+    expect(model.kept).toBe(2);
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the unfiltered cell total when the filter keeps nothing", () => {
+    selectSource([10, 20, 30]);
+    mgr.renderHexagons();
+    expect(mgr.getFilterModel()!.total).toBe(3);
+
+    // [12, 18] is a valid band inside the extent that no point falls in: the
+    // render paints nothing, but the row still reports its unfiltered cell
+    // count — 0 of 0 would hide what the filter is narrowing.
+    mgr.setFilter({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [12, 18],
+    });
+    const model = mgr.getFilterModel()!;
+    expect(model.kept).toBe(0);
+    expect(model.total).toBe(3);
+    expect((mgr as any).cachedFeatures).toBeNull();
+    // (The Attributes panel and the row share featureCountProvider, which
+    // counts this drawn set — that path is pinned in the featureCountProvider
+    // describe; the unfiltered cell total only feeds the filter Result.)
+
+    // The kept geometry survives the empty render: the next paint reuses the
+    // same cell set (no h3 walk) and the total stays legible.
+    const bins = (mgr as any).cachedBins;
+    expect(bins.bins.size).toBe(3);
+    mgr.renderHexagons();
+    expect((mgr as any).cachedBins).toBe(bins);
+    expect(mgr.getFilterModel()!.total).toBe(3);
+  });
+
+  it("a real removeLayer shrinks the snapshot and rebuilds the geometry cache", () => {
+    const markers = selectSource([10, 20, 30]);
+    mgr.renderHexagons();
+    const binsBefore = (mgr as any).cachedBins;
+
+    src.removeLayer(markers[1] as unknown as L.Layer);
+    flushScans();
+
+    const model = mgr.getFilterModel()!;
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", range: [10, 30] });
+    expect(model.total).toBe(2);
+    expect(model.kept).toBe(2);
+    // Point identity moved, so the bin walk is redone for the new set.
+    expect((mgr as any).cachedBins).not.toBe(binsBefore);
+  });
+
+  it("clearLayers on the selected source drops the selection, canvas and filter", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.setFilter({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+    filterSpy.mockClear();
+
+    src.clearLayers();
+    flushScans();
+
+    expect(mgr.selectedLayerId).toBeNull();
+    expect(mgr.layerFilters.size).toBe(0);
+    expect((mgr as any).cachedFeatures).toBeNull();
+    // Exactly one notification, whichever debounced pass revalidates first.
+    expect(filterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores the count signal of its own output row (no self-trigger)", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    const cachedPoints = (mgr as any).cachedPoints;
+    const renderSpy = vi.spyOn(mgr, "renderHexagons");
+
+    // The manager publishes this event for its own row after every render;
+    // consuming it would make each paint schedule another paint.
+    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: mgr.layerId });
+    flushScans();
+
+    expect(renderSpy).not.toHaveBeenCalled();
+    expect((mgr as any).cachedPoints).toBe(cachedPoints);
+  });
+
+  it("drops a scheduled content repaint when the selection is gone", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+
+    // A content signal schedules the debounced repaint; the selection is
+    // cleared before the timer fires, so the callback must bail out instead of
+    // rendering an owner that no longer exists.
+    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "src" });
+    mgr.selectedLayerId = null;
+    expect(() => flushScans()).not.toThrow();
+    // The count signal already dropped the caches; the cleared selection then
+    // keeps the debounced callback from touching the canvas.
+    expect((mgr as any).cachedPoints).toBeNull();
+  });
+
+  it("keeps the snapshot when only the aggregation key changed", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    const snapshot = (mgr as any).cachedSnapshot;
+
+    // A field/aggregation switch invalidates the extracted points (the cache
+    // key changes) but not the owner snapshot: the same source keeps the same
+    // points/fields/ranges, so the snapshot must not be rebuilt.
+    mgr.agg = "sum" as typeof mgr.agg;
+    expect(mgr.getSelectedPoints()).toHaveLength(2);
+    expect((mgr as any).cachedSnapshot).toBe(snapshot);
+    expect((mgr as any).cachedSnapshotLayerId).toBe("src");
+  });
+
+  it("syncFilterField is a no-op without a selected source", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.selectedLayerId = null;
+
+    expect(() => (mgr as any).syncFilterField()).not.toThrow();
+    expect(mgr.layerFilters.size).toBe(0);
+  });
+
+  it("settles a caller-owned operation when the selection is cleared mid-write", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.selectedLayerId = null;
+
+    // A wider write already owns the operation: renderHexagons must not
+    // settle it, the caller raises after its whole fan-out.
+    const op = new SettledOperation(mgr.events);
+    expect(() => mgr.renderHexagons(op)).not.toThrow();
+  });
+
+  it("renders an empty canvas when the selection is cleared without an operation", () => {
+    selectSource([10, 30]);
+    mgr.renderHexagons();
+    mgr.selectedLayerId = null;
+
+    // No caller-owned operation: the local one is settled (and would raise)
+    // inside renderHexagons.
+    expect(() => mgr.renderHexagons()).not.toThrow();
+    expect((mgr as any).cachedFeatures).toBeNull();
+  });
+});
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  type WarnSpyable = { log: { warn: (...args: unknown[]) => void } };
+  const spyWarn = (m: unknown) =>
+    vi.spyOn((m as WarnSpyable).log, "warn").mockImplementation(() => {});
+
+  it("resolves the declared layer name against the scanned point layers", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("ignores the declaration once a persisted record consumed the guard", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // applySavedConfig sets this for ANY stored record — including one where
+    // the user explicitly cleared the selection.
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+  });
+
+  it("warns once when the declared layer is not a point layer", () => {
+    const m = makeManager({ layer: "Missing" });
+    const warn = spyWarn(m);
+    m.pointLayers = [{ id: "p1", name: "Other", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared layer not found");
+  });
+
+  it("resolves the declared field only when the layer offers it", () => {
+    const m = makeManager({ field: "score" });
+    expect(m.setAvailableFields(["count", "score"])).toBe("score");
+    // Not offered: the declaration is not re-pointed at another column - the
+    // first numeric field is only the display fallback, and the declaration
+    // never lands in the user's field.
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(m.field).toBe("");
+  });
+
+  it("warns once when the declared field is not offered", () => {
+    const m = makeManager({ field: "score" });
+    const warn = spyWarn(m);
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared field not found");
+  });
+
+  it("re-opens the guard on Reset so the declaration applies again", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // A record consumed the guard...
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // ...and Reset (the Clear path) deletes that record, so the declaration is
+    // the starting state again: the next rebuild may apply it.
+    m.resetState({} as never);
+    expect(m.hasScanned).toBe(false);
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("treats a non-string declaration as absent instead of matching it", () => {
+    // CONFIG is a JSON bridge, but a hand-written CONFIG (or an older bundle)
+    // must not make the scan compare against a non-string name.
+    const m = makeManager({ layer: 3, field: {} });
+    m.pointLayers = [{ id: "p1", name: "3", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // No declaration to match: the resolver answers with the offered field.
+    expect(m.setAvailableFields(["3"])).toBe("3");
+  });
+});
+
+describe("effective aggregation field - the auto default never becomes a record", () => {
+  it("prefers the user's pick, then the declaration, then the first field", () => {
+    const declared = makeManager({ field: "score" });
+    declared.field = "count";
+    expect(declared.setAvailableFields(["count", "score"])).toBe("count");
+
+    declared.field = "";
+    expect(declared.setAvailableFields(["count", "score"])).toBe("score");
+
+    const guessed = makeManager();
+    expect(guessed.setAvailableFields(["temp", "rain"])).toBe("temp");
+  });
+
+  it("keeps a stored pick the data no longer offers, and restores it with the data", () => {
+    const m = makeManager();
+    m.field = "rain";
+    // The pick was written in an earlier session: that record is the intent.
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBe("rain");
+
+    // The new data has no rain column: the display falls back, the pick stays.
+    expect(m.setAvailableFields(["temp", "wind"])).toBe("temp");
+    expect(m.field).toBe("rain");
+    // A later write must not replace the intent with the displayed fallback.
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBe("rain");
+
+    // The column comes back: the user's pick is in force again, untouched.
+    expect(m.setAvailableFields(["temp", "rain"])).toBe("rain");
+  });
+
+  it("never persists the guess: a scan-only manager saves no field", () => {
+    const m = makeManager();
+    expect(m.setAvailableFields(["temp", "rain"])).toBe("temp");
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBeUndefined();
+  });
+
+  it("resolves once per field list, not once per feature", () => {
+    const m = makeManager();
+    const resolve = vi.spyOn(m, "resolveEffectiveField");
+    m.setAvailableFields(["count", "score"]);
+    const afterScan = resolve.mock.calls.length;
+    m.agg = CONST.AGG.SUM;
+
+    // 100 per-feature reads (the real path is 20k) must all hit the cache.
+    for (let i = 0; i < 100; i++) m.getPointValue({ count: 7 });
+    expect(resolve.mock.calls.length).toBe(afterScan);
+  });
+
+  it("invalidates on a persistence write so the user's new pick takes effect", () => {
+    const m = makeManager();
+    m.agg = CONST.AGG.SUM;
+    m.setAvailableFields(["count", "options.value"]);
+    expect(m.effectiveField()).toBe("count");
+    expect(m.getPointValue({ options: { value: 3 } })).toBe(1);
+
+    m.field = "options.value";
+    m.saveConfig();
+    expect(m.effectiveField()).toBe("options.value");
+    expect(m.getPointValue({ options: { value: 3 } })).toBe(3);
+  });
+
+  it("Reset returns the field to the declaration (or empty)", () => {
+    const m = makeManager({ field: "score" });
+    m.field = "count";
+    expect(m.setAvailableFields(["count", "score"])).toBe("count");
+
+    m.resetState({} as never);
+
+    // The pick is gone and the scan belongs to the departed selection, so the
+    // declaration is the starting state again - no record, no stale guess.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
   });
 });

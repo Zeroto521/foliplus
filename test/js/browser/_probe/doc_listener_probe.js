@@ -156,8 +156,7 @@
     }
     if (stable < 2) {
       throw new Error(
-        "_probe/doc_listener_probe: the document/window listener count was " +
-          "still changing after 25 macrotasks; the page never settled",
+        `_probe/doc_listener_probe: the document/window listener count was still changing after 25 macrotasks; the page never settled`,
       );
     }
     return prev;

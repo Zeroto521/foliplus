@@ -189,7 +189,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
 const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId), {
+    owner: ui,
+  });
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -374,7 +376,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
     onChangeWeight: value => commitBorderWeight(ui, layerId, value),
-    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId),
+    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
   });
 };
 
@@ -385,7 +387,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  thin delegates so panel call sites and tests keep their shape.
  *
  *  Registered ahead of `opacity` and `zoomRange` in `DIM_ORDER`
- *  (see `./registry.js`): border comes second in the annotation panel's
+ *  (see `./registry.js`): border comes second in the label panel's
  *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: DIM.BORDER,
@@ -413,7 +415,7 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   /** Cohesive reset: cancel trailing apply, clear both border overrides,
    *  save, restore the author's stroke face from the style bag. */
   reset: (ui, layerId) => {
-    cancelStyleDimApply(FACE.STROKE, layerId);
+    cancelStyleDimApply(FACE.STROKE, layerId, ui);
     resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
@@ -429,6 +431,17 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
       return "user";
     }
     return "author";
+  },
+  /** Content-change replay: a stroke chosen before a leaf landed reaches it
+   *  through the same coalesced walk an edit takes. The when-gate mirrors
+   *  applyBorderToLayer's own bail, before any scheduler box is allocated. */
+  contentChange: {
+    kind: "frame",
+    face: FACE.STROKE,
+    when: (ui, layerId) =>
+      getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined,
+    run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
 

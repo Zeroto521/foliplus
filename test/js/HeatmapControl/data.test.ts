@@ -1,14 +1,13 @@
 // Unit tests for HeatmapControl/data — the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import {
   aggregateBins,
   aggregateData,
   binPoints,
   buildFeatures,
-  getColorScale,
   getH3Res,
-  pickAutoField,
   readMarkerField,
 } from "#foliplus/HeatmapControl/data.js";
 import type { SelectedPoint } from "#foliplus/HeatmapControl/type.js";
@@ -30,6 +29,34 @@ afterEach(() => {
   delete globalThis.ss;
 });
 
+// The heatmap used to keep a private chroma wrapper; it now shares
+// core/palette with the value-based fill. These pin the promise that the
+// migration cannot move a color: the chroma call chain is the one the
+// retired function used, and the no-chroma fallback is the single grey the
+// heatmap border already degraded to.
+describe("shared color scale — migration parity", () => {
+  it("the no-chroma fallback is the grey the heatmap already used", () => {
+    expect(getColorScale("Reds", 4)).toEqual([
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+    ]);
+  });
+
+  it("asks chroma the same questions the private wrapper did", () => {
+    const colorsSpy = vi.fn(() => ["#a", "#b", "#c"]);
+    const modeSpy = vi.fn(() => ({ colors: colorsSpy }));
+    const scaleSpy = vi.fn(() => ({ mode: modeSpy }));
+    globalThis.chroma = { scale: scaleSpy } as never;
+
+    expect(getColorScale("Viridis", 3)).toEqual(["#a", "#b", "#c"]);
+    expect(scaleSpy).toHaveBeenCalledWith("Viridis");
+    expect(modeSpy).toHaveBeenCalledWith("lab");
+    expect(colorsSpy).toHaveBeenCalledWith(3);
+  });
+});
+
 describe("getH3Res", () => {
   it("resolves the bin resolution from RES_MAP", () => {
     expect(getH3Res(2)).toBe(0); // RES_MAP[0] = [2, 0]
@@ -40,17 +67,6 @@ describe("getH3Res", () => {
 
   it("falls back to RES_FALLBACK beyond the map", () => {
     expect(getH3Res(99)).toBe(CONST.H3.RES_FALLBACK);
-  });
-});
-
-describe("pickAutoField", () => {
-  it("picks the first field", () => {
-    expect(pickAutoField(["a", "b"])).toBe("a");
-  });
-
-  it("returns null for empty or null fields", () => {
-    expect(pickAutoField([])).toBeNull();
-    expect(pickAutoField(null)).toBeNull();
   });
 });
 
@@ -87,24 +103,6 @@ describe("readMarkerField", () => {
         "properties.bar",
       ),
     ).toBeUndefined();
-  });
-});
-
-describe("getColorScale", () => {
-  it("builds a chroma scale with n colors when available", () => {
-    globalThis.chroma = {
-      scale: vi.fn(() => ({
-        mode: vi.fn(() => ({
-          colors: vi.fn(() => ["#a", "#b"]),
-        })),
-      })),
-    } as never;
-    expect(getColorScale("Reds", 2)).toEqual(["#a", "#b"]);
-    expect(globalThis.chroma.scale).toHaveBeenCalledWith("Reds");
-  });
-
-  it("falls back to GRAY when chroma is absent", () => {
-    expect(getColorScale("Reds", 3)).toEqual([CONST.GRAY, CONST.GRAY, CONST.GRAY]);
   });
 });
 
@@ -202,6 +200,44 @@ describe("aggregateData", () => {
     // to class 0, a value beyond all breaks lands in the last class.
     expect(result!.valueToClassIdx(1)).toBe(0);
     expect(result!.valueToClassIdx(99)).toBe(2);
+  });
+
+  it("degrades to the equal method when the chosen one needs a missing script", () => {
+    // quantile needs the simple-statistics CDN global. On a page that never
+    // loaded it the classifier throws the dependency error, and the layer
+    // must still render as an equal split instead of throwing out of the
+    // method selector's handler.
+    delete globalThis.ss;
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
+    const result = aggregateData(pts, 4, "count", 3, "quantile", "Reds", vi.fn(), LOG);
+    expect(result).not.toBeNull();
+    // Two count-1 cells split equally into [1,1,1] - three breaks, so two
+    // colors, and a value inside the split stays in class 0 rather than
+    // being bisected against an undefined break.
+    expect(result!.classColors).toHaveLength(2);
+    expect(result!.valueToClassIdx(1)).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      "[HeatmapControl] simple-statistics unavailable, classified with the equal method",
+      expect.any(String),
+    );
+    warn.mockRestore();
+  });
+
+  it("rethrows a classifier failure that is not a missing dependency", () => {
+    // The script loaded but is broken: a runtime failure, not a page-wide
+    // absence, so it must surface instead of silently degrading.
+    globalThis.ss = {
+      quantileSorted: () => {
+        throw new Error("boom");
+      },
+    } as never;
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
+    expect(() =>
+      aggregateData(pts, 4, "count", 3, "quantile", "Reds", vi.fn(), LOG),
+    ).toThrow("boom");
   });
 });
 

@@ -1,4 +1,10 @@
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import {
+  EVENTS,
+  type EventBus,
+  SettledOperation,
+  ensureEvents,
+  publish,
+} from "#core/event/index.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
@@ -7,16 +13,18 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   GEOM_TYPE,
-  GROUP,
   type LabelAwareLayer,
   type LayerAPI,
+  type LayerCapabilities,
   LayerFactory,
   LayerInfoRegistry,
   type LayerKind,
   LayerOrder,
   type LayerSurface,
   PaneManager,
+  ROLE,
   type RegisterLayerOpts,
+  SurfaceIndex,
   countFeatureGeometry,
   ensureLayerAPI,
   findLayer,
@@ -25,6 +33,7 @@ import {
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
@@ -32,7 +41,14 @@ import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
+import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import {
+  type CursorRef,
+  cursorRef,
+  reconcileCursorByIdentity,
+} from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -79,7 +95,7 @@ const uninstallBringToFrontPatch = () => {
 //      `createLayers`, `createCanvas`, `bringLayerToFront`, `touchLayer`,
 //      `setVisible`, `getLayerType`, `getLayersByType`, `getFeatureCount`,
 //      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
-//      `computeZIndex`, `group`, and the `isLayerControl` flag. Anything
+//      `computeZIndex`, `role`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
 //   2. **Internal coordination** — the plumbing between LayerInfoRegistry,
 //      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
@@ -117,6 +133,23 @@ const uninstallBringToFrontPatch = () => {
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
+/** What one ordering pass observed. `skipped` is the re-entrant case: another
+ *  pass was already in flight, so this call priced nothing and `failed` is
+ *  empty by construction — not the same answer as "everything priced". */
+interface EnforceOrderResult {
+  readonly failed: readonly string[];
+  readonly skipped: boolean;
+}
+
+/** One string that is equal exactly when two capability projections agree.
+ *  This is the snapshot key the ordering pass diffs to find the surfaces whose
+ *  projection moved: every field gates a UI control (the style panel rows, the
+ *  menu's enablement), so a change to any of them is worth announcing. A
+ *  compact concatenation instead of `JSON.stringify` — same equality, no
+ *  intermediate array per surface per pass. */
+const capabilityKey = (caps: LayerCapabilities): string =>
+  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.zoomRange}|${caps.visibility}|${caps.annotation}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -137,11 +170,26 @@ class LayerController implements LayerAPI {
   /** The rendering face of each registered layer, keyed by layer id. Created on
    *  registration (and materialized before the layer joins the map) and dropped
    *  on unregistration — it is the replacement for the stamp-keyed fallback
-   *  pane map and the per-layer `options.paneSet` "already moved" flag. */
-  declare surfaces: Map<string, LayerSurface>;
-  /** The same surfaces keyed by the live layer's stamp, for the lookups that
-   *  start from a layer rather than from a registry entry. */
-  declare private surfacesByLayer: Map<number, LayerSurface>;
+   *  pane map and the per-layer `options.paneSet` "already moved" flag. The two
+   *  directions (id and layer stamp) are one `SurfaceIndex`; production writes
+   *  go through it so the reverse edge cannot drift. */
+  declare surfaceIndex: SurfaceIndex;
+  /** Reverse ownership for leaves the write-point index cannot answer:
+   *  nested groups and third-party trees. The value is the surface the leaf
+   *  was last attributed to; a positive hit skips the all-surface tree walk
+   *  on repeated add/remove events. The attribution path overwrites it on a
+   *  move and deletes it on removal, so a stale entry cannot outlive its
+   *  membership. WeakMap keys follow the layer object, not an `L.stamp` row.
+   */
+  private readonly attributedOwner = new WeakMap<L.Layer, LayerSurface>();
+  /** Capability projection snapshot, keyed by layer id: what each surface
+   *  advertised at the end of the last ordering pass. The next pass diffs
+   *  against it and announces the ids whose projection moved, so a UI that
+   *  rendered a capability at open time (the style panel) can re-render the
+   *  rows the live tree now supports. Seeded on first sight, never persisted.
+   */
+  private capabilitySnapshot = new Map<string, string>();
+
   declare factory: LayerFactory;
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
@@ -158,6 +206,7 @@ class LayerController implements LayerAPI {
    *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
   declare intentStore: LayerIntentStore;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
+  declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
   private readonly log: Logger;
@@ -245,8 +294,7 @@ class LayerController implements LayerAPI {
     this.isDestroyed = false;
 
     this.panes = new PaneManager(this.map);
-    this.surfaces = new Map();
-    this.surfacesByLayer = new Map();
+    this.surfaceIndex = new SurfaceIndex();
     this.intentStore = new LayerIntentStore();
 
     this.factory = new LayerFactory({
@@ -255,6 +303,7 @@ class LayerController implements LayerAPI {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
+      registry: () => this.layerRegistry,
       invalidateType: id => this.invalidateType(id),
       // A canvas or color surface mounts its pane inside register() and needs
       // its slot's z at birth — no provisional bottom step the ordering pass
@@ -266,7 +315,7 @@ class LayerController implements LayerAPI {
           ? {
               index: this.layerRegistry.indexOf(layerInfo),
               count: this.layers.length,
-              group: layerInfo.group,
+              role: layerInfo.role,
             }
           : null;
       },
@@ -293,14 +342,15 @@ class LayerController implements LayerAPI {
 
       // A layer's content can arrive at any time — a third party mutates a
       // registered group's tree, or folium's own script lands the leaves of a
-      // registered container. Mark every surface dirty so the next ordering pass
-      // reconciles it; there is no need to know which surface the new content
-      // belongs to, which is what the old permanently-true flag used to
-      // approximate (and got wrong: it kept the pass walking every tree on every
-      // pass). The mark is synchronous because the probe path calls
-      // `enforceOrder` directly, and a debounce-only trigger would miss it.
-      for (const surface of this.surfaces.values()) surface.markContentDirty();
-      if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
+      // registered container. Attribute the arrival to its owning surface when
+      // an O(1) signal can answer; otherwise every live surface is marked dirty
+      // (O(surfaces) marks) and the coalesced pass re-audits each tree once.
+      // Scanning each registered tree for the owner here is what this replaced:
+      // it paid O(total nodes) per event, and again on every re-add. The mark is
+      // synchronous because the probe path calls `enforceOrder` directly, and a
+      // debounce-only trigger would miss it.
+      const claimed = this.markOwningSurfaceDirty(event.layer);
+      if ((claimed || this.hasUnresolvedLayers()) && !this.isEnforcing) {
         this.debouncedEnforce();
       }
       // Late binding: folium emits a layer's JS global after this control's own
@@ -334,14 +384,34 @@ class LayerController implements LayerAPI {
             layerInfo,
           );
           this.layerRegistry.upsert(rebuilt);
-          this.emitLayerChange(layerInfo.id, rebuilt.kind);
+          const operation = this.beginOperation();
+          this.emitLayerChange(layerInfo.id, rebuilt.kind, operation);
+          operation.throwIfFailed();
           break;
         }
       }
     };
     this.map.on("layeradd", this.onLayerAdd);
+    // Content removals are the counterpart that makes a capability degrade
+    // recoverable: a foreign leaf leaving a registered tree must re-audit the
+    // surface. `includeSelf: false` keeps a layer's own hide/show (map
+    // membership) out of content attribution — its tree did not change.
+    this.onLayerRemove = event => {
+      if (
+        this.isDestroyed ||
+        event.layer === this.map ||
+        event.layer instanceof L.Renderer
+      ) {
+        return;
+      }
+      const claimed = this.markOwningSurfaceDirty(event.layer, {
+        includeSelf: false,
+      });
+      if (claimed && !this.isEnforcing) this.debouncedEnforce();
+    };
+    this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
-    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // label pane — which is a declared `role: "label"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
     // the rest of the face. The manager only mounts canvases into it; there
     // is no pane hook and no stored-intent replay to wire — the pane exists
@@ -353,20 +423,18 @@ class LayerController implements LayerAPI {
     });
     this.domain = new LayerOrchestration({
       map: this.map,
-      events: this.events,
       layerRegistry: this.layerRegistry,
       panes: this.panes,
       factory: this.factory,
       order: this.order,
       persistence: this.persistence,
       annotation: this.annotation,
-      surfaces: this.surfaces,
-      surfacesByLayer: this.surfacesByLayer,
+      surfaceIndex: this.surfaceIndex,
       getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
 
-    // Application tail — persisted order replay, group normalization, first
+    // Application tail — persisted order replay, role normalization, first
     // enforce, and the export-listener wiring. Runs after the assembly phase
     // above so `this.order` / `this.layerRegistry` / `this.factory` / `this.domain`
     // are all populated when these run.
@@ -374,13 +442,167 @@ class LayerController implements LayerAPI {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
-    // image matches the panel's layer order.
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    // image matches the panel's layer order. A layer the pass could not price
+    // means the capture may have an incomplete stack — warn, but let the
+    // export continue.
+    this.events.on(
+      EVENTS.BEFORE_EXPORT,
+      () => {
+        const { failed } = this.enforceOrder();
+        if (failed.length) {
+          this.log.warn(
+            `enforceOrder failed for ${failed.length} layer(s) before export: ${failed.join(", ")}`,
+          );
+        }
+      },
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
     this.map.foliplus!.LayerAPI = this;
+  }
+
+  /** Mark every live surface whose tree owns `layer`.
+   *
+   *  Three O(1) signals answer first: the registered layer itself (stamp
+   *  index), `createLayers`' write-point index, and a previously attributed
+   *  owner that the *current* ownership still confirms. A direct-membership
+   *  scan (O(surfaces) stamp tests) then catches a leaf that moved into
+   *  another surface root. Only when none of that answers — a third-party
+   *  tree, a nested group, a leaf that changed owner without its `layerremove`
+   *  — is every live surface marked dirty. Never scan every registered tree
+   *  for the owner: O(surfaces) marks per event and one tree walk per dirty
+   *  surface in the pass that follows, instead of O(total nodes) per event and
+   *  again on every re-add. A nested group has no parent pointer in Leaflet
+   *  and no index row (the write point only records the direct child of the
+   *  registered group), so it takes the mark-all fallback.
+   *
+   *  Retired surfaces are skipped: teardown can still emit the events that
+   *  would otherwise walk a layer whose leases are gone.
+   *
+   *  @param includeSelf - true for `layeradd` (the registered layer itself is a
+   *    content arrival), false for `layerremove` (the layer leaving the map is
+   *    a membership change, not a tree change).
+   *  @returns whether at least one live surface was marked. */
+  private markOwningSurfaceDirty(
+    layer: L.Layer,
+    opts: { includeSelf?: boolean } = {},
+  ): boolean {
+    const includeSelf = opts.includeSelf !== false;
+    let claimed = false;
+    // 1. The registered layer itself — one stamp lookup.
+    const direct = this.surfaceIndex.getByStamp(L.stamp(layer));
+    if (includeSelf && direct && !direct.retired) {
+      direct.markContentDirty();
+      claimed = true;
+    }
+    // 2. The `createLayers` write-point index (child -> registered group).
+    //    It is maintained by the factory's add / remove / clear overrides,
+    //    the same way Leaflet maintains its own `_layers`, so it is
+    //    membership data, not a heuristic: the leaves it records live in a
+    //    sub-group the factory owns, which `hasLayer` on the surface root
+    //    cannot confirm.
+    const parentStamp = this.panes.childOwnerOf(layer);
+    const indexed =
+      parentStamp !== undefined ? this.surfaceIndex.getByStamp(parentStamp) : undefined;
+    if (indexed && indexed !== direct && !indexed.retired) {
+      indexed.markContentDirty();
+      this.attributedOwner.set(layer, indexed);
+      claimed = true;
+    }
+    if (claimed) return true;
+    // 3. Remembered attribution, trusted only after re-confirming that the
+    //    surface still owns the layer. A leaf can change owner with no
+    //    `layerremove` to re-attribute it (a group removed from the map does
+    //    not propagate child removals; a third-party group can re-parent
+    //    directly), so a blind hit marked the old owner and left the new one
+    //    reporting a stale capability.
+    const remembered = this.attributedOwner.get(layer);
+    if (remembered) {
+      const isOwnRoot = remembered.layer === layer;
+      if (remembered.retired || (!includeSelf && isOwnRoot)) {
+        this.attributedOwner.delete(layer);
+      } else if (this.confirmsOwnership(remembered, layer)) {
+        remembered.markContentDirty();
+        return true;
+      } else {
+        // Stale: never steer the mark from it, but the old owner is still a
+        // candidate for "the content I held changed" — if the leaf really
+        // moved, the old tree lost a child; if it never was there the extra
+        // mark only costs one re-audit. The direct scan below then finds the
+        // surface that holds the leaf now.
+        remembered.markContentDirty();
+        this.attributedOwner.delete(layer);
+      }
+    }
+    // 4. Direct membership: O(surfaces) `hasLayer` lookups, which Leaflet
+    //    answers with a stamp test — the cheap scan stays, the tree walk it
+    //    used to fall back to does not.
+    for (const surface of this.surfaceIndex.values()) {
+      // Retired surfaces never stay in `surfaces`: `unregisterEntry` destroys
+      // the face and deletes it from the map in the same synchronous step, and
+      // a same-id replacement swaps it before any event can run. This is a
+      // failsafe for a broken invariant, not a state this flow produces —
+      // exempt from the branch-coverage gate for that reason.
+      /* v8 ignore next */
+      if (surface.retired) continue;
+      if (!includeSelf && surface.layer === layer) continue;
+      if (!this.confirmsOwnership(surface, layer)) continue;
+      surface.markContentDirty();
+      this.attributedOwner.set(layer, surface);
+      claimed = true;
+    }
+    if (claimed) return true;
+    // A registered layer's own hide/show is map membership, not content: the
+    // `includeSelf: false` contract exists so a visibility toggle does not
+    // pay a full sweep. Its parent-tree case (a registered layer nested inside
+    // another registered tree) is already answered by the direct scan above;
+    // nothing the tree walk used to find is left here.
+    if (!includeSelf && direct) return false;
+    // 5. No evidence at all (a third-party tree, a nested group): mark every
+    //    live surface that actually carries a tree and let the pass re-audit
+    //    each once. This is the O(surfaces)-marks counterpart of the removed
+    //    per-surface tree scan. Declaration-derived surfaces (canvas / color,
+    //    `layer === null`) have no tree whose change could move a capability.
+    for (const surface of this.surfaceIndex.values()) {
+      if (surface.retired || !surface.layer) continue;
+      if (!includeSelf && surface.layer === layer) continue;
+      surface.markContentDirty();
+      claimed = true;
+    }
+    return claimed;
+  }
+
+  /** Whether `surface` provably still owns `layer`, in O(1).
+   *
+   *  Two facts are cheap enough to re-check on every attributed event: the
+   *  layer IS the surface's own root (identity), and the surface root holds it
+   *  as a DIRECT child (`hasLayer` is a stamp lookup in Leaflet, not a tree
+   *  walk). A nested leaf cannot be confirmed in O(1); the caller falls back
+   *  to the all-surface mark, which is the conservative answer — a stale
+   *  attribution is what leaves the real owner reporting a capability the tree
+   *  no longer supports, the failure this confirmation exists to prevent. */
+  private confirmsOwnership(surface: LayerSurface, layer: L.Layer): boolean {
+    if (surface.layer === layer) return true;
+    const host = surface.layer as L.LayerGroup | null;
+    if (!host || typeof host.hasLayer !== "function") return false;
+    try {
+      return host.hasLayer(layer);
+    } catch {
+      // A hostile third-party role: "cannot confirm" is the answer.
+      return false;
+    }
+  }
+
+  /** The id → surface direction as a read-only view — the controller's legacy
+   *  `surfaces` field, kept for the tests and the capability reads that walk
+   *  it. Every write goes through `surfaceIndex` (register / delete / clear),
+   *  so the layer-stamp reverse edge is updated in the same step; mutating
+   *  this view directly would desynchronise the pair. */
+  get surfaces(): ReadonlyMap<string, LayerSurface> {
+    return this.surfaceIndex.byId;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -440,15 +662,15 @@ class LayerController implements LayerAPI {
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === GROUP.BASE) {
-      layerInfo.type = GROUP.BASE;
-      return GROUP.BASE;
+    if (layerInfo.role === ROLE.BASE) {
+      layerInfo.type = ROLE.BASE;
+      return ROLE.BASE;
     }
     if (layerInfo.iconSvg) {
       layerInfo.type = GEOM_TYPE.CUSTOM;
       return GEOM_TYPE.CUSTOM;
     }
-    const surface = this.surfaces.get(id);
+    const surface = this.surfaceIndex.get(id);
     if (!surface) return layerInfo.type;
     const gtype = surface.geometryType();
     layerInfo.type = gtype;
@@ -459,9 +681,20 @@ class LayerController implements LayerAPI {
    *  internal cache and the controller's snapshot are cleared; the next
    *  `getLayerType` re-probes through the surface. Unknown ids are no-ops. */
   invalidateType(id: string): void {
-    this.surfaces.get(id)?.invalidate();
+    const surface = this.surfaceIndex.get(id);
     const layerInfo = this.layerRegistry.get(id);
+    surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
+    // A destroyed manager must not schedule, whatever the id: check this
+    // before the unknown-id no-op so a late caller in the teardown window is
+    // stopped even for an id that still resolves, and so the guard is the one
+    // reachable short-circuit after `destroy()` has emptied the tables.
+    // The debounced pass coalesces calls.
+    if (this.isDestroyed) return;
+    // Unknown id: nothing was marked and nothing can recover, so there is no
+    // reason to queue an ordering pass that would only reprice.
+    if (!surface && !layerInfo) return;
+    this.debouncedEnforce();
   }
 
   /**
@@ -484,7 +717,7 @@ class LayerController implements LayerAPI {
   getFeatureCount(id: string): number | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === GROUP.BASE) return null;
+    if (layerInfo.role === ROLE.BASE) return null;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -523,8 +756,10 @@ class LayerController implements LayerAPI {
    *  before emitting; the factory path stays single-invalidation.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
-    if (this.layerRegistry.get(id)?.group === GROUP.BASE) return;
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
+    // Settled: one consumer throwing must not keep the other count listeners
+    // (the row repaint, the fill ramp) from seeing the final geometry.
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
@@ -537,14 +772,16 @@ class LayerController implements LayerAPI {
   }
 
   /**
-   * Extract all point markers from a registered layer by id.
+   * Read-only traversal of a registered layer's point markers — the lazy twin
+   * of {@link extractPoints}: same filter (label-aware leaves skipped, markers
+   * and circle markers carrying a feature only, de-duplicated by Leaflet
+   * stamp), but no per-point `{lat, lng, marker}` allocation and no
+   * `getLatLng` call. Callers that only need the marker (field scans, snapshot
+   * probes) use this; `extractPoints` stays for callers that need coordinates.
    * @param {string} id - Layer ID.
+   * @param {(marker: L.Marker | L.CircleMarker) => void} fn - Per-marker callback.
    */
-  extractPoints(
-    id: string,
-  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
-    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
-      [];
+  forEachPoint(id: string, fn: (marker: L.Marker | L.CircleMarker) => void): void {
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
       if ((l as LabelAwareLayer).isLabel) return;
@@ -553,8 +790,22 @@ class LayerController implements LayerAPI {
       const stamp = L.stamp(l);
       if (seen.has(stamp)) return;
       seen.add(stamp);
-      const ll = l.getLatLng();
-      pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
+      fn(l);
+    });
+  }
+
+  /**
+   * Extract all point markers from a registered layer by id.
+   * @param {string} id - Layer ID.
+   */
+  extractPoints(
+    id: string,
+  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
+      [];
+    this.forEachPoint(id, marker => {
+      const ll = marker.getLatLng();
+      pts.push({ lat: ll.lat, lng: ll.lng, marker });
     });
     return pts;
   }
@@ -564,9 +815,39 @@ class LayerController implements LayerAPI {
    *  every subscriber can filter on the payload instead of re-walking the
    *  registry. Covers register / unregister / reorder / visibility toggle /
    *  late re-attachment: those are all "the map now shows a different set of
-   *  layers", which is what the annotation manager repaints on. */
-  private emitLayerChange(id: string, kind: LayerKind): void {
-    this.domain.emitLayerChange(id, kind);
+   *  layers", which is what the annotation manager repaints on.
+   *
+   *  Always routed through the caller's operation: this event has the same
+   *  settled fan-out whichever lifecycle entry produced it, so a consumer
+   *  cannot truncate the rest of a register/unregister/reorder by throwing. */
+  private emitLayerChange(
+    id: string,
+    kind: LayerKind,
+    operation: SettledOperation,
+  ): void {
+    operation.emitSuperseding(EVENTS.LAYER_CHANGE, id, { id, kind });
+  }
+
+  /** Start one settled fan-out for a lifecycle operation. Queue every event the
+   *  operation owes, keep local mutations outside the queue, and raise the
+   *  first consumer failure once the whole operation has been attempted. */
+  private beginOperation(): SettledOperation {
+    return new SettledOperation(this.events);
+  }
+
+  /** Stop a registration that has already recorded a consumer failure.
+   *
+   *  The row insert/update event is the registration's first fan-out; once a
+   *  consumer has thrown there, the transaction is heading for the factory's
+   *  rollback, and no later event may announce it. Without this gate the
+   *  projection CHANGE (absorbed from `applyUserState`) and the registration
+   *  CHANGE still went out after the failing notify, so every consumer that
+   *  re-reads the registry saw the layer appear and then vanish — the ghost
+   *  announcement the rollback exists to prevent. Raising here lets the
+   *  factory's catch drop the committed entry and unmount the face. */
+  private stopOnFailure(operation: SettledOperation): void {
+    // One boolean read on the healthy path; `throwIfFailed` only when doomed.
+    if (operation.hasFailure()) operation.throwIfFailed();
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
@@ -580,16 +861,34 @@ class LayerController implements LayerAPI {
     // RegisterResult union that names "removed".
     if (this.order.removedIds.has(opts.id)) {
       this.log.warn(
-        `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
-          `user and the deletion is persisted for this map`,
+        `registerLayer: refusing "${opts.id}" — the layer was deleted by the user and the deletion is persisted for this map`,
       );
       return null;
     }
 
-    const { layerInfo, existingIdx, hidden } = this.domain.registerEntry(
+    // A layer's role is fixed for the id's whole lifetime — it picks the
+    // z ladder, the attribution and basemap semantics, and which panel
+    // section owns the row. Re-registering with a different role would be a
+    // role change, which no code path models: the in-place upsert would
+    // strand the row in the old section with a stale section boundary
+    // (firstBaseIdx) and a partition invariant broken. Refuse before any
+    // mutation — unregister first if the role really must change.
+    const existingRole = this.layerRegistry.get(opts.id);
+    if (existingRole && opts.role !== undefined && opts.role !== existingRole.role) {
+      throw new Error(
+        this.log.msg(
+          `registerLayer: "${opts.id}" is registered as ${existingRole.role}; re-registering with role "${opts.role}" is a role change. Unregister the layer first, or register it under a new id.`,
+        ),
+      );
+    }
+
+    const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
       Boolean(this.ui),
     );
+    // The commit token reaches the factory inside `registerEntry`, at the
+    // registry write point — the only place that knows the entry exists before
+    // `materialize()`/pane work can throw. Nothing to forward from here.
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
@@ -600,50 +899,173 @@ class LayerController implements LayerAPI {
       this.map.addLayer(opts.layer);
     }
 
-    if (!this.uiContainer) {
+    const container = this.uiContainer;
+    if (!container) {
       this.pendingRegistrations.push(layerInfo);
       this.debouncedEnforce();
       return null;
     }
 
+    const operation = this.beginOperation();
     if (this.ui) {
-      if (existingIdx === -1) {
-        // New row: the UI inserts the DOM row. insertLayerItem internally
-        // runs applyUserState for this id, so the controller-level applyUserState
-        // below is a no-op on the new-row path (idempotent) and only carries
-        // meaning on the re-registration branch.
-        this.events.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
+      if (mutation.kind === "insert") {
+        // New row: the row is inserted by the LAYER_ITEM_ADDED listener; the
+        // stored-state projection is left to the single applyUserState below,
+        // so the registration entry holds the delta and can announce it after
+        // the row, the count and the order are all settled.
+        operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
-        // so the row's cached field list and resolved auto field are both stale.
-        this.events.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
+        // so the row's cached field list and resolved field are both stale.
+        operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
+      // The row insert/update above is this registration's first fan-out: a
+      // throw there dooms it, so stop before projecting state or announcing a
+      // layer that is about to be rolled back.
+      this.stopOnFailure(operation);
       // A stored dimension must be replayed on first registration too. Heatmap
       // and Measure register after LayerControl has attached, so this is the only
       // pass that reaches a late-arriving layer's own visibility, opacity, name
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
-      this.ui.applyUserState(opts.id);
+      const moved = this.ui.applyUserState(opts.id);
       // Incremental: refresh only the new/updated row's cells instead of
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
-      this.events.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
-      this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: layerInfo.group,
+      operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: layerInfo.role,
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
+      // REFRESHED / GROUP_COUNT consumers can also throw: those failures are
+      // recorded in the same operation, and the projection batch below would
+      // broadcast a CHANGE for a registration that is already rolling back.
+      this.stopOnFailure(operation);
+      // The round goes out last — after the row insert, the count sync and the
+      // order replay — so a subscriber that re-enters reads the settled panel:
+      // full role count, correct row state. The batch carries the entry it ran
+      // against, so a retire inside that notify cannot announce for a
+      // replacement holding the same id.
+      collectDeltas(this.ui, moved, operation);
+      // A projection CHANGE consumer can throw too. The registration CHANGE
+      // below is the last broadcast that claims "this layer now exists", so a
+      // known failure must stop it here rather than after the fact.
+      this.stopOnFailure(operation);
+
+      // A subscriber can retire the entry inside that notify: a destroy takes
+      // the container and the registry with it, and an unregister leaves the id
+      // mapped to a different instance. Either way this registration is over —
+      // the registration CHANGE would announce for an entry that no longer
+      // exists, and the row lookup below would deref a null container.
+      if (this.isRetired(opts.id, layerInfo)) {
+        operation.throwIfFailed();
+        return null;
+      }
     }
     // Registration never writes the saved order: the slot this layer just took
     // is where attach timing put it, not a user arrangement. Only an explicit
     // user reorder (drag, moveLayerUp/Down, bringLayerToFront) snapshots the
     // live order. A layer the user *did* arrange still replays here through
     // insertOverlayAt / applyUserState above.
-    this.emitLayerChange(opts.id, layerInfo.kind);
-    return this.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
+    this.emitLayerChange(opts.id, layerInfo.kind, operation);
+    // The registration CHANGE can retire this registration the same way the
+    // projection notify above can: a destroy takes the container and the
+    // registry with it, an unregister or a re-registration with the same id
+    // leaves the id mapped to a different instance. The retirement is re-checked
+    // after that notify rather than cached before it — a cached node would be
+    // handed back after the entry that produced it is gone, and a re-lookup
+    // would return another instance's row for the same id.
+    if (this.isRetired(opts.id, layerInfo)) {
+      operation.throwIfFailed();
+      return null;
+    }
+    // The row lookup uses the container captured before any notify. A teardown
+    // in the notify above empties that node's content (`destroy` clears
+    // innerHTML), so the lookup returns null the same way a re-read would —
+    // without needing a branch that can never be taken.
+    operation.throwIfFailed();
+    return container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`);
+  }
+
+  /** Whether the entry a notify was announcing for is gone: the control was
+   *  destroyed, the layer was unregistered, or the id now maps to a
+   *  replacement. Every entry that keeps working after its own notify asks
+   *  this one question, in one place. */
+  private isRetired(id: string, entry: LayerInfo): boolean {
+    return this.isDestroyed || this.layerRegistry.get(id) !== entry;
+  }
+
+  /** The one reorder commit path — registry move, z repricing, persistence,
+   *  the panel-order signal and the announcement, in that order, inside one
+   *  settled operation. moveLayerUp / moveLayerDown / bringLayerToFront and
+   *  the drag drop all funnel through here: each entry resolves the user's
+   *  intent into a registry mutation and a no-op verdict, and this method
+   *  owns every contract the entrances must share — the event pair, the
+   *  identity retirement gate and the exception policy.
+   *
+   *  `mutate` runs before the operation opens, exactly as the entrances did
+   *  on their own: the registry move is a local commit, not a side effect a
+   *  subscriber can veto, and a throwing consumer must not find the saved
+   *  order disagreeing with the live one. */
+  private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
+    mutate();
+    // Both commit steps are owed writes, not alternatives: the pricing pass
+    // and the saved snapshot must each run even when the other throws — a
+    // persisted record lagging the in-memory arrangement is exactly what the
+    // local-commit rule above forbids. `finalize` is the run-all list; its
+    // reporter records the second failure only, because the first is the one
+    // the caller gets.
+    let failureCount = 0;
+    const commit = finalize(
+      [
+        ["price-order", () => this.enforceOrder()],
+        ["save-order", () => this.saveOrder()],
+      ],
+      failure => {
+        failureCount += 1;
+        if (failureCount > 1) {
+          this.log.warn(
+            `reorder commit step "${failure.name}" failed after an earlier error`,
+            failure.error,
+          );
+        }
+      },
     );
+    if (commit.failures.length > 0) {
+      const operation = this.beginOperation();
+      if (this.uiContainer && this.ui) {
+        operation.emit(EVENTS.LAYER_LIST_REBUILD);
+      }
+      try {
+        operation.throwIfFailed();
+      } catch (syncError) {
+        // The commit failure is the one the caller asked about; a panel
+        // subscriber failing on top of it is recorded, not substituted.
+        this.log.warn("reorder panel sync failed after a commit error", syncError);
+      }
+      throw commit.failures[0].error;
+    }
+    const operation = this.beginOperation();
+    if (this.uiContainer && this.ui) {
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
+    }
+    // The panel sync above is this operation's own side effect, so it lands
+    // before the notify: a subscriber reading the row order out of the panel
+    // during the CHANGE sees the arrangement that was just made. That same
+    // fan-out is where a subscriber can retire what the move announces for —
+    // destroying the control or unregistering the layer — so the entry is
+    // re-read rather than reused: a swap under the same id would otherwise
+    // be announced on top of the arrangement it just rendered. A controller
+    // with no panel never synced anything and announces as usual.
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return true;
+    }
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
+    return true;
   }
 
   /**
@@ -655,14 +1077,35 @@ class LayerController implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    if (item?.group === GROUP.BASE) return;
-    this.layerRegistry.moveToFront(id);
-    this.enforceOrder();
-    this.saveOrder();
-    this.emitLayerChange(id, item.kind);
-    if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
+    if (item?.role === ROLE.BASE) return;
+    this.commitReorder(id, item, () => this.layerRegistry.moveToFront(id));
+  }
+
+  /**
+   * Land a dragged layer at another layer's slot — the drag-drop counterpart
+   * of the move APIs, funneled through the same commit path so a drag
+   * publishes the same panel-order signal and layer CHANGE a keyboard or API
+   * move does. Both ids are resolved at commit time, not when the gesture
+   * started: the armed drag keeps the layer's identity, and the registry is
+   * re-read here so an intervening reorder moves what the user actually
+   * grabbed.
+   * @param {string} id - The dragged layer's ID.
+   * @param {string} targetId - The layer whose slot the drop names.
+   * @returns {boolean} true if the layer moved, false when either id is
+   *   gone, the slots coincide, or the role boundary refuses the move —
+   *   always without side effects on false.
+   */
+  reorderLayer(id: string, targetId: string): boolean {
+    const item = this.layerRegistry.get(id);
+    const target = this.layerRegistry.get(targetId);
+    if (!item || !target) return false;
+    const from = this.layerRegistry.indexOf(item);
+    const to = this.layerRegistry.indexOf(target);
+    // Same slot is a self-drop; any other pairing crosses the role gate,
+    // which also owns the bounds check, below.
+    if (from === to) return false;
+    if (!this.canReorderBetween(from, to)) return false;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(from, to));
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -736,68 +1179,187 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
   unregisterLayer(id: string): boolean {
-    const { layerInfo, layer } = this.domain.unregisterEntry(id);
-    if (!layerInfo) return false;
+    const retired = this.retireEntry(id);
+    if (!retired) return false;
 
-    if (layer) {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      this.clearAllLayers(layer);
-    }
-
-    if (this.uiContainer) {
-      const target = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-      );
-      if (target) {
-        // Finalise an in-flight user edit before its panel leaves the DOM: the
-        // drag value is the user's, not teardown state.
-        finishSlidersIn(target);
-        target.remove();
-        // Check if the group is now empty and remove the toggle-all row if so.
-        const group = layerInfo.group;
-        const anchorSel =
-          group === GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
-        if (!this.uiContainer.querySelector(anchorSel)) {
-          this.uiContainer
-            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
-            ?.remove();
-        }
-      }
-    }
-    // Nothing below writes persisted state — see the method's doc. The rename
-    // and the per-layer intent both survive this teardown, so a component that
-    // unregisters an empty layer and registers it again comes back with the
-    // name and the settings the user chose.
-    // Tear down the annotation RENDERING state; the label config stays —
-    // it is part of that surviving intent (a flush after this point must
-    // not erase `layers[id].annotation` from storage).
-    this.annotation.unloadLayer(id);
-    // Emitting unconditionally: bindLayerEvents has not run when there is no UI, so
-    // the subscribers simply do not fire — same effect as the previous
-    // `this.ui?.` guards, without a null-check chain on the manager side.
-    this.events.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
-    // The row was just removed: rescan the group's count so the toggle-all
-    // checkbox reflects the removal in the same frame.
-    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: layerInfo.group,
-    });
-    // Unregister is rare, so flush rather than riding out the 100ms window.
-    // Any pending write carries the registry's current order, which no longer
-    // lists this id — that dimension reads the registry live, so the removal is
-    // recorded without the teardown touching a persisted map.
+    const operation = this.beginOperation();
+    // Flush before any fan-out: the registry is already updated, and a
+    // throwing consumer must not leave the persisted order listing the id.
     this.persistence.flushAll();
-    this.emitLayerChange(id, layerInfo.kind);
-    // The registry change lands first, so a subscriber that drops the layer off
-    // its own list and then clears state observes the removal on the same
-    // channel it saw the registration. LAYER_REMOVED is the teardown
-    // notification itself — "the id left the registry" (Measure drops its
-    // active mode), not "the user deleted this". A user delete routes through
-    // deleteLayer, which emits LAYER_REMOVED for user-owned layers and
-    // LAYER_DELETED for component-owned ones.
-    this.events.emit(EVENTS.LAYER_REMOVED, { id });
+    this.announceRetirement(retired.layerInfo, operation);
+    // A map-teardown error captured by retireEntry surfaces only after the
+    // local ledger (persistence, events) has converged.
+    if (retired.error) throw retired.error;
+    operation.throwIfFailed();
     return true;
+  }
+
+  /** The panel row currently carrying this id, or null. */
+  private findRow(id: string): Element | null {
+    return (
+      this.uiContainer?.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`) ??
+      null
+    );
+  }
+
+  /** Remove one retired layer's panel row: finalise an in-flight slider edit,
+   *  drop the row, and take the role header with it when the role empties.
+   *  Split out of `retireEntry` so the teardown lists it as one named step —
+   *  inline, this segment was the one a try/catch could silently skip.
+   *
+   *  Takes the row element, not the id: the registry entry is already gone when
+   *  the steps run, so a listener inside `clear-layer-tree` can register the
+   *  same id again and mount a second row. Re-querying by id here would delete
+   *  the replacement's row; the element captured before the steps is the one
+   *  this retirement owns. */
+  private retireRow(target: Element | null, layerInfo: LayerInfo): void {
+    if (!target) return;
+    // Finalise an in-flight user edit before its panel leaves the DOM: the
+    // drag value is the user's, not teardown state.
+    finishSlidersIn(target);
+    target.remove();
+    const container = this.uiContainer;
+    if (!container) return;
+    // Check if the role is now empty and remove the toggle-all row if so.
+    const role = layerInfo.role;
+    const anchorSel =
+      role === ROLE.BASE
+        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
+    if (!container.querySelector(anchorSel)) {
+      container
+        .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
+        ?.remove();
+    }
+  }
+
+  /** Local retirement as one guaranteed-finalization pass: every throwable
+   *  step runs isolated through `finalize` — a map-removal listener, a
+   *  `clearLayers` `remove` event, a panel read that throws — and all local
+   *  ledgers (drag, map membership, DOM row, cursor, annotation) converge
+   *  before the first failure is handed back. The caller owes persistence and
+   *  the retirement events; it rethrows after ITS commits have landed. */
+  private retireEntry(id: string): { layerInfo: LayerInfo; error?: unknown } | null {
+    const { layerInfo, layer } = this.domain.unregisterEntry(id);
+    if (!layerInfo) return null;
+
+    // The row is resolved first and by element: the registry entry is already
+    // gone, so a `remove` handler inside `clear-layer-tree` can register this
+    // id again and mount a fresh row — a later id lookup would delete the
+    // replacement's row and leave the dead one behind.
+    let row: Element | null = null;
+    // Cursor identity is captured before the rows move, and re-homed after:
+    // the removal shifts every later row's index, and the ledger must follow
+    // the row it described, not the position. Removing the active row itself
+    // clears the cursor and hands the tab stop to the first visible row —
+    // the roving contract never lapses.
+    let cursor: CursorRef = null;
+    const failed = finalize(
+      [
+        // A drag armed with the retiring entry has no future: the source row
+        // is about to leave the panel, and a native dragend off a detached
+        // source cannot be relied on to bubble back. It is a throwable DOM
+        // step like every other one, so it runs inside the pass — a failure
+        // here must not skip the row, map or cursor convergence below. The
+        // identity check re-reads the entry the registry just returned, so a
+        // listener that re-registered the id mid-teardown cannot confuse it.
+        [
+          "cancel-drag",
+          () => {
+            const ui = this.ui;
+            if (ui?.listPanel?.dragEntry === layerInfo) clearDragState(ui);
+          },
+        ],
+        ["snapshot-row", () => (row = this.findRow(id))],
+        [
+          "snapshot-cursor",
+          () => (cursor = this.ui?.listPanel ? cursorRef(this.ui) : null),
+        ],
+        [
+          "detach-from-map",
+          () => {
+            if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+          },
+        ],
+        // A separate step, not part of the detach: `clearLayers()` fires Leaflet
+        // `remove` events synchronously, so user code can throw here. Bundled,
+        // it would be the one segment inside a step that still short-circuits.
+        ["clear-layer-tree", () => layer && this.clearAllLayers(layer)],
+        ["retire-row", () => this.retireRow(row, layerInfo)],
+        [
+          "reconcile-cursor",
+          () => {
+            if (this.ui?.listPanel) reconcileCursorByIdentity(this.ui, cursor);
+          },
+        ],
+        // Nothing here writes persisted state. The rename and the per-layer
+        // intent both survive this teardown, so a component that unregisters an
+        // empty layer and registers it again comes back with the name and the
+        // settings the user chose. Tear down the annotation RENDERING state; the
+        // label config stays — it is part of that surviving intent (a flush after
+        // this point must not erase `layers[id].annotation` from storage).
+        ["unload-annotation", () => this.annotation.unloadLayer(id)],
+      ],
+      // Every failure is reported, not just the one handed to the caller: a
+      // second failing step used to be invisible once the first was returned.
+      failure => this.log.warn(`retire step "${failure.name}" threw`, failure.error),
+    );
+    return { layerInfo, error: failed.failures[0]?.error };
+  }
+
+  /** Queue the signals one retirement owes, in their established order.
+   *  LAYER_CHANGE lands first for consumers that drop the layer off their own
+   *  list; LAYER_REMOVED is the teardown signal itself. A user delete routes
+   *  through deleteLayer, which owns the same retirement plus the permanent
+   *  prune; component-owned clears emit LAYER_DELETED instead.
+   *
+   *  Every remaining event is gated on the operation's entry identity. A
+   *  subscriber can re-register the same id inside an earlier event (most
+   *  naturally inside this CHANGE), and can even unregister that replacement
+   *  again before the fan-out ends — existence alone cannot tell the old
+   *  operation that its retirement was consumed. So `replaced` is marked by
+   *  any ITEM_ADDED / ITEM_UPDATED for this id *and* by a live different
+   *  entry between events; once marked, no remaining retirement event fires —
+   *  `LAYER_REMOVED` in particular promises "this entry left the registry"
+   *  and must not be repeated for an id that was re-registered in between.
+   *  Returns whether the full retirement was announced (used to gate the
+   *  caller's post-announcement housekeeping). */
+  private announceRetirement(
+    layerInfo: LayerInfo,
+    operation: SettledOperation,
+  ): boolean {
+    const id = layerInfo.id;
+    let replaced = false;
+    const mark = (payload: { id: string }): void => {
+      if (payload.id === id) replaced = true;
+    };
+    const offAdded = this.events.on(EVENTS.LAYER_ITEM_ADDED, mark, "internal");
+    const offUpdated = this.events.on(EVENTS.LAYER_ITEM_UPDATED, mark, "internal");
+    try {
+      const gate = (): boolean => {
+        const current = this.layerRegistry.get(id);
+        if (current !== undefined && current !== layerInfo) replaced = true;
+        return !replaced && this.layerRegistry.get(id) === undefined;
+      };
+      // No gate before the first event: retireEntry just removed the entry and
+      // nothing has had a chance to re-register it yet. Every subsequent event
+      // is gated.
+      operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
+      if (!gate()) return false;
+      // The row was just removed: rescan the role's count so the toggle-all
+      // checkbox reflects the removal in the same frame.
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: layerInfo.role,
+      });
+      if (!gate()) return false;
+      this.emitLayerChange(id, layerInfo.kind, operation);
+      if (!gate()) return false;
+      operation.emit(EVENTS.LAYER_REMOVED, { id });
+      return true;
+    } finally {
+      offAdded();
+      offUpdated();
+    }
   }
 
   /**
@@ -830,14 +1392,17 @@ class LayerController implements LayerAPI {
     // MeasureControl and HeatmapControl still own a live handle and need the
     // id to stay registerable for the next draw.
     if (layerInfo.styleSetters) {
-      // Emit first: the component's LAYER_DELETED handler wipes its own canvas
-      // and its own saved config, and only then does LayerControl prune what it
-      // owns. Both halves of a clear must erase, or the next draw inherits the
-      // half nobody pruned.
-      this.events.emit(EVENTS.LAYER_DELETED, { id });
+      const operation = this.beginOperation();
+      // The component's LAYER_DELETED handler wipes its own canvas and its own
+      // saved config, and LayerControl prunes what it owns below. Both halves
+      // of a clear must erase, or the next draw inherits the half nobody
+      // pruned. The operation collects the handler failures, so the cleanup
+      // still runs even when an earlier consumer throws.
+      operation.emit(EVENTS.LAYER_DELETED, { id });
       const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
       if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
+      operation.throwIfFailed();
       return true;
     }
 
@@ -845,27 +1410,36 @@ class LayerController implements LayerAPI {
     // surface and resets the fill state so the map returns to the grid empty
     // state. The id stays registerable so the color can be re-picked.
     if (id === CONST.SOLID_BASEMAP_ID) {
-      const removed = this.unregisterLayer(id);
-      if (!removed) return false;
-      if (this.ui) {
+      const retired = this.retireEntry(id);
+      if (!retired) return false;
+      const operation = this.beginOperation();
+      this.persistence.flushAll();
+      const announced = this.announceRetirement(retired.layerInfo, operation);
+      if (this.ui && announced) {
         this.ui.resetSolidBasemap();
-        this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-          group: GROUP.BASE,
+        operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+          role: ROLE.BASE,
         });
-        this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+        operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
       this.persistence.flushAll();
+      if (retired.error) throw retired.error;
+      operation.throwIfFailed();
       return true;
     }
 
-    const removed = this.unregisterLayer(id);
-    if (!removed) return false;
+    const retired = this.retireEntry(id);
+    if (!retired) return false;
 
+    // User delete commits every persistent effect before the public fan-out:
+    // once the registry entry is gone a retry cannot re-run the prune, so a
+    // throwing consumer must never leave the delete half-applied. The events
+    // are queued afterwards and all of them are attempted.
     this.order.removedIds.add(id);
     this.persistence.schedule({ removed: () => [...this.order.removedIds] });
-    // unregisterLayer keeps the label config (a teardown is not a delete);
-    // this is the delete, so forget it here — `configEntries` must stop
-    // answering for a removed id.
+    // retireEntry keeps the label config (a teardown is not a delete); this is
+    // the delete, so forget it here — `configEntries` must stop answering for
+    // a removed id.
     this.annotation.destroyLayer(id);
 
     // Drop every persisted value for this id (stored order + per-layer intent
@@ -882,17 +1456,22 @@ class LayerController implements LayerAPI {
       clearName: true,
     });
 
-    if (!this.ui) {
-      this.persistence.flushAll();
-      return true;
+    if (this.ui) {
+      if (orderDropped || intentDropped) this.ui.saveState();
+      if (nameCleared) this.ui.saveNamesState();
     }
-    if (orderDropped || intentDropped) this.ui.saveState();
-    if (nameCleared) this.ui.saveNamesState();
-    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: layerInfo.group,
-    });
-    this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     this.persistence.flushAll();
+
+    const operation = this.beginOperation();
+    const announced = this.announceRetirement(retired.layerInfo, operation);
+    if (this.ui && announced) {
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: retired.layerInfo.role,
+      });
+      operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+    }
+    if (retired.error) throw retired.error;
+    operation.throwIfFailed();
     return true;
   }
 
@@ -965,8 +1544,8 @@ class LayerController implements LayerAPI {
    *  `zFor` directly, but this wrapper stays because LayerController is the
    *  LayerAPI entry point — removing it would break the contract. Tests and
    *  probes may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, group: "base" | "overlay"): number {
-    return zFor({ index: i, count: this.layers.length, group });
+  computeZIndex(i: number, role: "base" | "overlay"): number {
+    return zFor({ index: i, count: this.layers.length, role });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -981,16 +1560,66 @@ class LayerController implements LayerAPI {
   /** Give every layer a surface and reprice its z.
    *
    *  Re-ordering only. The pass lives on the domain; the controller keeps the
-   *  re-entry guard and the debounce cancellation around it. */
-  enforceOrder() {
-    if (this.isEnforcing) return;
+   *  re-entry guard and the debounce cancellation around it.
+   *
+   *  The pass is also the only place capability projections are re-derived, so
+   *  its tail diffs them and announces the ids that moved (see
+   *  `notifyCapabilityChanges`) — a recovery must reach a panel that is
+   *  already open, not wait for a reopen.
+   *
+   *  @returns `failed`: the ids that could not be priced, in registry order —
+   *    empty on a clean pass. A throwing layer no longer aborts the rest of the
+   *    stack; the ids let the caller tell "ordered" from "attempted".
+   *    `skipped`: true when a pass was already in flight. The running pass owns
+   *    the result, so this call priced nothing and the caller must not read a
+   *    second, partial one.
+   */
+  enforceOrder(): EnforceOrderResult {
+    if (this.isEnforcing) return { failed: [], skipped: true };
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
-      this.domain.enforceOrder();
+      const failed = this.domain.enforceOrder();
       this.syncAttribution();
+      this.notifyCapabilityChanges();
+      return { failed, skipped: false };
     } finally {
       this.isEnforcing = false;
+    }
+  }
+
+  /** Diff every surface's capability projection against what the previous
+   *  pass recorded and announce the ids whose projection moved.
+   *
+   *  A capability is a projection of the live tree, but a UI that rendered it
+   *  at open time (the style panel gates its opacity / fill / border / size
+   *  rows on it) has no reason to re-read it. A recovery therefore has to be
+   *  announced: the open panel re-renders itself from the fresh projection
+   *  instead of waiting for the user to close and reopen it.
+   *
+   *  Cost: a handful of field reads per surface per pass; the event goes out
+   *  only for ids whose projection actually moved. The first observation of an
+   *  id seeds the snapshot silently — a new surface is not a change. The
+   *  event is notification-policy (see EVENT_POLICY), so a broken subscriber
+   *  cannot take an ordering pass down.
+   */
+  private notifyCapabilityChanges(): void {
+    const next = new Map<string, string>();
+    const changed: string[] = [];
+    for (const [id, surface] of this.surfaceIndex.entries()) {
+      // Same invariant as the direct-membership scan: a retired surface is
+      // destroyed and removed from `surfaces` in one synchronous step, so the
+      // pass never sees one. Failsafe only — exempt from the branch gate.
+      /* v8 ignore next */
+      if (surface.retired) continue;
+      const key = capabilityKey(surface.capabilities);
+      next.set(id, key);
+      const previous = this.capabilitySnapshot.get(id);
+      if (previous !== undefined && previous !== key) changed.push(id);
+    }
+    this.capabilitySnapshot = next;
+    for (const id of changed) {
+      publish(this.events, EVENTS.LAYER_CAPABILITY_CHANGED, { id });
     }
   }
 
@@ -1012,7 +1641,7 @@ class LayerController implements LayerAPI {
 
   /**
    * Move a registered layer one position up in z-order (toward index 0).
-   * Respects group boundaries (overlay to base never crosses).
+   * Respects role boundaries (overlay to base never crosses).
    * @param {string} id - Layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer was moved, false if already at top,
    *   at the base boundary, or unknown.
@@ -1024,22 +1653,15 @@ class LayerController implements LayerAPI {
     if (idx <= 0) return false;
     if (!this.canReorderBetween(idx, idx - 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx - 1);
-    this.enforceOrder();
-    this.saveOrder();
-    this.emitLayerChange(id, item.kind);
-    if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx - 1));
   }
 
   /**
    * Move a registered layer one position down in z-order (away from index 0).
-   * Respects group boundaries (overlay to base never crosses).
+   * Respects role boundaries (overlay to base never crosses).
    * @param {string} id - Layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer was moved, false if already at bottom
-   *   of its group or unknown.
+   *   of its role or unknown.
    */
   moveLayerDown(id: string): boolean {
     const item = this.layerRegistry.get(id);
@@ -1048,45 +1670,60 @@ class LayerController implements LayerAPI {
     if (idx < 0 || idx >= this.layers.length - 1) return false;
     if (!this.canReorderBetween(idx, idx + 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx + 1);
-    this.enforceOrder();
-    this.saveOrder();
-    this.emitLayerChange(id, item.kind);
-    if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx + 1));
   }
 
   destroy() {
     this.isDestroyed = true;
-    if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-    if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    // Flush before destroy: the writes are debounced at 100ms, wide enough for
-    // the control to be removed before the timer fires. unbindEvents also
-    // flushes, but it only runs when a panel is attached.
-    this.persistence.flushAll();
-    this.annotation.destroy();
-    if (this.ui) {
-      this.ui.unbindEvents();
-      this.ui = null;
-    }
-    this.persistence.destroy();
-    if (this.uiContainer) {
-      this.uiContainer.innerHTML = "";
-      this.uiContainer = null;
-    }
+    finalize(
+      [
+        // Drop every style-apply frame this UI owns before the pieces it might
+        // touch go away: the UI's ownership scope dies here, so no trailing
+        // frame can outlive the control and no failure can be reported for a
+        // dead UI. Scoped to this UI — another map's pending writes stand.
+        ["release-style-applies", () => this.ui?.releaseStyleApplies()],
+        [
+          "detach-layeradd",
+          // No guards: `onLayerAdd` is assigned unconditionally in `init`, and
+          // the map is a constructor argument — a `this.map && this.onLayerAdd`
+          // test could never be false.
+          () => this.map.off("layeradd", this.onLayerAdd),
+        ],
+        ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
+        ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
+        // Flush before destroy: the writes are debounced at 100ms, wide enough
+        // for the control to be removed before the timer fires. unbindEvents
+        // also flushes, but it only runs when a panel is attached.
+        ["flush-persistence", () => this.persistence.flushAll()],
+        ["destroy-annotation", () => this.annotation.destroy()],
+        ["unbind-ui", () => this.ui?.unbindEvents()],
+        ["destroy-persistence", () => this.persistence.destroy()],
+        [
+          "clear-container",
+          () => {
+            if (this.uiContainer) this.uiContainer.innerHTML = "";
+          },
+        ],
+        ["destroy-panes", () => this.panes.destroy()],
+        // Last: the map must end with a valid LayerAPI even when every step
+        // above failed, or consumers keep holding this destroyed manager.
+        // `force` is required: without it the existing (destroyed) manager
+        // would short-circuit the stub replacement and stay live on the map.
+        ["install-stub-api", () => ensureLayerAPI(this.map, true)],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain field resets — they cannot throw, and deciding them by step success
+    // would leave a destroyed manager holding a dead UI or a stale registry.
+    // The DOM is left alone: LayerController.destroy() drops the registry
+    // without removing the registered layers from the map, so they are still
+    // live — deleting their panes would drop them off the map.
+    this.ui = null;
+    this.uiContainer = null;
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
-    this.surfaces.clear();
-    this.surfacesByLayer.clear();
-    this.panes.destroy();
-    // Revert to the lightweight LayerAPI (no registry, no panel).
-    // ensureLayerAPI guarantees a valid object, so consumers can always
-    // call `map.foliplus.LayerAPI.xxx` without null checks.
-    // `force` is required: without it the existing (destroyed) manager would
-    // short-circuit the stub replacement and stay live on the map.
-    ensureLayerAPI(this.map, true);
+    this.surfaceIndex.clear();
+    this.capabilitySnapshot.clear();
   }
 }
 

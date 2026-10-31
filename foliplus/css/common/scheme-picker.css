@@ -1,0 +1,223 @@
+/* ── Shared scheme picker ──
+   Common dropdown / color-bar styles.  Auto-merged into
+   foliplus-common.min.css.  Trigger-bar and panel-layout rules stay in
+   the consumer CSS.  Class names use the neutral
+   `foliplus-scheme-picker-` prefix so consumers can override with
+   their own names via the `classes` option.                    */
+
+@keyframes foliplus-scheme-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--foliplus-space-sm)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hidden select: visually collapsed but stays in layout (Bootstrap also
+   defines a global .hidden, so this uses a component-scoped name).        */
+.foliplus-scheme-picker-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── Trigger ──
+   The form-select-shaped combobox that opens the picker. One recipe for the
+   heatmap panel and the layer style drawer: a div[role=combobox] because a
+   native select would paint its own chrome and hide the color strip. Both
+   consumers keep their own class as a hook (behaviour, tests) and add nothing
+   geometric. Width is not stated — the trigger fills the form control cell,
+   which is the shared control-column width, so it lands on the same right edge
+   as every select and input in both panels. The chevron is the LayerControl
+   glyph (4px border triangle at right 4); the heatmap's taller arrow was the
+   outlier. */
+.foliplus-scheme-picker-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  transition: var(--foliplus-transition-input);
+}
+
+.foliplus-scheme-picker-trigger::after {
+  content: "";
+  position: absolute;
+  right: var(--foliplus-space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: var(--foliplus-size-4) solid transparent;
+  border-right: var(--foliplus-size-4) solid transparent;
+  border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted);
+}
+
+/* ── Dropdown shell ──
+   Position, width, max-height, padding, background, border, shadow,
+   entrance animation.  The :focus-visible / :hover / :active / :is-active
+   states for items live below (one block, no split across files).        */
+.foliplus-scheme-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-width: var(--foliplus-menu-max-width);
+  max-height: 200px;
+  padding: var(--foliplus-space-sm) 0;
+  box-sizing: border-box;
+  margin-top: var(--foliplus-menu-gap);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-md);
+  z-index: var(--foliplus-z-index-floating);
+  overflow-y: auto;
+  /* The item strip subtracts the lane from its right inset, so the lane must
+     be the same whether the list scrolls or fits — otherwise a list that
+     crosses the max-height would narrow every strip mid-session. */
+  scrollbar-gutter: stable;
+  /* Optional, and cheap: a scheme list of seven rows usually fits, but a
+     custom long list should not get a full-width OS scrollbar. */
+  scrollbar-width: thin;
+  /* Shell box model: declare the full list + margin so a host framework's
+     bare ol,ul defaults (list-style disc, margin-bottom 1rem) cannot
+     leak into the dropdown. */
+  list-style: none;
+  margin-bottom: 0;
+  animation: foliplus-scheme-picker-in 0.15s ease-out;
+}
+
+/* A portaled dropdown is appended to <body> (or the fullscreen element), not to
+   the trigger's row, so it must paint above the panel that opened it. That panel
+   lives in the floating band and its expanded bar/section sit at +1/+9 below it,
+   so the card takes the hint band — the same one the portaled slider bubble
+   uses. Without this, an expanded LayerControl panel covered the open dropdown:
+   measured with elementFromPoint on the style panel's scheme row. Inline
+   dropdowns (HeatmapControl) stay where they are; their panel is their context. */
+.foliplus-scheme-picker-dropdown.foliplus-scheme-picker-portal {
+  z-index: var(--foliplus-z-index-hint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-scheme-picker-dropdown {
+    animation: none;
+  }
+}
+
+/* ── Dropdown item ──
+   Layout + all interactive states (hover / press / active / focus) in one
+   place so the scheme dropdown never drifts from the menu.css recipe.     */
+.foliplus-scheme-picker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-md);
+  /* Same strip inset as the trigger bar. The item's reserved selection border
+     (below) sits *inside* the inset, so its strip lands on the trigger strip's
+     x on both sides — the trigger insets by the token, the item by the token
+     minus that border. */
+  padding: 0
+    max(
+      0px,
+      calc(
+        var(--foliplus-scheme-picker-bar-inset-x) -
+          var(--foliplus-scheme-picker-scrollbar-width)
+      )
+    )
+    0 var(--foliplus-scheme-picker-bar-inset-x);
+  height: var(--foliplus-menu-row-h);
+  box-sizing: border-box;
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  transition:
+    background-color var(--foliplus-transition-fast),
+    border-color var(--foliplus-transition-fast);
+}
+
+.foliplus-scheme-picker-item[aria-disabled="true"] {
+  color: var(--foliplus-text-muted);
+  /* A disabled entry is not a hover target: the not-allowed cursor says the
+     row exists but cannot be picked, and the accent hover would suggest it can. */
+  cursor: not-allowed;
+}
+
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):hover {
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
+}
+
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):active {
+  background: var(--foliplus-accent-soft-bg);
+}
+
+.foliplus-scheme-picker-item.foliplus-is-active {
+  /* Persistent "selected scheme" state: the same soft wash + 3px inset bar
+     as the shared dropdown row, so a selected item reads the same on every
+     surface. box-shadow keeps the bar inside the row (no layout shift). */
+  background: var(--foliplus-menu-row-selected-bg);
+  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
+    var(--foliplus-menu-row-selected-bar);
+}
+
+.foliplus-scheme-picker-item:focus-visible {
+  outline: none;
+  border-color: var(--foliplus-accent-primary);
+  box-shadow:
+    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
+    var(--foliplus-focus-ring);
+  border-radius: var(--foliplus-radius-sm);
+  transition: box-shadow var(--foliplus-transition-fast);
+}
+
+/* ── Trigger focus ring ──
+   The trigger is a div[role=combobox], so the shared input
+   :hover/:focus-visible recipe never reaches it. One ring token for the
+   trigger and the items; it replaces the UA outline instead of adding a
+   second border. */
+[role="combobox"][aria-haspopup="listbox"]:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+}
+
+/* ── color bar inside a dropdown item ──
+   One height for the trigger's inner bar and these: the row keeps
+   --foliplus-ctrl-size and centres an 18px swatch. Height is fixed (not
+   stretched to the row) so selecting a scheme cannot change the swatch
+   thickness. --foliplus-scheme-picker-bar-height is the consumer override
+   hook; the icon-size fallback matches the Heatmap trigger's inline height
+   (--foliplus-heatmap-inline-height = --foliplus-icon-size-md). */
+.foliplus-scheme-picker-bar {
+  flex: 1;
+  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  box-sizing: border-box;
+  border-radius: var(--foliplus-radius-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
+  flex-shrink: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── color block (shared by the trigger bar and the dropdown bar) ── */
+.foliplus-scheme-picker-block {
+  flex: 1;
+  height: 100%;
+  transition:
+    filter var(--foliplus-transition-fast),
+    opacity var(--foliplus-transition-fast);
+}

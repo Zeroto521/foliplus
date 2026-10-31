@@ -5,7 +5,7 @@
 import { vi } from "vitest";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#foliplus/HeatmapControl/ui.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#common/locale.js";
 
 /** A CONFIG with the heatmap fields the UI functions read, in English. */
 const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
@@ -25,13 +25,22 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
     en: {
       "HeatmapControl.no_layer": "No point layers found",
       "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl",
+      "HeatmapControl.needs_numeric_field":
+        "Needs a numeric field to aggregate by value",
     },
   },
   ...overrides,
 });
 
-/** Build a real HeatmapManager with all external deps stubbed out. */
-function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
+/** Install the process-wide HeatmapControl dependencies (CONFIG, h3, chroma,
+ *  ss). Split from the manager builder so a test that supplies its own map
+ *  (the LayerAPI integration suite) gets the same globals without the stub
+ *  map's LayerAPI overwriting the real one for longer than construction.
+ *
+ *  NOTE: this writes a stub `window.map.foliplus.LayerAPI`. A caller that
+ *  needs the global `map` to resolve a real LayerAPI must restore it after
+ *  construction — the manager's own reads go through `this.map`. */
+function installHeatmapGlobals(confOverrides: Partial<ComponentConfig> = {}) {
   // Mutate in place — module-level `T = createScopedTranslator(CONFIG)` captured
   // the setup-time object; replacing window.CONFIG would strand that reference
   // on SearchControl and meta keys would resolve to the wrong prefix.
@@ -99,7 +108,11 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
       }),
     },
   };
+}
 
+/** Build a real HeatmapManager with all external deps stubbed out. */
+function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
+  installHeatmapGlobals(confOverrides);
   const map = {
     getContainer: vi.fn(),
     getBounds: vi.fn(),
@@ -109,7 +122,7 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
   };
   const manager = new HeatmapManager(map, {
     T: createScopedTranslator(window.CONFIG),
-    log: { warn: () => {}, error: () => {}, msg: (m: string) => m },
+    log: { warn: () => {}, error: () => {}, debug: () => {}, msg: (m: string) => m },
   });
   manager.init();
   manager.overlay = {
@@ -120,6 +133,23 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
     setVisible: vi.fn(),
     hooks: { before: [], after: [] },
   };
+  return manager;
+}
+
+/** Build a HeatmapManager on a caller-supplied map (a real LayerController
+ *  fixture, for the createLayers content-signal integration tests). The map's
+ *  `foliplus.LayerAPI` and `foliplus.events` are used as-is; the overlay comes
+ *  from that map's real `createCanvas`. */
+function makeManagerOn(
+  map: any,
+  confOverrides: Partial<ComponentConfig> = {},
+): HeatmapManager {
+  installHeatmapGlobals(confOverrides);
+  const manager = new HeatmapManager(map, {
+    T: createScopedTranslator(window.CONFIG),
+    log: { warn: () => {}, error: () => {}, debug: () => {}, msg: (m: string) => m },
+  });
+  manager.init();
   return manager;
 }
 
@@ -144,11 +174,14 @@ function makeCtrl(
     },
     config,
     T: createScopedTranslator(config),
+    _: createTranslator(config),
     ctrl: document.createElement("div"),
     schemeDropdown: null,
+    schemePicker: null,
     expandHookDone: false,
     schemeBarCleanup: null,
-    dropdownCleanup: null,
+    schemePickerOverlayUnregister: null,
+    schemePickerCleanup: null,
     toggleDropdown: null,
     selectScheme: null,
     observer: null,
@@ -168,4 +201,4 @@ function makeCtrl(
   };
 }
 
-export { makeConfig, makeCtrl, makeManager };
+export { makeConfig, makeCtrl, makeManager, makeManagerOn, installHeatmapGlobals };

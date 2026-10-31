@@ -27,7 +27,11 @@ vi.mock("#common/storage.js", () => ({
 
 vi.mock("#core/event/index.js", () => ({
   EVENTS: { LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count:change" },
-  ensureEvents: () => ({ emit: events.emit }),
+  ensureEvents: () => ({}),
+  // The store publishes through the settled facade; the test still observes
+  // the same event/payload on the hoisted spy.
+  publish: (_bus: unknown, event: string, payload: unknown) =>
+    events.emit(event, payload),
 }));
 
 vi.mock("#core/hint.js", () => ({
@@ -384,7 +388,7 @@ describe("MeasureStore — assignMissingIds (restore path)", () => {
     store.assignMissingIds();
     const ids = store.all().map(m => m.id);
     expect(new Set(ids).size).toBe(2);
-    expect(ids.every(id => id.startsWith(CONST.ID + "_marker_"))).toBe(true);
+    expect(ids.every(id => id.startsWith(`${CONST.ID}_marker_`))).toBe(true);
   });
 });
 
@@ -400,6 +404,6 @@ describe("MeasureStore — nextId", () => {
 
   it("uses the CONST.ID prefix", () => {
     const store = makeStore().store;
-    expect(store.nextId("marker").startsWith(CONST.ID + "_")).toBe(true);
+    expect(store.nextId("marker").startsWith(`${CONST.ID}_`)).toBe(true);
   });
 });

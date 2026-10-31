@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {
@@ -121,6 +122,96 @@ describe("HeatmapManager — versioned persisted config", () => {
     });
   });
 
+  describe("saved records are validated at the boundary", () => {
+    // loadRecord is a static assertion, not a check: a record from an older
+    // build, a hand-edited one, or one from a future version holds whatever
+    // it likes. A bad field must keep the default instead of reaching the
+    // classifier (which used to re-mean an unknown method as equal) or chroma
+    // (whose throw used to abort the panel on load).
+    const store = (record: unknown) =>
+      window.localStorage.setItem(KEY, JSON.stringify(record));
+
+    it("drops a method the classifier does not implement", () => {
+      const m = makeManager();
+      const before = m.method;
+      store({ method: "bogus", agg: "sum", scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.method).toBeUndefined();
+      // The neighbouring fields are unaffected by one bad one.
+      expect(loaded.agg).toBe("sum");
+      expect(loaded.scheme).toBe("Reds");
+      m.applySavedConfig(loaded);
+      expect(m.method).toBe(before);
+    });
+
+    it("rejects a padded or differently-cased method", () => {
+      // A method is a protocol token, so padding and case are meaningful.
+      const m = makeManager();
+      store({ method: " equal " });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "EQUAL" });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "equal" });
+      expect(m.loadSavedConfig()!.method).toBe("equal");
+    });
+
+    it("drops an unknown aggregation and a non-integer class count", () => {
+      const m = makeManager();
+      store({ agg: "median", numClasses: 3.5, scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.agg).toBeUndefined();
+      expect(loaded.numClasses).toBeUndefined();
+      expect(loaded.scheme).toBe("Reds");
+    });
+
+    it("clamps an out-of-range class count and keeps a null layerId", () => {
+      const m = makeManager();
+      store({ numClasses: 99, layerId: null });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.numClasses).toBe(CLASS_COUNT.MAX);
+      // null means "the user cleared the selection", so it is preserved
+      // rather than treated as an absent field.
+      expect(loaded.layerId).toBeNull();
+    });
+
+    it("drops a version stamp that is not a positive integer", () => {
+      // Absent means "legacy record - the fields are the source of truth";
+      // present-but-invalid is not a version at all.
+      const m = makeManager();
+      store({ version: 0, agg: "sum" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      expect(m.loadSavedConfig()!.agg).toBe("sum");
+      store({ version: 1.5 });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      store({ version: "3" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+    });
+
+    it("clamps a border weight the way the live setter does", () => {
+      // The panel offers BORDER_WEIGHT, so a record must not enter the
+      // manager through a wider gate than the UI itself provides.
+      const m = makeManager();
+      store({ borderWeight: -4 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MIN);
+      store({ borderWeight: 99 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MAX);
+    });
+
+    it("drops a label format outside the NumberStyle union", () => {
+      const m = makeManager();
+      store({ labelFormat: "currency" });
+      expect(m.loadSavedConfig()!.labelFormat).toBeUndefined();
+    });
+
+    it("ignores a non-object record and leaves the one-shot guard alone", () => {
+      const m = makeManager();
+      store([1, 2, 3]);
+      expect(m.loadSavedConfig()).toBeNull();
+      m.applySavedConfig([1, 2, 3] as never);
+      expect(m.hasScanned).toBe(false);
+    });
+  });
+
   describe("applySavedConfig on a legacy record", () => {
     it("applies every field when version is missing, and keeps manager defaults otherwise", () => {
       const m = makeManager();
@@ -151,10 +242,10 @@ describe("HeatmapManager — versioned persisted config", () => {
     it("clamps numClasses to valid range", () => {
       const m = makeManager();
       m.applySavedConfig({ numClasses: 99 });
-      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+      expect(m.numClasses).toBe(CLASS_COUNT.MAX);
 
       m.applySavedConfig({ numClasses: 0 });
-      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MIN);
+      expect(m.numClasses).toBe(CLASS_COUNT.MIN);
     });
 
     it("applies only present fields, keeps defaults for missing", () => {
@@ -171,6 +262,33 @@ describe("HeatmapManager — versioned persisted config", () => {
       m.selectedLayerId = "old_layer";
       m.applySavedConfig({});
       expect(m.selectedLayerId).toBeNull();
+    });
+
+    it("leaves a record without a field unresolved until the first scan resolves it", () => {
+      // An old record may carry `field: ""` (the retired auto sentinel). The
+      // parser drops empty strings, so applying it leaves the manager's
+      // default in place; the first updateFieldSelector resolves and persists
+      // the first numeric field (covered in ui.test.ts).
+      const m = makeManager();
+      m.selectedLayerId = "layer_abc";
+      m.field = "";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("");
+    });
+
+    it("stores an explicit field pick as the real name", () => {
+      const m = makeManager();
+      m.field = "price";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("price");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("price");
     });
 
     it("ignores undefined borderWeight, keeps current value", () => {
@@ -262,5 +380,68 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m2.labelShow).toBe(false);
       expect(m2.borderWeight).toBe(0);
     });
+  });
+});
+
+describe("HeatmapManager — persisted per-source filters", () => {
+  const KEY = CONST.STORAGE.KEY;
+  const atom = {
+    kind: "atom" as const,
+    field: "magnitude",
+    op: "between" as const,
+    range: [2, 4] as [number, number],
+  };
+
+  it("saves each source filter and restores the map on load/apply", () => {
+    const m1 = makeManager();
+    m1.selectedLayerId = "layer_a";
+    m1.layerFilters.set("layer_a", atom);
+    m1.layerFilters.set("layer_b", { ...atom, field: "weight" });
+    m1.saveConfig();
+
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toEqual({
+      layer_a: atom,
+      layer_b: { ...atom, field: "weight" },
+    });
+
+    const m2 = makeManager();
+    m2.applySavedConfig(m2.loadSavedConfig()!);
+    expect(m2.layerFilters.get("layer_a")).toEqual(atom);
+    expect(m2.layerFilters.get("layer_b")).toEqual({
+      ...atom,
+      field: "weight",
+    });
+  });
+
+  it("omits the filters field when no source is filtered", () => {
+    const m = makeManager();
+    m.saveConfig();
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toBeUndefined();
+  });
+
+  it("drops malformed persisted filters rather than applying them", () => {
+    const m = makeManager();
+    m.applySavedConfig({
+      filters: {
+        ok: atom,
+        badOp: { kind: "atom", field: "x", op: "nope" },
+        badRange: { kind: "atom", field: "x", op: "between", range: [5, 1] },
+        notObject: 7,
+      },
+    } as never);
+    expect(Array.from(m.layerFilters.keys())).toEqual(["ok"]);
+  });
+
+  it("restores a filter AST that the first render then revalidates", () => {
+    const m = makeManager();
+    m.applySavedConfig({
+      layerId: "layer_a",
+      filters: { layer_a: atom },
+    } as never);
+    // The parser keeps the AST intact; the render-time revalidation clamps
+    // or drops it against the rebuilt snapshot (pinned in filter.test.ts).
+    expect(m.layerFilters.get("layer_a")).toEqual(atom);
   });
 });

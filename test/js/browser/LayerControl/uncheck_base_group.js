@@ -11,7 +11,7 @@
   if (!ctrl.classList.contains("foliplus-is-expanded")) {
     ctrl.querySelector(".foliplus-toggle-btn").click();
   }
-  const sel = '.foliplus-layer-toggle-all[data-group="base"] [data-role="toggle-all"]';
+  const sel = '.foliplus-layer-toggle-all[data-role="base"] [data-role="toggle-all"]';
   const cb = ctrl.querySelector(sel);
   if (!cb) return { ok: false, reason: "no base group toggle-all" };
   const readRows = () =>

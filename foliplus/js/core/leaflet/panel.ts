@@ -6,6 +6,7 @@
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import * as SVGs from "#common/icon.js";
+import { isPortalOf } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
@@ -136,7 +137,19 @@ const bindOutsideCollapse = (opts: {
   const capture = (event: MouseEvent): void => {
     if (skipCheck()) return;
     if (insidePress.has(event)) return;
-    if (opts.container.contains(event.target as Node)) insidePress.add(event);
+    const target = event.target as Node | null;
+    // A press on a node this panel's overlay portalled elsewhere (the shared
+    // dropdown's open list, the scheme picker's) belongs to the panel even
+    // though the DOM says otherwise — otherwise the panel collapses out from
+    // under the row the user is aiming at. Registration lives with the
+    // primitive (common/portalRoot), so no per-panel selector is needed here
+    // and a third portal is covered without touching this file.
+    if (
+      target &&
+      (opts.container.contains(target) || isPortalOf(target, opts.container))
+    ) {
+      insidePress.add(event);
+    }
   };
   const handler = (event: MouseEvent): void => {
     if (skipCheck()) return;
@@ -309,100 +322,54 @@ const createPanelHeader = (opts: {
  *  content than it shows, so the fallback is "fit the visible strip" with an
  *  internal scroll on the content. */
 const ROW_PANEL_MIN_HEIGHT = 120;
+/** Gap between the anchor row and a pinned card. */
+const ROW_PANEL_GAP = 2;
+/** Minimum distance between a pinned card and the viewport's horizontal edges. */
+const ROW_PANEL_EDGE = 8;
+/** Class that switches a row panel to the pinned (fixed, placed) variant. */
+const PINNED_CLASS = "foliplus-is-pinned";
+/** Class that records a card anchored above its row. */
+const ROW_PANEL_UP_CLASS = "foliplus-row-panel-up";
 
-/** Measure the anchor row against its map and place the row panel.
+/** The strip a row panel has to fit into: the map's visible box when the card
+ *  lives inside one, otherwise the viewport's vertical bounds. */
+interface RowPanelBounds {
+  top: number;
+  bottom: number;
+}
+
+/** Compare the anchor row against its bounds and write the pinned card's
+ *  visible cap and flip state.
  *
- * The panel is a `position: absolute; top: 100%` child of its row, so a
- * fixed `max-height` cap can clip the panel's own content once the row sits
- * low in the map (or the map is short): the reported 1280x720 case was a
- * 400px cap on a 243px panel whose bottom-row variant still pushed the last
- * dimension below the map's `overflow: hidden` edge.
- *
- * Two moves here, both driven by the same measurement:
- *   B — the visible cap. The panel writes its own `--foliplus-row-panel-max-height`
- *       to the larger of the two available strips (below or above the anchor),
- *       so the content scrolls inside the panel instead of falling off the map.
- *   C — the flip. When the strip below is smaller than the panel needs AND the
- *       strip above is larger, the panel re-anchors upward via the
- *       upward-modifier class and the same cap is applied to the space above.
- *
- * When both strips are tighter than the content, the panel lands in the wider
- * one clamped to `ROW_PANEL_MIN_HEIGHT` — the content's own `overflow-y: auto`
- * then scrolls the excess inside the card.
+ * A strip below that is shorter than the natural content AND shorter than the
+ * strip above means the card belongs above its row. The cap is the natural
+ * height clamped to the chosen strip, with a floor so a short map still shows
+ * the card's header and first rows instead of collapsing to nothing.
  */
-const measureRowPanelPlacement = (panel: HTMLElement): void => {
-  const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
-  const anchor = panel.parentElement;
-  if (!mapEl || !anchor) return;
-
-  const mapRect = mapEl.getBoundingClientRect();
+const fitRowPanel = (
+  panel: HTMLElement,
+  anchor: HTMLElement,
+  bounds: RowPanelBounds,
+  gap: number,
+): { flipUp: boolean; cap: number; natural: number } | null => {
   const anchorRect = anchor.getBoundingClientRect();
-  if (mapRect.width === 0 || anchorRect.height === 0) return;
+  if (anchorRect.height === 0) return null;
 
-  const below = mapRect.bottom - anchorRect.bottom;
-  const above = anchorRect.top - mapRect.top;
+  const below = bounds.bottom - anchorRect.bottom - gap;
+  const above = anchorRect.top - bounds.top - gap;
   // `scrollHeight` on a max-height-capped element is the *natural* content
   // height, not the clipped one — reading it here is what lets us compare
-  // against the available strip on both sides.
-  const natural = panel.scrollHeight;
+  // against the available strip on both sides. Fall back to the measured card
+  // height for a jsdom/unrendered panel whose scrollHeight is zero.
+  const natural = panel.scrollHeight || panel.getBoundingClientRect().height;
 
   const flipUp = below < natural && above > below;
-  const room = flipUp ? above : below;
+  const room = Math.max(0, flipUp ? above : below);
   const cap = Math.max(ROW_PANEL_MIN_HEIGHT, Math.min(natural, room));
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
-  panel.classList.toggle("foliplus-row-panel-up", flipUp);
-};
-
-/** Bind row-panel placement to a panel the caller will mount on a layer row.
- *
- * `createRowPanel` returns the panel before it has a parent, so the placement
- * runs from a MutationObserver that waits for the panel to enter `document` —
- * the caller's `item.appendChild(panel)`. Resize of the map itself and of the
- * viewport both trigger a remeasure; the observer releases everything on the
- * panel's next removal (which is how the style / attributes panels are closed).
- *
- * Returns the cleanup so a caller that keeps its own destroy hook (e.g. the
- * row-rebuild path that drops the whole list) can call it directly. The
- * MutationObserver disconnect is idempotent, so double-invocation is safe.
- */
-const observeRowPanelPlacement = (panel: HTMLElement): (() => void) => {
-  const measure = throttleRaf(() => measureRowPanelPlacement(panel));
-  let active = false;
-  let ro: ResizeObserver | null = null;
-
-  const activate = (): void => {
-    if (active) return;
-    active = true;
-    measure();
-    const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
-    if (mapEl && typeof ResizeObserver === "function") {
-      ro = new ResizeObserver(() => measure());
-      ro.observe(mapEl);
-    }
-    window.addEventListener("resize", measure);
-  };
-  const deactivate = (): void => {
-    if (!active) return;
-    active = false;
-    measure.cancel();
-    if (ro) {
-      ro.disconnect();
-      ro = null;
-    }
-    window.removeEventListener("resize", measure);
-  };
-
-  const obs = new MutationObserver(() => {
-    if (panel.isConnected) activate();
-    else deactivate();
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
-
-  return (): void => {
-    deactivate();
-    obs.disconnect();
-  };
+  panel.classList.toggle(ROW_PANEL_UP_CLASS, flipUp);
+  return { flipUp, cap, natural };
 };
 
 /**
@@ -410,18 +377,18 @@ const observeRowPanelPlacement = (panel: HTMLElement): (() => void) => {
  * attributes panel and the per-layer style panel.
  *
  * It is a `foliplus-panel` with the fold panels' header/content vocabulary, but
- * anchored under its own row instead of folded into the control — so the caller
- * mounts the returned `panel` on the row. Anchoring, width, height cap, card
- * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
- * recipe, and the header from {@link createPanelHeader}, so a new row panel
- * cannot drift into a lookalike of the ones already here.
+ * anchored under its own row instead of folded into the control — so the
+ * caller mounts the returned `panel` on the row. That plain card is
+ * `position: absolute`; a caller whose rows live in a scroll box that would
+ * clip it opts into {@link pinRowPanel} for the fixed-position variant. Width,
+ * height cap, card chrome and the `stretch` axis all come from the shared
+ * `.foliplus-row-panel` recipe, and the header from {@link createPanelHeader},
+ * so a new row panel cannot drift into a lookalike of the ones already here.
  *
- * Placement runs against the map the panel is mounted in: the panel measures
- * the space above and below its anchor row, writes the visible cap to a
- * per-panel CSS variable, and flips upward when the space below is the tight
- * side — see {@link measureRowPanelPlacement}. The MutationObserver that drives
- * the placement detaches with the panel, so a caller that unmounts the panel
- * never leaks a resize listener.
+ * A pinned card measures the space above and below its anchor row, writes the
+ * visible cap to a per-panel CSS variable, and flips upward when the space below
+ * is the tight side — see {@link placeRowPanel}. An unpinned card keeps the
+ * plain CSS behavior; it is the caller's choice to opt into placement.
  *
  * `iconClass` stays a parameter because each component's SVGs are viewBox-only
  * and need their own sizing hook inside the shared icon box.
@@ -460,8 +427,115 @@ const createRowPanel = (opts: {
   const content = dom.el("div", { class: "foliplus-panel-content" });
   panel.appendChild(header);
   panel.appendChild(content);
-  observeRowPanelPlacement(panel);
   return { panel, header, content };
+};
+
+// ── Row panel anchoring ─────────────────────────────────────────
+//
+// A row panel is mounted INSIDE its layer row. The plain `.foliplus-row-panel`
+// card is `position: absolute` under that row, which is right for a caller that
+// simply mounts the card in a list — it needs no placement code.
+//
+// Rows in the fold panel live in a scrolling content box, and an absolutely
+// positioned card there is clipped by it: the lower half of the style panel
+// (the scheme row and the reset footer) sat outside the visible list and could
+// not be pressed. A caller in that situation opts in with `pinRowPanel`: the
+// card gets `foliplus-is-pinned` (`position: fixed`, see common/panel.css) and
+// is placed from the anchor row's client rect. Fixed positioning works because
+// no ancestor of the rows carries a transform/filter/contain (which would turn
+// one into the containing block), so viewport coordinates stay viewport
+// coordinates while the card follows the row as the list scrolls.
+//
+// Opt-in, not default: a row panel must never depend on being pinned to look
+// right, because a caller that does not know about the helper (or a branch that
+// adds a new one) would otherwise render fixed at the viewport corner.
+//
+// The pinned card is fixed, so it is no longer clipped by the list's scroll box;
+// it still has to fit the map/viewport it floats over. Placement therefore runs
+// the same fit as the absolute card: cap to the strip below/above the anchor and
+// flip upward when the strip below is the tight side. A card taller than the
+// chosen strip scrolls inside its own content box.
+
+/** Open row panels, keyed by their anchor row: a row opens one card at a time. */
+const rowPanels = new Map<HTMLElement, HTMLElement>();
+let rowPanelEventsBound = false;
+
+/** Place one pinned card against its row: fixed, right-aligned with the row,
+ *  opening downward unless the strip below is tighter than the strip above.
+ *  The panel must already be in the DOM: its measured width is one horizontal
+ *  input and its natural height drives the cap/flip decision. */
+const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  const row = anchor.getBoundingClientRect();
+  // A row inside a folded group is `display: none` and measures zero; keep the
+  // last placement rather than pinning the card to the viewport corner.
+  if (row.width === 0 && row.height === 0) return;
+  const card = panel.getBoundingClientRect();
+  // Right-aligned with the row, like the card's original `right: 0` anchor,
+  // clamped so a row at the viewport edge cannot push the card offscreen.
+  const left = Math.max(
+    ROW_PANEL_EDGE,
+    Math.min(row.right - card.width, window.innerWidth - card.width - ROW_PANEL_EDGE),
+  );
+  panel.style.left = `${left}px`;
+
+  // A fixed card floats over the map; fit it to the map's visible box when the
+  // rows live in one, otherwise to the viewport.
+  const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
+  const mapRect = mapEl?.getBoundingClientRect();
+  const bounds =
+    mapRect && mapRect.width > 0 && mapRect.height > 0
+      ? { top: mapRect.top, bottom: mapRect.bottom }
+      : { top: 0, bottom: window.innerHeight };
+  const fit = fitRowPanel(panel, anchor, bounds, ROW_PANEL_GAP);
+  if (!fit) return;
+
+  const height = Math.min(fit.natural, fit.cap);
+  const top = fit.flipUp
+    ? row.top - ROW_PANEL_GAP - height
+    : row.bottom + ROW_PANEL_GAP;
+  panel.style.top = `${Math.max(ROW_PANEL_EDGE, top)}px`;
+};
+
+/** Re-place every open card. Document-level capture, so a scroll inside the
+ *  layer list (which does not bubble) still reports. A card whose row was
+ *  rebuilt away is dropped here as well, which keeps the map from holding a
+ *  detached row forever if a close path forgot to unpin. */
+const replaceRowPanels = (): void => {
+  for (const [anchor, panel] of rowPanels) {
+    if (!panel.isConnected || !anchor.isConnected) {
+      rowPanels.delete(anchor);
+      continue;
+    }
+    placeRowPanel(panel, anchor);
+  }
+};
+
+/** Pin a mounted row panel to the viewport, anchored under `anchor`.
+ *  Call right after the card is appended to the row. Adds the opt-in
+ *  `foliplus-is-pinned` class (the fixed box) before the first placement, so a
+ *  panel that was never pinned keeps its plain row-anchored absolute box. */
+const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  panel.classList.add(PINNED_CLASS);
+  rowPanels.set(anchor, panel);
+  if (!rowPanelEventsBound) {
+    rowPanelEventsBound = true;
+    window.addEventListener("scroll", replaceRowPanels, true);
+    window.addEventListener("resize", replaceRowPanels);
+  }
+  placeRowPanel(panel, anchor);
+};
+
+/** Drop a row panel's placement bookkeeping and its pinned marker. Call when
+ *  the card closes or its row is rebuilt; a miss only leaves one stale map
+ *  entry until the next scroll/resize pass prunes it. */
+const unpinRowPanel = (anchor: HTMLElement | null): void => {
+  if (!anchor) return;
+  const panel = rowPanels.get(anchor);
+  if (panel) {
+    panel.classList.remove(PINNED_CLASS, ROW_PANEL_UP_CLASS);
+    panel.style.removeProperty("--foliplus-row-panel-max-height");
+  }
+  rowPanels.delete(anchor);
 };
 
 /**
@@ -566,7 +640,7 @@ export {
   createFoldControl,
   createPanelControl,
   createPanelHeader,
-  measureRowPanelPlacement,
-  observeRowPanelPlacement,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 };

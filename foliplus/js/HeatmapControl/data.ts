@@ -1,9 +1,15 @@
 // HeatmapControl data aggregation — pure functions for H3 binning, class
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
-import { computeBreaks } from "#core/classify.js";
+import {
+  ClassifierDependencyError,
+  type ClassifyMethod,
+  METHOD,
+  computeBreaks,
+} from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
-import { autoLabelField, bareFieldName } from "#core/label/index.js";
+import { bareFieldName } from "#core/label/index.js";
+import { safeColorScale } from "#core/palette.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import type {
@@ -20,16 +26,6 @@ const getH3Res = (zoom: number): number => {
   return entry ? entry[1] : CONST.H3.RES_FALLBACK;
 };
 
-/** The field to use when the user has not picked one. The rule itself is
- *  shared with LayerControl's annotation labels (core/labelField): first
- *  numeric, else first. This layer's field contract is numeric-only by
- *  construction, so in practice this stays the first entry — but the
- *  fallback no longer lives in two places. */
-const pickAutoField = (fields: string[] | null): string | null => {
-  if (!fields || fields.length === 0) return null;
-  return autoLabelField(fields.map(name => ({ name, numeric: true })));
-};
-
 /** Read a numeric field off a point marker (foliplus data contract).
  *  Supported field syntax: "value", "options.value", and a bare
  *  `feature.properties` key. A legacy `"properties.<key>"` id is accepted
@@ -44,15 +40,6 @@ const readMarkerField = (
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];
-};
-
-/** Build a chroma color scale with `count` colors. Falls back to GRAY array
- *  when chroma is unavailable. */
-const getColorScale = (name: string, count: number): string[] => {
-  if (typeof chroma !== "undefined") {
-    return chroma.scale(name).mode("lab").colors(count) as string[];
-  }
-  return Array(count).fill(CONST.GRAY);
 };
 
 /** Bin points by H3 resolution. Geometry only — the h3 call lives here and
@@ -94,6 +81,7 @@ const binPoints = (
 const aggregateBins = (
   bins: Map<string, number[]>,
   pts: SelectedPoint[],
+  include?: Set<number>,
 ): Map<string, HexCell> => {
   const cells = new Map<string, HexCell>();
   for (const [h3Idx, idxs] of bins) {
@@ -103,12 +91,14 @@ const aggregateBins = (
     let min = Infinity;
     let max = -Infinity;
     for (const i of idxs) {
+      if (include && !include.has(i)) continue;
       const v = pts[i].value;
       sum += v;
       count += 1;
       if (v < min) min = v;
       if (v > max) max = v;
     }
+    if (count === 0) continue;
     cells.set(h3Idx, { sum, count, min, max });
   }
   return cells;
@@ -123,13 +113,15 @@ const aggregateData = (
   res: number,
   agg: string,
   numClasses: number,
-  method: string,
+  method: ClassifyMethod,
   scheme: string,
   onEmpty: () => void,
   log: Logger,
+  include?: Set<number>,
+  precomputedBins?: Map<string, number[]>,
 ): AggregatedData | null => {
-  const bins = binPoints(pts, res, log);
-  const hexCells = aggregateBins(bins, pts);
+  const bins = precomputedBins ?? binPoints(pts, res, log);
+  const hexCells = aggregateBins(bins, pts, include);
   if (hexCells.size === 0) {
     onEmpty();
     return null;
@@ -154,8 +146,27 @@ const aggregateData = (
 
   const allVals = [...hexCells.values()].map(getAggValue);
   const numClassesCapped = Math.min(numClasses, allVals.length);
-  const breaks = computeBreaks(allVals, numClassesCapped, method);
-  const classColors = getColorScale(scheme, numClassesCapped);
+  // jenks and quantile read the simple-statistics CDN global. A page that
+  // never loaded it has no source for the breaks, so the render would throw
+  // out of the method selector's handler and the user's choice would not be
+  // persisted. Degrade to the one method that needs no dependency and say so,
+  // instead of a flat single color.
+  let breaks: number[];
+  try {
+    breaks = computeBreaks(allVals, numClassesCapped, method);
+  } catch (err) {
+    if (!(err instanceof ClassifierDependencyError)) throw err;
+    log.warn(
+      "simple-statistics unavailable, classified with the equal method",
+      err.message,
+    );
+    breaks = computeBreaks(allVals, numClassesCapped, METHOD.EQUAL);
+  }
+  // Ask chroma for the classes breaks actually produced, not the classes
+  // requested: a method that cannot split the sample returns fewer breaks, and
+  // the surplus colors would sit unused next to a class index that can never
+  // reach them.
+  const classColors = safeColorScale(scheme, Math.max(0, breaks.length - 1));
   const valueToClassIdx = (val: number): number => {
     if (breaks.length < 2) return 0;
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
@@ -211,8 +222,6 @@ export {
   aggregateData,
   binPoints,
   buildFeatures,
-  getColorScale,
   getH3Res,
-  pickAutoField,
   readMarkerField,
 };

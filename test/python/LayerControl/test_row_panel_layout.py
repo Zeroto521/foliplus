@@ -1,10 +1,11 @@
 """Browser tests: row-panel viewport-aware placement.
 
-`createRowPanel` measures the space above and below its anchor row and
-writes a per-panel `--foliplus-row-panel-max-height` CSS variable, so
-the panel caps itself to the visible strip and flips upward when the
-space below is the tight side. These tests pin the three scenarios that
-motivated the fix.
+The pinned row panel floats over the layer control instead of sitting in
+its scroll box, but it still has to stay inside the map. `placeRowPanel`
+measures the space above and below its anchor row, writes a per-panel
+`--foliplus-row-panel-max-height` CSS variable, and flips the fixed card
+upward when the space below is the tight side. These tests pin the three
+scenarios that motivated the fix.
 
 Each test opens the LayerControl, clicks ⋮ → Style on a layer row, and
 asserts the panel's rendered rect against the map's visible area.
@@ -116,10 +117,10 @@ def _make_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
 class TestRowPanelLayoutBrowser:
     """Row-panel placement against the map's visible area.
 
-    The panel is a `position: absolute; top: 100%` child of its row,
-    capped by a per-panel CSS variable that `createRowPanel` writes from
-    a measurement of the space above and below the anchor. These tests
-    pin the three scenarios from the reported clipping bug.
+    The card is fixed (pinned above the layer list's scroll box) but is
+    capped by a per-panel CSS variable that `placeRowPanel` writes from a
+    measurement of the space above and below the anchor. These tests pin
+    the three scenarios from the reported clipping bug.
     """
 
     def test_style_panel_first_row_fits_in_first_screen(self, browser, tmp_path):
@@ -147,7 +148,7 @@ class TestRowPanelLayoutBrowser:
             )
             assert r["panel"]["cssMaxHeight"] != "400px", (
                 "the panel's max-height is still the token default (400px); "
-                "createRowPanel should have written a measured cap"
+                "placeRowPanel should have written a measured cap"
             )
             page.screenshot(path=str(SHOTS / "accept_1_style_720.png"))
             assert not errors, f"JS errors: {errors}"

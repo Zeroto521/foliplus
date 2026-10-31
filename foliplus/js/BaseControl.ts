@@ -44,7 +44,8 @@
 //     what this class exists for.
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 
 const log = createLogger("BaseControl");
@@ -100,15 +101,20 @@ class BaseControl extends L.Control {
     L.DomEvent.disableScrollPropagation(container);
     // Ready signal: other controls (LayerControl's init pass) can run on
     // attach completion instead of a fixed delay.
+    // Only the bus acquisition is best-effort: a map without a bus is a
+    // lightweight stub, where init falls back to its synchronous pass. A
+    // CONTROL_ATTACHED consumer failure is not swallowed — it is a settled
+    // broadcast, so every listener has run and the first failure propagates
+    // to the control that just attached.
+    let events: ReturnType<typeof ensureEvents>;
     try {
-      const events = ensureEvents(this._map);
-      events.emit(EVENTS.CONTROL_ATTACHED, {
-        component: this.constructor.name,
-      });
+      events = ensureEvents(this._map);
     } catch {
-      // No event bus on this map (lightweight stub) — init falls back to
-      // its synchronous pass, which is sufficient without other controls.
+      return container;
     }
+    publish(events, EVENTS.CONTROL_ATTACHED, {
+      component: this.constructor.name,
+    });
     return container;
   }
 
@@ -136,11 +142,27 @@ class BaseControl extends L.Control {
       // abort. DOM listeners attached via `{signal}` are dropped by the
       // browser on abort — no callback fires — so there is no window of
       // double-cleanup to worry about.
-      this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
+      //
+      // One step per listener/cleanup, not one step per collection: a throwing
+      // `off()` or cleanup used to skip every entry behind it, and — because
+      // `ac.abort()` sat after the loop — could leave every `{signal}` DOM
+      // listener in the page with no owner. That is a permanent leak the
+      // control can never take back.
+      finalize(
+        [
+          ...this.mapListeners.map(
+            ([event, fn]) =>
+              [`map-listener:${event}`, () => this._map.off(event, fn)] as const,
+          ),
+          ...this.cleanups.map((fn, i) => [`cleanup:${i}`, fn] as const),
+          ["abort-signal", () => this.ac?.abort()],
+        ],
+        failure => log.warn(`onRemove step "${failure.name}" threw`, failure.error),
+      );
+      // Plain reset: the arrays are the controller's own tracking state, so it
+      // must not depend on a step having succeeded.
       this.mapListeners = [];
-      this.cleanups.forEach(fn => fn());
       this.cleanups = [];
-      this.ac?.abort();
       this.ac = null;
     }
   }
@@ -163,8 +185,7 @@ class BaseControl extends L.Control {
     if (!this.ac) {
       throw new Error(
         log.msg(
-          `${this.constructor.name}: read of \`signal\` on a detached control — ` +
-            `register listeners inside onAdd/buildDOM, not at construction.`,
+          `${this.constructor.name}: read of \`signal\` on a detached control — register listeners inside onAdd/buildDOM, not at construction.`,
         ),
       );
     }
@@ -242,8 +263,7 @@ class BaseControl extends L.Control {
         return;
       }
       log.warn(
-        `${this.constructor.name}.effect(): setup returned a value with no ` +
-          `.cancel() or .disconnect() — nothing registered`,
+        `${this.constructor.name}.effect(): setup returned a value with no .cancel() or .disconnect() — nothing registered`,
       );
       return;
     }

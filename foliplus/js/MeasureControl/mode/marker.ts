@@ -134,8 +134,12 @@ class MarkerMode extends MeasureMode {
    * after a late geocode resolution — bound after bindPinDrag but before
    * the deferred delete thunk is set, preserving the popup-binding position relative
    * to the ✕ lifecycle in both callers.
+   *
+   * Named `commitMeasurement` rather than `finalize`: this commits one
+   * measurement to the map and the store, while `#common/finalize` is the
+   * teardown-step runner — same word, unrelated job.
    */
-  private static finalize(
+  private static commitMeasurement(
     mgr: MeasureManager,
     marker: L.Marker,
     measurement: MeasureData,
@@ -152,6 +156,7 @@ class MarkerMode extends MeasureMode {
       onDelete,
     );
 
+    mgr.registerItemLayers(measurement.id!, [marker, delMarker]);
     const cleanupPin = MarkerMode.bindPinDrag(
       mgr,
       marker as L.Marker,
@@ -203,13 +208,19 @@ class MarkerMode extends MeasureMode {
       false, // do not auto-open popup on restore
     );
 
-    MarkerMode.finalize(mgr, marker, data, L.latLng(data.lat!, data.lng!), () => {
-      if (data.address !== null) {
-        marker.setPopupContent(
-          Util.buildPopup(mgr, data.lng!, data.lat!, data.address),
-        );
-      }
-    });
+    MarkerMode.commitMeasurement(
+      mgr,
+      marker,
+      data,
+      L.latLng(data.lat!, data.lng!),
+      () => {
+        if (data.address !== null) {
+          marker.setPopupContent(
+            Util.buildPopup(mgr, data.lng!, data.lat!, data.address),
+          );
+        }
+      },
+    );
   }
 
   start() {
@@ -264,7 +275,7 @@ class MarkerMode extends MeasureMode {
 
     // Bind delete + popup events BEFORE async geocode so the ✕ works even
     // while the address lookup is still in flight.
-    MarkerMode.finalize(this.mgr, marker, measurement, event.latlng, () => {
+    MarkerMode.commitMeasurement(this.mgr, marker, measurement, event.latlng, () => {
       if (measurement.address !== null) {
         marker.setPopupContent(
           Util.buildPopup(this.mgr, lngNum, latNum, measurement.address),

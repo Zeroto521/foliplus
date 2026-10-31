@@ -2,7 +2,7 @@
 // mock factory, a ControlEnv builder, and a CLI harness for scripts that
 // keep their argv/help/error handling at module top level.
 //
-// Six pieces, all exported:
+// Seven pieces, all exported:
 //
 // - `installWindowLExtensions()` — called once from `setup.ts`. Extends the
 //   base `window.L` stub with the constructors/factories that individual test
@@ -16,6 +16,9 @@
 //   `document.body`: a test file that mounts DOM in `beforeAll` would have
 //   its container wiped before the first `it` runs. Tests that need a
 //   scoped DOM root call `mountFixtureRoot()` and clean it up themselves.
+// - `restoreNativeFetch(target?)` — capture the native `fetch` on first use
+//   and reinstall it. `setup.ts` calls it per test file and after every test;
+//   the capture is a worker-wide `Symbol.for` slot that is never deleted.
 // - `makeLayerUIMock(extra?)` — mirror of the `LayerUI` field set (see
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
@@ -272,10 +275,35 @@ export function installWindowLExtensions(): void {
  * Clears localStorage and mock call history. Deliberately does not touch
  * `document.body` — clearing it here would wipe containers mounted in a
  * test file's `beforeAll` before the first `it` of that file runs.
+ *
+ * `globalThis.fetch` is owned by `setup.ts` (per file and per test), not by
+ * this function, so a caller resetting state here still gets the same fetch
+ * that setup installed.
  */
 export function resetState(): void {
   window.localStorage.clear();
   vi.clearAllMocks();
+}
+
+const NATIVE_FETCH = Symbol.for("foliplus.test.nativeFetch");
+
+/**
+ * Reinstall the native `fetch` captured on the first call.
+ *
+ * `setup.ts` calls this at module scope (per test file) and in `afterEach`,
+ * so neither the next file nor the next test inherits a leftover mock. The
+ * presence check matters: when the environment has no native `fetch`, the
+ * first call stores `undefined` and later calls must restore that `undefined`
+ * rather than capture a mock as "native".
+ *
+ * The `Symbol.for` slot lives on the target for the whole worker and is never
+ * deleted — that is what lets the original implementation survive module
+ * re-evaluation.
+ */
+export function restoreNativeFetch(target: { fetch: typeof fetch } = globalThis): void {
+  const slot = target as unknown as Record<PropertyKey, unknown>;
+  if (!(NATIVE_FETCH in slot)) slot[NATIVE_FETCH] = target.fetch;
+  target.fetch = slot[NATIVE_FETCH] as typeof fetch;
 }
 
 /**
@@ -330,11 +358,11 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     onKeyDown: null,
     // Lifecycle / dismiss handlers
     onMoreClick: null,
-    onMoreMenuClick: null,
     onMoreMapClick: null,
     onZoomEnd: null,
     unsubscribeCountChange: null,
     unsubscribeControlAttached: null,
+    unsubscribeEscape: null,
     focusController: {
       focusRect: null,
       focusingLayerId: null,
@@ -344,22 +372,22 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       focusedPaneRestores: [],
     },
     listPanel: {
-      foldedGroups: new Set<string>(),
+      foldedRoles: new Set<string>(),
       checkedCount: {},
       activeIdx: null,
       listCursor: null,
-      dragIdx: null,
+      dragEntry: null,
       lastDragHintAt: 0,
       lastDragOverItem: null,
-      pressInPanel: false,
       listCleanup: null,
     },
     overlayPanel: {
       activeRenameId: null,
       activeMenu: null,
       activeAttrsPanel: null,
-      attrsOutsideHandler: null,
-      styleOutsideHandler: null,
+      attrsOverlayUnregister: null,
+      filterOverlayUnregister: null,
+      styleOverlayUnregister: null,
       attrsUnsubscribe: null,
       styleUnsubscribe: null,
       styleRefresh: null,
@@ -378,11 +406,11 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
   const lp = base.listPanel;
   const op = base.overlayPanel;
   const compatGetters: Array<[string, () => unknown, (v: unknown) => void]> = [
-    ["foldedGroups", () => lp.foldedGroups, v => void (lp.foldedGroups = v as any)],
+    ["foldedRoles", () => lp.foldedRoles, v => void (lp.foldedRoles = v as any)],
     ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],
     ["activeIdx", () => lp.activeIdx, v => void (lp.activeIdx = v as any)],
     ["listCursor", () => lp.listCursor, v => void (lp.listCursor = v as any)],
-    ["dragIdx", () => lp.dragIdx, v => void (lp.dragIdx = v as any)],
+    ["dragEntry", () => lp.dragEntry, v => void (lp.dragEntry = v as any)],
     [
       "lastDragHintAt",
       () => lp.lastDragHintAt,
@@ -393,7 +421,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       () => lp.lastDragOverItem,
       v => void (lp.lastDragOverItem = v as any),
     ],
-    ["pressInPanel", () => lp.pressInPanel, v => void (lp.pressInPanel = v as any)],
     ["interactionCleanup", () => lp.listCleanup, v => void (lp.listCleanup = v as any)],
     [
       "activeRenameId",
@@ -405,16 +432,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       "activeAttrsPanel",
       () => op.activeAttrsPanel,
       v => void (op.activeAttrsPanel = v as any),
-    ],
-    [
-      "attrsOutsideHandler",
-      () => op.attrsOutsideHandler,
-      v => void (op.attrsOutsideHandler = v as any),
-    ],
-    [
-      "styleOutsideHandler",
-      () => op.styleOutsideHandler,
-      v => void (op.styleOutsideHandler = v as any),
     ],
     [
       "attrsUnsubscribe",

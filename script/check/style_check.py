@@ -32,7 +32,7 @@
 
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
-`eslint.config.js`. This script does not duplicate them.
+`config/eslint/base.mjs`. This script does not duplicate them.
 
 Check-only: reports violations with `file:line: message` and exits 1 if
 any. Cannot auto-fix — refactor in the editor.

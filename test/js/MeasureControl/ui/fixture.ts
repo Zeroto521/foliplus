@@ -38,6 +38,9 @@ const makeMgr = (config: ComponentConfig = makeConfig()) => {
     registerEditOverlayCloser: vi.fn(() => () => {}),
     registerEditDragToggle: vi.fn(() => () => {}),
     registerFinalized: vi.fn(() => () => {}),
+    addItemLeaves: vi.fn(),
+    removeItemLeaves: vi.fn(),
+    refreshItemVisibility: vi.fn(),
     registerLabel: vi.fn(() => () => {}),
     closeOtherEditOverlays: vi.fn(),
   };

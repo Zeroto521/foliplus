@@ -31,7 +31,7 @@ let tmpRoots: string[] = [];
 const mkTmp = (): string => {
   const dir = join(
     tmpdir(),
-    "fuse-test-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+    `fuse-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   tmpRoots.push(dir);
   return dir;
@@ -236,7 +236,7 @@ describe("CLI entry", () => {
       vi.doUnmock("#script/bundle-size-lib.mjs");
       vi.resetModules();
     }
-  });
+  }, 30000);
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();

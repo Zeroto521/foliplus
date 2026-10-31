@@ -40,123 +40,35 @@
   /* ── Inline control groups use shared form.css (.foliplus-form-inline /
      .foliplus-form-color-input / .foliplus-form-number-input). ── */
 
-  /* Class count small select — width override on the shared form-select. */
-  .foliplus-heatmap-class-select {
-    width: var(--foliplus-heatmap-inline-width);
-    flex-shrink: 0;
-  }
-
-  /* Unified container */
+  /* Unified container. Its rows and footer carry their own shared inset
+     (common/form.css, common/button.css), so the body adds none — a second
+     inset here is exactly how the heatmap footer ended up 12px short of the
+     style panel's. */
   .foliplus-heatmap-config-body {
-    padding: 0 var(--foliplus-space-lg);
+    padding: 0;
   }
   /* Dynamic content container */
   .foliplus-heatmap-extra-body {
     padding: 0;
   }
 
-  /* ── Color Scheme Bar ── */
-  .foliplus-heatmap-scheme-bar {
-    width: 100%;
-    height: var(--foliplus-ctrl-size);
-    border-radius: var(--foliplus-radius-sm);
-    cursor: pointer;
-    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
-    position: relative;
-    padding-right: var(--foliplus-icon-size-md);
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    transition: var(--foliplus-transition-input);
-  }
+  /* ── Color Scheme Bar ──
+     The trigger box and chevron are the shared scheme-picker recipe
+     (common/scheme-picker.css); this block only keeps the color strip's own
+     inline height token as the fallback. */
   .foliplus-heatmap-scheme-bar-inner {
-    flex: 1;
-    height: var(--foliplus-heatmap-inline-height);
-    display: flex;
-    overflow: hidden;
-    border-radius: var(--foliplus-radius-sm);
-  }
-  .foliplus-heatmap-scheme-bar-block {
-    flex: 1;
-    height: 100%;
-    transition:
-      filter var(--foliplus-transition-fast),
-      opacity var(--foliplus-transition-fast);
-  }
-  .foliplus-heatmap-scheme-bar::after {
-    content: "";
-    position: absolute;
-    right: var(--foliplus-heatmap-accent-arrow-offset);
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-left: var(--foliplus-size-4) solid transparent;
-    border-right: var(--foliplus-size-4) solid transparent;
-    border-top: var(--foliplus-size-6) solid var(--foliplus-text-muted);
-    pointer-events: none;
+    height: var(
+      --foliplus-scheme-picker-bar-height,
+      var(--foliplus-heatmap-inline-height)
+    );
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
      hangs off it (not the page flow). */
   .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
     position: relative;
   }
-  /* Scheme hidden select: visually collapsed but stays in layout (Bootstrap
-     also defines a global `.hidden`, so this uses a component-scoped name). */
-  .foliplus-heatmap-scheme-hidden {
-    position: absolute;
-    width: 0;
-    height: 0;
-    opacity: 0;
-    pointer-events: none;
-    overflow: hidden;
-  }
-
-  /* Scheme dropdown — shell + item hover/active live in common.css
-     (Unified Dropdown / Menu); this block owns position/width/max-height
-     and the selection border (the one persistent single-select dropdown). */
-  .foliplus-heatmap-scheme-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    max-height: 200px;
-    padding: var(--foliplus-space-sm) 0;
-    /* Shell box model: declare the full list + margin so a host framework's
-       bare `ol,ul` defaults (list-style disc, margin-bottom 1rem) cannot
-       leak into the dropdown. */
-    list-style: none;
-    margin-bottom: 0;
-  }
-  .foliplus-heatmap-scheme-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: var(--foliplus-space-md);
-    padding: 0 var(--foliplus-space-lg);
-    height: var(--foliplus-ctrl-size);
-    box-sizing: border-box;
-    /* Reserved border: same "selected" language as layer items — a permanent
-       transparent left border, .foliplus-is-active only recolors it. No layout shift and
-       the border-color can transition. */
-    border-left: var(--foliplus-border-thick) solid transparent;
-
-    &.foliplus-is-active {
-      border-left-color: var(--foliplus-accent-primary);
-      /* Persistent "selected scheme" state: soft 5% wash, same language as
-         the keyboard cursor. --foliplus-accent-light (#fde8e8) was too saturated —
-         it's a flat brand color, not a subtle persistent-status wash. */
-      background: var(--foliplus-accent-soft-bg);
-    }
-  }
-  .foliplus-heatmap-scheme-dropdown-bar {
-    flex: 1;
-    height: var(--foliplus-heatmap-inline-height);
-    border-radius: var(--foliplus-radius-sm);
-    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
-    flex-shrink: 0;
-    display: flex;
-    overflow: hidden;
-  }
+  /* Scheme hidden select, dropdown, items, and color bars live in
+     common/scheme-picker.css (shared by HeatmapControl and LayerControl). */
 
   /* Color / number inputs live in common/form.css — one visual for the
      heatmap panel and the layer style drawer. */

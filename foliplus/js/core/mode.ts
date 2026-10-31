@@ -3,7 +3,7 @@
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONFIG dependency.
 import { COMPONENTS, assertComponentName } from "#core/component.js";
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { suspendMapInteractions } from "#core/layer/util.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
@@ -77,8 +77,14 @@ class ModeManager {
     this.modes.set(component, mode);
     if (mode !== null && suspendSkip) this.modeSkips.set(component, suspendSkip);
     else this.modeSkips.delete(component);
-    this.bus.emit(EVENTS.MODE_CHANGE, { component, mode } satisfies ModeChangePayload);
+    // Apply the lock before announcing: a consumer that throws must not leave
+    // the registry saying "Measure owns the map" while the layers still take
+    // pointer events. The settled broadcast then finishes every listener.
     this.syncInteractionLock();
+    publish(this.bus, EVENTS.MODE_CHANGE, {
+      component,
+      mode,
+    } satisfies ModeChangePayload);
   }
 
   /**
@@ -145,6 +151,12 @@ class ModeManager {
     return [...this.modes.keys()];
   }
 
+  /** Drop every active mode and re-derive the map interaction lock.
+   *
+   *  Not a `finalize` list: the two `Map.clear()` calls cannot throw, and
+   *  `syncInteractionLock` is the one invariant that has to hold afterwards —
+   *  there is no failing step to isolate. Use `finalize` only where a step can
+   *  throw and the ones behind it must still run. */
   clear(): void {
     this.modes.clear();
     this.modeSkips.clear();

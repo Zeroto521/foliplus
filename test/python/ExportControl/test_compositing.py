@@ -12,6 +12,7 @@ from .helper import (
     _run_export,
     _sample_bg_pixels_in_export,
     _solid_tile_layer,
+    _wait_export_canvas_ready,
 )
 
 
@@ -145,6 +146,20 @@ class TestExportCompositeBrowser:
         ):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
+            # A render that throws after the background fill leaves an
+            # ordinary-looking all-background canvas behind, and this gate then
+            # reports "label pixels missing" for a failure the product did
+            # report (a visible hint plus this console.error). Keep the
+            # exporter's own errors so the message says which one it was.
+            export_errors = []
+            page.on(
+                "console",
+                lambda m: (
+                    export_errors.append(m.text)
+                    if m.type == "error" and m.text.startswith("[ExportControl]")
+                    else None
+                ),
+            )
 
             state = page.evaluate(_js("ExportControl/annotation_canvas_in_export"))
             assert state is not None and state["canvas"] is True, state
@@ -181,7 +196,8 @@ class TestExportCompositeBrowser:
             result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
-                f"annotation label pixels missing from export: {result}"
+                f"annotation label pixels missing from export: {result}; "
+                f"exporter errors: {export_errors}"
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
@@ -315,15 +331,21 @@ class TestExportCompositeBrowser:
             name="Hatch Marker",
             show=True,
         )
+        # The gate reads the English no-basemap label, so pin the page locale.
         with use_page(
-            _make_page, browser, tmp_path, marker, slug="no_basemap_export"
+            _make_page,
+            browser,
+            tmp_path,
+            marker,
+            slug="no_basemap_export",
+            locale="en",
         ) as (page, errors):
             panel_ready(page)
             _install_canvas_hook(page)
 
-            # Deselect every basemap through the panel's base group toggle-all,
+            # Deselect every basemap through the panel's base role toggle-all,
             # so the map enters the empty state the way a user does. The overlay
-            # above is not in that group and stays on the map.
+            # above is not in that role and stays on the map.
             clicked = page.evaluate(_js("LayerControl/uncheck_base_group"))
             state = page.evaluate(_js("ExportControl/no_basemap_state"))
             assert clicked["ok"] is True, clicked
@@ -337,10 +359,10 @@ class TestExportCompositeBrowser:
             assert "conic-gradient" in state["bgImage"], (
                 f"hatch not painted on the container: {state}"
             )
-            # The base group label swaps to the no-basemap variant when every
+            # The base role label swaps to the no-basemap variant when every
             # basemap is unchecked (translated from `no_base_map_label`).
             assert state["baseLabelText"] == "No Base Map", (
-                f"base group label must swap to the no-basemap variant, "
+                f"base role label must swap to the no-basemap variant, "
                 f"got {state['baseLabelText']}"
             )
 
@@ -404,11 +426,18 @@ class TestExportCompositeBrowser:
             tile_layers = [
                 li for li in state["layers"] if li["id"] != "foliplus_color_map"
             ]
-            assert all(li["group"] == "base" and li["visible"] for li in tile_layers), (
+            assert all(li["role"] == "base" and li["visible"] for li in tile_layers), (
                 f"both tile basemaps should be visible: {tile_layers}"
             )
 
             _run_export(page)
+
+            # The blend is only meaningful once the renderer has painted both tile
+            # layers into its own canvas. The export renderer loads tiles via its
+            # own ImageBitmap fetch (renderer/tile.ts), independent of the map's
+            # DOM img.leaflet-tile nodes, so the correct gate is the captured canvas
+            # (non-empty + painted), not a DOM tile-complete predicate.
+            _wait_export_canvas_ready(page)
 
             result = _sample_bg_pixels_in_export(page, match=[130, 45, 125])
             dominant = page.evaluate(_js("ExportControl/export_dominant_color"))
@@ -425,7 +454,7 @@ class TestExportCompositeBrowser:
     def test_export_marker_opacity_blend(self, browser, tmp_path):
         """Marker layer opacity is captured in the export via ancestor-chain alpha.
 
-        R5 moved opacity writes to the pane element; the four DOM rendering
+        Opacity writes moved to the pane element; the four DOM rendering
         paths (renderMarkers, renderFontAwesome, renderTextLabels, renderRemaining)
         must read the ancestor-chain alpha via effectiveOpacity(). This test
         creates a marker at 0.4 opacity, exports, captures the renderer's
@@ -457,8 +486,19 @@ class TestExportCompositeBrowser:
             page.wait_for_function(
                 _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
-            page.wait_for_timeout(2000)
-
+            # Wait until the renderer canvas is captured and painted before
+            # reading pixels. The collapsed-control wait only proves the flow
+            # finished; the canvas may still be empty. A fixed wait_for_timeout
+            # is raster timing, which is the flake class this removes.
+            _wait_export_canvas_ready(page)
+            # The marker's icon image loads asynchronously (renderRemaining
+            # awaits loadImage before drawImage), so the canvas-ready gate
+            # (non-empty + opaque) can fire on the background fill before the
+            # marker is drawn. Wait for the red-dominant marker signature
+            # specifically -- the observable end state this test asserts on.
+            page.wait_for_function(
+                _js("ExportControl/wait_marker_drawn"), timeout=15000
+            )
             # Read the captured canvas pixels and verify the marker was
             # drawn. The export canvas now has an opaque background fill, so
             # the marker's alpha composites onto the background — the
@@ -466,11 +506,164 @@ class TestExportCompositeBrowser:
             # opacity is reflected in the color blend rather than in alpha.
             #
             # The background is Leaflet's default gray (221, 221, 221). The
-            # marker is a red pin; even at 0.4 opacity the blended pixel is
-            # visibly different from gray. Count pixels that differ from the
+            # marker is drawn from a data-URI red icon (set in
+            # export_opacity_blend.js); even at 0.4 opacity the blended pixel
+            # is visibly different from gray. Count pixels that differ from the
             # background by more than tolerance 30 in any channel — this
             # catches "marker drawn at any opacity" and "marker not drawn
             # at all" (all pixels would be gray).
             result = page.evaluate(_js("ExportControl/marker_opacity_pixel_check"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, f"Marker pixels missing from export: {result}"
+            # The icon specifically (red-dominant pixels, the data-URI red
+            # PNG at 0.4 over gray) must be present -- not merely "something
+            # that is not background". This distinguishes a drawn red marker
+            # from a wrong-shape/wrong-color draw or a blank canvas.
+            assert result["markerPixels"] > 0, (
+                f"Red marker icon pixels missing from export: {result}"
+            )
+
+    def test_export_default_marker_pixels(self, browser, tmp_path):
+        """A default-geometry Leaflet marker exports red-dominant pixels.
+
+        The task premise: a bare ``L.marker(...)`` (Leaflet's ``Icon.Default``,
+        which loads ``marker-icon.png`` from the Leaflet CDN path) has no pixel
+        assertion in the export tests, because the default icon URL is not in
+        the CDN list and the image load races the export. A bare marker is
+        also NOT exported: it is not in the LayerAPI registry (only registered
+        layers are) and the default ``markerPane`` is excluded from pane
+        discovery. This test covers the export path for a marker that keeps
+        the DEFAULT Leaflet icon geometry (25x41, anchor [12,41]) but uses a
+        deterministic solid-red data-URI PNG, so the export sees exactly the
+        pixels the icon element's ``src`` points at — no CDN lookup, no load
+        race.
+
+        The marker is registered through the LayerAPI into a foliplus pane
+        (as a folium Marker is when LayerControl collects layers at map build
+        time), and tile layers are hidden so the opaque OSM tiles cannot mask
+        the red icon. The exported canvas is sampled in an 80x100 window that
+        covers the icon body, and the window must be red-dominant.
+        """
+        with use_page(_make_page, browser, tmp_path, slug="export_default_marker") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            state = page.evaluate(_js("ExportControl/setup_default_marker"))
+            assert state is not None and "error" not in state, state
+            assert state["marker"] is True, state
+
+            _install_canvas_hook(page)
+            _run_export(page)
+            # Canvas-ready only proves the background fill: the marker's icon
+            # image loads asynchronously (renderRemaining awaits loadImage
+            # before drawImage). Wait for the red-dominant marker signature --
+            # the observable end state this test asserts on.
+            _wait_export_canvas_ready(page)
+            page.wait_for_function(
+                _js("ExportControl/wait_marker_drawn"), timeout=15000
+            )
+
+            page.evaluate(
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": {"marker": state["window"]},
+                    "color": [230, 30, 30],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
+            )
+            result = page.evaluate(_js("ExportControl/sample_export_window"))
+            assert result is not None, "Export canvas not captured"
+            w = result["marker"]
+            assert w["total"] > 0, f"Marker window has no pixels in export: {result}"
+            assert w["hit"] > 0, f"Marker red pixels missing from export: {result}"
+            ratio = w["hit"] / w["total"]
+            assert ratio >= 0.4, (
+                f"Marker window not red-dominant (ratio {ratio:.3f}): {result}"
+            )
+            assert len(errors) == 0, f"JS errors on default-marker export: {errors}"
+
+    def test_export_bare_default_icon_pixels(self, browser, tmp_path):
+        """A bare ``L.marker(...)`` (Leaflet's ``Icon.Default``) exports the
+        true default blue marker-icon.png pixels.
+
+        #813 introduced ``test_export_default_marker_pixels``, which uses a
+        deterministic red data-URI icon because the default ``marker-icon.png``
+        was not in the offline CDN cache (test/python/cdn.json) and the image
+        load raced the export. That test covers the export path for the
+        DEFAULT icon geometry but not the actual default icon artwork.
+
+        This test restores the pixel coverage for the real default icon. It
+        relies on two things #813 did not have:
+          * ``marker-icon.png`` (plus ``marker-icon-2x`` / ``marker-shadow``)
+            is now in ``test/python/cdn.json``, so the CDN route answers it
+            from the local cache instead of letting the request fail.
+          * ``test/python/conftest.py`` now adds
+            ``Access-Control-Allow-Origin: *`` to every CDN fulfill, because
+            the export renderer re-reads icon pixels with
+            ``loadImage(src, "anonymous")`` (crossOrigin=anonymous) and a
+            cross-origin anonymous image without CORS would fail to load.
+
+        The marker is a bare ``L.marker`` (no icon option), registered through
+        the LayerAPI into a foliplus pane (a bare ``map.addLayer`` marker is
+        not exported). The exported canvas is classified over its FULL area:
+        the background is opaque (the renderer fills the map container's
+        computed background, Leaflet's default #ddd, before any pass draws),
+        so an alpha>0 denominator would count the whole canvas and dilute the
+        icon. The colored denominator (chroma > 40) isolates the icon: the
+        blue marker body and its antialiased blue edge are colored, while the
+        neutral gray background and the neutral gray marker-shadow.png are
+        not. With tiles hidden, the only colored content is the default blue
+        marker icon, so blue/colored is the icon's own blue-dominant share.
+        """
+        with use_page(_make_page, browser, tmp_path, slug="export_bare_default") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            state = page.evaluate(_js("ExportControl/setup_bare_default_marker"))
+            assert state is not None and "error" not in state, state
+            assert state["marker"] is True, state
+
+            _install_canvas_hook(page)
+            _run_export(page)
+            # Canvas-ready only proves the background fill: the marker's icon
+            # image loads asynchronously (renderRemaining awaits loadImage
+            # before drawImage). Wait for the blue-dominant marker signature --
+            # the observable end state this test asserts on.
+            _wait_export_canvas_ready(page)
+            page.wait_for_function(
+                _js("ExportControl/wait_bare_marker_drawn"), timeout=15000
+            )
+
+            result = page.evaluate(
+                _js("ExportControl/sample_bare_default_window"),
+            )
+            assert result is not None, "Export canvas not captured"
+            assert result["colored"] > 0, (
+                f"No colored content on export canvas - marker not drawn: {result}"
+            )
+            # Semantic invariant: the default Leaflet marker is a blue pin
+            # whose body fills well over half its colored bbox. So among the
+            # canvas's colored pixels the blue-dominant share must exceed half.
+            # The white outline, the neutral background, and the gray shadow
+            # are explicitly NOT blue-dominant, so a blank canvas, a
+            # wrong-color draw, or a missing icon all fail this threshold.
+            # Threshold 0.5 (not a hand-tuned 0.55) keeps the semantic margin
+            # honest while still requiring the icon body to dominate. The
+            # absolute blue floor (blue > 50) catches a partial draw that a
+            # ratio alone could mask.
+            assert result["blue"] > 50, (
+                f"Default marker blue pixels missing from export: {result}"
+            )
+            assert result["ratio"] >= 0.5, (
+                f"Marker not blue-dominant (ratio {result['ratio']:.3f}): {result}"
+            )
+            assert len(errors) == 0, (
+                f"JS errors on bare-default-marker export: {errors}"
+            )

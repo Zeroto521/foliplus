@@ -11,7 +11,7 @@
   const focusedKey = () => {
     const row = focusedRow();
     return row
-      ? row.getAttribute("data-layer-id") || row.getAttribute("data-group") || "unknown"
+      ? row.getAttribute("data-layer-id") || row.getAttribute("data-role") || "unknown"
       : null;
   };
 
@@ -30,7 +30,7 @@
   // that has no data-layer-id, which previously made the re-home miss and the
   // cursor (and DOM focus) fall off the panel entirely.
   const foldBtn = panel.querySelector(
-    '.foliplus-layer-toggle-all[data-group="overlay"] .foliplus-layer-fold-btn',
+    '.foliplus-layer-toggle-all[data-role="overlay"] .foliplus-layer-fold-btn',
   );
   if (!foldBtn) return null;
   foldBtn.click();

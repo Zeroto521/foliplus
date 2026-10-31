@@ -5,14 +5,21 @@
 // map's "where am I" readout and the out-of-range dimming, and turns thumb
 // movement into live projection + a persisted intent.
 //
-// Used by both the delegated drawer and the annotation panel — the row is
+// Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
-import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
+import {
+  NO_DELTA,
+  type ProjectionDelta,
+  applyProjection,
+  authorZoomBoundsForLayer,
+  notifyDelta,
+} from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
+import { authorZoomRowRange } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
   getDimension,
@@ -45,7 +52,7 @@ const LABEL_MIN_GAP_PCT = 12;
 /** The slider inside a zoom-range row. */
 const sliderOfRow = (row: HTMLElement): Slider | undefined =>
   sliderOf(
-    row.querySelector<HTMLElement>("." + CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL),
+    row.querySelector<HTMLElement>(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`),
   );
 
 /** Update the zoom-range row's visual state: thumb positions, limit dots,
@@ -63,9 +70,14 @@ const syncZoomRangeRow = (
   liveRange?: [number, number],
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const min = range ? Math.max(range[0], mapMin) : mapMin;
-  const max = range ? Math.min(range[1], mapMax) : mapMax;
+  const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  // Only look up the declaration when the user has no range: the row's
+  // author arm is the fallback, not a second source to compare against.
+  const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
+  const [min, max] = liveRange
+    ? clampEndpoints(liveRange, mapMin, mapMax)
+    : rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   const slider = sliderOfRow(row);
@@ -91,17 +103,79 @@ const syncZoomRangeRow = (
     : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
 };
 
+/** Resolve a stored [lo, hi] into the map's available band, always ordered.
+ *  The stored choice wins (never locks the user), so it is only clamped into
+ *  the map's rail. If the stored band lies entirely outside the map the two
+ *  ends collapse onto the nearer map end — a degenerate point — so the model
+ *  and the slider agree (both ordered, both inside [mapMin, mapMax]); the
+ *  layer's actual visibility still comes from the projection, which hides it
+ *  when no zoom can land inside the stored range. */
+const clampEndpoints = (
+  stored: [number, number] | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (!stored) return [mapMin, mapMax];
+  const lo = Math.min(stored[0], stored[1]);
+  const hi = Math.max(stored[0], stored[1]);
+  const min = Math.max(lo, mapMin);
+  const max = Math.min(hi, mapMax);
+  if (min <= max) return [min, max];
+  // Band entirely below the map: pin to the floor. Entirely above: pin to the
+  // ceiling. (A band that straddles the whole map clamps to the full rail and
+  // stays ordered, so it never reaches this branch.)
+  return hi <= mapMin ? [mapMin, mapMin] : [mapMax, mapMax];
+};
+
+/** Resolve the row's [min, max] endpoints.
+ *
+ *  The stored choice wins (clamped + ordered via clampEndpoints — the user's
+ *  persisted choice is never a lock). Without a stored range, the author's
+ *  declared range is the row's starting value (the declaration is only a
+ *  default, so a usable declaration seeds the row); a declaration that cannot
+ *  meet the map is treated as undeclared (authorZoomRowRange → undefined), so
+ *  the row opens on the map's full range. A layer that declared nothing also
+ *  opens on the full map range. Reset clears the intent, landing on the same
+ *  fallback.
+ *
+ *  The author arm is why Reset lands on the declaration instead of the map's
+ *  full range — the declaration is the author's default, and Reset returns to
+ *  it. */
+const rowEndpoints = (
+  stored: [number, number] | undefined,
+  author: AuthorZoomRange | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (stored) return clampEndpoints(stored, mapMin, mapMax);
+  if (author) {
+    const lo = Math.max(author.min, mapMin);
+    const hi = Math.min(author.max, mapMax);
+    if (lo <= hi) return [lo, hi];
+    // A declaration entirely outside this layer's own rail (its
+    // `options.minZoom/maxZoom`, narrower than the map) collapses onto the
+    // nearest bound: the slider cannot draw a value the rail cannot reach.
+    const point = Math.min(Math.max(author.min, mapMin), mapMax);
+    return [point, point];
+  }
+  return [mapMin, mapMax];
+};
+
 /** Build the zoom-range form row: a dual-thumb slider with the map's current
  *  zoom as a readout mark.
  *
  *  Initial values come from the layer's zoomRange intent (the persisted
  *  choice), clamped to the map's current [min, max]. When no range is stored,
- *  the full map range is used — the "author-undeclared" default. */
+ *  the author's declared range is used; a layer that declared nothing opens on
+ *  the full map range. Reset clears the intent, so it lands on the same
+ *  fallback. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const min = stored ? Math.max(stored[0], mapMin) : mapMin;
-  const max = stored ? Math.min(stored[1], mapMax) : mapMax;
+  const author = stored
+    ? undefined
+    : authorZoomRowRange(ui, ui.c.layerRegistry.get(layerId));
+  const [min, max] = rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   // The primitive adds .foliplus-slider itself; the row only names its hook.
@@ -161,7 +235,9 @@ const applyZoomRangeLive = (
   if (!layerInfo) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
-  applyProjection(ui, layerId);
+  // Announce last: the row chrome above is already settled, so a subscriber
+  // that re-enters sees the dragged value, not a mid-drag row.
+  notifyDelta(ui, layerInfo, applyProjection(ui, layerId));
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
@@ -172,18 +248,33 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Reset one layer's zoom range to the full map range and drop its override.
- *  Thin delegate over the zoom-range descriptor's reset plus row chrome. */
-const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  if (!ui.c.layerRegistry.has(layerId)) return;
-  getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId);
-  // Refresh the row's visual state (thumbs, marks, out-of-range).
-  const panel = ui.uiContainer.querySelector(
-    "." + CONST.CLASSES.STYLE_PANEL,
+ *  Owns the full operation boundary: intent + projection land inside the
+ *  descriptor, the row chrome (fill, values, out-of-range state) is refreshed
+ *  here, and only then does the notify go out — a subscriber that re-enters
+ *  reads the settled row, not a stale "out of range" face. Pass
+ *  `publish = false` from the panel's whole-operation Reset, which owns the
+ *  single notify after the panel is closed. */
+const resetLayerZoomRange = (
+  ui: LayerUI,
+  layerId: string,
+  publish = true,
+): ProjectionDelta | void => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return;
+  const delta = getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId) ?? NO_DELTA;
+  // Refresh the row's visual state (fill, values, out-of-range) before the
+  // notify below. A reset can still land after a competing teardown took the
+  // panel — a scheduled reset, or a panel whose control was destroyed — so the
+  // lookup tolerates a missing container instead of dereferencing null.
+  const panel = ui.uiContainer?.querySelector(
+    `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   const row = panel?.querySelector(
-    "." + CONST.CLASSES.STYLE_ZOOM_RANGE_ROW,
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (row) syncZoomRangeRow(ui, layerId, row);
+  if (publish) notifyDelta(ui, layerInfo, delta);
+  return delta;
 };
 
 /** Register zoom range as a per-layer dimension. The descriptor owns the
@@ -196,10 +287,9 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!layerInfo) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-    return {
-      min: stored ? Math.max(stored[0], mapMin) : mapMin,
-      max: stored ? Math.min(stored[1], mapMax) : mapMax,
-    };
+    const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
+    const [min, max] = rowEndpoints(stored, author, mapMin, mapMax);
+    return { min, max };
   },
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
@@ -214,17 +304,28 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
       if (!stored) return;
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
-    applyProjection(ui, layerId);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    // The commit pass owns its own notify: the intent write above is the only
+    // side effect, so the delta goes out on the projection it just ran.
+    notifyDelta(ui, layerInfo, applyProjection(ui, layerId));
   },
-  /** Cohesive reset: clear the override, save, re-project. */
+  /** Cohesive reset: clear the override, save, re-project. Returns the delta
+   *  without announcing — the complete reset entry (`resetLayerZoomRange`)
+   *  owns the notify so it can refresh row chrome first. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
-    applyProjection(ui, layerId);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    return applyProjection(ui, layerId);
   },
   valueSource: (ui, layerId) => {
     if (!canShowZoomRange(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
   },
+  /** No content-change replay: zoom range is a visibility gate over zoom
+   *  level, not a per-leaf write — the zoom-end projection sweep owns it. */
+  contentChange: { kind: "none" },
 });
 
 export {

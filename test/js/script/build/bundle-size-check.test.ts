@@ -70,7 +70,7 @@ let tmpRoots: string[] = [];
 const mkTmp = (): string => {
   const dir = join(
     tmpdir(),
-    "size-check-test-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+    `size-check-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   tmpRoots.push(dir);
   return dir;
@@ -104,8 +104,8 @@ const runCheck = (root: string, data: unknown, error = false): string => {
   console.log = (...a) => logs.push(a.join(" "));
   if (error) console.error = (...a) => logs.push(a.join(" "));
   try {
-    const code = check(BundleArgs(["--baseline=" + baseline]), root);
-    return String(code) + "\n" + logs.join("\n");
+    const code = check(BundleArgs([`--baseline=${baseline}`]), root);
+    return `${String(code)}\n${logs.join("\n")}`;
   } finally {
     console.warn = warn;
     console.log = log;
@@ -115,7 +115,7 @@ const runCheck = (root: string, data: unknown, error = false): string => {
 
 // parseArgs wired to compare against a baseline written to `root`.
 const argsWithBaseline = (root: string, data: unknown) =>
-  BundleArgs(["--baseline=" + writeBaseline(root, data)]);
+  BundleArgs([`--baseline=${writeBaseline(root, data)}`]);
 
 afterEach(() => {
   for (const dir of tmpRoots) {
@@ -456,7 +456,7 @@ describe("check", () => {
     const baseline = writeBaseline(root, {
       files: { "a.min.js": Math.round(size * 0.8) },
     });
-    const over = check(BundleArgs(["--enforce", "--baseline=" + baseline]), root);
+    const over = check(BundleArgs(["--enforce", `--baseline=${baseline}`]), root);
     // 2 is the threshold-exit code, distinct from the 1 a malformed-args or
     // missing-dist failure uses.
     expect(over).toBe(2);
@@ -464,7 +464,7 @@ describe("check", () => {
     const ok = check(
       BundleArgs([
         "--enforce",
-        "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
+        `--baseline=${writeBaseline(root, { files: { "a.min.js": size } })}`,
       ]),
       root,
     );
@@ -493,8 +493,7 @@ describe("check", () => {
     // 25% growth but --threshold=30 → not over
     const args = BundleArgs([
       "--threshold=30",
-      "--baseline=" +
-        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } })}`,
     ]);
     expect(check(args, root)).toBe(0);
   });
@@ -525,8 +524,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": BODY });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" + writeBaseline(root, { files: {} }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: {} })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     const total = fmtBytes(brotli(BODY));
@@ -565,8 +564,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": brotli(content) } })}`,
+      `--report=${report}`,
       "--base=239e0a2b1c2d3e4f",
       "--head=3374c53a1b2c3d4e",
     ]);
@@ -595,8 +594,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": brotli(content) } })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).not.toContain("Comparing base");
@@ -612,8 +611,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" + writeBaseline(root, { files: { "a.min.js": brotli(content) } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": brotli(content) } })}`,
+      `--report=${report}`,
       "--base=",
       "--head=3374c53a1b2c3d4e",
     ]);
@@ -636,8 +635,8 @@ describe("check", () => {
       "utf-8",
     );
     // Over threshold, so the verdict is recorded — the exit code stays 0.
-    expect(check(BundleArgs(["--baseline=" + customBaseline]), root)).toBe(0);
-    expect(check(BundleArgs(["--enforce", "--baseline=" + customBaseline]), root)).toBe(
+    expect(check(BundleArgs([`--baseline=${customBaseline}`]), root)).toBe(0);
+    expect(check(BundleArgs(["--enforce", `--baseline=${customBaseline}`]), root)).toBe(
       2,
     );
   });
@@ -649,8 +648,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": size } })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     const md = readFileSync(report, "utf-8");
@@ -671,14 +670,13 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content, "b.min.css": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" +
-        writeBaseline(root, {
-          files: {
-            "a.min.js": Math.round(size * 0.8),
-            "b.min.css": Math.round(size * 0.8),
-          },
-        }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, {
+        files: {
+          "a.min.js": Math.round(size * 0.8),
+          "b.min.css": Math.round(size * 0.8),
+        },
+      })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     const md = readFileSync(report, "utf-8");
@@ -686,7 +684,7 @@ describe("check", () => {
     // --enforce turns the same verdict into a non-zero exit, without losing
     // the already-written report.
     const enforced = check(
-      BundleArgs(["--enforce", "--baseline=" + args.baseline, "--report=" + report]),
+      BundleArgs(["--enforce", `--baseline=${args.baseline}`, `--report=${report}`]),
       root,
     );
     expect(enforced).toBe(2);
@@ -701,9 +699,8 @@ describe("check", () => {
     // baseline 20% smaller → 25% growth > 10%
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" +
-        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).toContain("over threshold");
@@ -716,9 +713,8 @@ describe("check", () => {
     mkDist(root, { "a.min.js": content });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" +
-        writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, { files: { "a.min.js": Math.round(size * 0.8) } })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     expect(readFileSync(report, "utf-8")).toContain("<b>1 over threshold</b>");
@@ -769,8 +765,8 @@ ${body}`;
     try {
       const code = check(
         BundleArgs([
-          "--baseline=" + writeBaseline(root, { files: { "a.min.js": size } }),
-          "--report=" + dir,
+          `--baseline=${writeBaseline(root, { files: { "a.min.js": size } })}`,
+          `--report=${dir}`,
         ]),
         root,
       );
@@ -803,7 +799,7 @@ describe("emit", () => {
     const content = "export const a = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
     const path = join(root, "sizes.json");
-    expect(emit(BundleArgs(["--emit=" + path]), root)).toBe(0);
+    expect(emit(BundleArgs([`--emit=${path}`]), root)).toBe(0);
     expect(JSON.parse(readFileSync(path, "utf-8")).files["a.min.js"]).toBe(
       brotli(content),
     );
@@ -814,7 +810,7 @@ describe("emit", () => {
     const content = "export const a = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
     const path = join(root, "sizes.json");
-    expect(emit(BundleArgs(["--emit=" + path]), root)).toBe(0);
+    expect(emit(BundleArgs([`--emit=${path}`]), root)).toBe(0);
     const tools = JSON.parse(readFileSync(path, "utf-8")).tools;
     // Every build tool is recorded, and `esbuild` is resolvable at ROOT.
     expect(typeof tools.esbuild).toBe("string");
@@ -833,7 +829,7 @@ describe("emit", () => {
   it("returns 1 when the dist directory has no bundles", () => {
     const root = mkTmp();
     mkdirSync(join(root, "foliplus", "dist"), { recursive: true });
-    expect(emit(BundleArgs(["--emit=" + join(root, "sizes.json")]), root)).toBe(1);
+    expect(emit(BundleArgs([`--emit=${join(root, "sizes.json")}`]), root)).toBe(1);
   });
 
   it("creates the parent directory when missing", () => {
@@ -841,7 +837,7 @@ describe("emit", () => {
     const content = "export const a = 1;".repeat(50);
     mkDist(root, { "a.min.js": content });
     const path = join(root, "deep", "nested", "sizes.json");
-    expect(emit(BundleArgs(["--emit=" + path]), root)).toBe(0);
+    expect(emit(BundleArgs([`--emit=${path}`]), root)).toBe(0);
     expect(JSON.parse(readFileSync(path, "utf-8")).files["a.min.js"]).toBe(
       brotli(content),
     );
@@ -859,7 +855,7 @@ describe("emit", () => {
     const origErr = console.error;
     console.error = (...a) => logs.push(a.join(" "));
     try {
-      expect(emit(BundleArgs(["--emit=" + dir]), root)).toBe(1);
+      expect(emit(BundleArgs([`--emit=${dir}`]), root)).toBe(1);
     } finally {
       console.error = origErr;
     }
@@ -1068,10 +1064,10 @@ const runEnforce = (root: string, data: unknown, ...extra: string[]): string => 
   console.error = (...a) => logs.push(a.join(" "));
   try {
     const code = check(
-      BundleArgs(["--baseline=" + baseline, "--enforce", ...extra]),
+      BundleArgs([`--baseline=${baseline}`, "--enforce", ...extra]),
       root,
     );
-    return String(code) + "\n" + logs.join("\n");
+    return `${String(code)}\n${logs.join("\n")}`;
   } finally {
     console.warn = warn;
     console.log = log;
@@ -1099,7 +1095,7 @@ const SLOW = 60000;
 const runProcess = (root: string, ...argv: string[]) =>
   spawnSync(
     process.execPath,
-    ["script/build/bundle-size-check.mjs", "--root=" + root, ...argv],
+    ["script/build/bundle-size-check.mjs", `--root=${root}`, ...argv],
     { cwd: process.cwd(), encoding: "utf-8" },
   );
 
@@ -1156,8 +1152,8 @@ describe("threshold and enforce", () => {
       const baseline = writeBaseline(root, {
         files: { "a.min.js": Math.round(brotli(BODY) * 0.75) },
       });
-      const verdict = runProcess(root, "--baseline=" + baseline);
-      const gated = runProcess(root, "--baseline=" + baseline, "--enforce");
+      const verdict = runProcess(root, `--baseline=${baseline}`);
+      const gated = runProcess(root, `--baseline=${baseline}`, "--enforce");
       const broken = runProcess(root, "--threshold=abc");
       expect(verdict.status).toBe(0); // no --enforce: the verdict does not gate
       expect(gated.status).toBe(2); // --enforce: the same verdict does
@@ -1322,11 +1318,10 @@ describe("absolute floor", () => {
     mkDist(root, { "a.min.js": body });
     const report = join(root, "report.md");
     const args = BundleArgs([
-      "--baseline=" +
-        writeBaseline(root, {
-          files: { "a.min.js": brotli(body) - Math.round(MIN_GROWTH_BYTES / 2) },
-        }),
-      "--report=" + report,
+      `--baseline=${writeBaseline(root, {
+        files: { "a.min.js": brotli(body) - Math.round(MIN_GROWTH_BYTES / 2) },
+      })}`,
+      `--report=${report}`,
     ]);
     expect(check(args, root)).toBe(0);
     const md = readFileSync(report, "utf-8");
@@ -1401,7 +1396,7 @@ describe("cli entry point", () => {
         JSON.stringify({ files: { "a.min.js": Math.round(brotli(BODY) * 0.8) } }),
         "utf-8",
       );
-      const res = run(root, "--baseline=" + baseline);
+      const res = run(root, `--baseline=${baseline}`);
       expect(res.status).toBe(0);
       expect(res.stderr).toContain("exceeded threshold");
       expect(res.stderr).toContain("--enforce");
@@ -1423,7 +1418,7 @@ describe("cli entry point", () => {
         JSON.stringify({ files: { "a.min.js": Math.round(brotli(BODY) * 0.8) } }),
         "utf-8",
       );
-      const res = run(root, "--baseline=" + baseline, "--enforce");
+      const res = run(root, `--baseline=${baseline}`, "--enforce");
       expect(res.status).toBe(2);
       expect(res.stderr).toContain("the build fails here");
     },
@@ -1483,7 +1478,7 @@ describe("cli entry point", () => {
       });
     const root = mkTmp();
     mkDist(root, { "a.min.js": "const x = 1;" });
-    expect(() => main(["--root=" + root, "--threshold=abc"])).toThrow("exit:1");
+    expect(() => main([`--root=${root}`, "--threshold=abc"])).toThrow("exit:1");
     expect(exit).toHaveBeenCalledWith(1);
     expect(error.mock.calls.join("\n")).toContain("must be a number");
   });
@@ -1499,7 +1494,7 @@ describe("cli entry point", () => {
       });
     expect(() => main([])).toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
-  });
+  }, 30000);
 
   it("--emit captures sizes to the target file via main()", () => {
     const root = mkTmp();

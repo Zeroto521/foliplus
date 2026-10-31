@@ -9,7 +9,7 @@
       type: "FeatureCollection",
       features: [0, 1].map(i => ({
         type: "Feature",
-        properties: { name: "p" + i, value: i + 1 },
+        properties: { name: `p${i}`, value: i + 1 },
         geometry: { type: "Point", coordinates: [lng + i * 0.01, 26.08 + i * 0.01] },
       })),
     });
@@ -244,8 +244,8 @@
   ctrl.mgr.annotation.renderLabels("op_annotated_nb");
 
   const annotatedGeoPane = paneOf(annotatedGeo);
-  const annotationPane = map.getPane("foliplus-annotation-op_annotated");
-  const neighborAnnotationPane = map.getPane("foliplus-annotation-op_annotated_nb");
+  const annotationPane = map.getPane("foliplus-label-op_annotated");
+  const neighborAnnotationPane = map.getPane("foliplus-label-op_annotated_nb");
 
   // Set opacity to 0.
   ui.openStylePanel("op_annotated");

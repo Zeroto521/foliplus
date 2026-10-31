@@ -1,0 +1,79 @@
+.foliplus-layer-ctrl {
+  /* ── Filter panel ──
+     Field / range / result form rows plus a Clear footer.
+     Geometry is the SHARED form vocabulary, not a local copy: the row grid
+     (88px right-aligned label + one flexible control cell) and every row's
+     horizontal inset come from common/form.css + common/panel.css, exactly
+     like the Style and Attributes panels. The panel shell (anchoring,
+     width, height cap, chrome) still comes from the shared row-panel
+     recipe, and the slider's rail/thumbs/fill/bubble come from
+     common/slider.css — nothing is redeclared here. */
+  .foliplus-layer-filter-panel {
+    padding: 0;
+  }
+  /* No horizontal padding on the content: the shared row rule already
+     insets each row by --foliplus-space-lg, and adding it here as well
+     double-indented every control away from Style/Attributes. Keep the
+     base top breather and only lay the rows out. */
+  .foliplus-layer-filter-panel .foliplus-panel-content {
+    padding-left: 0;
+    padding-right: 0;
+    gap: var(--foliplus-space-md);
+  }
+  /* The slider cell takes the row's remaining width — the rail needs a
+     measurable box, and it starts at the same x as every other panel's
+     control column because the label cell is the shared 88px one. */
+  .foliplus-layer-filter-panel .foliplus-filter-slider {
+    width: 100%;
+    min-width: 0;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-field {
+    color: var(--foliplus-text-primary);
+  }
+  /* Field row: the read-only field name in the style panel's read-only box
+     frame (STYLE_FILL_READONLY, style.css) — no second box recipe. It fills
+     the control column and clips a long field name instead of spilling into
+     the panel, the same treatment the style panel gives its readouts. */
+  .foliplus-layer-filter-panel .foliplus-style-fill-readonly {
+    width: 100%;
+    min-width: 0;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-field-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Result readout: percentage + exact kept / total, left-aligned in the
+     control column. Tabular figures so the numbers do not jump width as
+     they change; the element carries aria-live=polite. */
+  .foliplus-layer-filter-panel .foliplus-filter-result {
+    display: block;
+    color: var(--foliplus-text-secondary);
+    font-size: var(--foliplus-font-size-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+  }
+  /* Fallback message when the row declares no filterable data: same font
+     as the panel's body, muted color, inset like a row. */
+  .foliplus-layer-filter-panel .foliplus-filter-empty {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    padding: var(--foliplus-space-sm) var(--foliplus-space-lg);
+  }
+  /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
+     box; the LayerControl SVGs are viewBox-only. */
+  .foliplus-layer-filter-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* ── Enum body ──
+     The cell hosts the shared multiple dropdown, so the trigger's chrome,
+     focus ring, popup shell and option rows all come from
+     common/dropdown.css + common/menu.css. Only the cell's own box is set
+     here: it is a grid child and must fill the control column. An empty
+     selection reads as "no filter" (all rows pass). */
+  .foliplus-layer-filter-panel .foliplus-filter-enum {
+    width: 100%;
+    min-width: 0;
+  }
+}

@@ -39,6 +39,14 @@
     "leaflet.markercluster.js",
     "application/javascript"
   ],
+  "cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js": [
+    "chroma.min.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js": [
+    "simple-statistics.min.js",
+    "application/javascript"
+  ],
   "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css": [
     "MarkerCluster.Default.css",
     "text/css"
@@ -50,5 +58,17 @@
   "cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js": [
     "leaflet_heat.min.js",
     "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-icon.png": [
+    "marker-icon.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-icon-2x.png": [
+    "marker-icon-2x.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-shadow.png": [
+    "marker-shadow.png",
+    "image/png"
   ]
 }

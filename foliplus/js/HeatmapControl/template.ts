@@ -5,9 +5,16 @@
 // Form rows, selects, and the toggle reuse the shared common/form.css
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
-import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import * as CONST from "./const.js";
 
+// Template placement decision (#729 review): this template stays
+// Heatmap-specific. Only the scheme row's trigger + hidden select are
+// picker-owned markup, and Heatmap is still the picker's only consumer, so a
+// common template helper would add an abstraction with one caller — and it
+// would have to keep this HTML byte-for-byte identical anyway (the Python
+// rendering tests pin the rendered panel). Revisit when a second control adopts
+// common/schemePicker; the picker's contract is the trigger element plus an
+// optional hidden select passed to createSchemePicker.
 /** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">
@@ -33,47 +40,10 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
       </div>
     </div>
 
-    <div class="foliplus-form-row foliplus-heatmap-field foliplus-hidden" ${CONST.DATA_ATTR.FIELD}>
-      <label class="foliplus-form-label">${T("field")}</label>
-      <div class="foliplus-form-control">
-        <select class="foliplus-form-select" ${CONST.DATA_ATTR.FIELD_SELECT}></select>
-      </div>
-    </div>
-
-    <div class="foliplus-heatmap-section-block">
-      <div class="foliplus-form-row">
-        <label class="foliplus-form-label">${T("class_method")}</label>
-        <div class="foliplus-form-control foliplus-form-inline">
-          <select class="foliplus-form-select" ${CONST.DATA_ATTR.METHOD}>
-            <option value="${CLASSIFY_METHOD.JENKS}">${T("jenks")}</option>
-            <option value="${CLASSIFY_METHOD.QUANTILE}">${T("quantile")}</option>
-            <option value="${CLASSIFY_METHOD.EQUAL}">${T("equal")}</option>
-            <option value="${CLASSIFY_METHOD.HEADS}">${T("heads")}</option>
-          </select>
-          <select class="foliplus-form-select foliplus-heatmap-class-select" ${CONST.DATA_ATTR.CLASS_COUNT}>
-            <option value="${CONST.CLASS_COUNT.MIN}">${CONST.CLASS_COUNT.MIN}</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="${CONST.CLASS_COUNT.MAX}">${CONST.CLASS_COUNT.MAX}</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="foliplus-form-row">
-        <label class="foliplus-form-label">${T("scheme")}</label>
-        <div class="foliplus-form-control" ${CONST.DATA_ATTR.SCHEME_CTRL}>
-          <div class="foliplus-heatmap-scheme-bar" tabindex="0" role="combobox">
-            <div class="foliplus-heatmap-scheme-bar-inner"></div>
-          </div>
-          <select class="foliplus-heatmap-scheme-hidden" ${CONST.DATA_ATTR.SCHEME_HIDDEN}></select>
-        </div>
-      </div>
-
-    </div>
+    <!-- Field / Classes / Scheme are built by core/rampForm (shared with
+         LayerControl's fill ramp) and mounted here; this template keeps only
+         the panel shell + the heatmap-specific Layer/Agg/Clear rows. -->
+    <div class="foliplus-heatmap-section-block" ${CONST.DATA_ATTR.RAMP_ROWS}></div>
 
     <hr class="foliplus-section-divider">
 

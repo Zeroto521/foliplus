@@ -17,7 +17,7 @@
 // on {@link OrderPersistence} (the `schedule` slice it needs) instead of
 // `LayerPersistence`, so core/layer never imports from a control module.
 import { type LayerInfoRegistry } from "./LayerInfoRegistry.js";
-import { GROUP } from "./const.js";
+import { ROLE } from "./const.js";
 import type { LayerInfo } from "./type.js";
 
 /** The order-persistence write target — the narrow `schedule` slice
@@ -67,19 +67,26 @@ class LayerOrder {
     this.registry.replace(this.sortByStored(items, data));
   }
 
-  /** Reorder `items` by `stored` rank; ids the record never ranked keep their
-   *  live relative order at the bottom. */
+  /** Reorder `items` by `stored` rank *within each role block*: overlays rank
+   *  among overlays, bases among bases, and the blocks stay partitioned. A
+   *  saved record that interleaves roles (an old broken session, or a role
+   *  change replaying an old arrangement) must not be able to push a base
+   *  into the overlay block — the full replay sorts per role and concatenates,
+   *  so no illegal permutation is manufactured and `firstBaseIdx` stays
+   *  honest. Ids the record never ranked keep their live relative order at
+   *  their own block's end. */
   private sortByStored(items: LayerInfo[], stored: string[]): LayerInfo[] {
     const rank = new Map(stored.map((id, i) => [id, i]));
-    const sorted = [...items];
-    sorted.sort((a, b) => {
+    const byRank = (a: LayerInfo, b: LayerInfo): number => {
       const ra = rank.get(a.id);
       const rb = rank.get(b.id);
       if (ra === undefined) return rb === undefined ? 0 : 1;
       if (rb === undefined) return -1;
       return ra - rb;
-    });
-    return sorted;
+    };
+    const overlays = items.filter(l => l.role !== ROLE.BASE).sort(byRank);
+    const bases = items.filter(l => l.role === ROLE.BASE).sort(byRank);
+    return [...overlays, ...bases];
   }
 
   /** Persist the current live order as a full snapshot — the user just
@@ -143,6 +150,10 @@ class LayerOrder {
     for (let i = target + 1; i < saved.length; i++) {
       const neighbor = registry.get(saved[i]);
       if (!neighbor) continue;
+      // The saved order is one role-agnostic id list; a neighbor of the
+      // OTHER role is not a legal placement anchor — replaying onto it
+      // would interleave the blocks and strand a stale section boundary.
+      if (neighbor.role !== layerInfo.role) continue;
       const to = registry.indexOf(neighbor);
       // Removing `layerInfo` first shifts every later index down by one.
       goal = to - (from < to ? 1 : 0);
@@ -155,7 +166,7 @@ class LayerOrder {
     // so overlays fall back to the end of the overlay block; a base layer
     // falls back to the end of the base block (the registry end).
     goal =
-      layerInfo.group === GROUP.BASE
+      layerInfo.role === ROLE.BASE
         ? registry.layers.length - 1
         : registry.firstBaseIdx === -1
           ? registry.layers.length - 1

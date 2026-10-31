@@ -31,11 +31,14 @@ def _stub_html(html: str) -> str:
     return html
 
 
-def _make_page(browser, tmp_path, *layers, slug="export"):
+def _make_page(browser, tmp_path, *layers, slug="export", locale=None):
     from foliplus import LayerControl
 
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    LayerControl().add_to(m)
+    # A non-None locale pins the rendered language for gates that read a
+    # translated string; leaving it unset keeps the ambient-locale render that
+    # the other gate pages rely on.
+    LayerControl(locale=locale).add_to(m)
     ExportControl().add_to(m)
     for layer in layers:
         layer.add_to(m)
@@ -129,6 +132,20 @@ def _run_export(page) -> None:
     page.locator(".foliplus-tool-bar .foliplus-confirm").click()
     page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
     page.wait_for_timeout(2000)
+
+
+def _wait_export_canvas_ready(page, timeout: int = 15000) -> None:
+    # Wait until the renderer's output canvas has been captured and painted.
+    # The export renderer creates its output canvas via document.createElement
+    # (never attached to the DOM), and _install_canvas_hook intercepts that
+    # factory to keep a window._capturedCanvases list. The collapsed-control
+    # wait only proves the flow finished; the canvas must also be non-empty and
+    # have real painted pixels before a pixel assertion reads it. A fixed
+    # wait_for_timeout is raster/network timing, which is exactly the flake
+    # class these waits exist to remove.
+    page.wait_for_function(
+        _js("ExportControl/wait_export_canvas_captured"), timeout=timeout
+    )
 
 
 def _install_canvas_hook(page) -> None:

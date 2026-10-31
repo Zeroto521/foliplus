@@ -1,4 +1,4 @@
-import { ANNOTATION_PANE_PREFIX, FOCUS_Z } from "#core/layer/index.js";
+import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -19,6 +19,30 @@ const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 /** Color map layer. */
 const SOLID_BASEMAP_ID = "foliplus_color_map";
 const COLOR = { DEFAULT: "#cccccc" };
+
+/** Shared bounds for a layer's fixed pixel radius (CircleMarker only). One
+ *  home so the number field, the persistence parser and the write path cannot
+ *  drift apart. */
+const SIZE = {
+  MIN: 1,
+  MAX: 64,
+  STEP: 1,
+  /** The value an empty entry lands on. Matches the `CircleMarker` radius an
+   *  author gets without specifying one (folium 0.20.0 and Leaflet both
+   *  default to 10), so a cleared field returns to where a freshly drawn,
+   *  un-declared marker sits. Only reachable through the invalid-input branch
+   *  and the no-leaf fallback — never a bound. */
+  DEFAULT: 10,
+} as const;
+
+/** Defaults for the value-based fill (the fill row). The method / scheme
+ *  values only seed the first ramp a user switches to (a stored
+ *  `FillRampConfig` always wins); the class-count vocabulary lives in
+ *  #core/classify and is imported where it is used. */
+const RAMP = {
+  METHOD_DEFAULT: "jenks",
+  SCHEME_DEFAULT: "Viridis",
+} as const;
 
 /** Focus-on-layer behavior. */
 const FOCUS = {
@@ -73,6 +97,10 @@ const CLASSES = {
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
   COUNT_COL: "foliplus-layer-count",
+  /** Count column with a committed filter: a neutral count + funnel prefix. */
+  COUNT_FILTERED: "foliplus-layer-count-filtered",
+  /** The 12px neutral (text-primary) funnel glyph before a filtered count. */
+  COUNT_FUNNEL: "foliplus-layer-count-funnel",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
@@ -141,6 +169,38 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
+  /** Fill mode block: the mode row plus the active arm's detail rows.
+   *  The block is the row's DOM root; detail rows are separate FORM_ROWs so
+   *  the label column stays aligned without indentation. */
+  STYLE_FILL_BLOCK: "foliplus-style-fill-block",
+  STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
+  STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
+  /** The original-colors arm's read-only detail: the author's column, their
+   *  colors as one ordered gradient and their count, on the same
+   *  label/control grid the by-value arm uses. `READONLY` is the shared box
+   *  frame (a form control without a chevron, focus or pointer affordance), so
+   *  a readout lands on the same column edge as the select it replaces and
+   *  carries no hover/active feedback. */
+  STYLE_FILL_READONLY: "foliplus-style-fill-readonly",
+  STYLE_FILL_ORIGINAL_COLUMN: "foliplus-style-fill-original-column",
+  STYLE_FILL_ORIGINAL_COLORS: "foliplus-style-fill-original-colors",
+  STYLE_FILL_ORIGINAL_STRIP: "foliplus-style-fill-original-strip",
+  STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
+  STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
+  /** Ramp detail controls (color-by-value arm): field, method, class count
+   *  and the shared scheme trigger. All four are native selects / the shared
+   *  picker trigger, the same controls the heatmap panel offers. */
+  STYLE_FILL_FIELD_SELECT: "foliplus-style-fill-field-select",
+  STYLE_FILL_METHOD_SELECT: "foliplus-style-fill-method-select",
+  STYLE_FILL_CLASSES_SELECT: "foliplus-style-fill-classes-select",
+  STYLE_FILL_SCHEME_TRIGGER: "foliplus-style-scheme-trigger",
+  STYLE_FILL_SCHEME_BAR: "foliplus-style-scheme-bar",
+  STYLE_FILL_SCHEME_HIDDEN: "foliplus-scheme-picker-hidden",
+  /** Size row (CircleMarker only): a number field plus its unit suffix. Its
+   *  own class so the change delegation and the tests can tell it from the
+   *  label-size and border-weight number fields. */
+  STYLE_SIZE_ROW: "foliplus-style-size-row",
+  STYLE_SIZE_INPUT: "foliplus-style-size-input",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",
@@ -171,6 +231,26 @@ const CLASSES = {
   TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
+  /** Floating filter panel opened from the layer overflow menu. */
+  FILTER_PANEL: "foliplus-layer-filter-panel",
+  /** Empty-state message inside the filter panel (no numeric fields). */
+  FILTER_EMPTY: "foliplus-filter-empty",
+  /** Header icon of the filter panel (a funnel glyph). */
+  FILTER_ICON: "foliplus-layer-filter-icon",
+  /** The filter field row's read-only value: the dimension's field name, in
+   *  the style panel's read-only box frame (STYLE_FILL_READONLY) so the control
+   *  column matches every other row's. */
+  FILTER_FIELD_VALUE: "foliplus-filter-field-value",
+  /** Read-only filter field name in the panel's field row. */
+  FILTER_FIELD: "foliplus-filter-field",
+  /** Host element of the shared dual-thumb Slider in the range row. */
+  FILTER_SLIDER: "foliplus-filter-slider",
+  /** Live "kept / total" readout (aria-live=polite). */
+  FILTER_RESULT: "foliplus-filter-result",
+  /** Clear-filter footer button. */
+  FILTER_CLEAR: "foliplus-filter-clear",
+  /** Enum filter body: the cell that hosts the shared multiple dropdown. */
+  FILTER_ENUM: "foliplus-filter-enum",
 };
 
 /** Data attribute names. */
@@ -186,6 +266,10 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
+  /** Opens the layer's filter panel. Hidden on rows that do not
+   *  declare the filter capability (`filterProvider` + `filterSetter` —
+   *  HeatmapControl today). */
+  FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",
 };
@@ -220,7 +304,7 @@ const DEFAULT_ANNOTATION = {
 
 export {
   ACTION,
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   AUTHOR_ZOOM_FALLBACK_MAX,
   CLASSES,
   COLOR,
@@ -230,8 +314,10 @@ export {
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
+  RAMP,
   SAVE_DEBOUNCE_MS,
   SEL,
+  SIZE,
   SOLID_BASEMAP_ID,
   STORAGE,
 };

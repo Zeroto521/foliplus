@@ -28,6 +28,12 @@ const BORDER_WEIGHT = {
 const clampLabelSize = (value: number): number =>
   Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
 
+/** Clamp a raw border weight into the shared bounds. The live setter and the
+ *  saved-record reader both go through this, so a hand-edited record cannot
+ *  reach the manager with a value the panel itself refuses to produce. */
+const clampBorderWeight = (value: number): number =>
+  Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, value));
+
 /** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
 const normalizeHexColor = (value: string): string => {
   if (/^#[0-9a-fA-F]{3}$/.test(value)) {
@@ -69,6 +75,49 @@ const numberInput = (opts: {
     "aria-label": opts.ariaLabel,
   });
 
+/** One select option for {@link selectInput}. */
+type SelectOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+  /** Reason shown on the option (native tooltip) while disabled. */
+  title?: string;
+};
+
+/** A native `<select>` on the shared form-select chrome. The one factory every
+ *  JS-built panel uses for a plain option list (mode selects, field pickers,
+ *  class-count pickers): keyboard, screen-reader and mobile behaviour come from
+ *  the platform, and the chrome/ARIA cannot drift between controls. Static
+ *  templates keep their own markup; only dynamically built lists use this. */
+const selectInput = (opts: {
+  className?: string;
+  ariaLabel?: string;
+  /** Selected option; every caller knows the current value (an empty string
+   *  still means "no option selected"), so the factory never guesses. */
+  value: string;
+  options: readonly SelectOption[];
+}): HTMLSelectElement => {
+  const select = dom.el("select", {
+    class: `foliplus-form-select${opts.className ? ` ${opts.className}` : ""}`,
+    "aria-label": opts.ariaLabel,
+  }) as HTMLSelectElement;
+  for (const option of opts.options) {
+    select.appendChild(
+      dom.el(
+        "option",
+        {
+          value: option.value,
+          ...(option.disabled ? { disabled: "" } : {}),
+          ...(option.title ? { title: option.title } : {}),
+        },
+        option.label,
+      ),
+    );
+  }
+  select.value = opts.value;
+  return select;
+};
+
 /** Two controls sharing one form-control cell (border / label color+size). */
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
@@ -91,7 +140,13 @@ const formRow = (
 
 /** Live number input: apply in-range values on every keystroke; on commit
  *  (change) clamp into [min, max] and rewrite the field. Shared by border
- *  weight and label size so both behave identically. */
+ *  weight and label size so both behave identically.
+ *
+ *  `normalize` reshapes a parsed value before the bounds check, before the
+ *  commit and before the field is rewritten. A field whose stored value is
+ *  always an integer passes it so the map, the field and what survives a
+ *  reload all show the same number — without it a fraction typed mid-way is
+ *  committed as-is and only rounds later, on the next read. */
 const bindLiveNumber = (
   input: HTMLInputElement,
   opts: {
@@ -99,16 +154,19 @@ const bindLiveNumber = (
     max: number;
     fallback: number;
     onCommit: (value: number) => void;
+    normalize?: (value: number) => number;
   },
 ): void => {
+  const shape = (value: number): number =>
+    opts.normalize ? opts.normalize(value) : value;
   input.oninput = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     if (!Number.isNaN(v) && v >= opts.min && v <= opts.max) opts.onCommit(v);
   };
   input.onchange = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     const clamped = Number.isNaN(v)
-      ? opts.fallback
+      ? shape(opts.fallback)
       : Math.min(opts.max, Math.max(opts.min, v));
     input.value = String(clamped);
     opts.onCommit(clamped);
@@ -127,6 +185,7 @@ export {
   bindLiveColor,
   bindLiveNumber,
   BORDER_WEIGHT,
+  clampBorderWeight,
   clampLabelSize,
   colorInput,
   formRow,
@@ -135,4 +194,5 @@ export {
   LABEL_SIZE,
   normalizeHexColor,
   numberInput,
+  selectInput,
 };

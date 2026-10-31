@@ -4,18 +4,45 @@
 
 ### Added
 
-- `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
-- `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
-- `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `LayerControl` / `HeatmapControl` / `MeasureControl`: filtering — a layer or third-party component declares its filterable dimensions and reuses one condition model, panel and kept-of-total result ([#715](https://github.com/Zeroto521/foliplus/pull/715), [#724](https://github.com/Zeroto521/foliplus/pull/724), [#760](https://github.com/Zeroto521/foliplus/pull/760), [#766](https://github.com/Zeroto521/foliplus/pull/766), [#779](https://github.com/Zeroto521/foliplus/pull/779), [#811](https://github.com/Zeroto521/foliplus/pull/811))
+- `LayerControl`: opacity and zoom-range rows share one slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL and a bubble panels cannot clip ([#721](https://github.com/Zeroto521/foliplus/pull/721), [#827](https://github.com/Zeroto521/foliplus/pull/827))
+- `LayerControl`: a size row sets a CircleMarker layer's pixel radius for every marker at once, persisted across reloads and resettable to the drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
+- `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and a declared `foliplus={"fill": {...}}` ramp opens in the panel with Reset returning to the declaration ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776), [#781](https://github.com/Zeroto521/foliplus/pull/781), [#789](https://github.com/Zeroto521/foliplus/pull/789), [#823](https://github.com/Zeroto521/foliplus/pull/823))
+- `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781))
+- `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
+- `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}`; the style row opens on it, Reset returns to it, and an unusable declaration is ignored with one warning ([#804](https://github.com/Zeroto521/foliplus/pull/804))
 
 ### Changed
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
-- `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
+- `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`) ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#790](https://github.com/Zeroto521/foliplus/pull/790))
+- `LayerControl`: labels rebuild once per frame and repaint only their own canvas, each dimension owns its replay policy, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
+- `HeatmapControl`: field selection resolves to a concrete name; a source without numeric fields falls back to counting ([#758](https://github.com/Zeroto521/foliplus/pull/758), [#782](https://github.com/Zeroto521/foliplus/pull/782), [#799](https://github.com/Zeroto521/foliplus/pull/799))
+- `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
+- `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
+- `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
+- Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793), [#810](https://github.com/Zeroto521/foliplus/pull/810), [#824](https://github.com/Zeroto521/foliplus/pull/824), [#837](https://github.com/Zeroto521/foliplus/pull/837))
+- `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
+
+### Removed
+
+- `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
+- Package: folium 0.14 is no longer supported (**Breaking**) — the `foliplus={...}` layer declaration needs folium >= 0.15, the first release whose `GeoJson` forwards an unknown keyword into `options` instead of raising `TypeError` ([#790](https://github.com/Zeroto521/foliplus/pull/790), [#792](https://github.com/Zeroto521/foliplus/pull/792))
 
 ### Fixed
 
-- `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
+- `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
+- `LayerControl`: value-based fill follows the layer's real geometry, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: a border chosen before features land still reaches them — the content-change replay covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
+- `LayerControl`: reordering moves rows in place instead of rebuilding the panel ([#731](https://github.com/Zeroto521/foliplus/pull/731), [#735](https://github.com/Zeroto521/foliplus/pull/735))
+- `FullscreenControl`: a denied native request falls back to pseudo-fullscreen, reject/exit paths key on the real state, and hints and the slider bubble attach to the fullscreen surface instead of `<body>` ([#732](https://github.com/Zeroto521/foliplus/pull/732))
+- `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes, a retired surface can no longer corrupt another, and the child-ownership index stays bounded by live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
+- `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker, and a layer's annotation labels are frozen at export start so a mid-render refresh cannot blank them ([#740](https://github.com/Zeroto521/foliplus/pull/740), [#825](https://github.com/Zeroto521/foliplus/pull/825))
+- `Interaction`: Space/Enter keep their native meaning on buttons and links, and a focused menu entry runs its own action ([#755](https://github.com/Zeroto521/foliplus/pull/755), [#778](https://github.com/Zeroto521/foliplus/pull/778))
+- `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784))
+- `HeatmapControl` / `LayerControl`: Escape dismisses one floating surface per press — the overlay registry closes the top-most by rank, so a portalled picker or enum takes the first press and its panel the next ([#783](https://github.com/Zeroto521/foliplus/pull/783), [#807](https://github.com/Zeroto521/foliplus/pull/807), [#809](https://github.com/Zeroto521/foliplus/pull/809))
+- Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ## [v0.4.1] (2026-10-18)
 

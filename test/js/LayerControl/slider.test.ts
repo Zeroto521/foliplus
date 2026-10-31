@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setPseudoFullscreen } from "#core/fullscreen.js";
 import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 
@@ -560,6 +561,35 @@ describe("Slider primitive", () => {
     expect(host.classList.contains(SLIDER.ROOT)).toBe(false);
   });
 
+  it("destroy commits a live drag, and still clears the host when the commit throws", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onChange = vi.fn(() => {
+      throw new Error("consumer broke");
+    });
+    const { host, slider } = make({
+      min: 0,
+      max: 10,
+      value: 2,
+      label: "x",
+      change: onChange,
+    });
+    stubTrack(host).dispatchEvent(pointer("pointerdown", 75));
+
+    expect(() => slider.destroy()).not.toThrow();
+
+    // Destroy commits the value the user's drag already produced, and the
+    // cleanup behind the throwing consumer still runs.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(sliderOf(host)).toBeUndefined();
+    expect(host.children).toHaveLength(0);
+    expect(host.classList.contains(SLIDER.ROOT)).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      '[LayerControl] slider destroy step "commit-drag" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
   it("inverts the pointer mapping in RTL", () => {
     const host = document.createElement("div");
     host.style.direction = "rtl";
@@ -872,6 +902,38 @@ describe("Slider primitive", () => {
     stage.remove();
   });
 
+  it("re-seats an open bubble when pseudo-fullscreen activates", () => {
+    // Pseudo mode toggles a class and fires no fullscreenchange: a bubble that
+    // was opened before the transition must still follow the surface, or it
+    // stays on <body> under the opaque map.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const host = document.createElement("div");
+    map.appendChild(host);
+    document.body.appendChild(map);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 42, label: "x" });
+
+    thumb(host).dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
+    expect(bubble.parentElement).toBe(document.body);
+    expect(bubble.classList.contains("is-on")).toBe(true);
+
+    setPseudoFullscreen(map, true);
+    expect(bubble.parentElement).toBe(map);
+    // The readout is dismissed on any transition (its anchor moved); the next
+    // focus re-shows it inside the surface.
+    expect(bubble.classList.contains("is-on")).toBe(false);
+
+    thumb(host).dispatchEvent(new Event("focus"));
+    expect(bubble.parentElement).toBe(map);
+    expect(bubble.classList.contains("is-on")).toBe(true);
+
+    setPseudoFullscreen(map, false);
+    expect(bubble.parentElement).toBe(document.body);
+    map.remove();
+  });
+
   it("takes the start-side half of a stacked pair in RTL", () => {
     const host = document.createElement("div");
     host.style.direction = "rtl";
@@ -916,7 +978,7 @@ describe("Slider primitive", () => {
     document.body.appendChild(host);
     hosts.push(host);
     new Slider(host, { min: 0, max: 100, value: 50, label: "x" });
-    const thumbEl = host.querySelector<HTMLElement>("." + SLIDER.THUMB)!;
+    const thumbEl = host.querySelector<HTMLElement>(`.${SLIDER.THUMB}`)!;
     press(thumbEl, "ArrowRight");
     expect(sliderOf(host)!.value).toBe(49);
     press(thumbEl, "ArrowLeft");

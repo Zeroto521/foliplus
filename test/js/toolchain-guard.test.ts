@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 const ROOT = resolve(".");
 
 const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
-const lintConfig = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+// The rules moved to config/eslint/base.mjs; the root file is now a
+// re-export. Reading the root file would parse zero `files: [...]` blocks and
+// the scoping assertions below would go decorative — a thinner entry file
+// would silently pass a guard that exists to catch glob typos.
+const lintConfig = readFileSync(resolve(ROOT, "config/eslint/base.mjs"), "utf8");
 const vitestConfig = readFileSync(resolve(ROOT, "vitest.config.mjs"), "utf8");
 const testTsconfig = readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf8");
 
@@ -95,9 +99,10 @@ describe("#script/* import alias", () => {
   });
 });
 
-// eslint.config.js is its own dead-config risk: a typo in one of its globs
-// silently un-exempts half the tree, and nothing in the output mentions it.
-describe("eslint.config.js rule scoping", () => {
+// config/eslint/base.mjs is its own dead-config risk: a typo in one of its
+// globs silently un-exempts half the tree, and nothing in the output mentions
+// it.
+describe("config/eslint/base.mjs rule scoping", () => {
   it("the module-surface block reaches both foliplus/js and script", () => {
     const blocks = fileGlobs();
     const last = at(blocks.length - 1);
@@ -132,6 +137,54 @@ describe("eslint.config.js rule scoping", () => {
     expect(scopes).toContain("test/js/**/*.{js,ts}");
     const n = scopes.indexOf("test/js/**/*.{js,ts}");
     expect(at(n)).toEqual(["test/js/**/*.{js,ts}"]);
+  });
+});
+
+// The lint config is the one file whose job is to check everything else, and it
+// silently escaped every gate until this was written: a file outside the lint
+// globs is a file no rule can reach, and nothing in the output says so.
+describe("lint config is itself linted", () => {
+  it("npm scripts cover every config file, in every gate", () => {
+    // Symmetric on purpose: a per-script hand list is how `format:check` came to
+    // cover config/ but not the root entry — the same half-covered shape the
+    // rest of this block exists to catch.
+    for (const script of ["lint", "format:check"] as const) {
+      for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+        expect(pkg.scripts[script], `${script} does not cover ${file}`).toContain(file);
+      }
+    }
+  });
+
+  it("every linted config file is claimed by a rule block", () => {
+    // Without a `files:` block a file only inherits
+    // `tseslint.configs.recommended` (23 rules); a block is what makes the
+    // project's own rules apply (60+). The check runs over every config file
+    // the lint script claims, so the next one added cannot fall back to the
+    // recommended set unnoticed.
+    const blocks = fileGlobs();
+    const claimed = (file: string) => blocks.some(globs => globs.includes(file));
+    for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+      expect(claimed(file), `${file} is linted but no files: block claims it`).toBe(
+        true,
+      );
+    }
+  });
+});
+
+// The root entry must re-export the implementation, not redefine it. Without
+// this, a future edit could put rules back in the root file and the guard
+// above would keep passing against a stale implementation file.
+describe("eslint root entry", () => {
+  it("re-exports the implementation config", () => {
+    const entry = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+    expect(entry).toMatch(
+      /export\s*\{\s*default\s*\}\s*from\s*"\.\/config\/eslint\/base\.mjs"/,
+    );
+  });
+
+  it("holds no rule definitions of its own", () => {
+    const entry = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+    expect(entry).not.toMatch(/files:\s*\[/);
   });
 });
 
@@ -188,8 +241,7 @@ describe("test/js/script naming", () => {
       const stem = stemOf(rel);
       expect(
         hasSubject(stem),
-        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
-          `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
+        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
       ).toBe(true);
     }
 
@@ -265,8 +317,7 @@ describe("script module coverage", () => {
       const stem = scriptStem(rel);
       expect(
         isCovered(stem),
-        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as ` +
-          `deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
+        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
       ).toBe(true);
     }
   });

@@ -1,24 +1,15 @@
 // core/label — the label trio: collision geometry, control renderer, field
 // resolution. Consumers import one barrel instead of three sibling modules.
+export { HIDE_OVERLAP, hides, planVisible, withinRect } from "./labelCollision.js";
+export type { Box } from "./labelCollision.js";
+export { numberFormatOptions, renderLabelControls } from "./labelControl.js";
+export type { LabelStyleValues } from "./labelControl.js";
 export {
-  HIDE_OVERLAP,
-  hides,
-  planVisible,
-  withinRect,
-  type Box,
-} from "./labelCollision.js";
-export {
-  numberFormatOptions,
-  renderLabelControls,
-  type LabelStyleValues,
-} from "./labelControl.js";
-export {
-  AUTO_FIELD,
-  autoLabelField,
   bareFieldName,
   collectLabelFields,
+  defaultLabelField,
   hasLabelField,
   isNumericField,
   resolveSelectedField,
-  type LabelField,
 } from "./labelField.js";
+export type { LabelField } from "./labelField.js";

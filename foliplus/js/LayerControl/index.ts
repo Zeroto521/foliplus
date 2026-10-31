@@ -1,5 +1,6 @@
 import { defineControl } from "#core/defineControl.js";
 import { createPanelControl } from "#core/leaflet/index.js";
+import type { LayerData } from "#foliplus/config-schema.js";
 import {
   LayerController,
   installBringToFrontPatch,
@@ -12,7 +13,20 @@ const LayerControl = defineControl<LayerController>({
   config: CONFIG,
   icon: SVGs.ICON_LAYERS,
   createManager: env => {
-    const manager = new LayerController(map, env.config.data as LayerInfo[], {
+    // The registry seed is the CONF row plus the two author-payload fields.
+    // They are read through `LayerData` (the schema type) rather than trusted
+    // through the `LayerInfo` cast below: the cast erases the bridge, so a
+    // payload Python ships but the schema does not declare arrives as
+    // `undefined` with tsc silent — which is exactly what happened to
+    // `fillAuthor` before #804 declared it. The cast stays because a CONF row
+    // is a registration seed, not a full registry record: the registry derives
+    // kind, carrier, panes and the rest.
+    const seed = (env.config.data ?? []).map((row: LayerData[number]) => ({
+      ...row,
+      fillAuthor: row.fillAuthor ?? null,
+      zoom: row.zoom ?? null,
+    }));
+    const manager = new LayerController(map, seed as LayerInfo[], {
       T: env.T,
       log: env.log,
     });

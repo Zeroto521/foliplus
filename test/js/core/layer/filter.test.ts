@@ -12,7 +12,28 @@
 // `{ SnapshotPoint, LayerFilter }`, so this file exercises them directly
 // without a browser.
 import { describe, expect, it } from "vitest";
-import { type LayerFilter, matches, select } from "#core/layer/filter.js";
+import {
+  type LayerFilter,
+  buildFilterModel,
+  dropFilterForField,
+  dropStaleFilter,
+  filterKey,
+  filterStep,
+  filtersEqual,
+  matches,
+  matchesValues,
+  normalizeEnumValues,
+  normalizeFilter,
+  parsePersistedFilter,
+  parsePersistedFilters,
+  pickFilterField,
+  restoreFilters,
+  revalidateStoredFilter,
+  select,
+  selectIndices,
+  serializedFilters,
+  storeFilter,
+} from "#core/layer/filter.js";
 import type { LayerSnapshot, SnapshotPoint } from "#core/layer/type.js";
 
 const makePt = (fields: Record<string, number> = {}): SnapshotPoint => ({
@@ -300,5 +321,480 @@ describe("non-finite exclusion", () => {
         }),
       ).toBe(false);
     }
+  });
+});
+
+// ── Owner helpers (persisted schema, model builder, row/cache helpers) ──
+// These are the pure functions the Heatmap component externalises; pinned here
+// so the component bundle stays logic-free and the persisted schema cannot drift.
+describe("filterStep / filterKey", () => {
+  it("derives the slider step from the data precision, capped at 6", () => {
+    expect(filterStep([10, 69])).toBe(1);
+    expect(filterStep([0.5, 2.25])).toBe(0.01);
+    expect(filterStep([0.123456789, 1])).toBe(0.000001);
+    // Tiny magnitudes stringify exponentially ("1e-7"): the exponent is the
+    // precision, so the step stays small instead of snapping to 1.
+    expect(filterStep([1e-7, 5e-7])).toBe(0.000001);
+  });
+
+  it("a degenerate or non-finite span falls back to 1", () => {
+    expect(filterStep([5, 5])).toBe(1);
+    expect(filterStep([10, 1])).toBe(1);
+    expect(filterStep([Number.NaN, 10])).toBe(1);
+  });
+
+  it("keys an AST by its JSON shape (undefined is the empty key)", () => {
+    const atom = { kind: "atom" as const, field: "c", op: "eq" as const, value: 1 };
+    expect(filterKey(atom)).toBe(JSON.stringify(atom));
+    expect(filterKey(undefined)).toBe("");
+  });
+});
+
+describe("normalizeFilter", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 10 }), makePt({ c: 30 })],
+    numericFields: ["c"],
+    ranges: { c: [10, 30] },
+  };
+
+  it("drops an unknown field and a missing snapshot", () => {
+    expect(
+      normalizeFilter({ kind: "atom", field: "zzz", op: "eq", value: 1 }, snap),
+    ).toBeUndefined();
+    expect(
+      normalizeFilter({ kind: "atom", field: "c", op: "eq", value: 1 }, null),
+    ).toBeUndefined();
+    expect(normalizeFilter(undefined, snap)).toBeUndefined();
+  });
+
+  it("passes a logical tree through untouched", () => {
+    const tree = { kind: "and" as const, children: [] };
+    expect(normalizeFilter(tree, snap)).toBe(tree);
+  });
+
+  it("passes a non-between op through untouched", () => {
+    const eq = { kind: "atom" as const, field: "c", op: "eq" as const, value: 20 };
+    expect(normalizeFilter(eq, snap)).toBe(eq);
+  });
+
+  it("clamps a between range into the extent and collapses a full range", () => {
+    expect(
+      normalizeFilter(
+        { kind: "atom", field: "c", op: "between", range: [0, 20] },
+        snap,
+      ),
+    ).toEqual({ kind: "atom", field: "c", op: "between", range: [10, 20] });
+    expect(
+      normalizeFilter(
+        { kind: "atom", field: "c", op: "between", range: [10, 30] },
+        snap,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("selectIndices / filtersEqual / dropStaleFilter", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 10 }), makePt({ c: 20 }), makePt({ c: 30 })],
+    numericFields: ["c"],
+    ranges: { c: [10, 30] },
+  };
+
+  it("includes every index without a filter/snapshot and the matching subset otherwise", () => {
+    expect(Array.from(selectIndices(snap, undefined, 3))).toEqual([0, 1, 2]);
+    expect(Array.from(selectIndices(null, undefined, 2))).toEqual([0, 1]);
+    expect(
+      Array.from(
+        selectIndices(
+          snap,
+          { kind: "atom", field: "c", op: "between", range: [10, 20] },
+          3,
+        ),
+      ),
+    ).toEqual([0, 1]);
+  });
+
+  it("filtersEqual compares JSON shapes (undefined = no filter)", () => {
+    expect(filtersEqual(undefined, undefined)).toBe(true);
+    expect(filtersEqual(undefined, { kind: "and", children: [] })).toBe(false);
+    expect(
+      filtersEqual(
+        { kind: "atom", field: "c", op: "eq", value: 1 },
+        { kind: "atom", field: "c", op: "eq", value: 1 },
+      ),
+    ).toBe(true);
+  });
+
+  it("dropStaleFilter keeps a filter bound to the field and drops the rest", () => {
+    const atom = { kind: "atom" as const, field: "c", op: "eq" as const, value: 1 };
+    expect(dropStaleFilter(atom, "c")).toBe(atom);
+    expect(dropStaleFilter(atom, "d")).toBeUndefined();
+    const tree = { kind: "and" as const, children: [] };
+    expect(dropStaleFilter(tree, "d")).toBe(tree);
+    // An enum leaf is bound to its dimension field exactly like a range atom:
+    // a different effective field must drop it instead of keeping a filter
+    // that no longer names a dimension the owner exposes.
+    const enumLeaf = {
+      kind: "enum" as const,
+      field: "type",
+      values: ["a"] as const,
+    };
+    expect(dropStaleFilter(enumLeaf, "type")).toBe(enumLeaf);
+    expect(dropStaleFilter(enumLeaf, "other")).toBeUndefined();
+    expect(dropStaleFilter(undefined, "c")).toBeUndefined();
+  });
+});
+
+describe("pickFilterField / buildFilterModel", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ a: 1, b: 2 })],
+    numericFields: ["a", "b"],
+    ranges: { a: [1, 1], b: [2, 2] },
+  };
+
+  it("prefers the owner field, then the first numeric key", () => {
+    expect(pickFilterField(snap, "b")).toBe("b");
+    expect(pickFilterField(snap, "")).toBe("a");
+    expect(pickFilterField(snap, "missing")).toBe("a");
+    expect(pickFilterField(null, "")).toBe("");
+  });
+
+  it("returns null for no filterable data", () => {
+    expect(buildFilterModel(null, undefined, "", "Field")).toBeNull();
+    expect(
+      buildFilterModel(
+        { points: [], numericFields: [], ranges: {} },
+        undefined,
+        "",
+        "Field",
+      ),
+    ).toBeNull();
+  });
+
+  it("uses owner-provided counts when the unit is not a snapshot point", () => {
+    const countsFilter = {
+      kind: "atom" as const,
+      field: "a",
+      op: "between" as const,
+      range: [1, 1] as [number, number],
+    };
+    expect(
+      buildFilterModel(snap, countsFilter, "a", "Field", { kept: 7, total: 137 }),
+    ).toMatchObject({
+      kept: 7,
+      total: 137,
+    });
+  });
+
+  it("falls back to [0, 0] when the resolved field has no extent", () => {
+    const noExtent: LayerSnapshot = {
+      points: [makePt({ a: 1 })],
+      numericFields: ["a"],
+      ranges: {},
+    };
+    expect(
+      buildFilterModel(noExtent, undefined, "a", "Field")!.dimensions[0],
+    ).toMatchObject({
+      kind: "range",
+      range: [0, 0],
+    });
+  });
+
+  it("composes the generic model: one range dimension plus counts and filter", () => {
+    const filter = {
+      kind: "atom" as const,
+      field: "a",
+      op: "between" as const,
+      range: [1, 1] as [number, number],
+    };
+    expect(buildFilterModel(snap, filter, "a", "Field")).toEqual({
+      dimensions: [
+        {
+          kind: "range",
+          field: "a",
+          // Two captions, and neither is the raw field name: `label` is the
+          // condition row's wording (empty = panel chrome applies).
+          fieldLabel: "Field",
+          label: "",
+          range: [1, 1],
+          step: 1,
+        },
+      ],
+      filter,
+      kept: 1,
+      total: 1,
+    });
+  });
+
+  it("carries the owner's two captions and never the raw field name", () => {
+    const model = buildFilterModel(snap, undefined, "a", "Field", undefined, "Range");
+    expect(model!.dimensions).toHaveLength(1);
+    expect(model!.dimensions[0]).toMatchObject({
+      kind: "range",
+      field: "a",
+      fieldLabel: "Field",
+      label: "Range",
+    });
+    // No caption falls back to the field name: the field row names the field
+    // in its value cell, and the condition row keeps the panel's own wording
+    // when the owner supplies none.
+    const bare = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
+    expect(bare).toMatchObject({ fieldLabel: "Field", label: "" });
+    expect(bare.field).toBe("a");
+  });
+});
+
+describe("parsePersistedFilter / parsePersistedFilters", () => {
+  it("accepts every atom op and rejects malformed payloads", () => {
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "between", range: [1, 2] }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "between",
+      range: [1, 2],
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "eq", value: 2 }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "eq",
+      value: 2,
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "ne", value: 2 }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "ne",
+      value: 2,
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "in", values: [1, 2] }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "in",
+      values: [1, 2],
+    });
+    for (const bad of [
+      null,
+      5,
+      [],
+      { kind: "atom" },
+      { kind: "atom", field: "", op: "eq", value: 1 },
+      { kind: "atom", field: "c", op: "nope" },
+      { kind: "atom", field: "c", op: "between", range: [1] },
+      { kind: "atom", field: "c", op: "between", range: [2, 1] },
+      { kind: "atom", field: "c", op: "between", range: ["1", 2] },
+      { kind: "atom", field: "c", op: "eq" },
+      { kind: "atom", field: "c", op: "in" },
+      { kind: "atom", field: "c", op: "in", values: [] },
+      { kind: "atom", field: "c", op: "in", values: ["1"] },
+      { kind: "nope" },
+    ]) {
+      expect(parsePersistedFilter(bad)).toBeUndefined();
+    }
+  });
+
+  it("rebuilds and/or trees, collapsing a single surviving child", () => {
+    const child = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(
+      parsePersistedFilter({ kind: "and", children: [child, { kind: "bad" }] }),
+    ).toEqual(child);
+    expect(parsePersistedFilter({ kind: "or", children: [child, child] })).toEqual({
+      kind: "or",
+      children: [child, child],
+    });
+    expect(parsePersistedFilter({ kind: "and", children: [] })).toBeUndefined();
+    expect(parsePersistedFilter({ kind: "and", children: [42] })).toBeUndefined();
+    expect(parsePersistedFilter({ kind: "or" })).toBeUndefined();
+  });
+
+  it("drops invalid entries from a persisted map", () => {
+    const ok = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(parsePersistedFilters({ a: ok, b: { kind: "bad" } })).toEqual({ a: ok });
+    expect(parsePersistedFilters({ a: { kind: "bad" } })).toBeUndefined();
+    expect(parsePersistedFilters({ "": ok, b: ok })).toEqual({ b: ok });
+    expect(parsePersistedFilters(null)).toBeUndefined();
+    expect(parsePersistedFilters([])).toBeUndefined();
+  });
+});
+
+describe("store / revalidate / serialize / restore", () => {
+  const atom = {
+    kind: "atom" as const,
+    field: "c",
+    op: "between" as const,
+    range: [1, 2] as [number, number],
+  };
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 1 }), makePt({ c: 2 })],
+    numericFields: ["c"],
+    ranges: { c: [1, 2] },
+  };
+
+  it("storeFilter writes, compares, and deletes undefined", () => {
+    const filters = new Map<string, LayerFilter>();
+    expect(storeFilter(filters, "s", atom)).toBe(true);
+    expect(storeFilter(filters, "s", atom)).toBe(false);
+    expect(storeFilter(filters, "s", undefined)).toBe(true);
+    expect(filters.size).toBe(0);
+  });
+
+  it("dropFilterForField drops only a filter bound to another field", () => {
+    const filters = new Map<string, LayerFilter>([["s", atom]]);
+    expect(dropFilterForField(filters, "s", "c")).toBe(false);
+    expect(dropFilterForField(filters, "s", "d")).toBe(true);
+    expect(filters.size).toBe(0);
+  });
+
+  it("revalidateStoredFilter clamps or drops against the snapshot", () => {
+    const filters = new Map<string, LayerFilter>([["s", atom]]);
+    // The stored full-range atom collapses to "no filter" on revalidation.
+    expect(revalidateStoredFilter(filters, "s", snap)).toBe(true);
+    expect(filters.size).toBe(0);
+    filters.set("s", { kind: "atom", field: "c", op: "between", range: [0, 1.5] });
+    expect(revalidateStoredFilter(filters, "s", snap)).toBe(true);
+    expect(filters.get("s")).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "between",
+      range: [1, 1.5],
+    });
+    expect(revalidateStoredFilter(filters, "missing", snap)).toBe(false);
+  });
+
+  it("serializes only a non-empty map and restores it", () => {
+    expect(serializedFilters(new Map())).toBeUndefined();
+    expect(serializedFilters(new Map([["s", atom]]))).toEqual({ s: atom });
+    const target = new Map<string, LayerFilter>([["old", atom]]);
+    restoreFilters(target, undefined);
+    expect(target.size).toBe(0);
+    restoreFilters(target, { s: atom, bad: undefined });
+    expect(target.size).toBe(1);
+    expect(target.get("s")).toEqual(atom);
+  });
+});
+
+describe("enum atom", () => {
+  const enumFilter: LayerFilter = {
+    kind: "enum",
+    field: "type",
+    values: ["distance", "polygon"],
+  };
+
+  it("matches a string field against the selected values", () => {
+    expect(matchesValues({ type: "distance" }, enumFilter)).toBe(true);
+    expect(matchesValues({ type: "marker" }, enumFilter)).toBe(false);
+  });
+
+  it("treats a missing or non-string field as false, never coerced", () => {
+    expect(matchesValues({}, enumFilter)).toBe(false);
+    expect(matchesValues({ type: 1 }, enumFilter)).toBe(false);
+  });
+
+  it("filters nothing when the selection is empty", () => {
+    const empty: LayerFilter = { kind: "enum", field: "type", values: [] };
+    expect(matchesValues({}, empty)).toBe(true);
+    expect(matchesValues({ type: "anything" }, empty)).toBe(true);
+  });
+
+  it("composes with and / or like every other atom", () => {
+    expect(
+      matchesValues({ type: "circle" }, { kind: "and", children: [enumFilter] }),
+    ).toBe(false);
+    const or: LayerFilter = {
+      kind: "or",
+      children: [enumFilter, { kind: "enum", field: "type", values: ["circle"] }],
+    };
+    expect(matchesValues({ type: "circle" }, or)).toBe(true);
+  });
+
+  it("matches(point) delegates the enum path without reading numeric fields", () => {
+    expect(matches(makePt({ count: 5 }), enumFilter)).toBe(false);
+  });
+});
+
+describe("parsePersistedFilter enum", () => {
+  it("accepts an enum node and dedupes its values", () => {
+    expect(
+      parsePersistedFilter({
+        kind: "enum",
+        field: "type",
+        values: ["distance", "distance", "circle"],
+      }),
+    ).toEqual({ kind: "enum", field: "type", values: ["distance", "circle"] });
+  });
+
+  it("rejects malformed enum nodes as no filter", () => {
+    for (const bad of [
+      { kind: "enum", field: "", values: ["a"] },
+      { kind: "enum", field: "type" },
+      { kind: "enum", field: "type", values: [] },
+      { kind: "enum", field: "type", values: [1] },
+      { kind: "enum", field: "type", values: [""] },
+      { kind: "enum", field: "type", values: "a" },
+    ]) {
+      expect(parsePersistedFilter(bad)).toBeUndefined();
+    }
+  });
+
+  it("round-trips an enum node through the shared parser", () => {
+    const node = { kind: "enum", field: "type", values: ["distance", "circle"] };
+    expect(JSON.stringify(parsePersistedFilter(node))).toBe(JSON.stringify(node));
+  });
+
+  it("parses a legacy numeric atom byte-identically to the pre-enum schema", () => {
+    const legacy = { kind: "atom", field: "c", op: "between", range: [1.5, 2] };
+    expect(JSON.stringify(parsePersistedFilter(legacy))).toBe(
+      '{"kind":"atom","field":"c","op":"between","range":[1.5,2]}',
+    );
+  });
+
+  it("keeps and/or trees containing enum children", () => {
+    const child = { kind: "enum", field: "type", values: ["circle"] };
+    expect(parsePersistedFilter({ kind: "and", children: [child] })).toEqual(child);
+  });
+});
+
+describe("normalizeEnumValues", () => {
+  const filter: LayerFilter = {
+    kind: "enum",
+    field: "type",
+    values: ["distance", "legacy"],
+  };
+
+  it("drops values the dimension no longer offers", () => {
+    expect(normalizeEnumValues(filter, ["distance", "circle"])).toEqual({
+      kind: "enum",
+      field: "type",
+      values: ["distance"],
+    });
+  });
+
+  it("clears the filter when no value survives", () => {
+    expect(normalizeEnumValues(filter, ["marker"])).toBeUndefined();
+  });
+
+  it("dedupes the surviving values", () => {
+    const dup: LayerFilter = { kind: "enum", field: "type", values: ["a", "a"] };
+    expect(normalizeEnumValues(dup, ["a"])).toEqual({
+      kind: "enum",
+      field: "type",
+      values: ["a"],
+    });
+  });
+
+  it("returns the same filter (same identity) when nothing expired", () => {
+    const clean: LayerFilter = { kind: "enum", field: "type", values: ["a"] };
+    expect(normalizeEnumValues(clean, ["a", "b"])).toBe(clean);
+  });
+
+  it("passes numeric atoms and absent filters through unchanged", () => {
+    const atom: LayerFilter = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(normalizeEnumValues(atom, ["x"])).toBe(atom);
+    expect(normalizeEnumValues(undefined, ["x"])).toBeUndefined();
   });
 });

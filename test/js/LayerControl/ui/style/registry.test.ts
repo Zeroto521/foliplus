@@ -31,7 +31,10 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "#foliplus/LayerControl/ui/style/registry.js";
-import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
+import {
+  ZOOM_RANGE_DIMENSION,
+  resetLayerZoomRange,
+} from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";
@@ -40,6 +43,7 @@ const testDim = {
   gate: () => true,
   value: () => 42,
   row: () => document.createElement("div"),
+  contentChange: { kind: "none" },
 } as unknown as LayerDimension<number>;
 
 // Register once per module graph. `opacity.ts` already ran this for the
@@ -69,6 +73,18 @@ describe("LayerControl style-panel dimension registry", () => {
     // Unknown dimensions degrade honestly — the panel treats them as
     // "this layer does not support this dimension" rather than erroring.
     expect(getDimension("not.a.dimension")).toBeUndefined();
+  });
+
+  it("a dimension reset for an unregistered layer is null-safe", () => {
+    // A teardown can retire a layer between the panel opening and a scheduled
+    // reset. The zoom-range descriptor and the entry point above it both
+    // re-resolve the entry, and both bail with nothing rather than throwing —
+    // the entry point's NO_DELTA fallback keeps the publish contract intact
+    // for a reset that has nothing to publish.
+    const { ui } = initFixture();
+
+    expect(ZOOM_RANGE_DIMENSION.reset!(ui, "ghost")).toBeUndefined();
+    expect(resetLayerZoomRange(ui, "ghost")).toBeUndefined();
   });
 
   it("listDimensions lists built-in and test dims in insertion order", () => {
@@ -101,6 +117,29 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(ordered.length).toBe(new Set(ordered).size);
   });
 
+  it("contentChange is declared by exactly the replaying dimensions", () => {
+    // The hub executes every descriptor's declared policy on a content
+    // change, so this set IS the replay coverage. The field is mandatory on
+    // the type — a new dimension cannot compile without stating a policy —
+    // and this pins the SEMANTIC side: opacity / zoomRange declare "none"
+    // (their replay is the projection sweep; opacity's delta is the notify's
+    // payload), and a dimension that silently switches to "none" goes red
+    // here instead of losing its replay quietly.
+    const replaying = listDimensions()
+      .filter(d => d.contentChange.kind !== "none")
+      .map(d => d.key)
+      .sort();
+    expect(replaying).toEqual(["annotation", "border", "fill", "size"]);
+    // Every face of the coalescer is claimed by exactly one frame policy —
+    // a face nobody schedules would strand late leaves; a face claimed
+    // twice would fight over one queue slot.
+    const faces = listDimensions()
+      .filter(d => d.contentChange.kind === "frame")
+      .map(d => (d.contentChange as { face: string }).face)
+      .sort();
+    expect(faces).toEqual(["fill", "label", "size", "stroke"]);
+  });
+
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
     // A third-party component colliding with our built-in key, or a
     // duplicated import, must fail loudly rather than silently overwrite.
@@ -110,6 +149,7 @@ describe("LayerControl style-panel dimension registry", () => {
         gate: () => false,
         value: () => undefined,
         row: () => document.createElement("div"),
+        contentChange: { kind: "none" },
       }),
     ).toThrow(/opacity.*already registered/);
   });
@@ -132,7 +172,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
         },
       ],
@@ -184,7 +224,7 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
         },
       ],
@@ -238,9 +278,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -318,12 +356,13 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
     expect(delegatedRows.map(d => d.key)).toEqual(["opacity", "zoomRange"]);
   });
 
-  it("DELEGATED_DIM_ORDER is DIM_ORDER minus fill and border", () => {
+  it("DELEGATED_DIM_ORDER is DIM_ORDER minus the vector-write rows", () => {
     // Pinned so a future edit to the constant cannot silently widen the
-    // delegated sweep past the vector-only rows.
+    // delegated sweep past the rows a delegated layer does not own: fill and
+    // border write through setStyle, size through setRadius.
     expect([...DELEGATED_DIM_ORDER]).toEqual(["opacity", "zoomRange"]);
     expect([...DELEGATED_DIM_ORDER]).toEqual(
-      [...DIM_ORDER].filter(k => k !== "fill" && k !== "border"),
+      [...DIM_ORDER].filter(k => k !== "fill" && k !== "border" && k !== "size"),
     );
   });
 });
@@ -350,13 +389,13 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: overlayLayer,
         },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -521,9 +560,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -543,6 +580,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       opacity: 0.5,
+      mode: "solid",
     });
   });
 
@@ -550,6 +588,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       opacity: null,
+      mode: "solid",
     });
   });
 
@@ -634,9 +673,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -739,9 +776,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 

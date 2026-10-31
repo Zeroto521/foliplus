@@ -62,7 +62,7 @@ class TestExportControlRendering:
     def test_css_scale_z_in_export_ladder(self):
         """scale/attr z rides the export ladder (export-base - 10), not the layer band.
 
-        T241 conflict: `--foliplus-export-scale-z: 850` sat inside the layer-z
+        The old `--foliplus-export-scale-z: 850` sat inside the layer-z
         band (Z_INDEX.BASE 600 + STEP 10), so a ~25-layer overlay stack climbed
         past it and covered the scale control. The dim layer belongs above all
         data layers and under the crop UI — `calc(export-base - 10)` = 9490.

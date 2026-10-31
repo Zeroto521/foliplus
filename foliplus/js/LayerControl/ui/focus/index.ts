@@ -3,11 +3,15 @@
 // `pane.ts`, the disabled-state hints in `hint.ts`; this file re-exports
 // all three so the existing external import surface (`./focus/index.js`)
 // stays unchanged.
-import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjectionAll } from "../apply.js";
+import { type FinalizeStep, finalize } from "#common/finalize.js";
+import {
+  type ProjectionDeltaItem,
+  applyProjectionAll,
+  notifyDeltas,
+} from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -64,7 +68,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   const layer = ui.c.findLayer(layerInfo);
 
   // Hidden layer: nothing to focus on — show a hint instead.
-  const itemEl = ui.uiContainer.querySelector(
+  const itemEl = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const checkbox = itemEl?.querySelector(
@@ -78,16 +82,21 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Bounds come from the Leaflet layer (with a walkLeaf fallback), or
   // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
   let bounds: L.LatLngBounds | null = null;
+  // A layer the policy pulled off (a zoom sweep, an unchecked-by-policy row)
+  // rejoins the map so the rectangle highlight is visible. That add is a real
+  // membership change; its delta is collected here and announced with the rest
+  // of the focus round, once the focus state is fully established.
+  const rejoined: ProjectionDeltaItem[] = [];
+  let rejoinedLayer: L.Layer | null = null;
   if (layer) {
-    // Ensure the layer is on the map so the rectangle highlight is visible. A
-    // layer the policy pulled off (a zoom sweep, an unchecked row) rejoins
-    // here for the bounds read — that add is a real membership change, so it
-    // rides LAYER_CHANGE the way the executor's own writes do.
+    // Ensure the layer is on the map so the rectangle highlight is visible.
     if (!ui.c.map.hasLayer(layer)) {
       ui.c.map.addLayer(layer);
-      ui.events.emit(EVENTS.LAYER_CHANGE, {
+      rejoinedLayer = layer;
+      rejoined.push({
         id: layerInfo.id,
-        kind: layerInfo.kind,
+        delta: { wroteVisible: true, intentMoved: false },
+        entry: layerInfo,
       });
     }
     bounds = computeLayerBounds(layer);
@@ -97,8 +106,11 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // No bounds carrier — the surface said so up front via
   // `capabilities.bounds`. Keyboard / dblclick paths reach this guard
   // without going through `focusDisabledReason`, so the hint is the honest
-  // feedback rather than a silent no-op.
+  // feedback rather than a silent no-op. Whatever we re-added above goes back
+  // the way we found it, so a rejected focus leaves no membership change (and
+  // no announce) behind.
   if (!bounds?.isValid()) {
+    if (rejoinedLayer) ui.c.map.removeLayer(rejoinedLayer);
     showFocusDisabledHint(ui, "no_bounds");
     return;
   }
@@ -137,7 +149,13 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // policy is driven by the same flag, so this one sweep is a no-op for the
   // layers it already covers.
   ui.focusController.focusingLayerId = layerId;
-  applyProjectionAll(ui);
+  // Collect the settled round: the sweep lands the focused layer's opacity
+  // override and the policy changes, but nothing announces yet — the notify
+  // waits for the branch below to finish the focus visuals (rect/mask/highlight
+  // + auto-cancel), so a subscriber that re-enters and cancels is not undone
+  // by the frames the outer call has not drawn yet.
+  const swept = applyProjectionAll(ui);
+  const announceFocus = (): void => notifyDeltas(ui, [...rejoined, ...swept]);
 
   // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -155,6 +173,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     });
     highlightFocusedRow(ui, itemEl, layerId);
     registerAutoCancel(ui, layerId);
+    announceFocus();
     return;
   }
 
@@ -183,6 +202,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // One-shot map move/zoom handler that auto-cancels focus when the user
   // starts navigating elsewhere — prevents the rect from lingering.
   registerAutoCancel(ui, layerId);
+  announceFocus();
 };
 
 /** Return true if a focus animation is currently active. */
@@ -210,44 +230,92 @@ const dismissFocus = (ui: LayerUI): void => {
   // (`map.on('unload', manager.clear)`). A no-op teardown (unbindEvents →
   // dismissFocus on a never-focused control) must not trigger that install,
   // otherwise the first removeControl would leave a residual `unload` handler
-  // on the map. Guard with `isFocusing` so setMode(null) is only invoked
-  // when `focusLayer` actually registered the mode.
-  if (isFocusing(ui)) {
-    const modes = ensureModes(ui.c.map);
-    modes.setMode(ui.config.name, null);
-  }
-  clearAutoCancel(ui);
-  clearFocusedRowHighlight(ui);
-  restoreHiddenLayers(ui);
-  ui.c.annotation.setFocusFilter(null);
-  for (const restore of ui.focusController.focusedPaneRestores) restore();
+  // on the map.
+  //
+  // Release whenever the mode is registered — not only when the focus UI
+  // state exists. If a MODE_CHANGE consumer ever threw before the focus
+  // state landed (a failure mode this notification policy prevents going
+  // forward), the map would otherwise stay permanently dimmed with no
+  // recovery entry: mode says "focusing" but isFocusing() is false, so the
+  // old guard made this teardown a no-op. Reading the live mode without
+  // calling ensureModes keeps the no-install guarantee for never-focused
+  // controls.
+  const stuckFocusing =
+    !isFocusing(ui) &&
+    (
+      ui.c.map as {
+        foliplus?: { modes?: { getMode: (name: string) => string | null } };
+      }
+    ).foliplus?.modes?.getMode(ui.config.name) === "focusing";
+  // The whole teardown is one list: every entry runs even when an earlier one
+  // throws. Isolating only the pane restores left the same bug one line up —
+  // `restoreHiddenLayers` throwing still skipped the mask removal and the map
+  // stayed dimmed with no way back.
+  const steps: FinalizeStep[] = [
+    [
+      "release-mode",
+      () => {
+        if (isFocusing(ui) || stuckFocusing) {
+          ensureModes(ui.c.map).setMode(ui.config.name, null);
+        }
+      },
+    ],
+    ["clear-auto-cancel", () => clearAutoCancel(ui)],
+    ["clear-row-highlight", () => clearFocusedRowHighlight(ui)],
+    ["restore-hidden-layers", () => restoreHiddenLayers(ui)],
+    ["clear-focus-filter", () => ui.c.annotation.setFocusFilter(null)],
+    // Each restore is named where the lift happened (`lift:*`, `restore-z:*`,
+    // `surface:<id>`, `base-pane:<id>`), so a failure reports the pane, not a
+    // position that shifts when a lift is added.
+    ...ui.focusController.focusedPaneRestores,
+    [
+      "remove-focus-rect",
+      () => {
+        if (ui.focusController.focusRect) {
+          ui.c.map.removeLayer(ui.focusController.focusRect);
+          ui.focusController.focusRect = null;
+        }
+      },
+    ],
+    [
+      "remove-focus-mask",
+      () => {
+        if (ui.focusController.focusMask) {
+          ui.c.map.removeLayer(ui.focusController.focusMask);
+          ui.focusController.focusMask = null;
+        }
+      },
+    ],
+    // Tear down the SVG renderer too. Reusing it across focuses left the
+    // previous focus's mask/rect paths in the SVG even after removeLayer,
+    // so focusing layer A then B showed two boxes (stale A mask + new B
+    // mask) with inverted dimming. A fresh renderer per focus is cheap and
+    // guarantees a clean slate.
+    [
+      "remove-focus-renderer",
+      () => {
+        if (ui.focusController.focusRenderer) {
+          ui.c.map.removeLayer(ui.focusController.focusRenderer);
+          ui.focusController.focusRenderer = null;
+        }
+      },
+    ],
+    // Ordered, not cosmetic: the sweep reads the focus state, and `isFocusing`
+    // is driven by this field.
+    ["clear-focusing-layer", () => (ui.focusController.focusingLayerId = null)],
+    // Focus suspends inRange for its duration: with focus gone, the focused
+    // layer's effective-shown falls back to intent && inRange. If its range
+    // still excludes the current zoom, the executor removes it from the map —
+    // the "unfocus returns it to hidden" half of the focus gate. Last step of
+    // the teardown: the sweep, then one announcement per moved layer.
+    ["sweep", () => notifyDeltas(ui, applyProjectionAll(ui))],
+  ];
+  finalize(steps, failure =>
+    ui.log.warn(`dismissFocus step "${failure.name}" threw`, failure.error),
+  );
+  // Plain reset: it cannot throw, and a failed step must not leave the collected
+  // restores behind for the next focus to run twice.
   ui.focusController.focusedPaneRestores = [];
-
-  if (ui.focusController.focusRect) {
-    ui.c.map.removeLayer(ui.focusController.focusRect);
-    ui.focusController.focusRect = null;
-  }
-
-  if (ui.focusController.focusMask) {
-    ui.c.map.removeLayer(ui.focusController.focusMask);
-    ui.focusController.focusMask = null;
-  }
-  // Tear down the SVG renderer too. Reusing it across focuses left the
-  // previous focus's mask/rect paths in the SVG even after removeLayer,
-  // so focusing layer A then B showed two boxes (stale A mask + new B
-  // mask) with inverted dimming. A fresh renderer per focus is cheap and
-  // guarantees a clean slate.
-  if (ui.focusController.focusRenderer) {
-    ui.c.map.removeLayer(ui.focusController.focusRenderer);
-    ui.focusController.focusRenderer = null;
-  }
-
-  ui.focusController.focusingLayerId = null;
-  // Focus suspends inRange for its duration: with focus gone, the focused
-  // layer's effective-shown falls back to intent && inRange. If its range
-  // still excludes the current zoom, the executor removes it from the map —
-  // the "unfocus returns it to hidden" half of the focus gate.
-  applyProjectionAll(ui);
 };
 
 /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
@@ -292,7 +360,7 @@ const highlightFocusedRow = (
 
 /** Remove the `foliplus-is-focusing` class from the active row. */
 const clearFocusedRowHighlight = (ui: LayerUI): void => {
-  const prev = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
+  const prev = ui.uiContainer?.querySelector(`.${CONST.CLASSES.FOCUSING}`);
   prev?.classList.remove(CONST.CLASSES.FOCUSING);
 };
 

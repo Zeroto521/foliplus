@@ -106,8 +106,8 @@ class TestLayerControlRendering:
         assert "OSM" in data
         assert "Carto" in data
         assert "Terrain" in data
-        assert sum(1 for d in ctrl._config["data"] if d["group"] == "base") >= 3
-        assert sum(1 for d in ctrl._config["data"] if d["group"] != "base") == 0
+        assert sum(1 for d in ctrl._config["data"] if d["role"] == "base") >= 3
+        assert sum(1 for d in ctrl._config["data"] if d["role"] != "base") == 0
 
     def test_base_and_overlay_in_template(self):
         """Both base_layers and overlays appear in the JS template."""
@@ -117,9 +117,9 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # JS data should contain both with correct group values
-        assert '"group": "base"' in html
-        assert '"group": "overlay"' in html
+        # JS data should contain both with correct role values
+        assert '"role": "base"' in html
+        assert '"role": "overlay"' in html
 
     def test_is_base_class_on_base_items(self):
         """Only base map items get the data-layer-type attribute."""
@@ -129,8 +129,8 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # The row's data-layer-type is the layer's group field, verbatim.
-        assert '"data-layer-type": layerInfo.group' in html
+        # The row's data-layer-type is the layer's role field, verbatim.
+        assert '"data-layer-type": layerInfo.role' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
@@ -180,16 +180,20 @@ class TestLayerControlRendering:
         The container (``style_*``) and the annotation-only dimension
         (``style_label_field`` / ``_no_data``) stay component-scoped.
         ``test_locale.py`` covers the cross-table key set.
+
+        The retired ``style_label_field_auto`` key (the removed Auto entry in
+        the field picker) must stay retired: the picker names a real field, so
+        there is no pseudo-option left to translate.
         """
         root = Path(__file__).resolve().parent.parent.parent.parent
         required = {
             "style_layer",
             "style_layer_tooltip",
             "style_label_field",
-            "style_label_field_auto",
             "style_label_no_data",
             "style_reset",
         }
+        retired = "style_label_field_auto"
         for lang in ("en", "zh"):
             data = json.loads(
                 (root / "foliplus" / "locale" / f"LayerControl.{lang}.json").read_text(
@@ -202,6 +206,9 @@ class TestLayerControlRendering:
             missing = required - keys
             assert not missing, (
                 f"LayerControl.{lang} missing style-panel keys: {missing}"
+            )
+            assert retired not in keys, (
+                f"LayerControl.{lang} still carries the removed {retired} key"
             )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):
@@ -216,7 +223,7 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # Should NOT contain old drag prevention for base maps
-        assert "this.layers[idx].group" not in html
+        assert "this.layers[idx].role" not in html
 
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
@@ -277,10 +284,33 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "grid-area: drag" in css
 
-    def test_count_column_5_char_cap(self):
-        """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
+    def test_count_column_min_max_and_funnel_token(self):
+        """The count column is a min/max track: the funnel token plus the
+        widest compact value ("2.5K", "1.2万") must fit at the max width, and
+        the min keeps a short value from collapsing the column. The value is
+        always compact (formatNumber("auto")), never a full number."""
         css = read_css("foliplus/css/LayerControl/index.css")
-        assert "38px" in css
+        assert "var(--foliplus-filter-funnel-size)" in css
+        token_css = read_css("foliplus/css/common/token.css")
+        assert "--foliplus-filter-funnel-size: 12px" in token_css
+        assert "--foliplus-count-track-min-width:" in token_css
+        assert "--foliplus-count-track-width: 48px" in token_css
+        assert "minmax(var(--foliplus-count-track-min-width)" in token_css
+
+    def test_filtered_funnel_is_neutral_with_currentcolor_fill(self):
+        """The filtered-row funnel is a state mark, not an action accent.
+
+        It uses --foliplus-text-primary and the SVG's own fill is overridden
+        with currentColor: the icon ships a fill, so `color` alone never
+        reaches it (and the default black would vanish on a dark theme).
+        """
+        css = read_css("foliplus/css/LayerControl/row.css")
+        idx = css.find(".foliplus-layer-count-funnel")
+        assert idx != -1
+        block = css[idx : css.index('&[draggable="true"]', idx)]
+        assert "color: var(--foliplus-text-primary)" in block
+        assert "fill: currentColor" in block
+        assert "var(--foliplus-accent-primary)" not in block
 
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
@@ -301,7 +331,7 @@ class TestLayerControlRendering:
         token_css = read_css("foliplus/css/common/token.css")
         layer_css = read_css("foliplus/css/LayerControl/index.css")
         # Named dimension vars are defined once in token.css
-        assert "--foliplus-count-track-width: 38px" in token_css
+        assert "--foliplus-count-track-width: 48px" in token_css
         assert "--foliplus-more-btn-width: 7px" in token_css
         # grid track references the named vars (not literals)
         idx = token_css.find("--foliplus-grid-layer-cols:")
@@ -309,6 +339,7 @@ class TestLayerControlRendering:
         track = token_css[idx : token_css.index(";", idx)]
         assert "var(--foliplus-more-btn-width)" in track
         assert "var(--foliplus-count-track-width)" in track
+        assert "minmax(var(--foliplus-count-track-min-width)" in track
         # more-btn width uses the named var, not icon-size-xs
         blks = [
             layer_css[i : layer_css.index("}", i) + 1]
@@ -470,7 +501,7 @@ class TestLayerControlRendering:
         more_icon = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "more-menu li svg" in html[max(0, i - 60) : i + 60]
+            if "more-menu button svg" in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--foliplus-text-muted)" in b for b in more_icon), (
             "more-menu icon must be muted at rest"
@@ -478,7 +509,8 @@ class TestLayerControlRendering:
         more_icon_hover = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "more-menu li:not([disabled]):hover svg" in html[max(0, i - 60) : i + 60]
+            if "more-menu button:not([aria-disabled=true]):hover svg"
+            in html[max(0, i - 60) : i + 60]
         ]
         assert any(
             "color: var(--foliplus-text-primary)" in b for b in more_icon_hover
@@ -565,19 +597,35 @@ class TestLayerControlRendering:
         token_css = read_css("foliplus/css/common/token.css")
         layer_css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
-        #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
+        #   drag(16) check(16) label(1fr) count(min/max) icon(16) more(7)
         idx = token_css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
         track = token_css[idx : token_css.index(";", idx)]
-        # Count the track's space tokens — each column is one term separated
-        # by whitespace; the track is built from 6 named/space tokens.
-        col_terms = [
-            t.rstrip(":;")
-            for t in track.split()
-            if t.rstrip(":;") not in ("", "--foliplus-grid-layer-cols")
-        ]
+        # Count the track's top-level terms only: minmax(min, max) is ONE
+        # column even though it contains a comma and a space.
+        body = track.split(":", 1)[1]
+        col_terms: list[str] = []
+        depth = 0
+        current = ""
+        for ch in body:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            if ch.isspace() and depth == 0:
+                if current:
+                    col_terms.append(current)
+                    current = ""
+                continue
+            current += ch
+        if current:
+            col_terms.append(current)
         assert len(col_terms) == 6, (
             f"expected 6-col track, got {len(col_terms)}: {col_terms}"
+        )
+        # The 4th column is the bounded count track, not a single fixed width.
+        assert "minmax(" in col_terms[3] and "count-track" in col_terms[3], (
+            f"count column must be a bounded minmax track, got {col_terms[3]!r}"
         )
         # Divider rule must sit in the toggle-all container (so 4 / -1 is
         # evaluated against the same 6-col track).
@@ -644,7 +692,7 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path;
-        # T266 declares the whole margin (not just margin-top) so a host
+        # The shell declares the whole margin (not just margin-top) so a host
         # framework's bare `ol,ul` margin reset cannot leak a bottom gap.
         assert "margin: 0" in css
 
@@ -661,7 +709,7 @@ class TestLayerControlRendering:
         assert "var(--foliplus-accent-primary)" in match.group(1)
 
     def test_section_divider_fades_when_folded(self):
-        """Section divider fades to opacity 0 when the group is folded."""
+        """Section divider fades to opacity 0 when the role is folded."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
@@ -744,10 +792,17 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-hint)" in bubble
         # Disabled is a primitive state, not a component special case.
         assert ".foliplus-slider.is-disabled" in css
-        # The end numbers anchor to the logical start/end, so an RTL page puts
-        # the minimum on the right without a second rule.
-        assert "inset-inline-start: 0" in css
-        assert "inset-inline-end: 0" in css
+        # The end numbers name their edge with the logical start/end anchor and
+        # centre on it with a physical X shift; the mirrored page flips that
+        # shift so each number still centres on the edge it names.
+        assert "inset-inline-start: 0" in _rule(css, ".foliplus-slider-value-min {")
+        assert "translateX(-50%)" in _rule(css, ".foliplus-slider-value-min {")
+        assert "inset-inline-end: 0" in _rule(css, ".foliplus-slider-value-max {")
+        assert "translateX(50%)" in _rule(css, ".foliplus-slider-value-max {")
+        assert "translateX(50%)" in _rule(css, ":dir(rtl) .foliplus-slider-value-min {")
+        assert "translateX(-50%)" in _rule(
+            css, ":dir(rtl) .foliplus-slider-value-max {"
+        )
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css

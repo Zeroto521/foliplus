@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTO_FIELD } from "#core/label/index.js";
+import { DIM } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -25,11 +26,30 @@ import {
   clampPct,
   resetLayerOpacity,
 } from "#foliplus/LayerControl/ui/style/opacity.js";
+import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
+import {
+  GridLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+} from "./fixture.js";
+
+// The carrier contract promises pane coverage only to migratable families
+// (Path / Marker / GridLayer / ImageOverlay). Style-row stubs for vector
+// layers declare the Path identity so the executor treats them as
+// pane-capable, matching the real layers they stand in for.
+const pathify = <T extends object>(stub: T): T => {
+  Object.setPrototypeOf(stub, new window.L.Path());
+  return stub;
+};
 
 /** Percentage the slider fill is drawn at, read off the primitive's inline
  *  width. The fill spans the rail's travel range, so 0.35 means 35%. */
@@ -59,7 +79,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
@@ -124,6 +144,21 @@ describe("LayerUI style panel", () => {
     expect(panel.getAttribute("role")).toBe("dialog");
   });
 
+  it("its registry entry reports no containment once the panel is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const entry = ensureOverlayRegistry(map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    expect(entry?.panels()).toEqual([panel]);
+
+    closeStylePanel(ui, false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
+  });
+
   it("builds on the shared panel vocabulary (header, content, close)", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -151,13 +186,14 @@ describe("LayerUI style panel", () => {
     const field = panel.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
-    expect(field.value).toBe("");
+    // No field is stored, so the picker shows its default (the only field).
+    expect(field.value).toBe("count");
     const format = panel.querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
     expect(format.value).toBe(NUMBER_FORMAT.AUTO);
-    // One option per cached field plus the placeholder.
-    expect(field.options.length).toBe(2);
+    // One option per cached field, no placeholder.
+    expect(field.options.length).toBe(1);
   });
 
   it("opens a Layer-only panel for a layer without labelable content and capable dimensions", () => {
@@ -361,6 +397,107 @@ describe("LayerUI style panel", () => {
 
     pressOn(document.body);
     expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("a press on the scheme picker's portalled list does not dismiss it", () => {
+    // The picker portals its dropdown to <body> so the list can paint above
+    // this drawer. The portal is outside the panel's subtree while still being
+    // part of the overlay, so a dismiss predicate that only walks the subtree
+    // closes the drawer on the press that selects a color.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const portal = document.createElement("div");
+    portal.className = "foliplus-scheme-picker-portal";
+    const row = document.createElement("button");
+    row.className = "foliplus-scheme-picker-item";
+    portal.appendChild(row);
+    document.body.appendChild(portal);
+    // The picker registers its portalled list against its trigger (the
+    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // registration so the registry's press dispatcher can attribute the press
+    // to this drawer. Without it the node is an orphan <body> child and every
+    // dismiss predicate rightly calls the press "outside".
+    const releasePortal = registerPortalRoot(portal, panel);
+
+    // Capture-phase listener on document: a bubbling press on the portalled row
+    // is exactly what the browser delivers for a real click on the list.
+    row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+
+    expect(panelOf(item)).toBe(panel);
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    releasePortal();
+    portal.remove();
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer", () => {
+    // The class alone is not ownership. A list registered for a trigger outside
+    // this drawer belongs to that surface, so this drawer must dismiss: matching
+    // the class document-wide would keep it open under a press it does not own.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    // The drawer is live on its own panel, and the foreign portal is outside that
+    // panel's subtree: neither a subtree walk nor a document-wide class match can
+    // produce the dismissal this test asserts — only trigger ownership can.
+    expect(panelOf(item)).toBe(panel);
+    expect(panel.contains(foreign)).toBe(false);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      foreignRow.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer via the outside-mousedown handler", () => {
+    // The class alone is not ownership. handleOutsideMousedown classifies a
+    // press through core/overlay's predicate, and a codebase that still passes
+    // a portal selector would answer "mine" for a portal this drawer does not
+    // own (its trigger is outside the drawer) — the same press-stealing bug
+    // from the other side. Only trigger ownership can dismiss here.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      // jsdom does not populate event.target on dispatch, so pin it directly.
+      const event = new MouseEvent("mousedown", { bubbles: true });
+      Object.defineProperty(event, "target", { value: foreignRow });
+      ui.handleOutsideMousedown(event);
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
   });
 
   // ─────────────────── control interactions ───────────────────
@@ -605,11 +742,11 @@ describe("LayerUI style panel", () => {
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(true);
   });
 
-  it("reveals the body when switched on, leaving the picker on Auto", () => {
-    // The picker's Auto entry is not a placeholder: switching the toggle on
-    // leaves the field unresolved on purpose, so the layer keeps labeling
-    // itself if its columns change. The auto rule itself (first numeric, else
-    // first) is asserted in core/labelField.test.ts and below for the format row.
+  it("reveals the body when switched on, showing the picker's default field", () => {
+    // The default pick (first numeric, else first) is a concrete field: the
+    // select always names one, while the config stays untouched until the user
+    // actually picks a column. The rule itself is asserted in
+    // core/labelField.test.ts and below for the format row.
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -622,11 +759,12 @@ describe("LayerUI style panel", () => {
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(false);
-    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
-    expect(manager.annotation.getConfig("overlay1").field).toBe(AUTO_FIELD);
+    expect(fieldSelectOf(item).value).toBe("count");
+    // Switching the labels on is not a field choice: nothing is persisted.
+    expect(manager.annotation.getConfig("overlay1").field).toBe("");
   });
 
-  it("shows the number-format row for the field Auto resolves to", () => {
+  it("shows the number-format row for the field the picker defaults to", () => {
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -634,13 +772,13 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    // Auto resolves to the numeric `count`, so the row is live even though the
-    // select's own value is the empty sentinel.
-    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
+    // The default resolves to the numeric `count`, so the row is live even
+    // though no field was ever stored.
+    expect(fieldSelectOf(item).value).toBe("count");
     expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
   });
 
-  it("offers the auto entry first, then one option per field", () => {
+  it("offers only the layer's real fields, with no placeholder entry", () => {
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -650,13 +788,29 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
 
     const options = Array.from(fieldSelectOf(item).options);
-    expect(options.map(o => o.value)).toEqual([AUTO_FIELD, "name", "count"]);
-    expect(options[0].textContent).toBe("LayerControl.style_label_field_auto");
-    // A disabled placeholder, exactly like the heatmap's field_auto: it shows
-    // the current state rather than offering itself as a choice. Reset is how
-    // the field goes back to auto.
-    expect(options[0].disabled).toBe(true);
-    expect(options[1].disabled).toBe(false);
+    expect(options.map(o => o.value)).toEqual(["name", "count"]);
+    expect(options.map(o => o.textContent)).toEqual(["name", "count"]);
+    // Nothing disabled: every entry is a real field the user can pick.
+    expect(options.some(o => o.disabled)).toBe(false);
+  });
+
+  it("shows the default field when the stored one no longer exists", () => {
+    // A re-registered layer can drop the column a config still names. The
+    // picker must land on a field it actually offers, not on a stale value.
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "retired",
+      format: NUMBER_FORMAT.AUTO,
+    } as any);
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+    ]);
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    expect(fieldSelectOf(item).value).toBe("count");
   });
 
   it("collapses the body again when the toggle goes back off", () => {
@@ -737,7 +891,7 @@ describe("LayerUI style panel", () => {
 
     expect(dragstart.defaultPrevented).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
-    expect(ui.listPanel.dragIdx).toBeNull();
+    expect(ui.listPanel.dragEntry).toBeNull();
   });
 
   it("a press outside the panel still starts the drag", () => {
@@ -811,6 +965,27 @@ describe("LayerUI style panel", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("reset closes the panel without bubbling to the map", () => {
+    // A press on the Reset button must not also become a map click: closing the
+    // panel removes it mid-dispatch, so the click would otherwise keep walking
+    // its original path with no live control ancestor and land on the map (the
+    // same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
+  });
+
   it("reset also restores collide (not just show/field/format)", () => {
     // Regression: DEFAULT_ANNOTATION alone omits collide, so a user-toggled
     // avoid-overlap switch used to survive Reset. defaultConfig() carries it.
@@ -837,7 +1012,7 @@ describe("LayerUI style panel", () => {
     // Reset would shadow the author's field, and persisting that shadow would
     // keep it for good.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "declared" } };
+    (li.layer as any).options.foliplus = { label: { field: "declared" } };
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     manager.annotation.setConfig("overlay1", {
@@ -876,7 +1051,7 @@ describe("LayerUI style panel", () => {
     // nothing, because the canvas is only built by renderLabels. This sweep is
     // what puts a declared field on the map at all.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
 
     const render = vi
       .spyOn(manager.annotation, "renderLabels")
@@ -904,7 +1079,7 @@ describe("LayerUI style panel", () => {
     // The live config wins over the declaration, so the sweep must not redraw a
     // layer the user has already tuned.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "name",
@@ -924,7 +1099,7 @@ describe("LayerUI style panel", () => {
     // reason to paint. Building a canvas over an empty field list would leave a
     // blank layer with the toggle reading on.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
     ui.runtimeStore.deleteFields("overlay1");
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
 
@@ -964,7 +1139,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     // A reorder / fold rebuild clears the container without closing the panel.
@@ -977,7 +1152,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     manager.unregisterLayer("overlay1");
@@ -991,7 +1166,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const slider = sliderOf(host)!;
     const finish = vi.spyOn(slider, "finish");
@@ -1030,7 +1205,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const li = manager.layerRegistry.get("overlay1")!;
     // The layer changes outside the panel while it is open; moving the thumb
@@ -1275,6 +1450,27 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)).toBeUndefined();
   });
 
+  it("header click closes the panel without bubbling to the map", () => {
+    // A press on the header (or the × inside it) must not also become a map
+    // click: closing the panel removes it mid-dispatch, so the click would
+    // otherwise keep walking its original path with no live control ancestor
+    // and land on the map (the same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    panel
+      .querySelector(".foliplus-panel-header")!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
+  });
+
   it("Escape closes an open style panel and returns focus to its row", () => {
     const item = findItem(ui, "overlay1");
     const focusSpy = vi.fn();
@@ -1284,12 +1480,13 @@ describe("LayerUI style panel", () => {
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     checkbox.focus();
 
-    ui.handleKeyDown(
+    // Real keydown: the overlay registry owns Escape now.
+    checkbox.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
         key: "Escape",
-      }) as unknown as KeyboardEvent,
+      }),
     );
 
     expect(panelOf(item)).toBeUndefined();
@@ -1327,11 +1524,11 @@ describe("LayerUI style panel", () => {
     // The fixture's default overlay1 layer is a bare group with no setStyle
     // leaves — border needs at least one such leaf (the border gate), so register a
     // real vector for this test.
-    const leaf = {
+    const leaf = pathify({
       options: { color: "#3388ff", weight: 2 },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "border1",
       name: "Border",
@@ -1394,7 +1591,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "poly1",
       name: "Poly",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
@@ -1405,6 +1602,20 @@ describe("LayerUI style panel", () => {
         })),
       },
     });
+    const p1 = new window.L.Polygon();
+    console.log(
+      "POLY_PROBE",
+      p1 instanceof window.L.Polygon,
+      p1 instanceof window.L.Path,
+      typeof window.L.Path,
+      Object.getPrototypeOf(window.L.Polygon.prototype) === window.L.Path.prototype,
+    );
+    console.log(
+      "POLY1_CAPS",
+      JSON.stringify(
+        manager.surfaceFor(manager.layerRegistry.get("poly1")!).capabilities,
+      ),
+    );
     ui.runtimeStore.setFields("poly1", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "poly1");
@@ -1420,6 +1631,7 @@ describe("LayerUI style panel", () => {
       index(".foliplus-style-opacity-track"),
       index(".foliplus-style-zoom-range-row"),
     ];
+    console.log("POSITIONS", JSON.stringify(positions));
     expect(positions.every(pos => pos >= 0)).toBe(true);
     expect(positions[0]).toBeLessThan(positions[1]);
     expect(positions[1]).toBeLessThan(positions[2]);
@@ -1478,7 +1690,7 @@ describe("LayerUI style panel", () => {
 
     // Path A — annotation panel (no styleSetters): a vector layer whose
     // surface admits all four Layer dims.
-    const leaf = {
+    const leaf = pathify({
       options: {
         color: "#000000",
         weight: 2,
@@ -1487,11 +1699,11 @@ describe("LayerUI style panel", () => {
       },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "sweepVector",
       name: "Vector",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn((fn: (child: unknown) => void) => fn(leaf)),
@@ -1541,9 +1753,9 @@ describe("LayerUI style panel", () => {
     ]);
   });
 
-  // Row-rendering matrix for the two basemap faces — T190 pins the zoomRange
-  // cells. Both basemap kinds now render the zoomRange row: a real GridLayer
-  // carries it through native min/maxZoom (the honest carrier), and the
+  // Row-rendering matrix for the two basemap faces — this matrix pins the
+  // zoomRange cells. Both basemap kinds now render the zoomRange row: a real
+  // GridLayer carries it through native min/maxZoom (the honest carrier), and the
   // solid-color basemap through the isColorBasemap fallback (its surface
   // reports zoomRange: "none", but the executor's visible op is still the
   // carrier, so the row is not a lie). fill/border cells are documented for
@@ -1555,7 +1767,7 @@ describe("LayerUI style panel", () => {
   //   Color (base + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
 
   it("tile basemap (GridLayer) renders the zoomRange row: native min/maxZoom is the carrier", () => {
-    // The 398 R7 `li.group !== "base"` blanket was dropped in T190: a TileLayer is a
+    // The old `li.role !== "base"` blanket was dropped: a TileLayer is a
     // GridLayer subclass whose options.minZoom/maxZoom are exactly the
     // carrier the row writes through, so refusing it was a false refusal.
     // GridLayer is required — a bare `{ options: {} } as never` also gets a
@@ -1564,7 +1776,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "tileBase1",
       name: "OSM",
-      group: "base",
+      role: "base",
       layer: new GridLayer() as never,
     });
     ui.runtimeStore.setFields("tileBase1", [{ name: "count", numeric: true }]);
@@ -1587,7 +1799,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      group: "base",
+      role: "base",
       color: "#3366cc",
     });
     ui.runtimeStore.setFields("colormap", [{ name: "count", numeric: true }]);
@@ -1609,9 +1821,11 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "norange1",
       name: "N",
-      group: "base",
-      layer: { options: {} } as never,
-      paneName: "tilePane",
+      role: "base",
+      layer: pathify({ options: {} }) as never,
+      // An owned pane name: a shared-pane declaration is refused now (the
+      // layer gets its own synthesized pane instead of adopting tilePane).
+      paneName: "norange-pane",
     });
     const li = manager.layerRegistry.get("norange1")!;
     manager.surfaceFor(li).capabilities.zoomRange = "none";
@@ -1648,7 +1862,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── ⋮ menu item ───────────────────
 
   it("the ⋮ menu's Style item is enabled for pane-capable layers even without labels", () => {
-    // R5: capability-driven gate. A layer whose surface reports opacity/zoomRange
+    // Capability-driven gate. A layer whose surface reports opacity/zoomRange
     // capability gets the panel enabled — the opacity and zoomRange sliders are
     // useful even without label fields.
     ui.runtimeStore.deleteFields("overlay1");
@@ -1657,9 +1871,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1669,9 +1883,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1681,22 +1895,22 @@ describe("LayerUI style panel", () => {
     // "no extent" verdict, an off row is simply hidden and has nothing to
     // style. The color basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>
       item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
       ) as HTMLElement;
 
     box.checked = false;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBe("disabled");
+    expect(styleItemOf().getAttribute("aria-disabled")).toBe("true");
 
     box.checked = true;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBeNull();
+    expect(styleItemOf().getAttribute("aria-disabled")).not.toBe("true");
   });
 
   // ─────────────────── field cache ───────────────────
@@ -1733,7 +1947,7 @@ describe("LayerUI style panel", () => {
 
   it("re-renders a shown layer when its fields are invalidated", () => {
     // Dropping the cache is not enough: the drawn labels carry text baked from
-    // the old fields while the picker would resolve a new auto field, so the
+    // the old fields while the picker would resolve a new default field, so the
     // map and the panel would disagree until the user touched a control.
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -1875,9 +2089,9 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").show).toBe(false);
   });
 
-  it("applyStyleLabelState renders a shown config whose field is still auto", () => {
-    // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
-    // must still render (renderLabels resolves the auto pick).
+  it("applyStyleLabelState renders a shown config that names no field", () => {
+    // `field: ""` means "never picked", not "nothing to show" — a shown config
+    // must still render (renderLabels resolves the layer's default pick).
     seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } as any });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
@@ -2588,11 +2802,11 @@ describe("LayerUI style panel", () => {
     // fill and border (the vector setStyle write is unreliable against a
     // component that redraws its own geometry), keeping only opacity and
     // zoomRange (LayerControl-owned).
-    const leaf = {
+    const leaf = pathify({
       options: { color: "#3388ff", weight: 2, fillColor: "#3388ff", fillOpacity: 0.2 },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "measure1",
       name: "Measure",
@@ -3532,6 +3746,12 @@ describe("LayerUI style panel", () => {
     try {
       const item = findItem(ui, "base1");
       ui.openStylePanel("base1");
+      console.log(
+        "BASE1_DEBUG",
+        JSON.stringify(
+          manager.surfaceFor(manager.layerRegistry.get("base1")!).capabilities,
+        ),
+      );
       const host = panelOf(item)!.querySelector(
         `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
       ) as HTMLElement;
@@ -3713,7 +3933,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
@@ -3887,37 +4107,24 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("moves the current dot on zoomend", () => {
     const item = findItem(ui, "overlay1");
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const dot = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
-    const before = dot.style.left;
+    const before = row.querySelector<HTMLElement>(".foliplus-slider-dot-current")!.style
+      .left;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     // setMarks rebuilds the dots when the current level moves, so the live
     // node is the new one, not the reference captured before the event.
     const after = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
     expect(after.style.left).not.toBe(before);
-    map.on = origOn;
   });
 
   it("updates values row on zoomend", () => {
     const item = findItem(ui, "overlay1");
     setIntent(ui, "overlay1", "zoomRange", [0, 18]);
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3925,14 +4132,13 @@ describe("LayerUI style panel — zoom range", () => {
     const beforeCurrent = current.textContent;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     const afterCurrent = row.querySelector(
       ".foliplus-slider-value-current",
     ) as HTMLElement;
     expect(afterCurrent.textContent).toBe("12");
     expect(beforeCurrent).not.toBe(afterCurrent.textContent);
-    map.on = origOn;
   });
 
   it("covers only the dots the selected range reaches", () => {
@@ -4028,7 +4234,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("gives the fixture's tile base layer a zoom row: the GridLayer native min/maxZoom is the carrier", () => {
-    // T190 — the old `li.group !== "base"` blanket was dropped; the fixture's base1 is
+    // The old `li.role !== "base"` blanket was dropped; the fixture's base1 is
     // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
     // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
@@ -4416,7 +4622,7 @@ describe("LayerUI style panel — zoom range", () => {
     manager.registerLayer({
       id: "grid1",
       name: "Grid",
-      group: "overlay",
+      role: "overlay",
       layer: gridLayer,
     });
     // Author declared no maxZoom: the fallback is the map's declared max.
@@ -4567,5 +4773,179 @@ describe("reset on an id the registry does not know", () => {
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
+  });
+});
+
+describe("reset whose dimension reports no delta", () => {
+  // `reset?` is typed `ProjectionDelta | void`: a dimension runs its own side
+  // effects and is free to report nothing back. Both entry points fall back to
+  // the empty delta for that case, so the publish contract still holds — a
+  // reset that cannot say what moved announces nothing.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resetLayerOpacity returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.OPACITY)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerOpacity(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
+  });
+
+  it("resetLayerZoomRange returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.ZOOM_RANGE)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerZoomRange(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
+  });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a reset button announces once, after the panel is closed", () => {
+  // The panel Reset restores every dimension, then the delegated defaults
+  // (or the label config), then closes the panel — and only then announces,
+  // once, for the whole operation. A notify fired by one dimension mid-way
+  // would hand a subscriber a panel that is still open, and a subscriber
+  // that tears the control down there would take the handler's own
+  // closeStylePanel lookup with it.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  ui.onZoomEnd?.();
+  expect(onMap.get(layer)).toBe(false);
+
+  ui.openStylePanel("overlay1");
+  const resetBtn = findItem(ui, "overlay1").querySelector(
+    ".foliplus-style-reset-btn",
+  ) as HTMLElement;
+  expect(resetBtn).not.toBeNull();
+
+  const atDelivery: Array<{ onMap: boolean; panelOpen: boolean }> = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "overlay1") return;
+    const item = ui.uiContainer?.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${payload.id}"]`,
+    );
+    atDelivery.push({
+      onMap: onMap.get(layer) ?? false,
+      panelOpen: !!item?.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`),
+    });
+    if (atDelivery.length === 1) ui.c.destroy();
+  });
+
+  expect(() =>
+    resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+  ).not.toThrow();
+  expect(atDelivery).toEqual([{ onMap: true, panelOpen: false }]);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a zoomend skips the row sync once the zoom-range row is detached", () => {
+  // The panel's zoom-end hook is registered while the drawer is open, but a
+  // list rebuild or a teardown can take the row out from under it before the
+  // map fires. Reading the detached node would repaint a row nobody sees, so
+  // the hook checks first.
+  const { ui } = oneOverlay();
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row).not.toBeNull();
+
+  row.remove();
+
+  expect(() => ui.onZoomEnd?.()).not.toThrow();
+});
+
+// ── Capability live refresh ─────────────────────────────────────
+// The style panel gates its rows on the surface capability projection when it
+// is built, so a recovery must reach a panel that is already open. The
+// controller announces projection changes at the tail of every ordering pass
+// (LAYER_CAPABILITY_CHANGED) and the open drawer re-renders from the fresh
+// projection.
+
+describe("style panel live capability refresh", () => {
+  /** A container whose children can change under the surface, with Leaflet's
+   *  membership shape (eachLayer / addLayer / removeLayer / hasLayer). */
+  const mutableGroup = (children: unknown[] = []) => {
+    const group = {
+      options: {} as Record<string, unknown>,
+      children,
+      eachLayer(fn: (child: unknown) => void) {
+        for (const child of group.children) fn(child);
+      },
+      addLayer(layer: unknown) {
+        group.children.push(layer);
+        return group;
+      },
+      removeLayer(layer: unknown) {
+        group.children = group.children.filter(child => child !== layer);
+        return group;
+      },
+      hasLayer(layer: unknown) {
+        return group.children.includes(layer);
+      },
+    };
+    return group as unknown as L.Layer & { children: unknown[] };
+  };
+
+  it("re-renders an open panel when the capability recovers", () => {
+    const { manager, ui } = initFixture({ data: [] });
+    const group = mutableGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "recover1",
+      name: "Recover",
+      role: "overlay",
+      layer: group,
+    });
+    // Seed the capability snapshot with the healthy projection (first sight is
+    // recorded silently) before the degrade, so the recovery is a real diff.
+    manager.enforceOrder();
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover1")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+    const item = findItem(ui, "recover1");
+
+    // A leaf no migrator can relocate: a pane opacity write would fade part of
+    // the layer and miss the rest, so the axis must degrade.
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    ui.openStylePanel("recover1");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
+
+    // The foreign leaf leaves. A pass re-derives the projection; the panel that
+    // is open right now must show the recovered row without a close/reopen.
+    manager.onLayerRemove({ layer: foreign } as never);
+    group.removeLayer(foreign);
+    manager.enforceOrder();
+
+    expect(surface.capabilities.opacity).toBe("pane");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).not.toBeNull();
+
+    // The other direction too: a degrade while the panel is open drops the
+    // row instead of leaving a control that would write into a foreign tree.
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
   });
 });

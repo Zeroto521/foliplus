@@ -213,6 +213,7 @@ const paintsAtZoom = (map: L.Map, layer: L.Layer | null | undefined): boolean =>
 const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
   fill: CONST.CAP_TIER.NONE,
   stroke: CONST.CAP_TIER.NONE,
+  size: CONST.CAP_TIER.NONE,
   opacity: CONST.CAP_TIER.NONE,
   zoomRange: CONST.CAP_TIER.NONE,
   visibility: CONST.CAP_TIER.NATIVE,

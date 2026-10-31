@@ -43,6 +43,9 @@ html/
 .hypothesis/
 .pytest_cache/
 
+# Ad-hoc command logs from local gate runs
+.gate-*.log
+
 # Sphinx docs
 doc/_build/
 doc/source/_build/
@@ -81,6 +84,7 @@ package-lock.json
 .DS_Store
 
 # LLM
+.local/
 .task/
 .claude/
 .claude/plans/myagents/
@@ -99,4 +103,7 @@ TASK.md
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+
+# Local scratch output
 debug.log
+nul
