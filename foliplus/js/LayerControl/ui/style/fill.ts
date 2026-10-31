@@ -502,9 +502,30 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
 
-  // Row order matches the by-value arm: Field, Classes, Scheme. The count
-  // readout therefore lands where the by-value class-count select sits and
-  // the colors strip where the scheme trigger sits, so the two arms line up.
+  // Row order matches the by-value arm: Field, Method, Classes, Scheme. The
+  // method readout therefore lands where the by-value method select sits, the
+  // count where its class-count select sits and the colors strip where the
+  // scheme trigger sits, so the two arms line up column for column.
+  if (author?.scale) {
+    // The author's scale is always classified: a StepColormap is the equal-
+    // interval split of its own index, a LinearColormap the continuous ramp.
+    // The original arm is read-only, so the method is stated, not edited.
+    rows.push(
+      formRow(
+        ui.T("style_method"),
+        readOnlyBox(
+          CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+          dom.el(
+            "span",
+            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+            methodLabel(ui, METHOD.EQUAL),
+          ),
+        ),
+        CONST.CLASSES.STYLE_FILL_ROW,
+      ),
+    );
+  }
+
   rows.push(
     formRow(
       ui.T("style_fill_classes"),

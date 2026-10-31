@@ -2865,7 +2865,7 @@ describe("fill row — original colors", () => {
 
     // One FORM_ROW per readout. The raw strip and caption divs are gone — they
     // escaped the label/control grid and are what overflowed the panel.
-    expect(children.length).toBe(3);
+    expect(children.length).toBe(4);
     for (const child of children) {
       expect(child.classList.contains("foliplus-form-row")).toBe(true);
       expect(child.querySelector(".foliplus-form-label")).not.toBeNull();
@@ -2873,6 +2873,7 @@ describe("fill row — original colors", () => {
     }
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_fill_field",
+      "LayerControl.style_method",
       "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);
@@ -2894,6 +2895,11 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
 
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
+    // The author's stepped scale is the equal-interval split, so the method
+    // readout states it (a read-only arm: the value is stated, never edited).
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD)).toBe(
+      "LayerControl.style_method_equal",
+    );
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
     // The caption moved from a line of its own onto the colors box: the panel
     // stays three rows tall and the sentence is still reachable.
@@ -2904,6 +2910,24 @@ describe("fill row — original colors", () => {
     // An accessible name only applies to a role that accepts one: the bar is
     // information (an image of the author's colors), not a control.
     expect(colorsBoxOf(row).getAttribute("role")).toBe("img");
+  });
+
+  it("right-aligns the method and count readouts like the by-value controls", () => {
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const method = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD);
+    const count = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT);
+
+    // Both readout boxes are the same width as the by-value class-count select
+    // (--foliplus-form-secondary-width) and sit flush against the control
+    // column's right edge — the Size row's px field does the same, so the
+    // column edge is one line across every row of the panel.
+    expect(method).not.toBeNull();
+    expect(count).not.toBeNull();
+    for (const box of [method!, count!]) {
+      expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
+      expect(box.getAttribute("aria-disabled")).toBe("true");
+    }
   });
 
   it("offers nothing interactive in the read-only detail", () => {
@@ -2917,7 +2941,7 @@ describe("fill row — original colors", () => {
     const boxes = [
       ...detail.querySelectorAll(selector(CONST.CLASSES.STYLE_FILL_READONLY)),
     ];
-    expect(boxes.length).toBe(3);
+    expect(boxes.length).toBe(4);
     for (const box of boxes) {
       expect(box.getAttribute("aria-disabled")).toBe("true");
     }
@@ -2947,6 +2971,15 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("64+");
+    // A categorical layer has no classification: no method row, and no field
+    // row either — the panel states the colors and their count only.
+    expect(
+      boxOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBeNull();
+    expect(labelsOf(blockOf(fallback.ui))).toEqual([
+      "LayerControl.style_fill_classes",
+      "LayerControl.style_fill_scheme",
+    ]);
   });
 
   it("keeps the author's scale order in the gradient", () => {
@@ -3091,6 +3124,7 @@ describe("fill row — original colors", () => {
     // so the bar renders; the panel must not invent a field name.
     expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
     expect(labelsOf(row)).toEqual([
+      "LayerControl.style_method",
       "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);
