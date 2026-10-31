@@ -57,9 +57,15 @@
   white-space: nowrap;
 }
 
-/* Nothing selected in a multi-select: the trigger carries the prompt in the
-   muted ink the empty panels use, not the value ink. */
-.foliplus-dropdown-placeholder {
+/* Nothing selected (a multi-select prompt, or a bridged select whose empty
+   value is the layer prompt): the trigger carries that prompt in the muted
+   ink the empty panels use, not the value ink. The trigger also carries
+   .foliplus-form-select, whose color rule lives in common/form.css and lands
+   LATER in the merged bundle — a single-class selector here would lose that
+   tie (same (0,1,0) specificity, later file wins) and muted would never show.
+   The compound class (0,2,0) beats it regardless of file order, which is why
+   this rule can stay in dropdown.css instead of moving into form.css. */
+.foliplus-dropdown-trigger.foliplus-dropdown-placeholder {
   color: var(--foliplus-text-muted);
 }
 
@@ -87,12 +93,15 @@
   left: 0;
   right: 0;
   padding: var(--foliplus-space-xs) 0;
+  /* A long option list stops at the shared cap instead of running the width
+     of the panel; the trigger keeps the control column's width. */
+  max-width: var(--foliplus-menu-max-width);
 }
 .foliplus-dropdown-up > .foliplus-dropdown-list {
   top: auto;
   bottom: 100%;
   margin-top: 0;
-  margin-bottom: var(--foliplus-space-xs);
+  margin-bottom: var(--foliplus-menu-gap);
 }
 
 /* ── Portalled popup ──
@@ -114,15 +123,15 @@
 }
 
 /* ── Option row ──
-   A grid, not a plain text line: the multi-select check column is reserved on
-   every row so labels stay aligned while ticks appear and disappear. In
-   single-select mode the module renders no check slot and the row collapses
-   to its label (grid-template-columns only applies to the multi variant). */
+   One row recipe for single and multiple modes: the multi-select tick was
+   removed (the trigger already says "N selected"), so every row is a plain
+   label and the two modes cannot drift apart. */
 .foliplus-dropdown-option {
   display: flex;
   align-items: center;
   gap: var(--foliplus-space-sm);
   width: 100%;
+  min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   border: 0;
   border-radius: 0;
@@ -137,8 +146,8 @@
   transition: background-color var(--foliplus-transition-fast);
 }
 .foliplus-dropdown-option:hover:not([disabled]) {
-  background: var(--foliplus-accent-light);
-  color: var(--foliplus-accent-primary);
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
 }
 .foliplus-dropdown-option:not([disabled]):active {
   background: var(--foliplus-accent-soft-bg);
@@ -147,14 +156,19 @@
   color: var(--foliplus-text-muted);
   cursor: default;
 }
-/* Persistent selection: the soft accent wash (a picked value is state, not
-   hover), on top of which the hover rule above still answers. */
+/* Persistent selection: the soft accent wash plus the 3px inset bar, drawn
+   with box-shadow so the row keeps its full width and the bar cannot shift
+   the label. The hover rule above still answers on top of it. */
 .foliplus-dropdown-option[aria-selected="true"] {
-  background: var(--foliplus-accent-soft-bg);
+  background: var(--foliplus-menu-row-selected-bg);
+  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
+    var(--foliplus-menu-row-selected-bar);
 }
 .foliplus-dropdown-option:focus-visible {
   outline: none;
-  box-shadow: var(--foliplus-focus-ring);
+  box-shadow:
+    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
+    var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }
 .foliplus-dropdown-option-label {
@@ -165,26 +179,6 @@
   white-space: nowrap;
 }
 
-/* ── Multi-select check slot ──
-   Painted in CSS: a tick is two borders rotated 45°, so the shared dropdown
-   needs no icon import and the tick inherits the row's accent ink. */
-.foliplus-dropdown-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--foliplus-size-16);
-  height: var(--foliplus-size-16);
-  flex: 0 0 auto;
-  visibility: hidden;
-}
-.foliplus-dropdown-option[aria-selected="true"] .foliplus-dropdown-check {
-  visibility: visible;
-}
-.foliplus-dropdown-check::before {
-  content: "";
-  width: var(--foliplus-size-4);
-  height: var(--foliplus-size-8);
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg) translate(-1px, -1px);
-}
+/* The multi-select row used to reserve a tick column here. It is gone on
+   purpose: the trigger already reports "N selected", and the inset bar above
+   carries the selected state for single and multiple alike. */

@@ -168,7 +168,14 @@ class TestExportCropBoxBrowser:
             )
             handle = page.locator(".foliplus-export-handle.br")
             handle.hover()
-            page.wait_for_timeout(200)
+            # Wait for the hover transition to actually finish (accent-light
+            # reached, computed background-color stable) instead of a fixed
+            # timeout. A mid-transition screenshot reads a partially-filled
+            # blend whose corners are not yet full pink, which flakes the
+            # corner-pink density check on raster timing.
+            page.wait_for_function(
+                _js("ExportControl/wait_handle_hover_settled"), timeout=5000
+            )
             shot = handle.screenshot()
             corner_pink, center_pink, size = _corner_pink(shot)
             assert center_pink, f"handle center should be accent-light: size={size}"
