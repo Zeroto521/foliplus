@@ -63,12 +63,20 @@ import { isFilterCapable } from "./filter.js";
  *  menu sat in the document. */
 const handleMenuClick = (ui: LayerUI, event: Event): void => {
   const target = event.target as HTMLElement;
-  const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
+  const menuItem = target.closest(
+    `.foliplus-layer-more-menu button`,
+  ) as HTMLElement | null;
   if (!menuItem) return;
   event.stopPropagation();
   // A disabled entry keeps the menu open so the user sees why (its tooltip
   // carries the reason); the shared runner applies that rule for both inputs.
-  runMenuAction(ui, menuItem);
+  // A native button fires its click from Enter/Space with `detail === 0` (the
+  // keyboard-originated marker), so the disabled reason is surfaced as a hint
+  // only for a keyboard user — a mouse click on a disabled entry stays silent
+  // (its tooltip already explains it), preserving the old input split.
+  runMenuAction(ui, menuItem, {
+    explainDisabled: (event as MouseEvent).detail === 0,
+  });
 };
 
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
@@ -95,11 +103,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   if (filterSupported) {
     menu.appendChild(
       dom.el(
-        "li",
+        "button",
         {
+          type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          tabindex: "0",
           title: ui.T("filter_layer_tooltip"),
           "aria-disabled": "false",
         },
@@ -138,11 +146,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
 
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: styleDisabled
           ? ui.T("style_label_no_data")
           : ui.T("style_layer_tooltip"),
@@ -152,34 +160,31 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ui.T("style_layer"),
     ),
   );
-  if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
   // Focus follows Style: the reversible view action keeps a fixed, safe slot
   // just after the configure action instead of opening the menu (a double-
   // click on the trigger must never land on the destructive tail).
   const itemAttrs = {
+    type: "button",
     "data-action": "focus-layer",
     role: "menuitem",
-    tabindex: "0",
     title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
   menu.appendChild(
-    dom.el("li", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
   );
-
-  if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
   // Rename writes to the layer itself, so it sits above the display-only
   // entry rather than at the tail of the working actions.
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: ui.T("rename_layer_tooltip"),
       },
       { html: Icons.ICON_EDIT },
@@ -191,11 +196,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // still has name / source / visibility to show.
   menu.appendChild(
     dom.el(
-      "li",
+      "button",
       {
+        type: "button",
         "data-action": CONST.ACTION.ATTRS_LAYER,
         role: "menuitem",
-        tabindex: "0",
         title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.ICON_INFO },
@@ -261,7 +266,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // The head is Filter when supported, Style otherwise — both are reversible
   // actions, so the trigger-adjacent slot is always safe.
   (
-    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu li") as HTMLElement
+    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu button") as HTMLElement
   ).focus();
 };
 
@@ -332,12 +337,12 @@ const buildDeleteItem = (
   );
   const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
-    "li",
+    "button",
     {
+      type: "button",
       "data-action": CONST.ACTION.DELETE_LAYER,
       "data-mode": mode,
       role: "menuitem",
-      tabindex: "0",
       title: tooltip,
     },
     { html: Icons.ICON_DELETE },
@@ -492,7 +497,7 @@ const runMenuAction = (
   menuItem: HTMLElement,
   options: { explainDisabled?: boolean } = {},
 ): void => {
-  if (menuItem.getAttribute("disabled")) {
+  if (menuItem.getAttribute("aria-disabled") === "true") {
     if (options.explainDisabled) {
       const reason = menuItem.getAttribute("title");
       if (reason) {

@@ -42,7 +42,7 @@
 
   row.querySelector(".foliplus-layer-more-btn").click();
   const styleItem = row.querySelector(
-    '.foliplus-layer-more-menu li[data-action="style-layer"]',
+    '.foliplus-layer-more-menu button[data-action="style-layer"]',
   );
   if (!styleItem) return { row: true, styleItem: false };
   styleItem.click();

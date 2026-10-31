@@ -1,4 +1,4 @@
 () =>
   document
-    .querySelector(".foliplus-layer-more-menu li[data-action=layer-attributes]")
+    .querySelector(".foliplus-layer-more-menu button[data-action=layer-attributes]")
     .click();
