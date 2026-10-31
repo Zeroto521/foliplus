@@ -24,6 +24,11 @@ export default defineConfig({
         // Build orchestrator — spawns python/git/esbuild subprocesses and needs
         // the full build pipeline; not unit-testable in isolation.
         "script/build/build.mjs",
+        // Local gate orchestrator — spawns every tool (typecheck, vitest,
+        // pytest, ruff, …) and needs the full toolchain; the gates are
+        // exercised by `make check` itself in CI. The pure helper exports
+        // still carry unit coverage via test/js/script/check/local-check.test.ts.
+        "script/check/local-check.mjs",
         // Locale key scanner — CLI validated by the Python locale test suite,
         // not unit-tested.
         "script/check/scan-locale-key.mjs",
