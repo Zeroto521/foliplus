@@ -154,7 +154,9 @@
 }
 .foliplus-dropdown-option[disabled] {
   color: var(--foliplus-text-muted);
-  cursor: default;
+  /* Not-allowed, not default: the disabled state is deliberate, and the
+     default arrow would read the row as selectable. */
+  cursor: not-allowed;
 }
 /* Persistent selection: the soft accent wash plus the 3px inset bar, drawn
    with box-shadow so the row keeps its full width and the bar cannot shift

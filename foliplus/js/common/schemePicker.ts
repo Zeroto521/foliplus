@@ -87,6 +87,10 @@ interface SchemePickerOptions {
    *  entries still take focus during keyboard navigation and are announced as
    *  disabled; activating them is a no-op, never an onChange. */
   disabledSchemes?: readonly string[];
+  /** Tooltip for a disabled scheme entry (when no schemeLabel is more
+   *  specific). Disabled entries keep their focus and aria-disabled semantics;
+   *  this only gives a mouse user the reason on hover. */
+  disabledHint?: string;
 }
 
 interface SchemePicker {
@@ -145,6 +149,7 @@ interface InternalState {
   colorScale: (name: string, n: number) => string[];
   schemeLabel: (name: string) => string;
   disabledSchemes: readonly string[];
+  disabledHint: string;
   /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
   cleanupFns: (() => void)[];
   /** Mount-scope listeners (outside-click, scroll, fullscreen, item focus) —
@@ -240,7 +245,12 @@ const buildDropdown = (state: InternalState): HTMLElement => {
       parent: item,
     });
     renderColorBar(bar, name, numClasses, classes.block, state.colorScale);
-    item.title = state.schemeLabel(name);
+    // A disabled entry shows the disabled hint when the consumer provides one;
+    // otherwise it falls back to the scheme label (the previous title), so an
+    // empty hint never blanks the tooltip a disabled entry already had.
+    item.title = disabled
+      ? state.disabledHint || state.schemeLabel(name)
+      : state.schemeLabel(name);
 
     item.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
@@ -672,6 +682,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     colorScale: options.colorScale,
     schemeLabel: options.schemeLabel ?? (name => name),
     disabledSchemes: options.disabledSchemes ?? [],
+    disabledHint: options.disabledHint ?? "",
     value: options.value,
     dropdown: null,
     items: [],

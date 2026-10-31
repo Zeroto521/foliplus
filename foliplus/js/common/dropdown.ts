@@ -67,6 +67,11 @@ interface DropdownItem {
   disabled?: boolean;
   /** Native tooltip, mirroring SelectOption.title. */
   title?: string;
+  /** Fallback tooltip for a disabled option that carries no title: the
+   *  disabled state still needs a reason a mouse user can see (the native
+   *  select shows the option's own title, so a disabled row without one
+   *  would otherwise offer no explanation on hover). */
+  disabledHint?: string;
 }
 /** The three ARIA attributes shared by every option row (the dropdown's own
  *  rows and the scheme picker's). This is the ONLY part of the row contract
@@ -443,7 +448,11 @@ const renderOptions = (state: InternalState): void => {
         class: DROPDOWN_CLASSES.option,
         "data-value": item.value,
         ...(item.disabled ? { disabled: "" } : {}),
-        ...(item.title ? { title: item.title } : {}),
+        ...(item.title
+          ? { title: item.title }
+          : item.disabled && item.disabledHint
+            ? { title: item.disabledHint }
+            : {}),
       },
       dom.el("span", { class: DROPDOWN_CLASSES.optionLabel }, item.label),
     ) as HTMLButtonElement;

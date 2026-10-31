@@ -450,6 +450,47 @@ describe("ARIA attributes", () => {
 
 // ── Hidden select sync ─────────────────────────────────────────────────
 
+describe("disabled entry affordance", () => {
+  const itemsOf = (picker: SchemePicker): HTMLElement[] =>
+    Array.from(
+      picker.getDropdown()?.querySelectorAll<HTMLElement>("[role=option]") ?? [],
+    );
+
+  it("gives a disabled scheme entry the disabled hint as its title", () => {
+    const { picker, trigger } = makePicker({
+      disabledSchemes: ["Greens"],
+      disabledHint: "Unavailable",
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const greens = items.find(el => el.getAttribute("data-scheme-name") === "Greens")!;
+    expect(greens.getAttribute("aria-disabled")).toBe("true");
+    expect(greens.title).toBe("Unavailable");
+  });
+
+  it("leaves an enabled scheme entry's title to its scheme label", () => {
+    const { picker, trigger } = makePicker({
+      disabledSchemes: ["Greens"],
+      disabledHint: "Unavailable",
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const reds = items.find(el => el.getAttribute("data-scheme-name") === "Reds")!;
+    expect(reds.getAttribute("aria-disabled")).toBeNull();
+    expect(reds.title).toBe("Reds");
+    expect(reds.title).not.toBe("Unavailable");
+  });
+
+  it("falls back to the scheme label when no disabled hint is given", () => {
+    const { picker, trigger } = makePicker({ disabledSchemes: ["Greens"] });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const greens = items.find(el => el.getAttribute("data-scheme-name") === "Greens")!;
+    expect(greens.getAttribute("aria-disabled")).toBe("true");
+    expect(greens.title).toBe("Greens");
+  });
+});
+
 describe("hidden select sync", () => {
   it("populates options from schemes", () => {
     const { hiddenSelect } = makePicker();
