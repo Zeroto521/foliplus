@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
+from ._declared_filter import normalize_declared_filter
 from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
@@ -63,7 +64,9 @@ class HeatmapControl(BaseControl):
         auto-selection (the only point layer is selected automatically).
 
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
-        Default aggregation method.
+        Default aggregation method. A ``filter`` declaration needs a value
+        aggregation (not ``"count"``) — count aggregates by nothing, so a range
+        has no field to bind to and raises (see Notes).
 
     field : str, optional
         Aggregation field to select when the map first loads. Only a numeric
@@ -71,7 +74,13 @@ class HeatmapControl(BaseControl):
         with a console warning and the panel falls back to its normal default
         field (the first numeric field). Like ``layer``, a persisted user
         choice wins, and a ``count`` aggregation does not use the field until
-        the user switches to a value aggregation.
+        the user switches to a value aggregation — a ``filter`` declaration
+        with ``agg="count"`` is therefore API misuse and raises (see Notes).
+
+    filter : dict, optional
+        Starting filter on the aggregation field: a mapping with ``min`` and
+        ``max`` (the range is bound to ``field=``). See Notes for the declaration
+        shape and the failure modes listed there.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
@@ -133,6 +142,48 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
+
+    With a declared starting filter on the aggregation field:
+
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(
+    ...     agg="sum", field="score", filter={"min": 10, "max": 50}
+    ... ).add_to(m)
+
+    Notes
+    -----
+    **Filter declaration.** ``filter`` is a mapping with ``min`` and ``max``
+    (the enum arm, a list of measurement types, belongs to ``MeasureControl``):
+
+    +--------------------+----------------------+----------+----------------------------------------------+
+    | Key                | Type                 | Required | Meaning                                      |
+    +====================+======================+==========+==============================================+
+    | ``min`` / ``max``  | ``number`` each      | yes      | Inclusive range on the aggregation field     |
+    |                    |                      |          | (``field=``).                                |
+    +--------------------+----------------------+----------+----------------------------------------------+
+
+    **Situation → behavior.**
+
+    +--------------------------------------------+--------------------------------------------+
+    | Situation                                  | Behavior                                   |
+    +============================================+============================================+
+    | ``field`` key inside ``filter``, or no     | ``ValueError`` in the cell that wrote the  |
+    | aggregation field (no ``field=``, or       | declaration.                               |
+    | ``agg="count"``)                           |                                            |
+    +--------------------------------------------+--------------------------------------------+
+    | Data-shaped problem (no numeric extent,    | Reported once with a warning; treated as   |
+    | range outside the data, non-numeric bound) | undeclared — never silently filtered to    |
+    |                                            | empty.                                     |
+    +--------------------------------------------+--------------------------------------------+
+    | User write                                 | Wins from then on; the declaration is a    |
+    |                                            | starting condition only.                   |
+    +--------------------------------------------+--------------------------------------------+
+    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
+    |                                            | declaration re-seeds (this session and on  |
+    |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
     """
 
     @validate
@@ -152,7 +203,18 @@ class HeatmapControl(BaseControl):
             str | None,
             FieldSpec(
                 ts="",
-                note="Aggregation field selected on first load; a persisted user selection wins.",
+                note="Aggregation field selected on first load (and the field a declared filter range binds to); a persisted user selection wins.",
+            ),
+        ] = None,
+        filter: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="",
+                note=(
+                    "Declared filter on the aggregation field: a mapping with min and max "
+                    "(bound to field=), normalised to the shared filter AST; a persisted "
+                    "user filter wins."
+                ),
             ),
         ] = None,
         method: METHOD = "jenks",
@@ -184,6 +246,20 @@ class HeatmapControl(BaseControl):
         self.layer = layer
         self.agg = agg
         self.field = field
+        # The declaration is normalised here, at construction, so CONF carries
+        # the AST the runtime reads (never the friendly shape). A 'field' key
+        # inside the declaration, or a range with no aggregation field to bind
+        # to (no field=, or agg="count" — a count aggregates by nothing), raises
+        # ValueError; a data-shaped problem warns and drops the declaration
+        # instead of filtering to nothing.
+        self.filter = normalize_declared_filter(
+            filter,
+            owner="HeatmapControl",
+            arm="range",
+            # A count aggregation has no field to bind the range to — the
+            # declaration is API misuse and raises (see _range_atom).
+            bound_field=self.field if agg != "count" else None,
+        )
         self.method = method
         self.num_classes = num_classes
         self.color_scheme = color_scheme

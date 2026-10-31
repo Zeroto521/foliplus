@@ -186,6 +186,7 @@ const CLASSES = {
   STYLE_FILL_ORIGINAL_COLORS: "foliplus-style-fill-original-colors",
   STYLE_FILL_ORIGINAL_STRIP: "foliplus-style-fill-original-strip",
   STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
+  STYLE_FILL_ORIGINAL_METHOD: "foliplus-style-fill-original-method",
   STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
   /** Ramp detail controls (color-by-value arm): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared

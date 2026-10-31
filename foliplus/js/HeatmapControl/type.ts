@@ -71,6 +71,12 @@ interface SavedConfig {
    *  is plain JSON; the panel's record survives a reload and is re-validated
    *  against the rebuilt snapshot before it can exclude a point. */
   filters?: Record<string, LayerFilter>;
+  /** Whether the user has ever touched the filter slot — set a filter or
+   *  explicitly cleared one. A Python-declared filter seeds only while this
+   *  is absent: once the user owns the slot (including owning "no filter"),
+   *  the declaration must not come back on reload. The factory Reset drops
+   *  the ownership, so the declaration returns with the other defaults. */
+  filtersTouched?: boolean;
 }
 
 export type {

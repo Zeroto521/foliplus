@@ -67,6 +67,8 @@ interface ConfigHeatmap extends ConfigCommon {
   agg: "count" | "sum" | "avg" | "min" | "max";
   /** Aggregation field selected on first load; a persisted user selection wins. */
   field: string | null;
+  /** Declared filter on the aggregation field, normalised to the shared filter AST; a persisted user filter wins. */
+  filter: Record<string, unknown> | null;
   method: "jenks" | "quantile" | "equal" | "heads";
   num_classes: number;
   color_scheme: string;
@@ -98,6 +100,8 @@ interface ConfigMeasure extends ConfigCommon {
   label_show: boolean;
   label_collide: boolean;
   show_live_coords: boolean;
+  /** Declared measurement-type filter: the shared filter AST normalised from the friendly list of type names the argument takes; a persisted user filter wins. */
+  filter: Record<string, unknown> | null;
   filename: string;
   export_format: "geojson" | "csv";
   collapse_on_outside: boolean;
@@ -139,6 +143,8 @@ interface ComponentConfig {
   agg?: "count" | "sum" | "avg" | "min" | "max";
   /** Aggregation field selected on first load; a persisted user selection wins. */
   field?: string | null;
+  /** Declared filter on the aggregation field, normalised to the shared filter AST; a persisted user filter wins. */
+  filter?: Record<string, unknown> | null;
   method?: "jenks" | "quantile" | "equal" | "heads";
   num_classes?: number;
   color_scheme?: string;
