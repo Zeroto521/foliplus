@@ -198,8 +198,8 @@ describe("currentOpacity (resolved opacity read)", () => {
   });
 });
 
-// The author-declared range (`foliplus={"zoom": {...}}` → CONF `data[].zoom`)
-// is the policy fallback when the user never set a range — the same role
+// The author-declared range (`foliplus={"zoom_range": {...}}` → CONF
+// `data[].zoomRange`) is the policy fallback when the user never set a range — the same role
 // `data[].show` plays for visibility. These cases pin that fallback, the
 // precedence of a stored choice over it, and the two defensive edges: the
 // clamp to the map bounds and a payload CONF should never contain.
@@ -207,8 +207,8 @@ describe("inZoomRange (author-declared range)", () => {
   const makeUIWith = (opts: { minZoom?: number; maxZoom?: number; zoom?: number }) =>
     makeUI(opts);
 
-  const layerWithZoom = (id: string, zoom: { min: number; max: number }) =>
-    ({ id, layer: null, canvas: null, zoom }) as any;
+  const layerWithZoom = (id: string, zoomRange: { min: number; max: number }) =>
+    ({ id, layer: null, canvas: null, zoomRange }) as any;
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -317,8 +317,8 @@ describe("authorZoomRowRange (the row's fallback range)", () => {
     vi.restoreAllMocks();
   });
 
-  const layerWithZoom = (id: string, zoom: { min: number; max: number }) =>
-    ({ id, layer: null, canvas: null, zoom }) as any;
+  const layerWithZoom = (id: string, zoomRange: { min: number; max: number }) =>
+    ({ id, layer: null, canvas: null, zoomRange }) as any;
 
   it("treats a declaration outside the map as undeclared (row falls back)", () => {
     // task-56: the row must never draw a fake collapsed value. A declaration

@@ -44,22 +44,22 @@ const warnZoomOnce = (id: string, kind: ZoomWarningKind, message: string): void 
 const authorZoomRangeOf = (
   layerInfo: LayerInfo | null | undefined,
 ): AuthorZoomRange | undefined => {
-  const zoom = layerInfo?.zoom;
-  if (!zoom) return undefined;
+  const zoomRange = layerInfo?.zoomRange;
+  if (!zoomRange) return undefined;
   if (
-    typeof zoom !== "object" ||
-    !Number.isFinite(zoom.min) ||
-    !Number.isFinite(zoom.max) ||
-    zoom.min > zoom.max
+    typeof zoomRange !== "object" ||
+    !Number.isFinite(zoomRange.min) ||
+    !Number.isFinite(zoomRange.max) ||
+    zoomRange.min > zoomRange.max
   ) {
     warnZoomOnce(
       layerInfo!.id,
       "payload",
-      `declares an unusable zoom range (got ${JSON.stringify(zoom)}); treating it as undeclared`,
+      `declares an unusable zoom range (got ${JSON.stringify(zoomRange)}); treating it as undeclared`,
     );
     return undefined;
   }
-  return zoom;
+  return zoomRange;
 };
 
 /** Clamp a declared range onto the map's own range without ever producing an
@@ -138,7 +138,7 @@ const authorZoomRowRange = (
  *
  *  Two sources, one predicate. The user's stored range wins when it exists
  *  (the persisted choice is the user's, and nothing in foliplus writes
- *  through it); otherwise the author's `foliplus={"zoom": {...}}` declaration
+ *  through it); otherwise the author's `foliplus={"zoom_range": {...}}` declaration
  *  is the policy, exactly as `data[].show` is the author default for
  *  visibility. A layer with neither is unconstrained.
  *
@@ -234,7 +234,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice. The range itself
-  // resolves intent-first, then the author's `data[].zoom` declaration (see
+  // resolves intent-first, then the author's `data[].zoomRange` declaration (see
   // `inZoomRange`).
   const policy =
     ui.focusController.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);

@@ -2,7 +2,7 @@
 
 The unit tests pin the predicate; this drives a real Leaflet map, so the
 claim under test is the user-visible one: declare
-foliplus={"zoom": {"min": 8, "max": 12}}, open the page, and the layer is
+foliplus={"zoom_range": {"min": 8, "max": 12}}, open the page, and the layer is
 painted inside the range, gone outside it, and back when the map returns -
 while an undeclared sibling is painted throughout and the style row opens
 on the declared 8/12.
@@ -50,7 +50,7 @@ def _polygon(name: str, **kwargs: object) -> folium.GeoJson:
 
 def _make_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=10)
-    _polygon("Declared", foliplus={"zoom": {"min": 8, "max": 12}}).add_to(m)
+    _polygon("Declared", foliplus={"zoom_range": {"min": 8, "max": 12}}).add_to(m)
     _polygon("Plain").add_to(m)
     LayerControl(locale="en").add_to(m)
     html = m.get_root().render()

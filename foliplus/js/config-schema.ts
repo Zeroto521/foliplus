@@ -9,6 +9,7 @@
 import type { ControlPosition } from "leaflet";
 
 type NumberStyle = "auto" | "int" | "comma" | "percent";
+type ZoomRange = { min: number; max: number };
 type LayerData = {
   name: string;
   id: string;
@@ -27,7 +28,7 @@ type LayerData = {
       levels?: number;
     };
   };
-  zoom?: { min: number; max: number };
+  zoomRange?: { min: number; max: number };
 }[];
 type ProviderConfig = {
   id: string;
@@ -65,9 +66,9 @@ interface ConfigHeatmap extends ConfigCommon {
   /** Point layer name selected on first load; a persisted user selection wins. */
   layer: string | null;
   agg: "count" | "sum" | "avg" | "min" | "max";
-  /** Aggregation field selected on first load; a persisted user selection wins. */
+  /** Aggregation field selected on first load (and the field a declared filter range binds to); a persisted user selection wins. */
   field: string | null;
-  /** Declared filter on the aggregation field, normalised to the shared filter AST; a persisted user filter wins. */
+  /** Declared filter on the aggregation field: a mapping with min and max (bound to field=), normalised to the shared filter AST; a persisted user filter wins. */
   filter: Record<string, unknown> | null;
   method: "jenks" | "quantile" | "equal" | "heads";
   num_classes: number;
@@ -82,6 +83,8 @@ interface ConfigHeatmap extends ConfigCommon {
   label_size: number;
   label_format: NumberStyle; // Number format for hexagon value labels.
   collapse_on_outside: boolean;
+  /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
+  zoomRange: ZoomRange | null;
 }
 
 interface ConfigLayer extends ConfigCommon {
@@ -105,6 +108,8 @@ interface ConfigMeasure extends ConfigCommon {
   filename: string;
   export_format: "geojson" | "csv";
   collapse_on_outside: boolean;
+  /** Declared zoom range: the toolbar is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
+  zoomRange: ZoomRange | null;
 }
 
 interface ConfigScale extends ConfigCommon {
@@ -141,9 +146,9 @@ interface ComponentConfig {
   /** Point layer name selected on first load; a persisted user selection wins. */
   layer?: string | null;
   agg?: "count" | "sum" | "avg" | "min" | "max";
-  /** Aggregation field selected on first load; a persisted user selection wins. */
+  /** Aggregation field selected on first load (and the field a declared filter range binds to); a persisted user selection wins. */
   field?: string | null;
-  /** Declared filter on the aggregation field, normalised to the shared filter AST; a persisted user filter wins. */
+  /** Declared filter on the aggregation field: a mapping with min and max (bound to field=), normalised to the shared filter AST; a persisted user filter wins. */
   filter?: Record<string, unknown> | null;
   method?: "jenks" | "quantile" | "equal" | "heads";
   num_classes?: number;
@@ -158,6 +163,8 @@ interface ComponentConfig {
   label_size?: number;
   label_format?: NumberStyle; // Number format for hexagon value labels.
   collapse_on_outside?: boolean;
+  /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
+  zoomRange?: ZoomRange | null;
   label_collide?: boolean;
   /** Layer list collected from the parent map at render time via _extra_config. */
   data?: LayerData;
@@ -177,6 +184,7 @@ interface ComponentConfig {
 
 export type {
   NumberStyle,
+  ZoomRange,
   LayerData,
   ProviderConfig,
   ConfigCommon,

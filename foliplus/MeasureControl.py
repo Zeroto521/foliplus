@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
+from ._declaration import _normalise_zoom_range
 from ._declared_filter import MEASURE_TYPE_FIELD, normalize_declared_filter
 from ._typing import ControlPosition
 from ._validate import validate
@@ -116,6 +117,16 @@ class MeasureControl(BaseControl):
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
 
+    zoom_range : dict, optional
+        Visibility window over the map's zoom levels: a mapping with ``min``
+        and ``max`` (both required integers, ``min <= max``) that keeps the
+        control visible only while the map's zoom is inside the range. Outside
+        the range the whole toolbar is hidden; it comes back on the next zoom
+        that is inside. A malformed declaration, or one that cannot meet the
+        map's own zoom range, warns once and is treated as undeclared (the
+        toolbar stays visible). Measurements are never hidden or deleted by
+        this declaration — it gates the toolbar, not the data.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -133,6 +144,13 @@ class MeasureControl(BaseControl):
     >>> from foliplus import MeasureControl
     >>> m = folium.Map()
     >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
+
+    Only show the toolbar while the map is between zoom levels 8 and 12:
+
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
@@ -165,6 +183,23 @@ class MeasureControl(BaseControl):
     |                                            | declaration re-seeds (this session and on  |
     |                                            | reload).                                   |
     +--------------------------------------------+--------------------------------------------+
+
+    **Zoom-range declaration.** ``zoom_range={"min": 8, "max": 12}`` takes the
+    same shape the per-layer ``foliplus`` declaration uses:
+
+    +---------+------+----------+--------------------------------------------------+
+    | Key     | Type | Required | Meaning                                          |
+    +=========+======+==========+==================================================+
+    | ``min`` | int  | yes      | Lowest zoom at which the toolbar is visible.     |
+    +---------+------+----------+--------------------------------------------------+
+    | ``max`` | int  | yes      | Highest zoom at which the toolbar is visible.    |
+    +---------+------+----------+--------------------------------------------------+
+
+    Outside the range the toolbar is hidden, not disabled: an active mode is
+    left alone, and measurements already on the map stay visible. A malformed
+    declaration (missing key, non-int, inverted, unknown key) and a range that
+    cannot intersect the map's own zoom levels both warn once and are treated
+    as undeclared, so the toolbar never disappears for every map view.
     """
 
     @validate
@@ -190,6 +225,20 @@ class MeasureControl(BaseControl):
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         collapse_on_outside: bool = True,
+        zoom_range: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="ZoomRange",
+                name="ZoomRange",
+                shape={"min": "number", "max": "number"},
+                config_key="zoomRange",
+                note=(
+                    "Declared zoom range: the toolbar is visible only while the "
+                    "map's zoom is inside it; a malformed or unreachable range is "
+                    "treated as undeclared."
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -206,3 +255,9 @@ class MeasureControl(BaseControl):
         self.filename = filename
         self.export_format = export_format
         self.collapse_on_outside = collapse_on_outside
+        # The author writes zoom_range={"min": ..., "max": ...}; CONF carries
+        # the normalised {min, max} under the shared `zoomRange` key. Invalid
+        # declarations warn once and stay None (the toolbar is not hidden).
+        self.zoomRange = _normalise_zoom_range(
+            zoom_range, owner="MeasureControl", source="zoom_range"
+        )
