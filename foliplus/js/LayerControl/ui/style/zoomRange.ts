@@ -7,7 +7,7 @@
 //
 // Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";

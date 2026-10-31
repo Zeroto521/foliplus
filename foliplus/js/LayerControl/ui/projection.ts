@@ -133,7 +133,6 @@ const authorZoomRowRange = (
   return range;
 };
 
-
 /**
  * Whether the range in force covers the map's current zoom.
  *

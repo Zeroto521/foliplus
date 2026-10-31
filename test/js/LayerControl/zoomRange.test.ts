@@ -204,12 +204,11 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     expect(schedule).toHaveBeenCalled();
   });
 
-  it("the explicit {min,max} write refuses a collapsed declaration, same as the live pass", () => {
-    // P3-1: the {min,max} branch of the write descriptor has no production
-    // caller (commitZoomRange passes an empty patch), but it is guarded the
-    // same way as applyZoomRangeLive so a future caller cannot persist a
-    // collapsed declaration by hand. The fixture's layer is overlay1 with no
-    // declaration; give it one that cannot meet the map.
+  it("the explicit {min,max} write persists the value (no collapsed-declaration guard)", () => {
+    // task-56: the row is always editable, so the {min,max} write branch has
+    // no collapsed-declaration guard — a user drag is a real choice even when
+    // it lands on a degenerate point. A fixture with a declaration that cannot
+    // meet the map still lets the write through.
     const fixture = initFixture({
       data: [
         {
@@ -225,8 +224,8 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     const schedule = vi.fn();
     fixture.ui.c.persistence = { schedule } as never;
     ZOOM_RANGE_DIMENSION.write!(fixture.ui, "overlay1", { min: 18, max: 18 });
-    expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
-    expect(schedule).not.toHaveBeenCalled();
+    expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toEqual([18, 18]);
+    expect(schedule).toHaveBeenCalled();
     fixture.manager.debouncedEnforce?.cancel?.();
   });
 
@@ -496,7 +495,8 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
   const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
   // The row is editable — no disabled class, no hint.
   expect(slider?.classList.contains("is-disabled")).toBe(false);
-  expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_HINT}`)).toBeNull();
+  // No visually-hidden hint span remains (the mechanism was removed).
+  expect(row.querySelector(".foliplus-zoom-range-hint")).toBeNull();
 
   // The live pass commits the drag: the row is not an inert display.
   const liveRow = document.createElement("div");
@@ -507,15 +507,18 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
   warn.mockRestore();
 });
 
-it("the policy reports the degradation once; the row does not", () => {
-  // task-56: the policy is the single place that warns about an unusable
-  // declaration. The row arm is silent — it just falls back to the map range.
+it("the policy reports the degradation once; the row arm is silent", () => {
+  // task-56: the policy (inZoomRange) is the single place that warns about an
+  // unusable declaration. The row arm (value!) is silent — it falls back to
+  // the map range without warning, so the row never duplicates the report.
+  // A unique id keeps the "warn once per layer" dedup from suppressing this
+  // call after an earlier test warned for the same id.
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const layer = polygonLayer();
   const fixture = initFixture({
     data: [
       {
-        id: "overlay1",
+        id: "overlay-policy-warn",
         name: "Polygons",
         role: "overlay",
         layer,
@@ -525,7 +528,20 @@ it("the policy reports the degradation once; the row does not", () => {
   });
   trackMembership(fixture.map);
 
-  ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1");
+  // The row value does not add a warn (row arm is silent): count before.
+  const beforeValue = warn.mock.calls.length;
+  expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay-policy-warn")).toEqual({
+    min: 0,
+    max: 18,
+  });
+  expect(warn.mock.calls.length).toBe(beforeValue);
+
+  // The policy warns exactly once, treating the declaration as undeclared.
+  const shown = projectLayer(
+    fixture.ui,
+    fixture.ui.c.layerRegistry.get("overlay-policy-warn"),
+  );
+  expect(shown.effectiveShown).toBe(true);
   expect(warn).toHaveBeenCalledTimes(1);
   expect(String(warn.mock.calls[0][0])).toContain("treating it as undeclared");
 
