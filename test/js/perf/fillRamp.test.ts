@@ -182,13 +182,7 @@ describe("fillRamp.perf @6k", { timeout: 300_000 }, () => {
     const solidAvg = solidMs / TICKS;
     const rampAvg = rampMs / TICKS;
     console.log(
-      `[fill-ramp bench] solid arm ${solidAvg.toFixed(3)}ms/tick, ramp arm` +
-        ` ${rampAvg.toFixed(3)}ms/tick x ${N_LEAVES} leaves` +
-        ` - ramp/solid ${(rampAvg / solidAvg).toFixed(2)}x` +
-        `\n[fill-ramp bench] writes per leaf per tick: solid ${solidPerLeaf}, ramp` +
-        ` ${rampPerLeaf}` +
-        `\n[fill-ramp bench] ramp per-leaf ${((rampAvg * 1e3) / N_LEAVES).toFixed(3)}` +
-        ` us/leaf (2 walks / tick: collect + apply)`,
+      `[fill-ramp bench] solid arm ${solidAvg.toFixed(3)}ms/tick, ramp arm ${rampAvg.toFixed(3)}ms/tick x ${N_LEAVES} leaves - ramp/solid ${(rampAvg / solidAvg).toFixed(2)}x\n[fill-ramp bench] writes per leaf per tick: solid ${solidPerLeaf}, ramp ${rampPerLeaf}\n[fill-ramp bench] ramp per-leaf ${((rampAvg * 1e3) / N_LEAVES).toFixed(3)} us/leaf (2 walks / tick: collect + apply)`,
     );
     // The invariant: one write per leaf per tick on both arms. A restore
     // followed by a commit would read 2 here, and so would any second pass
@@ -224,9 +218,7 @@ describe("fillRamp.perf @6k", { timeout: 300_000 }, () => {
     }
     const avgMs = wallMs / TICKS;
     console.log(
-      `[fill-ramp bench] collect-pass alone: ${avgMs.toFixed(3)}ms/tick` +
-        ` (${N_LEAVES} property reads, 0 setStyle);` +
-        ` collected ${collected} finite values across ${TICKS} ticks`,
+      `[fill-ramp bench] collect-pass alone: ${avgMs.toFixed(3)}ms/tick (${N_LEAVES} property reads, 0 setStyle); collected ${collected} finite values across ${TICKS} ticks`,
     );
     // Contention-tolerant ceiling, same reasoning: 3.3ms in isolation,
     // 48ms with the full suite running alongside.

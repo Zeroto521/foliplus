@@ -825,8 +825,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     );
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining(
-        "panel/registry drift — rows without entries [orphan], " +
-          "entries without rows [ghost]",
+        `panel/registry drift — rows without entries [orphan], entries without rows [ghost]`,
       ),
     );
 

@@ -120,7 +120,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   ];
 
   for (const sub of coreSubs) {
-    const names = new Set(usedExports["core/" + sub] || []);
+    const names = new Set(usedExports[`core/${sub}`] || []);
     // A component import of `#core/<sub>/<file>.js` shims to the same
     // `foliplus.core.<sub>` namespace in global-namespace-plugin (its rule
     // keys on the first path segment), but canonicalSpec files it under
@@ -137,40 +137,36 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     }
     const sorted = [...names].sort();
     if (sorted.length === 0) continue;
-    const alias = "core" + sub;
-    lines.push(
-      "import { " + sorted.join(", ") + ' } from "#core/' + sub + '/index.js";',
-    );
-    lines.push("const " + alias + " = { " + sorted.join(", ") + " };");
-    lines.push('window.foliplus.core["' + sub + '"] = ' + alias + ";");
+    const alias = `core${sub}`;
+    lines.push(`import { ${sorted.join(", ")} } from "#core/${sub}/index.js";`);
+    lines.push(`const ${alias} = { ${sorted.join(", ")} };`);
+    lines.push(`window.foliplus.core["${sub}"] = ${alias};`);
   }
 
   // Skip core/{component,hint,mode} — registered in runtime/index.ts.
   const SKIPPED_CORE_FILES = new Set(["component", "hint", "mode"]);
   for (const name of coreSingleFiles) {
     if (SKIPPED_CORE_FILES.has(name)) continue;
-    const names = usedExports["core/" + name] || [];
+    const names = usedExports[`core/${name}`] || [];
     if (names.length === 0) continue;
-    const alias = "core" + name;
-    lines.push("import { " + names.join(", ") + ' } from "#core/' + name + '.js";');
-    lines.push("const " + alias + " = { " + names.join(", ") + " };");
-    lines.push('window.foliplus.core["' + name + '"] = ' + alias + ";");
+    const alias = `core${name}`;
+    lines.push(`import { ${names.join(", ")} } from "#core/${name}.js";`);
+    lines.push(`const ${alias} = { ${names.join(", ")} };`);
+    lines.push(`window.foliplus.core["${name}"] = ${alias};`);
   }
 
   for (const name of commonModules) {
-    const names = usedExports["common/" + name] || [];
+    const names = usedExports[`common/${name}`] || [];
     if (names.length === 0) continue;
-    lines.push("import { " + names.join(", ") + ' } from "#common/' + name + '.js";');
-    lines.push("const " + name + "NS = { " + names.join(", ") + " };");
-    lines.push('window.foliplus.common["' + name + '"] = ' + name + "NS;");
+    lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
+    lines.push(`const ${name}NS = { ${names.join(", ")} };`);
+    lines.push(`window.foliplus.common["${name}"] = ${name}NS;`);
   }
 
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
   if (baseNames.length > 0) {
-    lines.push(
-      "import { " + baseNames.join(", ") + ' } from "#foliplus/BaseControl.js";',
-    );
-    lines.push("const BaseControlNS = { " + baseNames.join(", ") + " };");
+    lines.push(`import { ${baseNames.join(", ")} } from "#foliplus/BaseControl.js";`);
+    lines.push(`const BaseControlNS = { ${baseNames.join(", ")} };`);
     lines.push("window.foliplus.BaseControl = BaseControlNS;");
   }
 

@@ -1,5 +1,5 @@
 selector => {
-  const select = document.querySelector(".foliplus-heatmap-ctrl " + selector);
+  const select = document.querySelector(`.foliplus-heatmap-ctrl ${selector}`);
   const row = select ? select.closest(".foliplus-form-row") : null;
   const el = row ? row.querySelector(".foliplus-dropdown-trigger") : null;
   if (!el) return null;

@@ -31,7 +31,7 @@ afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 
 let caseCount = 0;
 const freshDir = (files: Record<string, string>): string => {
-  const dir = join(sandbox, "case-" + caseCount++);
+  const dir = join(sandbox, `case-${caseCount++}`);
   writeTree(dir, files);
   return dir;
 };

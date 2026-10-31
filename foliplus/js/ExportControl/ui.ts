@@ -97,8 +97,7 @@ const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string)
   mgr.checkPixelLimit(r);
   mgr.map.foliplus!.showHint(
     mgr.config.name,
-    `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ` +
-      `${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
+    `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
     HINT_DURATION.PERSIST,
     undefined,
     "size",

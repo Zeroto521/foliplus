@@ -31,10 +31,7 @@
   //     pins the blended color so the pixel assertion below is not coupled
   //     to Leaflet's exact default pin artwork or version drift.
   const icon = L.icon({
-    iconUrl:
-      "data:image/png;base64," +
-      "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGN8" +
-      "Jif3nwEPYMInOXwUAAA19gIxetnLYAAAAABJRU5ErkJggg==",
+    iconUrl: `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGN8Jif3nwEPYMInOXwUAAA19gIxetnLYAAAAABJRU5ErkJggg==`,
     iconSize: [8, 8],
     iconAnchor: [4, 4],
   });
@@ -46,7 +43,7 @@
   const info = api.layers.find(l => l.id === id);
   if (!info || !info.paneName) throw new Error("Layer not registered");
   const pane = window.map.getPane(info.paneName);
-  if (!pane) throw new Error("Pane not found: " + info.paneName);
+  if (!pane) throw new Error(`Pane not found: ${info.paneName}`);
   pane.style.opacity = "0.4";
 
   return { marker: true, paneName: info.paneName, paneOpacity: "0.4" };

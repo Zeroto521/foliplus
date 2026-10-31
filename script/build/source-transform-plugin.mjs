@@ -16,7 +16,7 @@ const normPath = p => p.replaceAll("\\", "/");
  *  forward slashes before the prefix check — a hardcoded "/" suffix on a
  *  `path.resolve()`-based dir silently skipped EVERY file on Windows. */
 const isSourceFile = (srcDir, path) =>
-  normPath(path).startsWith(normPath(srcDir) + "/");
+  normPath(path).startsWith(`${normPath(srcDir)}/`);
 
 /** The source-transform plugin, bound to the source dir it guards. */
 const createSourceTransformPlugin = srcDir => ({

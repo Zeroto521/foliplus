@@ -160,7 +160,7 @@ const readBaseline = path => {
 const fmtDelta = (curr, prev) => {
   if (curr == null || prev == null) return "—";
   const d = curr - prev;
-  return (d > 0 ? "+" : "") + (d / 1024).toFixed(2) + " KB";
+  return `${d > 0 ? "+" : ""}${(d / 1024).toFixed(2)} KB`;
 };
 // In bytes: the floor is stated in bytes, so the growth it was held against
 // must be too. A 7 B change reads "+0.01 KB" in the table above, which drops
@@ -168,12 +168,12 @@ const fmtDelta = (curr, prev) => {
 const fmtDeltaBytes = (curr, prev) => {
   if (curr == null || prev == null) return "—";
   const d = curr - prev;
-  return (d > 0 ? "+" : "") + d + " B";
+  return `${d > 0 ? "+" : ""}${d} B`;
 };
 const fmtPct = (curr, prev) => {
   if (curr == null || !prev) return "—";
   const p = ((curr - prev) / prev) * 100;
-  return (p > 0 ? "+" : "") + p.toFixed(1) + "%";
+  return `${p > 0 ? "+" : ""}${p.toFixed(1)}%`;
 };
 
 /** Map the comparison numbers to a display status, most severe first.
@@ -389,7 +389,7 @@ const emit = (args, root = ROOT) => {
     BUILD_TOOLS.map(pkg => [pkg, toolVersion(ROOT, pkg)]),
   );
   try {
-    writeFileSync(path, JSON.stringify({ files: sizes, tools }, null, 2) + "\n");
+    writeFileSync(path, `${JSON.stringify({ files: sizes, tools }, null, 2)}\n`);
   } catch (err) {
     console.error(`${FAIL} Cannot write ${path}: ${err.message}`);
     return EXIT_FUSE;
@@ -411,8 +411,7 @@ const check = (args, root = ROOT) => {
   if (!baseline) {
     if (args.enforce) {
       console.error(
-        `${FAIL}  skipped (no base artifact) — no --baseline passed under --enforce. ` +
-          "Capture the base sizes first with `--emit=<path>`, then re-run with `--baseline=<path>`.",
+        `${FAIL}  skipped (no base artifact) — no --baseline passed under --enforce. Capture the base sizes first with \`--emit=<path>\`, then re-run with \`--baseline=<path>\`.`,
       );
       return EXIT_NO_BASELINE;
     }
@@ -438,7 +437,7 @@ const check = (args, root = ROOT) => {
     const reportPath = resolve(args.report);
     try {
       mkdirSync(dirname(reportPath), { recursive: true });
-      writeFileSync(reportPath, table + "\n");
+      writeFileSync(reportPath, `${table}\n`);
     } catch (err) {
       console.error(`${FAIL} Cannot write ${reportPath}: ${err.message}`);
     }
@@ -453,10 +452,7 @@ const check = (args, root = ROOT) => {
       return `${d.pkg} ${d.prev} ${next}`;
     });
     console.warn(
-      `\n${WARN}  Build tools differ from the baseline capture — this diff mixes tool drift with code:` +
-        "\n  " +
-        parts.join(", ") +
-        "\n  The base branch and this PR resolve devDependencies separately, so they can pick up different versions between runs.",
+      `\n${WARN}  Build tools differ from the baseline capture — this diff mixes tool drift with code:\n  ${parts.join(", ")}\n  The base branch and this PR resolve devDependencies separately, so they can pick up different versions between runs.`,
     );
     console.warn(
       `${WARN}  re-run the capture step against this toolchain to get a clean comparison.`,
@@ -487,14 +483,12 @@ const check = (args, root = ROOT) => {
   }
   if (failures.length > 0) {
     console.error(
-      `\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:` +
-        "\n" +
-        failures
-          .map(
-            f =>
-              `  ${f.file}: ${fmtBytes(f.prev)} → ${fmtBytes(f.curr)} (${f.pct.toFixed(1)}%)`,
-          )
-          .join("\n"),
+      `\n${STATUS.over} ${failures.length} bundle(s) exceeded threshold:\n${failures
+        .map(
+          f =>
+            `  ${f.file}: ${fmtBytes(f.prev)} → ${fmtBytes(f.curr)} (${f.pct.toFixed(1)}%)`,
+        )
+        .join("\n")}`,
     );
     // The table is already written and the summary already appended above, so a
     // non-zero exit here would only hide the report from the PR comment that
@@ -502,8 +496,7 @@ const check = (args, root = ROOT) => {
     console.error(
       args.enforce
         ? "\nBundle growth exceeded the threshold — the build fails here."
-        : "\nBundle growth exceeded the threshold — review the change. " +
-            "Use --enforce to fail the build.",
+        : `\nBundle growth exceeded the threshold — review the change. Use --enforce to fail the build.`,
     );
     return args.enforce ? EXIT_THRESHOLD : EXIT_OK;
   }
