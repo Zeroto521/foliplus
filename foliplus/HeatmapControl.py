@@ -172,8 +172,8 @@ class HeatmapControl(BaseControl):
 
     Notes
     -----
-    **Filter declaration.** ``filter`` is a mapping with one key (the enum arm,
-    a list of measurement types, belongs to ``MeasureControl``):
+    **Filter declaration.** ``filter`` is a mapping with ``min`` and ``max``
+    (the enum arm, a list of measurement types, belongs to ``MeasureControl``):
 
     +--------------------+----------------------+----------+----------------------------------------------+
     | Key                | Type                 | Required | Meaning                                      |
