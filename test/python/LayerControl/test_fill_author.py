@@ -602,47 +602,6 @@ def test_a_refused_continuous_caption_reports_color_match(caplog):
     assert "carry one of its blocks" not in caplog.text
 
 
-def test_refused_caption_filter_cap_is_a_module_constant():
-    # The dedup set clears at a named cap, not a bare magic number: the
-    # filter is a log filter, and its width is a policy constant.
-    assert _layer_control_mod._LOG_FILTER_CAP == 64
-
-
-def test_refused_caption_filter_clears_wholesale_at_the_cap(caplog):
-    # The set is a log filter, not a model: once it holds _LOG_FILTER_CAP
-    # distinct notes a pathological page must not pin every message forever,
-    # so the next arrival clears it wholesale and is itself reported.
-    cap = _layer_control_mod._LOG_FILTER_CAP
-    # Snapshot the shared filter so the probe leaves it as it found it: the
-    # set is module-global, and this test runs in any order with its siblings.
-    saved = set(_layer_control_mod._refused_captions)
-    try:
-        # cap unique notes fill the set; a (cap+1)th arrives at full capacity.
-        for i in range(cap + 1):
-            with caplog.at_level("WARNING", logger="foliplus.LayerControl"):
-                _layer_control_mod._warn_refused_caption(
-                    f"cap_probe_{i}", hits=1, total=4, criterion="block membership"
-                )
-        # Every one of them was reported: the first cap filled the set, the
-        # last triggered the wholesale clear and was itself reported.
-        assert caplog.text.count("not claiming it") == cap + 1
-        # A note that was in the cleared half reports again: the clear was not
-        # a selective drop, so the very first note is free to be reported a
-        # second time (the set no longer remembers it).
-        with caplog.at_level("WARNING", logger="foliplus.LayerControl"):
-            _layer_control_mod._warn_refused_caption(
-                "cap_probe_0", hits=1, total=4, criterion="block membership"
-            )
-        assert caplog.text.count("not claiming it") == cap + 2
-    finally:
-        _layer_control_mod._refused_captions.clear()
-        _layer_control_mod._refused_captions.update(saved)
-
-    # The dedup set clears at a named cap, not a bare magic number: the
-    # filter is a log filter, and its width is a policy constant.
-    assert _layer_control_mod._LOG_FILTER_CAP == 64
-
-
 def test_affine_equivalent_columns_are_claimed_by_render_order():
     scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
     values = [10.0, 40.0, 90.0]

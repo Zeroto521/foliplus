@@ -123,6 +123,22 @@ class TestFillAuthorBrowser:
             assert initial["note"] == _NOTE, initial
             assert initial["column"] == "score", initial
             assert initial["count"] == "—", initial
+            # A continuous scale has no classification: the method row still
+            # renders (the arm stays aligned with the by-value grid) but states
+            # the same dash the count row does — nothing is invented.
+            assert initial["method"] == "—", initial
+            # The method readout spans the control column (left/right/width equal
+            # to the colors box), the count readout hugs the right edge at the
+            # compact secondary width, and the count value is centered while the
+            # method value is not (a spanning readout reads as a label).
+            m = initial["methodGeom"]
+            c = initial["countGeom"]
+            k = initial["colorsGeom"]
+            assert m is not None and c is not None and k is not None, initial
+            assert m["left"] == k["left"] and m["right"] == k["right"] and m["width"] == k["width"], initial
+            assert c["right"] == k["right"], initial
+            assert c["width"] == 52, initial
+            assert initial["countTextAlign"] == "center", initial
             assert initial["caption"] == "Original · continuous", initial
             assert initial["colorsLabel"] == "Original · continuous", initial
             assert initial["gradient"].startswith("linear-gradient(90deg,"), initial
@@ -133,7 +149,7 @@ class TestFillAuthorBrowser:
             assert initial["detailSelects"] == 0, initial
             assert initial["detailComboboxes"] == 0, initial
             assert initial["detailFocusable"] == 0, initial
-            assert len(initial["rows"]) == 3, initial
+            assert len(initial["rows"]) == 4, initial
             assert all("foliplus-form-row" in row for row in initial["rows"]), initial
             assert initial["hasField"] is False, initial
             assert initial["hasMethod"] is False, initial

@@ -447,9 +447,9 @@ const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement
   );
 
 /** The original-colors arm's read-only detail: the author's column, their
- *  colors and their count — three rows on the same label/control grid the
- *  by-value arm uses, so the readout lands on the column edge of the control
- *  it replaces instead of spilling across the panel.
+ *  colors, their count and the classification they drew — rows on the same
+ *  label/control grid the by-value arm uses, so each readout lands on the
+ *  column edge of the control it replaces instead of spilling across the panel.
  *
  *  No select, no chevron and nothing clickable: these exist to classify data,
  *  and this arm is the author's presentation, not a user classification.
@@ -457,8 +457,7 @@ const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement
  *  2-9 class vocabulary and collapsed it to 9 on the first write.
  *
  *  The caption the row used to print on a line of its own is now the colors
- *  box's title and accessible name: the panel stays three rows tall and the
- *  sentence is still reachable. */
+ *  box's title and accessible name: the sentence is still reachable. */
 const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authorFill(ui, layerId);
   const rows: HTMLElement[] = [];
@@ -506,25 +505,28 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // method readout therefore lands where the by-value method select sits, the
   // count where its class-count select sits and the colors strip where the
   // scheme trigger sits, so the two arms line up column for column.
-  if (author?.scale) {
-    // The author's scale is always classified: a StepColormap is the equal-
-    // interval split of its own index, a LinearColormap the continuous ramp.
-    // The original arm is read-only, so the method is stated, not edited.
-    rows.push(
-      formRow(
-        ui.T("style_method"),
-        readOnlyBox(
-          CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
-          dom.el(
-            "span",
-            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-            methodLabel(ui, METHOD.EQUAL),
-          ),
+  //
+  // The method row always renders: a read-only arm states what the author did,
+  // and omitting it on a continuous or categorical layer would break the arm
+  // alignment. The value is honest to the record — a stepped scale is a
+  // classified one and the readout states the method the classification
+  // implies, while a continuous scale or a layer with no paired scale has no
+  // classification to state and shows the same dash the count row uses for an
+  // unstated count.
+  rows.push(
+    formRow(
+      ui.T("style_method"),
+      readOnlyBox(
+        CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+        dom.el(
+          "span",
+          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+          author?.scale?.kind === "stepped" ? methodLabel(ui, METHOD.EQUAL) : "—",
         ),
-        CONST.CLASSES.STYLE_FILL_ROW,
       ),
-    );
-  }
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
+  );
 
   rows.push(
     formRow(

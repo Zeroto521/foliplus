@@ -2971,12 +2971,15 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("64+");
-    // A categorical layer has no classification: no method row, and no field
-    // row either — the panel states the colors and their count only.
+    // A categorical layer has no classification: the method row still renders
+    // (the arm stays aligned with the by-value grid) but states no method, and
+    // no field row either — the panel states the colors, their count and a
+    // honest dash for the classification they did not draw.
     expect(
-      boxOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBeNull();
+      readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBe("—");
     expect(labelsOf(blockOf(fallback.ui))).toEqual([
+      "LayerControl.style_method",
       "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);

@@ -84,20 +84,20 @@
   white-space: nowrap;
 }
 
-/* The class-count and method readouts take the same width as the by-value
-   arm's class-count select / method select and hug the control column's right
-   edge, the way the Size row's px field does — so the two arms' cells land on
-   the same column edge instead of the readout sitting left with dead space to
-   its right. */
-.foliplus-style-fill-original-count,
-.foliplus-style-fill-original-method {
+/* The class-count readout takes the same width as the by-value arm's
+   class-count select and hugs the control column's right edge, the way the
+   Size row's px field does — so the count lands on the column edge of the
+   select it replaces instead of sitting left with dead space to its right.
+   The method readout is not a number field: it spans the whole control
+   column, exactly as the by-value arm's method select does, so the two arms
+   read as one grid. */
+.foliplus-style-fill-original-count {
   width: var(--foliplus-form-secondary-width);
   flex-shrink: 0;
   margin-left: auto;
 }
 
-.foliplus-style-fill-original-count .foliplus-style-fill-original-value,
-.foliplus-style-fill-original-method .foliplus-style-fill-original-value {
+.foliplus-style-fill-original-count .foliplus-style-fill-original-value {
   flex: 1;
   text-align: center;
 }

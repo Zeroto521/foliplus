@@ -11,9 +11,19 @@
   const colors = box("foliplus-style-fill-original-colors");
   const columnBox = box("foliplus-style-fill-original-column");
   const countBox = box("foliplus-style-fill-original-count");
+  const methodBox = box("foliplus-style-fill-original-method");
   const readout = el => {
     const value = el?.querySelector(".foliplus-style-fill-original-value");
     return value ? value.textContent : null;
+  };
+  const geom = el => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      left: Math.round(r.left),
+      right: Math.round(r.right),
+      width: Math.round(r.width),
+    };
   };
   const gradient = strip ? strip.style.background : "";
   const fills = [
@@ -35,7 +45,21 @@
     note: select ? select.title : null,
     column: readout(columnBox),
     count: readout(countBox),
+    method: readout(methodBox),
     caption: colors ? colors.title : null,
+    // Geometry: the method readout spans the control column (left/right/width
+    // equal to the colors box), the count readout hugs the right edge at the
+    // compact secondary width. The value's textAlign distinguishes the spanning
+    // method readout (left) from the centered count value.
+    methodGeom: geom(methodBox),
+    countGeom: geom(countBox),
+    colorsGeom: geom(colors),
+    methodTextAlign: methodBox
+      ? methodBox.querySelector(".foliplus-style-fill-original-value")?.style.textAlign
+      : null,
+    countTextAlign: countBox
+      ? countBox.querySelector(".foliplus-style-fill-original-value")?.style.textAlign
+      : null,
     colorsLabel: colors ? colors.getAttribute("aria-label") : null,
     gradient,
     // Every stop of a linear-gradient names two positions, so halving the
