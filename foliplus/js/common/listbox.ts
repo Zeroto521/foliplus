@@ -163,6 +163,8 @@ const MIN_ROWS_BELOW = 2;
 
 let idCounter = 0;
 const nextListId = (): string => `foliplus-listbox-${String(++idCounter)}`;
+let rowIdCounter = 0;
+const nextRowId = (): string => `foliplus-listbox-row-${String(++rowIdCounter)}`;
 
 interface InternalState {
   trigger: HTMLElement;
@@ -282,6 +284,9 @@ const buildRow = (
   } else if (shape.disabledAttr === "aria-disabled" && item.disabled) {
     attrs["aria-disabled"] = "true";
   }
+  // The picker shape tracks the focused row on the trigger via
+  // aria-activedescendant, so its rows need stable ids to reference.
+  if (shape.activedescendant === "trigger") attrs.id = nextRowId();
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
   applyOptionA11y(row, { selected });
   row.classList.toggle(shape.selectedClass, selected);
