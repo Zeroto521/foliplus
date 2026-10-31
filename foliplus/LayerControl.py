@@ -360,7 +360,6 @@ def _pair_scale(
     return None
 
 
-
 def _warn_refused_caption(
     caption: str, hits: int, total: int, *, criterion: str
 ) -> None:
