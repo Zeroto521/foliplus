@@ -209,6 +209,10 @@ interface RegisterLayerOpts {
    *  (folium's own default), so the registry does not have to invent a
    *  value the caller never gave. */
   show?: boolean;
+  /** Author's declared zoom range — mirrors CONFIG `data[].zoom`, which
+   *  Python normalises from the `foliplus={"zoom": {...}}` declaration.
+   *  Absent means the author did not declare one. */
+  zoom?: AuthorZoomRange | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -341,6 +345,17 @@ interface FillAuthor {
   scale?: FillAuthorScale;
 }
 
+/** An author-declared zoom range — the normalised `foliplus={"zoom": {...}}`
+ *  layer declaration, carried from CONFIG `data[].zoom`.
+ *
+ *  One shape on both sides of the bridge (Python emits `{min, max}`, every
+ *  read site consumes `{min, max}`), so no site converts it and no site can
+ *  silently swap endpoints the way a positional tuple invites. */
+interface AuthorZoomRange {
+  min: number;
+  max: number;
+}
+
 /** A layer entry in the ordered registry (read-only view). */
 interface LayerInfo {
   id: string;
@@ -403,6 +418,12 @@ interface LayerInfo {
   metaProvider?: (() => Record<string, string | number>) | null;
   /** Author's declarative per-feature fill (explore layers only). */
   fillAuthor?: FillAuthor | null;
+  /** Author's declared zoom range (CONFIG `data[].zoom`). Absent/null means
+   *  the author declared nothing: the visibility policy stays unconstrained
+   *  and the zoom-range row opens on the map's own range. A *policy* input
+   *  (`inZoomRange`), never a carrier write — foliplus does not write
+   *  `layer.options.minZoom/maxZoom` (see `ui/apply.ts`). */
+  zoom?: AuthorZoomRange | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
@@ -1008,6 +1029,7 @@ type LayerMutation =
   | { kind: "replace-content"; previous: LayerInfo; entry: LayerInfo; index: number };
 
 export type {
+  AuthorZoomRange,
   CreateCanvasAPI,
   CreateCanvasOpts,
   CreateColorAPI,

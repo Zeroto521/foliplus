@@ -110,6 +110,11 @@ describe("parseArgs", () => {
     it("starts empty", () => {
       expect(args([]).names).toEqual([]);
     });
+
+    it("reports a repeated flag with no value at the end", () => {
+      const r = args(["--names"]);
+      expect(r.errors).toContain("--names requires a value");
+    });
   });
 
   describe("short flags", () => {

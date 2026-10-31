@@ -14,6 +14,20 @@ type LayerData = {
   id: string;
   role: "base" | "overlay";
   show: boolean;
+  fillAuthor?: {
+    perFeature: boolean;
+    distinct: number;
+    stops: string[];
+    capped?: boolean;
+    scale?: {
+      kind: "continuous" | "stepped";
+      column?: string;
+      vmin: number;
+      vmax: number;
+      levels?: number;
+    };
+  };
+  zoom?: { min: number; max: number };
 }[];
 type ProviderConfig = {
   id: string;

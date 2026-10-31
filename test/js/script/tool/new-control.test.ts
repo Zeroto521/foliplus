@@ -442,6 +442,21 @@ describe("scaffoldControl", () => {
     expect(again.skipped.length).toBeGreaterThan(0);
   });
 
+  it("reports a no-op registry patch as already present", () => {
+    // An __init__.py with neither the BaseControl import anchor nor an
+    // `__all__` block leaves patchInitPy with nothing to patch. The file is
+    // reported instead of silently passing as "patched".
+    tmpRoot = mkFixture({
+      ...FIXTURE,
+      "foliplus/__init__.py": "# package init without registries\n",
+    });
+    const result = scaffoldControl(
+      { name: "FooControl", description: "Foo." },
+      tmpRoot,
+    );
+    expect(result.skipped).toContain("foliplus/__init__.py (already present)");
+  });
+
   it("uses CRLF-preserving patches when the fixture is CRLF", () => {
     const crlfInit = INIT_PY.replace(/\n/g, "\r\n");
     tmpRoot = mkFixture({ ...FIXTURE, "foliplus/__init__.py": crlfInit });
