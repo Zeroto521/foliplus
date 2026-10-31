@@ -23,6 +23,7 @@ import {
   dropFilterForField,
   filterKey,
   normalizeFilter,
+  parsePersistedFilter,
   pickFilterField,
   revalidateStoredFilter,
   selectIndices,
@@ -197,6 +198,17 @@ class HeatmapManager {
    *  The LayerControl panel writes through the `filterSetter` capability;
    *  LAYER_FILTER_CHANGE is published *after* the state here is settled. */
   declare layerFilters: Map<string, LayerFilter>;
+  /** The Python-declared starting filter (CONFIG.filter), parsed once through
+   *  the same tolerant AST reader a persisted record uses. Undefined means
+   *  "not declared" — or a declaration the reader could not understand, in
+   *  which case {@link declaredFilterInvalid} is true and the seed reports it
+   *  once. */
+  declare declaredFilter: LayerFilter;
+  declare declaredFilterInvalid: boolean;
+  /** Whether the user owns the filter slot (see SavedConfig.filtersTouched).
+   *  A declaration seeds only while this is false; the factory Reset clears
+   *  it so the declaration returns with the rest of the defaults. */
+  declare filtersTouched: boolean;
   declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
@@ -264,6 +276,12 @@ class HeatmapManager {
       typeof CONFIG.layer === "string" && CONFIG.layer ? CONFIG.layer : null;
     this.declaredField =
       typeof CONFIG.field === "string" && CONFIG.field ? CONFIG.field : null;
+    // Declared filter: a starting condition, never user intent. Parsed here so
+    // the seed can report an unreadable payload once instead of per rebuild.
+    const rawDeclaredFilter: unknown = CONFIG.filter;
+    this.declaredFilter = parsePersistedFilter(rawDeclaredFilter);
+    this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
+    this.filtersTouched = false;
     this.declarationWarned = new Set();
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
@@ -311,7 +329,16 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
+            // A seeded declaration lands here on any unrelated save (a color
+            // change), so it is restored as a per-source filter even after the
+            // author changes or drops the declaration: a user who once saved
+            // another setting keeps hitting the restored filter first. Accepted
+            // (see seedDeclaredFilter): the record is visible in
+            // the panel (the slider sits on the range) and Clear or Reset
+            // removes it, while a seeded-vs-user marker on disk would be a
+            // second ownership signal beside filtersTouched.
             filters: serializedFilters(this.layerFilters),
+            filtersTouched: this.filtersTouched,
           } satisfies SavedConfig,
           CONFIG.name,
         ),
@@ -966,8 +993,10 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
-      // The panel's field-row caption: the aggregation field is named by the
-      // field itself, so the caption is the owner's word for "Field".
+      // The popup repeats the aggregation field as a read-only Field row
+      // (caption from the locale), the same way main did: the user picked
+      // the aggregation field with field=, and the popup shows the name so
+      // the filter reads unambiguously. The field is never re-editable here.
       this.T("filter_field"),
       { kept, total },
     );
@@ -1001,6 +1030,9 @@ class HeatmapManager {
     ) {
       return;
     }
+    // The user owns the filter slot from here on, including when the write
+    // cleared it: a declaration must not resurrect itself on the next load.
+    this.filtersTouched = true;
     this.saveConfig();
     // The filter is part of the agg key — drop the agg cache. cachedPoints
     // and cachedBins survive: filtering changes neither geometry nor point
@@ -1010,6 +1042,111 @@ class HeatmapManager {
     this.renderHexagons(operation);
     operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     operation.throwIfFailed();
+  }
+
+  /** One warning per declared-filter problem: the seed runs again on every
+   *  rebuild of the first open, and a per-rebuild warn would flood. */
+  private warnDeclaredFilter(reason: string): void {
+    const key = `filter:${reason}`;
+    if (this.declarationWarned.has(key)) return;
+    this.declarationWarned.add(key);
+    this.log.warn("declared filter ignored:", reason);
+  }
+
+  /** Seed the Python-declared filter as the starting condition.
+   *
+   *  Called from the layer-list build once the source is settled and before
+   *  the first render. Two gates keep it from overriding the user: a persisted
+   *  record that already owns the filter slot (filtersTouched — including a
+   *  record that says "cleared"), and a restored per-source filter. The
+   *  factory Reset drops the ownership, so the declaration returns with the
+   *  rest of the declared defaults.
+   *
+   *  Validation is the runtime's, not the declaration's: the AST was parsed by
+   *  the same tolerant reader a stored record uses, then it is clamped to the
+   *  snapshot and bound to the dimension the panel can actually edit. A
+   *  declaration the panel cannot represent (an enum atom, a field the
+   *  dimension does not carry, no numeric extent) is reported once and
+   *  ignored — never turned into a filter that hides the layer.
+   *
+   *  Persistence caveat (deliberate, pinned by a test): the seeded filter
+   *  lives in the same per-source store a panel write uses, so any later save
+   *  of an unrelated setting (a color, a class count) persists it with the
+   *  rest of the record. If the author then changes the declaration, a user
+   *  who has ever saved another setting still hits the restored per-source
+   *  filter first — the seed is skipped by layerFilters.has(sourceId) — until
+   *  Clear or Reset. That is the cost of "the declaration is a starting
+   *  condition and the user owns the slot from the first write"; a second,
+   *  declaration-only store would make Reset and the filter panel disagree. */
+  seedDeclaredFilter(): void {
+    if (this.filtersTouched) return;
+    const sourceId = this.selectedLayerId;
+    if (!sourceId || this.layerFilters.has(sourceId)) return;
+    if (!this.declaredFilter) {
+      if (this.declaredFilterInvalid) {
+        this.warnDeclaredFilter("unreadable declaration");
+      }
+      return;
+    }
+    this.getSelectedPoints();
+    const snapshot = this.cachedSnapshot;
+    // An empty (or not-yet-built) snapshot is a *timing* state, not a data
+    // defect: the seed runs from the panel build, which can precede the
+    // source's first paint, and getSelectedPoints rebuilds the snapshot only
+    // when the source id changed — a cache cleared by a content change can
+    // still be null here. Nothing below can be judged without data: the field
+    // binding would compare against an empty field list and the extent against
+    // a missing range. Stay quiet (debug only) and let the next rebuild retry;
+    // a report now would blame the author's declaration for an empty read and,
+    // being remembered in declarationWarned, would silence the real problem
+    // once the data lands.
+    if (!snapshot || snapshot.points.length === 0) {
+      this.log.debug("declared filter: the source snapshot is not populated yet");
+      return;
+    }
+    const field = pickFilterField(snapshot, this.effectiveField());
+    const declared = this.declaredFilter;
+    if (declared.kind !== "atom") {
+      // The panel's only dimension is a numeric range; a declared enum/logical
+      // node has no row to show it on (task-102 covers that dimension).
+      this.warnDeclaredFilter("the panel filters a numeric range only");
+      return;
+    }
+    if (declared.field !== field) {
+      this.warnDeclaredFilter(
+        `bound to "${declared.field}", the panel filters "${field}"`,
+      );
+      return;
+    }
+    // The panel needs a numeric extent to render a range on: the source has
+    // points but this field carries no value on any of them, so there is no
+    // row to show the declaration in — a data problem worth reporting. A
+    // declaration that spans the whole extent is different — the runtime reads
+    // that as "no filter" (a full-range atom would still exclude points
+    // missing the field), so it is a legal no-op, not a defect.
+    const bounds = snapshot.ranges[field];
+    if (!bounds) {
+      this.warnDeclaredFilter(`"${field}" has no usable extent`);
+      return;
+    }
+    // A range that does not intersect the extent can never keep a point;
+    // normalising it would collapse it onto one bound and silently hide the
+    // data. Report it and start unfiltered — "declared" must never mean
+    // "filtered to empty".
+    if (declared.range) {
+      const [lo, hi] = declared.range;
+      if (hi < bounds[0] || lo > bounds[1]) {
+        this.warnDeclaredFilter(
+          `[${lo}, ${hi}] is outside "${field}"'s extent [${bounds[0]}, ${bounds[1]}]`,
+        );
+        return;
+      }
+    }
+    const next = normalizeFilter(declared, snapshot);
+    // Undefined here means the declaration covers the whole extent: the same
+    // state as "no filter", so store nothing and stay quiet.
+    if (!next) return;
+    storeFilter(this.layerFilters, sourceId, next);
   }
 
   /** Align the stored filter for the selected source with the freshly
@@ -1203,8 +1340,11 @@ class HeatmapManager {
     this.cachedSnapshotLayerId = null;
     // Reset returns the manager to the Python-declared starting state: the
     // record is about to be deleted, so re-open the one-shot guard and let
-    // the declaration (and the single-layer auto-select) apply again.
+    // the declaration (and the single-layer auto-select) apply again. The
+    // filter slot's ownership goes with it — the declared filter is part of
+    // the declared state Reset returns to.
     this.hasScanned = false;
+    this.filtersTouched = false;
     if (clearedFilter) {
       publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }

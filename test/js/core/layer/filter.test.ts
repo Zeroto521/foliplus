@@ -535,12 +535,17 @@ describe("pickFilterField / buildFilterModel", () => {
       fieldLabel: "Field",
       label: "Range",
     });
-    // No caption falls back to the field name: the field row names the field
-    // in its value cell, and the condition row keeps the panel's own wording
-    // when the owner supplies none.
+    // The field row always names the field in its value cell; the condition
+    // row keeps the panel's own wording when the owner supplies no label.
     const bare = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
     expect(bare).toMatchObject({ fieldLabel: "Field", label: "" });
     expect(bare.field).toBe("a");
+  });
+
+  it("keeps the field row when the owner provides a fieldLabel", () => {
+    // A provided caption is a localized word, never the raw field name.
+    const dim = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
+    expect(dim).toMatchObject({ fieldLabel: "Field" });
   });
 });
 

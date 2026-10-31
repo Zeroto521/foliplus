@@ -92,16 +92,18 @@ const readOnlyField = (field: string): HTMLElement =>
   );
 
 /** Shared dual-thumb range body: the field row (caption + read-only field
- *  name) plus the condition row (caption + slider). Two rows because two
- *  different questions are being answered — which field is being filtered,
- *  and over what range. The owner supplies both captions
- *  (`dim.fieldLabel`, `dim.label`); `core` refuses to print the raw field
- *  name as a caption. */
+ *  name, from `dim.fieldLabel`) plus the condition row (caption + slider).
+ *  Two different questions are being answered — which field is being
+ *  filtered, and over what range. The owner always provides a `fieldLabel`
+ *  (the Heatmap repeats the aggregation field `field=` chose as a read-only
+ *  row). `core` refuses to print the raw field name as a caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
+  // The field row always renders: the owner provides a localized fieldLabel
+  // and the read-only cell shows the field name it labels.
   const fieldRow = buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row;
   // The condition row's caption is component vocabulary the owner may name;
   // absent that, the panel's own wording applies. This fallback is panel
@@ -136,7 +138,7 @@ const renderRangeBody = (
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, conditionLabel),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
   );
-  const root = dom.el("div", {}, fieldRow, rangeRow);
+  const root = dom.el("div", {}, ...(fieldRow ? [fieldRow] : []), rangeRow);
 
   const sync = (next: LayerFilterModel): void => {
     const stored = rangeValueOf(dim, next.filter);
