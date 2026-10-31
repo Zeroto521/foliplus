@@ -23,10 +23,12 @@ class LocateControl(BaseControl):
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import LocateControl
-    >>> m = folium.Map()
-    >>> LocateControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import LocateControl
+        >>> m = folium.Map()
+        >>> LocateControl().add_to(m)
     """
 
     @validate

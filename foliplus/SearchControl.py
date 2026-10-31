@@ -96,25 +96,33 @@ class SearchControl(BaseControl):
       and place a marker.
     - 🌐 **Address search**: enter a keyword and geocode via the configured provider.
 
-    The geocode provider is pluggable. Built-in providers are ``"nominatim"``
-    (OpenStreetMap, default), ``"photon"`` (komoot) and ``"pelias"``. Pass a
-    dict to define a custom provider (see below).
+    The geocode provider is pluggable. Built-in providers are:
+
+    +-----------------+---------------+-------------------+
+    | id              | Provider      | Notes             |
+    +=================+===============+===================+
+    | ``nominatim``   | OpenStreetMap | Default provider. |
+    +-----------------+---------------+-------------------+
+    | ``photon``      | komoot        |                   |
+    +-----------------+---------------+-------------------+
+    | ``pelias``      | Pelias        |                   |
+    +-----------------+---------------+-------------------+
+
+    Pass a dict to define a custom provider (see below).
 
     Shortcuts
     ---------
     Focus a layer row by clicking it, then use:
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Action
-       * - Escape
-         - Close the search panel or dismiss suggestions
-       * - ArrowDown
-         - Move to the next suggestion
-       * - ArrowUp
-         - Move to the previous suggestion
+    +-----------+-----------------------------------------------+
+    | Key       | Action                                        |
+    +===========+===============================================+
+    | Escape    | Close the search panel or dismiss suggestions |
+    +-----------+-----------------------------------------------+
+    | ArrowDown | Move to the next suggestion                   |
+    +-----------+-----------------------------------------------+
+    | ArrowUp   | Move to the previous suggestion               |
+    +-----------+-----------------------------------------------+
 
     Parameters
     ----------
@@ -131,16 +139,25 @@ class SearchControl(BaseControl):
         Geocode provider. A built-in id (``"nominatim"``, ``"photon"``,
         ``"pelias"``) or a custom provider dict with keys:
 
-        - ``id`` (required): unique provider id.
-        - ``baseUrl``: API root, e.g. ``"https://api.example.com"``.
-        - ``throttleMs``: minimum ms between requests (default 1000).
-        - ``headers``: extra request headers.
-        - ``suggest`` / ``search`` / ``reverse``: ``{"url": ..., "params": ...}``
-          where ``url`` supports the ``{q}`` ``{limit}`` ``{lon}`` ``{lat}``
-          placeholders.
-        - ``normalize``: ``{"suggest"/"search"/"reverse": "<arrow fn source>"}``
-          mapping a raw API response to foliplus' internal shape (evaluated in
-          the browser; authored by the map creator, never by end users).
+        +----------------+----------+------------------------------------------------------------------+
+        | Key            | Required | Meaning                                                          |
+        +================+==========+==================================================================+
+        | ``id``         | yes      | Unique provider id.                                              |
+        +----------------+----------+------------------------------------------------------------------+
+        | ``baseUrl``    | no       | API root, e.g. ``"https://api.example.com"``.                    |
+        +----------------+----------+------------------------------------------------------------------+
+        | ``throttleMs`` | no       | Minimum ms between requests (default 1000).                      |
+        +----------------+----------+------------------------------------------------------------------+
+        | ``headers``    | no       | Extra request headers.                                           |
+        +----------------+----------+------------------------------------------------------------------+
+        | ``suggest`` /  | no       | ``{"url": ..., "params": ...}`` — ``url`` supports the ``{q}``   |
+        | ``search`` /   |          | ``{limit}`` ``{lon}`` ``{lat}`` placeholders.                    |
+        | ``reverse``    |          |                                                                  |
+        +----------------+----------+------------------------------------------------------------------+
+        | ``normalize``  | no       | ``{"suggest"/"search"/"reverse": "<arrow fn source>"}`` mapping  |
+        |                |          | a raw API response to foliplus' internal shape (evaluated in     |
+        |                |          | the browser; authored by the map creator, never by end users).   |
+        +----------------+----------+------------------------------------------------------------------+
 
         The provider applies to suggestions **and** to the address search /
         reverse geocode this control triggers — SearchControl forwards the
