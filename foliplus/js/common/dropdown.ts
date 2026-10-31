@@ -24,9 +24,12 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createListbox } from "#common/listbox.js";
+import {
+  type DropdownSurface,
+  applyOptionA11y,
+  createListbox,
+} from "#common/listbox.js";
 import { createLogger } from "#common/log.js";
-import { applyOptionA11y } from "#common/rowA11y.js";
 
 const log = createLogger("dropdown");
 

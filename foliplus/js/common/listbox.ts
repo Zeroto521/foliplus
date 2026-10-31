@@ -614,5 +614,5 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   return listbox;
 };
 
-export { createListbox };
+export { applyOptionA11y, createListbox };
 export type { DropdownSurface };
