@@ -27,12 +27,21 @@ _FOLIUM_COLOR_PROP = "__folium_color"
 
 _log = logging.getLogger(__name__)
 
-# Captions already reported as refused, so re-rendering a page does not repeat
-# the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. The set is a log filter, not
-# Each entry is (caption, criterion, hits, total): criterion names the
-# test that refused the caption, so the two arms de-duplicate separately.
-_refused_captions: set[tuple[str, str, int, int]] = set()
+# Diagnostics already reported in this process, so re-rendering a page does not
+# repeat the same line for the same data: one refused caption is a signal, and a
+# two-layer map measured 16 identical warnings. Each set is a log filter, not
+# state — it is cleared rather than grown when a long process renders many maps.
+# Split per family (#804): the caption refusal (#781) and the foliplus={...}
+# declaration rejections each own a 64-note budget, so a flood of malformed
+# declarations cannot clear the caption history (or vice versa) — each family's
+# dedup only needs to remember its own notes. Notes are string tuples whose
+# first element is the domain tag, kept so a note is self-describing when a
+# store is inspected or logged.
+_refused_captions: set[tuple[str, ...]] = set()
+_foliplus_reports: set[tuple[str, ...]] = set()
+
+_LOG_FILTER_CAP = 64
+
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
@@ -529,22 +538,6 @@ def _pair_scale(
         claimed.add(id(colormap))
         return colormap, caption
     return None
-
-
-# Diagnostics already reported in this process, so re-rendering a page does not
-# repeat the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. Each set is a log filter, not
-# state — it is cleared rather than grown when a long process renders many maps.
-# Split per family (#804): the caption refusal (#781) and the foliplus={...}
-# declaration rejections each own a 64-note budget, so a flood of malformed
-# declarations cannot clear the caption history (or vice versa) — each family's
-# dedup only needs to remember its own notes. Notes are string tuples whose
-# first element is the domain tag, kept so a note is self-describing when a
-# store is inspected or logged.
-_refused_captions: set[tuple[str, ...]] = set()
-_foliplus_reports: set[tuple[str, ...]] = set()
-
-_LOG_FILTER_CAP = 64
 
 
 def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
