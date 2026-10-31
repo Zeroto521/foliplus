@@ -7490,3 +7490,45 @@ class TestLayerControlBrowser:
             assert scroll["maxHeight"] != "none", scroll
             assert scroll["scroll"]["scroll"] > scroll["scroll"]["client"], scroll
             assert not errors, f"JS errors: {errors}"
+
+    def test_dropdown_wheel_does_not_zoom_map(self, browser, tmp_path):
+        """A wheel over the open dropdown popup must not zoom the map.
+
+        The popup is portalled out of the control container, so the container's
+        disableScrollPropagation does not cover it — without the wheel
+        stop-propagation the event bubbles to the map container and Leaflet's
+        scrollWheelZoom fires. The list keeps its own overflow-y scroll because
+        only propagation is stopped, not the default.
+        """
+        layer = folium.FeatureGroup(name="Wheel zoom")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+
+            probe = page.evaluate(_js("LayerControl/dropdown_wheel_zoom_probe"))
+            assert probe and probe.get("ok"), probe
+            assert probe["optionCount"] >= 12, probe
+            assert probe["listOpen"] is True, probe
+            assert probe["listScrollable"] is True, probe
+            # The popup is portalled onto the map container in pseudo mode, so a
+            # wheel over it would bubble to Leaflet's scrollWheelZoom without the
+            # stop-propagation — this is the exact case the fix targets.
+            assert probe["popupInsideContainer"] is True, probe
+
+            before_zoom = probe["zoomBefore"]
+            page.mouse.move(probe["wheelX"], probe["wheelY"])
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(350)
+
+            after = page.evaluate(_js("LayerControl/dropdown_wheel_zoom_probe"))
+            assert after and after.get("ok"), after
+            # The map did not zoom.
+            assert after["zoomBefore"] == before_zoom, (before_zoom, after)
+            # The popup is still open and still usable.
+            assert after["listOpen"] is True, after
+            assert not errors, f"JS errors: {errors}"

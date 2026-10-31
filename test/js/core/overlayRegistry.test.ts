@@ -213,13 +213,20 @@ describe("OverlayRegistry", () => {
       expect(installed("keydown")).toBe(1);
     });
 
-    it("a click entry installs the bubble click listener and Escape only", () => {
+    it("a click entry installs the capture and bubble click listeners and Escape", () => {
       registry.register(
         makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
       );
-      expect(installed("click")).toBe(1);
+      // Two halves, one phase: capture decides outside presses (a target's
+      // own stopPropagation cannot hide them), bubble decides inside ones.
+      expect(installed("click")).toBe(2);
       expect(installed("mousedown")).toBe(0);
       expect(installed("keydown")).toBe(1);
+      const captures = addSpy.mock.calls
+        .filter((call: unknown[]) => call[0] === "click")
+        .map((call: unknown[]) => call[2] ?? false)
+        .sort();
+      expect(captures).toEqual([false, true]);
     });
 
     it("removes each listener type independently when its last entry goes away", () => {
@@ -241,7 +248,7 @@ describe("OverlayRegistry", () => {
       const unregisterClick = registry.register(click.entry);
 
       unregisterClick();
-      expect(removed("click")).toBe(1);
+      expect(removed("click")).toBe(2);
       expect(removed("mousedown")).toBe(0);
       // The Escape listener is driven by live entry count, not by phase.
       expect(removed("keydown")).toBe(0);
@@ -258,6 +265,21 @@ describe("OverlayRegistry", () => {
       expect(remove?.[2]).toBe(true);
     });
 
+    it("removes the click capture listener with its capture flag", () => {
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
+      );
+      registry.destroy();
+      const clickAdds = addSpy.mock.calls.filter(
+        (call: unknown[]) => call[0] === "click",
+      );
+      const clickRemoves = removeSpy.mock.calls.filter(
+        (call: unknown[]) => call[0] === "click",
+      );
+      expect(clickAdds.some((call: unknown[]) => call[2] === true)).toBe(true);
+      expect(clickRemoves.some((call: unknown[]) => call[2] === true)).toBe(true);
+    });
+
     it("destroy removes every installed listener and is idempotent", () => {
       registry.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
       registry.register(
@@ -266,7 +288,7 @@ describe("OverlayRegistry", () => {
       registry.destroy();
       registry.destroy();
       expect(removed("mousedown")).toBe(1);
-      expect(removed("click")).toBe(1);
+      expect(removed("click")).toBe(2);
       expect(removed("keydown")).toBe(1);
       // No listener survives: a press has no effect.
       const outside = panel();
@@ -671,6 +693,29 @@ describe("OverlayRegistry", () => {
       registry.register(fake.entry);
       press(row, "click");
       expect(fake.closeCalls).toHaveLength(0);
+    });
+
+    it("dismisses an outside click even when the target stops propagation", () => {
+      const own = panel("own");
+      const fake = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        dismissOn: "click",
+        panels: () => [own],
+      });
+      registry.register(fake.entry);
+
+      // A collapsed control's toggle calls `L.DomEvent.stop(event)` on click,
+      // which stops the event before it reaches a document *bubble* listener.
+      // An outside press must not depend on that bubble surviving.
+      const toggle = panel("collapsed-toggle");
+      toggle.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+      });
+
+      press(toggle, "click");
+
+      expect(fake.closeCalls).toEqual([false]);
+      expect(registry.lastPressInside()).toBe(false);
     });
   });
 

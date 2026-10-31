@@ -4,9 +4,15 @@ import json
 import logging
 import math
 import numbers
+import os
+import sys
+import warnings
 from collections.abc import Iterable
+from pathlib import Path
+from types import FrameType
 from typing import Annotated, Any, cast
 
+import folium
 from branca.colormap import LinearColormap, StepColormap
 from branca.element import Element
 from folium import GeoJson
@@ -21,16 +27,21 @@ _FOLIUM_COLOR_PROP = "__folium_color"
 
 _log = logging.getLogger(__name__)
 
-# Captions already reported as refused, so re-rendering a page does not repeat
-# the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. The set is a log filter, not
-# a model: once it grows past _LOG_FILTER_CAP it clears wholesale, so a
-# pathological page cannot pin every message forever.
-# Each entry is (caption, criterion, hits, total): criterion names the
-# test that refused the caption, so the two arms de-duplicate separately.
-_refused_captions: set[tuple[str, str, int, int]] = set()
-# How many refused captions the log filter keeps before clearing wholesale.
+# Diagnostics already reported in this process, so re-rendering a page does not
+# repeat the same line for the same data: one refused caption is a signal, and a
+# two-layer map measured 16 identical warnings. Each set is a log filter, not
+# state — it is cleared rather than grown when a long process renders many maps.
+# Split per family (#804): the caption refusal (#781) and the foliplus={...}
+# declaration rejections each own a 64-note budget, so a flood of malformed
+# declarations cannot clear the caption history (or vice versa) — each family's
+# dedup only needs to remember its own notes. Notes are string tuples whose
+# first element is the domain tag, kept so a note is self-describing when a
+# store is inspected or logged.
+_refused_captions: set[tuple[str, ...]] = set()
+_foliplus_reports: set[tuple[str, ...]] = set()
+
 _LOG_FILTER_CAP = 64
+
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
@@ -66,6 +77,171 @@ _FILL_AUTHOR_RGB_SLACK = 2
 # layer the scale paints only mostly: four features hand-set still agree
 # 8/12 = 0.67, five drop it to 7/12 = 0.58.
 _FILL_AUTHOR_AGREE = 0.6
+
+#: The keys the per-layer foliplus={...} declaration namespace accepts.
+#: fill and label are consumed by the JS panel straight off
+#: layer.options.foliplus (folium forwards the unknown keyword into the
+#: layer options); zoom is normalised here into CONFIG data[].zoom so the
+#: visibility policy reads one CONF fact instead of the raw namespace.
+_FOLIPLUS_KEYS = frozenset({"fill", "label", "zoom"})
+
+
+#: Directory of this package with a trailing separator, so a sibling whose name
+#: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
+_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
+#: Installed dependency tree. A foliplus= warning is raised while the control is
+#: being *rendered*, so between this package and the author's cell sit the Jinja
+#: template machinery, folium and branca. Pointing the warning at
+#: jinja2/environment.py would be technically accurate and useless; the walk
+#: skips the plumbing too, and stops at the first frame that is neither this
+#: package nor an installed dependency.
+_DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
+_PLUMBING_DIRS = (_PACKAGE_DIR, _DEPENDENCY_DIR)
+
+
+def _is_plumbing(filename: str) -> bool:
+    """True for a frame that is machinery, not the author's code.
+
+    Three shapes count: this package; the installed dependency tree (a render
+    passes through jinja2, folium and branca); and a synthetic source name -
+    Jinja compiles a template *string* to a code object whose filename is
+    "<template>", and that is the frame a render-time warning is raised from.
+    """
+    return filename.startswith(_PLUMBING_DIRS) or filename.startswith("<")
+
+
+def _caller_stacklevel() -> int:
+    """Frames from warnings.warn out to the first frame that is the author's.
+
+    A fixed stacklevel cannot work here, and that is a fact of the call path
+    rather than a guess: a declaration is read during the Jinja render, which
+    compiles the control template to a "<template>" frame and calls through its
+    own interpreter frames, so between this package and the author's cell sit
+    the template frame, jinja2 and folium. The depth also differs between call
+    paths (_reject sits one frame further in than the shape checks). Walking
+    out to the first frame that is not plumbing is therefore the only stable
+    rule. Same idea as _declared_filter._caller_stacklevel on the
+    declared-filter branch (#805), kept as a private copy on purpose: the two
+    branches land independently, and a shared module would be an add/add
+    conflict to resolve for no behaviour. Fold them together in a follow-up
+    once both are in - the difference to reconcile is the dependency skip,
+    which #805's construction-time warnings do not need.
+    """
+    frame: FrameType | None = sys._getframe(1)  # _warn_foliplus, its caller
+    level = 1
+    while frame is not None:
+        if not _is_plumbing(frame.f_code.co_filename):
+            return level
+        frame = frame.f_back
+        level += 1
+    return level  # pragma: no cover - only when the whole stack is library code
+
+
+def _warn_foliplus(note: str, message: str) -> None:
+    """Report one unusable foliplus={...} declaration at the line that wrote it.
+
+    De-duplicated through the same process-wide log-filter mechanism as the
+    refused captions, but its own family store (see _should_report below and
+    the _foliplus_reports / _refused_captions split): the note carries the
+    layer name and the defect, so one typo on three layers prints three
+    attributable warnings and re-rendering the same page stays quiet. Never
+    raises: a typo in the declaration namespace is a warning, not a page
+    failure.
+    """
+    if not _should_report(("foliplus", note), _foliplus_reports):
+        return
+    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
+
+
+def _zoom_level(raw: object) -> int | None:
+    """One declared zoom end as an int, or None when it is not an integer.
+
+    bool is an int subclass but never a zoom level, so it is rejected too.
+    Returning the narrowed value keeps the caller's comparison and dict in int
+    territory; a loop-body isinstance check does not narrow past the loop, so
+    validating in a loop and using the names afterwards would need a second
+    round of checks here (or a cast) for no behavioural gain.
+    """
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw
+    return None
+
+
+def _declared_zoom(item: Layer, layer_name: str) -> dict[str, int] | None:
+    """Normalise one layer foliplus={"zoom": {"min": ..., "max": ...}}.
+
+    Returns {"min": int, "max": int} when the declaration is usable, else
+    None: "not declared" and "declared but invalid" are the same state
+    downstream - the visibility policy stays unconstrained rather than
+    hiding the layer on a payload the author never saw validated.
+
+    The namespace is a folium passthrough, so nothing validates it at
+    construction. This is the single read point, hence the single place that
+    warns; every message names the layer so a typo is attributable, and the
+    de-duplication note carries the layer and the defect so two different
+    layers (or two different typos) are each reported once.
+    """
+    # folium's base Layer (map.py) never assigns self.options: only the
+    # concrete subclasses do (Marker, GeoJson, FeatureGroup, TileLayer, ...).
+    # A bare Layer or a custom subclass is therefore a real runtime shape, not
+    # just a type hole, and it simply carries no declaration.
+    raw = getattr(item, "options", {}).get("foliplus")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        _warn_foliplus(
+            f"{layer_name}:shape:{type(raw).__name__}",
+            f"LayerControl: layer {layer_name!r} declares foliplus= as "
+            f"{type(raw).__name__}; expected a mapping - ignored",
+        )
+        return None
+
+    for key, value in raw.items():
+        if key not in _FOLIPLUS_KEYS:
+            _warn_foliplus(
+                f"{layer_name}:unknown:{key}",
+                f"LayerControl: layer {layer_name!r} declares unknown "
+                f"foliplus key {key!r}; expected one of "
+                f"{sorted(_FOLIPLUS_KEYS)} - ignored",
+            )
+        elif key in {"fill", "label"} and not isinstance(value, dict):
+            _warn_foliplus(
+                f"{layer_name}:shape:{key}:{type(value).__name__}",
+                f"LayerControl: layer {layer_name!r} declares "
+                f"foliplus[{key!r}] as {type(value).__name__}; expected a "
+                "mapping - ignored",
+            )
+
+    zoom = raw.get("zoom")
+    if zoom is None:
+        return None
+
+    def _reject(reason: str) -> None:
+        _warn_foliplus(
+            f"{layer_name}:zoom:{reason}",
+            f"LayerControl: layer {layer_name!r} declares "
+            f"foliplus[zoom] {reason} - ignored",
+        )
+
+    if not isinstance(zoom, dict):
+        _reject(f"as {type(zoom).__name__}; expected a mapping")
+        return None
+    extra = sorted(set(zoom) - {"min", "max"})
+    if extra:
+        _reject(f"with unknown key(s) {extra}; expected only min and max")
+        return None
+    raw_lo, raw_hi = zoom.get("min"), zoom.get("max")
+    lo, hi = _zoom_level(raw_lo), _zoom_level(raw_hi)
+    if lo is None:
+        _reject(f"with a non-integer min={raw_lo!r}")
+        return None
+    if hi is None:
+        _reject(f"with a non-integer max={raw_hi!r}")
+        return None
+    if lo > hi:
+        _reject(f"with min={lo} > max={hi}")
+        return None
+    return {"min": lo, "max": hi}
 
 
 def _fill_author_color(props: dict[str, Any]) -> str | None:
@@ -364,6 +540,22 @@ def _pair_scale(
     return None
 
 
+def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
+    """True when this diagnostic has not been printed in this process yet.
+
+    ``store`` is the family's own filter (one per diagnostic family, so the
+    families do not crowd each other out at the cap). The cap keeps a long
+    process that renders many maps from growing the set without bound;
+    clearing it wholesale is what #781 chose over an LRU.
+    """
+    if note in store:
+        return False
+    if len(store) >= _LOG_FILTER_CAP:
+        store.clear()
+    store.add(note)
+    return True
+
+
 def _warn_refused_caption(
     caption: str, hits: int, total: int, *, criterion: str
 ) -> None:
@@ -371,17 +563,12 @@ def _warn_refused_caption(
 
     ``criterion`` names the test that failed, so the message says which one: the
     stepped arm tests exact block membership, the continuous arm tests the
-    color-match ratio against _FILL_AUTHOR_AGREE. The dedup set is a single
-    per-file log filter shared by every family (the caption refusals here and
-    the declaration rejections elsewhere), capped at _LOG_FILTER_CAP; a full
-    set clears wholesale rather than pinning every message forever.
+    color-match ratio against _FILL_AUTHOR_AGREE.
     """
-    note = (caption, criterion, hits, total)
-    if note in _refused_captions:
+    if not _should_report(
+        ("caption", caption, criterion, str(hits), str(total)), _refused_captions
+    ):
         return
-    if len(_refused_captions) >= _LOG_FILTER_CAP:
-        _refused_captions.clear()
-    _refused_captions.add(note)
     _log.warning(
         "LayerControl: the scale caption %r names a column, but only %d/%d "
         "sampled features %s; not claiming it",
@@ -559,45 +746,42 @@ class LayerControl(BaseControl):
       reloads.
     - 🏷️ Per-layer text labels via ``foliplus={"label": {"field": ...}}`` on
       the layer itself.
-    - ⌨️ Keyboard navigation across rows and panels (see Shortcuts below).
+    - ⌨️ Keyboard navigation across rows and panels (see the shortcuts table
+      below).
     - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
     Shortcuts
     ---------
+
     Focus a layer row by clicking it, then use:
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Action
-       * - ArrowUp
-         - Move focus to previous layer
-       * - ArrowDown
-         - Move focus to next layer
-       * - ArrowLeft
-         - Toggle visibility of focused layer (deselect)
-       * - ArrowRight
-         - Toggle visibility of focused layer (select)
-       * - Space
-         - Toggle visibility of focused layer
-       * - Enter
-         - Toggle visibility of focused layer
-       * - Ctrl+Up
-         - Move focused layer one position up
-       * - Ctrl+Down
-         - Move focused layer one position down
-       * - Escape
-         - Close the open rename, menu, attributes, filter, or style panel;
-           otherwise cancel focus and clear the keyboard cursor
-       * - Double-click row
-         - Zoom the map to that layer's extent (dashed rect). Hidden layers
-           show a hint instead. Also from the ⋮ menu or Alt+Enter.
-       * - Alt+Enter
-         - Zoom to the focused layer (same as double-click)
-       * - ⋮ menu
-         - Enter or Space activates the focused item, Tab moves between items,
-           Escape closes the menu
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Key              | Action                                                                                                                   |
+    +==================+==========================================================================================================================+
+    | ArrowUp          | Move focus to previous layer                                                                                             |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowDown        | Move focus to next layer                                                                                                 |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowLeft        | Toggle visibility of focused layer (deselect)                                                                            |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ArrowRight       | Toggle visibility of focused layer (select)                                                                              |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Space            | Toggle visibility of focused layer                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Enter            | Toggle visibility of focused layer                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Ctrl+Up          | Move focused layer one position up                                                                                       |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Ctrl+Down        | Move focused layer one position down                                                                                     |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Escape           | Close the open rename, menu, attributes, filter, or style panel; otherwise cancel focus and clear the keyboard cursor    |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Double-click row | Zoom the map to that layer's extent (dashed rect). Hidden layers show a hint instead. Also from the ⋮ menu or Alt+Enter. |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | Alt+Enter        | Zoom to the focused layer (same as double-click)                                                                         |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
+    | ⋮ menu           | Enter or Space activates the focused item, Tab moves between items, Escape closes the menu                               |
+    +------------------+--------------------------------------------------------------------------------------------------------------------------+
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
@@ -629,84 +813,108 @@ class LayerControl(BaseControl):
 
     Examples
     --------
+    Mount the panel on a map:
+
     >>> import folium
     >>> from foliplus import LayerControl
     >>> m = folium.Map()
     >>> LayerControl().add_to(m)
 
+    A layer may declare its own defaults on the layer itself, in the same
+    ``foliplus=`` namespace the fill and label declarations use. Declare a
+    visible zoom range:
+
+    >>> import geopandas as gpd
+    >>> gdf = gpd.read_file("boundaries.geojson")
+    >>> m = gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+    >>> LayerControl().add_to(m)
+
+    Declare per-layer text labels:
+
+    >>> gdf.explore(foliplus={"label": {"field": "name", "collide": False}})
+
     Notes
     -----
-    A layer may declare its own label defaults on the layer itself:
+    Recognised keys:
 
-    >>> gdf.explore(
-    ...     foliplus={"label": {"field": "name", "collide": False}}
-    ... )
+    +----------+--------+--------------------------------------------------------------+
+    | Key      | Type   | Meaning                                                      |
+    +==========+========+==============================================================+
+    | ``fill`` | dict   | The layer's fill by value, with a ``ramp`` arm for numeric   |
+    |          |        | fields (see the fill table below).                           |
+    +----------+--------+--------------------------------------------------------------+
+    | ``label``| dict   | The layer's text labels (see the label table below).         |
+    +----------+--------+--------------------------------------------------------------+
+    | ``zoom`` | dict   | The layer's visible zoom range (see the zoom table below).   |
+    +----------+--------+--------------------------------------------------------------+
 
-    .. list-table::
-       :header-rows: 1
+    The ``fill`` declaration keys:
 
-       * - Key
-         - Default
-         - Meaning
-       * - ``field``
-         - labels stay off
-         - the feature property to label; declaring it turns labels on
-       * - ``format``
-         - ``auto``
-         - number format (``auto`` / ``int`` / ``comma`` / ``percent``)
-       * - ``color``
-         - ``#ffffff``
-         - label color; hex only, ``#rgb`` is normalised to ``#rrggbb``
-       * - ``size``
-         - ``11`` px
-         - label font size in px, clamped to the panel's 6-32 range
-       * - ``collide``
-         - page-level ``label_collide``
-         - whether this layer's labels take part in overlap avoidance
-       * - ``show``
-         - ``True`` once ``field`` is declared
-         - explicit on/off, so a field can be named without drawing
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | Key              | Default                                                       | Meaning                                                                  |
+    +==================+===============================================================+==========================================================================+
+    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill arm: one color (``solid``) or color by value (``ramp``)             |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.method``  | ``jenks``                                                     | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``) |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.classes`` | ``6``                                                         | number of classes, any integer ``>= 2`` (``12`` is a common example)     |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
 
-    Keys stay short because the declaration's own namespace already says
-    label; the ``label_`` prefix belongs to the flat surfaces (Python
-    kwargs, CONF, locale). A declaration is the author's default: a later
-    choice in the style panel is the user's intent and wins, and Reset
-    shows the declaration through again.
+    The ``label`` declaration keys:
 
-    A layer may declare its own fill on the same per-layer namespace, under
-    the ``fill`` key:
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | Key         | Default                             | Meaning                                                      |
+    +=============+=====================================+==============================================================+
+    | ``field``   | labels stay off                     | the feature property to label; declaring it turns labels on  |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``format``  | ``auto``                            | number format (``auto`` / ``int`` / ``comma`` / ``percent``) |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``color``   | ``#ffffff``                         | label color; hex only, ``#rgb`` is normalised to ``#rrggbb`` |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``size``    | ``11`` px                           | label font size in px, clamped to the panel's 6-32 range     |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``collide`` | page-level ``label_collide``        | whether this layer's labels take part in overlap avoidance   |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
+    | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
+    +-------------+-------------------------------------+--------------------------------------------------------------+
 
-    >>> gdf.explore(
-    ...     foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}}
-    ... )
+    The ``zoom`` declaration keys:
 
-    .. list-table::
-       :header-rows: 1
+    +---------+------+----------+--------------------------------------------------------------+
+    | Key     | Type | Required | Meaning                                                      |
+    +=========+======+==========+==============================================================+
+    | ``min`` | int  | yes      | Lowest zoom at which the layer is visible (inclusive).       |
+    +---------+------+----------+--------------------------------------------------------------+
+    | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
+    +---------+------+----------+--------------------------------------------------------------+
 
-       * - Key
-         - Default
-         - Meaning
-       * - ``mode``
-         - ``ramp`` once ``ramp.field`` is declared, otherwise ``solid``
-         - fill arm: one color (``solid``) or color by value (``ramp``)
-       * - ``ramp.field``
-         - - (declaring it turns the ramp on)
-         - the numeric feature property to classify
-       * - ``ramp.method``
-         - ``jenks``
-         - classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)
-       * - ``ramp.classes``
-         - ``6``
-         - number of classes, any integer ``>= 2`` (``12`` is a common example)
-       * - ``ramp.scheme``
-         - ``Viridis``
-         - palette name (the style panel's own candidates)
+    How a ``zoom`` declaration is resolved:
 
-    Precedence matches the label declaration: the user's choice in the style
-    panel wins, then the declaration, then the author's per-feature paint
-    (``explore``'s baked colors) and finally the built-in default. Reset
-    returns to the declared ramp. An invalid declaration only warns and falls
-    back; it is dropped rather than painted.
+    +-------------------------------+--------------------------------------------------------------+
+    |Condition                      |Behaviour                                                     |
+    +===============================+==============================================================+
+    |User stored range              |The row shows the stored range; it always wins.               |
+    +-------------------------------+--------------------------------------------------------------+
+    |Valid declaration              |The row opens on it and Reset returns to it.                  |
+    +-------------------------------+--------------------------------------------------------------+
+    |No declaration                 |The row opens on the map's own range.                         |
+    +-------------------------------+--------------------------------------------------------------+
+    |Declared range cannot meet the |Treated as undeclared: the layer stays visible at every level,|
+    |map's zoom levels              |the degradation warns once, and the row stays editable (it    |
+    |                               |shows the stored value, else the map's range).                |
+    +-------------------------------+--------------------------------------------------------------+
+    |Malformed declaration (missing |Warns once and is treated as undeclared; never hides the      |
+    |key, non-int, inverted, unknown|layer.                                                        |
+    |key)                           |                                                              |
+    +-------------------------------+--------------------------------------------------------------+
+
+    A declaration is a default, never a rewrite: it does not modify the
+    author's own layer data.
+
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
@@ -723,6 +931,36 @@ class LayerControl(BaseControl):
                         "id": "string",
                         "role": ("base", "overlay"),
                         "show": "bool",
+                        # Optional: what Python computed for the author's
+                        # per-feature paint (explore's baked colors). The panel
+                        # reads it as the author default behind fill by value;
+                        # absent on a layer with no author paint.
+                        "fillAuthor": (
+                            {
+                                "perFeature": "bool",
+                                "distinct": "number",
+                                "stops": "array_string",
+                                "capped": ("bool", "?"),
+                                # The scale the author mounted (continuous) or
+                                # the classified blocks they drew (stepped).
+                                "scale": (
+                                    {
+                                        "kind": ("continuous", "stepped"),
+                                        "column": ("string", "?"),
+                                        "vmin": "number",
+                                        "vmax": "number",
+                                        "levels": ("number", "?"),
+                                    },
+                                    "?",
+                                ),
+                            },
+                            "?",
+                        ),
+                        # Optional: the author-declared zoom range,
+                        # normalised from foliplus={"zoom": {...}}. Absent
+                        # when the layer declares none - the visibility
+                        # policy then keeps the map range.
+                        "zoom": ({"min": "number", "max": "number"}, "?"),
                     }
                 ],
             ),
@@ -756,8 +994,9 @@ class LayerControl(BaseControl):
         Returns
         -------
         dict
-            ``{"data": [{"name", "id", "role"}, ...]}`` — the ``data`` key is merged
-            into the JS ``CONFIG`` object by :meth:`BaseControl._build_config`.
+            ``{"data": [{"name", "id", "role", "show"}, ...]}`` with optional
+            ``fillAuthor`` / ``zoom`` — the ``data`` key is merged into the JS
+            ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
         seen: set[str] = set()
@@ -788,6 +1027,9 @@ class LayerControl(BaseControl):
             author = _fill_author(item, colormaps, claimed)
             if author is not None:
                 entry["fillAuthor"] = author
+            zoom = _declared_zoom(item, item.layer_name)
+            if zoom is not None:
+                entry["zoom"] = zoom
             data.append(entry)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
