@@ -431,6 +431,75 @@ describe("LayerUI style panel", () => {
     portal.remove();
   });
 
+  it("a press on another surface's picker portal dismisses this drawer", () => {
+    // The class alone is not ownership. A list registered for a trigger outside
+    // this drawer belongs to that surface, so this drawer must dismiss: matching
+    // the class document-wide would keep it open under a press it does not own.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    // The drawer is live on its own panel, and the foreign portal is outside that
+    // panel's subtree: neither a subtree walk nor a document-wide class match can
+    // produce the dismissal this test asserts — only trigger ownership can.
+    expect(panelOf(item)).toBe(panel);
+    expect(panel.contains(foreign)).toBe(false);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      foreignRow.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer via the outside-mousedown handler", () => {
+    // The class alone is not ownership. handleOutsideMousedown classifies a
+    // press through core/overlay's predicate, and a codebase that still passes
+    // a portal selector would answer "mine" for a portal this drawer does not
+    // own (its trigger is outside the drawer) — the same press-stealing bug
+    // from the other side. Only trigger ownership can dismiss here.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      // jsdom does not populate event.target on dispatch, so pin it directly.
+      const event = new MouseEvent("mousedown", { bubbles: true });
+      Object.defineProperty(event, "target", { value: foreignRow });
+      ui.handleOutsideMousedown(event);
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
+  });
+
   // ─────────────────── control interactions ───────────────────
 
   it("flipping the toggle updates the config, labels and persistence", () => {

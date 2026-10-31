@@ -8,12 +8,16 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
+import { applyOptionA11y } from "#common/dropdown.js";
 import { createLogger } from "#common/log.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
 const log = createLogger("schemePicker");
+
+/** Gap between the trigger and the dropdown, matching --foliplus-menu-gap. */
+const MENU_GAP = 4;
 
 // ── Class-name defaults ────────────────────────────────────────────────
 
@@ -32,13 +36,6 @@ const DEFAULT_CLASSES = {
 // lift. The class is what the stylesheet keys the z band off, so the JS keeps
 // its distance from z numbers.
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
-
-/** Selector for a portaled dropdown, for `closest()`-style ownership checks.
- *  Retained for the panels that pass it explicitly to `core/overlay`'s
- *  `isInsideOverlay`; the picker now also registers its mounted list in
- *  common/portalRoot, which is the mechanism new portals use and the one the
- *  predicate consults first. */
-const SCHEME_PICKER_PORTAL_SELECTOR = `.${PORTAL_CLASS}`;
 
 interface SchemePickerClasses {
   open: string;
@@ -90,6 +87,10 @@ interface SchemePickerOptions {
    *  entries still take focus during keyboard navigation and are announced as
    *  disabled; activating them is a no-op, never an onChange. */
   disabledSchemes?: readonly string[];
+  /** Tooltip for a disabled scheme entry (when no schemeLabel is more
+   *  specific). Disabled entries keep their focus and aria-disabled semantics;
+   *  this only gives a mouse user the reason on hover. */
+  disabledHint?: string;
 }
 
 interface SchemePicker {
@@ -148,6 +149,7 @@ interface InternalState {
   colorScale: (name: string, n: number) => string[];
   schemeLabel: (name: string) => string;
   disabledSchemes: readonly string[];
+  disabledHint: string;
   /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
   cleanupFns: (() => void)[];
   /** Mount-scope listeners (outside-click, scroll, fullscreen, item focus) —
@@ -192,6 +194,26 @@ const renderColorBar = (
 
 // ── Dropdown builder ───────────────────────────────────────────────────
 
+// Deliberate divergence from common/dropdown's renderOptions row builder.
+// The two builders share exactly one genuinely-identical piece — the ARIA
+// contract that applyOptionA11y paints (role/tabindex/aria-selected) — and
+// the keyboard contract (Home/End/arrow skip aria-disabled rows, Escape,
+// Tab close; see focusables() below). Everything else diverges by design
+// and is deliberately NOT folded into a shared helper:
+//
+//  - element: <div> vs <button type=button> (dropdown)
+//  - disabled: aria-disabled=true (still focusable, activate is a no-op)
+//    vs native disabled attr (skips tab order, cannot fire click)
+//  - data key: data-scheme-name vs data-value
+//  - selected class: foliplus-is-active vs foliplus-is-selected
+//  - click wiring: stopPropagation + disabled guard + selectScheme
+//    vs activate(index) with no guard
+//  - trigger: a consumer-drawn color bar (div role=combobox) vs a
+//    module-owned label button — no shared trigger shape, so the picker
+//    keeps its own trigger Enter/Space mount and open-focus handling.
+//
+// If you change the row shape here, mirror the intent in dropdown's
+// renderOptions — not a shared abstraction.
 const buildDropdown = (state: InternalState): HTMLElement => {
   const { classes, schemes, numClasses, value } = state;
 
@@ -205,13 +227,11 @@ const buildDropdown = (state: InternalState): HTMLElement => {
   schemes.forEach(name => {
     const item = dom.el("div", {
       class: classes.item,
-      role: "option",
-      tabindex: "-1",
       "data-scheme-name": name,
-      "aria-selected": String(name === value),
       parent: dropdown,
     });
 
+    applyOptionA11y(item, { selected: name === value });
     if (name === value) {
       item.classList.add(classes.active);
     }
@@ -225,7 +245,12 @@ const buildDropdown = (state: InternalState): HTMLElement => {
       parent: item,
     });
     renderColorBar(bar, name, numClasses, classes.block, state.colorScale);
-    item.title = state.schemeLabel(name);
+    // A disabled entry shows the disabled hint when the consumer provides one;
+    // otherwise it falls back to the scheme label (the previous title), so an
+    // empty hint never blanks the tooltip a disabled entry already had.
+    item.title = disabled
+      ? state.disabledHint || state.schemeLabel(name)
+      : state.schemeLabel(name);
 
     item.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
@@ -240,31 +265,43 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
   // ── Dropdown keyboard handler ──
 
+  // Same keyboard contract as common/dropdown.ts: Home/End/↑↓ walk the rows
+  // that can be picked (a consumer-owned current entry is skipped), Esc closes
+  // back to the trigger, and Tab closes without swallowing the default move.
+  const focusables = () =>
+    state.items.filter(item => item.getAttribute("aria-disabled") !== "true");
+
   const onKeydown = (event: KeyboardEvent) => {
     const key = event.key;
-    const idx = state.items.indexOf(document.activeElement as HTMLElement);
+    const rows = focusables();
+    const idx = rows.indexOf(document.activeElement as HTMLElement);
 
     if (key === "ArrowDown" || key === "Down") {
       event.preventDefault();
       event.stopPropagation();
-      const next = state.items.length > 0 ? (idx + 1) % state.items.length : 0;
-      state.items[next]?.focus();
+      if (rows.length > 0) {
+        const next = idx < 0 ? 0 : (idx + 1) % rows.length;
+        rows[next]?.focus();
+      }
     } else if (key === "ArrowUp" || key === "Up") {
       event.preventDefault();
       event.stopPropagation();
-      const prev =
-        state.items.length > 0
-          ? (idx - 1 + state.items.length) % state.items.length
-          : 0;
-      state.items[prev]?.focus();
+      if (rows.length > 0) {
+        const prev = idx < 0 ? rows.length - 1 : (idx - 1 + rows.length) % rows.length;
+        rows[prev]?.focus();
+      }
     } else if (key === "Home") {
       event.preventDefault();
       event.stopPropagation();
-      state.items[0]?.focus();
+      rows[0]?.focus();
     } else if (key === "End") {
       event.preventDefault();
       event.stopPropagation();
-      state.items[state.items.length - 1]?.focus();
+      rows[rows.length - 1]?.focus();
+    } else if (key === "Tab") {
+      // No preventDefault: closing first makes the browser continue Tab from
+      // the trigger instead of from the row that is about to be hidden.
+      closeDropdown(state, { restoreFocus: true });
     } else if (key === "Enter" || key === " ") {
       event.preventDefault();
       event.stopPropagation();
@@ -439,19 +476,26 @@ const positionDropdown = (state: InternalState, dropdown: HTMLElement) => {
   // portal host's width (e.g. document.body = 100%).
   dropdown.style.width = `${rect.width}px`;
   const dropdownRect = dropdown.getBoundingClientRect();
+  // The CSS shell carries the gap as a margin for the in-flow mount; a
+  // positioned dropdown states it in the offset instead, or the two would add.
+  dropdown.style.marginTop = "0px";
 
-  let top = rect.bottom;
+  // One flip rule for every dropdown surface (common/dropdown.ts): flip above
+  // only when the room below cannot show two rows AND the room above is
+  // larger. No per-surface special case.
+  const spaceBelow = vh - rect.bottom - MENU_GAP;
+  const spaceAbove = rect.top - MENU_GAP;
+  const fitsBelow = spaceBelow >= dropdownRect.height;
+  const up = !fitsBelow && spaceAbove > spaceBelow;
+
   let left = rect.left;
-
-  // Clamp right edge
   if (left + dropdownRect.width > vw - 8) {
     left = Math.max(8, vw - dropdownRect.width - 8);
   }
-  // Clamp bottom edge — flip above if needed
-  if (top + dropdownRect.height > vh - 8) {
-    top = rect.top - dropdownRect.height - 4;
-    if (top < 8) top = 8;
-  }
+  let top = up ? rect.top - dropdownRect.height - MENU_GAP : rect.bottom + MENU_GAP;
+  // Clamp both edges: a trigger near the bottom of a short viewport keeps the
+  // list on screen instead of running off it.
+  top = Math.max(8, Math.min(top, vh - 8 - dropdownRect.height));
 
   dropdown.style.top = `${top}px`;
   dropdown.style.left = `${left}px`;
@@ -638,6 +682,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     colorScale: options.colorScale,
     schemeLabel: options.schemeLabel ?? (name => name),
     disabledSchemes: options.disabledSchemes ?? [],
+    disabledHint: options.disabledHint ?? "",
     value: options.value,
     dropdown: null,
     items: [],
@@ -799,5 +844,5 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   return picker;
 };
 
-export { SCHEME_PICKER_PORTAL_SELECTOR, createSchemePicker };
+export { createSchemePicker };
 export type { SchemePicker };

@@ -88,10 +88,63 @@ const safeColorScale = (name: string, n: number): string[] => {
   }
 };
 
+/** Qualitative (category) schemes the category fill arm offers, with the
+ *  discrete color count each ColorBrewer family defines. These are the
+ *  canonical category palettes — a category fill is a flat set of names, so
+ *  interpolating between endpoints would produce colors the brewer never
+ *  defined. The count is the family's max; `getCategoryColors` caps at it.
+ *
+ *  The keys mirror `DEFAULT_SCHEMES`'s shape but are a separate vocabulary:
+ *  a sequential scheme (Blues) is a *gradient*, which a categorical field
+ *  must not use — the category arm paints distinct labels, and a gradient
+ *  would make two adjacent categories nearly indistinguishable. */
+const CATEGORY_SCHEMES: Record<string, number> = {
+  Set3: 12,
+  Paired: 12,
+  Set1: 9,
+  Set2: 8,
+  Dark2: 8,
+};
+
+/** Build a discrete `n`-color qualitative scale from a category scheme
+ *  name.
+ *
+ *  Unlike `getColorScale`, this never interpolates: a category palette's
+ *  colors are the brewer's named colors, and `.mode("lab")` would blend two
+ *  endpoints into a shade the brewer never intended. Chroma's `colors(n)`
+ *  on a qualitative scheme returns the scheme's own discrete colors when
+ *  `n` is within the family's count, and cycles otherwise — so the count is
+ *  capped at the family's max.
+ *
+ *  Total by the same contract as `safeColorScale`: chroma absent OR the
+ *  name unreadable paints the fallback grey instead of aborting the control
+ *  that asked — a stale or hand-edited record must not stop a panel from
+ *  mounting. */
+const getCategoryColors = (name: string, n: number): string[] => {
+  const max = CATEGORY_SCHEMES[name] ?? 0;
+  if (typeof chroma === "undefined") {
+    return Array(n).fill(SCHEME_FALLBACK_COLOR);
+  }
+  try {
+    // Cap at the family's discrete count: asking chroma for more colors than
+    // the brewer defined would cycle and repeat a color, which a category
+    // fill must never do (two categories sharing one color is the exact
+    // confusion the palette exists to prevent).
+    const count = max > 0 ? Math.min(n, max) : n;
+    return chroma.scale(name).colors(count) as string[];
+  } catch {
+    // Total by the same contract as `safeColorScale`: an unreadable name
+    // paints the fallback grey instead of aborting the control that asked.
+    return Array(n).fill(SCHEME_FALLBACK_COLOR);
+  }
+};
+
 export {
+  CATEGORY_SCHEMES,
   DEFAULT_SCHEMES,
   PaletteConfigError,
   SCHEME_FALLBACK_COLOR,
+  getCategoryColors,
   getColorScale,
   safeColorScale,
 };

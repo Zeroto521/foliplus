@@ -22,7 +22,7 @@
    anchor and rows, never this box. */
 :is(.foliplus-search-result-panel, .foliplus-layer-more-menu, .foliplus-dropdown-list) {
   box-sizing: border-box;
-  margin-top: var(--foliplus-space-xs);
+  margin-top: var(--foliplus-menu-gap);
   background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);
@@ -83,7 +83,12 @@
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
      language as the LayerControl "more" button hover). ── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):hover {
+.foliplus-layer-more-menu li[disabled] {
+  color: var(--foliplus-text-muted);
+  cursor: not-allowed;
+}
+
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):not([disabled]):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
