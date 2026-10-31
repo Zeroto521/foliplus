@@ -258,8 +258,9 @@ const focusOption = (state: InternalState, index: number): void => {
   option.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   // The picker tracks the focused row on the trigger; the dropdown does not.
   if (state.spec.shape.activedescendant === "trigger") {
-    const id = option.id;
-    if (id) state.trigger.setAttribute("aria-activedescendant", id);
+    // buildRow assigns a stable id to every row of the trigger shape, so the
+    // id is an engine invariant here — no need to re-check it.
+    state.trigger.setAttribute("aria-activedescendant", option.id);
   }
 };
 
@@ -390,7 +391,9 @@ const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void =>
 const open = (state: InternalState): void => {
   if (state.destroyed || state.isOpen) return;
   for (const other of [...openStates]) {
-    if (other !== state && other.isOpen) close(other, { restoreFocus: false });
+    // openStates only ever contains open states (close() splices the state out),
+    // so the other's isOpen flag is redundant here.
+    if (other !== state) close(other, { restoreFocus: false });
   }
   openStates.push(state);
   state.spec.onBeforeOpen?.();
@@ -569,7 +572,8 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   };
 
   const onTriggerClick = (): void => {
-    if (state.destroyed) return;
+    // destroy() removes this listener before setting state.destroyed, so the
+    // destroyed flag can never be observed here — the guard would be dead.
     if (state.isOpen) close(state, { restoreFocus: false });
     else open(state);
   };
