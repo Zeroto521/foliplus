@@ -63,7 +63,17 @@ class TestExportFocusBrowser:
             cy = start["centerY"]
             page.mouse.move(cx, cy)
             page.mouse.down()
-            page.mouse.move(cx + 120, cy, steps=20)
+            # Frame-scatter the drag: the old mouse.move(steps=20) dispatches
+            # all 20 mousemove events back-to-back without waiting for a frame,
+            # so several land in one rAF tick. The sampler reads once per rAF,
+            # so a single frame can observe a 2-3 step delta (12-18px) even when
+            # the drag is perfectly continuous -- and under load rAF coalesces
+            # further, falsely tripping the 3x-per-step jump threshold. Move one
+            # step per frame so one mousemove lands in exactly one rAF tick.
+            per_step = 120 / 20  # 6 px
+            for _ in range(20):
+                page.mouse.move(cx + per_step * (_ + 1), cy)
+                page.wait_for_timeout(16)  # one animation frame
             page.mouse.up()
             page.wait_for_timeout(200)
 
