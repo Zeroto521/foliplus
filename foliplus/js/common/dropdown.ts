@@ -65,6 +65,11 @@ interface DropdownItem {
   disabled?: boolean;
   /** Native tooltip, mirroring SelectOption.title. */
   title?: string;
+  /** Fallback tooltip for a disabled option that carries no title: the
+   *  disabled state still needs a reason a mouse user can see (the native
+   *  select shows the option's own title, so a disabled row without one
+   *  would otherwise offer no explanation on hover). */
+  disabledHint?: string;
 }
 
 /** The popup-host contract: where an open popup mounts and how it hears that
@@ -406,7 +411,11 @@ const renderOptions = (state: InternalState): void => {
         tabindex: "-1",
         "data-value": item.value,
         ...(item.disabled ? { disabled: "" } : {}),
-        ...(item.title ? { title: item.title } : {}),
+        ...(item.title
+          ? { title: item.title }
+          : item.disabled && item.disabledHint
+            ? { title: item.disabledHint }
+            : {}),
       },
       state.multiple
         ? dom.el("span", {

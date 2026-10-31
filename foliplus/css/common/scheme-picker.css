@@ -153,12 +153,19 @@
     border-color var(--foliplus-transition-fast);
 }
 
-.foliplus-scheme-picker-item:hover {
+.foliplus-scheme-picker-item[aria-disabled="true"] {
+  color: var(--foliplus-text-muted);
+  /* A disabled entry is not a hover target: the not-allowed cursor says the
+     row exists but cannot be picked, and the accent hover would suggest it can. */
+  cursor: not-allowed;
+}
+
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
 
-.foliplus-scheme-picker-item:not([disabled]):active {
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):active {
   background: var(--foliplus-accent-soft-bg);
 }
 

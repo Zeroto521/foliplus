@@ -655,6 +655,7 @@ describe("dropdown: keyboard and edge cases", () => {
       label: string;
       disabled?: boolean;
       title?: string;
+      disabledHint?: string;
     }[],
     extra: Record<string, unknown> = {},
   ): Dropdown => {
@@ -780,6 +781,16 @@ describe("dropdown: keyboard and edge cases", () => {
     const dropdown = standalone([{ value: "a", label: "Alpha", title: "Proj CRS" }]);
     dropdown.trigger.click();
     expect(optionEls(dropdown)[0].title).toBe("Proj CRS");
+  });
+
+  it("falls back to the disabled hint for a disabled row without a title", () => {
+    const dropdown = standalone([
+      { value: "a", label: "Alpha", disabled: true, disabledHint: "Unavailable" },
+    ]);
+    dropdown.trigger.click();
+    const row = optionEls(dropdown)[0];
+    expect(row.disabled).toBe(true);
+    expect(row.title).toBe("Unavailable");
   });
 
   it("a bridged option with no label shows its value instead of an empty row", () => {
