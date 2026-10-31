@@ -706,6 +706,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     ...(multiple ? { "aria-multiselectable": "true" } : {}),
   });
   list.hidden = true;
+  // A wheel over the open popup must not zoom the map. The popup is portalled
+  // out of the control container, so the container's own disableScrollPropagation
+  // (BaseControl) does not cover it — without this a wheel over the list bubbles
+  // to the map container and Leaflet's scrollWheelZoom fires. Stop propagation
+  // only: the list's own overflow-y scroll still works (the default is kept).
+  list.addEventListener("wheel", event => event.stopPropagation());
   trigger.setAttribute("aria-controls", listId);
   // The popup is portalled out of the trigger's subtree, so the accessibility
   // tree needs an explicit owner link: aria-controls alone describes "what it

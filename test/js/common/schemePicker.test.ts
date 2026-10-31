@@ -1382,3 +1382,15 @@ describe("public methods after destroy", () => {
     expect(() => picker.destroy()).not.toThrow();
   });
 });
+
+it("keeps a wheel over the open picker list from reaching the map container", () => {
+  const { picker, trigger } = makePicker({ portal: true });
+  trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  const dropdown = picker.getDropdown()!;
+  const mapWheel = vi.fn();
+  document.addEventListener("wheel", mapWheel);
+  dropdown.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true }));
+  expect(mapWheel).not.toHaveBeenCalled();
+  document.removeEventListener("wheel", mapWheel);
+  picker.destroy();
+});
