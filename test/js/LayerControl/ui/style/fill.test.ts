@@ -2863,8 +2863,10 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
     const children = [...details(row).children];
 
-    // One FORM_ROW per readout. The raw strip and caption divs are gone — they
-    // escaped the label/control grid and are what overflowed the panel.
+    // One FORM_ROW per readout group. The method and class count share one
+    // row (the by-value classes row's shape), so four readouts become three
+    // rows. The raw strip and caption divs are gone — they escaped the
+    // label/control grid and are what overflowed the panel.
     expect(children.length).toBe(3);
     for (const child of children) {
       expect(child.classList.contains("foliplus-form-row")).toBe(true);
@@ -2873,8 +2875,8 @@ describe("fill row — original colors", () => {
     }
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_fill_field",
+      "LayerControl.style_method",
       "LayerControl.style_fill_scheme",
-      "LayerControl.style_fill_classes",
     ]);
     // The strip lives inside a row's control cell, never directly in the
     // detail slot.
@@ -2894,9 +2896,15 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
 
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
+    // A stepped scale has no recorded method here (the author passed a scheme
+    // whose breaks the classification chose), so the method readout states a
+    // dash rather than guessing; the count states the class count the author
+    // actually drew.
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD)).toBe("—");
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
     // The caption moved from a line of its own onto the colors box: the panel
-    // stays three rows tall and the sentence is still reachable.
+    // is three rows tall (column, method + classes, scheme) and the sentence
+    // is still reachable.
     expect(colorsBoxOf(row).title).toBe("LayerControl.style_fill_original_levels");
     expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
       "LayerControl.style_fill_original_levels",
@@ -2904,6 +2912,44 @@ describe("fill row — original colors", () => {
     // An accessible name only applies to a role that accepts one: the bar is
     // information (an image of the author's colors), not a control.
     expect(colorsBoxOf(row).getAttribute("role")).toBe("img");
+  });
+
+  it("renders read-only method and count boxes without asserting geometry", () => {
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const method = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD);
+    const count = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT);
+
+    // The method and count share one row (the by-value classes row's shape):
+    // they sit inside the same .foliplus-form-inline control cell. Geometry is
+    // a stylesheet contract (fillStyles.test.ts) plus a browser probe
+    // (fill_author_read.js rect equality); jsdom does not lay out, so this
+    // test pins the frame, the shared-row shape and the aria state only.
+    expect(method).not.toBeNull();
+    expect(count).not.toBeNull();
+    expect(method!.parentElement).toBe(count!.parentElement);
+    expect(method!.parentElement!.classList.contains("foliplus-form-inline")).toBe(
+      true,
+    );
+    expect(method!.closest(".foliplus-form-row")).toBe(
+      count!.closest(".foliplus-form-row"),
+    );
+    // The two readouts stay distinguishable to assistive tech: the method box
+    // is named by the method label, the count box by the class-count label (the
+    // by-value classes row keeps the same split for its two selects).
+    // The name only reaches assistive tech reliably through a standard namable
+    // role: Chromium does put the aria-label on a bare div, but "text" is not
+    // an ARIA role at all (a Safari/WebKit-ism), so a generic div is not a
+    // dependable target across AT/browsers. role="group" (like the colors
+    // box's role="img") makes the name stable.
+    expect(method!.getAttribute("role")).toBe("group");
+    expect(count!.getAttribute("role")).toBe("group");
+    expect(method!.getAttribute("aria-label")).toBe("LayerControl.style_method");
+    expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
+    for (const box of [method!, count!]) {
+      expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
+      expect(box.getAttribute("aria-disabled")).toBe("true");
+    }
   });
 
   it("offers nothing interactive in the read-only detail", () => {
@@ -2917,7 +2963,7 @@ describe("fill row — original colors", () => {
     const boxes = [
       ...detail.querySelectorAll(selector(CONST.CLASSES.STYLE_FILL_READONLY)),
     ];
-    expect(boxes.length).toBe(3);
+    expect(boxes.length).toBe(4);
     for (const box of boxes) {
       expect(box.getAttribute("aria-disabled")).toBe("true");
     }
@@ -2936,6 +2982,13 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("—");
+    // A continuous scale is the default explore mapping (an equally spaced
+    // LinearColormap): the method readout states Equal Interval, the honest
+    // classification that scale implies.
+    expect(
+      readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBe("LayerControl.style_method_equal");
+    expect(labelsOf(blockOf(continuous.ui))).toContain("LayerControl.style_method");
     expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
       "LayerControl.style_fill_original_continuous",
     );
@@ -2947,6 +3000,17 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("64+");
+    // A categorical layer has no classification: the method row still renders
+    // (the arm stays aligned with the by-value grid) but states no method, and
+    // no field row either — the panel states the colors, their count and a
+    // honest dash for the classification they did not draw.
+    expect(
+      readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBe("—");
+    expect(labelsOf(blockOf(fallback.ui))).toEqual([
+      "LayerControl.style_method",
+      "LayerControl.style_fill_scheme",
+    ]);
   });
 
   it("keeps the author's scale order in the gradient", () => {
@@ -3091,8 +3155,8 @@ describe("fill row — original colors", () => {
     // so the bar renders; the panel must not invent a field name.
     expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
     expect(labelsOf(row)).toEqual([
+      "LayerControl.style_method",
       "LayerControl.style_fill_scheme",
-      "LayerControl.style_fill_classes",
     ]);
   });
 
