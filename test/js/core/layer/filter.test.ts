@@ -535,19 +535,11 @@ describe("pickFilterField / buildFilterModel", () => {
       fieldLabel: "Field",
       label: "Range",
     });
-    // No caption falls back to the field name: the field row names the field
-    // in its value cell, and the condition row keeps the panel's own wording
-    // when the owner supplies none.
+    // The field row always names the field in its value cell; the condition
+    // row keeps the panel's own wording when the owner supplies no label.
     const bare = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
     expect(bare).toMatchObject({ fieldLabel: "Field", label: "" });
     expect(bare.field).toBe("a");
-  });
-  it("omits the field row when the owner provides no fieldLabel", () => {
-    // The Heatmap chooses its aggregation field in the panel body, so it
-    // passes no fieldLabel and the range dimension carries no field row.
-    const dim = buildFilterModel(snap, undefined, "a")!.dimensions[0];
-    expect(dim).toMatchObject({ kind: "range", field: "a", label: "" });
-    expect("fieldLabel" in dim).toBe(false);
   });
 
   it("keeps the field row when the owner provides a fieldLabel", () => {

@@ -92,23 +92,19 @@ const readOnlyField = (field: string): HTMLElement =>
   );
 
 /** Shared dual-thumb range body: the field row (caption + read-only field
- *  name, only when the owner provides `dim.fieldLabel`) plus the condition
- *  row (caption + slider). Two different questions are being answered —
- *  which field is being filtered, and over what range. An owner without a
- *  field row of its own (the Heatmap's aggregation field is chosen in the
- *  panel body, not this popup) passes no `fieldLabel` and gets only the
- *  condition row. `core` refuses to print the raw field name as a caption. */
+ *  name, from `dim.fieldLabel`) plus the condition row (caption + slider).
+ *  Two different questions are being answered — which field is being
+ *  filtered, and over what range. The owner always provides a `fieldLabel`
+ *  (the Heatmap repeats the aggregation field `field=` chose as a read-only
+ *  row). `core` refuses to print the raw field name as a caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  // The field row is optional: an owner without a field row of its own (the
-  // Heatmap's aggregation field is chosen in the panel body) passes no
-  // fieldLabel and the popup renders only the condition row.
-  const fieldRow = dim.fieldLabel
-    ? buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row
-    : null;
+  // The field row always renders: the owner provides a localized fieldLabel
+  // and the read-only cell shows the field name it labels.
+  const fieldRow = buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row;
   // The condition row's caption is component vocabulary the owner may name;
   // absent that, the panel's own wording applies. This fallback is panel
   // chrome, never the field name.

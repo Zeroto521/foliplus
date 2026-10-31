@@ -993,10 +993,11 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
-      // No fieldLabel: the Heatmap chooses the aggregation field in the
-      // panel body (the rampForm Field row), so the filter popup must not
-      // repeat it — the popup renders only the condition row.
-      undefined,
+      // The popup repeats the aggregation field as a read-only Field row
+      // (caption from the locale), the same way main did: the user picked
+      // the aggregation field with field=, and the popup shows the name so
+      // the filter reads unambiguously. The field is never re-editable here.
+      this.T("filter_field"),
       { kept, total },
     );
   }

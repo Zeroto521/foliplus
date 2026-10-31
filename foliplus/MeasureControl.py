@@ -54,7 +54,6 @@ class MeasureControl(BaseControl):
          - Exit the current measurement mode, or exit edit mode
 
     Parameters
-
     ----------
     position : str, default "bottomright"
         One of "topleft", "topright", "bottomleft", "bottomright".
@@ -121,6 +120,20 @@ class MeasureControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
+    Examples
+    --------
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl().add_to(m)
+
+    With a declared starting filter on the measurement types:
+
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
+
     Notes
     -----
     **Filter declaration.** ``filter`` is a list of measurement-type names (the
@@ -149,22 +162,10 @@ class MeasureControl(BaseControl):
          - Dropped (not a filter that hides every measurement)
        * - A declaration that keeps no type at all
          - Reported once with a warning; treated as undeclared
-       * - User write, including an explicit clear or a persisted record
+       * - User write
          - Wins from then on; the declaration is a starting condition only
-
-    Examples
-    --------
-    >>> import folium
-    >>> from foliplus import MeasureControl
-    >>> m = folium.Map()
-    >>> MeasureControl().add_to(m)
-
-    With a declared starting filter on the measurement types:
-
-    >>> import folium
-    >>> from foliplus import MeasureControl
-    >>> m = folium.Map()
-    >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
+       * - User explicit Clear (= factory Reset)
+         - Deletes the saved record, so a reload re-applies the declaration
     """
 
     @validate

@@ -98,6 +98,11 @@ def _range_atom(
             f"{owner}: drop 'field' from filter= — the range is bound to the "
             f"aggregation field (field={bound_field!r})."
         )
+    if not bound_field:
+        raise ValueError(
+            f"{owner}: filter= needs the aggregation field it binds to — pass "
+            f"field='<column>' (a value aggregation, not agg='count')."
+        )
     unknown = sorted(str(key) for key in raw if key not in {"between"})
     if unknown:
         _warn(f"{owner}: filter= has unknown key(s) {unknown}; ignored")
@@ -127,11 +132,6 @@ def _range_atom(
     if low > high:
         _warn(f"{owner}: filter['between'] is inverted ({low} > {high}); ignored")
         return None
-    if not bound_field:
-        raise ValueError(
-            f"{owner}: filter= needs the aggregation field it binds to — pass "
-            f"field='<column>' (a value aggregation, not agg='count')."
-        )
     return {
         "kind": "atom",
         "field": bound_field,
@@ -193,9 +193,11 @@ def normalize_declared_filter(
     mean the runtime starts unfiltered, never filtered-to-empty. A ``field``
     key inside a range declaration is API misuse (the range is bound to the
     aggregation field) and raises ValueError; a range declaration with no
-    bound field (no field=, or agg="count") also raises ValueError. It fails
-    in the author's notebook cell, where the typo is, instead of being buried
-    in a warning among the page output.
+    bound field (no field=, or agg="count") also raises ValueError — the
+    bound-field check runs before the ``between`` validation, so an inverted
+    or malformed range with no field still raises instead of being masked by
+    a warning. It fails in the author's notebook cell, where the typo is,
+    instead of being buried in a warning among the page output.
     """
     if raw is None:
         return None

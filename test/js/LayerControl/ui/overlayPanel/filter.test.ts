@@ -351,49 +351,6 @@ describe("LayerUI filter panel", () => {
       );
     });
 
-    it("renders no field row when the owner provides no fieldLabel (popup-only control)", () => {
-      // A component that chooses its aggregation field in the panel body
-      // (the Heatmap) passes no fieldLabel. The range dimension then carries
-      // only the condition row — no duplicate field row, no read-only value.
-      const owner = makeOwner([10, 20, 30]);
-      const provider = owner.filterProvider;
-      owner.filterProvider = (): LayerFilterModel => {
-        const model = provider();
-        return {
-          ...model,
-          dimensions: model.dimensions.map(dim => {
-            const next = { ...dim };
-            // Strip the optional fieldLabel: a popup-only control (the Heatmap)
-            // must render no field row. `fieldLabel` is a range-dimension
-            // key only, so a bare delete is safe on the runtime value.
-            if ("fieldLabel" in next) {
-              const { fieldLabel: _dropped, ...stripped } = next;
-              return stripped;
-            }
-            return next;
-          }),
-        };
-      };
-      registerPoints("pnt3", owner);
-      const item = findItem(ui, "pnt3");
-
-      ui.openFilterPanel(item);
-
-      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // The read-only field row is absent: no FILTER_FIELD node at all.
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)).toBeNull();
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)).toBeNull();
-      // The condition row is still present, with the panel's own "Range".
-      const sliderHost = panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`);
-      expect(sliderHost).not.toBeNull();
-      const conditionRow = sliderHost!.closest(
-        `.${CONST.CLASSES.FORM_ROW}`,
-      ) as HTMLElement;
-      expect(
-        conditionRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent,
-      ).toBe("Range");
-    });
-
     it("the result readout composes the localized kept/total sentence", () => {
       const { owner } = registerPoints();
       const item = findItem(ui, "pnt");

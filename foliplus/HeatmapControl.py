@@ -50,7 +50,6 @@ class HeatmapControl(BaseControl):
          - Close the dropdown without selecting
 
     Parameters
-
     ----------
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
@@ -65,7 +64,9 @@ class HeatmapControl(BaseControl):
         auto-selection (the only point layer is selected automatically).
 
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
-        Default aggregation method.
+        Default aggregation method. A ``filter`` declaration needs a value
+        aggregation (not ``"count"``) — count aggregates by nothing, so a range
+        has no field to bind to and raises (see Notes).
 
     field : str, optional
         Aggregation field to select when the map first loads. Only a numeric
@@ -73,7 +74,8 @@ class HeatmapControl(BaseControl):
         with a console warning and the panel falls back to its normal default
         field (the first numeric field). Like ``layer``, a persisted user
         choice wins, and a ``count`` aggregation does not use the field until
-        the user switches to a value aggregation.
+        the user switches to a value aggregation — a ``filter`` declaration
+        with ``agg="count"`` is therefore API misuse and raises (see Notes).
 
     filter : dict, optional
         Starting filter on the aggregation field: a mapping with ``between``
@@ -134,6 +136,22 @@ class HeatmapControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
+    Examples
+    --------
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl().add_to(m)
+
+    With a declared starting filter on the aggregation field:
+
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(
+    ...     agg="sum", field="score", filter={"between": [10, 50]}
+    ... ).add_to(m)
+
     Notes
     -----
     **Filter declaration.** ``filter`` is a mapping with one key (the enum arm,
@@ -162,26 +180,10 @@ class HeatmapControl(BaseControl):
          - ``ValueError`` in the cell that wrote the declaration
        * - Data-shaped problem (no numeric extent, range outside the data, non-numeric bound)
          - Reported once with a warning; treated as undeclared — never silently filtered to empty
-       * - User write, including an explicit clear or a persisted record
+       * - User write
          - Wins from then on; the declaration is a starting condition only
-       * - Panel Clear (factory Reset)
-         - Drops the saved record, so a reload re-applies the declaration
-
-    Examples
-    --------
-    >>> import folium
-    >>> from foliplus import HeatmapControl
-    >>> m = folium.Map()
-    >>> HeatmapControl().add_to(m)
-
-    With a declared starting filter on the aggregation field:
-
-    >>> import folium
-    >>> from foliplus import HeatmapControl
-    >>> m = folium.Map()
-    >>> HeatmapControl(
-    ...     field="score", filter={"between": [10, 50]}
-    ... ).add_to(m)
+       * - User explicit Clear (= factory Reset)
+         - Deletes the saved record, so a reload re-applies the declaration
     """
 
     @validate
@@ -247,13 +249,16 @@ class HeatmapControl(BaseControl):
         # The declaration is normalised here, at construction, so CONF carries
         # the AST the runtime reads (never the friendly shape). A 'field' key
         # inside the declaration, or a range with no aggregation field to bind
-        # to, raises ValueError; a data-shaped problem warns and drops the
-        # declaration instead of filtering to nothing.
+        # to (no field=, or agg="count" — a count aggregates by nothing), raises
+        # ValueError; a data-shaped problem warns and drops the declaration
+        # instead of filtering to nothing.
         self.filter = normalize_declared_filter(
             filter,
             owner="HeatmapControl",
             arm="range",
-            bound_field=self.field,
+            # A count aggregation has no field to bind the range to — the
+            # declaration is API misuse and raises (see _range_atom).
+            bound_field=self.field if agg != "count" else None,
         )
         self.method = method
         self.num_classes = num_classes

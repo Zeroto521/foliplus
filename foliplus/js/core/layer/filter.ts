@@ -59,17 +59,16 @@ type LayerFilter = FilterExpr | undefined;
  *
  *  A `range` dimension renders up to two rows: the field row — `fieldLabel`
  *  ("Field") over the read-only field name — and the condition row, where
- *  `label` names the control ("Range"). `fieldLabel` is optional: an owner
- *  with no field row of its own (the Heatmap chooses the aggregation field
- *  in the panel body, not the filter popup) passes none and the row is
- *  omitted. When `fieldLabel` IS provided it must be a localized caption
- *  and never degrades to `field`: a raw field name in the caption column is
- *  the bug this contract exists to prevent (#779 review). */
+ *  `label` names the control ("Range"). The owner always passes a
+ *  `fieldLabel` (the Heatmap shows the aggregation field `field=` chose as a
+ *  read-only row, so the filter reads unambiguously). It must be a localized
+ *  caption and never degrades to `field`: a raw field name in the caption
+ *  column is the bug this contract exists to prevent (#779 review). */
 type FilterRangeDimension = {
   readonly kind: "range";
   readonly field: string;
   /** Owner-localized caption of the read-only field row ("Field"). */
-  readonly fieldLabel?: string;
+  readonly fieldLabel: string;
   /** Caption of the condition row ("Range"). Empty when the panel's own
    *  wording applies — panel chrome, not component vocabulary, so `core`
    *  cannot supply it. */
@@ -383,7 +382,7 @@ const buildFilterModel = (
   snapshot: LayerSnapshot | null,
   filter: LayerFilter,
   preferredField: string,
-  fieldLabel?: string,
+  fieldLabel: string,
   counts?: { kept: number; total: number },
   label = "",
 ): LayerFilterModel | null => {
@@ -396,11 +395,11 @@ const buildFilterModel = (
         kind: "range",
         field,
         // The field row names the dimension's field; the condition row names
-        // the control. A provided fieldLabel is a localized caption that never
-        // falls back to the raw field name — the panel would then print it as
-        // the caption and leave the read-only cell empty, which is the defect
-        // this shape replaces. Absent fieldLabel = no field row.
-        ...(fieldLabel ? { fieldLabel } : {}),
+        // the control. fieldLabel is a localized caption that never falls back
+        // to the raw field name — the panel would then print it as the caption
+        // and leave the read-only cell empty, which is the defect this shape
+        // replaces.
+        fieldLabel,
         label,
         range,
         step: filterStep(range),

@@ -2245,9 +2245,11 @@ describe("MeasureManager — type filter", () => {
 
     manager.clearAll();
 
+    // An explicit Clear is a factory Reset: the committed filter is dropped
+    // AND the record is removed, so a reload re-applies the declaration.
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
     const key = (manager as any).filterStorageKey as string;
-    expect(JSON.parse(window.localStorage.getItem(key)!).filter).toBeUndefined();
+    expect(window.localStorage.getItem(key)).toBeNull();
   });
 
   // ── Python-declared starting filter (CONFIG.filter) ──
@@ -2319,6 +2321,11 @@ describe("MeasureManager — type filter", () => {
 
     expect((manager as any).measureFilter).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(1);
+
+    // A Clear re-seeds from the cached declaration without re-normalising, so
+    // the unusable declaration is still reported exactly once total.
+    manager.clearAll();
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("reports an unknown declared type once and starts unfiltered", () => {
@@ -2341,6 +2348,59 @@ describe("MeasureManager — type filter", () => {
 
     expect((manager as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
+  it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager } = makeManager();
+    addMeasurements(manager);
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+
+    // A user Clear is a factory Reset: the filter re-seeds to the declaration
+    // in this session and the record is deleted, so a reload re-applies it.
+    manager.clearAll();
+
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+
+    // Rebuilding (reload) re-applies the declaration.
+    const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    expect(createLayersOpts(nextMap).filterProvider().filter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
+  it("an ordinary filter edit sticks (user write wins, even after Clear is not involved)", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager } = makeManager();
+
+    // A user edit writes a record; that is ownership, so a reload keeps the
+    // user's filter, not the declaration.
+    (manager as any).measureFilter = filter([CONST.MEASURE_MODE.MARKER]);
+    (manager as any).saveMeasureFilter();
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
     );
   });
 });

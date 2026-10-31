@@ -34,7 +34,7 @@ def _render(**kwargs: object) -> dict:
 
 
 def test_declared_range_reaches_conf_as_an_ast_atom():
-    conf = _render(field="score", filter={"between": [10, 50]})
+    conf = _render(agg="sum", field="score", filter={"between": [10, 50]})
 
     assert conf["filter"] == {
         "kind": "atom",
@@ -51,7 +51,7 @@ def test_non_json_numbers_are_normalised_before_conf_serialisation():
     # that shape: Real, and unknown to json - so this renders or it raises.
     declaration = {"between": [Fraction(1, 2), Fraction(3, 4)]}
 
-    conf = _render(field="score", filter=declaration)
+    conf = _render(agg="sum", field="score", filter=declaration)
 
     assert conf["filter"]["range"] == [0.5, 0.75]
     assert [type(bound) for bound in conf["filter"]["range"]] == [float, float]
@@ -62,7 +62,7 @@ def test_undeclared_filter_is_null():
 
 
 def test_equal_bounds_are_a_valid_declaration():
-    conf = _render(field="score", filter={"between": [7, 7]})
+    conf = _render(agg="sum", field="score", filter={"between": [7, 7]})
 
     assert conf["filter"]["range"] == [7, 7]
 
@@ -80,7 +80,15 @@ def test_a_range_with_no_bound_field_raises_at_construction():
     with pytest.raises(ValueError, match="needs the aggregation field it binds to"):
         HeatmapControl(filter={"between": [10, 50]})
     with pytest.raises(ValueError, match="needs the aggregation field it binds to"):
-        HeatmapControl(agg="count", filter={"between": [10, 50]})
+        HeatmapControl(agg="count", field="score", filter={"between": [10, 50]})
+
+
+def test_an_inverted_range_with_no_field_still_raises():
+    # P2-1: the bound-field check runs before the between validation, so an
+    # inverted range (a data-shaped problem) must not mask the API misuse of
+    # declaring a range with nothing to bind it to.
+    with pytest.raises(ValueError, match="needs the aggregation field it binds to"):
+        HeatmapControl(filter={"between": [50, 10]})
 
 
 @pytest.mark.parametrize(
@@ -97,7 +105,7 @@ def test_a_range_with_no_bound_field_raises_at_construction():
 )
 def test_unusable_range_warns_and_leaves_the_filter_undeclared(declaration):
     with pytest.warns(UserWarning, match="HeatmapControl: filter"):
-        conf = _render(field="score", filter=declaration)
+        conf = _render(agg="sum", field="score", filter=declaration)
 
     assert conf["filter"] is None
 
@@ -106,14 +114,14 @@ def test_a_list_is_not_a_heatmap_declaration():
     # The enum arm belongs to MeasureControl; a Heatmap declaration that names
     # values has no panel dimension to render it on.
     with pytest.warns(UserWarning, match="must be a mapping with between"):
-        conf = _render(field="score", filter=["score"])
+        conf = _render(agg="sum", field="score", filter=["score"])
 
     assert conf["filter"] is None
 
 
 def test_a_non_mapping_non_list_warns():
     with pytest.warns(UserWarning, match="must be a mapping with between"):
-        conf = _render(field="score", filter="score")
+        conf = _render(agg="sum", field="score", filter="score")
 
     assert conf["filter"] is None
 
@@ -130,6 +138,6 @@ def test_a_warning_points_at_the_calling_cell(declaration):
     # has to name that file - a warning pointing inside the library is not
     # actionable where the author can see it.
     with pytest.warns(UserWarning) as record:
-        _render(field="score", filter=declaration)
+        _render(agg="sum", field="score", filter=declaration)
 
     assert Path(record[0].filename).resolve() == Path(__file__).resolve()

@@ -126,6 +126,10 @@ class MeasureManager {
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
   private measureFilter: LayerFilter = undefined;
+  /** The Python declaration normalised once at construction — the value a
+   *  Clear re-seeds from (without re-normalising, so an unusable declaration
+   *  still warns exactly once). */
+  private declaredStartFilter: LayerFilter = undefined;
 
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
    *  hides/shows a whole measurement through these, never through a redraw. */
@@ -194,11 +198,14 @@ class MeasureManager {
     this.filterStorageKey = `${CONST.FILTER.STORAGE_PREFIX}_${mapInstance.getContainer().id}_${this.layerId}`;
     // The record's presence is the ownership signal: a stored record means the
     // user owns the filter slot — including a record that says "cleared" — so
-    // the Python declaration only seeds when no record exists at all.
+    // the Python declaration only seeds when no record exists at all. The
+    // declaration is normalised once here (a Clear re-seeds from it without
+    // re-normalising, so an unusable declaration warns exactly once).
+    this.declaredStartFilter = this.declaredMeasureFilter();
     const filterState = this.loadFilterState();
     this.measureFilter = filterState.stored
       ? filterState.filter
-      : this.declaredMeasureFilter();
+      : this.declaredStartFilter;
     // The config defaults were read above — snapshot them before any runtime
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
@@ -525,11 +532,13 @@ class MeasureManager {
     );
   }
 
-  /** Drop the filter because every measurement it could select is gone. */
-  private resetFilter(): void {
-    if (!this.measureFilter) return;
-    this.measureFilter = undefined;
-    this.saveMeasureFilter();
+  /** A user's explicit Clear: the filter record is deleted (factory Reset)
+   *  so the Python declaration re-seeds, and the current filter is set to the
+   *  declaration — both in this session and on reload. */
+  private clearFilter(): void {
+    Storage.removeRecord(this.filterStorageKey, this.config.name);
+    if (this.measureFilter === this.declaredStartFilter) return;
+    this.measureFilter = this.declaredStartFilter;
     publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
   }
 
@@ -1062,7 +1071,12 @@ class MeasureManager {
   clearAll() {
     this.clearTransientState();
     this.store.clear();
-    this.resetFilter();
+    // A user's explicit Clear is a factory Reset for the filter: the record
+    // is deleted (not written as an empty filter), so the Python declaration
+    // re-seeds both this session and on reload — the same semantics as
+    // Heatmap's Clear. An ordinary filter edit is still a user write and
+    // sticks (the record exists).
+    this.clearFilter();
     // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
     // the next draw is new content, so the id must leave the stored order or
     // insertOverlayAt will place the re-drawn measurement back at the old

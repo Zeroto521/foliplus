@@ -333,4 +333,19 @@ describe("declared heatmap filter — slot ownership", () => {
     expect(manager.filtersTouched).toBe(false);
     expect(manager.hasScanned).toBe(false);
   });
+
+  it("an ordinary user write wins on reload (the declaration does not re-seed)", () => {
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.renderHexagons = vi.fn() as any;
+
+    // The user edits the filter (e.g. drags the slider): ownership flips.
+    manager.setFilter(RANGE);
+    expect(manager.filtersTouched).toBe(true);
+
+    // Rebuild (reload): seedDeclaredFilter is guarded by filtersTouched, so
+    // the user's filter — the stored slot — wins over the declaration.
+    manager.seedDeclaredFilter();
+    expect(manager.filtersTouched).toBe(true);
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+  });
 });
