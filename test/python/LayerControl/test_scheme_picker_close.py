@@ -183,17 +183,7 @@ def _open_style_dropdown(page) -> None:
     # that window reads PICKER_DROPDOWN as not open, so the registry's topmost()
     # falls through to LAYER_STYLE and one press tears down both the list and
     # the drawer. Only the committed state guarantees the picker owns Escape.
-    page.wait_for_function(
-        """() => {
-          const portal = document.querySelector(".foliplus-scheme-picker-portal");
-          const trigger = document.querySelector(".foliplus-style-scheme-trigger");
-          if (!portal || !trigger) return false;
-          if (portal.getBoundingClientRect().height <= 0) return false;
-          if (trigger.getAttribute("aria-expanded") !== "true") return false;
-          return portal.querySelectorAll(".foliplus-scheme-picker-item").length > 0;
-        }""",
-        timeout=3000,
-    )
+    page.wait_for_function(_js("LayerControl/wait_picker_committed"), timeout=3000)
 
 
 class TestPickerCloseBrowser:
