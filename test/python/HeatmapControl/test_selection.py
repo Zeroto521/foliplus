@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import _js, heatmap_ready, use_page
+from conftest import _js, heatmap_ready, snippet, use_page
 
 from .helper import _make_page
 
@@ -297,11 +297,7 @@ class TestHeatmapControlSelectionBrowser:
             assert again["hasCachedFeatures"] is True, (
                 f"reopening after Clear must redraw the declared layer: {again}"
             )
-            canvases = page.evaluate(
-                """() => Array.from(
-                  document.querySelectorAll(".foliplus-canvas-layer")
-                ).map(el => el.classList.contains("foliplus-hidden"))"""
-            )
+            canvases = page.evaluate(snippet("heatmap/selection_canvas_hidden"))
             assert canvases and not all(canvases), (
                 f"the heatmap canvas should be visible after Clear + reopen: {canvases}"
             )
@@ -327,15 +323,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            other = page.evaluate(
-                """() => {
-                  const m = window.__heatmapCtrl.mgr;
-                  const other = m.pointLayers.find(p => p.name === 'Points 2');
-                  const key = "foliplus_heatmap_" + m.map.getContainer().id;
-                  localStorage.setItem(key, JSON.stringify({ layerId: other.id, field: "val" }));
-                  return { id: other.id, key };
-                }"""
-            )
+            other = page.evaluate(snippet("heatmap/selection_set_persisted"))
             page.reload()
             heatmap_ready(page)
 

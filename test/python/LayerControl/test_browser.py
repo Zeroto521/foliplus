@@ -20,6 +20,7 @@ from conftest import (
     read_css_dir,
     render,
     render_control,
+    snippet,
     use_page,
     use_raw_page,
 )
@@ -7465,37 +7466,7 @@ class TestLayerControlBrowser:
 
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            chrome = page.evaluate(
-                """() => {
-                  const panel = document.querySelector(".foliplus-layer-filter-panel");
-                  const trigger =
-                    panel &&
-                    panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
-                  trigger && trigger.click();
-                  const list = document.querySelector(".foliplus-dropdown-list");
-                  const options = Array.from(
-                    document.querySelectorAll(".foliplus-dropdown-option"),
-                  );
-                  return {
-                    panelSelects: panel ? panel.querySelectorAll("select").length : null,
-                    pageNativeMultiple: document.querySelectorAll("select[multiple]").length,
-                    triggerClasses: trigger ? trigger.className : null,
-                    haspopup: trigger ? trigger.getAttribute("aria-haspopup") : null,
-                    formSelectChrome: Boolean(
-                      trigger && trigger.classList.contains("foliplus-form-select"),
-                    ),
-                    listRole: list ? list.getAttribute("role") : null,
-                    listMultiselectable: list
-                      ? list.getAttribute("aria-multiselectable")
-                      : null,
-                    listInsidePanel: Boolean(list && panel && panel.contains(list)),
-                    optionRoles: options.map(el => el.getAttribute("role")),
-                    optionSelected: options.map(el =>
-                      el.getAttribute("aria-selected"),
-                    ),
-                  };
-                }"""
-            )
+            chrome = page.evaluate(snippet("layer/filter_enum_chrome"))
             assert chrome["panelSelects"] == 0, chrome
             assert chrome["pageNativeMultiple"] == 0, chrome
             assert chrome["formSelectChrome"] is True, chrome
