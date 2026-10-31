@@ -263,7 +263,21 @@ def _install_cdn_route(target: Any) -> None:
             # to slow/flaky CDN downloads mid-run.
             route.fulfill(status=404, body=b"")
             return
-        route.fulfill(status=200, body=data, content_type=mime)
+        # CORS: the export renderer re-reads marker icon pixels with
+        # `loadImage(src, "anonymous")` (crossOrigin=anonymous, see
+        # ExportControl/renderer/marker.ts). A cross-origin anonymous image
+        # request fails without Access-Control-Allow-Origin, so the default
+        # Leaflet marker icon (marker-icon.png, served from the CDN cache)
+        # would silently fail to load and the icon would not be drawn — the
+        # exact icon-loading race #813 avoided with a data-URI. The header is
+        # harmless to every other fulfilled response: script/CSS fetches do
+        # not go through CORS, and the test pages are file:// origins.
+        route.fulfill(
+            status=200,
+            body=data,
+            content_type=mime,
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
 
     target.route("**/*", handler)
 
