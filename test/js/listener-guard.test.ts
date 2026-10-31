@@ -186,17 +186,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/schemePicker.ts",
-    n: 8,
+    n: 9,
     pairedOff: 0,
     reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), fullscreenchange (mount-scope), and a wheel stop-propagation on the portalled dropdown (a wheel over the open list must not bubble to the map container where Leaflet's scrollWheelZoom fires; the dropdown element is removed in closeDropdown, so the listener goes with it). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
   {
     f: "common/dropdown.ts",
-    n: 10,
+    n: 11,
     pairedOff: 0,
     reason:
-      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
+      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
   },
 ];
 
