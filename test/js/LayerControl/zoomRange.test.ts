@@ -235,6 +235,74 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   });
 });
 
+describe("zoomRange resolved endpoints (rowEndpoints)", () => {
+  let ui: ReturnType<typeof initFixture>["ui"];
+  let cancel: (() => void) | undefined;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      maxZoom: 18,
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          role: "overlay",
+          layer: {
+            options: {},
+            getBounds: () => ({
+              isValid: () => true,
+              getSouthWest: () => ({ lat: 0, lng: 0 }),
+              getNorthEast: () => ({ lat: 1, lng: 1 }),
+            }),
+          } as any,
+        },
+      ],
+    });
+    ui = fixture.ui;
+    cancel = () => fixture.manager.debouncedEnforce?.cancel?.();
+  });
+
+  afterEach(() => {
+    cancel?.();
+    cancel = undefined;
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("collapses an above-map stored range onto the map's ceiling", () => {
+    // stored [20,30] but the map only reaches 18 — the resolved value must not
+    // be inverted (min > max). The band lies entirely above the rail, so it
+    // collapses onto the ceiling: a degenerate [18,18].
+    setIntent(ui, "overlay1", "zoomRange", [20, 30]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 18, max: 18 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("orders a reversed stored range (min > max) before collapsing", () => {
+    // Reversed [30,20] carries the same band, so it resolves identically.
+    setIntent(ui, "overlay1", "zoomRange", [30, 20]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 18, max: 18 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("collapses a below-map stored range onto the map's floor", () => {
+    setIntent(ui, "overlay1", "zoomRange", [-5, 0]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 0, max: 0 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("resolves a stored range inside the map unchanged (no clamping)", () => {
+    setIntent(ui, "overlay1", "zoomRange", [3, 9]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 3, max: 9 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+});
+
 // ── Notification-contract cases, moved from the former
 // ── notifyContract.test.ts so they live with the script they drive. ──
 it("a reset settles the row before it announces", () => {
