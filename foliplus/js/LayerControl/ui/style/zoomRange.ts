@@ -70,8 +70,7 @@ const syncZoomRangeRow = (
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const min = range ? Math.max(range[0], mapMin) : mapMin;
-  const max = range ? Math.min(range[1], mapMax) : mapMax;
+  const [min, max] = clampEndpoints(range, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   const slider = sliderOfRow(row);
@@ -97,6 +96,30 @@ const syncZoomRangeRow = (
     : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
 };
 
+/** Resolve a stored [lo, hi] into the map's available band, always ordered.
+ *  The stored choice wins (never locks the user), so it is only clamped into
+ *  the map's rail. If the stored band lies entirely outside the map the two
+ *  ends collapse onto the nearer map end — a degenerate point — so the model
+ *  and the slider agree (both ordered, both inside [mapMin, mapMax]); the
+ *  layer's actual visibility still comes from the projection, which hides it
+ *  when no zoom can land inside the stored range. */
+const clampEndpoints = (
+  stored: [number, number] | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (!stored) return [mapMin, mapMax];
+  const lo = Math.min(stored[0], stored[1]);
+  const hi = Math.max(stored[0], stored[1]);
+  const min = Math.max(lo, mapMin);
+  const max = Math.min(hi, mapMax);
+  if (min <= max) return [min, max];
+  // Band entirely below the map: pin to the floor. Entirely above: pin to the
+  // ceiling. (A band that straddles the whole map clamps to the full rail and
+  // stays ordered, so it never reaches this branch.)
+  return hi <= mapMin ? [mapMin, mapMin] : [mapMax, mapMax];
+};
+
 /** Build the zoom-range form row: a dual-thumb slider with the map's current
  *  zoom as a readout mark.
  *
@@ -106,8 +129,7 @@ const syncZoomRangeRow = (
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const min = stored ? Math.max(stored[0], mapMin) : mapMin;
-  const max = stored ? Math.min(stored[1], mapMax) : mapMax;
+  const [min, max] = clampEndpoints(stored, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   // The primitive adds .foliplus-slider itself; the row only names its hook.
@@ -219,10 +241,8 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!layerInfo) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-    return {
-      min: stored ? Math.max(stored[0], mapMin) : mapMin,
-      max: stored ? Math.min(stored[1], mapMax) : mapMax,
-    };
+    const [min, max] = clampEndpoints(stored, mapMin, mapMax);
+    return { min, max };
   },
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
