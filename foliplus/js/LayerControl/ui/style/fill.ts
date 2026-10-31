@@ -447,9 +447,9 @@ const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement
   );
 
 /** The original-colors arm's read-only detail: the author's column, their
- *  colors, their count and the classification they drew — rows on the same
- *  label/control grid the by-value arm uses, so each readout lands on the
- *  column edge of the control it replaces instead of spilling across the panel.
+ *  colors, and the method + class-count pair on the same label/control grid
+ *  the by-value arm uses, so each readout lands on the column edge of the
+ *  control it replaces instead of spilling across the panel.
  *
  *  No select, no chevron and nothing clickable: these exist to classify data,
  *  and this arm is the author's presentation, not a user classification.
@@ -501,42 +501,39 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
 
-  // Row order matches the by-value arm: Field, Method, Classes, Scheme. The
-  // method readout therefore lands where the by-value method select sits, the
-  // count where its class-count select sits and the colors strip where the
-  // scheme trigger sits, so the two arms line up column for column.
+  // Row order matches the by-value arm: Field, Method, Scheme. The method and
+  // class count share one row (the by-value rampForm classes row's shape): a
+  // single style_method label with two read-only boxes side by side, the method
+  // box filling the control column (the by-value method select's role) and the
+  // count box taking the compact secondary width (the class-count select's
+  // role), so the two arms read as one grid.
   //
-  // The method row always renders: a read-only arm states what the author did,
-  // and omitting it on a continuous or categorical layer would break the arm
-  // alignment. The value is honest to the record — a stepped scale is a
-  // classified one and the readout states the method the classification
-  // implies, while a continuous scale or a layer with no paired scale has no
-  // classification to state and shows the same dash the count row uses for an
-  // unstated count.
+  // The method readout is honest to the record. A continuous scale is a
+  // LinearColormap — the default explore mapping, an equally spaced interval
+  // ramp — and states Equal Interval. A stepped scale (the author passed a
+  // scheme whose breaks the classification chose) has no recorded method here,
+  // so the readout states a dash rather than guessing; a categorical layer (no
+  // paired scale) uses the same dash. The row always renders so the arm stays
+  // aligned with the by-value grid.
   rows.push(
     formRow(
       ui.T("style_method"),
-      readOnlyBox(
-        CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
-        dom.el(
-          "span",
-          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-          author?.scale?.kind === "stepped" ? methodLabel(ui, METHOD.EQUAL) : "—",
+      inlineControls(
+        readOnlyBox(
+          CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+          dom.el(
+            "span",
+            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+            author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
+          ),
         ),
-      ),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    ),
-  );
-
-  rows.push(
-    formRow(
-      ui.T("style_fill_classes"),
-      readOnlyBox(
-        CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
-        dom.el(
-          "span",
-          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-          originalCount(author),
+        readOnlyBox(
+          CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
+          dom.el(
+            "span",
+            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+            originalCount(author),
+          ),
         ),
       ),
       CONST.CLASSES.STYLE_FILL_ROW,

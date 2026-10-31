@@ -47,10 +47,11 @@
     count: readout(countBox),
     method: readout(methodBox),
     caption: colors ? colors.title : null,
-    // Geometry: the method readout spans the control column (left/right/width
-    // equal to the colors box), the count readout hugs the right edge at the
-    // compact secondary width. The value's textAlign distinguishes the spanning
-    // method readout (left) from the centered count value.
+    // Geometry: the method and count share one row (the by-value classes row's
+    // shape). The method readout fills the control column from its left edge,
+    // the count readout hugs the right edge at the compact secondary width. The
+    // value's textAlign distinguishes the method readout (left) from the
+    // centered count value.
     methodGeom: geom(methodBox),
     countGeom: geom(countBox),
     colorsGeom: geom(colors),

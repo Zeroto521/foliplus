@@ -2863,9 +2863,11 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
     const children = [...details(row).children];
 
-    // One FORM_ROW per readout. The raw strip and caption divs are gone — they
-    // escaped the label/control grid and are what overflowed the panel.
-    expect(children.length).toBe(4);
+    // One FORM_ROW per readout group. The method and class count share one
+    // row (the by-value classes row's shape), so four readouts become three
+    // rows. The raw strip and caption divs are gone — they escaped the
+    // label/control grid and are what overflowed the panel.
+    expect(children.length).toBe(3);
     for (const child of children) {
       expect(child.classList.contains("foliplus-form-row")).toBe(true);
       expect(child.querySelector(".foliplus-form-label")).not.toBeNull();
@@ -2874,7 +2876,6 @@ describe("fill row — original colors", () => {
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_fill_field",
       "LayerControl.style_method",
-      "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);
     // The strip lives inside a row's control cell, never directly in the
@@ -2895,16 +2896,15 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
 
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
-    // A stepped scale is a classified scale: the method row states the
-    // classification the author drew (a read-only arm: the value is stated,
-    // never edited). It does not claim every scale is an equal-interval split.
-    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD)).toBe(
-      "LayerControl.style_method_equal",
-    );
+    // A stepped scale has no recorded method here (the author passed a scheme
+    // whose breaks the classification chose), so the method readout states a
+    // dash rather than guessing; the count states the class count the author
+    // actually drew.
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD)).toBe("—");
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
     // The caption moved from a line of its own onto the colors box: the panel
-    // is four rows tall (column, method, classes, scheme) and the sentence is
-    // still reachable.
+    // is three rows tall (column, method + classes, scheme) and the sentence
+    // is still reachable.
     expect(colorsBoxOf(row).title).toBe("LayerControl.style_fill_original_levels");
     expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
       "LayerControl.style_fill_original_levels",
@@ -2920,12 +2920,20 @@ describe("fill row — original colors", () => {
     const method = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD);
     const count = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT);
 
-    // Geometry is a stylesheet contract (fillStyles.test.ts) plus a browser
-    // probe (fill_author_read.js rect equality); jsdom does not lay out, so
-    // this test pins the frame and the aria state only — the method box is
-    // NOT a 52px number field and spans the control column instead.
+    // The method and count share one row (the by-value classes row's shape):
+    // they sit inside the same .foliplus-form-inline control cell. Geometry is
+    // a stylesheet contract (fillStyles.test.ts) plus a browser probe
+    // (fill_author_read.js rect equality); jsdom does not lay out, so this
+    // test pins the frame, the shared-row shape and the aria state only.
     expect(method).not.toBeNull();
     expect(count).not.toBeNull();
+    expect(method!.parentElement).toBe(count!.parentElement);
+    expect(method!.parentElement!.classList.contains("foliplus-form-inline")).toBe(
+      true,
+    );
+    expect(method!.closest(".foliplus-form-row")).toBe(
+      count!.closest(".foliplus-form-row"),
+    );
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
       expect(box.getAttribute("aria-disabled")).toBe("true");
@@ -2962,12 +2970,12 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("—");
-    // It has no classification either: the method row still renders (the arm
-    // stays aligned with the by-value grid) but states the same dash — nothing
-    // is invented for a scale the author did not classify.
+    // A continuous scale is the default explore mapping (an equally spaced
+    // LinearColormap): the method readout states Equal Interval, the honest
+    // classification that scale implies.
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBe("—");
+    ).toBe("LayerControl.style_method_equal");
     expect(labelsOf(blockOf(continuous.ui))).toContain("LayerControl.style_method");
     expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
       "LayerControl.style_fill_original_continuous",
@@ -2989,7 +2997,6 @@ describe("fill row — original colors", () => {
     ).toBe("—");
     expect(labelsOf(blockOf(fallback.ui))).toEqual([
       "LayerControl.style_method",
-      "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);
   });
@@ -3137,7 +3144,6 @@ describe("fill row — original colors", () => {
     expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_method",
-      "LayerControl.style_fill_classes",
       "LayerControl.style_fill_scheme",
     ]);
   });

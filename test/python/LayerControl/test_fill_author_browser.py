@@ -123,28 +123,26 @@ class TestFillAuthorBrowser:
             assert initial["note"] == _NOTE, initial
             assert initial["column"] == "score", initial
             assert initial["count"] == "—", initial
-            # A continuous scale has no classification: the method row still
-            # renders (the arm stays aligned with the by-value grid) but states
-            # the same dash the count row does — nothing is invented.
-            assert initial["method"] == "—", initial
-            # The method readout spans the control column (left/right/width equal
-            # to the colors box), the count readout hugs the right edge at the
-            # compact secondary width, and the count value is centered while the
-            # method value is not (a spanning readout reads as a label).
+            # A continuous scale is the default explore mapping (an equally
+            # spaced LinearColormap): the method readout states Equal Interval.
+            assert initial["method"] == "Equal Interval", initial
+            # The method and count share one row (the by-value classes row's
+            # shape): the method readout fills the control column from its left
+            # edge, the count readout hugs the right edge at the compact
+            # secondary width, and the count value is centered.
             m = initial["methodGeom"]
             c = initial["countGeom"]
             k = initial["colorsGeom"]
             assert m is not None and c is not None and k is not None, initial
-            assert (
-                m["left"] == k["left"]
-                and m["right"] == k["right"]
-                and m["width"] == k["width"]
-            ), initial
+            # Method starts at the control column's left edge and ends where the
+            # count begins (side by side in one inline row).
+            assert m["left"] == k["left"], initial
+            assert c["left"] >= m["right"], initial
             assert c["right"] == k["right"], initial
             assert c["width"] == initial["secondaryWidth"], (
                 f"count width {c['width']} != secondary {initial['secondaryWidth']}: {initial}"
             )
-            # The count value is centered by the stylesheet (style.css rule
+            # The count value is centered by the stylesheet            # The count value is centered by the stylesheet (style.css rule
             # .foliplus-style-fill-original-count .foliplus-style-fill-original-value
             # { text-align: center }), read here via getComputedStyle because the
             # inline style is always empty. Negative control: deleting that
@@ -161,7 +159,7 @@ class TestFillAuthorBrowser:
             assert initial["detailSelects"] == 0, initial
             assert initial["detailComboboxes"] == 0, initial
             assert initial["detailFocusable"] == 0, initial
-            assert len(initial["rows"]) == 4, initial
+            assert len(initial["rows"]) == 3, initial
             assert all("foliplus-form-row" in row for row in initial["rows"]), initial
             assert initial["hasField"] is False, initial
             assert initial["hasMethod"] is False, initial

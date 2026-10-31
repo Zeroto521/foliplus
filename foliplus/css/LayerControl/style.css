@@ -84,21 +84,22 @@
   white-space: nowrap;
 }
 
-/* The class-count readout takes the same width as the by-value arm's
-   class-count select and hugs the control column's right edge, the way the
-   Size row's px field does — so the count lands on the column edge of the
-   select it replaces instead of sitting left with dead space to its right.
-   The method readout is not a number field: it spans the whole control
-   column, exactly as the by-value arm's method select does, so the two arms
-   read as one grid. */
+/* Method + class-count share one row (the by-value rampForm classes row's
+   shape): the method readout fills the control column the way the by-value
+   method select does, and the count readout takes the same compact secondary
+   width as the by-value class-count select. The count value stays centered
+   inside its box, matching the count select's own value. */
+.foliplus-style-fill-original-method {
+  flex: 1;
+  min-width: 0;
+}
+
 .foliplus-style-fill-original-count {
   width: var(--foliplus-form-secondary-width);
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .foliplus-style-fill-original-count .foliplus-style-fill-original-value {
-  flex: 1;
   text-align: center;
 }
 

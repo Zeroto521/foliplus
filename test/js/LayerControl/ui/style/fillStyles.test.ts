@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 
 // ── Original-colors readout geometry (stylesheet contract) ──
 //
-// The count readout hugs the control column's right edge at the compact
-// secondary width (the number-field role), while the method readout spans
-// the whole control column exactly as the by-value arm's method select does
-// (it is not a number field). These assertions pin the *relationships* in the
-// stylesheet sources (which rule carries which property) rather than pixel
-// values, which the browser probe records. The count and method must stay
-// split: a merged (.count, .method) rule would make the method's negative
-// assertion impossible and would let the method be mistaken for a number
+// The method and class count share one row (the by-value rampForm classes
+// row's shape): the method readout fills the control column the way the
+// by-value method select does, and the count readout takes the compact
+// secondary width (the number-field role). These assertions pin the
+// *relationships* in the stylesheet sources (which rule carries which
+// property) rather than pixel values, which the browser probe records. The
+// method must stay free of the number-field geometry (no compact width, no
+// shrink, no right-hug of its own) or it would be mistaken for a number
 // field again.
 
 const ROOT = resolve(__dirname, "../../../../..");
@@ -47,7 +47,6 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     const count = blockOf(layer, ".foliplus-style-fill-original-count {");
     expect(count).toContain("var(--foliplus-form-secondary-width)");
     expect(count).toContain("flex-shrink: 0");
-    expect(count).toContain("margin-left: auto");
     // The value inside the box is horizontally centered, matching the count
     // select's own value.
     const value = blockOf(
@@ -57,12 +56,16 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     expect(value).toContain("text-align: center");
   });
 
-  it("keeps the method readout free of the number-field geometry", () => {
+  it("fills the control column for the method readout", () => {
     // The method is not a number field: no compact width, no shrink and no
-    // right-hug of its own, so it spans the control column the way the by-value
-    // method select does. A dedicated rule carrying any of these would be a
-    // regression back to the old 52px box.
-    expect(layer.indexOf(".foliplus-style-fill-original-method {")).toBe(-1);
+    // right-hug of its own. It shares the row with the count, so it flexes to
+    // absorb the control column the way the by-value method select does.
+    const method = blockOf(layer, ".foliplus-style-fill-original-method {");
+    expect(method).toContain("flex: 1");
+    expect(method).toContain("min-width: 0");
+    expect(method).not.toContain("var(--foliplus-form-secondary-width)");
+    expect(method).not.toContain("flex-shrink");
+    expect(method).not.toContain("margin-left");
     // No comma-joined selector merges the two — that would hide a shared
     // compact width behind the method's name.
     expect(layer.indexOf(".foliplus-style-fill-original-count,")).toBe(-1);
