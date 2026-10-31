@@ -135,7 +135,11 @@ class TestFillAuthorBrowser:
             c = initial["countGeom"]
             k = initial["colorsGeom"]
             assert m is not None and c is not None and k is not None, initial
-            assert m["left"] == k["left"] and m["right"] == k["right"] and m["width"] == k["width"], initial
+            assert (
+                m["left"] == k["left"]
+                and m["right"] == k["right"]
+                and m["width"] == k["width"]
+            ), initial
             assert c["right"] == k["right"], initial
             assert c["width"] == 52, initial
             assert initial["countTextAlign"] == "center", initial
