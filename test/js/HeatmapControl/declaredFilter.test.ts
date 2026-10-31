@@ -350,23 +350,22 @@ describe("declared heatmap filter — slot ownership", () => {
   });
   it("a data change that drops the field re-seeds the declaration on rebuild", () => {
     const manager = seedable(RANGE as Record<string, unknown>);
-    manager.renderHexagons = vi.fn() as any;
-
     // Seed on first open: the declaration owns the slot.
     manager.seedDeclaredFilter();
     expect(manager.layerFilters.get("pts")).toEqual(RANGE);
     expect(manager.filtersTouched).toBe(false);
 
-    // Data change drops the field: the snapshot no longer carries "score",
-    // so revalidation of the stored filter normalises it to undefined and
-    // the manager deletes the slot (it is a statement about data that no
-    // longer exists).
+    // Data change drops the field: the source’s rebuilt snapshot no longer
+    // carries "score". A public render of the selected source revalidates the
+    // stored filter against it, normalising to undefined and deleting the
+    // slot (it is a statement about data that no longer exists).
     manager.cachedSnapshot = snapshot({});
-    manager.revalidateFilter();
+    manager.renderHexagons();
     expect(manager.layerFilters.has("pts")).toBe(false);
 
     // Rebuild: the snapshot is rebuilt with the field back and the manager
-    // re-runs the one-shot declaration guard, so the declaration re-seeds.
+    // re-runs the one-shot declaration guard (seedDeclaredFilter, the panel
+    // build entry), so the declaration re-seeds.
     manager.cachedSnapshot = snapshot();
     manager.seedDeclaredFilter();
     expect(manager.filtersTouched).toBe(false);
