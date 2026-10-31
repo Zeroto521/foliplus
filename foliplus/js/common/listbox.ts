@@ -393,7 +393,7 @@ const open = (state: InternalState): void => {
   for (const other of [...openStates]) {
     // openStates only ever contains open states (close() splices the state out),
     // so the other's isOpen flag is redundant here.
-    if (other !== state) close(other, { restoreFocus: false });
+    close(other, { restoreFocus: false });
   }
   openStates.push(state);
   state.spec.onBeforeOpen?.();

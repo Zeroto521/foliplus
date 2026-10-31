@@ -663,4 +663,35 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     expect(() => dropdown.setValue("b")).not.toThrow();
     expect(dropdown.getValue()).toBe("b");
   });
+
+  it('commits an empty value through the bridged select (?? "" fallback)', () => {
+    // A bridged select with an empty-value option: activating it writes native.value
+    // to "", so valuesOf() returns [] and commit()'s `values[0] ?? ""` fallback runs.
+    const select = document.createElement("select");
+    const placeholderOpt = document.createElement("option");
+    placeholderOpt.value = "";
+    placeholderOpt.textContent = "Choose…";
+    select.appendChild(placeholderOpt);
+    const realOpt = document.createElement("option");
+    realOpt.value = "a";
+    realOpt.textContent = "Alpha";
+    select.appendChild(realOpt);
+    const host = document.createElement("div");
+    host.appendChild(select);
+    document.body.appendChild(host);
+
+    const onChange = vi.fn();
+    const dropdown = createDropdown({ nativeSelect: select, onChange });
+    cleanup.push(() => dropdown.destroy());
+    dropdown.open();
+    const rows = Array.from(
+      dropdown.getList()?.querySelectorAll<HTMLElement>(".foliplus-dropdown-option") ??
+        [],
+    );
+    // rows[0] is the empty-value option.
+    rows[0].click();
+    expect(onChange).toHaveBeenCalled();
+    expect(onChange.mock.calls[0][0]).toBe("");
+    expect(select.value).toBe("");
+  });
 });

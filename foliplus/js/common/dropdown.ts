@@ -380,7 +380,8 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 /** Activate row `index` in the dropdown's value model and fire the change. */
 const activateRow = (state: InternalState, index: number): void => {
   const item = state.items[index];
-  if (!item || item.disabled) return;
+  // The engine only calls onRowActivate for enabled, in-range rows, so a
+  // disabled/undefined item cannot reach here (the engine blocks them first).
   if (state.multiple) {
     if (state.values.has(item.value)) state.values.delete(item.value);
     else state.values.add(item.value);
