@@ -1,6 +1,6 @@
-"""Rendering tests for the declared zoom range (CONFIG data[].zoom).
+"""Rendering tests for the declared zoom range (CONFIG data[].zoomRange).
 
-The declaration is the layer's own foliplus={"zoom": {...}} namespace - a
+The declaration is the layer's own foliplus={"zoom_range": {...}} namespace - a
 folium passthrough onto layer.options - which Python normalises into CONF so
 the visibility policy reads one fact. These tests assert the shipped payload
 and the warnings a misspelled or malformed declaration produces; the policy
@@ -41,37 +41,48 @@ def _geo(name: str = "Declared", **options: object) -> folium.GeoJson:
 
 
 def test_declared_zoom_reaches_conf():
-    entry = _conf(_render(_geo(foliplus={"zoom": {"min": 8, "max": 12}})))["data"][0]
+    entry = _conf(_render(_geo(foliplus={"zoom_range": {"min": 8, "max": 12}})))[
+        "data"
+    ][0]
 
-    assert entry["zoom"] == {"min": 8, "max": 12}
+    assert entry["zoomRange"] == {"min": 8, "max": 12}
 
 
 def test_undeclared_layer_has_no_zoom_key():
     entry = _conf(_render(_geo()))["data"][0]
 
-    assert "zoom" not in entry
+    assert "zoomRange" not in entry
+
+
+def test_the_old_zoom_key_is_unknown_and_ignored():
+    # The rename is not a compatibility alias: `zoom` is now just a typo and
+    # must not reach CONF, where the policy would still honour it.
+    with pytest.warns(UserWarning, match="unknown foliplus key 'zoom'"):
+        html = _render(_geo(foliplus={"zoom": {"min": 8, "max": 12}}))
+
+    assert "zoomRange" not in _conf(html)["data"][0]
 
 
 def test_other_foliplus_keys_stay_a_js_side_namespace():
     # fill / label are read by the panel off layer.options.foliplus; only
-    # zoom is normalised into CONF.
+    # zoom_range is normalised into CONF.
     entry = _conf(_render(_geo(foliplus={"fill": {"ramp": {"field": "score"}}})))[
         "data"
     ][0]
 
-    assert "zoom" not in entry
+    assert "zoomRange" not in entry
 
 
 @pytest.mark.parametrize(
     "declaration",
     [
-        {"zoom": {"min": 12, "max": 8}},
-        {"zoom": {"min": 8}},
-        {"zoom": {"min": 8.5, "max": 12}},
-        {"zoom": {"min": True, "max": 12}},
-        {"zoom": {"min": "8", "max": "12"}},
-        {"zoom": {"min": 8, "max": 12, "step": 1}},
-        {"zoom": [8, 12]},
+        {"zoom_range": {"min": 12, "max": 8}},
+        {"zoom_range": {"min": 8}},
+        {"zoom_range": {"min": 8.5, "max": 12}},
+        {"zoom_range": {"min": True, "max": 12}},
+        {"zoom_range": {"min": "8", "max": "12"}},
+        {"zoom_range": {"min": 8, "max": 12, "step": 1}},
+        {"zoom_range": [8, 12]},
     ],
 )
 def test_invalid_zoom_is_dropped_with_a_warning(declaration):
@@ -79,7 +90,7 @@ def test_invalid_zoom_is_dropped_with_a_warning(declaration):
         html = _render(_geo(foliplus=declaration))
 
     entry = _conf(html)["data"][0]
-    assert "zoom" not in entry
+    assert "zoomRange" not in entry
     # An invalid declaration is ignored, never fatal: the layer still renders.
     assert entry["name"] == "Declared"
 
@@ -186,30 +197,30 @@ def test_a_warning_points_at_the_calling_cell():
 
 def test_non_mapping_namespace_warns_and_is_ignored():
     with pytest.warns(UserWarning, match="expected a mapping"):
-        html = _render(_geo(foliplus=["zoom"]))
+        html = _render(_geo(foliplus=["zoom_range"]))
 
-    assert "zoom" not in _conf(html)["data"][0]
+    assert "zoomRange" not in _conf(html)["data"][0]
 
 
 def test_declared_zoom_does_not_touch_leaflet_zoom_options():
     # The declaration is a policy fact in CONF, never a Leaflet option:
     # foliplus does not write layer.options.minZoom/maxZoom.
-    layer = _geo(foliplus={"zoom": {"min": 8, "max": 12}})
+    layer = _geo(foliplus={"zoom_range": {"min": 8, "max": 12}})
 
     _render(layer)
 
     assert "minZoom" not in layer.options
     assert "maxZoom" not in layer.options
-    assert layer.options["foliplus"] == {"zoom": {"min": 8, "max": 12}}
+    assert layer.options["foliplus"] == {"zoom_range": {"min": 8, "max": 12}}
 
 
 def test_non_mapping_fill_namespace_warns_and_is_ignored():
     # fill / label are the JS panel's namespace: a non-mapping value cannot
-    # be a config object, so it is reported once and left to the panel. zoom
-    # stays independent of that shape check.
+    # be a config object, so it is reported once and left to the panel.
+    # zoom_range stays independent of that shape check.
     with pytest.warns(UserWarning, match=r"foliplus\['fill'\]"):
         html = _render(_geo(foliplus={"fill": "red"}))
 
     entry = _conf(html)["data"][0]
-    assert "zoom" not in entry
+    assert "zoomRange" not in entry
     assert entry["name"] == "Declared"

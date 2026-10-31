@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
+from ._declaration import _normalise_zoom_range
 from ._declared_filter import normalize_declared_filter
 from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
@@ -132,6 +133,16 @@ class HeatmapControl(BaseControl):
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
 
+    zoom_range : dict, optional
+        Visibility window over the map's zoom levels: a mapping with ``min``
+        and ``max`` (both required integers, ``min <= max``) that keeps the
+        control visible only while the map's zoom is inside the range. Outside
+        the range the whole control is hidden with the shared
+        ``foliplus-hidden`` class; it comes back on the next zoom that is
+        inside. A malformed declaration, or one that cannot meet the map's own
+        zoom range, warns once and is treated as undeclared (the control stays
+        visible) — never as a declaration that hides it everywhere.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -151,6 +162,13 @@ class HeatmapControl(BaseControl):
     >>> HeatmapControl(
     ...     agg="sum", field="score", filter={"min": 10, "max": 50}
     ... ).add_to(m)
+
+    Only show the control while the map is between zoom levels 8 and 12:
+
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
@@ -184,6 +202,23 @@ class HeatmapControl(BaseControl):
     |                                            | declaration re-seeds (this session and on  |
     |                                            | reload).                                   |
     +--------------------------------------------+--------------------------------------------+
+
+    **Zoom-range declaration.** ``zoom_range={"min": 8, "max": 12}`` takes the
+    same shape the per-layer ``foliplus`` declaration uses:
+
+    +---------+------+----------+--------------------------------------------------+
+    | Key     | Type | Required | Meaning                                          |
+    +=========+======+==========+==================================================+
+    | ``min`` | int  | yes      | Lowest zoom at which the control is visible.     |
+    +---------+------+----------+--------------------------------------------------+
+    | ``max`` | int  | yes      | Highest zoom at which the control is visible.    |
+    +---------+------+----------+--------------------------------------------------+
+
+    Outside the range the control is hidden, not disabled, so its saved state
+    survives the trip. A malformed declaration (missing key, non-int,
+    inverted, unknown key) and a range that cannot intersect the map's own
+    zoom levels both warn once and are treated as undeclared: the control
+    stays visible rather than disappearing for every map view.
     """
 
     @validate
@@ -240,6 +275,20 @@ class HeatmapControl(BaseControl):
         label_size: PositiveInt = 11,
         label_format: LABEL_FORMAT = "auto",
         collapse_on_outside: bool = True,
+        zoom_range: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="ZoomRange",
+                name="ZoomRange",
+                shape={"min": "number", "max": "number"},
+                config_key="zoomRange",
+                note=(
+                    "Declared zoom range: the control is visible only while the map's "
+                    "zoom is inside it; a malformed or unreachable range is treated as "
+                    "undeclared."
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -273,3 +322,9 @@ class HeatmapControl(BaseControl):
         self.label_size = label_size
         self.label_format = label_format
         self.collapse_on_outside = collapse_on_outside
+        # The author writes zoom_range={"min": ..., "max": ...}; CONF carries
+        # the normalised {min, max} under the shared `zoomRange` key. Invalid
+        # declarations warn once and stay None (the control is not hidden).
+        self.zoomRange = _normalise_zoom_range(
+            zoom_range, owner="HeatmapControl", source="zoom_range"
+        )

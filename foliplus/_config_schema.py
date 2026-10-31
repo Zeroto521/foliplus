@@ -298,6 +298,15 @@ class FieldSpec:
         :attr:`values`, which render the alias by themselves. A named field
         with neither fails at reflection: the alias cannot be rendered
         without a definition.
+
+    config_key
+        CONFIG key to emit this constructor parameter under, when it differs
+        from the parameter name. The constructor keeps its author-facing name
+        (``zoom_range``) while CONF carries the normalised contract name
+        (``zoomRange``), matching the layer payload's spelling. ``None`` uses
+        the parameter name. The `_config_fields` tuple and the generated schema
+        both use the CONFIG key, which is the name ``_build_config`` resolves
+        with ``getattr``.
     """
 
     ts: str = ""
@@ -311,6 +320,7 @@ class FieldSpec:
     note: str = ""
     shape: Any = None
     name: str | None = None
+    config_key: str | None = None
 
     def __post_init__(self) -> None:
         if self.shape is not None:
@@ -746,7 +756,13 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
             shape=shape,
             name=meta.name if meta else None,
         )
-        out[name] = spec
+        config_name = (meta.config_key if meta else None) or name
+        if config_name in out:
+            raise ValueError(
+                f"{cls.__name__}.{name} exports CONFIG key {config_name!r}, "
+                "which another parameter already declares"
+            )
+        out[config_name] = spec
 
     # Dynamic fields are collected at render time (LayerControl's ``data``),
     # so they are not parameters — the class declares them here as a

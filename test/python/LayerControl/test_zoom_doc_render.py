@@ -1,7 +1,7 @@
 """Render-level tests for the zoom-declaration documentation.
 
-The class docstring is the author-facing contract for the ``zoom``
-declaration (``foliplus={"zoom": {"min": ..., "max": ...}}``). These tests
+The class docstring is the author-facing contract for the ``zoom_range``
+declaration (``foliplus={"zoom_range": {"min": ..., "max": ...}}``). These tests
 pin the *documented promises* - the mapping form, the ``gdf.explore``
 writing form, and the warn-once / treat-as-undeclared rules - so a later
 docstring edit cannot silently drop a promise the behaviour tests already
@@ -26,8 +26,8 @@ _NOTES = _DOC.split("Notes\n-----", 1)[1]
 
 def test_docstring_documents_zoom_mapping_form() -> None:
     """The zoom declaration is documented as a mapping with min and max."""
-    # The Recognised-keys table names the ``zoom`` key.
-    assert "``zoom``" in _DOC
+    # The Recognised-keys table names the ``zoom_range`` key.
+    assert "``zoom_range``" in _DOC
     # The declaration-keys table names both mapping keys as the only shape.
     assert "``min``" in _DOC
     assert "``max``" in _DOC
@@ -38,7 +38,7 @@ def test_docstring_documents_zoom_mapping_form() -> None:
 def test_docstring_documents_explore_writing_form() -> None:
     """The example writes the declaration through ``gdf.explore(foliplus=...)``."""
     assert "gdf.explore(foliplus=" in _DOC
-    assert "zoom" in _DOC
+    assert "zoom_range" in _DOC
 
 
 def test_docstring_declares_malformed_warns_once_and_is_ignored() -> None:
