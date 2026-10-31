@@ -37,13 +37,6 @@ const DEFAULT_CLASSES = {
 // its distance from z numbers.
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
-/** Selector for a portaled dropdown, for `closest()`-style ownership checks.
- *  Retained for the panels that pass it explicitly to `core/overlay`'s
- *  `isInsideOverlay`; the picker now also registers its mounted list in
- *  common/portalRoot, which is the mechanism new portals use and the one the
- *  predicate consults first. */
-const SCHEME_PICKER_PORTAL_SELECTOR = `.${PORTAL_CLASS}`;
-
 interface SchemePickerClasses {
   open: string;
   dropdown: string;
@@ -851,5 +844,5 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   return picker;
 };
 
-export { SCHEME_PICKER_PORTAL_SELECTOR, createSchemePicker };
+export { createSchemePicker };
 export type { SchemePicker };

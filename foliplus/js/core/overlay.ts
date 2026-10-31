@@ -20,13 +20,15 @@
 // that node is live, so a new portal is covered everywhere the moment its
 // primitive registers — no panel needs a new selector. The registration is
 // scoped to the owning overlay: a node registered for one panel's trigger is
-// inside that panel and no other. `portalSelector` remains for the callers
-// that predate the registry (the scheme picker's panels pass it explicitly).
+// inside that panel and no other. A class-name selector cannot express that
+// scope (it answers "inside" for a popup another panel owns — the same
+// press-stealing bug from the other side), which is why this predicate takes
+// no selector.
 import { isPortalOf } from "#common/portalRoot.js";
 
 /** True when `target` belongs to the overlay owned by `panel`: a descendant of
- *  the panel itself, a node some overlay registered as its portal root, or a
- *  node matched by the caller's own `portalSelector`.
+ *  the panel itself, or a node some overlay registered as its portal root while
+ *  the panel contains that portal's trigger.
  *
  *  `target` is typed as `EventTarget` because a document-level dispatch may
  *  name the document itself, which has no `closest()`; `null` and non-node
@@ -35,7 +37,6 @@ import { isPortalOf } from "#common/portalRoot.js";
 const isInsideOverlay = (
   target: EventTarget | null,
   panel: Element | null,
-  portalSelector?: string,
 ): boolean => {
   if (!target || typeof (target as Node).nodeType !== "number") return false;
   const node = target as Node;
@@ -44,12 +45,7 @@ const isInsideOverlay = (
   // mounted for — and only to that one. Ownership is checked against the panel
   // that is asking, so an open popup in one panel cannot make an unrelated
   // panel answer "mine" for the same press.
-  if (panel && isPortalOf(node, panel)) return true;
-  if (!portalSelector) return false;
-  // Node.ELEMENT_NODE is 1; spelled out so the helper stays a leaf module.
-  const element =
-    node.nodeType === 1 ? (node as Element) : (node as Node).parentElement;
-  return element?.closest(portalSelector) != null;
+  return panel ? isPortalOf(node, panel) : false;
 };
 
 export { isInsideOverlay };

@@ -176,9 +176,14 @@ def _open_style_dropdown(page) -> None:
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
     assert ready["ok"], f"the ramp arm did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
-    page.wait_for_selector(
-        ".foliplus-scheme-picker-portal", state="attached", timeout=3000
-    )
+    # Wait for the picker's open state to be *committed*, not merely for the
+    # portal node to be in the DOM. On Linux headless the open state lands a
+    # beat after the portal is attached (the dropdown is appended before the
+    # trigger's aria-expanded and the row layout settle), and pressing Escape in
+    # that window reads PICKER_DROPDOWN as not open, so the registry's topmost()
+    # falls through to LAYER_STYLE and one press tears down both the list and
+    # the drawer. Only the committed state guarantees the picker owns Escape.
+    page.wait_for_function(_js("LayerControl/wait_picker_committed"), timeout=3000)
 
 
 class TestPickerCloseBrowser:
@@ -256,6 +261,23 @@ class TestPickerCloseBrowser:
             state = _state(page)
             assert state["portalCount"] == 0, state
             assert not state["stylePanelOpen"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_in_the_style_drawer_closes_the_list_only(self, browser, tmp_path):
+        """The picker owns Escape while its list is open: list out, drawer stays.
+
+        The drawer's own Escape handler (row cursor / panel close) is downstream
+        of the window-capture Escape the picker claims, so one press must close
+        the list and leave the drawer in place for the next colour choice.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            _open_style_dropdown(page)
+            page.keyboard.press("Escape")
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["stylePanelOpen"], state
+            assert state["styleDrawerVisible"], state
             assert not errors, f"JS errors: {errors}"
 
     def test_the_next_press_after_a_choice_still_lands(self, browser, tmp_path):
