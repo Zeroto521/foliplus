@@ -1,19 +1,26 @@
-// The "more" menu items became native <button>s so the input layer can own
-// Enter/Space. A button needs its native chrome reset — `background: none` and
-// `color: inherit` — and that reset ties the shared item rule's specificity
-// while landing later in the cascade (component bundle after the shared one),
-// which silently killed the hover wash. These assertions pin the pair together:
-// the reset owns the rest state, the component restates hover one class higher.
+// The "more" menu items are native <button>s (task-12) so the input layer can
+// own Enter/Space. A button needs its native chrome reset — `background: none`
+// and `color: inherit` — but a plain reset ties the shared item rule's
+// specificity and, being in the component bundle (loaded after the shared one),
+// wins the cascade and silently kills the hover wash. The reset is therefore
+// written inside `:where()` (specificity 0) so the shared hover/active rules
+// always win; this contract pins that pair together.
 import { readFileSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
+import { describe, expect, it } from "vitest";
 
-const ROOT = resolve(__dirname, "../../../../..");
-const CSS_PATH = resolve(ROOT, "foliplus/css/LayerControl/menu.css");
+const cssDir = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../../../foliplus/css",
+);
+const read = (name: string): string => readFileSync(resolve(cssDir, name), "utf8");
 
-const css = readFileSync(CSS_PATH, "utf8");
+const layerMenuCss = read("LayerControl/menu.css");
+const sharedMenuCss = read("common/menu.css");
 
 /** The declarations block that follows the first occurrence of `selector`. */
-const blockOf = (selector: string): string => {
+const blockOf = (css: string, selector: string): string => {
   const at = css.indexOf(selector);
   expect(at, `missing selector: ${selector}`).toBeGreaterThan(-1);
   const open = css.indexOf("{", at);
@@ -22,14 +29,21 @@ const blockOf = (selector: string): string => {
 };
 
 describe("more-menu button styles", () => {
-  it("resets the native button chrome at rest", () => {
-    const rest = blockOf(".foliplus-layer-more-menu button {");
+  it("resets the native button chrome through :where(), at zero specificity", () => {
+    const rest = blockOf(layerMenuCss, ":where(.foliplus-layer-more-menu button) {");
     expect(rest).toContain("background: none");
     expect(rest).toContain("color: inherit");
   });
 
-  it("restates the shared hover wash above the reset", () => {
+  it("keeps no plain-class reset that would beat the shared hover", () => {
+    // The regression shape: a bare `.foliplus-layer-more-menu button {` block.
+    // Its (0,2,1) reset outranks the shared hover and the items stop highlighting.
+    expect(layerMenuCss).not.toMatch(/^\s*\.foliplus-layer-more-menu button \{/m);
+  });
+
+  it("lets the shared hover wash answer on the native buttons", () => {
     const hover = blockOf(
+      sharedMenuCss,
       '.foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {',
     );
     expect(hover).toContain("background: var(--foliplus-accent-light)");
@@ -37,10 +51,8 @@ describe("more-menu button styles", () => {
   });
 
   it("keeps disabled entries muted on hover", () => {
-    // The restated hover is gated on aria-disabled, and the disabled rule wins
-    // with its own background/color (transparent + muted) — a disabled entry
-    // must never answer with the accent wash.
     const disabled = blockOf(
+      layerMenuCss,
       '.foliplus-layer-more-menu button[aria-disabled="true"]:hover {',
     );
     expect(disabled).toContain("background: transparent");

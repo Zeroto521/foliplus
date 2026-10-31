@@ -43,7 +43,6 @@ const DROPDOWN_CLASSES = {
   list: "foliplus-dropdown-list",
   option: "foliplus-dropdown-option",
   optionLabel: "foliplus-dropdown-option-label",
-  check: "foliplus-dropdown-check",
   open: "foliplus-dropdown-open",
   up: "foliplus-dropdown-up",
   portal: "foliplus-dropdown-portal",
@@ -53,6 +52,9 @@ const DROPDOWN_CLASSES = {
 
 /** Vertical gap kept between the popup and the viewport edge. */
 const POPUP_EDGE_GAP = 8;
+/** Gap between the trigger and the popup, matching --foliplus-menu-gap so the
+ *  in-flow (CSS margin) and the portalled (inline offset) popups agree. */
+const POPUP_GAP = 4;
 /** Rows the popup shows before it scrolls internally. */
 const MAX_VISIBLE_ROWS = 8;
 /** A popup with less room than this below flips above the trigger. */
@@ -65,7 +67,25 @@ interface DropdownItem {
   disabled?: boolean;
   /** Native tooltip, mirroring SelectOption.title. */
   title?: string;
+  /** Fallback tooltip for a disabled option that carries no title: the
+   *  disabled state still needs a reason a mouse user can see (the native
+   *  select shows the option's own title, so a disabled row without one
+   *  would otherwise offer no explanation on hover). */
+  disabledHint?: string;
 }
+/** The three ARIA attributes shared by every option row (the dropdown's own
+ *  rows and the scheme picker's). This is the ONLY part of the row contract
+ *  that is genuinely identical between the two builders — data-*, disabled,
+ *  the selected class and the click wiring all diverge by design (see the
+ *  divergence note on renderOptions). Keep this helper to exactly these
+ *  three attributes; folding in the divergent ones would make it a cfg soup.
+ *  The element itself is created by the caller (button vs div), so the
+ *  helper only paints the a11y contract both must satisfy. */
+const applyOptionA11y = (el: HTMLElement, opts: { selected: boolean }): void => {
+  el.setAttribute("role", "option");
+  el.setAttribute("tabindex", "-1");
+  el.setAttribute("aria-selected", opts.selected ? "true" : "false");
+};
 
 /** The popup-host contract: where an open popup mounts and how it hears that
  *  the covering surface changed. Consumers pass core/fullscreen's
@@ -89,6 +109,11 @@ interface DropdownOptions extends DropdownSurface {
   multiple?: boolean;
   /** Trigger text when nothing is selected (multiple mode / empty list). */
   placeholder?: string;
+  /** Take the first enabled item when nothing is selected. The opt-in for a
+   *  surface whose field domain has no empty state — see the default rule in
+   *  createDropdown: an empty value is a state, so this is never implicit for
+   *  a bridged select. */
+  defaultToFirst?: boolean;
   /** Accessible name; bridged mode defaults to the select's own aria-label. */
   ariaLabel?: string;
   /** Extra hook class, applied to the wrapper (same slot the select's own
@@ -295,11 +320,11 @@ const positionList = (state: InternalState): void => {
   list.style.width = String(width) + "px";
   if (up) {
     list.style.top = "";
-    list.style.bottom = String(window.innerHeight - rect.top + POPUP_EDGE_GAP) + "px";
+    list.style.bottom = String(window.innerHeight - rect.top + POPUP_GAP) + "px";
     list.classList.add(DROPDOWN_CLASSES.up);
   } else {
     list.style.bottom = "";
-    list.style.top = String(rect.bottom + POPUP_EDGE_GAP) + "px";
+    list.style.top = String(rect.bottom + POPUP_GAP) + "px";
   }
   list.classList.add(DROPDOWN_CLASSES.portal);
   if (height < natural) list.style.maxHeight = String(Math.round(height)) + "px";
@@ -392,6 +417,26 @@ const activate = (state: InternalState, index: number): void => {
   commit(state);
 };
 
+// Deliberate divergence from common/schemePicker's row builder. The two
+// builders share exactly one genuinely-identical piece — the ARIA contract
+// that applyOptionA11y paints (role/tabindex/aria-selected) — and the
+// keyboard contract (Home/End/arrow skip disabled rows, Escape, Tab close;
+// see schemePicker's focusables()). Everything else diverges by design and
+// is deliberately NOT folded into a shared helper:
+//
+//  - element: <button type=button> vs <div> (scheme)
+//  - disabled: native disabled attr (skips tab order, cannot fire click)
+//    vs aria-disabled=true (still focusable, activate is a no-op)
+//  - data key: data-value vs data-scheme-name
+//  - selected class: foliplus-is-selected vs foliplus-is-active
+//  - click wiring: activate(index) with no guard (a disabled button cannot
+//    fire) vs stopPropagation + disabled guard + selectScheme
+//  - trigger: a module-owned label button vs the scheme picker's
+//    consumer-drawn color bar — no shared trigger shape, so the dropdown
+//    keeps its own open/step focus handling.
+//
+// If you change the row shape here, mirror the intent in schemePicker's
+// buildDropdown — not a shared abstraction.
 const renderOptions = (state: InternalState): void => {
   state.list.textContent = "";
   const selected = new Set(valuesOf(state));
@@ -400,22 +445,18 @@ const renderOptions = (state: InternalState): void => {
       "button",
       {
         type: "button",
-        role: "option",
         class: DROPDOWN_CLASSES.option,
-        "aria-selected": selected.has(item.value) ? "true" : "false",
-        tabindex: "-1",
         "data-value": item.value,
         ...(item.disabled ? { disabled: "" } : {}),
-        ...(item.title ? { title: item.title } : {}),
+        ...(item.title
+          ? { title: item.title }
+          : item.disabled && item.disabledHint
+            ? { title: item.disabledHint }
+            : {}),
       },
-      state.multiple
-        ? dom.el("span", {
-            class: DROPDOWN_CLASSES.check,
-            "aria-hidden": "true",
-          })
-        : null,
       dom.el("span", { class: DROPDOWN_CLASSES.optionLabel }, item.label),
     ) as HTMLButtonElement;
+    applyOptionA11y(option, { selected: selected.has(item.value) });
     option.classList.toggle(DROPDOWN_CLASSES.selected, selected.has(item.value));
     option.addEventListener("click", () => activate(state, index));
     return option;
@@ -738,6 +779,30 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   wrapper.append(list);
 
   if (native) syncFromNative(state);
+
+  // Empty is a state, not "uninitialized": a trigger with nothing selected
+  // keeps showing its placeholder (or nothing) unless the field domain behind
+  // it has no empty state to show. The standalone single-select without a
+  // placeholder is that case by construction — there is no prompt to show and
+  // nothing behind an empty pick — so it opens on its first enabled item. A
+  // declared placeholder (the filter's "Any") and every multi-select keep the
+  // empty state: auto-picking there would silently filter the data. A bridged
+  // select never takes this branch either — its empty value is whatever the
+  // native select reports, and in the heatmap that is a real state ("no source
+  // picked yet"), so a bridged surface whose domain truly has no empty state
+  // has to say so with `defaultToFirst`.
+  if (!state.multiple && state.values.size === 0) {
+    const takeFirst = opts.defaultToFirst ?? (!native && !opts.placeholder);
+    const first = takeFirst && state.items.find(item => !item.disabled);
+    if (first) {
+      state.values = new Set([first.value]);
+      // The native select is the value carrier in bridged mode: leaving it on
+      // "" would make the next refresh read the empty value back and undo the
+      // pick.
+      if (native) native.value = first.value;
+    }
+  }
+
   renderLabel(state);
 
   const onTriggerClick = (): void => {
@@ -825,5 +890,5 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { createDropdown, dropdownOf };
+export { applyOptionA11y, createDropdown, dropdownOf };
 export type { Dropdown, DropdownSurface };

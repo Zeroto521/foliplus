@@ -75,9 +75,11 @@
   .foliplus-layer-more-menu.open {
     display: block;
   }
-  .foliplus-layer-more-menu button {
-    /* Reset the native <button> chrome: the li wrapper provides the shell,
-    the button is the hit target that fills it. */
+  :where(.foliplus-layer-more-menu button) {
+    /* Reset the native <button> chrome: the button is the hit target that
+    fills the shell. :where() keeps this at (0,0,0) so the shared
+    hover/active rules in common/menu.css (0,2,1 / 0,3,1) always win —
+    this only neutralizes the UA default background, never the states. */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -92,17 +94,6 @@
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
-  }
-  /* The native-chrome reset above (background: none; color: inherit) ties the
-     shared item rule specificity and lands later in the cascade (the component
-     bundle follows the shared one), so at rest it beats the shared hover wash:
-     the menu items stopped highlighting on hover when they became buttons.
-     Restate the wash one class higher, so the reset still owns the rest state
-     and hover keeps the shared item language (accent wash + accent ink).
-     Keep this rule glued to the reset. */
-  .foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {
-    background: var(--foliplus-accent-light);
-    color: var(--foliplus-accent-primary);
   }
   .foliplus-layer-more-menu button:focus-visible {
     outline: none;
