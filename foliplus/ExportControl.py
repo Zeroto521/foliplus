@@ -102,8 +102,22 @@ class ExportControl(BaseControl):
 
     **Image format.**  Visual formats download as ``{filename}.{format}`` — for
     example ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg`` — while
-    ``"geotiff"`` downloads ``{filename}.tif`` with embedded georeferencing. JPEG and
-    WebP use the ``quality`` parameter for compression; PNG and GeoTIFF are lossless.
+    ``"geotiff"`` downloads ``{filename}.tif`` with embedded georeferencing.
+
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | Format      | Extension   | Compression | Notes                                              |
+    +=============+=============+=============+====================================================+
+    | ``png``     | ``.png``    | Lossless    | Preserves transparency; the largest visual format. |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``jpeg``    | ``.jpeg``   | Lossy       | Uses the ``quality`` parameter; much smaller than  |
+    |             |             |             | PNG.                                               |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``webp``    | ``.webp``   | Lossy       | Uses the ``quality`` parameter; much smaller than  |
+    |             |             |             | PNG.                                               |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``geotiff`` | ``.tif``    | Lossless    | DEFLATE-compressed (TIFF code 8) with embedded     |
+    |             |             |             | georeferencing (WGS84 / EPSG:4326).                |
+    +-------------+-------------+-------------+----------------------------------------------------+
 
     **Tile CORS.**  A tile source must answer ``Access-Control-Allow-Origin`` to
     appear in the exported image; otherwise that area is blank and the export

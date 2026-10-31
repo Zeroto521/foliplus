@@ -18,10 +18,12 @@ class ScaleControl(BaseControl):
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import ScaleControl
-    >>> m = folium.Map()
-    >>> ScaleControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import ScaleControl
+        >>> m = folium.Map()
+        >>> ScaleControl().add_to(m)
     """
 
     def __init__(
