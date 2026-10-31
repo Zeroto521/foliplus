@@ -13,7 +13,7 @@ class ScaleControl(BaseControl):
         Whether to show the current map zoom level.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
 
     Examples
