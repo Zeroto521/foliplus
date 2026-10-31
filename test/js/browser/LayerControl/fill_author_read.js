@@ -54,11 +54,27 @@
     methodGeom: geom(methodBox),
     countGeom: geom(countBox),
     colorsGeom: geom(colors),
+    // The read-only value box centers the count (a number box reads centered)
+    // and left-aligns the method (a spanning readout reads as a label). The
+    // alignment comes from the stylesheet, not inline style, so it is read via
+    // getComputedStyle — el.style.textAlign is always empty (the rule lives in
+    // style.css) and would hide a regression on the browser job only.
     methodTextAlign: methodBox
-      ? methodBox.querySelector(".foliplus-style-fill-original-value")?.style.textAlign
+      ? getComputedStyle(methodBox.querySelector(".foliplus-style-fill-original-value"))
+          .textAlign
       : null,
     countTextAlign: countBox
-      ? countBox.querySelector(".foliplus-style-fill-original-value")?.style.textAlign
+      ? getComputedStyle(countBox.querySelector(".foliplus-style-fill-original-value"))
+          .textAlign
+      : null,
+    // The compact width token: the count readout must equal it (not a hardcoded
+    // pixel) so a token change does not silently break the geometry contract.
+    secondaryWidth: panel
+      ? Math.round(
+          parseFloat(
+            getComputedStyle(panel).getPropertyValue("--foliplus-form-secondary-width"),
+          ),
+        )
       : null,
     colorsLabel: colors ? colors.getAttribute("aria-label") : null,
     gradient,

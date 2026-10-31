@@ -137,7 +137,15 @@ class TestFillAuthorBrowser:
             assert m is not None and c is not None and k is not None, initial
             assert m["left"] == k["left"] and m["right"] == k["right"] and m["width"] == k["width"], initial
             assert c["right"] == k["right"], initial
-            assert c["width"] == 52, initial
+            assert c["width"] == initial["secondaryWidth"], (
+                f"count width {c['width']} != secondary {initial['secondaryWidth']}: {initial}"
+            )
+            # The count value is centered by the stylesheet (style.css rule
+            # .foliplus-style-fill-original-count .foliplus-style-fill-original-value
+            # { text-align: center }), read here via getComputedStyle because the
+            # inline style is always empty. Negative control: deleting that
+            # text-align line turns this assertion red on the browser job —
+            # do not weaken it to read the inline style.
             assert initial["countTextAlign"] == "center", initial
             assert initial["caption"] == "Original · continuous", initial
             assert initial["colorsLabel"] == "Original · continuous", initial

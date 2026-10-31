@@ -2895,14 +2895,16 @@ describe("fill row — original colors", () => {
     const row = blockOf(ui);
 
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
-    // The author's stepped scale is the equal-interval split, so the method
-    // readout states it (a read-only arm: the value is stated, never edited).
+    // A stepped scale is a classified scale: the method row states the
+    // classification the author drew (a read-only arm: the value is stated,
+    // never edited). It does not claim every scale is an equal-interval split.
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD)).toBe(
       "LayerControl.style_method_equal",
     );
     expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
     // The caption moved from a line of its own onto the colors box: the panel
-    // stays three rows tall and the sentence is still reachable.
+    // is four rows tall (column, method, classes, scheme) and the sentence is
+    // still reachable.
     expect(colorsBoxOf(row).title).toBe("LayerControl.style_fill_original_levels");
     expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
       "LayerControl.style_fill_original_levels",
@@ -2912,16 +2914,16 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(row).getAttribute("role")).toBe("img");
   });
 
-  it("right-aligns the method and count readouts like the by-value controls", () => {
+  it("renders read-only method and count boxes without asserting geometry", () => {
     const { ui } = initWithAuthorScale();
     const row = blockOf(ui);
     const method = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD);
     const count = boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT);
 
-    // Both readout boxes are the same width as the by-value class-count select
-    // (--foliplus-form-secondary-width) and sit flush against the control
-    // column's right edge — the Size row's px field does the same, so the
-    // column edge is one line across every row of the panel.
+    // Geometry is a stylesheet contract (fillStyles.test.ts) plus a browser
+    // probe (fill_author_read.js rect equality); jsdom does not lay out, so
+    // this test pins the frame and the aria state only — the method box is
+    // NOT a 52px number field and spans the control column instead.
     expect(method).not.toBeNull();
     expect(count).not.toBeNull();
     for (const box of [method!, count!]) {
@@ -2960,6 +2962,13 @@ describe("fill row — original colors", () => {
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("—");
+    // It has no classification either: the method row still renders (the arm
+    // stays aligned with the by-value grid) but states the same dash — nothing
+    // is invented for a scale the author did not classify.
+    expect(
+      readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBe("—");
+    expect(labelsOf(blockOf(continuous.ui))).toContain("LayerControl.style_method");
     expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
       "LayerControl.style_fill_original_continuous",
     );
