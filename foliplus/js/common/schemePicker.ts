@@ -221,6 +221,12 @@ const buildDropdown = (state: InternalState): HTMLElement => {
     class: classes.dropdown,
     role: "listbox",
   });
+  // A wheel over the open picker list must not zoom the map. The list is
+  // portalled out of the control container (portal mode), so the container's
+  // own disableScrollPropagation does not cover it — without this a wheel
+  // bubbles to the map container and Leaflet's scrollWheelZoom fires. Stop
+  // propagation only: the list's own overflow-y scroll still works.
+  dropdown.addEventListener("wheel", event => event.stopPropagation());
 
   const items: HTMLElement[] = [];
 
