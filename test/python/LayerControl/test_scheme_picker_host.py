@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 
 import folium
-from conftest import _js, make_browser_page, panel_ready, use_page
+from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import FullscreenControl, LayerControl
 
@@ -68,15 +68,7 @@ def _make_page(browser, tmp_path, *, pseudo: bool):
     if pseudo:
         html = html.replace(
             "<body>",
-            """<body>
-        <script>
-          Object.defineProperty(document, 'fullscreenEnabled', {
-            value: false,
-            configurable: true,
-          });
-          document.exitFullscreen = undefined;
-          document.documentElement.requestFullscreen = undefined;
-        </script>""",
+            f"<body>\n        <script>\n          {snippet('common/fullscreen_stub').strip()}\n        </script>",
         )
     return make_browser_page(
         browser,
