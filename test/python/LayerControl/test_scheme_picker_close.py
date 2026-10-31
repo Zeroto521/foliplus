@@ -282,37 +282,7 @@ class TestPickerCloseBrowser:
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _open_style_dropdown(page)
-            # TEMP DIAGNOSTIC: record keydown dispatch + panel/portal mutations
-            # around the Escape press. Keeps assertions (test stays red) and
-            # dumps ground-truth evidence to stdout. Remove after diagnosis.
-            import json as _json
-
-            _before = page.evaluate(_js("LayerControl/escape_diag_recorder"))
             page.keyboard.press("Escape")
-            page.wait_for_timeout(300)
-            _diag = page.evaluate(
-                """() => {
-                  const rec = window.__escapeRec;
-                  if (!rec) return { missing: true };
-                  const panel = document.querySelector(".foliplus-layer-style-panel");
-                  const portal = document.querySelector(".foliplus-scheme-picker-portal");
-                  const ae = document.activeElement;
-                  rec.after = {
-                    panelOpen: !!panel,
-                    panelClass: panel ? String(panel.className) : null,
-                    panelVisible: panel ? panel.getBoundingClientRect().height > 0 : false,
-                    portalCount: document.querySelectorAll(".foliplus-scheme-picker-portal").length,
-                    portalVisible: portal ? portal.getBoundingClientRect().height > 0 : false,
-                    portalConnected: portal ? portal.isConnected : false,
-                    activeTag: ae ? String(ae.tagName) : null,
-                    activeClass: ae ? String(ae.className) : null,
-                    t: performance.now(),
-                  };
-                  return rec;
-                }"""
-            )
-            print("ESCAPE_DIAG_BEFORE=" + _json.dumps(_before))
-            print("ESCAPE_DIAG_FULL=" + _json.dumps(_diag))
             _wait_closed(page)
             state = _state(page)
             assert state["portalCount"] == 0, state
