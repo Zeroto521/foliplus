@@ -10,4 +10,4 @@
   const z = window.map.getZoom();
   const inRange = z >= 8 && z <= 12;
   return window.map.hasLayer(li.layer) === inRange;
-}
+};
