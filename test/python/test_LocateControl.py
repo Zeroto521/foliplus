@@ -231,9 +231,7 @@ class TestLocateControlBrowser:
             # live pending state rather than a popup that never progresses.
             assert page.evaluate(_js("LocateControl/release_reverse_geocode"))
             page.wait_for_function(
-                "() => { const p = document.querySelector('.foliplus-popup-content');"
-                " return !!p && p.textContent.includes('Test Street'); }",
-                timeout=5000,
+                _js("LocateControl/wait_address_settled"), timeout=5000
             )
             settled = page.evaluate(_js("LocateControl/read_popup"))
             assert settled["spinner"] is None, (
