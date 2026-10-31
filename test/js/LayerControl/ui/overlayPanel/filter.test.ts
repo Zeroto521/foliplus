@@ -1240,6 +1240,28 @@ describe("LayerUI filter panel", () => {
       expect(focusSpy).toHaveBeenCalled();
     });
 
+    it("header click closes the panel without bubbling to the map", () => {
+      // A press on the header (or the × inside it) must not also become a map
+      // click: closing the panel removes it mid-dispatch, so the click would
+      // otherwise keep walking its original path with no live control ancestor
+      // and land on the map (the same guarantee as the ⋮ menu — #807).
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const header = item.querySelector(
+        `.${CONST.CLASSES.FILTER_PANEL} .foliplus-panel-header`,
+      ) as HTMLElement;
+      header.click();
+
+      // The panel still closes…
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      // …and the press was swallowed, never reaching the row / map.
+      expect(bubbled).not.toHaveBeenCalled();
+    });
+
     it("is a no-op when no panel is open", () => {
       expect(() => ui.closeFilterPanel(false)).not.toThrow();
     });

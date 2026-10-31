@@ -221,7 +221,7 @@ const renderEnumBody = (
   // press closes the popup and the next one reaches the LAYER_FILTER panel —
   // "popup first, panel second", with the registry as the only panel
   // dispatcher. If this body ever grows a bespoke portal/popup, register it as
-  // LAYER_FILTER (or PICKER_DROPDOWN) on the per-map overlay registry; never add
+  // LAYER_FILTER (or LAYER_PICKER_DROPDOWN) on the per-map overlay registry; never add
   // a document keydown of its own, because the registry's rank table is the
   // single Escape dispatcher.
   const dropdown = createDropdown({

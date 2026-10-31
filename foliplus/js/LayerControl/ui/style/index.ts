@@ -242,7 +242,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // closes — the same header-dismiss affordance the attrs panel uses.
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
+    // A press inside the control must not reach the map as a click. Closing the
+    // panel (Reset or header) detaches it mid-dispatch, so the click would keep
+    // walking its original path with no live control ancestor — swallow it here
+    // (the same guarantee as the ⋮ menu and the other row panels).
     if (t.closest(".foliplus-style-reset-btn")) {
+      event.stopPropagation();
       // The whole Reset is one operation: every dimension restores first, then
       // the delegated defaults (or the label config drop), then the panel
       // closes, and only then does the single notify go out. A notify fired by
@@ -299,7 +304,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       notifyDelta(ui, ui.c.layerRegistry.get(layerId), settled);
       return;
     }
-    if (t.closest(".foliplus-panel-header")) closeStylePanel(ui, true);
+    if (t.closest(".foliplus-panel-header")) {
+      event.stopPropagation();
+      closeStylePanel(ui, true);
+    }
   });
 
   item.style.position = "relative";
