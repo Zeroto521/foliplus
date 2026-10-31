@@ -501,10 +501,10 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // ignored). The colors are information, not a control.
   colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
-  rows.push(
-    formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
-  );
 
+  // Row order matches the by-value arm: Field, Classes, Scheme. The count
+  // readout therefore lands where the by-value class-count select sits and
+  // the colors strip where the scheme trigger sits, so the two arms line up.
   rows.push(
     formRow(
       ui.T("style_fill_classes"),
@@ -518,6 +518,10 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
       ),
       CONST.CLASSES.STYLE_FILL_ROW,
     ),
+  );
+
+  rows.push(
+    formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
   );
   return rows;
 };

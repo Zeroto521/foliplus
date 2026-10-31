@@ -24,9 +24,13 @@ _log = logging.getLogger(__name__)
 # Captions already reported as refused, so re-rendering a page does not repeat
 # the same line for the same data: one refused caption is a signal, and a
 # two-layer map measured 16 identical warnings. The set is a log filter, not
+# a model: once it grows past _LOG_FILTER_CAP it clears wholesale, so a
+# pathological page cannot pin every message forever.
 # Each entry is (caption, criterion, hits, total): criterion names the
 # test that refused the caption, so the two arms de-duplicate separately.
 _refused_captions: set[tuple[str, str, int, int]] = set()
+# How many refused captions the log filter keeps before clearing wholesale.
+_LOG_FILTER_CAP = 64
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
@@ -367,12 +371,15 @@ def _warn_refused_caption(
 
     ``criterion`` names the test that failed, so the message says which one: the
     stepped arm tests exact block membership, the continuous arm tests the
-    color-match ratio against _FILL_AUTHOR_AGREE.
+    color-match ratio against _FILL_AUTHOR_AGREE. The dedup set is a single
+    per-file log filter shared by every family (the caption refusals here and
+    the declaration rejections elsewhere), capped at _LOG_FILTER_CAP; a full
+    set clears wholesale rather than pinning every message forever.
     """
     note = (caption, criterion, hits, total)
     if note in _refused_captions:
         return
-    if len(_refused_captions) >= 64:
+    if len(_refused_captions) >= _LOG_FILTER_CAP:
         _refused_captions.clear()
     _refused_captions.add(note)
     _log.warning(

@@ -84,6 +84,19 @@
   white-space: nowrap;
 }
 
+/* The class-count readout takes the same width as the by-value arm's class
+   count select (--foliplus-form-secondary-width) and centers its value, so the
+   two arms' count cell lands on the same column edge. */
+.foliplus-style-fill-original-count {
+  width: var(--foliplus-form-secondary-width);
+  flex-shrink: 0;
+}
+
+.foliplus-style-fill-original-count .foliplus-style-fill-original-value {
+  flex: 1;
+  text-align: center;
+}
+
 /* The colors box carries the gradient edge to edge, the same inset the scheme
    trigger gives its bar — one box, one ordered ramp, no per-color blocks to
    overflow the control column. */
@@ -91,9 +104,13 @@
   padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
 }
 
+/* The strip is the same height and border as the by-value scheme bar
+   (common/scheme-picker.css), so the two arms' color preview reads alike. */
 .foliplus-style-fill-original-strip {
   flex: 1;
-  height: 10px;
+  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  box-sizing: border-box;
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   border-radius: var(--foliplus-radius-sm);
 }
 

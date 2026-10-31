@@ -602,6 +602,12 @@ def test_a_refused_continuous_caption_reports_color_match(caplog):
     assert "carry one of its blocks" not in caplog.text
 
 
+def test_refused_caption_filter_cap_is_a_module_constant():
+    # The dedup set clears at a named cap, not a bare magic number: the
+    # filter is a log filter, and its width is a policy constant.
+    assert _layer_control_mod._LOG_FILTER_CAP == 64
+
+
 def test_affine_equivalent_columns_are_claimed_by_render_order():
     scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
     values = [10.0, 40.0, 90.0]

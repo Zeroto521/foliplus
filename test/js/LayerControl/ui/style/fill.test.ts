@@ -2873,8 +2873,8 @@ describe("fill row — original colors", () => {
     }
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_fill_field",
-      "LayerControl.style_fill_scheme",
       "LayerControl.style_fill_classes",
+      "LayerControl.style_fill_scheme",
     ]);
     // The strip lives inside a row's control cell, never directly in the
     // detail slot.
@@ -3091,8 +3091,8 @@ describe("fill row — original colors", () => {
     // so the bar renders; the panel must not invent a field name.
     expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
     expect(labelsOf(row)).toEqual([
-      "LayerControl.style_fill_scheme",
       "LayerControl.style_fill_classes",
+      "LayerControl.style_fill_scheme",
     ]);
   });
 
