@@ -212,7 +212,14 @@ class OverlayRegistryImpl implements OverlayRegistry {
   private readonly subscribers: ((payload: EscapeHandled) => void)[] = [];
   private readonly pressHandlers: {
     mousedown?: (event: MouseEvent) => void;
-    click?: (event: MouseEvent) => void;
+    click?: {
+      /** The bubble half — decides inside presses (dismissOnInside). */
+      bubble: (event: MouseEvent) => void;
+      /** The capture half — decides every outside press, so a target's own
+       *  `stopPropagation` cannot hide an outside press from the registry.
+       *  Installed and removed strictly with `bubble`, so no orphan guard. */
+      capture: (event: MouseEvent) => void;
+    };
   } = {};
   private escapeHandler?: (event: KeyboardEvent) => void;
   private pressInside = false;
@@ -328,27 +335,54 @@ class OverlayRegistryImpl implements OverlayRegistry {
 
   private installPressListener(phase: OverlayPhase): void {
     if (this.pressHandlers[phase]) return;
-    const handler = (event: MouseEvent): void => {
-      const target = nodeOf(event.target);
-      // A non-Node target (window, a Worker port) never yields a press: there
-      // is no DOM subtree to classify and no entry can own it. DOM dispatch
-      // cannot produce one, so this is a guard for direct/synthetic calls.
-      /* v8 ignore next -- non-Node targets never reach a document listener */
-      if (!target) return;
-      this.dispatchPress(phase, target);
-    };
-    this.pressHandlers[phase] = handler;
-    document.addEventListener(phase, handler, phase === "mousedown");
+    const bubble = (event: MouseEvent): void => this.onPress(phase, event, false);
+    if (phase === "click") {
+      // The click phase needs two halves. A control's own toggle calls
+      // `L.DomEvent.stop(event)`, which kills the event before a document
+      // *bubble* listener sees it - so an outside click against a click-phase
+      // surface would never be observed. Outside dismissal therefore runs on
+      // capture, the one phase nothing can stop before the registry reads it;
+      // the bubble walk keeps owning the inside cases (dismissOnInside). The
+      // two are installed and removed strictly together.
+      const capture = (event: MouseEvent): void => this.onPress(phase, event, true);
+      this.pressHandlers.click = { bubble, capture };
+      document.addEventListener("click", bubble, false);
+      document.addEventListener("click", capture, true);
+      return;
+    }
+    this.pressHandlers[phase] = bubble;
+    document.addEventListener(phase, bubble, true);
+  }
+
+  private onPress(phase: OverlayPhase, event: MouseEvent, capture: boolean): void {
+    const target = nodeOf(event.target);
+    // A non-Node target (window, a Worker port) never yields a press: there is
+    // no DOM subtree to classify and no entry can own it. DOM dispatch cannot
+    // produce one, so this is a guard for direct/synthetic calls.
+    /* v8 ignore next -- non-Node targets never reach a document listener */
+    if (!target) return;
+    this.dispatchPress(phase, target, capture);
   }
 
   private removePressListener(phase: OverlayPhase): void {
-    const handler = this.pressHandlers[phase];
-    if (!handler) return;
-    document.removeEventListener(phase, handler, phase === "mousedown");
-    delete this.pressHandlers[phase];
+    if (phase === "click") {
+      // The two halves are strictly paired with the phase (installed together
+      // in installPressListener), so the capture listener is always present
+      // here - no orphan guard, and neither can linger after removal.
+      const click = this.pressHandlers.click;
+      if (!click) return;
+      document.removeEventListener("click", click.bubble, false);
+      document.removeEventListener("click", click.capture, true);
+      delete this.pressHandlers.click;
+      return;
+    }
+    const mouse = this.pressHandlers.mousedown;
+    if (!mouse) return;
+    document.removeEventListener("mousedown", mouse, true);
+    delete this.pressHandlers.mousedown;
   }
 
-  private dispatchPress(phase: OverlayPhase, target: Node): void {
+  private dispatchPress(phase: OverlayPhase, target: Node, capture: boolean): void {
     const open = this.pressOrderedEntries().map(entry => ({
       entry,
       inside: entryContains(entry, target),
@@ -371,23 +405,33 @@ class OverlayRegistryImpl implements OverlayRegistry {
       },
     };
 
+    // Mousedown always runs on capture; the click phase splits its work: the
+    // capture pass decides every outside press, the bubble pass every inside
+    // one. Both passes early-continue past a press they do not own, so a
+    // surface is never dismissed twice for one event.
+    //
+    // One press closes at most one surface: the first entry that decides the
+    // press either consumes it or closes, then returns. The capture pass
+    // settles an outside press (which no target stopPropagation can hide), so
+    // the bubble pass only ever continues an inside press; if a future
+    // dismissOnInside wants to close more than one layer for a single event,
+    // that contract belongs in the M2 PanelController, not here.
+    const outsideOnly = phase === "mousedown" || capture;
     for (const { entry, inside: isInside } of open) {
       if (!entry.isOpen()) continue;
-      // Each dispatcher owns one phase: the mousedown-capture walk must not
-      // close a surface that dismisses on the click bubble (and vice versa).
       if (entry.dismissOn !== phase) continue;
-      if (phase === "mousedown") {
-        // The capture phase decides outside dismissal only — an inside press
-        // must keep its native behaviour (button activation, focus move).
+      if (outsideOnly) {
+        // An outside press decides dismissal only — an inside press must keep
+        // its native behaviour (button activation, focus move).
         if (isInside) continue;
         press.reason = "outside";
         if (entry.dismissOnOutside && !entry.dismissOnOutside(press)) continue;
       } else {
-        press.reason = isInside ? "inside" : "outside";
-        const wantsDismiss = isInside
-          ? (entry.dismissOnInside?.(press) ?? false)
-          : (entry.dismissOnOutside?.(press) ?? true);
-        if (!wantsDismiss) continue;
+        // Click bubble: capture already decided every outside press, so this
+        // walk owns the inside cases only.
+        if (!isInside) continue;
+        press.reason = "inside";
+        if (!(entry.dismissOnInside?.(press) ?? false)) continue;
       }
       const element = elementOf(target);
       if (element && entry.consumePress?.(element, press)) {
