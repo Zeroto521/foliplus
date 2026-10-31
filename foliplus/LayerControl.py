@@ -848,39 +848,6 @@ class LayerControl(BaseControl):
     | ``zoom`` | dict   | The layer's visible zoom range (see the zoom table below).   |
     +----------+--------+--------------------------------------------------------------+
 
-    The ``zoom`` declaration keys:
-
-    +---------+------+----------+--------------------------------------------------------------+
-    | Key     | Type | Required | Meaning                                                      |
-    +=========+======+==========+==============================================================+
-    | ``min`` | int  | yes      | Lowest zoom at which the layer is visible (inclusive).       |
-    +---------+------+----------+--------------------------------------------------------------+
-    | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
-    +---------+------+----------+--------------------------------------------------------------+
-
-    How a ``zoom`` declaration is resolved:
-
-    +-------------------------------+--------------------------------------------------------------+
-    |Condition                      |Behaviour                                                     |
-    +===============================+==============================================================+
-    |User stored range              |The row shows the stored range; it always wins.               |
-    +-------------------------------+--------------------------------------------------------------+
-    |Valid declaration              |The row opens on it and Reset returns to it.                  |
-    +-------------------------------+--------------------------------------------------------------+
-    |No declaration                 |The row opens on the map's own range.                         |
-    +-------------------------------+--------------------------------------------------------------+
-    |Declared range cannot meet the |Treated as undeclared: the layer stays visible at every level,|
-    |map's zoom levels              |the degradation warns once, and the row stays editable (it    |
-    |                               |shows the stored value, else the map's range).                |
-    +-------------------------------+--------------------------------------------------------------+
-    |Malformed declaration (missing |Warns once and is treated as undeclared; never hides the      |
-    |key, non-int, inverted, unknown|layer.                                                        |
-    |key)                           |                                                              |
-    +-------------------------------+--------------------------------------------------------------+
-
-    A declaration is a default, never a rewrite: it does not modify the
-    author's own layer data.
-
     The ``fill`` declaration keys:
 
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
@@ -914,6 +881,39 @@ class LayerControl(BaseControl):
     +-------------+-------------------------------------+--------------------------------------------------------------+
     | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
     +-------------+-------------------------------------+--------------------------------------------------------------+
+
+    The ``zoom`` declaration keys:
+
+    +---------+------+----------+--------------------------------------------------------------+
+    | Key     | Type | Required | Meaning                                                      |
+    +=========+======+==========+==============================================================+
+    | ``min`` | int  | yes      | Lowest zoom at which the layer is visible (inclusive).       |
+    +---------+------+----------+--------------------------------------------------------------+
+    | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
+    +---------+------+----------+--------------------------------------------------------------+
+
+    How a ``zoom`` declaration is resolved:
+
+    +-------------------------------+--------------------------------------------------------------+
+    |Condition                      |Behaviour                                                     |
+    +===============================+==============================================================+
+    |User stored range              |The row shows the stored range; it always wins.               |
+    +-------------------------------+--------------------------------------------------------------+
+    |Valid declaration              |The row opens on it and Reset returns to it.                  |
+    +-------------------------------+--------------------------------------------------------------+
+    |No declaration                 |The row opens on the map's own range.                         |
+    +-------------------------------+--------------------------------------------------------------+
+    |Declared range cannot meet the |Treated as undeclared: the layer stays visible at every level,|
+    |map's zoom levels              |the degradation warns once, and the row stays editable (it    |
+    |                               |shows the stored value, else the map's range).                |
+    +-------------------------------+--------------------------------------------------------------+
+    |Malformed declaration (missing |Warns once and is treated as undeclared; never hides the      |
+    |key, non-int, inverted, unknown|layer.                                                        |
+    |key)                           |                                                              |
+    +-------------------------------+--------------------------------------------------------------+
+
+    A declaration is a default, never a rewrite: it does not modify the
+    author's own layer data.
 
     """
 
