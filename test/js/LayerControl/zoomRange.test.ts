@@ -263,6 +263,76 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   });
 });
 
+describe("zoomRange resolved endpoints (rowEndpoints)", () => {
+  let ui: ReturnType<typeof initFixture>["ui"];
+  let cancel: (() => void) | undefined;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    const fixture = initFixture({
+      maxZoom: 18,
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          role: "overlay",
+          layer: {
+            options: {},
+            getBounds: () => ({
+              isValid: () => true,
+              getSouthWest: () => ({ lat: 0, lng: 0 }),
+              getNorthEast: () => ({ lat: 1, lng: 1 }),
+            }),
+          } as any,
+        },
+      ],
+    });
+    ui = fixture.ui;
+    cancel = () => fixture.manager.debouncedEnforce?.cancel?.();
+  });
+
+  afterEach(() => {
+    cancel?.();
+    cancel = undefined;
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("collapses an above-map stored range onto the map's ceiling", () => {
+    // stored [20,30] but the map only reaches 18 — the resolved value must not
+    // be inverted (min > max). The band lies entirely above the rail, so it
+    // collapses onto the ceiling: a degenerate [18,18].
+    setIntent(ui, "overlay1", "zoomRange", [20, 30]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 18, max: 18 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("orders a reversed stored range (min > max) before collapsing", () => {
+    // Reversed [30,20] carries the same band, so it resolves identically.
+    setIntent(ui, "overlay1", "zoomRange", [30, 20]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 18, max: 18 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("collapses a below-map stored range onto the map's floor", () => {
+    // Entirely below the floor: after clamping both ends land past each
+    // other (min 0 > max -5), so the band collapses onto the floor.
+    setIntent(ui, "overlay1", "zoomRange", [-10, -5]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 0, max: 0 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+
+  it("resolves a stored range inside the map unchanged (no clamping)", () => {
+    setIntent(ui, "overlay1", "zoomRange", [3, 9]);
+    const value = ZOOM_RANGE_DIMENSION.value!(ui, "overlay1");
+    expect(value).toEqual({ min: 3, max: 9 });
+    clearIntent(ui, "overlay1", "zoomRange");
+  });
+});
+
 // ── Notification-contract cases, moved from the former
 // ── notifyContract.test.ts so they live with the script they drive. ──
 it("a reset settles the row before it announces", () => {
@@ -391,12 +461,11 @@ it("collapses a declaration outside the layer's own rail onto the nearest bound"
   });
   fixture.manager.debouncedEnforce?.cancel?.();
 });
-it("disables the row when the declared range cannot meet the map, so a drag never persists it", () => {
-  // P2 regression: a declaration [20, 30] on a map capped at 18 collapses the
-  // row to [18, 18]. Without the disable, dragging or committing that value
-  // would persist the real hidden interval [18, 18] — the "drag once, locked
-  // out" bug. The row must render inert (disabled + hint) so the collapse is a
-  // display, not a value the user can commit.
+it("a declaration that cannot meet the map leaves the row on the map range, editable", () => {
+  // task-56: a declaration [20, 30] on a map capped at 18 cannot be honoured,
+  // so the policy treats it as undeclared. The row must NOT collapse to a
+  // fake [18, 18] a drag could persist: it opens on the map's full range and
+  // stays editable (no disabled/hint), so the user can drag a real choice.
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const layer = polygonLayer();
   const fixture = initFixture({
@@ -412,9 +481,10 @@ it("disables the row when the declared range cannot meet the map, so a drag neve
   });
   trackMembership(fixture.map);
 
-  // The row value still collapses (display), but the row must be disabled.
+  // The declaration is treated as undeclared, so the row opens on the map's
+  // full range — not a collapsed [18, 18].
   expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1")).toEqual({
-    min: 18,
+    min: 0,
     max: 18,
   });
 
@@ -424,23 +494,23 @@ it("disables the row when the declared range cannot meet the map, so a drag neve
   ) as HTMLElement;
   expect(row).toBeTruthy();
   const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
-  expect(slider?.classList.contains("is-disabled")).toBe(true);
-  // The hint moved from the row's aria-description to a visually-hidden
-  // span the slider names via aria-describedby, so a screen reader hears it.
-  const hint = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_HINT}`);
-  expect(hint?.textContent).toBe("LayerControl.style_zoom_range_unusable");
-  expect(slider?.getAttribute("aria-describedby")).toBe(hint?.id);
+  // The row is editable — no disabled class, no hint.
+  expect(slider?.classList.contains("is-disabled")).toBe(false);
+  expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_HINT}`)).toBeNull();
 
-  // The live pass refuses to write the collapsed value into the store.
+  // The live pass commits the drag: the row is not an inert display.
   const liveRow = document.createElement("div");
-  applyZoomRangeLive(fixture.ui, "overlay1", liveRow, 18, 18);
-  expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
+  applyZoomRangeLive(fixture.ui, "overlay1", liveRow, 3, 9);
+  expect(fixture.ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 9]);
 
   fixture.manager.debouncedEnforce?.cancel?.();
   warn.mockRestore();
 });
 
-it("keeps the row enabled for an overlapping declaration", () => {
+it("the policy reports the degradation once; the row does not", () => {
+  // task-56: the policy is the single place that warns about an unusable
+  // declaration. The row arm is silent — it just falls back to the map range.
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const layer = polygonLayer();
   const fixture = initFixture({
     data: [
@@ -449,19 +519,46 @@ it("keeps the row enabled for an overlapping declaration", () => {
         name: "Polygons",
         role: "overlay",
         layer,
-        zoom: { min: 8, max: 12 },
+        zoom: { min: 20, max: 30 },
       },
     ],
   });
   trackMembership(fixture.map);
 
-  fixture.ui.openStylePanel("overlay1");
-  const row = findItem(fixture.ui, "overlay1").querySelector(
-    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
-  ) as HTMLElement;
-  const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
-  expect(slider?.classList.contains("is-disabled")).toBe(false);
-  expect(row.getAttribute("aria-description")).toBeNull();
+  ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1");
+  expect(warn).toHaveBeenCalledTimes(1);
+  expect(String(warn.mock.calls[0][0])).toContain("treating it as undeclared");
 
   fixture.manager.debouncedEnforce?.cancel?.();
+  warn.mockRestore();
+});
+
+it("a stored range wins over an unusable declaration and keeps the row editable", () => {
+  // task-56 + stored precedence: the user's own range is always usable and
+  // always wins, so the row shows the stored value even when the declaration
+  // is unusable.
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = polygonLayer();
+  const fixture = initFixture({
+    data: [
+      {
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer,
+        zoom: { min: 20, max: 30 },
+      },
+    ],
+  });
+  trackMembership(fixture.map);
+  setIntent(fixture.ui, "overlay1", "zoomRange", [6, 12]);
+
+  expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1")).toEqual({
+    min: 6,
+    max: 12,
+  });
+  expect(warn).toHaveBeenCalledTimes(0);
+
+  fixture.manager.debouncedEnforce?.cancel?.();
+  warn.mockRestore();
 });

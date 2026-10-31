@@ -73,7 +73,6 @@
   "LayerControl.style_zoom_range_max": "最大级别",
   "LayerControl.style_zoom_range_current": "当前地图级别：{zoom}",
   "LayerControl.style_zoom_range_out_of_range": "当前地图级别（{zoom}）不在可见范围内",
-  "LayerControl.style_zoom_range_unusable": "图层声明的缩放级别与当前地图的缩放范围没有交集，因此它在所有级别都保持可见；该行已禁用，因为提交所示数值会隐藏图层",
   "LayerControl.style_border_color": "边框颜色",
   "LayerControl.style_border_weight": "边框宽度",
   "LayerControl.style_fill": "填充颜色",

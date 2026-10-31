@@ -903,16 +903,14 @@ class LayerControl(BaseControl):
 
         Precedence matches the label and fill declarations: the user's choice
         in the style panel wins, then the declaration, then the map's own
-        range. A stored user range always takes precedence — when the user has
-        set one, the row is never disabled even if the declaration cannot meet
-        the map, because the stored range is what the layer shows now. A
-        declaration that cannot intersect the map's zoom levels (declared
-        [20, 30] on a map capped at 18) is not a reason to hide the layer: the
-        policy treats it as undeclared and warns once, and the panel's row is
-        disabled (not-allowed cursor) with a reason tooltip and a
-        screen-reader hint instead of offering a collapsed value a drag would
-        persist. An invalid declaration only warns and falls back; it never
-        hides the layer.
+        range. A stored user range always takes precedence — the row shows
+        the stored range whenever one exists. A declaration that cannot
+        intersect the map's zoom levels (declared [20, 30] on a map capped at
+        18) is not a reason to hide the layer: the policy treats it as
+        undeclared and warns once, and the row stays editable — the
+        declaration is only the starting value, not a locked range. An
+        invalid declaration only warns and falls back; it never hides the
+        layer.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

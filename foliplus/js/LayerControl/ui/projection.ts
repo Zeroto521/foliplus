@@ -124,45 +124,15 @@ const authorZoomRowRange = (
   const declared = authorZoomRangeOf(layerInfo);
   if (!declared) return undefined;
   const { range, degenerate } = clampZoomRangeToMap(ui, declared);
-  if (degenerate) {
-    warnZoomOnce(
-      layerInfo.id,
-      "row",
-      `declares zoom range ${JSON.stringify(declared)} outside the map's zoom range; the row collapses it onto the nearest bound`,
-    );
-  }
+  // A declaration that cannot meet the map's rail is treated as undeclared
+  // (the same verdict the policy gives it): the row falls to the map's full
+  // range instead of a fake collapsed [x, x] a drag could persist as a real
+  // hidden interval. The policy is the single place that reports the
+  // degradation, so this path is silent.
+  if (degenerate) return undefined;
   return range;
 };
 
-/** Whether the zoom-range row for this layer is unusable on the current map.
- *
- *  A declared range with no intersection with the map's own rail (author
- *  [20, 30] on a map capped at 18) is a contradiction the row cannot express:
- *  the policy degrades the declaration to "undeclared" (the layer stays fully
- *  visible — {@link authorZoomPolicyRange}), but the row collapses onto the
- *  nearest bound as a fake, meaningless [18, 18]. If the user then dragged or
- *  committed that collapsed value, the stored override would write the real
- *  hidden interval [18, 18] — a single drag that permanently locks the layer
- *  out at every reachable zoom. So the row renders inert (disabled + hint)
- *  while the declaration cannot meet the map: the collapse is a display, not
- *  a value the user can commit. A stored range always wins, so a layer the
- *  user already chose a range for is never disabled even when the author
- *  declaration cannot meet the map.
- *
- *  True only for the author-declared degenerate case. A malformed payload
- *  (authorZoomRangeOf → undefined) is "undeclared", not "unusable": the same
- *  verdict the policy gives it, and the row shows the full map range. */
-const zoomRowUnusable = (
-  ui: LayerUI,
-  layerInfo: LayerInfo | null | undefined,
-): boolean => {
-  if (!layerInfo) return false;
-  // The user's own choice is always usable: it is what the layer shows now.
-  if (getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE)) return false;
-  const declared = authorZoomRangeOf(layerInfo);
-  if (!declared) return false;
-  return clampZoomRangeToMap(ui, declared).degenerate;
-};
 
 /**
  * Whether the range in force covers the map's current zoom.
@@ -292,5 +262,4 @@ export {
   inZoomRange,
   currentOpacity,
   authorZoomRowRange,
-  zoomRowUnusable,
 };

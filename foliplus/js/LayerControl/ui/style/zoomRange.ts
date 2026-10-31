@@ -7,7 +7,7 @@
 //
 // Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
-import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
+import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
@@ -19,7 +19,7 @@ import {
   notifyDelta,
 } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
-import { authorZoomRowRange, zoomRowUnusable } from "../projection.js";
+import { authorZoomRowRange } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
   getDimension,
@@ -55,58 +55,6 @@ const sliderOfRow = (row: HTMLElement): Slider | undefined =>
     row.querySelector<HTMLElement>("." + CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL),
   );
 
-/** The row's screen-reader hint span: visually hidden, referenced by the
- *  slider's aria-describedby so a screen reader names the disable reason.
- *  Created on first sync (id = layerId), kept for the row's lifetime so the
- *  id is stable across a usable/unusable flip. Visually hidden (not
- *  display:none) so a screen reader still announces it.
- *
- *  A per-layer id (not a global counter) keeps the span findable without
- *  re-reading a counter: the row is one per layer, so the id is unique in
- *  the DOM. */
-const zoomRowHintOf = (row: HTMLElement, layerId: string): HTMLElement => {
-  const id = `foliplus-zoom-range-hint-${layerId}`;
-  let hint = row.querySelector<HTMLElement>("#" + id);
-  if (!hint) {
-    hint = dom.el("span", {
-      id,
-      class: CONST.CLASSES.STYLE_ZOOM_RANGE_HINT,
-      style:
-        "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;",
-    });
-    row.appendChild(hint);
-  }
-  return hint;
-};
-
-/** The row's [min, max] endpoints.
- *
- *  Three sources in priority order: the user's stored range (clamped to the
- *  map's rail — the persisted choice is the user's), the author's declared
- *  range (`foliplus={"zoom": {...}}`, already clamped and never empty), then
- *  the map's own range for a layer that declared nothing. The author step is
- *  why Reset lands on the declaration instead of on the map's full range. */
-const rowEndpoints = (
-  stored: [number, number] | undefined,
-  author: AuthorZoomRange | undefined,
-  mapMin: number,
-  mapMax: number,
-): [number, number] => {
-  if (stored) return [Math.max(stored[0], mapMin), Math.min(stored[1], mapMax)];
-  if (author) {
-    const lo = Math.max(author.min, mapMin);
-    const hi = Math.min(author.max, mapMax);
-    if (lo <= hi) return [lo, hi];
-    // A declaration entirely outside this layer's own rail (its
-    // `options.minZoom/maxZoom`, which can be narrower than the map) collapses
-    // onto the nearest bound: the slider cannot draw a value the rail cannot
-    // reach.
-    const point = Math.min(Math.max(author.min, mapMin), mapMax);
-    return [point, point];
-  }
-  return [mapMin, mapMax];
-};
-
 /** Update the zoom-range row's visual state: thumb positions, limit dots,
  *  the current-zoom readout, and the out-of-range dimming. Does not write to
  *  the map or persistence — that is the commit pass's job. Pass the live
@@ -127,23 +75,13 @@ const syncZoomRangeRow = (
   // Only look up the declaration when the user has no range: the row's
   // author arm is the fallback, not a second source to compare against.
   const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
-  const [min, max] = liveRange ?? rowEndpoints(stored, author, mapMin, mapMax);
+  const [min, max] = liveRange
+    ? clampEndpoints(liveRange, mapMin, mapMax)
+    : rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
-  // An author declaration with no intersection with the map's own rail is
-  // unusable here: the policy keeps the layer fully visible, but the row
-  // would collapse onto a meaningless [18, 18] that a drag would then persist
-  // as a real hidden interval. Render the row inert so the collapse is a
-  // display, not a value the user can commit (see zoomRowUnusable).
-  const unusable = zoomRowUnusable(ui, layerInfo);
-
   const slider = sliderOfRow(row);
-  // The hint span lives on the row (visually hidden) and is referenced by the
-  // slider via aria-describedby, so a screen reader names the disable reason
-  // while the row itself stays out of the tab order.
-  const hint = zoomRowHintOf(row, layerId);
   if (slider) {
-    slider.setDisabled(unusable);
     slider.setValue([min, max], { silent: true });
     slider.setMarks([
       { at: mapMin, tone: "limit" },
@@ -158,21 +96,69 @@ const syncZoomRangeRow = (
   }
 
   // Out-of-range: dim the row when the current zoom falls outside [min, max].
-  const outOfRange = !unusable && (current < min || current > max);
+  const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
-  if (unusable) {
-    // The declaration cannot meet the map; the row is a read-only statement.
-    const text = ui.T("style_zoom_range_unusable");
-    row.title = text;
-    hint.textContent = text;
-    slider?.setDescribedBy(hint.id);
-  } else {
-    row.title = outOfRange
-      ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
-      : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
-    hint.textContent = "";
-    slider?.setDescribedBy(undefined);
+  row.title = outOfRange
+    ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
+    : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
+};
+
+/** Resolve a stored [lo, hi] into the map's available band, always ordered.
+ *  The stored choice wins (never locks the user), so it is only clamped into
+ *  the map's rail. If the stored band lies entirely outside the map the two
+ *  ends collapse onto the nearer map end — a degenerate point — so the model
+ *  and the slider agree (both ordered, both inside [mapMin, mapMax]); the
+ *  layer's actual visibility still comes from the projection, which hides it
+ *  when no zoom can land inside the stored range. */
+const clampEndpoints = (
+  stored: [number, number] | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (!stored) return [mapMin, mapMax];
+  const lo = Math.min(stored[0], stored[1]);
+  const hi = Math.max(stored[0], stored[1]);
+  const min = Math.max(lo, mapMin);
+  const max = Math.min(hi, mapMax);
+  if (min <= max) return [min, max];
+  // Band entirely below the map: pin to the floor. Entirely above: pin to the
+  // ceiling. (A band that straddles the whole map clamps to the full rail and
+  // stays ordered, so it never reaches this branch.)
+  return hi <= mapMin ? [mapMin, mapMin] : [mapMax, mapMax];
+};
+
+/** Resolve the row's [min, max] endpoints.
+ *
+ *  The stored choice wins (clamped + ordered via clampEndpoints — the user's
+ *  persisted choice is never a lock). Without a stored range, the author's
+ *  declared range is the row's starting value (the declaration is only a
+ *  default, so a usable declaration seeds the row); a declaration that cannot
+ *  meet the map is treated as undeclared (authorZoomRowRange → undefined), so
+ *  the row opens on the map's full range. A layer that declared nothing also
+ *  opens on the full map range. Reset clears the intent, landing on the same
+ *  fallback.
+ *
+ *  The author arm is why Reset lands on the declaration instead of the map's
+ *  full range — the declaration is the author's default, and Reset returns to
+ *  it. */
+const rowEndpoints = (
+  stored: [number, number] | undefined,
+  author: AuthorZoomRange | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (stored) return clampEndpoints(stored, mapMin, mapMax);
+  if (author) {
+    const lo = Math.max(author.min, mapMin);
+    const hi = Math.min(author.max, mapMax);
+    if (lo <= hi) return [lo, hi];
+    // A declaration entirely outside this layer's own rail (its
+    // `options.minZoom/maxZoom`, narrower than the map) collapses onto the
+    // nearest bound: the slider cannot draw a value the rail cannot reach.
+    const point = Math.min(Math.max(author.min, mapMin), mapMax);
+    return [point, point];
   }
+  return [mapMin, mapMax];
 };
 
 /** Build the zoom-range form row: a dual-thumb slider with the map's current
@@ -247,10 +233,6 @@ const applyZoomRangeLive = (
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  // A declaration with no intersection with the map cannot be committed: the
-  // row is disabled, and writing the collapsed value here would persist the
-  // real hidden interval the policy refused to infer (see zoomRowUnusable).
-  if (zoomRowUnusable(ui, layerInfo)) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   // Announce last: the row chrome above is already settled, so a subscriber
@@ -311,22 +293,11 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   },
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
-   *  live preview (mark current intent); {min,max} writes then marks.
-   *
-   *  The {min,max} branch has no production caller — `commitZoomRange`
-   *  (`applyZoomRangeLive` + this descriptor) is the only live path and passes
-   *  an empty patch, so a range can only enter the store through the live
-   *  preview that already ran the zoomRowUnusable guard. The explicit branch
-   *  is exercised by tests directly; keep it guarded too so a future caller
-   *  cannot persist a collapsed declaration by hand. */
+   *  live preview (mark current intent); {min,max} writes then marks. */
   write: (ui, layerId, patch) => {
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
-      // Same rule as applyZoomRangeLive: a declaration that cannot meet the
-      // map must never be written as the user range (see zoomRowUnusable).
-      const layerInfo = ui.c.layerRegistry.get(layerId);
-      if (layerInfo && zoomRowUnusable(ui, layerInfo)) return;
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
       const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);
