@@ -93,8 +93,22 @@ const vitestCmd = testPaths =>
     "--pool=threads",
   ].join(" ");
 
-/** The pinned ruff binary from the pre-commit cache (v0.17.2). */
+/** Locate a ruff binary.
+ *
+ * Preference order, all verified to run with --config pyproject.toml:
+ *   1. .venv/Scripts/ruff.exe if present (project venv, matches CI's pin best)
+ *   2. pre-commit cache v0.17.2 ruff.exe (the hook pin; .venv usually has no ruff
+ *      because ruff is a pre-commit-only dev dependency)
+ *   3. the project venv python running `python -m ruff` (falls back to whatever
+ *      ruff version uv resolved, without uv run's sync side-effects)
+ *   4. global ruff on PATH
+ * Returns the command prefix (array) to use, or null if nothing usable.
+ */
 const findRuff = () => {
+  // 1. project venv binary
+  const venvExe = join(ROOT, ".venv", "Scripts", "ruff.exe");
+  if (existsSync(venvExe)) return [venvExe];
+  // 2. pre-commit cache v0.17.2
   const cacheRoots = [join(process.env.HOME ?? "", ".cache", "pre-commit")];
   const dirs = cacheRoots.flatMap(d => {
     try {
@@ -109,9 +123,18 @@ const findRuff = () => {
     const exe = join(dir, "py_env-python3", "Scripts", "ruff.exe");
     if (existsSync(exe)) {
       const r = spawnSync(exe, ["--version"], { encoding: "utf8" });
-      if (r.status === 0 && /0\.17\.2/.test(r.stdout)) return exe;
+      if (r.status === 0 && /0\.17\.2/.test(r.stdout)) return [exe];
     }
   }
+  // 3. project venv python -m ruff
+  const venvPy = join(ROOT, ".venv", "Scripts", "python.exe");
+  if (existsSync(venvPy)) {
+    const r = spawnSync(venvPy, ["-m", "ruff", "--version"], { encoding: "utf8" });
+    if (r.status === 0 && r.stdout.trim()) return [venvPy, "-m", "ruff"];
+  }
+  // 4. global ruff on PATH
+  const r = spawnSync("ruff", ["--version"], { encoding: "utf8" });
+  if (r.status === 0 && r.stdout.trim()) return ["ruff"];
   return null;
 };
 
@@ -263,25 +286,24 @@ const main = () => {
   const pyFiles = files.filter(f => f.endsWith(".py"));
   const ruff = findRuff();
   if (ruff) {
+    const ruffCmd = ruff.map(a => (/s/.test(a) ? `"${a}"` : a)).join(" ");
     if (pyFiles.length) {
       gate(
         "ruff",
-        `"${ruff}" check --config pyproject.toml ${pyFiles.join(" ")}`,
-        `"${ruff}" check --fix --config pyproject.toml ${pyFiles.join(
+        `${ruffCmd} check --config pyproject.toml ${pyFiles.join(" ")}`,
+        `${ruffCmd} check --fix --config pyproject.toml ${pyFiles.join(
           " ",
         )}  then re-run`,
       );
       gate(
         "ruff-format",
-        `"${ruff}" format --check --config pyproject.toml ${pyFiles.join(" ")}`,
-        `"${ruff}" format ${pyFiles.join(" ")}  then re-run`,
+        `${ruffCmd} format --check --config pyproject.toml ${pyFiles.join(" ")}`,
+        `${ruffCmd} format ${pyFiles.join(" ")}  then re-run`,
       );
     } else gate("ruff (no changed .py files)", null, null);
   } else {
     console.log(
-      `${YELLOW}! ruff (v0.17.2) not found in pre-commit cache — skipping ruff gates${
-        RESET
-      }`,
+      `${YELLOW}! no ruff binary found (.venv/Scripts/ruff.exe, pre-commit cache v0.17.2, or python -m ruff) — skipping ruff gates${RESET}`,
     );
   }
 
