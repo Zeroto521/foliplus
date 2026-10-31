@@ -1,7 +1,7 @@
 .PHONY : help
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
-.PHONY: test test-browser test-python test-python-fast test-js
+.PHONY: test test-browser test-python test-python-fast test-js check
 .PHONY: bundle-size-check
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
@@ -22,6 +22,7 @@ help:
 	@echo "'test-python'  - run all Python tests (unit + browser)"
 	@echo "'test-python-fast' - run Python tests without the browser (local quick pass)"
 	@echo "'test-js'      - run JS tests (skip Python)"
+	@echo "'check'        - local fast gate (changed-file checks + full-tree guards)"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
 	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
@@ -55,6 +56,14 @@ clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 lint:
 	pre-commit run -a -v
+
+# Local fast gate: the CI-reproducible checks that catch the reds a "run the
+# tests I touched" workflow misses, without the full suite. The full JS/Python
+# suites, docs build, bundle build + size gates, and browser tests belong to
+# PR CI — this is the pre-push smoke that costs minutes, not tens of minutes.
+# See script/check/local-checks.mjs for the exact gate list and fix hints.
+check:
+	node script/check/local-checks.mjs
 
 dist: build-js build-python
 
