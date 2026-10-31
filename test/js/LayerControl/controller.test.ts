@@ -378,7 +378,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "base1" ? null : realGetPane(name),
+      name === `${CONST.LABEL_PANE_PREFIX}base1` ? null : realGetPane(name),
     );
 
     expect(() => manager.enforceOrder()).not.toThrow();
@@ -618,7 +618,7 @@ describe("LayerController", () => {
     vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
-    const paneName = CONST.LABEL_PANE_PREFIX + "lbl";
+    const paneName = `${CONST.LABEL_PANE_PREFIX}lbl`;
     const pane = paneRegistry[paneName];
     expect(pane).toBeDefined();
     expect(pane!.classList.contains("foliplus-layer-pane")).toBe(true);
@@ -3881,11 +3881,11 @@ describe("LayerController", () => {
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     });
 
-    it("clears the colour basemap — unregisters but keeps the id registerable", () => {
+    it("clears the color basemap — unregisters but keeps the id registerable", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
+        name: "color",
         role: "base",
         layer: { options: {} },
       } as any);
@@ -3909,11 +3909,11 @@ describe("LayerController", () => {
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
-    it("clears the colour basemap without a panel attached", () => {
+    it("clears the color basemap without a panel attached", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
+        name: "color",
         role: "base",
         layer: { options: {} },
       } as any);
@@ -3925,11 +3925,11 @@ describe("LayerController", () => {
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
-    it("returns false when the colour basemap cannot be unregistered", () => {
+    it("returns false when the color basemap cannot be unregistered", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
+        name: "color",
         role: "base",
         layer: { options: {} },
       } as any);
@@ -3977,11 +3977,11 @@ describe("LayerController", () => {
       ).not.toBeNull();
     });
 
-    it("removes the base toggle-all row when the last non-colour base layer is deleted", () => {
+    it("removes the base toggle-all row when the last non-color base layer is deleted", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
+        name: "color",
         role: "base",
         layer: { options: {} },
       } as any);
@@ -4308,7 +4308,7 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.registerLayer({
         id: CONST.SOLID_BASEMAP_ID,
-        name: "Colour",
+        name: "color",
         role: "base",
         layer: { options: {} },
       } as any);

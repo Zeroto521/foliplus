@@ -341,8 +341,7 @@ const syncRowOrder = (ui: LayerUI): void => {
     const known = new Set(ui.c.layers.map(l => l.id));
     const unknown = [...rows.keys()].filter(id => !known.has(id));
     ui.log?.warn(
-      `syncRowOrder: panel/registry drift — rows without entries ` +
-        `[${unknown.join(", ")}], entries without rows [${missing.join(", ")}]`,
+      `syncRowOrder: panel/registry drift — rows without entries [${unknown.join(", ")}], entries without rows [${missing.join(", ")}]`,
     );
   }
   if (targets.length === 0) return;
@@ -539,9 +538,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   return dom.el(
     "div",
     {
-      class:
-        `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
-        (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
+      class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
       tabindex: "0",
       "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),

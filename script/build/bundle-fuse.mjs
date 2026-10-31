@@ -88,11 +88,7 @@ const render = rows => {
       r.cap == null ? "     —" : `${(headroom / 1024).toFixed(1)} KB`.padStart(8);
     const capStr = r.cap == null ? "   —" : fmtBytes(r.cap).padStart(7);
     lines.push(
-      `${r.file.padEnd(fileWidth)}   ` +
-        `${fmtBytes(r.measured).padStart(8)}  ` +
-        `${capStr}  ` +
-        `${headroomStr}  ` +
-        `${STATUS[r.status]}`,
+      `${r.file.padEnd(fileWidth)}   ${fmtBytes(r.measured).padStart(8)}  ${capStr}  ${headroomStr}  ${STATUS[r.status]}`,
     );
   }
   // The totalCap column excludes uncapped rows (they have no cap to sum),
@@ -108,10 +104,7 @@ const render = rows => {
       : `${capped.length} of ${rows.length} capped`;
   lines.push("");
   lines.push(
-    `${"TOTAL".padEnd(fileWidth)}   ` +
-      `${fmtBytes(totalMeasured).padStart(8)}  ` +
-      `${fmtBytes(totalCap).padStart(7)}  ` +
-      totalLabel,
+    `${"TOTAL".padEnd(fileWidth)}   ${fmtBytes(totalMeasured).padStart(8)}  ${fmtBytes(totalCap).padStart(7)}  ${totalLabel}`,
   );
   return lines.join("\n");
 };
@@ -142,29 +135,21 @@ const fuse = (args, root = ROOT) => {
 
   if (trips.length > 0) {
     console.error(
-      `\n${STATUS.over} ${trips.length} bundle(s) over fuse cap:` +
-        "\n" +
-        trips
-          .map(
-            r =>
-              `  ${r.file}: ${fmtBytes(r.measured)} / cap ${fmtBytes(r.cap)} (+${fmtBytes(r.measured - r.cap)})`,
-          )
-          .join("\n"),
+      `\n${STATUS.over} ${trips.length} bundle(s) over fuse cap:\n${trips
+        .map(
+          r =>
+            `  ${r.file}: ${fmtBytes(r.measured)} / cap ${fmtBytes(r.cap)} (+${fmtBytes(r.measured - r.cap)})`,
+        )
+        .join("\n")}`,
     );
     console.error(
-      `${WARN} the fuse is an absolute ceiling — raise the cap only after ` +
-        "reviewing whether the growth is deliberate.",
+      `${WARN} the fuse is an absolute ceiling — raise the cap only after reviewing whether the growth is deliberate.`,
     );
     return EXIT_FUSE;
   }
   if (unknowns.length > 0) {
     console.error(
-      `\n${STATUS.missing} ${unknowns.length} bundle(s) with no fuse cap:` +
-        "\n" +
-        unknowns.map(r => `  ${r.file}: ${fmtBytes(r.measured)}`).join("\n") +
-        "\n" +
-        `${WARN} add a cap in script/build/bundle-fuse.mjs after review, or rename ` +
-        "the bundle so it matches an existing cap.",
+      `\n${STATUS.missing} ${unknowns.length} bundle(s) with no fuse cap:\n${unknowns.map(r => `  ${r.file}: ${fmtBytes(r.measured)}`).join("\n")}\n${WARN} add a cap in script/build/bundle-fuse.mjs after review, or rename the bundle so it matches an existing cap.`,
     );
     return EXIT_UNKNOWN;
   }

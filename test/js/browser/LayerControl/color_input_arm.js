@@ -1,8 +1,8 @@
-// Arm the activation-key regression for a style panel's colour picker.
+// Arm the activation-key regression for a style panel's color picker.
 //
 // `layer` selects the owning row: "overlay" for the first overlay row (a data
-// layer's Fill Color row) or "color-map" for the solid-colour basemap row
-// (whose fill row is the colour swatch). Opens that row's style panel,
+// layer's Fill Color row) or "color-map" for the solid-color basemap row
+// (whose fill row is the color swatch). Opens that row's style panel,
 // focuses the real <input type=color> used by the Fill Color row, and records
 // the row's checkbox plus a capture-phase keydown log. Reading `prevented` in
 // the capture listener would only ever report false, so the read step
@@ -38,13 +38,13 @@ layer => {
           '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
         )
       : document.querySelector(".foliplus-layer-item[data-layer-type=overlay]");
-  if (!row) return { error: "row not found: " + layer };
+  if (!row) return { error: `row not found: ${layer}` };
   const layerId = row.getAttribute("data-layer-id");
   if (!layerId) return { error: "row has no data-layer-id" };
 
   ui.openStylePanel(layerId);
   const panel = document.querySelector(".foliplus-layer-style-panel");
-  if (!panel) return { error: "style panel did not open for " + layer };
+  if (!panel) return { error: `style panel did not open for ${layer}` };
   const input = panel.querySelector(".foliplus-style-fill-color-input");
   if (!input) return { error: "no Fill Color input in the style panel" };
   input.focus();

@@ -1,9 +1,9 @@
-// Unit tests for core/ramp — the shared value → colour ramp
-// (breaks + scheme colours + the value → class bisection).
+// Unit tests for core/ramp — the shared value → color ramp
+// (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { buildRamp, colorFor } from "#core/ramp.js";
+import { buildCategoryRamp, buildRamp, colorFor } from "#core/ramp.js";
 
 // `computeBreaks` is spied rather than called through so one test can feed
 // buildRamp the single-boundary answer the real classifier never gives: a
@@ -21,8 +21,8 @@ afterEach(() => {
 });
 
 /** Install a chroma stub that hands back at most the requested number of the
- *  fixed colour list — counting the request is what `buildRamp` must get
- *  right, so the stub honours it rather than ignoring it. Passing one colour
+ *  fixed color list — counting the request is what `buildRamp` must get
+ *  right, so the stub honours it rather than ignoring it. Passing one color
  *  for a multi-class ramp forces the out-of-bounds fallback. */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
@@ -41,14 +41,14 @@ const EQUAL: { method: typeof METHOD.EQUAL; classes: number; scheme: string } = 
 };
 
 describe("buildRamp", () => {
-  it("requests colours for the break span, not the raw class count", () => {
+  it("requests colors for the break span, not the raw class count", () => {
     const colorsSpy = vi.fn(() => ["#1", "#2", "#3"]);
     const scaleSpy = vi.fn(() => ({ mode: () => ({ colors: colorsSpy }) }));
     globalThis.chroma = { scale: scaleSpy } as never;
 
     const ramp = buildRamp([1, 5, 9], EQUAL);
 
-    // 3 classes is 4 breaks, so the scale is asked for 3 colours.
+    // 3 classes is 4 breaks, so the scale is asked for 3 colors.
     expect(ramp.colors).toEqual(["#1", "#2", "#3"]);
     expect(scaleSpy).toHaveBeenCalledWith("Reds");
     expect(colorsSpy).toHaveBeenCalledWith(3);
@@ -68,7 +68,7 @@ describe("buildRamp", () => {
     installChroma(["#1", "#2"]);
 
     // 9 requested classes over 2 values degrades to 2 classes: breaks is
-    // `classes + 1`, so 3 breaks and 2 colours. Only a single value would
+    // `classes + 1`, so 3 breaks and 2 colors. Only a single value would
     // collapse the ramp to one class.
     const ramp = buildRamp([1, 9], { ...EQUAL, classes: 9 });
 
@@ -81,7 +81,7 @@ describe("buildRamp", () => {
   it("classOf bisects: a value on a break takes the lower class", () => {
     // Bisection rather than a linear scan, so a value exactly on a break
     // lands in the class below it and one past the final break keeps the
-    // last class instead of running off the colour table.
+    // last class instead of running off the color table.
     installChroma(["#1", "#2"]);
     const ramp = buildRamp([0, 10], { ...EQUAL, classes: 2 });
     expect(ramp.breaks).toEqual([0, 5, 10]);
@@ -103,9 +103,9 @@ describe("buildRamp", () => {
   });
 
   it("does not ask the palette when there is nothing to classify", () => {
-    // Real chroma answers a zero-colour request with the scheme's two
+    // Real chroma answers a zero-color request with the scheme's two
     // endpoints, so an empty ramp must not pass through the palette at all —
-    // otherwise the caller would paint an endpoint colour instead of the
+    // otherwise the caller would paint an endpoint color instead of the
     // fallback grey, and the empty contract would be unobservable.
     const scaleSpy = vi.fn(() => ({
       mode: () => ({ colors: () => ["#1", "#9"] }),
@@ -164,7 +164,7 @@ describe("buildRamp", () => {
 });
 
 describe("colorFor", () => {
-  it("returns the colour for the value's class", () => {
+  it("returns the color for the value's class", () => {
     installChroma(["#1", "#2", "#3"]);
     const ramp = buildRamp([1, 5, 9], EQUAL);
 
@@ -173,9 +173,9 @@ describe("colorFor", () => {
     expect(colorFor(ramp, 9)).toBe("#3");
   });
 
-  it("falls back to the last available colour when chroma returns fewer", () => {
-    // One colour requested for three classes: classes 1 and 2 are
-    // out of bounds and take the last available colour.
+  it("falls back to the last available color when chroma returns fewer", () => {
+    // One color requested for three classes: classes 1 and 2 are
+    // out of bounds and take the last available color.
     installChroma(["#only"]);
     const ramp = buildRamp([1, 5, 9], EQUAL);
 
@@ -186,5 +186,57 @@ describe("colorFor", () => {
 
   it("falls back to the shared grey for an empty ramp", () => {
     expect(colorFor(buildRamp([], EQUAL), 1)).toBe(SCHEME_FALLBACK_COLOR);
+  });
+});
+
+describe("buildCategoryRamp", () => {
+  it("assigns one discrete color per category in first-seen order", () => {
+    installChroma(["#1", "#2", "#3"]);
+    globalThis.chroma = {
+      scale: () => ({
+        colors: (n: number) => ["#1", "#2", "#3"].slice(0, Math.max(0, n)),
+      }),
+    } as never;
+    const ramp = buildCategoryRamp(["forest", "lake", "urban"], "Set3");
+    expect(ramp.colors.size).toBe(3);
+    expect(ramp.colors.get("forest")).toBeTruthy();
+    expect(ramp.colors.get("lake")).toBeTruthy();
+    expect(ramp.colors.get("urban")).toBeTruthy();
+    expect(ramp.colors.get("forest")).not.toBe(ramp.colors.get("lake"));
+    expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
+  });
+  it("yields an empty map for empty input", () => {
+    const ramp = buildCategoryRamp([], "Set3");
+    expect(ramp.colors.size).toBe(0);
+    expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
+  });
+  it("paints the fallback grey when the palette is empty", () => {
+    // chroma returned no colors at all: every category must degrade to the
+    // shared fallback, not read palette[palette.length - 1] (undefined).
+    globalThis.chroma = { scale: () => ({ colors: () => [] }) } as never;
+    const ramp = buildCategoryRamp(["forest", "lake"], "Set3");
+    expect(ramp.colors.get("forest")).toBe(SCHEME_FALLBACK_COLOR);
+    expect(ramp.colors.get("lake")).toBe(SCHEME_FALLBACK_COLOR);
+    expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
+  });
+  it("falls back to grey for unknown or missing values", () => {
+    const ramp = buildCategoryRamp(["forest"], "Set3");
+    expect(ramp.colors.get("unknown")).toBeUndefined();
+    expect(ramp.other).toBe(SCHEME_FALLBACK_COLOR);
+  });
+  it("falls back to the last color when the palette is shorter than the categories", () => {
+    // Set2 has 8 discrete colors; with 10 categories the 9th and 10th take
+    // the last palette color (the same out-of-bounds fallback colorFor uses),
+    // not the first — a repeated first color would be a second rule.
+    const colors = ["#0", "#1", "#2", "#3", "#4", "#5", "#6", "#7"];
+    globalThis.chroma = {
+      scale: () => ({ colors: (n: number) => colors.slice(0, Math.max(0, n)) }),
+    } as never;
+    const values = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const ramp = buildCategoryRamp(values, "Set2");
+    expect(ramp.colors.size).toBe(10);
+    expect(ramp.colors.get("h")).toBe("#7");
+    expect(ramp.colors.get("i")).toBe("#7");
+    expect(ramp.colors.get("j")).toBe("#7");
   });
 });

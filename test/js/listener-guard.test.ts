@@ -109,10 +109,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "core/overlayRegistry.ts",
-    n: 2,
+    n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture/click-bubble press listener and one document keydown-capture Escape listener, installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
   },
   {
     f: "ExportControl/session.ts",
@@ -123,16 +123,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/attr.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
-    reason: "attribute panel event bindings — pending migration to `this.on`",
+    reason:
+      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
-    n: 5,
+    n: 3,
     pairedOff: 0,
     reason:
-      "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
+      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
     f: "LayerControl/ui/focus/focusMarquee.ts",
@@ -143,22 +144,24 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/lifecycle.ts",
-    n: 12,
+    n: 11,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
+      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/overlayPanel/menu.ts",
-    n: 1,
+    n: 2,
     pairedOff: 0,
-    reason: "more-menu outside-click — pending migration to `this.on`",
+    reason:
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/style/index.ts",
-    n: 4,
+    n: 3,
     pairedOff: 0,
-    reason: "style-panel input / dropdown bindings — pending migration to `this.on`",
+    reason:
+      "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/slider.ts",
@@ -186,14 +189,21 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 9,
     pairedOff: 0,
     reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), fullscreenchange (mount-scope), and a wheel stop-propagation on the portalled dropdown (a wheel over the open list must not bubble to the map container where Leaflet's scrollWheelZoom fires; the dropdown element is removed in closeDropdown, so the listener goes with it). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
   {
     f: "common/dropdown.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "shared select-replacement ADAPTER over common/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into common/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
+  },
+  {
+    f: "common/listbox.ts",
     n: 10,
     pairedOff: 0,
     reason:
-      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
+      "the ONE listbox engine (shared by common/dropdown now; common/schemePicker in S-B): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
   },
 ];
 
@@ -395,8 +405,7 @@ const checkListenerRegistrations = (
   for (const e of allow) {
     if (pinned.has(e.f)) {
       problems.push(
-        `${e.f}: duplicate allow-list entry — first pins n=${pinned.get(e.f)}, ` +
-          `this one says n=${e.n}`,
+        `${e.f}: duplicate allow-list entry — first pins n=${pinned.get(e.f)}, this one says n=${e.n}`,
       );
       continue;
     }
@@ -407,9 +416,7 @@ const checkListenerRegistrations = (
     // in the tree and a deliberate bump of this pin.
     if (e.pairedOff !== 0) {
       problems.push(
-        `${e.f}: allow-list pins pairedOff=${e.pairedOff} — today's schema ` +
-          `requires 0 (no paired-off removals exist in the tree). Bump the ` +
-          `tree-level L.DomEvent.off counter-proof at the same time.`,
+        `${e.f}: allow-list pins pairedOff=${e.pairedOff} — today's schema requires 0 (no paired-off removals exist in the tree). Bump the tree-level L.DomEvent.off counter-proof at the same time.`,
       );
     }
   }
@@ -423,13 +430,11 @@ const checkListenerRegistrations = (
     const expected = pinned.get(f);
     if (expected === undefined) {
       problems.push(
-        `${f}: ${n} ${call} call(s) — not on the allow-list; route it ` +
-          `through the tracked entry or add an entry with the reason`,
+        `${f}: ${n} ${call} call(s) — not on the allow-list; route it through the tracked entry or add an entry with the reason`,
       );
     } else if (n !== expected) {
       problems.push(
-        `${f}: ${n} ${call} call(s), allow-list pins ${expected} — a new one ` +
-          `crept in, or the file was already migrated (drop the entry)`,
+        `${f}: ${n} ${call} call(s), allow-list pins ${expected} — a new one crept in, or the file was already migrated (drop the entry)`,
       );
     }
   }
@@ -437,8 +442,7 @@ const checkListenerRegistrations = (
   for (const e of allow) {
     if (!seen.has(e.f)) {
       problems.push(
-        `${e.f}: allow-list entry (n=${e.n}) but the scan found no ${call} ` +
-          `call — the entry is stale, remove it`,
+        `${e.f}: allow-list entry (n=${e.n}) but the scan found no ${call} call — the entry is stale, remove it`,
       );
     }
   }
@@ -544,9 +548,7 @@ describe("pairedOff schema and tree", () => {
       [{ f: "Hypothetical.ts", n: 1, pairedOff: 1, reason: "test" }],
     );
     expect(problems).toEqual([
-      "Hypothetical.ts: allow-list pins pairedOff=1 — today's schema requires " +
-        "0 (no paired-off removals exist in the tree). Bump the tree-level " +
-        "L.DomEvent.off counter-proof at the same time.",
+      `Hypothetical.ts: allow-list pins pairedOff=1 — today's schema requires 0 (no paired-off removals exist in the tree). Bump the tree-level L.DomEvent.off counter-proof at the same time.`,
     ]);
   });
 });
@@ -564,8 +566,7 @@ describe("the listener allow-list guard still bites", () => {
       [],
     );
     expect(problems).toEqual([
-      "NewControl/ui.ts: 1 bare addEventListener call(s) — not on the " +
-        "allow-list; route it through the tracked entry or add an entry with the reason",
+      `NewControl/ui.ts: 1 bare addEventListener call(s) — not on the allow-list; route it through the tracked entry or add an entry with the reason`,
     ]);
   });
 
@@ -576,8 +577,7 @@ describe("the listener allow-list guard still bites", () => {
       [{ f: "BaseControl.ts", n: 1, pairedOff: 0, reason: "test" }],
     );
     expect(problems).toEqual([
-      "BaseControl.ts: 2 bare addEventListener call(s), allow-list pins 1 " +
-        "— a new one crept in, or the file was already migrated (drop the entry)",
+      `BaseControl.ts: 2 bare addEventListener call(s), allow-list pins 1 — a new one crept in, or the file was already migrated (drop the entry)`,
     ]);
   });
 
@@ -588,8 +588,7 @@ describe("the listener allow-list guard still bites", () => {
       [{ f: "GoneControl/ui.ts", n: 3, pairedOff: 0, reason: "test" }],
     );
     expect(problems).toEqual([
-      "GoneControl/ui.ts: allow-list entry (n=3) but the scan found no " +
-        "bare addEventListener call — the entry is stale, remove it",
+      `GoneControl/ui.ts: allow-list entry (n=3) but the scan found no bare addEventListener call — the entry is stale, remove it`,
     ]);
   });
 

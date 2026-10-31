@@ -1,6 +1,6 @@
-// Renames the solid-colour basemap row through its ⋮ menu and reports the
+// Renames the solid-color basemap row through its ⋮ menu and reports the
 // committed label text plus its resident title. Pair with a page where the
-// colour basemap row exists (it is always rendered by LayerControl).
+// color basemap row exists (it is always rendered by LayerControl).
 () => {
   const ID = "foliplus_color_map";
   const row = () =>
@@ -9,7 +9,7 @@
   if (!input()) {
     row()?.querySelector(".foliplus-layer-more-btn")?.click();
     const rename = document.querySelector(
-      '.foliplus-layer-more-menu.open li[data-action="rename-layer"]',
+      '.foliplus-layer-more-menu.open button[data-action="rename-layer"]',
     );
     if (!rename) return null;
     rename.dispatchEvent(new MouseEvent("click", { bubbles: true }));

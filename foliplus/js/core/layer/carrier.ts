@@ -125,8 +125,7 @@ const assertInsideOwnedPanes = (
   if (escaped.length) {
     throw new Error(
       log.msg(
-        `${escaped.map(el => el.tagName).join(", ")} paint outside the layer's ` +
-          `own panes — a pane write (opacity / z / focus) will not reach them`,
+        `${escaped.map(el => el.tagName).join(", ")} paint outside the layer's own panes — a pane write (opacity / z / focus) will not reach them`,
       ),
     );
   }

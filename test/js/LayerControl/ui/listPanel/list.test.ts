@@ -330,19 +330,23 @@ describe("ui/list row placement", () => {
     attrsPanel.className = CONST.CLASSES.ATTRS_PANEL;
     row.appendChild(attrsPanel);
     ui.overlayPanel.stylePanelLayerId = "A";
-    ui.overlayPanel.styleOutsideHandler = vi.fn();
+    const styleUnregister = vi.fn();
+    ui.overlayPanel.styleOverlayUnregister = styleUnregister;
     ui.overlayPanel.activeAttrsPanel = {
       item: row,
       panel: attrsPanel,
       layerId: "A",
     };
-    ui.overlayPanel.attrsOutsideHandler = vi.fn();
+    const attrsUnregister = vi.fn();
+    ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
 
     rebuildList(ui);
 
-    expect(ui.overlayPanel.styleOutsideHandler).toBeNull();
+    expect(styleUnregister).toHaveBeenCalled();
+    expect(ui.overlayPanel.styleOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
-    expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
+    expect(attrsUnregister).toHaveBeenCalled();
+    expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
     expect(stylePanel.isConnected).toBe(false);
     expect(attrsPanel.isConnected).toBe(false);
@@ -821,8 +825,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     );
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining(
-        "panel/registry drift — rows without entries [orphan], " +
-          "entries without rows [ghost]",
+        `panel/registry drift — rows without entries [orphan], entries without rows [ghost]`,
       ),
     );
 

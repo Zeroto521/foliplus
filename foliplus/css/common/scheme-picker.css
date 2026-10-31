@@ -1,5 +1,5 @@
 /* ── Shared scheme picker ──
-   Common dropdown / colour-bar styles.  Auto-merged into
+   Common dropdown / color-bar styles.  Auto-merged into
    foliplus-common.min.css.  Trigger-bar and panel-layout rules stay in
    the consumer CSS.  Class names use the neutral
    `foliplus-scheme-picker-` prefix so consumers can override with
@@ -30,7 +30,7 @@
 /* ── Trigger ──
    The form-select-shaped combobox that opens the picker. One recipe for the
    heatmap panel and the layer style drawer: a div[role=combobox] because a
-   native select would paint its own chrome and hide the colour strip. Both
+   native select would paint its own chrome and hide the color strip. Both
    consumers keep their own class as a hook (behaviour, tests) and add nothing
    geometric. Width is not stated — the trigger fills the form control cell,
    which is the shared control-column width, so it lands on the same right edge
@@ -77,10 +77,11 @@
   top: 100%;
   left: 0;
   width: 100%;
+  max-width: var(--foliplus-menu-max-width);
   max-height: 200px;
   padding: var(--foliplus-space-sm) 0;
   box-sizing: border-box;
-  margin-top: var(--foliplus-space-xs);
+  margin-top: var(--foliplus-menu-gap);
   background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);
@@ -138,13 +139,9 @@
           var(--foliplus-scheme-picker-scrollbar-width)
       )
     )
-    0 calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
-  height: var(--foliplus-ctrl-size);
+    0 var(--foliplus-scheme-picker-bar-inset-x);
+  height: var(--foliplus-menu-row-h);
   box-sizing: border-box;
-  /* Reserved border: same "selected" language as layer items — a permanent
-     transparent left border, .foliplus-is-active only recolors it.  No
-     layout shift and the border-color can transition. */
-  border-left: var(--foliplus-border-thick) solid transparent;
   cursor: pointer;
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
@@ -153,26 +150,37 @@
     border-color var(--foliplus-transition-fast);
 }
 
-.foliplus-scheme-picker-item:hover {
-  background: var(--foliplus-accent-light);
-  color: var(--foliplus-accent-primary);
+.foliplus-scheme-picker-item[aria-disabled="true"] {
+  color: var(--foliplus-text-muted);
+  /* A disabled entry is not a hover target: the not-allowed cursor says the
+     row exists but cannot be picked, and the accent hover would suggest it can. */
+  cursor: not-allowed;
 }
 
-.foliplus-scheme-picker-item:not([disabled]):active {
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):hover {
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
+}
+
+.foliplus-scheme-picker-item:not([aria-disabled="true"]):active {
   background: var(--foliplus-accent-soft-bg);
 }
 
 .foliplus-scheme-picker-item.foliplus-is-active {
-  border-left-color: var(--foliplus-accent-primary);
-  /* Persistent "selected scheme" state: soft 5% wash, same language as
-     the keyboard cursor. --foliplus-accent-light was too saturated. */
-  background: var(--foliplus-accent-soft-bg);
+  /* Persistent "selected scheme" state: the same soft wash + 3px inset bar
+     as the shared dropdown row, so a selected item reads the same on every
+     surface. box-shadow keeps the bar inside the row (no layout shift). */
+  background: var(--foliplus-menu-row-selected-bg);
+  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
+    var(--foliplus-menu-row-selected-bar);
 }
 
 .foliplus-scheme-picker-item:focus-visible {
   outline: none;
   border-color: var(--foliplus-accent-primary);
-  box-shadow: var(--foliplus-focus-ring);
+  box-shadow:
+    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
+    var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
   transition: box-shadow var(--foliplus-transition-fast);
 }
@@ -187,7 +195,7 @@
   box-shadow: var(--foliplus-focus-ring);
 }
 
-/* ── Colour bar inside a dropdown item ──
+/* ── color bar inside a dropdown item ──
    One height for the trigger's inner bar and these: the row keeps
    --foliplus-ctrl-size and centres an 18px swatch. Height is fixed (not
    stretched to the row) so selecting a scheme cannot change the swatch
@@ -205,7 +213,7 @@
   overflow: hidden;
 }
 
-/* ── Colour block (shared by the trigger bar and the dropdown bar) ── */
+/* ── color block (shared by the trigger bar and the dropdown bar) ── */
 .foliplus-scheme-picker-block {
   flex: 1;
   height: 100%;

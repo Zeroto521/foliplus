@@ -196,6 +196,10 @@ class LayerInfoRegistry {
       meta: opts.meta ?? existingLi?.meta ?? null,
       metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
       fillAuthor: opts.fillAuthor ?? existingLi?.fillAuthor ?? null,
+      // Carried the same way `fillAuthor` is: CONF `data[].zoom` reaches this
+      // entry through the bulk build's `opts`, and a re-registration that does
+      // not resend it keeps the declared range (`existingLi.zoom`).
+      zoom: opts.zoom ?? existingLi?.zoom ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
@@ -311,8 +315,7 @@ class LayerInfoRegistry {
     if (!valid) {
       throw new Error(
         log.msg(
-          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ` +
-            `${idx} — the base block starts at ${firstBase}`,
+          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ${idx} — the base block starts at ${firstBase}`,
         ),
       );
     }
@@ -346,8 +349,7 @@ class LayerInfoRegistry {
     if (existing.role !== layerInfo.role) {
       throw new Error(
         log.msg(
-          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ` +
-            `${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
+          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
         ),
       );
     }
@@ -447,8 +449,7 @@ class LayerInfoRegistry {
     if (side(fromIdx) !== side(toIdx)) {
       throw new Error(
         log.msg(
-          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary ` +
-            `(firstBaseIdx=${firstBase})`,
+          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary (firstBaseIdx=${firstBase})`,
         ),
       );
     }

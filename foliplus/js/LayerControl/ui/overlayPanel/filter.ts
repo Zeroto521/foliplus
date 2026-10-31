@@ -21,11 +21,12 @@
 // (and both functions), so the panel re-resolves by id on every read/write
 // and closes itself when the entry it shows is no longer current.
 //
-// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface,
-// capture-phase document mousedown for dismiss (the control disables click
-// propagation, so bubble-phase never reaches `document`), and a per-panel
-// outside-handler field on `OverlayPanel` so a peer panel can tell the two
-// apart.
+// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface and
+// a per-map overlay-registry entry for dismiss. The registry owns the single
+// document capture-phase mousedown and Escape dispatchers (the control disables
+// click propagation, so bubble-phase never reaches `document`), and the entry's
+// live panels answer "is this press mine" — no per-panel outside handler and no
+// panel-level keydown live here.
 import { EVENTS } from "#core/event/index.js";
 import { dropdownSurface } from "#core/fullscreen.js";
 import type {
@@ -35,7 +36,7 @@ import type {
   LayerInfo,
 } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
-import { isInsideOverlay } from "#core/overlay.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -419,26 +420,22 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   if (cap) reconcile(ui, state, hooks, cap);
 
   // Header click dismisses, matching `attr.ts` — the × sits inside the
-  // header, so one listener covers both.
-  header.addEventListener("click", () => closeFilterPanel(ui, true));
+  // header, so one listener covers both. The press is stopped here (the same
+  // guarantee as the ⋮ menu): closing the panel removes it mid-dispatch, so
+  // the click would otherwise keep walking its original path with no live
+  // control ancestor and land on the map.
+  header.addEventListener("click", e => {
+    e.stopPropagation();
+    closeFilterPanel(ui, true);
+  });
 
   // The panel sits inside a draggable layer row: a press on the panel
   // must neither start a row drag nor inherit `user-select: none`. The
   // mousedown is stopped here (the row's own handlers live on the
-  // container), and which side of the panel the press landed on is
-  // recorded by the outside handler below — `dragstart` is dispatched on the
-  // draggable row, so it cannot answer that.
+  // container); the registry entry below classifies the press as inside or
+  // outside this surface — `dragstart` is dispatched on the draggable row, so
+  // it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
-
-  // Escape closes the panel from wherever focus sits inside it (the listbox,
-  // the footer button): the surface is one layer, so the panel is the target.
-  panel.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    if (ui.overlayPanel.activeFilterPanel?.view.kind !== "rows") return;
-    closeFilterPanel(ui, true);
-    event.preventDefault();
-    event.stopPropagation();
-  });
 
   item.style.position = "relative";
   item.appendChild(panel);
@@ -449,41 +446,38 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // clip boxes.
   pinRowPanel(panel, item);
 
-  // Document capture dismiss (attrs recipe). The control disables click
-  // propagation, so bubble-phase mousedown never reaches document — a
-  // press on the map or another foliplus control would not close the
-  // panel without capture.
-  ui.overlayPanel.filterOutsideHandler = (event: MouseEvent) => {
-    const target = event.target;
-    const inside = isInsideOverlay(target, panel);
-    if (inside) {
-      ui.listPanel.pressInPanel = true;
-      return;
-    }
-    ui.listPanel.pressInPanel = false;
-    closeFilterPanel(ui, false);
-  };
-  document.addEventListener("mousedown", ui.overlayPanel.filterOutsideHandler, true);
-
+  // Register the open surface with the per-map overlay registry: it owns the
+  // one document capture-phase mousedown dispatcher and the one Escape
+  // dispatcher, so this panel adds neither. A press outside the entry's live
+  // panels dismisses it; Escape closes it by ESC_PRIORITY rank. There is
+  // deliberately no panel-level keydown — an open enum popup is the shared
+  // dropdown's own window-capture claim, which runs before the registry and
+  // stops the event, so one Escape closes the popup and the next one reaches
+  // this layer.
   ui.overlayPanel.activeFilterPanel = state;
+  ui.overlayPanel.filterOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_FILTER,
+    isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
+    panels: () => {
+      const active = ui.overlayPanel.activeFilterPanel;
+      return active ? [active.panel] : [];
+    },
+    close: ({ restoreFocus }) => closeFilterPanel(ui, restoreFocus),
+    dismissOn: "mousedown",
+    pressPriority: 700,
+    clearsCursorOnClose: true,
+  });
   ui.overlayPanel.filterUnsubscribe = subscribeFilterSignals(ui, state, hooks);
 };
 
 /** Close the filter panel. `setFocus = true` returns focus to the row. */
 const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
-  if (ui.overlayPanel.filterOutsideHandler) {
-    document.removeEventListener(
-      "mousedown",
-      ui.overlayPanel.filterOutsideHandler,
-      true,
-    );
-    ui.overlayPanel.filterOutsideHandler = null;
-  }
+  ui.overlayPanel.filterOverlayUnregister?.();
+  ui.overlayPanel.filterOverlayUnregister = null;
   if (ui.overlayPanel.filterUnsubscribe) {
     ui.overlayPanel.filterUnsubscribe();
     ui.overlayPanel.filterUnsubscribe = null;
   }
-  ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeFilterPanel) return;
   const state = ui.overlayPanel.activeFilterPanel;
   const { item, panel } = state;

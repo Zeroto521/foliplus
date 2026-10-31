@@ -20,6 +20,7 @@ from conftest import (
     read_css_dir,
     render,
     render_control,
+    snippet,
     use_page,
     use_raw_page,
 )
@@ -434,7 +435,7 @@ class TestLayerControlBrowser:
     def test_annotation_declared_color_and_size_reach_the_canvas(
         self, browser, tmp_path
     ):
-        """A declared colour/size paints the real canvas, and Reset restores it.
+        """A declared color/size paints the real canvas, and Reset restores it.
 
         Reads the annotation canvas pixels: the declared #00ff00 and size 24
         must be what is actually drawn (not merely what CONF/DOM says), a
@@ -1164,8 +1165,8 @@ class TestLayerControlBrowser:
         Style, Attributes and Filter to focus-layer, so those entries showed the
         "layer has no geographic extent" hint instead of opening the panel,
         while a click on the same entry worked. The entry is an
-        <li tabindex=0>, so Chromium performs no native activation for it and
-        the keydown path is the only thing that can dispatch the action — one
+        <button role=menuitem>, so Chromium fires a native click for Enter/Space and
+        the interaction manager stands aside for the button — one
         real key press proves the whole chain. Mouse and keyboard are compared on
         the same entries, then each surface is reached through both activation
         keys, and the two-step delete is exercised from both inputs.
@@ -1197,9 +1198,13 @@ class TestLayerControlBrowser:
             def read() -> dict:
                 return page.evaluate(_js("LayerControl/menu_keyboard_read"))
 
-            style_entry = '.foliplus-layer-more-menu li[data-action="style-layer"]'
-            attrs_entry = '.foliplus-layer-more-menu li[data-action="layer-attributes"]'
-            delete_entry = '.foliplus-layer-more-menu li[data-action="delete-layer"]'
+            style_entry = '.foliplus-layer-more-menu button[data-action="style-layer"]'
+            attrs_entry = (
+                '.foliplus-layer-more-menu button[data-action="layer-attributes"]'
+            )
+            delete_entry = (
+                '.foliplus-layer-more-menu button[data-action="delete-layer"]'
+            )
 
             # Mouse baseline: each entry opens its own panel from a click, so
             # the keyboard cases below can assert identical outcomes.
@@ -1276,8 +1281,8 @@ class TestLayerControlBrowser:
         the row shortcut cancelled the key and toggled the layer checkbox
         behind the form instead of opening the picker. The native picker's
         visibility is unreliable headless — defaultPrevented plus the
-        untouched checkbox is the evidence. Both colour inputs are covered: a
-        data layer's Fill Color row and the solid-colour basemap's fill row.
+        untouched checkbox is the evidence. Both color inputs are covered: a
+        data layer's Fill Color row and the solid-color basemap's fill row.
         """
         geo = folium.GeoJson(_geo_mixed, name="Point layer")
         with use_page(
@@ -1304,10 +1309,10 @@ class TestLayerControlBrowser:
                         f"{layer}/{key}: the Fill Color input did not take focus: {arm}"
                     )
                     assert arm["focusedType"] == "color", (
-                        f"{layer}/{key}: focus is not a colour picker: {arm}"
+                        f"{layer}/{key}: focus is not a color picker: {arm}"
                     )
                     assert arm["colorInputs"] >= 1, (
-                        f"{layer}/{key}: the style panel has no colour input: {arm}"
+                        f"{layer}/{key}: the style panel has no color input: {arm}"
                     )
 
                     page.keyboard.press(key)
@@ -1321,7 +1326,7 @@ class TestLayerControlBrowser:
                         f"got {read['records']}"
                     )
                     assert presses[0]["prevented"] is False, (
-                        f"{layer}/{key}: foliplus cancelled the colour picker's "
+                        f"{layer}/{key}: foliplus cancelled the color picker's "
                         f"native activation key: {read['records']}"
                     )
                     assert read["styleOpen"] is True, (
@@ -1488,7 +1493,7 @@ class TestLayerControlBrowser:
             )
 
     def test_color_basemap_rename_updates_label_title(self, browser, tmp_path):
-        """A colour-basemap rename repaints text and label title together.
+        """A color-basemap rename repaints text and label title together.
 
         The basemap row has no registry entry — its rename goes through the
         intent store and updateItemLabel — so the resident full-name tooltip
@@ -1514,7 +1519,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(300)
             res = page.evaluate(_js("LayerControl/rename_color_basemap_and_read_label"))
-            assert res is not None, "colour basemap rename did not commit"
+            assert res is not None, "color basemap rename did not commit"
             assert res["label"] == "My Color", res
             assert res["labelTitle"] == "My Color", f"label title={res['labelTitle']!r}"
             assert not errors, f"JS errors: {errors}"
@@ -3051,7 +3056,7 @@ class TestLayerControlBrowser:
             assert result is not None
             # The retired tile-hidden contract must not be applied.
             assert result["tileHidden"] is False, (
-                "colour layer must not stamp foliplus-layer-tile-hidden"
+                "color layer must not stamp foliplus-layer-tile-hidden"
             )
             assert result["colorBg"] is True, "color item should have active class"
 
@@ -3086,9 +3091,9 @@ class TestLayerControlBrowser:
             state = page.evaluate(_js("LayerControl/read_color_checkbox_state"))
             assert state is not None
             assert state["hasCheckbox"] is True, (
-                "colour basemap row must have a real checkbox"
+                "color basemap row must have a real checkbox"
             )
-            assert state["checked"] is False, "colour basemap starts unchecked"
+            assert state["checked"] is False, "color basemap starts unchecked"
             assert state["active"] is False, "container starts without .foliplus-active"
 
             # Check the checkbox → container background takes effect.
@@ -5580,7 +5585,7 @@ class TestLayerControlBrowser:
 
             # The owner anchor: the menu is the row's descendant, so the row
             # that owns it stays lit while the pointer is on the menu.
-            page.hover(".foliplus-layer-more-menu.open li")
+            page.hover(".foliplus-layer-more-menu.open button")
             page.wait_for_timeout(250)
             assert page.evaluate(_js("LayerControl/read_owner_row_lit")), (
                 "the row owning the open menu must stay lit while hovering it"
@@ -5692,21 +5697,21 @@ class TestLayerControlBrowser:
 
     # ── scheme picker portal: the list is part of the drawer ────────────
     #
-    # The picker portals its colour list to <body> (or the fullscreen element)
+    # The picker portals its color list to <body> (or the fullscreen element)
     # so it can paint above the drawer that owns the trigger. A press on that
     # list therefore reaches the document-level dismiss listeners with a target
     # outside every panel class, while still being part of the drawer's
     # interaction: the drawer used to close at mousedown, before the click could
-    # select a colour. element.click() dispatches no mousedown, so these
+    # select a color. element.click() dispatches no mousedown, so these
     # regressions need Playwright's real mouse press.
 
     def test_style_scheme_portal_pick_keeps_the_drawer(self, browser, tmp_path):
-        """A real press on the portalled colour list keeps the drawer open.
+        """A real press on the portalled color list keeps the drawer open.
 
         The list lives on <body>, so the press has to be classified as part of
         the drawer's overlay rather than by the drawer's own subtree. The press
-        is what commits the colour: the drawer must survive it, the picker must
-        close behind it, and the hidden select, the trigger title and the colour
+        is what commits the color: the drawer must survive it, the picker must
+        close behind it, and the hidden select, the trigger title and the color
         bar must all show the chosen scheme — then the value has to survive a
         close and reopen, which rebuilds the drawer from the layer's own ramp
         state. A pick that tears the drawer down would drop the click entirely
@@ -5745,7 +5750,7 @@ class TestLayerControlBrowser:
             page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
-                f"the colour press dismissed the drawer: {state}"
+                f"the color press dismissed the drawer: {state}"
             )
             assert state["hiddenValue"] == target, (
                 f"the pick did not commit {target}: {state}"
@@ -5754,7 +5759,7 @@ class TestLayerControlBrowser:
                 f"the trigger still shows {state['triggerTitle']}, expected {target}"
             )
             assert state["barBlockColor"] != before["barBlockColor"], (
-                "the colour bar was not repainted for the new scheme: "
+                "the color bar was not repainted for the new scheme: "
                 f"{before['barBlockColor']} -> {state['barBlockColor']}"
             )
             assert not state["dropdownPresent"], (
@@ -5939,7 +5944,7 @@ class TestLayerControlBrowser:
             page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
-                f"a colour press under fullscreen dismissed the drawer: {state}"
+                f"a color press under fullscreen dismissed the drawer: {state}"
             )
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
@@ -6643,7 +6648,7 @@ class TestLayerControlBrowser:
             # A mirrored page keeps the same invariant: the logical anchors
             # swap sides, the physical shift flips with them, so every number
             # still centres on the edge (and therefore the thumb) it names.
-            page.evaluate("() => { document.documentElement.dir = 'rtl'; }")
+            page.evaluate(_js("LayerControl/set_document_dir_rtl"))
             mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
             check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)
@@ -7465,37 +7470,7 @@ class TestLayerControlBrowser:
 
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            chrome = page.evaluate(
-                """() => {
-                  const panel = document.querySelector(".foliplus-layer-filter-panel");
-                  const trigger =
-                    panel &&
-                    panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
-                  trigger && trigger.click();
-                  const list = document.querySelector(".foliplus-dropdown-list");
-                  const options = Array.from(
-                    document.querySelectorAll(".foliplus-dropdown-option"),
-                  );
-                  return {
-                    panelSelects: panel ? panel.querySelectorAll("select").length : null,
-                    pageNativeMultiple: document.querySelectorAll("select[multiple]").length,
-                    triggerClasses: trigger ? trigger.className : null,
-                    haspopup: trigger ? trigger.getAttribute("aria-haspopup") : null,
-                    formSelectChrome: Boolean(
-                      trigger && trigger.classList.contains("foliplus-form-select"),
-                    ),
-                    listRole: list ? list.getAttribute("role") : null,
-                    listMultiselectable: list
-                      ? list.getAttribute("aria-multiselectable")
-                      : null,
-                    listInsidePanel: Boolean(list && panel && panel.contains(list)),
-                    optionRoles: options.map(el => el.getAttribute("role")),
-                    optionSelected: options.map(el =>
-                      el.getAttribute("aria-selected"),
-                    ),
-                  };
-                }"""
-            )
+            chrome = page.evaluate(snippet("layer/filter_enum_chrome"))
             assert chrome["panelSelects"] == 0, chrome
             assert chrome["pageNativeMultiple"] == 0, chrome
             assert chrome["formSelectChrome"] is True, chrome
@@ -7514,4 +7489,46 @@ class TestLayerControlBrowser:
             assert scroll["popupInsidePanel"] is False, scroll
             assert scroll["maxHeight"] != "none", scroll
             assert scroll["scroll"]["scroll"] > scroll["scroll"]["client"], scroll
+            assert not errors, f"JS errors: {errors}"
+
+    def test_dropdown_wheel_does_not_zoom_map(self, browser, tmp_path):
+        """A wheel over the open dropdown popup must not zoom the map.
+
+        The popup is portalled out of the control container, so the container's
+        disableScrollPropagation does not cover it — without the wheel
+        stop-propagation the event bubbles to the map container and Leaflet's
+        scrollWheelZoom fires. The list keeps its own overflow-y scroll because
+        only propagation is stopped, not the default.
+        """
+        layer = folium.FeatureGroup(name="Wheel zoom")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+
+            probe = page.evaluate(_js("LayerControl/dropdown_wheel_zoom_probe"))
+            assert probe and probe.get("ok"), probe
+            assert probe["optionCount"] >= 12, probe
+            assert probe["listOpen"] is True, probe
+            assert probe["listScrollable"] is True, probe
+            # The popup is portalled onto the map container in pseudo mode, so a
+            # wheel over it would bubble to Leaflet's scrollWheelZoom without the
+            # stop-propagation — this is the exact case the fix targets.
+            assert probe["popupInsideContainer"] is True, probe
+
+            before_zoom = probe["zoomBefore"]
+            page.mouse.move(probe["wheelX"], probe["wheelY"])
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(350)
+
+            after = page.evaluate(_js("LayerControl/dropdown_wheel_zoom_probe"))
+            assert after and after.get("ok"), after
+            # The map did not zoom.
+            assert after["zoomBefore"] == before_zoom, (before_zoom, after)
+            # The popup is still open and still usable.
+            assert after["listOpen"] is True, after
             assert not errors, f"JS errors: {errors}"

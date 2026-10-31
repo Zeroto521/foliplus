@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
+import * as CANVAS from "#foliplus/ExportControl/renderer/canvas.js";
 import {
   ExportRenderer,
   isCorsBlocked,
@@ -95,9 +96,11 @@ function makeMockCtx() {
   return {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
+    fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
     fillStyle: "",
+    globalAlpha: 1,
     clearRect: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
 }
@@ -957,24 +960,177 @@ describe("ExportRenderer.render — layer pass routing", () => {
     annCanvas.className = "foliplus-label-canvas";
     labelPane.appendChild(annCanvas);
     map.getPane = (name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
     map.foliplus = {
       LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
 
-    const proto = ExportRenderer.prototype as any;
-    const paneCanvas = vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
+    // The label pass no longer reads the live canvas at pass time: render()
+    // snapshots the pane's canvases at export start and draws the frozen pixels
+    // after the layer's content. Spy on the canvas module to assert both halves.
+    // The pane holds one canvas, so the snapshot returns one entry.
+    const snap = vi.spyOn(CANVAS, "snapshotPaneCanvases").mockReturnValue({
+      snaps: [
+        {
+          dataUrl: "data:image/png;base64,PAINTED",
+          dx: 0,
+          dy: 0,
+          dw: 80,
+          dh: 40,
+          opacity: 1,
+        },
+      ],
+      held: 1,
+    });
+    const draw = vi.spyOn(CANVAS, "renderCanvasSnapshot").mockResolvedValue(undefined);
 
     await runRender(vi.fn());
 
-    // The label pane is swept once, with the annotation selector, right after
-    // the layer's content walk (which passed no panes of its own).
-    expect(paneCanvas).toHaveBeenCalledTimes(1);
-    expect(paneCanvas).toHaveBeenCalledWith(
+    // The pane is snapshotted once, with the annotation selector, at export
+    // start (before the first await), right after the layer's content walk.
+    expect(snap).toHaveBeenCalledWith(
+      expect.anything(),
       expect.anything(),
       labelPane,
       CONST.SEL.LABEL_CANVAS,
     );
+    // And the frozen pixels are drawn in the label pass.
+    expect(draw).toHaveBeenCalled();
+  });
+
+  it("draws a layer's annotation labels from a snapshot taken at export start, not the live canvas", async () => {
+    // Negative control for the silent-loss race: between render()'s synchronous
+    // snapshot (before the first await) and the label pass there is an async
+    // window (the tile wait and the nextFrame). If an annotation refresh
+    // clears the label canvas in that window, the export must still draw the
+    // pixels the user saw when they pressed Export — the snapshot — and not
+    // the cleared canvas. Before the fix the label pass re-reads the live
+    // canvas via toDataURL at pass time, so it draws the cleared pixels.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    // The SEL.LABEL_CANVAS selector is ".leaflet-map-pane canvas.foliplus-label-canvas",
+    // so the label pane must sit inside a .leaflet-map-pane ancestor to match.
+    const mapPane = document.createElement("div");
+    mapPane.className = "leaflet-map-pane";
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-label-pane";
+    mapPane.appendChild(labelPane);
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-label-canvas";
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
+    };
+
+    // The label canvas reports PAINTED pixels at export start.
+    const PAINTED = "data:image/png;base64,PAINTED";
+    const CLEARED = "data:image/png;base64,CLEARED";
+    let current = PAINTED;
+    annCanvas.toDataURL = () => current;
+    // Label geometry inside the crop.
+    annCanvas.getBoundingClientRect = () =>
+      ({
+        left: 100,
+        top: 100,
+        width: 80,
+        height: 40,
+        right: 180,
+        bottom: 140,
+      }) as DOMRect;
+
+    // Capture what the label pass asked the image loader for.
+    const loaded: string[] = [];
+    vi.spyOn(UTIL, "loadImage").mockImplementation((src: string) => {
+      loaded.push(src);
+      return Promise.resolve({ src } as any);
+    });
+
+    // Inject an annotation refresh at the nextFrame point — after the snapshot,
+    // before the label pass: the canvas is cleared in exactly the async window
+    // that used to lose the labels silently.
+    vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(cb => {
+      // Clear the label canvas (simulate refresh) before the frame resolves.
+      current = CLEARED;
+      cb(0);
+      return 0;
+    });
+
+    await runRender(vi.fn());
+
+    // The export must have drawn the PAINTED snapshot, not the CLEARED live
+    // canvas. On the old (gamma-only) code this reads the live canvas at pass
+    // time and draws CLEARED — the assertion fails (red), proving the race.
+    expect(loaded).toContain(PAINTED);
+    expect(loaded).not.toContain(CLEARED);
+  });
+
+  it("snapshots the label pane at the enlarged geometry when the map was grown before the export", async () => {
+    // Design test-plan item 4 (enlarged path): the map container is grown and
+    // setView happens before the export, so the crop is larger than the
+    // default 1000x1000. The snapshot must be taken with the CURRENT (enlarged)
+    // geometry, not a stale one captured earlier — otherwise labels in the
+    // grown band would fall outside the crop and be dropped.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-label-pane";
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-label-canvas";
+    // The label sits in the grown band: beyond the old 1000x1000 crop.
+    pinBox(annCanvas, 1200, 1200, 80, 40);
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
+    };
+    // Grow the container before the export (the enlarge+setView path).
+    const container = map.getContainer();
+    container.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 2000,
+        height: 2000,
+        right: 2000,
+        bottom: 2000,
+      }) as DOMRect;
+    const renderer = new ExportRenderer(map);
+
+    const snap = vi.spyOn(CANVAS, "snapshotPaneCanvases").mockReturnValue({
+      snaps: [
+        {
+          dataUrl: "data:image/png;base64,PAINTED",
+          dx: 1200,
+          dy: 1200,
+          dw: 80,
+          dh: 40,
+          opacity: 1,
+        },
+      ],
+      held: 1,
+    });
+    const draw = vi.spyOn(CANVAS, "renderCanvasSnapshot").mockResolvedValue(undefined);
+
+    await renderer.render(
+      { left: 0, top: 0, width: 2000, height: 2000 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      vi.fn(),
+    );
+
+    // The snapshot was taken at the enlarged crop and its geometry is what the
+    // label pass draws (the frozen dx/dy from the enlarged rect).
+    expect(snap).toHaveBeenCalled();
+    expect(draw).toHaveBeenCalled();
+    expect(draw.mock.calls[0][1]).toMatchObject({ dx: 1200, dy: 1200 });
   });
 
   it("runs the four marker passes when the layer's panes hold markers", async () => {
@@ -1011,7 +1167,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
         "vector-pane",
       ]),
     };
-    map.getPane = () => roots;
+    // Only the layer's content pane is `roots`; label panes and everything
+    // else are absent, so the label snapshot sees no pane and reports nothing.
+    map.getPane = (name: string) => (name === "vector-pane" ? roots : null);
 
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,
@@ -1088,12 +1246,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
 
-  it("keeps a layer entry that resolves only in the filter out of the render", async () => {
-    // The tile phase, the passable filter, and the render loop each call
-    // resolveLayer. If the layer is present for the filter (entry survives)
-    // but gone by the loop (the `else if (layer)` fallthrough), the entry
-    // still consumes its unit of the layer range — the bar cannot stall
-    // below the top.
+  it("resolves each entry once and draws the carrier it snapshotted", async () => {
+    // The export resolves its layer list once, when it starts, and every pass
+    // reads that record. This entry tears itself down as soon as it is read:
+    // re-resolving later (the old tile/filter/loop reads) dropped it from the
+    // image without a word. The snapshot's carrier is what gets drawn.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,
     );
@@ -1101,42 +1258,135 @@ describe("ExportRenderer.render — layer pass routing", () => {
     let reads = 0;
     const map = (globalThis as any).map;
     const previous = map.foliplus;
+    const previousGetPane = map.getPane;
     try {
+      map.getPane = () => null;
       map.foliplus = {
-        LayerAPI: withApi(
-          [
-            {
-              id: "torn",
-              visible: true,
-              // Present for the tile/filter phases, gone by the render loop —
-              // as a torn-down map would appear between the two resolveLayer
-              // calls.
-              get layer() {
-                reads++;
-                return reads <= 2 ? fakeLayer : null;
-              },
+        LayerAPI: withApi([
+          {
+            id: "torn",
+            visible: true,
+            get layer() {
+              reads++;
+              return reads === 1 ? fakeLayer : null;
             },
-          ],
-          () => [],
-        ),
+          },
+        ]),
       };
 
       const proto = ExportRenderer.prototype as any;
-      const paneSVG = vi.spyOn(proto, "renderPaneSVG");
-      const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+      const panes = vi.spyOn(proto, "resolveExportPanes").mockReturnValue([]);
       vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
 
       const onProgress = vi.fn();
       await runRender(onProgress);
 
-      // The entry passed the filter but had no layer by the render loop, so
-      // no pane passes ran for it — and the single unit still closes the
-      // range.
-      expect(paneSVG).not.toHaveBeenCalled();
-      expect(paneCanvas).not.toHaveBeenCalled();
+      // One resolution, at the snapshot; nothing re-reads the live entry.
+      expect(reads).toBe(1);
+      // The snapshotted carrier is the one the layer pass walks, and the single
+      // unit still closes the range.
+      expect(panes).toHaveBeenCalledWith(fakeLayer, expect.anything());
       expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
     } finally {
       map.foliplus = previous;
+      map.getPane = previousGetPane;
+    }
+  });
+
+  it("reports label canvases it saw but could not serialize, once, by id", async () => {
+    // A label pane that holds a canvas the snapshot could not serialize (here
+    // toDataURL throws) is a real loss: the user saw labels that the export
+    // will not carry. The export used to omit them silently; one aggregated
+    // line names them all. A pane that declares labels but never had a canvas
+    // (labels off) is NOT a loss — see the next test.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
+    const previousGetPane = map.getPane;
+    try {
+      const mapPane = document.createElement("div");
+      mapPane.className = "leaflet-map-pane";
+      const labelPane = document.createElement("div");
+      labelPane.className = "foliplus-label-pane";
+      mapPane.appendChild(labelPane);
+      // One canvas that the snapshot walks but whose serialization fails.
+      const annCanvas = document.createElement("canvas");
+      annCanvas.className = "foliplus-label-canvas";
+      annCanvas.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 80,
+          height: 40,
+          right: 80,
+          bottom: 40,
+        }) as DOMRect;
+      annCanvas.toDataURL = () => {
+        throw new Error("boom");
+      };
+      labelPane.appendChild(annCanvas);
+      map.getPane = (name: string) =>
+        name.startsWith(CONST.LABEL_PANE_PREFIX) ? labelPane : null;
+      map.foliplus = {
+        LayerAPI: withApi([
+          { id: "first", visible: true, layer: { options: {} } },
+          { id: "second", visible: true, layer: { options: {} } },
+        ]),
+      };
+
+      const proto = ExportRenderer.prototype as any;
+      vi.spyOn(proto, "resolveExportPanes").mockReturnValue([]);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      await runRender(vi.fn());
+
+      const lines = warn.mock.calls
+        .map(call => String(call[0]))
+        .filter(line => line.includes("label canvas missing"));
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain("first");
+      expect(lines[0]).toContain("second");
+    } finally {
+      map.foliplus = previous;
+      map.getPane = previousGetPane;
+    }
+  });
+
+  it("does not report a label pane that declares labels but holds no canvas", async () => {
+    // A layer with the label capability but labels off (show=false) has a pane
+    // but no canvas. That is "no labels in this export", not a loss: reporting
+    // it would warn on every such export. The loss criterion is held >
+    // snaps.length, and an empty pane holds 0 canvases.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
+    const previousGetPane = map.getPane;
+    try {
+      const labelPane = document.createElement("div");
+      labelPane.className = "foliplus-label-pane";
+      map.getPane = (name: string) =>
+        name.startsWith(CONST.LABEL_PANE_PREFIX) ? labelPane : null;
+      map.foliplus = {
+        LayerAPI: withApi([{ id: "quiet", visible: true, layer: { options: {} } }]),
+      };
+
+      const proto = ExportRenderer.prototype as any;
+      vi.spyOn(proto, "resolveExportPanes").mockReturnValue([]);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      await runRender(vi.fn());
+
+      const lines = warn.mock.calls
+        .map(call => String(call[0]))
+        .filter(line => line.includes("label canvas missing"));
+      expect(lines).toHaveLength(0);
+    } finally {
+      map.foliplus = previous;
+      map.getPane = previousGetPane;
     }
   });
 });
@@ -1154,6 +1404,70 @@ describe("ExportRenderer — marker pass wrappers delegate without throwing", ()
     await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
+  });
+});
+
+describe("ExportRenderer — renderFontAwesome glyph decoding", () => {
+  it("decodes the doubled-backslash \\\\fXXXX content form", async () => {
+    // FontAwesome's computed ::before content sometimes arrives as the
+    // escaped `\\f2b9` form rather than a single `\f2b9`. Both must decode to
+    // the same code point, so this pins the second branch.
+    const root = document.createElement("div");
+    const icon = document.createElement("i");
+    root.appendChild(icon);
+    document.body.appendChild(root);
+    const box = { left: 10, top: 10, width: 20, height: 20 } as DOMRect;
+    vi.spyOn(root, "getBoundingClientRect").mockReturnValue({
+      ...box,
+      right: 30,
+      bottom: 30,
+      x: 10,
+      y: 10,
+      toJSON: () => box,
+    } as DOMRect);
+    vi.spyOn(icon, "getBoundingClientRect").mockReturnValue({
+      ...box,
+      right: 30,
+      bottom: 30,
+      x: 10,
+      y: 10,
+      toJSON: () => box,
+    } as DOMRect);
+    const computed = {
+      content: '"\\\\f2b9"',
+      fontWeight: "900",
+      fontSize: "14px",
+      fontFamily: "FontAwesome",
+      color: "#fff",
+      opacity: "",
+    } as unknown as CSSStyleDeclaration;
+    vi.spyOn(window, "getComputedStyle").mockReturnValue(computed);
+    const previousFonts = Object.getOwnPropertyDescriptor(document, "fonts");
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: {
+        load: vi.fn().mockResolvedValue([]),
+        check: vi.fn().mockReturnValue(true),
+        ready: Promise.resolve(),
+      },
+    });
+
+    const ctx = makeMockCtx();
+    const rc = makeRC(100, 100, ctx);
+    rc.contRect = { left: 0, top: 0, width: 100, height: 100 } as DOMRect;
+
+    try {
+      await makeRenderer().renderFontAwesome(rc, [root]);
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        "\uf2b9",
+        expect.any(Number),
+        expect.any(Number),
+      );
+    } finally {
+      root.remove();
+      if (previousFonts) Object.defineProperty(document, "fonts", previousFonts);
+      else Reflect.deleteProperty(document, "fonts");
+    }
   });
 });
 

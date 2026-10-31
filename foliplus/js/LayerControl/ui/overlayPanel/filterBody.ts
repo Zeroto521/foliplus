@@ -42,20 +42,22 @@ type FilterBody = {
   destroy: () => void;
 };
 
-/** The read-only dimension row: the label cell carries the dimension's own
- *  name, and the control cell is filled by the body. The name is localized by
- *  the owner (`dim.label`), so a component such as MeasureControl shows its
- *  own "Type" instead of the generic "Field" caption; the cell no longer
- *  repeats the name above the control. */
+/** One dimension row: a caption cell and a control cell. The caption is
+ *  owner-localized panel vocabulary ("Field", "Range", "Type"), never a raw
+ *  field name — a `range` body pairs one of these with the read-only field
+ *  row, an `enum` body mounts its dropdown in the control cell. */
 const buildDimensionRow = (
   label: string,
+  ...children: HTMLElement[]
 ): {
   row: HTMLElement;
   control: HTMLElement;
 } => {
-  const control = dom.el("div", {
-    class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}`,
-  });
+  const control = dom.el(
+    "div",
+    { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
+    ...children,
+  );
   const row = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
@@ -78,20 +80,40 @@ const rangeValueOf = (
   ];
 };
 
-/** Shared dual-thumb range body: one field row plus the slider row. */
+/** The field row's read-only value: the dimension's field name in the style
+ *  panel's read-only box frame — a form control's geometry with no chevron,
+ *  focus ring or pointer affordance, so it lands on the same column edge as
+ *  the select it sits beside and cannot be mistaken for something editable. */
+const readOnlyField = (field: string): HTMLElement =>
+  dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_READONLY, "aria-disabled": "true" },
+    dom.el("span", { class: CONST.CLASSES.FILTER_FIELD_VALUE }, field),
+  );
+
+/** Shared dual-thumb range body: the field row (caption + read-only field
+ *  name) plus the condition row (caption + slider). Two rows because two
+ *  different questions are being answered — which field is being filtered,
+ *  and over what range. The owner supplies both captions
+ *  (`dim.fieldLabel`, `dim.label`); `core` refuses to print the raw field
+ *  name as a caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  const { row: fieldRow } = buildDimensionRow(dim.label);
+  const fieldRow = buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row;
+  // The condition row's caption is component vocabulary the owner may name;
+  // absent that, the panel's own wording applies. This fallback is panel
+  // chrome, never the field name.
+  const conditionLabel = dim.label || deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {
     min: dim.range[0],
     max: dim.range[1],
     step: dim.step,
     value: rangeValueOf(dim, model.filter),
-    label: deps.T("filter_range"),
+    label: conditionLabel,
     labels: [deps.T("filter_range_min"), deps.T("filter_range_max")],
     values: {
       min: deps.formatValue(dim.range[0]),
@@ -111,7 +133,7 @@ const renderRangeBody = (
   const rangeRow = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, deps.T("filter_range")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, conditionLabel),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
   );
   const root = dom.el("div", {}, fieldRow, rangeRow);
@@ -194,6 +216,14 @@ const renderEnumBody = (
   const { row, control } = buildDimensionRow(dim.label);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
 
+  // Escape ownership stays with the shared dropdown while its list is open:
+  // common/dropdown claims the key on window capture and stops it there, so one
+  // press closes the popup and the next one reaches the LAYER_FILTER panel —
+  // "popup first, panel second", with the registry as the only panel
+  // dispatcher. If this body ever grows a bespoke portal/popup, register it as
+  // LAYER_FILTER (or LAYER_PICKER_DROPDOWN) on the per-map overlay registry; never add
+  // a document keydown of its own, because the registry's rank table is the
+  // single Escape dispatcher.
   const dropdown = createDropdown({
     multiple: true,
     items: dim.options.map(option => ({

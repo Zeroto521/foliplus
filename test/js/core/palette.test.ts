@@ -2,9 +2,11 @@
 // scale builder.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CATEGORY_SCHEMES,
   DEFAULT_SCHEMES,
   PaletteConfigError,
   SCHEME_FALLBACK_COLOR,
+  getCategoryColors,
   getColorScale,
   safeColorScale,
 } from "#core/palette.js";
@@ -96,5 +98,58 @@ describe("getColorScale", () => {
 
   it("returns an empty array for n = 0", () => {
     expect(getColorScale("Reds", 0)).toEqual([]);
+  });
+});
+
+describe("CATEGORY_SCHEMES", () => {
+  it("offers the five qualitative schemes with their discrete counts", () => {
+    expect(CATEGORY_SCHEMES).toEqual({
+      Set3: 12,
+      Paired: 12,
+      Set1: 9,
+      Set2: 8,
+      Dark2: 8,
+    });
+  });
+});
+
+describe("getCategoryColors", () => {
+  it("requests discrete colors without interpolating in lab mode", () => {
+    const colorsSpy = vi.fn(() => ["#a", "#b", "#c"]);
+    const scaleSpy = vi.fn(() => ({ colors: colorsSpy }));
+    globalThis.chroma = { scale: scaleSpy } as never;
+    expect(getCategoryColors("Set3", 3)).toEqual(["#a", "#b", "#c"]);
+    expect(scaleSpy).toHaveBeenCalledWith("Set3");
+    // No .mode() call: a qualitative scheme must stay discrete.
+    expect(colorsSpy).toHaveBeenCalledWith(3);
+  });
+  it("caps the count at the family max so colors never cycle", () => {
+    const colorsSpy = vi.fn(() => ["#1", "#2"]);
+    globalThis.chroma = { scale: () => ({ colors: colorsSpy }) } as never;
+    // Set2 has 8 colors; asking for 12 must request only 8.
+    getCategoryColors("Set2", 12);
+    expect(colorsSpy).toHaveBeenCalledWith(8);
+  });
+  it("falls back to a flat fallback array when chroma is absent", () => {
+    expect(getCategoryColors("Set3", 3)).toEqual([
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+    ]);
+  });
+  it("fills with the fallback grey when chroma rejects the scheme name", () => {
+    globalThis.chroma = {
+      scale: () => {
+        throw new Error("unknown scheme");
+      },
+    } as never;
+    expect(getCategoryColors("NotAScheme", 3)).toEqual([
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+    ]);
+  });
+  it("returns an empty array for n = 0", () => {
+    expect(getCategoryColors("Set3", 0)).toEqual([]);
   });
 });

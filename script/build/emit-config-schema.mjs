@@ -129,15 +129,18 @@ const RENDER = {
  *  the dump instead of emitting an unimported type. */
 const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Primitive shape names → their TS type. Mirrors _TS_PRIMITIVES on the
- *  Python side minus "any", which the shape validator never accepts: the four
- *  names in _TS_PRIMITIVE_NAMES. Only "bool" needs a real mapping, since TS
- *  spells the type `boolean`. */
+/** Shape leaf names → their TS type. Mirrors _TS_PRIMITIVES on the Python
+ *  side minus "any", which the shape validator never accepts: the names in
+ *  _TS_PRIMITIVE_NAMES. Only "bool" and "array_string" need a mapping, since TS
+ *  spells those types `boolean` and `string[]`. "array_string" is a leaf
+ *  because an all-string list renders as a union: `["string"]` is the literal
+ *  `"string"`, so a string array needs its own name. */
 const SHAPE_PRIMITIVES = {
   string: "string",
   number: "number",
   bool: "boolean",
   null: "null",
+  array_string: "string[]",
 };
 
 /** Tell a primitive union apart from a literal union. JSON flattens Python
@@ -175,6 +178,7 @@ const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
  *
  * Shape grammar (validated by _validate_shape on the Python side):
  *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
+ *   - "array_string" → TS string[] (the general list-of-strings leaf)
  *   - null → TS null
  *   - ["string", "number"] (every element a primitive name, ≥2 of them) →
  *     primitive union, unquoted
@@ -194,8 +198,7 @@ const renderShape = (x, path = "") => {
   if (typeof x === "string") {
     if (!isShapePrimitive(x)) {
       throw new Error(
-        `Unknown shape primitive "${x}" at ${path} — expected one of ` +
-          Object.keys(SHAPE_PRIMITIVES).sort().join(", "),
+        `Unknown shape primitive "${x}" at ${path} — expected one of ${Object.keys(SHAPE_PRIMITIVES).sort().join(", ")}`,
       );
     }
     return SHAPE_PRIMITIVES[x];
@@ -219,19 +222,15 @@ const renderShape = (x, path = "") => {
     if (keys.length === 1 && keys[0] === "*") {
       return `Record<string, ${renderShape(x["*"], `${path}.*`)}>`;
     }
-    return (
-      "{ " +
-      keys
-        .map(k => {
-          const v = x[k];
-          if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
-            return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
-          }
-          return `${k}: ${renderShape(v, `${path}.${k}`)}`;
-        })
-        .join("; ") +
-      " }"
-    );
+    return `{ ${keys
+      .map(k => {
+        const v = x[k];
+        if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
+          return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
+        }
+        return `${k}: ${renderShape(v, `${path}.${k}`)}`;
+      })
+      .join("; ")} }`;
   }
   throw new Error(`Unknown shape type at ${path}: ${typeof x}`);
 };
@@ -291,7 +290,7 @@ const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}
   const head = extendsShared ? `${name} extends ConfigCommon` : name;
   const lines = [`${indent}interface ${head} {`];
   for (const [fieldName, field] of Object.entries(schema)) {
-    lines.push(...formatField(fieldName, field, indent + "  "));
+    lines.push(...formatField(fieldName, field, `${indent}  `));
   }
   lines.push(`${indent}}`);
   return lines;
@@ -466,8 +465,7 @@ const main = async (o = opts) => {
     const existing = readFileSync(o.out, "utf-8").replace(/\r\n/g, "\n");
     if (existing !== text) {
       console.error(
-        "foliplus/js/config-schema.ts is out of date with foliplus/_config_schema.py. " +
-          "Regenerate with:",
+        `foliplus/js/config-schema.ts is out of date with foliplus/_config_schema.py. Regenerate with:`,
       );
       console.error(
         "  python foliplus/_config_schema.py --out foliplus/.build/js/config-schema.json",

@@ -241,8 +241,7 @@ describe("test/js/script naming", () => {
       const stem = stemOf(rel);
       expect(
         hasSubject(stem),
-        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, ` +
-          `or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
+        `${rel}: tests no script/${stem}.{mjs,cjs,js} — rename it after the module, or add an entry saying what it tests.\nKnown exceptions:\n${exceptions}`,
       ).toBe(true);
     }
 
@@ -318,8 +317,7 @@ describe("script module coverage", () => {
       const stem = scriptStem(rel);
       expect(
         isCovered(stem),
-        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as ` +
-          `deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
+        `${rel}: no test/js/script/${stem}.test.ts — add one, or name it as deliberately untested with the reason.\nKnown intentional gaps:\n${intentional}`,
       ).toBe(true);
     }
   });

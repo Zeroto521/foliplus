@@ -165,7 +165,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // Row tooltips say 点/Point and 地图/Map for a base row; the attrs panel
   // keeps the long 点图层/Point Layer and 瓦片底图/Tile Map labels. The base
   // row's pair is type_tile_map + type_tile_map_short so both words name the
-  // row itself without borrowing the colour row's vocabulary. `type.key` is
+  // row itself without borrowing the color row's vocabulary. `type.key` is
   // dynamic, so the short keys are listed in the locale guard's supplement.
   const titleTypeLabel = ui.T(`${type.key}_short`);
   // The filter belongs to the row whose capability declares it: the funnel
@@ -241,10 +241,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     if (view.filtered) {
       // Funnel first, then the compact kept count. innerHTML is the funnel's
       // own module SVG (never a caller string), same as the type column.
-      countCol.innerHTML =
-        `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">` +
-        `${view.countIconSvg}</span>` +
-        `<span class="foliplus-layer-count-value">${view.countText}</span>`;
+      countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="foliplus-layer-count-value">${view.countText}</span>`;
     } else {
       countCol.textContent = view.countText;
     }

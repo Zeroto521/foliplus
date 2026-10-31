@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -56,7 +57,8 @@ const makeOwner = (values: number[]) => {
         {
           kind: "range",
           field: "magnitude",
-          label: "magnitude",
+          fieldLabel: "Field",
+          label: "Range",
           range,
           step: 1,
         },
@@ -281,15 +283,24 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field row: the dimension label sits in the label cell and the control
-      // cell holds the slider, so the owner's field name is not repeated.
+      // Row 1 is the field row: the owner's "Field" caption beside the
+      // read-only field name — two cells answering two questions, so the field
+      // name is never printed as the caption with an empty control cell.
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      expect(field.textContent).toBe("");
-      const row = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "magnitude",
+      const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
+      expect(
+        fieldRow.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)!.textContent,
+      ).toBe("magnitude");
+      // Row 2 is the condition row: the owner's condition caption (or the
+      // panel's own "Range") beside the slider.
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Range",
       );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
@@ -304,6 +315,40 @@ describe("LayerUI filter panel", () => {
       // Result row: a live region fed by the owner model.
       const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`);
       expect(result!.getAttribute("aria-live")).toBe("polite");
+    });
+
+    it("falls back to the panel's own wording when the owner names no condition", () => {
+      // `label` is the owner's word for the condition control. An owner that
+      // has none — or a component that only names its field row — must still
+      // get a caption: the panel's own, never an empty <label> and never the
+      // field name. `core` hands over "" and the panel decides the wording.
+      const owner = makeOwner([10, 20, 30]);
+      const provider = owner.filterProvider;
+      owner.filterProvider = (): LayerFilterModel => {
+        const model = provider();
+        return {
+          ...model,
+          dimensions: model.dimensions.map(dim => ({ ...dim, label: "" })),
+        };
+      };
+      registerPoints("pnt2", owner);
+      const item = findItem(ui, "pnt2");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const fieldRow = (
+        panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`) as HTMLElement
+      ).closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      // The field row keeps the owner's caption for the field itself...
+      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Field",
+      );
+      // ...while the condition row falls back to the panel's own "Range".
+      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
+      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_range"),
+      );
     });
 
     it("the result readout composes the localized kept/total sentence", () => {
@@ -729,6 +774,38 @@ describe("LayerUI filter panel", () => {
       pressKey(triggerOf(item), "Escape");
 
       expect(panelOf(item)).toBeNull();
+      spy.mockRestore();
+    });
+
+    it("Escape dismisses the popup then the panel without changing the picked values", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+      clickOption("marker");
+      clickOption("distance");
+
+      const committed = {
+        kind: "enum" as const,
+        field: "type",
+        values: ["marker", "distance"],
+      };
+      expect(selectedOf()).toEqual(["marker", "distance"]);
+      expect(owner.filter).toEqual(committed);
+
+      // The popup is the topmost layer: Escape closes it alone. The owner keeps
+      // the committed multi-selection through the close — Escape dismisses, it
+      // never rewrites what the user picked.
+      pressKey(optionEls()[0], "Escape");
+      expect(listOf()!.hidden).toBe(true);
+      expect(panelOf(item)).not.toBeNull();
+      expect(selectedOf()).toEqual(["marker", "distance"]);
+      expect(owner.filter).toEqual(committed);
+
+      // The next press closes the panel layer; the committed filter is untouched.
+      pressKey(triggerOf(item), "Escape");
+      expect(panelOf(item)).toBeNull();
+      expect(owner.filter).toEqual(committed);
       spy.mockRestore();
     });
 
@@ -1163,6 +1240,28 @@ describe("LayerUI filter panel", () => {
       expect(focusSpy).toHaveBeenCalled();
     });
 
+    it("header click closes the panel without bubbling to the map", () => {
+      // A press on the header (or the × inside it) must not also become a map
+      // click: closing the panel removes it mid-dispatch, so the click would
+      // otherwise keep walking its original path with no live control ancestor
+      // and land on the map (the same guarantee as the ⋮ menu — #807).
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const header = item.querySelector(
+        `.${CONST.CLASSES.FILTER_PANEL} .foliplus-panel-header`,
+      ) as HTMLElement;
+      header.click();
+
+      // The panel still closes…
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      // …and the press was swallowed, never reaching the row / map.
+      expect(bubbled).not.toHaveBeenCalled();
+    });
+
     it("is a no-op when no panel is open", () => {
       expect(() => ui.closeFilterPanel(false)).not.toThrow();
     });
@@ -1197,14 +1296,16 @@ describe("LayerUI filter panel", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(true);
+      // The registry's press dispatcher carries the drag verdict the row
+      // needs (the old shared pressInPanel boolean is gone).
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict.
       document.body.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(false);
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(false);
     });
 
     it("a document-level mousedown (target = document) dismisses the panel", () => {
@@ -1364,24 +1465,24 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
   });
 
   describe("teardown", () => {
-    it("unbindEvents closes the filter panel and releases its document listener", () => {
+    it("unbindEvents closes the filter panel and releases its registry entry", () => {
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
       expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).not.toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
       ui.unbindEvents();
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
 
@@ -1394,7 +1495,7 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
-      expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     });
   });
 });
@@ -1419,7 +1520,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
           {
             kind: "range",
             field: "magnitude",
-            label: "magnitude",
+            fieldLabel: "Field",
+            label: "Range",
             range,
             step: 1,
           },
@@ -1526,11 +1628,66 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const item = findItem(ui, "pnt");
     ui.openFilterPanel(item);
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
-    ui.handleKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+    // The registry owns Escape: one document-capture press closes the panel,
+    // and the panel's own keydown path closes nothing (it is gone).
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
+  });
+
+  it("installs no keydown on the card — the registry is the only Escape owner", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    const seen: Array<{ target: EventTarget; type: string }> = [];
+    const original = EventTarget.prototype.addEventListener;
+    const spy = vi
+      .spyOn(EventTarget.prototype, "addEventListener")
+      .mockImplementation(function (
+        this: EventTarget,
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) {
+        seen.push({ target: this, type });
+        return original.call(this, type, listener, options);
+      });
+
+    ui.openFilterPanel(item);
+    spy.mockRestore();
+
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    expect(panel).not.toBeNull();
+    // The card owns no keyboard handling at all: Escape is the registry's one
+    // document-capture listener, and an open popup claims the key itself. A
+    // panel-level keydown here is exactly the second dispatcher C5 removed, so
+    // assert its absence rather than trusting the comment.
+    expect(seen.filter(s => s.target === panel && s.type === "keydown")).toEqual([]);
+    // The dismissal is a registry entry, not a listener pair owned by the card.
+    expect(ensureOverlayRegistry(ui.c.map).owningEntry(panel)?.id).toBe(
+      OVERLAY_IDS.LAYER_FILTER,
+    );
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    const entry = ensureOverlayRegistry(ui.c.map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_FILTER);
+    expect(entry?.panels()).toEqual([panel]);
+
+    ui.closeFilterPanel(false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("the row shows a 12px funnel + exact kept count + filtered title", () => {

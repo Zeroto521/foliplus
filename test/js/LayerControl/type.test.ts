@@ -89,9 +89,7 @@ describe("RegisterLayerOpts", () => {
     // A well-formed payload must compile untouched — closing the record must
     // not force callers to cast or drop fields. parseSVG round-trips this as
     // an SVG node and back, so assert on content rather than an exact echo.
-    const svg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
-      '<rect x="0" y="0" width="16" height="16"/></svg>';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16"/></svg>`;
 
     const paneSpecs: PaneSpec[] = [
       { role: "base", order: 0, name: "a" },

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -31,6 +32,7 @@ import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 import {
   GridLayer,
   attachedPanel,
@@ -140,6 +142,21 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const entry = ensureOverlayRegistry(map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    expect(entry?.panels()).toEqual([panel]);
+
+    closeStylePanel(ui, false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("builds on the shared panel vocabulary (header, content, close)", () => {
@@ -386,7 +403,7 @@ describe("LayerUI style panel", () => {
     // The picker portals its dropdown to <body> so the list can paint above
     // this drawer. The portal is outside the panel's subtree while still being
     // part of the overlay, so a dismiss predicate that only walks the subtree
-    // closes the drawer on the press that selects a colour.
+    // closes the drawer on the press that selects a color.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -397,6 +414,12 @@ describe("LayerUI style panel", () => {
     row.className = "foliplus-scheme-picker-item";
     portal.appendChild(row);
     document.body.appendChild(portal);
+    // The picker registers its portalled list against its trigger (the
+    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // registration so the registry's press dispatcher can attribute the press
+    // to this drawer. Without it the node is an orphan <body> child and every
+    // dismiss predicate rightly calls the press "outside".
+    const releasePortal = registerPortalRoot(portal, panel);
 
     // Capture-phase listener on document: a bubbling press on the portalled row
     // is exactly what the browser delivers for a real click on the list.
@@ -404,7 +427,77 @@ describe("LayerUI style panel", () => {
 
     expect(panelOf(item)).toBe(panel);
     expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    releasePortal();
     portal.remove();
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer", () => {
+    // The class alone is not ownership. A list registered for a trigger outside
+    // this drawer belongs to that surface, so this drawer must dismiss: matching
+    // the class document-wide would keep it open under a press it does not own.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    // The drawer is live on its own panel, and the foreign portal is outside that
+    // panel's subtree: neither a subtree walk nor a document-wide class match can
+    // produce the dismissal this test asserts — only trigger ownership can.
+    expect(panelOf(item)).toBe(panel);
+    expect(panel.contains(foreign)).toBe(false);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      foreignRow.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer via the outside-mousedown handler", () => {
+    // The class alone is not ownership. handleOutsideMousedown classifies a
+    // press through core/overlay's predicate, and a codebase that still passes
+    // a portal selector would answer "mine" for a portal this drawer does not
+    // own (its trigger is outside the drawer) — the same press-stealing bug
+    // from the other side. Only trigger ownership can dismiss here.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      // jsdom does not populate event.target on dispatch, so pin it directly.
+      const event = new MouseEvent("mousedown", { bubbles: true });
+      Object.defineProperty(event, "target", { value: foreignRow });
+      ui.handleOutsideMousedown(event);
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
   });
 
   // ─────────────────── control interactions ───────────────────
@@ -872,6 +965,27 @@ describe("LayerUI style panel", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("reset closes the panel without bubbling to the map", () => {
+    // A press on the Reset button must not also become a map click: closing the
+    // panel removes it mid-dispatch, so the click would otherwise keep walking
+    // its original path with no live control ancestor and land on the map (the
+    // same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
+  });
+
   it("reset also restores collide (not just show/field/format)", () => {
     // Regression: DEFAULT_ANNOTATION alone omits collide, so a user-toggled
     // avoid-overlap switch used to survive Reset. defaultConfig() carries it.
@@ -1025,7 +1139,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     // A reorder / fold rebuild clears the container without closing the panel.
@@ -1038,7 +1152,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     manager.unregisterLayer("overlay1");
@@ -1052,7 +1166,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const slider = sliderOf(host)!;
     const finish = vi.spyOn(slider, "finish");
@@ -1091,7 +1205,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const li = manager.layerRegistry.get("overlay1")!;
     // The layer changes outside the panel while it is open; moving the thumb
@@ -1336,6 +1450,27 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)).toBeUndefined();
   });
 
+  it("header click closes the panel without bubbling to the map", () => {
+    // A press on the header (or the × inside it) must not also become a map
+    // click: closing the panel removes it mid-dispatch, so the click would
+    // otherwise keep walking its original path with no live control ancestor
+    // and land on the map (the same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    panel
+      .querySelector(".foliplus-panel-header")!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
+  });
+
   it("Escape closes an open style panel and returns focus to its row", () => {
     const item = findItem(ui, "overlay1");
     const focusSpy = vi.fn();
@@ -1345,12 +1480,13 @@ describe("LayerUI style panel", () => {
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     checkbox.focus();
 
-    ui.handleKeyDown(
+    // Real keydown: the overlay registry owns Escape now.
+    checkbox.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
         key: "Escape",
-      }) as unknown as KeyboardEvent,
+      }),
     );
 
     expect(panelOf(item)).toBeUndefined();
@@ -1735,9 +1871,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1747,9 +1883,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1765,16 +1901,16 @@ describe("LayerUI style panel", () => {
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>
       item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
       ) as HTMLElement;
 
     box.checked = false;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBe("disabled");
+    expect(styleItemOf().getAttribute("aria-disabled")).toBe("true");
 
     box.checked = true;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBeNull();
+    expect(styleItemOf().getAttribute("aria-disabled")).not.toBe("true");
   });
 
   // ─────────────────── field cache ───────────────────

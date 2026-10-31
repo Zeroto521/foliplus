@@ -45,7 +45,7 @@ interface OverlayPress {
 
 interface OverlayEntry {
   /** Stable identity: the Escape order table is keyed by it ("layer.style",
-   *  "picker.dropdown", …). A duplicate id is rejected, never merged. */
+   *  "layer.style.picker.dropdown", …). A duplicate id is rejected, never merged. */
   id: string;
   /** Opening one entry closes the others in the group (top-layer exclusivity). */
   exclusiveGroup?: string;
@@ -99,6 +99,10 @@ interface EscapeHandled {
    *  container from one in another component. Null for a non-Node target. */
   target: Node | null;
   origin: "capture";
+  /** True when the closed surface owned the row keyboard cursor (row panels,
+   *  menu, rename). The cursor owner clears it from this flag, so it does not
+   *  need to keep a second entry-id table in sync with the registry. */
+  clearsCursorOnClose?: boolean;
 }
 
 /** Entry ids the Escape order table knows. A table id without a constant (or
@@ -106,9 +110,9 @@ interface EscapeHandled {
  *  the two sets. */
 const OVERLAY_IDS = {
   LAYER_RENAME: "layer.rename",
-  PICKER_DROPDOWN: "picker.dropdown",
+  LAYER_PICKER_DROPDOWN: "layer.style.picker.dropdown",
+  HEATMAP_PICKER_DROPDOWN: "heatmap.picker.dropdown",
   LAYER_MENU: "layer.menu",
-  LAYER_FILTER_ENUM: "layer.filter.enum",
   LAYER_FILTER: "layer.filter",
   LAYER_ATTRS: "layer.attrs",
   LAYER_STYLE: "layer.style",
@@ -121,12 +125,20 @@ type OverlayId = (typeof OVERLAY_IDS)[keyof typeof OVERLAY_IDS];
 /** Escape order: higher rank = closer to the top. It decides which entry owns
  *  a target when several contain it; it is not a "close everything in order"
  *  list. `layer.cursor` is deliberately absent: the row cursor is not an
- *  overlay and stays an unconditional fallback driven by onEscapeHandled. */
+ *  overlay and stays an unconditional fallback driven by onEscapeHandled.
+ *
+ * The two picker ids are deliberately not equal: the rank table is the
+ *  registry's strict total order (the contract test asserts ranks are
+ *  unique), and both pickers can be open at once on a shared map. The style
+ *  fill picker (850) stays the higher-ranked one so it wins `topmost()` when
+ *  open; the heatmap scheme picker (840) still ranks above every non-picker
+ *  surface. Both remain in the picker band above LAYER_MENU (800).
+ */
 const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
   [OVERLAY_IDS.LAYER_RENAME]: 900,
-  [OVERLAY_IDS.PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.LAYER_PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN]: 840,
   [OVERLAY_IDS.LAYER_MENU]: 800,
-  [OVERLAY_IDS.LAYER_FILTER_ENUM]: 750,
   [OVERLAY_IDS.LAYER_FILTER]: 700,
   [OVERLAY_IDS.LAYER_ATTRS]: 600,
   [OVERLAY_IDS.LAYER_STYLE]: 500,
@@ -200,7 +212,14 @@ class OverlayRegistryImpl implements OverlayRegistry {
   private readonly subscribers: ((payload: EscapeHandled) => void)[] = [];
   private readonly pressHandlers: {
     mousedown?: (event: MouseEvent) => void;
-    click?: (event: MouseEvent) => void;
+    click?: {
+      /** The bubble half — decides inside presses (dismissOnInside). */
+      bubble: (event: MouseEvent) => void;
+      /** The capture half — decides every outside press, so a target's own
+       *  `stopPropagation` cannot hide an outside press from the registry.
+       *  Installed and removed strictly with `bubble`, so no orphan guard. */
+      capture: (event: MouseEvent) => void;
+    };
   } = {};
   private escapeHandler?: (event: KeyboardEvent) => void;
   private pressInside = false;
@@ -316,27 +335,54 @@ class OverlayRegistryImpl implements OverlayRegistry {
 
   private installPressListener(phase: OverlayPhase): void {
     if (this.pressHandlers[phase]) return;
-    const handler = (event: MouseEvent): void => {
-      const target = nodeOf(event.target);
-      // A non-Node target (window, a Worker port) never yields a press: there
-      // is no DOM subtree to classify and no entry can own it. DOM dispatch
-      // cannot produce one, so this is a guard for direct/synthetic calls.
-      /* v8 ignore next -- non-Node targets never reach a document listener */
-      if (!target) return;
-      this.dispatchPress(phase, target);
-    };
-    this.pressHandlers[phase] = handler;
-    document.addEventListener(phase, handler, phase === "mousedown");
+    const bubble = (event: MouseEvent): void => this.onPress(phase, event, false);
+    if (phase === "click") {
+      // The click phase needs two halves. A control's own toggle calls
+      // `L.DomEvent.stop(event)`, which kills the event before a document
+      // *bubble* listener sees it - so an outside click against a click-phase
+      // surface would never be observed. Outside dismissal therefore runs on
+      // capture, the one phase nothing can stop before the registry reads it;
+      // the bubble walk keeps owning the inside cases (dismissOnInside). The
+      // two are installed and removed strictly together.
+      const capture = (event: MouseEvent): void => this.onPress(phase, event, true);
+      this.pressHandlers.click = { bubble, capture };
+      document.addEventListener("click", bubble, false);
+      document.addEventListener("click", capture, true);
+      return;
+    }
+    this.pressHandlers[phase] = bubble;
+    document.addEventListener(phase, bubble, true);
+  }
+
+  private onPress(phase: OverlayPhase, event: MouseEvent, capture: boolean): void {
+    const target = nodeOf(event.target);
+    // A non-Node target (window, a Worker port) never yields a press: there is
+    // no DOM subtree to classify and no entry can own it. DOM dispatch cannot
+    // produce one, so this is a guard for direct/synthetic calls.
+    /* v8 ignore next -- non-Node targets never reach a document listener */
+    if (!target) return;
+    this.dispatchPress(phase, target, capture);
   }
 
   private removePressListener(phase: OverlayPhase): void {
-    const handler = this.pressHandlers[phase];
-    if (!handler) return;
-    document.removeEventListener(phase, handler, phase === "mousedown");
-    delete this.pressHandlers[phase];
+    if (phase === "click") {
+      // The two halves are strictly paired with the phase (installed together
+      // in installPressListener), so the capture listener is always present
+      // here - no orphan guard, and neither can linger after removal.
+      const click = this.pressHandlers.click;
+      if (!click) return;
+      document.removeEventListener("click", click.bubble, false);
+      document.removeEventListener("click", click.capture, true);
+      delete this.pressHandlers.click;
+      return;
+    }
+    const mouse = this.pressHandlers.mousedown;
+    if (!mouse) return;
+    document.removeEventListener("mousedown", mouse, true);
+    delete this.pressHandlers.mousedown;
   }
 
-  private dispatchPress(phase: OverlayPhase, target: Node): void {
+  private dispatchPress(phase: OverlayPhase, target: Node, capture: boolean): void {
     const open = this.pressOrderedEntries().map(entry => ({
       entry,
       inside: entryContains(entry, target),
@@ -359,23 +405,33 @@ class OverlayRegistryImpl implements OverlayRegistry {
       },
     };
 
+    // Mousedown always runs on capture; the click phase splits its work: the
+    // capture pass decides every outside press, the bubble pass every inside
+    // one. Both passes early-continue past a press they do not own, so a
+    // surface is never dismissed twice for one event.
+    //
+    // One press closes at most one surface: the first entry that decides the
+    // press either consumes it or closes, then returns. The capture pass
+    // settles an outside press (which no target stopPropagation can hide), so
+    // the bubble pass only ever continues an inside press; if a future
+    // dismissOnInside wants to close more than one layer for a single event,
+    // that contract belongs in the M2 PanelController, not here.
+    const outsideOnly = phase === "mousedown" || capture;
     for (const { entry, inside: isInside } of open) {
       if (!entry.isOpen()) continue;
-      // Each dispatcher owns one phase: the mousedown-capture walk must not
-      // close a surface that dismisses on the click bubble (and vice versa).
       if (entry.dismissOn !== phase) continue;
-      if (phase === "mousedown") {
-        // The capture phase decides outside dismissal only — an inside press
-        // must keep its native behaviour (button activation, focus move).
+      if (outsideOnly) {
+        // An outside press decides dismissal only — an inside press must keep
+        // its native behaviour (button activation, focus move).
         if (isInside) continue;
         press.reason = "outside";
         if (entry.dismissOnOutside && !entry.dismissOnOutside(press)) continue;
       } else {
-        press.reason = isInside ? "inside" : "outside";
-        const wantsDismiss = isInside
-          ? (entry.dismissOnInside?.(press) ?? false)
-          : (entry.dismissOnOutside?.(press) ?? true);
-        if (!wantsDismiss) continue;
+        // Click bubble: capture already decided every outside press, so this
+        // walk owns the inside cases only.
+        if (!isInside) continue;
+        press.reason = "inside";
+        if (!(entry.dismissOnInside?.(press) ?? false)) continue;
       }
       const element = elementOf(target);
       if (element && entry.consumePress?.(element, press)) {
@@ -417,36 +473,40 @@ class OverlayRegistryImpl implements OverlayRegistry {
       return;
     }
     /* v8 ignore stop */
-    const owner = this.owningEntry(target);
-    if (!owner) {
+    // Escape is a layer-stack key, not a target-owned key: close exactly the
+    // highest-ranked open surface, even when focus sits in a lower panel. The
+    // owner-by-target rule would close the style panel while its picker popup
+    // is open (one Escape tearing down two layers); the ESC_PRIORITY table is
+    // the one ordering contract, so use it here too.
+    const top = this.topmost();
+    if (!top) {
       this.notifyEscape({ handled: false, entryId: null, target, origin: "capture" });
       return;
     }
-    if (owner.escPassthroughOnEditable && isEditable(target)) {
+    if (top.escPassthroughOnEditable && isEditable(target)) {
       // The editor keeps Escape (commit/cancel) and the dispatch consumes
       // nothing; the row cursor still hears today's outcome — a handled close
       // for cursor purposes — exactly once.
       this.notifyEscape({
         handled: true,
-        entryId: owner.id,
+        entryId: top.id,
         target,
         origin: "capture",
+        ...(top.clearsCursorOnClose ? { clearsCursorOnClose: true } : {}),
       });
       return;
     }
-    // Resolve and close the owner only — never walk the table and close the
-    // highest-ranked open surface, which is a different entry as soon as a
-    // portal surface is nested inside a panel.
-    const closed = owner.close({ restoreFocus: true }) !== false;
+    const closed = top.close({ restoreFocus: true }) !== false;
     if (closed) {
       event.preventDefault();
       event.stopPropagation();
     }
     this.notifyEscape({
       handled: closed,
-      entryId: owner.id,
+      entryId: top.id,
       target,
       origin: "capture",
+      ...(top.clearsCursorOnClose ? { clearsCursorOnClose: true } : {}),
     });
   }
 

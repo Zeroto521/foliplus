@@ -303,9 +303,9 @@ const css = (rel: string): string =>
  *  closing brace. */
 const blockOf = (source: string, selector: string): string => {
   const start = source.indexOf(selector);
-  expect(start, selector + " is missing").toBeGreaterThanOrEqual(0);
+  expect(start, `${selector} is missing`).toBeGreaterThanOrEqual(0);
   const open = source.indexOf("{", start);
-  expect(open, selector + " has no opening brace").toBeGreaterThanOrEqual(0);
+  expect(open, `${selector} has no opening brace`).toBeGreaterThanOrEqual(0);
   let depth = 0;
   for (let i = open; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -314,7 +314,7 @@ const blockOf = (source: string, selector: string): string => {
       if (depth === 0) return source.slice(open, i + 1);
     }
   }
-  throw new Error(selector + " block never closes");
+  throw new Error(`${selector} block never closes`);
 };
 
 describe("form width tokens (stylesheet contract)", () => {
@@ -463,7 +463,7 @@ describe("common/form.ts emits the shared chrome classes", () => {
       "foliplus-form-inline",
     ]) {
       expect(source).toContain(cls);
-      expect(form).toContain("." + cls);
+      expect(form).toContain(`.${cls}`);
     }
   });
 
@@ -474,7 +474,7 @@ describe("common/form.ts emits the shared chrome classes", () => {
       "foliplus-form-color-input",
     ]) {
       expect(source).toContain(cls);
-      expect(form).toContain("." + cls);
+      expect(form).toContain(`.${cls}`);
     }
   });
 });

@@ -13,24 +13,18 @@
   // apart from one `class` attribute, so the assertion is "presentation
   // attributes and text survive". The last is all active content, so the
   // assertion is "the icon is dropped and the text stays".
-  const key = "xss-hint-probe-" + Date.now();
+  const key = `xss-hint-probe-${Date.now()}`;
 
   const reg = window.map.foliplus.registerHintIcon;
   const show = window.map.foliplus.showHint;
 
   // --- 1. Full hostile payload: strip everything active, keep nothing runnable
-  const HOSTILE =
-    '<svg xmlns="http://www.w3.org/2000/svg" class="foliplus-spin" viewBox="0 0 8 8" onload="window.__pwn1=1">' +
-    "<script>window.__pwn2=1</script>" +
-    '<foreignObject><body><img src=x onerror="window.__pwn3=1"></body></foreignObject>' +
-    '<rect width="4" height="4" class="foliplus-spin" onmouseover="window.__pwn4=1"/></svg>';
-  reg(key + "-hostile", HOSTILE);
+  const HOSTILE = `<svg xmlns="http://www.w3.org/2000/svg" class="foliplus-spin" viewBox="0 0 8 8" onload="window.__pwn1=1"><script>window.__pwn2=1</script><foreignObject><body><img src=x onerror="window.__pwn3=1"></body></foreignObject><rect width="4" height="4" class="foliplus-spin" onmouseover="window.__pwn4=1"/></svg>`;
+  reg(`${key}-hostile`, HOSTILE);
   const poisonText = "<img src=x onerror=alert(1)>probe";
-  show(key + "-hostile", poisonText, 0);
+  show(`${key}-hostile`, poisonText, 0);
 
-  const hostile = document.querySelector(
-    ".foliplus-hint.foliplus-hint-" + key + "-hostile",
-  );
+  const hostile = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-hostile`);
   const hostileIcon = hostile ? hostile.querySelector(".foliplus-hint-icon") : null;
 
   // --- 2. foreignObject holding only SVG children. An empty foreignObject is
@@ -39,34 +33,27 @@
   //     for layout, so if this were re-introduced later the gate would need a
   //     rule for it, not the tag blacklist. This pins that the blacklist is
   //     what is doing the work.
-  const FOREIGN_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8">' +
-    '<foreignObject><g><rect width="2" height="2" class="foliplus-spin"/></g></foreignObject>' +
-    '<rect width="4" height="4" class="foliplus-spin"/></svg>';
-  reg(key + "-foreignsvg", FOREIGN_SVG);
-  show(key + "-foreignsvg", "fsvg", 0);
+  const FOREIGN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><foreignObject><g><rect width="2" height="2" class="foliplus-spin"/></g></foreignObject><rect width="4" height="4" class="foliplus-spin"/></svg>`;
+  reg(`${key}-foreignsvg`, FOREIGN_SVG);
+  show(`${key}-foreignsvg`, "fsvg", 0);
   const foreignSvg = document.querySelector(
-    ".foliplus-hint.foliplus-hint-" + key + "-foreignsvg",
+    `.foliplus-hint.foliplus-hint-${key}-foreignsvg`,
   );
 
   // --- 3. Benign payload: presentation attributes must survive the allowlist
-  const BENEIGN =
-    '<svg class="foliplus-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8">' +
-    '<rect width="4" height="4" class="foliplus-spin" fill="currentColor" stroke="currentColor"/></svg>';
-  reg(key + "-benign", BENEIGN);
-  show(key + "-benign", "locating", 0);
+  const BENEIGN = `<svg class="foliplus-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="4" height="4" class="foliplus-spin" fill="currentColor" stroke="currentColor"/></svg>`;
+  reg(`${key}-benign`, BENEIGN);
+  show(`${key}-benign`, "locating", 0);
 
-  const benign = document.querySelector(
-    ".foliplus-hint.foliplus-hint-" + key + "-benign",
-  );
+  const benign = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-benign`);
   const benignIcon = benign ? benign.querySelector(".foliplus-hint-icon") : null;
   const svg = benignIcon ? benignIcon.querySelector("svg") : null;
   const rect = svg ? svg.querySelector("rect") : null;
 
   // --- 4. Whole tree active: no presentational residue left to keep
-  reg(key + "-dead", "<script>window.__pwn5=1</script>");
-  show(key + "-dead", "dead", 0);
-  const dead = document.querySelector(".foliplus-hint.foliplus-hint-" + key + "-dead");
+  reg(`${key}-dead`, "<script>window.__pwn5=1</script>");
+  show(`${key}-dead`, "dead", 0);
+  const dead = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-dead`);
 
   const roundTrip = svg
     ? (() => {

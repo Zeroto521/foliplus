@@ -8,7 +8,7 @@
     const g = api.createLayers({
       id,
       name,
-      panes: [{ name: id + "_pane" }],
+      panes: [{ name: `${id}_pane` }],
     });
     for (const [lat, lng, text] of points) {
       const m = L.marker([lat, lng]);
@@ -36,16 +36,16 @@
         // Pane names come from the Leaflet _panes registry, not the DOM id —
         // createPane does not set element.id, so read through map.getPane.
         const zOf = id => {
-          const pane = window.map.getPane("foliplus-label-" + id);
+          const pane = window.map.getPane(`foliplus-label-${id}`);
           return pane ? parseInt(pane.style.zIndex) || 0 : null;
         };
         const layerZOf = id => {
-          const pane = window.map.getPane(id + "_pane");
+          const pane = window.map.getPane(`${id}_pane`);
           return pane ? parseInt(pane.style.zIndex) || 0 : null;
         };
         const opaqueOf = id => {
           const canvas = window.map
-            .getPane("foliplus-label-" + id)
+            .getPane(`foliplus-label-${id}`)
             ?.querySelector("canvas");
           if (!canvas) return 0;
           const data = canvas
@@ -58,7 +58,7 @@
         // Every owned pane carries the base class through ensurePane; the
         // annotation role marker sits on top of it.
         const paneClassesOf = id => {
-          const pane = window.map.getPane("foliplus-label-" + id);
+          const pane = window.map.getPane(`foliplus-label-${id}`);
           if (!pane) return null;
           return {
             layer: pane.classList.contains("foliplus-layer-pane"),

@@ -828,10 +828,10 @@ class HeatmapManager {
   /** One warning per missing declared name: the scan runs more than once on
    *  the way to the first render, and a per-rebuild warn would flood. */
   private warnDeclaration(kind: "layer" | "field", name: string): void {
-    const key = kind + ":" + name;
+    const key = `${kind}:${name}`;
     if (this.declarationWarned.has(key)) return;
     this.declarationWarned.add(key);
-    this.log.warn("declared " + kind + " not found:", name);
+    this.log.warn(`declared ${kind} not found:`, name);
   }
 
   collectFields(layers: Array<{ id: string }>): string[] {
@@ -966,6 +966,9 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
+      // The panel's field-row caption: the aggregation field is named by the
+      // field itself, so the caption is the owner's word for "Field".
+      this.T("filter_field"),
       { kept, total },
     );
   }

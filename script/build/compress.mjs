@@ -36,11 +36,11 @@ const compressSvgStrings = code => {
     const svgMatch = inner?.match(/<svg[\s\S]*?<\/svg>/);
     if (openTag && svgMatch) {
       const compressed = compressSvg(svgMatch[0]);
-      if (compressed) return "`" + openTag + compressed + closeTag + "`";
+      if (compressed) return `\`${openTag}${compressed}${closeTag}\``;
       return match;
     }
     const compressed = compressSvg(raw);
-    return compressed ? "`" + compressed + "`" : match;
+    return compressed ? `\`${compressed}\`` : match;
   });
 };
 
@@ -91,7 +91,7 @@ const compressHtmlStrings = code => {
         break;
       }
       const raw = code.slice(i + 1, end);
-      if (HTML_RE.test(raw)) result.push("`" + collapseHtml(raw) + "`");
+      if (HTML_RE.test(raw)) result.push(`\`${collapseHtml(raw)}\``);
       else result.push(code.slice(i, end + 1));
       i = end + 1;
     } else {

@@ -104,8 +104,7 @@ describe("heatmap redraw benchmark @5k", () => {
     const bakeMs = performance.now() - bakeT0;
 
     console.log(
-      `[R11 bench] CSS commit avg: ${cssMs.toFixed(3)}ms; ` +
-        `bake redraw of 5000: ${bakeMs.toFixed(1)}ms`,
+      `[R11 bench] CSS commit avg: ${cssMs.toFixed(3)}ms; bake redraw of 5000: ${bakeMs.toFixed(1)}ms`,
     );
     // The whole point of the dual path: CSS commit stays far cheaper than
     // a full bake redraw. Ratio is load-sensitive, so assert order only.

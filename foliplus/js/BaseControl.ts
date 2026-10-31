@@ -185,8 +185,7 @@ class BaseControl extends L.Control {
     if (!this.ac) {
       throw new Error(
         log.msg(
-          `${this.constructor.name}: read of \`signal\` on a detached control — ` +
-            `register listeners inside onAdd/buildDOM, not at construction.`,
+          `${this.constructor.name}: read of \`signal\` on a detached control — register listeners inside onAdd/buildDOM, not at construction.`,
         ),
       );
     }
@@ -264,8 +263,7 @@ class BaseControl extends L.Control {
         return;
       }
       log.warn(
-        `${this.constructor.name}.effect(): setup returned a value with no ` +
-          `.cancel() or .disconnect() — nothing registered`,
+        `${this.constructor.name}.effect(): setup returned a value with no .cancel() or .disconnect() — nothing registered`,
       );
       return;
     }

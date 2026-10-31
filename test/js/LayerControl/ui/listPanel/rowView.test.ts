@@ -257,7 +257,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(cellInfo.typeSvg).toBe(Icons.ICON_GLOBE);
     expect(cellInfo.typeLabel).toContain("type_tile_map");
     // The tooltip's short word is the renamed pair (地图 / Map); both keys
-    // carry the _map suffix so the row never borrows the colour row's words.
+    // carry the _map suffix so the row never borrows the color row's words.
     expect(cellInfo.titleTypeLabel).toContain("type_tile_map_short");
   });
 
@@ -621,10 +621,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
     file: "LayerControl/ui/focus/index.ts",
     slot: "checkbox.checked",
     n: 1,
-    reason:
-      "momentary flip: checkbox.checked = !checkbox.checked → " +
-      "dispatchEvent('change') → applyUserState → applyRowView " +
-      "redraws the row from corrected intent",
+    reason: `momentary flip: checkbox.checked = !checkbox.checked → dispatchEvent('change') → applyUserState → applyRowView redraws the row from corrected intent`,
   },
 ];
 
@@ -702,8 +699,7 @@ describe("applyRowView is the only module writing row visual slots", () => {
         const allowed = fileAllowances?.get(pattern.slot) ?? 0;
         if (found > allowed) {
           problems.push(
-            `${name}: "${pattern.slot}" ${found}` +
-              `${allowed ? ` > ${allowed}` : " (no allowance)"}`,
+            `${name}: "${pattern.slot}" ${found}${allowed ? ` > ${allowed}` : " (no allowance)"}`,
           );
         }
       }

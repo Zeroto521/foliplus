@@ -2,7 +2,7 @@
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const id = "__test_canvas_reg__";
-  const paneName = "foliplus-canvas-" + id;
+  const paneName = `foliplus-canvas-${id}`;
   const cvs = api.createCanvas({ id, name: "Canvas Test" });
   cvs.register();
 

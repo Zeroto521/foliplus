@@ -6,7 +6,7 @@
   overflow menu, and the row panels a layer row opens) share one visual
   recipe. Position, width, max-height and item layout stay per-component;
   this block owns the shell + hover/active states. The scheme picker has
-  its own recipe in common/scheme-picker.css (items carry colour bars and
+  its own recipe in common/scheme-picker.css (items carry color bars and
   a persistent selection border).
 
   Row panels join by their shared `foliplus-row-panel` class rather than by
@@ -22,7 +22,7 @@
    anchor and rows, never this box. */
 :is(.foliplus-search-result-panel, .foliplus-layer-more-menu, .foliplus-dropdown-list) {
   box-sizing: border-box;
-  margin-top: var(--foliplus-space-xs);
+  margin-top: var(--foliplus-menu-gap);
   background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);
@@ -72,7 +72,7 @@
 }
 
 /* ── Item base ── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li) {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu button) {
   cursor: pointer;
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
@@ -81,9 +81,18 @@
     border-color var(--foliplus-transition-fast);
 }
 
+/* ── Disabled: an entry that cannot run keeps the muted ink and tells the
+     pointer why (the tooltip carries the reason); it never answers with the
+     accent wash. ── */
+.foliplus-layer-more-menu button[aria-disabled="true"] {
+  color: var(--foliplus-text-muted);
+  cursor: not-allowed;
+}
+
 /* ── Hover: dropdown items are actions, so they answer with accent (same
      language as the LayerControl "more" button hover). ── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):hover {
+.foliplus-search-result-item:not([disabled]):hover,
+.foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
@@ -93,15 +102,16 @@
      stronger accent-light; the press settles one notch softer so a click
      reads as "down" rather than a second hover. Disabled entries never
      answer (their :hover override already stays muted). ─── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):not([disabled]):active {
-  background: var(--foliplus-accent-soft-bg);
-}
 .foliplus-search-result-item:not([disabled]):active {
+  background: var(--foliplus-accent-soft-bg);
   /* A search result is a record, not an action: keep the text at its normal
      ink on press too (same opt-out as :hover). */
   color: var(--foliplus-text-primary);
 }
-.foliplus-layer-more-menu li[disabled]:active {
+.foliplus-layer-more-menu button:not([aria-disabled="true"]):active {
+  background: var(--foliplus-accent-soft-bg);
+}
+.foliplus-layer-more-menu button[aria-disabled="true"]:active {
   background: transparent;
   color: var(--foliplus-text-muted);
 }

@@ -97,7 +97,7 @@
   border-radius: var(--foliplus-radius-sm);
 }
 
-/* Scheme trigger and colour strip: the shared scheme-picker recipe
+/* Scheme trigger and color strip: the shared scheme-picker recipe
    (common/scheme-picker.css) owns the box, the chevron and the bar geometry.
    `.foliplus-style-scheme-trigger` / `.foliplus-style-scheme-bar` stay on the
    elements as this panel's behaviour and test hooks, with no geometry here. */

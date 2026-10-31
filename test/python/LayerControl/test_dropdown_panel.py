@@ -18,35 +18,17 @@ import json
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, panel_ready, use_page
+from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import HeatmapControl, LayerControl
 
-STATE = """() => {
-  const rowPanel = document.querySelector('.foliplus-layer-ctrl');
-  const drawer = document.querySelector('.foliplus-layer-style-panel');
-  return {
-    rowPanelExpanded: rowPanel ? rowPanel.classList.contains('foliplus-is-expanded') : null,
-    drawerVisible: !!drawer && drawer.getBoundingClientRect().height > 0,
-    openLists: [...document.querySelectorAll('.foliplus-dropdown-list')].filter(l => !l.hidden).length,
-  };
-}"""
+STATE = snippet("layer/dropdown_state")
 
-FIRST_TRIGGER = """() => {
-  const drawer = document.querySelector('.foliplus-layer-style-panel');
-  const el = drawer ? drawer.querySelector('.foliplus-dropdown-trigger') : null;
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
-}"""
 
-FIRST_OPTION = """() => {
-  const list = [...document.querySelectorAll('.foliplus-dropdown-list')].find(l => !l.hidden);
-  const option = list ? list.querySelector('.foliplus-dropdown-option:not([disabled])') : null;
-  if (!option) return null;
-  const r = option.getBoundingClientRect();
-  return { label: (option.textContent || '').trim(), x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
-}"""
+FIRST_TRIGGER = snippet("layer/dropdown_first_trigger")
+
+
+FIRST_OPTION = snippet("layer/dropdown_first_option")
 
 
 def _make_page(browser, tmp_path):
@@ -150,19 +132,15 @@ class TestStyleDrawerDropdownBrowser:
             panel_ready(page)
             page.evaluate(_js("LayerControl/rename_first_layer"))
             page.wait_for_timeout(250)
-            assert page.evaluate(
-                "() => !!document.querySelector('.foliplus-layer-rename-input')"
-            ), "the rename input did not open"
+            assert page.evaluate(snippet("layer/has_rename_input")), (
+                "the rename input did not open"
+            )
 
             opened = page.evaluate(_js("LayerControl/open_style_panel"))
             assert opened["ok"], opened
             page.wait_for_timeout(250)
-            assert page.evaluate(
-                "() => !!document.querySelector('.foliplus-layer-style-panel')"
-            )
-            assert not page.evaluate(
-                "() => !!document.querySelector('.foliplus-layer-rename-input')"
-            ), (
+            assert page.evaluate(snippet("layer/has_style_panel"))
+            assert not page.evaluate(snippet("layer/has_rename_input")), (
                 "opening the style drawer left the row rename live; the popup's "
                 "window-capture Escape could then steal the rename's cancel"
             )
@@ -186,25 +164,14 @@ class TestStyleDrawerDropdownBrowser:
             panel_ready(page)
             page.evaluate(_js("LayerControl/rename_first_layer"))
             page.wait_for_timeout(250)
-            assert page.evaluate(
-                "() => !!document.querySelector('.foliplus-layer-rename-input')"
-            ), "the rename input did not open"
-
-            toggle = page.evaluate(
-                """() => {
-                  const el = document.querySelector(
-                    '.foliplus-heatmap-ctrl .foliplus-toggle-btn'
-                  );
-                  const r = el.getBoundingClientRect();
-                  return { x: Math.round(r.left + r.width / 2),
-                           y: Math.round(r.top + r.height / 2) };
-                }"""
+            assert page.evaluate(snippet("layer/has_rename_input")), (
+                "the rename input did not open"
             )
+
+            toggle = page.evaluate(snippet("layer/dropdown_heatmap_toggle"))
             page.mouse.click(toggle["x"], toggle["y"])
             page.wait_for_timeout(300)
-            assert not page.evaluate(
-                "() => !!document.querySelector('.foliplus-layer-rename-input')"
-            ), (
+            assert not page.evaluate(snippet("layer/has_rename_input")), (
                 "a real press on another panel left the row rename live; the "
                 "popup's window-capture Escape could then steal the rename cancel"
             )
@@ -233,13 +200,8 @@ class TestStyleDrawerDropdownBrowser:
 
 _GEOMETRY = _js("LayerControl/read_fill_row_geometry")
 
-_TO_RAMP = """() => {
-  const select = document.querySelector('.foliplus-style-fill-mode-select');
-  if (!select) return false;
-  select.value = 'ramp';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
-  return true;
-}"""
+_TO_RAMP = snippet("layer/dropdown_to_ramp")
+
 
 # The English method name is what breaks the row: 93px of nowrap text in a
 # 104px control, next to the fixed 52px class count. Chinese is the geometry

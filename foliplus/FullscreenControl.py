@@ -30,10 +30,12 @@ class FullscreenControl(BaseControl):
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import FullscreenControl
-    >>> m = folium.Map()
-    >>> FullscreenControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import FullscreenControl
+        >>> m = folium.Map()
+        >>> FullscreenControl().add_to(m)
     """
 
     def __init__(

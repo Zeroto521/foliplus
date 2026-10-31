@@ -394,6 +394,31 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
+    it("Escape from <body> closes the topmost menu and clears the cursor", () => {
+      // A pointer-opened menu leaves focus on its first item, but a
+      // programmatic open or a click that blurs can park focus on <body>.
+      // Escape is a layer-stack key, so the registry must still close it.
+      const overlay = findItem(ui, "overlay1");
+      const menuBtn = overlay.querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
+
+      ui.setActiveItem(indexFor("overlay1"));
+      menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        }),
+      );
+
+      expect(ui.overlayPanel.activeMenu).toBeNull();
+      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
+    });
+
     it("Escape finishes an inline rename and clears the cursor", () => {
       // The cursor must be on the row before the rename opens, otherwise
       // finishRename() re-syncs the cursor off the row and Escape has no
@@ -914,7 +939,9 @@ describe("LayerUI keyboard", () => {
       expect(ui.overlayPanel.activeMenu).not.toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
 
-      ui.handleKeyDown(keyEvent("Escape"));
+      // Real keydown: Escape is owned by the overlay registry now, so a direct
+      // ui.handleKeyDown() call would bypass the dispatcher under test.
+      pressKey(more as HTMLElement, "Escape");
       expect(ui.overlayPanel.activeMenu).toBeNull();
     });
   });
@@ -1223,17 +1250,54 @@ describe("LayerUI keyboard", () => {
       expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
     });
 
-    it("Enter on an open menu item runs the action", () => {
+    it("a focused menu button’s Enter fires one click that runs the action", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const li = attachedPanel(ui).querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       expect(li).not.toBeNull();
       const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
       li.focus();
-      ui.handleKeyDown(keyEvent("Enter"));
+      li.click();
       expect(focusLayer).toHaveBeenCalled();
+    });
+
+    // Negative control for the single-dispatch contract: a focused menu
+    // <button> owns Enter/Space natively, so handleKeyDown must NOT re-run
+    // the action on Enter. If the keyboard branch ever re-takes Enter, this
+    // test goes red (handleKeyDown would call focusLayer before the native
+    // click does — the "second dispatch" the native button was meant to kill).
+    it("handleKeyDown does not re-run a menu action on Enter (native button owns it)", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = attachedPanel(ui).querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      // Enter on the focused button is the button’s activation key — the
+      // interaction manager stands aside and only the native click fires. A
+      // manual dispatch here would be a second, competing run of the action.
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(focusLayer).not.toHaveBeenCalled();
+      // The native click is the one legitimate dispatch; it does run the action.
+      li.click();
+      expect(focusLayer).toHaveBeenCalledTimes(1);
+    });
+
+    it("an Arrow key on a focused menu button routes through the menu branch", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = attachedPanel(ui).querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.focus();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      // The menu keyboard branch is arrow-only: ArrowLeft/ArrowRight still reach the
+      // shared dispatch table (the button owns Enter/Space, not the arrows).
+      ui.handleKeyDown(keyEvent("ArrowLeft"));
+      expect(focusLayer).toHaveBeenCalledWith("overlay1");
     });
 
     it("Alt+Enter focuses the navigated layer row", () => {

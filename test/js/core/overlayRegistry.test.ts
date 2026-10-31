@@ -213,13 +213,20 @@ describe("OverlayRegistry", () => {
       expect(installed("keydown")).toBe(1);
     });
 
-    it("a click entry installs the bubble click listener and Escape only", () => {
+    it("a click entry installs the capture and bubble click listeners and Escape", () => {
       registry.register(
         makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
       );
-      expect(installed("click")).toBe(1);
+      // Two halves, one phase: capture decides outside presses (a target's
+      // own stopPropagation cannot hide them), bubble decides inside ones.
+      expect(installed("click")).toBe(2);
       expect(installed("mousedown")).toBe(0);
       expect(installed("keydown")).toBe(1);
+      const captures = addSpy.mock.calls
+        .filter((call: unknown[]) => call[0] === "click")
+        .map((call: unknown[]) => call[2] ?? false)
+        .sort();
+      expect(captures).toEqual([false, true]);
     });
 
     it("removes each listener type independently when its last entry goes away", () => {
@@ -241,7 +248,7 @@ describe("OverlayRegistry", () => {
       const unregisterClick = registry.register(click.entry);
 
       unregisterClick();
-      expect(removed("click")).toBe(1);
+      expect(removed("click")).toBe(2);
       expect(removed("mousedown")).toBe(0);
       // The Escape listener is driven by live entry count, not by phase.
       expect(removed("keydown")).toBe(0);
@@ -258,6 +265,21 @@ describe("OverlayRegistry", () => {
       expect(remove?.[2]).toBe(true);
     });
 
+    it("removes the click capture listener with its capture flag", () => {
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
+      );
+      registry.destroy();
+      const clickAdds = addSpy.mock.calls.filter(
+        (call: unknown[]) => call[0] === "click",
+      );
+      const clickRemoves = removeSpy.mock.calls.filter(
+        (call: unknown[]) => call[0] === "click",
+      );
+      expect(clickAdds.some((call: unknown[]) => call[2] === true)).toBe(true);
+      expect(clickRemoves.some((call: unknown[]) => call[2] === true)).toBe(true);
+    });
+
     it("destroy removes every installed listener and is idempotent", () => {
       registry.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
       registry.register(
@@ -266,7 +288,7 @@ describe("OverlayRegistry", () => {
       registry.destroy();
       registry.destroy();
       expect(removed("mousedown")).toBe(1);
-      expect(removed("click")).toBe(1);
+      expect(removed("click")).toBe(2);
       expect(removed("keydown")).toBe(1);
       // No listener survives: a press has no effect.
       const outside = panel();
@@ -438,7 +460,7 @@ describe("OverlayRegistry", () => {
         panels: () => [panel("style")],
       });
       const dropdown = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         dismissOn: "click",
         pressPriority: 100,
         panels: () => [panel("picker")],
@@ -460,13 +482,13 @@ describe("OverlayRegistry", () => {
     it("consumes before closing: a nested consumer keeps its host open", () => {
       const outside = panel();
       const host = makeEntry({
-        id: OVERLAY_IDS.LAYER_FILTER,
-        pressPriority: 700,
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        pressPriority: 600,
         panels: () => [panel("host")],
       });
       const nested = makeEntry({
-        id: OVERLAY_IDS.LAYER_FILTER_ENUM,
-        pressPriority: 750,
+        id: OVERLAY_IDS.LAYER_FILTER,
+        pressPriority: 700,
         panels: () => [panel("nested")],
         consumePress: () => true,
       });
@@ -672,6 +694,29 @@ describe("OverlayRegistry", () => {
       press(row, "click");
       expect(fake.closeCalls).toHaveLength(0);
     });
+
+    it("dismisses an outside click even when the target stops propagation", () => {
+      const own = panel("own");
+      const fake = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        dismissOn: "click",
+        panels: () => [own],
+      });
+      registry.register(fake.entry);
+
+      // A collapsed control's toggle calls `L.DomEvent.stop(event)` on click,
+      // which stops the event before it reaches a document *bubble* listener.
+      // An outside press must not depend on that bubble surviving.
+      const toggle = panel("collapsed-toggle");
+      toggle.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+      });
+
+      press(toggle, "click");
+
+      expect(fake.closeCalls).toEqual([false]);
+      expect(registry.lastPressInside()).toBe(false);
+    });
   });
 
   // ───────────────────────────── escape ─────────────────────────────
@@ -699,24 +744,27 @@ describe("OverlayRegistry", () => {
   });
 
   describe("escape dispatch", () => {
-    it("leaves Escape alone and reports handled: false when no surface owns the target", () => {
-      // One open entry installs the dispatcher; the target (body) is outside
-      // every surface, so nothing owns the key.
-      registry.register(
-        makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS, panels: () => [panel()] }).entry,
-      );
+    it("closes the topmost open surface when no surface contains the target", () => {
+      // Escape is a layer-stack key: focus may sit on <body> (a menu opened by
+      // a pointer, a programmatic panel), so containment alone cannot decide.
+      const attrs = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        panels: () => [panel()],
+      });
+      registry.register(attrs.entry);
       const seen: EscapeHandled[] = [];
       registry.onEscapeHandled(payload => seen.push(payload));
       const event = escape(document.body);
 
+      expect(attrs.closeCalls).toEqual([true]);
       expect(seen).toHaveLength(1);
       expect(seen[0]).toMatchObject({
-        handled: false,
-        entryId: null,
+        handled: true,
+        entryId: OVERLAY_IDS.LAYER_ATTRS,
         target: document.body,
         origin: "capture",
       });
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
     });
 
     it("closes the owning entry once with restoreFocus and cancels the event", () => {
@@ -744,7 +792,34 @@ describe("OverlayRegistry", () => {
       ]);
     });
 
-    it("closes the owning surface, not the highest-ranked open one (style + picker)", () => {
+    it("closes an open picker before the menu that opened it", () => {
+      const menuPanel = panel("menu");
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [menuPanel],
+        dismissOn: "click",
+      });
+      // The picker popup is portalled, so its entry owns no panel: Escape is
+      // ordered by ESC_PRIORITY, not by which surface contains the focus.
+      const picker = makeEntry({
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
+        panels: () => [],
+        dismissOn: "click",
+      });
+      registry.register(menu.entry);
+      registry.register(picker.entry);
+
+      // Focus still on the menu (the action that opened the picker leaves it
+      // there): the popup ranks above the menu, so it must close alone first.
+      escape(child(menuPanel));
+      expect(picker.closeCalls).toHaveLength(1);
+      expect(menu.closeCalls).toHaveLength(0);
+
+      escape(child(menuPanel));
+      expect(menu.closeCalls).toHaveLength(1);
+    });
+
+    it("closes the highest-ranked open surface even when focus sits lower (style + picker)", () => {
       const stylePanel = panel("style");
       const pickerPortal = panel("picker-portal");
       const style = makeEntry({
@@ -752,7 +827,7 @@ describe("OverlayRegistry", () => {
         panels: () => [stylePanel],
       });
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [],
       });
       registry.register(style.entry);
@@ -760,14 +835,14 @@ describe("OverlayRegistry", () => {
       // The picker's list belongs to the style panel's trigger here.
       portalReleases.push(registerPortalRoot(pickerPortal, child(stylePanel)));
 
-      // A press inside the style panel is owned by style, even though the
-      // picker ranks higher and is not contained by it.
+      // Focus inside the style panel but the picker popup is the top layer:
+      // Escape must close only the picker, never tear the drawer down too.
       escape(child(stylePanel));
-      expect(style.closeCalls).toHaveLength(1);
-      expect(picker.closeCalls).toHaveLength(0);
+      expect(picker.closeCalls).toHaveLength(1);
+      expect(style.closeCalls).toHaveLength(0);
     });
 
-    it("lets the higher-ranked entry own a target both contain (picker portal)", () => {
+    it("closes the higher-ranked entry when both contain the target (picker portal)", () => {
       const stylePanel = panel("style");
       // The picker's trigger lives inside the picker's own nested surface, so
       // both entries contain the portalled row and the ranking decides.
@@ -778,7 +853,7 @@ describe("OverlayRegistry", () => {
         panels: () => [stylePanel],
       });
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [pickerPanel],
       });
       registry.register(style.entry);
@@ -790,7 +865,7 @@ describe("OverlayRegistry", () => {
       expect(style.closeCalls).toHaveLength(0);
     });
 
-    it("closes a nested panel when the menu above it does not own the target", () => {
+    it("closes the menu above a lower panel, one layer per Escape", () => {
       const menuPanel = panel("menu");
       const stylePanel = panel("style");
       const menu = makeEntry({
@@ -806,8 +881,71 @@ describe("OverlayRegistry", () => {
       registry.register(style.entry);
 
       escape(child(stylePanel));
-      expect(style.closeCalls).toHaveLength(1);
-      expect(menu.closeCalls).toHaveLength(0);
+      expect(menu.closeCalls).toHaveLength(1);
+      expect(style.closeCalls).toHaveLength(0);
+    });
+
+    it("closes exactly one layer per Escape when only one is open", () => {
+      const own = panel("only");
+      const entry = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        panels: () => [own],
+      });
+      registry.register(entry.entry);
+
+      escape(child(own));
+      expect(entry.closeCalls).toEqual([true]);
+
+      // A second Escape has nothing left to close: it reports unhandled and
+      // must not call close again.
+      escape(child(own));
+      expect(entry.closeCalls).toEqual([true]);
+    });
+
+    it("walks a three-layer stack by ESC_PRIORITY, one layer per press", () => {
+      const attrsPanel = panel("attrs");
+      const menuPanel = panel("menu");
+      const attrs = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        panels: () => [attrsPanel],
+      });
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [menuPanel],
+        dismissOn: "click",
+      });
+      const picker = makeEntry({
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
+        panels: () => [],
+        dismissOn: "click",
+      });
+      // Register in reverse priority order: the rank table, not insertion
+      // order, decides the stack.
+      registry.register(attrs.entry);
+      registry.register(menu.entry);
+      registry.register(picker.entry);
+
+      // Focus stays in the lowest layer for every press.
+      escape(child(attrsPanel));
+      expect(picker.closeCalls).toEqual([true]);
+      expect(menu.closeCalls).toEqual([]);
+      expect(attrs.closeCalls).toEqual([]);
+
+      escape(child(attrsPanel));
+      expect(picker.closeCalls).toEqual([true]);
+      expect(menu.closeCalls).toEqual([true]);
+      expect(attrs.closeCalls).toEqual([]);
+
+      escape(child(attrsPanel));
+      expect(picker.closeCalls).toEqual([true]);
+      expect(menu.closeCalls).toEqual([true]);
+      expect(attrs.closeCalls).toEqual([true]);
+
+      // Empty stack: no fourth close.
+      escape(child(attrsPanel));
+      expect(picker.closeCalls).toEqual([true]);
+      expect(menu.closeCalls).toEqual([true]);
+      expect(attrs.closeCalls).toEqual([true]);
     });
 
     it("does not handle Escape when the owner cannot close", () => {
@@ -886,6 +1024,7 @@ describe("OverlayRegistry", () => {
           entryId: OVERLAY_IDS.LAYER_RENAME,
           target: input,
           origin: "capture",
+          clearsCursorOnClose: true,
         },
       ]);
     });
@@ -1072,7 +1211,7 @@ describe("OverlayRegistry", () => {
         exclusiveGroup: "layer-control",
       });
       const other = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         exclusiveGroup: "picker",
       });
       registry.register(first.entry);
@@ -1095,7 +1234,8 @@ describe("OverlayRegistry", () => {
       registry.register(menu.entry);
       expect(registry.topmost()).toBe(menu.entry);
       escape(child(panel("x")));
-      expect(registry.topmost()).toBe(menu.entry);
+      expect(menu.closeCalls).toHaveLength(1);
+      expect(registry.topmost()).toBe(style.entry);
     });
   });
 });
