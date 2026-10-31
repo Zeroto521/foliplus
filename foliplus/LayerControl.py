@@ -20,6 +20,13 @@ from .locale import LocaleConfig
 _FOLIUM_COLOR_PROP = "__folium_color"
 
 _log = logging.getLogger(__name__)
+
+# Captions already reported as refused, so re-rendering a page does not repeat
+# the same line for the same data: one refused caption is a signal, and a
+# two-layer map measured 16 identical warnings. The set is a log filter, not
+# Each entry is (caption, criterion, hits, total): criterion names the
+# test that refused the caption, so the two arms de-duplicate separately.
+_refused_captions: set[tuple[str, str, int, int]] = set()
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
@@ -352,12 +359,6 @@ def _pair_scale(
         return colormap, caption
     return None
 
-
-# Captions already reported as refused, so re-rendering a page does not repeat
-# the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. The set is a log filter, not
-# state — it is cleared rather than grown when a long process renders many maps.
-_refused_captions: set[tuple[str, str, int, int]] = set()
 
 
 def _warn_refused_caption(
