@@ -420,8 +420,14 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   if (cap) reconcile(ui, state, hooks, cap);
 
   // Header click dismisses, matching `attr.ts` — the × sits inside the
-  // header, so one listener covers both.
-  header.addEventListener("click", () => closeFilterPanel(ui, true));
+  // header, so one listener covers both. The press is stopped here (the same
+  // guarantee as the ⋮ menu): closing the panel removes it mid-dispatch, so
+  // the click would otherwise keep walking its original path with no live
+  // control ancestor and land on the map.
+  header.addEventListener("click", e => {
+    e.stopPropagation();
+    closeFilterPanel(ui, true);
+  });
 
   // The panel sits inside a draggable layer row: a press on the panel
   // must neither start a row drag nor inherit `user-select: none`. The

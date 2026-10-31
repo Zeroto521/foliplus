@@ -570,6 +570,38 @@ def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
     assert "scale" not in meta
 
 
+def test_a_refused_stepped_caption_reports_block_membership(caplog):
+    # The stepped arm tests exact block membership, so the refusal message
+    # must name it: features carry none of this scale's blocks.
+    scale = _stepped(caption="membership_probe")
+    colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
+    with caplog.at_level("WARNING", logger="foliplus.LayerControl"):
+        _meta(
+            _geo(colors, column="membership_probe", values=[20.0] * len(colors)),
+            scale,
+        )
+
+    assert "carry one of its blocks" in caplog.text
+    assert "match its colors" not in caplog.text
+
+
+def test_a_refused_continuous_caption_reports_color_match(caplog):
+    # The continuous arm tests the color-match ratio, so the refusal message
+    # must name that instead of block membership.
+    scale = _linear(
+        ("#440154", "#fde725"), caption="color_match_probe", vmin=0, vmax=100
+    )
+    colors = ["#0d0887", "#6a00a8", "#f0f921"]
+    with caplog.at_level("WARNING", logger="foliplus.LayerControl"):
+        _meta(
+            _geo(colors, column="color_match_probe", values=[1.0, 2.0, 3.0]),
+            scale,
+        )
+
+    assert "match its colors" in caplog.text
+    assert "carry one of its blocks" not in caplog.text
+
+
 def test_affine_equivalent_columns_are_claimed_by_render_order():
     scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
     values = [10.0, 40.0, 90.0]
