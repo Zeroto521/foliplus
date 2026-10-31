@@ -706,7 +706,7 @@ class LayerControl(BaseControl):
     panel wins, then the declaration, then the author's per-feature paint
     (``explore``'s baked colors) and finally the built-in default. Reset
     returns to the declared ramp. An invalid declaration only warns and falls
-    back; it never paints a ramp the author did not ask for.
+    back; it is dropped rather than painted.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
