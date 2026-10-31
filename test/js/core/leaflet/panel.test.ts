@@ -929,6 +929,25 @@ describe("pinRowPanel", () => {
     expect(panel.style.top).toBe("248px");
   });
 
+  it("shrinks the card when the map is narrower than the card", () => {
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 200, height: 400 });
+    stubBox(row, { top: 200, left: 110, width: 180, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+
+    // 200px map - 2 * 8px edge. The card aligns to the map's left edge.
+    expect(panel.style.maxWidth).toBe("184px");
+    expect(panel.style.left).toBe("108px");
+  });
+
   it("holds the floor inside the map's top edge on a short map", () => {
     // 8px below, 58px above, 300px of content: the flip lands on the wider
     // strip but the 120px floor is taller than it, so the top clamps to the
@@ -947,6 +966,10 @@ describe("pinRowPanel", () => {
     pinRowPanel(panel, row);
 
     expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    // 100px map - 2 * 8px edge: the 120px floor shrinks to the usable box.
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "84px",
+    );
     expect(panel.style.top).toBe("108px");
   });
 

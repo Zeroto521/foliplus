@@ -86,10 +86,17 @@
   left: 0;
   right: auto;
   z-index: var(--foliplus-z-index-floating);
+  /* `placeRowPanel` owns the gap; the in-flow row-panel margin would add to the
+     measured top and make the card overflow the cap by that amount. */
+  margin-top: 0;
   /* The card is fixed but still a DOM child of the layer list's scroll box, so
      a wheel over it would chain to the list and move the row (and the card
      with it) beneath the pointer. Keep the scroll inside the card. */
   overscroll-behavior: contain;
+  /* `.foliplus-panel-content` is the scroll container for a pinned card; the
+     outer box must not become a second one (menu.css sets overflow-y: auto on
+     every `.foliplus-row-panel` for the absolute fallback). */
+  overflow-y: hidden;
 }
 
 /* ── Container ── */

@@ -317,10 +317,11 @@ const createPanelHeader = (opts: {
   return header;
 };
 
-/** Smallest height the row panel is allowed to compress to when the anchor has
+/** Preferred smallest height the row panel compresses to when the anchor has
  *  too little room on either side — below this the panel would hide more
  *  content than it shows, so the fallback is "fit the visible strip" with an
- *  internal scroll on the content. */
+ *  internal scroll on the content. A map shorter than the floor shrinks it
+ *  further; see `fitRowPanel`. */
 const ROW_PANEL_MIN_HEIGHT = 120;
 /** Gap between the anchor row and a pinned card. */
 const ROW_PANEL_GAP = 2;
@@ -374,7 +375,11 @@ const fitRowPanel = (
 
   const flipUp = below < natural && above > below;
   const room = Math.max(0, flipUp ? above : below);
-  const cap = Math.max(ROW_PANEL_MIN_HEIGHT, Math.min(natural, room));
+  // The floor is a comfort minimum, not a promise to overflow a map shorter
+  // than it: cap it to the box's own usable height first.
+  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
+  const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
+  const cap = Math.max(floor, Math.min(natural, room));
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
   panel.classList.toggle(ROW_PANEL_UP_CLASS, flipUp);
@@ -515,13 +520,19 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   const card = panel.getBoundingClientRect();
   const bounds = visibleRowPanelBounds(panel);
 
+  // A map narrower than the card shrinks the card to the usable width; the
+  // placement then aligns that narrower box. Without this a phone-width map
+  // would still paint the full panel width off screen.
+  const availableWidth = bounds.right - bounds.left - ROW_PANEL_EDGE * 2;
+  const width = availableWidth > 0 ? Math.min(card.width, availableWidth) : card.width;
+  if (width < card.width) panel.style.maxWidth = `${width}px`;
+  else panel.style.removeProperty("max-width");
+
   // Right-aligned with the row, like the card's original `right: 0` anchor,
-  // clamped to the same box the vertical fit uses. If the map is narrower than
-  // the card, the min wins and the card overflows to the right; width clamping
-  // belongs to the panel recipe, not the placement math.
+  // clamped to the same box the vertical fit uses.
   const minLeft = bounds.left + ROW_PANEL_EDGE;
-  const maxLeft = bounds.right - card.width - ROW_PANEL_EDGE;
-  const left = Math.max(minLeft, Math.min(row.right - card.width, maxLeft));
+  const maxLeft = bounds.right - width - ROW_PANEL_EDGE;
+  const left = Math.max(minLeft, Math.min(row.right - width, maxLeft));
   panel.style.left = `${left}px`;
 
   const fit = fitRowPanel(panel, anchor, bounds, ROW_PANEL_GAP);
@@ -548,6 +559,7 @@ const resetPinnedPanel = (panel: HTMLElement): void => {
   // fixed position.
   panel.style.removeProperty("top");
   panel.style.removeProperty("left");
+  panel.style.removeProperty("max-width");
 };
 
 /** Re-place every open card. Document-level capture, so a scroll inside the
