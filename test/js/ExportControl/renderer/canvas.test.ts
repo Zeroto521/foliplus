@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   renderCanvasElement,
+  renderCanvasSnapshot,
   renderPaneCanvas,
+  snapshotPaneCanvases,
 } from "#foliplus/ExportControl/renderer/canvas.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 import {
@@ -237,5 +239,183 @@ describe("renderCanvasElement / renderPaneCanvas — branch edges", () => {
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
     await renderPaneCanvas(makeRenderer().container, positionedRC(100, 100, ctx), p);
     expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe("snapshotPaneCanvases", () => {
+  const labelPane = () => {
+    const p = document.createElement("div");
+    p.className = "leaflet-map-pane foliplus-label-pane";
+    return p;
+  };
+
+  const labelCanvas = (left: number, top: number, width: number, height: number) => {
+    const ce = document.createElement("canvas");
+    ce.className = "foliplus-label-canvas";
+    pinBox(ce, left, top, width, height);
+    ce.toDataURL = () => "data:image/png;base64,LABEL";
+    return ce;
+  };
+
+  it("snapshots a label canvas with its geometry and opacity", () => {
+    const p = labelPane();
+    const ce = labelCanvas(10, 10, 200, 200);
+    ce.style.opacity = "0.5";
+    p.appendChild(ce);
+    const rc = positionedRC(1000, 1000, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(1);
+    expect(snap.snaps).toHaveLength(1);
+    expect(snap.snaps[0].dataUrl).toBe("data:image/png;base64,LABEL");
+    expect(snap.snaps[0].dx).toBe(10);
+    expect(snap.snaps[0].dy).toBe(10);
+    expect(snap.snaps[0].dw).toBe(200);
+    expect(snap.snaps[0].dh).toBe(200);
+    expect(snap.snaps[0].opacity).toBe(0.5);
+  });
+
+  it("does not count a canvas outside the crop as seen", () => {
+    // A canvas fully outside the crop is not a label this export is expected
+    // to carry, so it must not be held (which would report a loss).
+    const p = labelPane();
+    p.appendChild(labelCanvas(5000, 5000, 50, 50));
+    const rc = positionedRC(100, 100, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(0);
+    expect(snap.snaps).toHaveLength(0);
+  });
+
+  it("does not count a zero-area canvas as seen", () => {
+    const p = labelPane();
+    p.appendChild(labelCanvas(0, 0, 0, 0));
+    const rc = positionedRC(100, 100, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(0);
+    expect(snap.snaps).toHaveLength(0);
+  });
+
+  it("marks a canvas whose toDataURL throws as held but not serialized", () => {
+    const p = labelPane();
+    const ce = labelCanvas(10, 10, 200, 200);
+    ce.toDataURL = () => {
+      throw new Error("boom");
+    };
+    p.appendChild(ce);
+    const rc = positionedRC(1000, 1000, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    // The canvas is inside the crop with real size, so the caller must report
+    // a loss (held 1, snaps empty) rather than "no labels".
+    expect(snap.held).toBe(1);
+    expect(snap.snaps).toHaveLength(0);
+  });
+
+  it("skips a canvas self-marked data-foliplus-export=exclude", () => {
+    const p = labelPane();
+    const ce = labelCanvas(10, 10, 200, 200);
+    ce.setAttribute("data-foliplus-export", "exclude");
+    p.appendChild(ce);
+    const rc = positionedRC(1000, 1000, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(0);
+    expect(snap.snaps).toHaveLength(0);
+  });
+
+  it("returns an empty result for a pane with no canvas", () => {
+    const p = labelPane();
+    const rc = positionedRC(1000, 1000, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(0);
+    expect(snap.snaps).toHaveLength(0);
+  });
+
+  it("counts a pane where one of two canvases failed to serialize as a partial loss", () => {
+    // Two canvases inside the crop; one toDataURL throws. The pane held two
+    // labels this export should carry, but only one serialized — a partial
+    // loss, which held > snaps.length lets the caller report.
+    const p = labelPane();
+    p.appendChild(labelCanvas(10, 10, 200, 200));
+    const broken = labelCanvas(300, 10, 200, 200);
+    broken.toDataURL = () => {
+      throw new Error("boom");
+    };
+    p.appendChild(broken);
+    const rc = positionedRC(1000, 1000, makeMockCtx());
+
+    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+
+    expect(snap.held).toBe(2);
+    expect(snap.snaps).toHaveLength(1);
+  });
+});
+
+describe("renderCanvasSnapshot", () => {
+  const snap = (
+    overrides: Partial<Parameters<typeof renderCanvasSnapshot>[1]> = {},
+  ) => ({
+    dataUrl: "data:image/png;base64,LABEL",
+    dx: 10,
+    dy: 10,
+    dw: 200,
+    dh: 40,
+    opacity: 1,
+    ...overrides,
+  });
+
+  it("draws the frozen pixels at the snapshot geometry", async () => {
+    const ctx = makeMockCtx();
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    await renderCanvasSnapshot(positionedRC(1000, 1000, ctx), snap());
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies opacity via ctx.globalAlpha when less than 1", async () => {
+    const ctx = makeMockCtx();
+    ctx.globalAlpha = 1;
+    let alphaDuringDraw = 0;
+    ctx.drawImage = vi.fn(() => {
+      alphaDuringDraw = ctx.globalAlpha;
+    });
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    await renderCanvasSnapshot(positionedRC(1000, 1000, ctx), snap({ opacity: 0.5 }));
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(alphaDuringDraw).toBe(0.5);
+    expect(ctx.globalAlpha).toBe(1);
+  });
+
+  it("draws nothing when the data URL cannot load", async () => {
+    const ctx = makeMockCtx();
+    vi.spyOn(UTIL, "loadImage").mockRejectedValue(new Error("boom"));
+    await renderCanvasSnapshot(positionedRC(1000, 1000, ctx), snap());
+
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it("draws at the snapshot geometry even if the crop grew after capture", async () => {
+    // Design test-plan item 4: the geometry is frozen at snapshot time, so a
+    // grow/setView on the enlarged path after the snapshot cannot move the
+    // label out from under the pixels. The snapshot's dx/dy/dw/dh are what is
+    // drawn, regardless of the live container rect at pass time.
+    const ctx = makeMockCtx();
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    const rc = positionedRC(1000, 1000, ctx);
+    // Grow the crop after the snapshot was taken (simulate the enlarged path).
+    rc.rect = { left: -100, top: -100, width: 1200, height: 1200 } as DOMRect;
+    await renderCanvasSnapshot(rc, snap());
+
+    expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 10, 10, 200, 40);
   });
 });

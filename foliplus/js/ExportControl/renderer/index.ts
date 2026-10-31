@@ -14,7 +14,6 @@ import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import {
-  type CanvasSnapshot,
   type PaneSnapshot,
   renderCanvasElement,
   renderCanvasSnapshot,
@@ -427,7 +426,7 @@ class ExportRenderer {
             // the pane no longer holds because a refresh recreated it. A pane
             // that declared labels but never had a canvas (labels off) is NOT
             // a loss and must not be reported.
-            if (snapshot.sawCanvas && snapshot.snaps.length === 0) {
+            if (snapshot.held > snapshot.snaps.length) {
               labelCanvasesMissing.push(info.id);
             }
             for (const snap of snapshot.snaps) {

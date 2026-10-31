@@ -56,35 +56,7 @@ class TestExportLabelCanvasBrowser:
             # snapshot ran before the teardown, so the export still draws the
             # labels the user saw — this is the assertion that used to fail
             # silently on the live-canvas read.
-            page.evaluate(
-                """() => {
-                  let armed = false;
-                  window.__labelTornDown = false;
-                  const tearDown = () => {
-                    if (window.__labelTornDown) return;
-                    window.__labelTornDown = true;
-                    window.__layerCtrl.mgr.annotation.unloadLayer("__export_ann__");
-                  };
-                  const arm = () => {
-                    if (armed) return;
-                    armed = true;
-                    tearDown();
-                  };
-                  const OrigImage = window.Image;
-                  window.Image = function (...a) {
-                    arm();
-                    return new OrigImage(...a);
-                  };
-                  window.Image.prototype = OrigImage.prototype;
-                  const origBitmap = window.createImageBitmap;
-                  if (origBitmap) {
-                    window.createImageBitmap = (...a) => {
-                      arm();
-                      return origBitmap.apply(window, a);
-                    };
-                  }
-                }"""
-            )
+            page.evaluate(_js("ExportControl/arm_label_teardown"))
 
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
@@ -92,7 +64,7 @@ class TestExportLabelCanvasBrowser:
             )
             page.wait_for_timeout(2000)
 
-            assert page.evaluate("() => window.__labelTornDown") is True, (
+            assert page.evaluate(_js("ExportControl/read_label_teardown")) is True, (
                 "the label teardown never fired inside the render window"
             )
 

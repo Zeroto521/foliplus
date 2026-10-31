@@ -978,7 +978,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
           opacity: 1,
         },
       ],
-      sawCanvas: true,
+      held: 1,
     });
     const draw = vi.spyOn(CANVAS, "renderCanvasSnapshot").mockResolvedValue(undefined);
 
@@ -1064,6 +1064,71 @@ describe("ExportRenderer.render — layer pass routing", () => {
     // time and draws CLEARED — the assertion fails (red), proving the race.
     expect(loaded).toContain(PAINTED);
     expect(loaded).not.toContain(CLEARED);
+  });
+
+  it("snapshots the label pane at the enlarged geometry when the map was grown before the export", async () => {
+    // Design test-plan item 4 (enlarged path): the map container is grown and
+    // setView happens before the export, so the crop is larger than the
+    // default 1000x1000. The snapshot must be taken with the CURRENT (enlarged)
+    // geometry, not a stale one captured earlier — otherwise labels in the
+    // grown band would fall outside the crop and be dropped.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-label-pane";
+    const annCanvas = document.createElement("canvas");
+    annCanvas.className = "foliplus-label-canvas";
+    // The label sits in the grown band: beyond the old 1000x1000 crop.
+    pinBox(annCanvas, 1200, 1200, 80, 40);
+    labelPane.appendChild(annCanvas);
+    map.getPane = (name: string) =>
+      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
+    map.foliplus = {
+      LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
+    };
+    // Grow the container before the export (the enlarge+setView path).
+    const container = map.getContainer();
+    container.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 2000,
+        height: 2000,
+        right: 2000,
+        bottom: 2000,
+      }) as DOMRect;
+    const renderer = new ExportRenderer(map);
+
+    const snap = vi.spyOn(CANVAS, "snapshotPaneCanvases").mockReturnValue({
+      snaps: [
+        {
+          dataUrl: "data:image/png;base64,PAINTED",
+          dx: 1200,
+          dy: 1200,
+          dw: 80,
+          dh: 40,
+          opacity: 1,
+        },
+      ],
+      held: 1,
+    });
+    const draw = vi.spyOn(CANVAS, "renderCanvasSnapshot").mockResolvedValue(undefined);
+
+    await renderer.render(
+      { left: 0, top: 0, width: 2000, height: 2000 },
+      1,
+      undefined,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      vi.fn(),
+    );
+
+    // The snapshot was taken at the enlarged crop and its geometry is what the
+    // label pass draws (the frozen dx/dy from the enlarged rect).
+    expect(snap).toHaveBeenCalled();
+    expect(draw).toHaveBeenCalled();
+    expect(draw.mock.calls[0][1]).toMatchObject({ dx: 1200, dy: 1200 });
   });
 
   it("runs the four marker passes when the layer's panes hold markers", async () => {
@@ -1290,8 +1355,8 @@ describe("ExportRenderer.render — layer pass routing", () => {
   it("does not report a label pane that declares labels but holds no canvas", async () => {
     // A layer with the label capability but labels off (show=false) has a pane
     // but no canvas. That is "no labels in this export", not a loss: reporting
-    // it would warn on every such export. The loss criterion is sawCanvas &&
-    // snaps empty, and an empty pane is sawCanvas=false.
+    // it would warn on every such export. The loss criterion is held >
+    // snaps.length, and an empty pane holds 0 canvases.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,
     );
