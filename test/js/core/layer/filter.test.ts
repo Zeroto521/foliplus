@@ -542,6 +542,19 @@ describe("pickFilterField / buildFilterModel", () => {
     expect(bare).toMatchObject({ fieldLabel: "Field", label: "" });
     expect(bare.field).toBe("a");
   });
+  it("omits the field row when the owner provides no fieldLabel", () => {
+    // The Heatmap chooses its aggregation field in the panel body, so it
+    // passes no fieldLabel and the range dimension carries no field row.
+    const dim = buildFilterModel(snap, undefined, "a")!.dimensions[0];
+    expect(dim).toMatchObject({ kind: "range", field: "a", label: "" });
+    expect("fieldLabel" in dim).toBe(false);
+  });
+
+  it("keeps the field row when the owner provides a fieldLabel", () => {
+    // A provided caption is a localized word, never the raw field name.
+    const dim = buildFilterModel(snap, undefined, "a", "Field")!.dimensions[0];
+    expect(dim).toMatchObject({ fieldLabel: "Field" });
+  });
 });
 
 describe("parsePersistedFilter / parsePersistedFilters", () => {

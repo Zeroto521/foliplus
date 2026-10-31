@@ -49,8 +49,8 @@ class HeatmapControl(BaseControl):
        * - Escape (dropdown)
          - Close the dropdown without selecting
 
-    Parameters
-    ----------
+    Args
+    ----
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
@@ -154,12 +154,55 @@ class HeatmapControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
+    Notes
+    -----
+    **Filter arms.** The ``filter`` declaration has two shapes, one per control that
+    declares it. The range arm belongs to ``HeatmapControl`` and the enum arm to
+    ``MeasureControl``; each is normalised into the shared filter AST the runtime
+    already reads, so the panel shows exactly one condition row per declaration.
+
+    .. list-table::
+       :header-rows: 1
+
+       * - Arm
+         - Owner
+         - Declaration shape
+       * - Range
+         - ``HeatmapControl``
+         - ``{"field": ..., "between": [lo, hi]}``
+       * - Enum
+         - ``MeasureControl``
+         - ``["distance", "polygon", ...]``
+
+    **Three rules.**
+
+    - *API misuse.* A missing or non-string ``field`` raises ``ValueError`` in
+      the cell that wrote the declaration — a declaration that names nothing is
+      a programming error, not a filter state.
+    - *Data shape.* A field the panel does not filter, no numeric extent, a range
+      outside the data, or a non-numeric bound is reported once with a warning and
+      treated as undeclared — the layer is never silently filtered to empty.
+    - *Starting condition.* The declaration seeds the filter on the first open;
+      the user's own filter — including an explicit clear or a persisted record —
+      wins from then on. The panel's Clear is the factory Reset (it drops the saved
+      record, so a reload re-applies the declaration), whereas a user-write Clear
+      keeps the declaration out.
+
     Examples
     --------
     >>> import folium
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl().add_to(m)
+
+    With a declared starting filter on the aggregation field:
+
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(
+    ...     field="score", filter={"field": "score", "between": [10, 50]}
+    ... ).add_to(m)
     """
 
     @validate

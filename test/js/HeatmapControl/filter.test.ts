@@ -278,6 +278,20 @@ describe("HeatmapControl filter owner", () => {
     expect(m.getFilterModel()!.kept).toBe(1);
   });
 
+  it("renders no field row in the filter popup (the field is chosen in the panel body)", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 20 },
+    ]);
+    m.renderHexagons();
+    const dim = m.getFilterModel()!.dimensions[0];
+    // The Heatmap picks the aggregation field in the panel body (the rampForm
+    // Field row), so the filter popup must not repeat it: the range dimension
+    // carries no fieldLabel and renders only the condition row.
+    expect(dim.kind).toBe("range");
+    expect("fieldLabel" in dim).toBe(false);
+  });
+
   it("the step honours the data's decimals (no magic 1)", () => {
     setupWithPoints(m, [
       { lat: 26.08, lng: 119.3, value: 0.5 },

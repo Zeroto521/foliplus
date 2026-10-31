@@ -53,8 +53,8 @@ class MeasureControl(BaseControl):
        * - Escape
          - Exit the current measurement mode, or exit edit mode
 
-    Parameters
-    ----------
+    Args
+    ----
     position : str, default "bottomright"
         One of "topleft", "topright", "bottomleft", "bottomright".
 
@@ -134,24 +134,37 @@ class MeasureControl(BaseControl):
 
     Notes
     -----
-    **Export.** The toolbar's download button exports all current measurements as a
-    ``{filename}.{export_format}`` browser download — see ``export_format`` for the
-    output structure of each format.
+    **Filter arms.** The ``filter`` declaration has two shapes, one per control that
+    declares it. The range arm belongs to ``HeatmapControl`` and the enum arm to
+    ``MeasureControl``; each is normalised into the shared filter AST the runtime
+    already reads, so the panel shows exactly one condition row per declaration.
 
-    **Units.** Exported numeric fields use metric units:
-        - distances and radius in meters
-        - area in square meters
-        - segment bearing in degrees (0-360, clockwise from north)
-        - coordinates in longitude/latitude degrees
+    .. list-table::
+       :header-rows: 1
 
-    **Persistence.** Measurements survive page reloads — they are saved to ``localStorage``
-    (keyed by map container id) and restored automatically. Each persisted measurement
-    keeps a unique ``id`` assigned on creation; the polygon's centroid is also persisted
-    as ``center`` and included in exports.
+       * - Arm
+         - Owner
+         - Declaration shape
+       * - Range
+         - ``HeatmapControl``
+         - ``{"field": ..., "between": [lo, hi]}``
+       * - Enum
+         - ``MeasureControl``
+         - ``["distance", "polygon", ...]``
 
-    **Interaction.** Clicking an existing node during drawing does nothing (the marker
-    stops the event from propagating to the map). This prevents duplicate points and
-    overlapping labels.
+    **Three rules.**
+
+    - *API misuse.* A missing or non-string ``field`` raises ``ValueError`` in
+      the cell that wrote the declaration — a declaration that names nothing is
+      a programming error, not a filter state.
+    - *Data shape.* A field the panel does not filter, no numeric extent, a range
+      outside the data, or a non-numeric bound is reported once with a warning and
+      treated as undeclared — the layer is never silently filtered to empty.
+    - *Starting condition.* The declaration seeds the filter on the first open;
+      the user's own filter — including an explicit clear or a persisted record —
+      wins from then on. The panel's Clear is the factory Reset (it drops the saved
+      record, so a reload re-applies the declaration), whereas a user-write Clear
+      keeps the declaration out.
 
     Examples
     --------
@@ -159,6 +172,13 @@ class MeasureControl(BaseControl):
     >>> from foliplus import MeasureControl
     >>> m = folium.Map()
     >>> MeasureControl().add_to(m)
+
+    With a declared starting filter on the measurement types:
+
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
     """
 
     @validate

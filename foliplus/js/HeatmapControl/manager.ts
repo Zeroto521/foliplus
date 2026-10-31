@@ -993,9 +993,10 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
-      // The panel's field-row caption: the aggregation field is named by the
-      // field itself, so the caption is the owner's word for "Field".
-      this.T("filter_field"),
+      // No fieldLabel: the Heatmap chooses the aggregation field in the
+      // panel body (the rampForm Field row), so the filter popup must not
+      // repeat it — the popup renders only the condition row.
+      undefined,
       { kept, total },
     );
   }

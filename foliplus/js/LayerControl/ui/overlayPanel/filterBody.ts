@@ -92,17 +92,23 @@ const readOnlyField = (field: string): HTMLElement =>
   );
 
 /** Shared dual-thumb range body: the field row (caption + read-only field
- *  name) plus the condition row (caption + slider). Two rows because two
- *  different questions are being answered — which field is being filtered,
- *  and over what range. The owner supplies both captions
- *  (`dim.fieldLabel`, `dim.label`); `core` refuses to print the raw field
- *  name as a caption. */
+ *  name, only when the owner provides `dim.fieldLabel`) plus the condition
+ *  row (caption + slider). Two different questions are being answered —
+ *  which field is being filtered, and over what range. An owner without a
+ *  field row of its own (the Heatmap's aggregation field is chosen in the
+ *  panel body, not this popup) passes no `fieldLabel` and gets only the
+ *  condition row. `core` refuses to print the raw field name as a caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  const fieldRow = buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row;
+  // The field row is optional: an owner without a field row of its own (the
+  // Heatmap's aggregation field is chosen in the panel body) passes no
+  // fieldLabel and the popup renders only the condition row.
+  const fieldRow = dim.fieldLabel
+    ? buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row
+    : null;
   // The condition row's caption is component vocabulary the owner may name;
   // absent that, the panel's own wording applies. This fallback is panel
   // chrome, never the field name.
@@ -136,7 +142,7 @@ const renderRangeBody = (
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, conditionLabel),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
   );
-  const root = dom.el("div", {}, fieldRow, rangeRow);
+  const root = dom.el("div", {}, ...(fieldRow ? [fieldRow] : []), rangeRow);
 
   const sync = (next: LayerFilterModel): void => {
     const stored = rangeValueOf(dim, next.filter);
