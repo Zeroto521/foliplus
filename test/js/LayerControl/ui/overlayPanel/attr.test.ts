@@ -862,6 +862,27 @@ describe("LayerUI attrs", () => {
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
     });
+
+    it("header click closes the panel without bubbling to the map", () => {
+      // A press on the header (or the × inside it) must not also become a map
+      // click: closing the panel removes it mid-dispatch, so the click would
+      // otherwise keep walking its original path with no live control ancestor
+      // and land on the map (the same guarantee as the ⋮ menu — #807).
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const header = panel.querySelector(".foliplus-panel-header") as HTMLElement;
+      header.click();
+
+      // The panel still closes…
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+      // …and the press was swallowed, never reaching the row / map.
+      expect(bubbled).not.toHaveBeenCalled();
+    });
   });
 
   // ─────────────────── more button visibility ───────────────────

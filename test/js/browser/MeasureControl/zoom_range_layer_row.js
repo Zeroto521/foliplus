@@ -16,7 +16,7 @@
   if (!row) return { error: "measure row not found", id: li.id };
   row.querySelector(".foliplus-layer-more-btn").click();
   const menuItem = document.querySelector(
-    `.foliplus-layer-item[data-layer-id="${li.id}"] li[data-action="style-layer"]`,
+    `.foliplus-layer-item[data-layer-id="${li.id}"] button[data-action="style-layer"]`,
   );
   if (!menuItem) return { error: "Style menu item not enabled", id: li.id };
   menuItem.click();

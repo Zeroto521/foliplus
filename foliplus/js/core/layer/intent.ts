@@ -9,23 +9,44 @@
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
-/** One arm of the value-based fill: which property drives the color, how
- *  the values are split, into how many classes, and which scheme paints
- *  them. `field` is the caller's key selection, the other three are the
- *  classifier + palette inputs (core/ramp.ts).
+/** One arm of the value-based fill. Two shapes, discriminated by `kind`:
  *
- *  `kind` types the drive property. Absent means "numeric" — the only arm
- *  that exists yet — and "categorical" is reserved for the color-by-category
- *  batch. A record that asks for a `kind` this client cannot build is dropped
- *  whole by the persistence reader rather than misapplied as a numeric ramp. */
-type FillRampConfig = {
-  /** How the drive property is typed. Absent = "numeric". */
-  kind?: "numeric";
-  field: string;
-  method: ClassifyMethod;
-  classes: number;
-  scheme: string;
-};
+ *  - **numeric** (`kind: "numeric"` or absent): the property is a number,
+ *    split into ordered classes. `field` is the caller's key selection;
+ *    `method` / `classes` / `scheme` are the classifier + palette inputs
+ *    (core/ramp.ts).
+ *  - **category** (`kind: "category"`): the property is a categorical label,
+ *    painted with a discrete qualitative scheme. `scheme` is the category
+ *    palette; `method` / `classes` are irrelevant to a category fill (a
+ *    category is not ordered, so "classify" has no meaning) and are kept
+ *    optional so a record that only ever carried them on the numeric arm can
+ *    be reused unchanged.
+ *
+ *  A record that asks for a `kind` this client cannot build is dropped whole
+ *  by the persistence reader rather than misapplied as a numeric ramp. */
+type FillRampConfig =
+  | {
+      /** How the drive property is typed. Absent = "numeric". */
+      kind?: "numeric";
+      field: string;
+      method: ClassifyMethod;
+      classes: number;
+      scheme: string;
+    }
+  | {
+      /** The categorical arm: color by distinct label. */
+      kind: "category";
+      field: string;
+      /** The qualitative scheme name (a `CATEGORY_SCHEMES` key). */
+      scheme: string;
+      /** Kept required at the type level so the union stays assignable to
+       *  the numeric `RampConfig` and existing readers of `.method` /
+       *  `.classes` compile unchanged. A category does not classify, so the
+       *  values are unused at runtime; the validator still accepts them
+       *  absent in a persisted record (they can be omitted there). */
+      method: ClassifyMethod;
+      classes: number;
+    };
 
 /** The fill arms the user can choose between, one vocabulary for the row, the
  *  intent and the resolver.
@@ -36,25 +57,48 @@ type FillRampConfig = {
  *  paints per feature, and a stored value on any other layer reads as solid. */
 type FillMode = "solid" | "ramp" | "original";
 
-/** Whether a value is a ramp config this client can build: the four fields
- *  the classifier needs, each inside the bounds the picker offers. The
- *  persistence reader and the LIVE presence rule share this one predicate,
- *  so a live rule that accepted a partial config cannot let a caller set a
- *  record `buildRamp` cannot classify.
+/** Whether a value is a ramp config this client can build. Two arms,
+ *  discriminated by `kind`:
+ *
+ *  - **numeric** (absent or `"numeric"`): the four classifier fields
+ *    (`field`, `method`, `classes`, `scheme`), each inside the bounds the
+ *    picker offers.
+ *  - **category** (`"category"`): `field` + a qualitative `scheme`, with
+ *    `method` / `classes` optional and unused.
+ *
+ *  The persistence reader and the LIVE presence rule share this one
+ *  predicate, so a live rule that accepted a partial config cannot let a
+ *  caller set a record `buildRamp` / `buildCategoryRamp` cannot classify.
  *
  *  `field` and `scheme` are tested for non-whitespace only, never rewritten:
  *  a GeoJSON property called " score " is a different key from "score", so
- *  trimming on read would silently miss every feature after a reload. `method`
- *  is different - it is a closed protocol token, so it goes through
- *  `isClassifyMethod` and a name outside the four (including one with padding
- *  or the wrong case) drops the record whole. `kind` accepts only absence or
- *  "numeric" - the categorical arm is not implemented, so a record that asks
- *  for it is dropped rather than misapplied as a numeric ramp. */
+ *  trimming on read would silently miss every feature after a reload. On the
+ *  numeric arm `method` is different - it is a closed protocol token, so it
+ *  goes through `isClassifyMethod` and a name outside the four (including
+ *  one with padding or the wrong case) drops the record whole. On the
+ *  category arm `kind` must be exactly "category"; a `method` / `classes`
+ *  that are present are not re-validated (a migrated numeric record may carry
+ *  them, and a category does not classify so they cannot be wrong in a way
+ *  that affects the ramp). A `kind` outside the two drops the record whole
+ *  rather than misapplying it as a numeric ramp. */
 const isFillRampConfig = (value: unknown): value is FillRampConfig => {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
   const isName = (v: unknown): v is string =>
     typeof v === "string" && v.trim().length > 0;
+  if (data.kind === "category") {
+    return (
+      isName(data.field) &&
+      isName(data.scheme) &&
+      (data.method === undefined || isClassifyMethod(data.method)) &&
+      (data.classes === undefined ||
+        (typeof data.classes === "number" &&
+          Number.isInteger(data.classes) &&
+          data.classes >= 2 &&
+          data.classes <= 9))
+    );
+  }
+  if (data.kind !== undefined && data.kind !== "numeric") return false;
   return (
     isName(data.field) &&
     isClassifyMethod(data.method) &&
@@ -62,8 +106,7 @@ const isFillRampConfig = (value: unknown): value is FillRampConfig => {
     typeof data.classes === "number" &&
     Number.isInteger(data.classes) &&
     data.classes >= 2 &&
-    data.classes <= 9 &&
-    (data.kind === undefined || data.kind === "numeric")
+    data.classes <= 9
   );
 };
 

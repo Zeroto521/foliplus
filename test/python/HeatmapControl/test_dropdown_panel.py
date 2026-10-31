@@ -212,3 +212,69 @@ class TestHeatmapDropdownPanelBrowser:
                 f"{host['hostClass']!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_placeholder_ink_tracks_selection(self, browser, tmp_path):
+        """The layer dropdown keeps the muted placeholder ink until a layer
+        is picked, then returns to the value ink at the same weight.
+
+        Regression guard for the custom-dropdown placeholder hint: the
+        bridged select's empty-value prompt ("Select a point layer") must
+        read as a placeholder (muted, normal weight), not as a selected
+        value. The trigger also carries .foliplus-form-select, whose color
+        rule lands later in the merged bundle; the compound selector in
+        dropdown.css is what keeps muted winning. jsdom cannot compute the
+        styles, so only a real browser can prove the two inks differ. The
+        trigger's own transition is the invariant: picking must move it off
+        the muted ink, whatever the theme resolves that to.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            _hexbin_panel_ready(page)
+
+            # _hexbin_panel_ready picks the first layer; clear it so the
+            # placeholder prompt is the visible state again.
+            page.evaluate(
+                """() => {
+                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
+                  const select = ctrl.querySelector('select[data-heatmap-layer]');
+                  select.value = "";
+                  select.dispatchEvent(new Event('change', { bubbles: true }));
+                }"""
+            )
+            page.wait_for_timeout(300)
+
+            # No layer picked: the prompt is the muted placeholder ink.
+            before = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
+            assert before["ok"], before
+            assert before["placeholder"], before
+            assert before["label"] == before["nativeLabel"], (
+                "the trigger must show the native select's empty-value prompt"
+            )
+            assert before["triggerWeight"] == before["nativeWeight"], (
+                "the placeholder must keep the native weight, not italic"
+            )
+
+            # Pick a real layer: the trigger leaves the muted ink for the
+            # value ink, and the placeholder class goes away.
+            page.evaluate(
+                """() => {
+                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
+                  const select = ctrl.querySelector('select[data-heatmap-layer]');
+                  const option = [...select.options].find(option => option.value);
+                  select.value = option.value;
+                  select.dispatchEvent(new Event('change', { bubbles: true }));
+                }"""
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
+            assert after["ok"], after
+            assert not after["placeholder"], after
+            assert after["triggerColor"] != before["triggerColor"], (
+                "picking must move the trigger off the muted placeholder ink, "
+                "got before={} after={}".format(
+                    before["triggerColor"], after["triggerColor"]
+                )
+            )
+            assert after["triggerWeight"] == before["triggerWeight"], (
+                "picking must not change the weight, only the ink"
+            )
+            assert not errors, f"JS errors: {errors}"

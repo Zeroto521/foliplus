@@ -35,6 +35,8 @@ interface HeatmapControlUI {
   config: ComponentConfig;
   /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
+  /** Unscoped translator (raw keys, e.g. the shared "foliplus.*" vocabulary). */
+  _: (key: string) => string;
   ctrl: HTMLElement;
   /** Shared scheme picker instance. */
   schemePicker: SchemePicker | null;
@@ -225,7 +227,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // clearHeatmapCanvas when data is cleared. The picker stays alive.
   ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
   ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
-    id: OVERLAY_IDS.PICKER_DROPDOWN,
+    id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
     isOpen: () => ctrl.schemePicker?.getDropdown() != null,
     panels: () => [ctrl.schemeBar],
     close: ({ restoreFocus }) => ctrl.schemePicker?.close({ restoreFocus }),
@@ -374,6 +376,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
       class: CONST.CLASSES.PLACEHOLDER_OPTION,
       parent: sel,
       selected: !ctrl.mgr.selectedLayerId ? "" : undefined,
+      // The placeholder is a disabled row: it needs the "unavailable" reason on
+      // hover (mirroring the menu's disabled items), not just a muted label.
+      title: ctrl._("foliplus.option_disabled"),
     },
     ctrl.T("layer_placeholder"),
   );
