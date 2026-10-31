@@ -243,6 +243,25 @@ describe("dropdown: bridged single select", () => {
     expect(dropdown.isOpen()).toBe(false);
   });
 
+  it("keeps a wheel over the open popup from reaching the map container", () => {
+    // The popup is portalled out of the control container, so the container's
+    // disableScrollPropagation does not cover it. A wheel over the list must be
+    // stopped at the popup root, not bubble to the map container where
+    // Leaflet's scrollWheelZoom would fire.
+    const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
+    dropdown.trigger.click();
+    expect(dropdown.isOpen()).toBe(true);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    cleanup.push(() => document.removeEventListener("wheel", mapWheel));
+    const list = dropdown.getList()!;
+    list.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true }));
+    expect(mapWheel).not.toHaveBeenCalled();
+    // The list is still open and usable.
+    expect(dropdown.isOpen()).toBe(true);
+    dropdown.close();
+  });
+
   it("Tab closes the list and returns focus to the trigger", () => {
     const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
     key(dropdown.trigger, "ArrowDown");

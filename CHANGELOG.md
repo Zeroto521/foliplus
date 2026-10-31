@@ -10,7 +10,7 @@
 - `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and a declared `foliplus={"fill": {...}}` ramp opens in the panel with Reset returning to the declaration ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776), [#781](https://github.com/Zeroto521/foliplus/pull/781), [#789](https://github.com/Zeroto521/foliplus/pull/789), [#823](https://github.com/Zeroto521/foliplus/pull/823))
 - `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781))
 - `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
-- `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}`; the style row opens on it, Reset returns to it, and an unusable declaration is ignored with one warning ([#804](https://github.com/Zeroto521/foliplus/pull/804))
+- `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}` ([#804](https://github.com/Zeroto521/foliplus/pull/804))
 
 ### Changed
 
