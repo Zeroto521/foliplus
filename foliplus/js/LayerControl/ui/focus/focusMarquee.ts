@@ -33,9 +33,9 @@ const clearMarquees = (root: ParentNode = document): void => {
 };
 
 const outlineToPath = (pts: { u: number; v: number }[]): string =>
-  pts
+  `${pts
     .map((p, i) => `${i === 0 ? "M" : "L"}${p.u.toFixed(1)} ${p.v.toFixed(1)}`)
-    .join(" ") + " Z";
+    .join(" ")} Z`;
 
 const drawMarquee = (geometry: SVGGraphicsElement | null): void => {
   clearMarquees();

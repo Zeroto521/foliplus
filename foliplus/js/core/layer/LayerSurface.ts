@@ -233,8 +233,7 @@ class LayerSurface implements LayerSurfaceContract {
     const declared = this.normalizeDeclared(declaredRaw);
     if (declaredRaw != null && declared === null) {
       log.warn(
-        `LayerSurface rejected paneName "${declaredRaw}" (injection-unsafe or ` +
-          `one of Leaflet's shared panes); synthesising a fallback pane instead`,
+        `LayerSurface rejected paneName "${declaredRaw}" (injection-unsafe or one of Leaflet's shared panes); synthesising a fallback pane instead`,
       );
     }
     const layer = opts.layer;
@@ -289,9 +288,7 @@ class LayerSurface implements LayerSurfaceContract {
           .filter(spec => !bookable.includes(spec))
           .map(spec => spec.name);
         log.warn(
-          `LayerSurface skipped pane specs ${refused.join(", ")}: not ` +
-            `acquireable (shared, held by another surface, or carrying ` +
-            `foreign content)`,
+          `LayerSurface skipped pane specs ${refused.join(", ")}: not acquireable (shared, held by another surface, or carrying foreign content)`,
         );
       }
       this.pinTarget = null;
@@ -330,8 +327,7 @@ class LayerSurface implements LayerSurfaceContract {
       // owner; this surface degrades for that share.
       if (!host.canAcquirePane(name, this.id)) {
         log.warn(
-          `LayerSurface skipped discovered pane "${name}": not acquireable ` +
-            `(held by another surface or carrying foreign content)`,
+          `LayerSurface skipped discovered pane "${name}": not acquireable (held by another surface or carrying foreign content)`,
         );
         continue;
       }
@@ -366,8 +362,7 @@ class LayerSurface implements LayerSurfaceContract {
       // / opacity write that lands nowhere.
       this.pinTarget = null;
       log.warn(
-        `LayerSurface could not create fallback pane "${name}": no pane ` +
-          `carrier at all, so the layer cannot be faded or z-reordered by pane`,
+        `LayerSurface could not create fallback pane "${name}": no pane carrier at all, so the layer cannot be faded or z-reordered by pane`,
       );
     }
     this.refreshCapabilities();
@@ -394,8 +389,7 @@ class LayerSurface implements LayerSurfaceContract {
     if (refused.length) {
       const names = refused.join(", ");
       log.warn(
-        `LayerSurface skipped pane specs ${names}: not acquireable (shared, ` +
-          `held by another surface, or carrying foreign content)`,
+        `LayerSurface skipped pane specs ${names}: not acquireable (shared, held by another surface, or carrying foreign content)`,
       );
     }
   }
@@ -439,8 +433,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.panes.some(pane => pane.name === name)
     ) {
       log.warn(
-        `marker-shadow pane name "${name}" is already claimed by a declared ` +
-          `pane; marker shadows stay on Leaflet's shared shadowPane`,
+        `marker-shadow pane name "${name}" is already claimed by a declared pane; marker shadows stay on Leaflet's shared shadowPane`,
       );
       return;
     }
@@ -449,8 +442,7 @@ class LayerSurface implements LayerSurfaceContract {
     // marker shadow into another surface's pane (cross-owner DOM migration).
     if (!this.addPane(name, false, PANE_ROLE.SHADOW)) {
       log.warn(
-        `marker-shadow pane "${name}" could not be acquired; marker shadows ` +
-          `stay on Leaflet's shared shadowPane`,
+        `marker-shadow pane "${name}" could not be acquired; marker shadows stay on Leaflet's shared shadowPane`,
       );
       return;
     }
@@ -733,9 +725,7 @@ class LayerSurface implements LayerSurfaceContract {
       // someone else's carrier. Refuse here, where the honest degradation
       // (synthesize a stamped pane) is still a constructor-time decision.
       log.warn(
-        `LayerSurface rejected paneName "${declared}": the pane is not ` +
-          `acquireable (shared, held by another surface, or carrying ` +
-          `foreign content); synthesising a fallback pane instead`,
+        `LayerSurface rejected paneName "${declared}": the pane is not acquireable (shared, held by another surface, or carrying foreign content); synthesising a fallback pane instead`,
       );
       return null;
     }

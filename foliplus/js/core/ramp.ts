@@ -12,7 +12,11 @@
 // per class plus the final bound, so colors is requested for the span, not
 // for the raw classes config (a 6-class quantile is 7 breaks, 6 colors).
 import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
-import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
+import {
+  SCHEME_FALLBACK_COLOR,
+  getCategoryColors,
+  getColorScale,
+} from "#core/palette.js";
 
 /** The three inputs a ramp is built from — the persisted FillRampConfig's
  *  values minus field, which selects the property key and is the caller's
@@ -84,4 +88,45 @@ const colorFor = (ramp: ValueRamp, value: number): string =>
   ramp.colors[ramp.colors.length - 1] ??
   SCHEME_FALLBACK_COLOR;
 
-export { buildRamp, colorFor };
+/** A built categorical ramp: an exact category → color map plus the one
+ *  "other" color every category not in the domain falls back to. */
+type CategoryRamp = {
+  colors: Map<string, string>;
+  other: string;
+};
+
+/** Build the category → color ramp for a set of distinct category values
+ *  under a qualitative scheme.
+ *
+ *  Each category takes the scheme's next discrete color in first-seen order.
+ *  When the category count exceeds the scheme's discrete count, the extra
+ *  categories take the scheme's *last* color rather than cycling back to the
+ *  first — the same out-of-bounds fallback `colorFor` uses, so a category
+ *  past the palette's end is painted consistently rather than by a second,
+ *  separate cycling rule.
+ *
+ *  Empty input yields an empty map and the fallback grey as `other` — the
+ *  caller checks `colors.size` before painting, and an empty map is the
+ *  honest "nothing to classify" answer. */
+const buildCategoryRamp = (values: string[], scheme: string): CategoryRamp => {
+  const colors = new Map<string, string>();
+  if (values.length === 0) {
+    return { colors, other: SCHEME_FALLBACK_COLOR };
+  }
+  const palette = getCategoryColors(scheme, values.length);
+  values.forEach((value, index) => {
+    // The same out-of-bounds fallback `colorFor` uses: chroma (and its jsdom
+    // stub) may return fewer colors than the category count, and a category
+    // past the palette's end takes the last available color rather than
+    // cycling back to the first (a repeated first color would be as
+    // confusing as a repeated last one, and cycling is a second, separate
+    // behavior to reason about).
+    colors.set(
+      value,
+      palette[index] ?? palette[palette.length - 1] ?? SCHEME_FALLBACK_COLOR,
+    );
+  });
+  return { colors, other: SCHEME_FALLBACK_COLOR };
+};
+
+export { buildCategoryRamp, buildRamp, colorFor };

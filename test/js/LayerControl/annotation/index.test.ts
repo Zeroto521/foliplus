@@ -1385,7 +1385,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(
       manager.surfaceFor(li).paneNames,
       "the re-probe must declare the label pane",
-    ).toContain(CONST.LABEL_PANE_PREFIX + "overlay1");
+    ).toContain(`${CONST.LABEL_PANE_PREFIX}overlay1`);
     manager.annotation.renderLabels("overlay1");
 
     // Re-apply: the carrier set grew (the pane name joined it), so the
@@ -1394,7 +1394,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 
-    const pane = panes.get(CONST.LABEL_PANE_PREFIX + "overlay1");
+    const pane = panes.get(`${CONST.LABEL_PANE_PREFIX}overlay1`);
     expect(pane, "the annotation pane was created").toBeTruthy();
     // R11: the annotation pane does NOT take CSS opacity — the label canvas
     // bakes layerAlpha into its draws. CSS here would double-compound.

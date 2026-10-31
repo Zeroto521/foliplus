@@ -38,13 +38,13 @@ layer => {
           '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
         )
       : document.querySelector(".foliplus-layer-item[data-layer-type=overlay]");
-  if (!row) return { error: "row not found: " + layer };
+  if (!row) return { error: `row not found: ${layer}` };
   const layerId = row.getAttribute("data-layer-id");
   if (!layerId) return { error: "row has no data-layer-id" };
 
   ui.openStylePanel(layerId);
   const panel = document.querySelector(".foliplus-layer-style-panel");
-  if (!panel) return { error: "style panel did not open for " + layer };
+  if (!panel) return { error: `style panel did not open for ${layer}` };
   const input = panel.querySelector(".foliplus-style-fill-color-input");
   if (!input) return { error: "no Fill Color input in the style panel" };
   input.focus();

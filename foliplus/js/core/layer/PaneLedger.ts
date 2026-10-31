@@ -59,8 +59,7 @@ class PaneLedger {
       if (held.owner !== owner) {
         throw new Error(
           log.msg(
-            `claim: pane "${name}" is already leased by "${held.owner}"; ` +
-              `refusing the claim from "${owner}"`,
+            `claim: pane "${name}" is already leased by "${held.owner}"; refusing the claim from "${owner}"`,
           ),
         );
       }
@@ -127,8 +126,7 @@ class PaneLedger {
     );
     throw new Error(
       log.msg(
-        `${label}: pane ledger not empty after teardown — ` +
-          `${this.leases.size} lease(s) survived: ${survivors.join(", ")}`,
+        `${label}: pane ledger not empty after teardown — ${this.leases.size} lease(s) survived: ${survivors.join(", ")}`,
       ),
     );
   }

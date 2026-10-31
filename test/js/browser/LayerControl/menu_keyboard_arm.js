@@ -8,19 +8,19 @@ arg => {
     ".foliplus-layer-item[data-layer-type=overlay]",
   );
   const row = rows[rowIndex];
-  if (!row) return { error: "no overlay row " + rowIndex };
+  if (!row) return { error: `no overlay row ${rowIndex}` };
   const more = row.querySelector(".foliplus-layer-more-btn");
   if (!more) return { error: "no more button" };
   more.click();
   const li = row.querySelector(
-    '.foliplus-layer-more-menu li[data-action="' + action + '"]',
+    `.foliplus-layer-more-menu button[data-action="${action}"]`,
   );
-  if (!li) return { error: "no menu entry " + action };
+  if (!li) return { error: `no menu entry ${action}` };
   li.focus();
   return {
     layerId: row.getAttribute("data-layer-id") ?? "",
     menuOpen: !!row.querySelector(".foliplus-layer-more-menu.open"),
-    disabled: li.getAttribute("disabled") === "disabled",
+    disabled: li.getAttribute("aria-disabled") === "true",
     focused: document.activeElement === li,
   };
 };

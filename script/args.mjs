@@ -71,7 +71,7 @@ const parseArgs = (argv, spec) => {
         result[resolved] = true;
         i++;
       } else {
-        result.errors.push("Unknown short flag: " + token);
+        result.errors.push(`Unknown short flag: ${token}`);
         i++;
       }
       continue;
@@ -83,7 +83,7 @@ const parseArgs = (argv, spec) => {
     }
 
     if (!token.startsWith("--")) {
-      result.errors.push("Unknown argument: " + token);
+      result.errors.push(`Unknown argument: ${token}`);
       i++;
       continue;
     }
@@ -93,7 +93,7 @@ const parseArgs = (argv, spec) => {
     const value = eqIdx === -1 ? null : token.slice(eqIdx + 1);
 
     if (!spec[flag]) {
-      result.errors.push("Unknown flag: --" + flag);
+      result.errors.push(`Unknown flag: --${flag}`);
       i++;
       continue;
     }
@@ -102,7 +102,7 @@ const parseArgs = (argv, spec) => {
 
     if (meta.type === "bool") {
       if (value !== null) {
-        result.errors.push("--" + flag + " is a boolean flag, does not take a value");
+        result.errors.push(`--${flag} is a boolean flag, does not take a value`);
         i++;
       } else {
         result[flag] = true;
@@ -115,7 +115,7 @@ const parseArgs = (argv, spec) => {
         i++;
       } else {
         if (i + 1 >= argv.length) {
-          result.errors.push("--" + flag + " requires a value");
+          result.errors.push(`--${flag} requires a value`);
           i++;
         } else {
           result[flag].push(argv[i + 1]);
@@ -129,7 +129,7 @@ const parseArgs = (argv, spec) => {
         i++;
       } else {
         if (i + 1 >= argv.length) {
-          result.errors.push("--" + flag + " requires a value");
+          result.errors.push(`--${flag} requires a value`);
           i++;
         } else {
           raw = argv[i + 1];
@@ -143,10 +143,10 @@ const parseArgs = (argv, spec) => {
         if (raw !== null && raw.trim() !== "") {
           const n = Number(raw);
           if (Number.isFinite(n)) result[flag] = n;
-          else result.errors.push("--" + flag + " must be a number: " + raw);
+          else result.errors.push(`--${flag} must be a number: ${raw}`);
         } else if (raw !== null) {
           // `Number("")` is 0, which would masquerade as an explicit zero.
-          result.errors.push("--" + flag + " requires a value");
+          result.errors.push(`--${flag} requires a value`);
         }
       } else if (raw !== null) {
         result[flag] = raw;
@@ -166,11 +166,11 @@ const help = spec => {
     const typeHint =
       meta.type === "string" ? "path" : meta.type === "number" ? "n" : "value";
     let prefix = "  ";
-    if (meta.short) prefix += "-" + meta.short + ", ";
-    prefix += "--" + name;
+    if (meta.short) prefix += `-${meta.short}, `;
+    prefix += `--${name}`;
     if (meta.type === "array") prefix += " [repeated]";
-    else if (meta.type !== "bool") prefix += " <" + typeHint + ">";
-    if (meta.desc) prefix += "  # " + meta.desc;
+    else if (meta.type !== "bool") prefix += ` <${typeHint}>`;
+    if (meta.desc) prefix += `  # ${meta.desc}`;
     lines.push(prefix);
   }
   return lines.join("\n");

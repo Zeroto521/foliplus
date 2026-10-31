@@ -64,8 +64,7 @@ describe("createSourceTransformPlugin", () => {
   it("runs the transform for a path inside the source dir", async () => {
     writeFileSync(
       join(dir, "icon.ts"),
-      'const FOLD = `<svg viewBox="0 0 24 24">' +
-        '<polyline points="18 15 12 9 6 15"/></svg>`;',
+      `const FOLD = \`<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>\`;`,
       "utf-8",
     );
     const { onLoad } = setupPlugin();

@@ -138,7 +138,7 @@ const scanSharedImports = dir => {
     const names = new Set();
     for (const [alias, files] of byAlias) {
       const propRe = new RegExp(
-        "\\b" + alias.replace(/[$]/g, "\\$") + "\\.([A-Za-z_$][\\w$]*)",
+        `\\b${alias.replace(/[$]/g, "\\$")}\\.([A-Za-z_$][\\w$]*)`,
         "g",
       );
       for (const i of files) {

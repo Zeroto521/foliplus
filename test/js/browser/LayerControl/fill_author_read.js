@@ -6,7 +6,7 @@
   const select = panel?.querySelector(".foliplus-style-fill-mode-select");
   const option = select?.querySelector('option[value="original"]');
   const detail = panel?.querySelector(".foliplus-style-fill-detail");
-  const box = name => panel?.querySelector("." + name);
+  const box = name => panel?.querySelector(`.${name}`);
   const strip = box("foliplus-style-fill-original-strip");
   const colors = box("foliplus-style-fill-original-colors");
   const columnBox = box("foliplus-style-fill-original-column");

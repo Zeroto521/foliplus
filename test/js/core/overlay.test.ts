@@ -7,8 +7,9 @@ const node = (className?: string): HTMLElement => {
   return el;
 };
 
-/** A panel mounted in the document, plus a "portalled" node parked next to it
- *  under <body> — the shape the scheme picker's dropdown takes. */
+/** A panel mounted in the document, plus a node parked next to it under <body>
+ *  — the shape a portalled list takes. Nothing registers it here: a class name
+ *  is not ownership, so this fixture is the "nobody owns this press" case. */
 const mount = () => {
   const panel = node("foliplus-panel");
   const inner = node();
@@ -32,37 +33,30 @@ describe("isInsideOverlay", () => {
     expect(isInsideOverlay(inner, panel)).toBe(true);
   });
 
-  it("accepts a press on a portalled node when the overlay names one", () => {
+  it("answers outside for a portalled node no overlay registered", () => {
     const { panel, portal, portalRow } = mount();
-    const selector = ".foliplus-portal";
-    // The portalled node is outside the panel's subtree, so only the portal
-    // selector can classify it as part of the overlay.
+    // Outside the panel's subtree and unregistered: only ownership can make
+    // this node part of the overlay (common/portalRoot), and nobody claimed it.
     expect(panel.contains(portalRow)).toBe(false);
-    expect(isInsideOverlay(portal, panel, selector)).toBe(true);
-    expect(isInsideOverlay(portalRow, panel, selector)).toBe(true);
-  });
-
-  it("rejects a portalled node when the overlay names no portal", () => {
-    const { panel, portalRow } = mount();
+    expect(isInsideOverlay(portal, panel)).toBe(false);
     expect(isInsideOverlay(portalRow, panel)).toBe(false);
   });
 
   it("rejects a press elsewhere in the document", () => {
     const { panel, outside } = mount();
-    expect(isInsideOverlay(outside, panel, ".foliplus-portal")).toBe(false);
+    expect(isInsideOverlay(outside, panel)).toBe(false);
   });
 
   it("answers outside for a document-level target and for no target", () => {
     const { panel } = mount();
-    expect(isInsideOverlay(document, panel, ".foliplus-portal")).toBe(false);
-    expect(isInsideOverlay(null, panel, ".foliplus-portal")).toBe(false);
+    expect(isInsideOverlay(document, panel)).toBe(false);
+    expect(isInsideOverlay(null, panel)).toBe(false);
     // A non-node EventTarget (some synthetic dispatch paths) answers outside.
     expect(isInsideOverlay(new EventTarget(), panel)).toBe(false);
   });
 
   it("answers outside when the panel is missing", () => {
     const { portalRow } = mount();
-    expect(isInsideOverlay(portalRow, null, ".foliplus-portal")).toBe(true);
     expect(isInsideOverlay(portalRow, null)).toBe(false);
   });
 });

@@ -268,9 +268,9 @@ const css = (rel: string): string =>
  *  closing brace. */
 const blockOf = (source: string, selector: string): string => {
   const start = source.indexOf(selector);
-  expect(start, selector + " is missing").toBeGreaterThanOrEqual(0);
+  expect(start, `${selector} is missing`).toBeGreaterThanOrEqual(0);
   const open = source.indexOf("{", start);
-  expect(open, selector + " has no opening brace").toBeGreaterThanOrEqual(0);
+  expect(open, `${selector} has no opening brace`).toBeGreaterThanOrEqual(0);
   let depth = 0;
   for (let i = open; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -279,7 +279,7 @@ const blockOf = (source: string, selector: string): string => {
       if (depth === 0) return source.slice(open, i + 1);
     }
   }
-  throw new Error(selector + " block never closes");
+  throw new Error(`${selector} block never closes`);
 };
 
 const rampFormSource = readFileSync(
@@ -326,11 +326,12 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     // pads by it, the item pads by it minus its reserved selection border and
     // the measured scrollbar lane (a layout scrollbar steals real width).
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
-    expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x) -");
+    expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
     expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
-    expect(item).toContain(
-      "calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick))",
-    );
+    expect(item).not.toContain("border-left");
+    // The selected row draws the same 3px bar as the shared dropdown row.
+    const active = blockOf(scheme, ".foliplus-scheme-picker-item.foliplus-is-active {");
+    expect(active).toContain("var(--foliplus-menu-row-bar-width) 0 0");
   });
 
   it("reserves the scrollbar lane in both list states", () => {

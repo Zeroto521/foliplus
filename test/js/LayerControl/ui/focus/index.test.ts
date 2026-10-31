@@ -1129,7 +1129,7 @@ describe("LayerUI focus", () => {
 
       // The layer's labels ride one step above the raised layer (focusedZ + 1),
       // so they stay readable over its geometry — and get no glow of their own.
-      const labelPane = panes.get(CONST.LABEL_PANE_PREFIX + "overlay2")!;
+      const labelPane = panes.get(`${CONST.LABEL_PANE_PREFIX}overlay2`)!;
       expect(labelPane.style.zIndex).toBe(
         String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
       );
@@ -1721,7 +1721,7 @@ describe("LayerUI focus", () => {
       ) as HTMLElement;
       menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       const menuItem = overlay.querySelector(
-        ".foliplus-layer-more-menu li",
+        ".foliplus-layer-more-menu button",
       ) as HTMLElement;
       expect(menuItem).not.toBeNull();
       ui.handleDblClick({ target: menuItem, bubbles: true } as unknown as MouseEvent);

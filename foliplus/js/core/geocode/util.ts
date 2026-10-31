@@ -12,7 +12,7 @@ const interpolate = (template: string, vars: Record<string, string | number>): s
 /** Resolve an operation URL against an optional base URL prefix. */
 const joinUrl = (baseUrl: string | undefined, url: string): string => {
   if (!baseUrl || /^https?:\/\//i.test(url)) return url;
-  return baseUrl.replace(/\/+$/, "") + "/" + url.replace(/^\/+/, "");
+  return `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
 };
 
 /** Append static params to a URL (null/undefined values are skipped). */

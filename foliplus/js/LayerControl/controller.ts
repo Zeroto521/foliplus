@@ -148,9 +148,7 @@ interface EnforceOrderResult {
  *  compact concatenation instead of `JSON.stringify` — same equality, no
  *  intermediate array per surface per pass. */
 const capabilityKey = (caps: LayerCapabilities): string =>
-  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|` +
-  `${caps.zoomRange}|${caps.visibility}|${caps.annotation}|` +
-  `${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.zoomRange}|${caps.visibility}|${caps.annotation}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -863,8 +861,7 @@ class LayerController implements LayerAPI {
     // RegisterResult union that names "removed".
     if (this.order.removedIds.has(opts.id)) {
       this.log.warn(
-        `registerLayer: refusing "${opts.id}" — the layer was deleted by the ` +
-          `user and the deletion is persisted for this map`,
+        `registerLayer: refusing "${opts.id}" — the layer was deleted by the user and the deletion is persisted for this map`,
       );
       return null;
     }
@@ -880,9 +877,7 @@ class LayerController implements LayerAPI {
     if (existingRole && opts.role !== undefined && opts.role !== existingRole.role) {
       throw new Error(
         this.log.msg(
-          `registerLayer: "${opts.id}" is registered as ${existingRole.role}; ` +
-            `re-registering with role "${opts.role}" is a role change. ` +
-            `Unregister the layer first, or register it under a new id.`,
+          `registerLayer: "${opts.id}" is registered as ${existingRole.role}; re-registering with role "${opts.role}" is a role change. Unregister the layer first, or register it under a new id.`,
         ),
       );
     }

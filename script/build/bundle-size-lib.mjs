@@ -86,7 +86,7 @@ const readSizes = (root = ROOT) => {
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 /** Format a byte count as a two-decimal KB string. */
-const fmtBytes = n => (n / 1024).toFixed(2) + " KB";
+const fmtBytes = n => `${(n / 1024).toFixed(2)} KB`;
 
 // ── Shared SPEC base ────────────────────────────────────────────────────────
 // Both gates accept `--root=<path>` for reading a different checkout's dist.

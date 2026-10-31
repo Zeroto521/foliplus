@@ -17,5 +17,6 @@
   "foliplus.label_format_percent": "百分比",
   "foliplus.label_size": "标注字号",
   "foliplus.label_style": "颜色 / 字号",
-  "foliplus.label_tooltip": "在要素上显示文本标注"
+  "foliplus.label_tooltip": "在要素上显示文本标注",
+  "foliplus.option_disabled": "不可选"
 }

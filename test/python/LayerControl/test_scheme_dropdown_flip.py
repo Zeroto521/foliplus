@@ -24,7 +24,7 @@ import json
 import re
 
 import folium
-from conftest import _js, make_browser_page, panel_ready, use_page
+from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -131,21 +131,7 @@ def _open_layer_list(page) -> dict:
     panel_ready(page)
     # Open the polygon's row, not the first overlay row: the point group sorts
     # first and has no fill arm.
-    opened = page.evaluate(
-        """() => {
-          const rows = [...document.querySelectorAll(
-            '.foliplus-layer-item[data-layer-type=overlay]')];
-          const row = rows.find(r => r.textContent.includes('Polygon data'));
-          if (!row) return { ok: false, reason: 'no-polygon-row' };
-          row.querySelector('.foliplus-layer-more-btn').click();
-          const menu = row.querySelector('.foliplus-layer-more-menu.open');
-          if (!menu) return { ok: false, reason: 'menu-not-open' };
-          const item = menu.querySelector('li[data-action="style-layer"]');
-          if (!item) return { ok: false, reason: 'no-style-item' };
-          item.click();
-          return { ok: !!row.querySelector('.foliplus-layer-style-panel') };
-        }"""
-    )
+    opened = page.evaluate(snippet("layer/dropdown_open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
@@ -154,6 +140,10 @@ def _open_layer_list(page) -> dict:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
+    # Wait for the portal to be positioned and stable across a frame before
+    # measuring. Reading the rect immediately after "attached" can observe a
+    # pre-layout box, making the flip verdict disagree with the rule on timing.
+    page.wait_for_function(_js("common/wait_scheme_dropdown_settled"), timeout=5000)
     return page.evaluate(_js("common/read_scheme_dropdown_placement"))
 
 
@@ -178,6 +168,9 @@ def _open_heatmap_list(page) -> dict:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
+    # Same settle-wait as _open_layer_list: the portal must be positioned and
+    # stable before measuring, or the flip verdict flakes on layout timing.
+    page.wait_for_function(_js("common/wait_scheme_dropdown_settled"), timeout=5000)
     return page.evaluate(_js("common/read_scheme_dropdown_placement"))
 
 

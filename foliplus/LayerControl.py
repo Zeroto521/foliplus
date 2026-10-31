@@ -20,6 +20,13 @@ from .locale import LocaleConfig
 _FOLIUM_COLOR_PROP = "__folium_color"
 
 _log = logging.getLogger(__name__)
+
+# Captions already reported as refused, so re-rendering a page does not repeat
+# the same line for the same data: one refused caption is a signal, and a
+# two-layer map measured 16 identical warnings. The set is a log filter, not
+# Each entry is (caption, criterion, hits, total): criterion names the
+# test that refused the caption, so the two arms de-duplicate separately.
+_refused_captions: set[tuple[str, str, int, int]] = set()
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
@@ -47,11 +54,13 @@ _FILL_AUTHOR_RGB_SLACK = 2
 # YlOrRd_09 reached it, the best being RdYlBu_09 vs RdYlGn_09 at 5/12. Two
 # things it is not — not arithmetic slack, since _FILL_AUTHOR_RGB_SLACK covers
 # the rounding (values rounded to whole numbers still match 12/12), and not
-# proof: palettes sharing stops are not separated. RdYlBu_09 and RdYlGn_09
-# share four, so a layer sorted by the painted value samples that shared low
-# end and agrees 12/12, and this bar accepts the foreign scale. What it does
-# buy is a layer the scale paints only mostly: four features hand-set still
-# agree 8/12 = 0.67, five drop it to 7/12 = 0.58.
+# proof: palettes sharing stops are not separated. Four of the 132 ordered
+# pairs are accepted at 12/12 that way — RdYlBu_09/RdYlGn_09 in both
+# directions (they share four stops) and inferno/magma in both directions —
+# so a layer sorted by the painted value samples that shared low end and
+# agrees 12/12, and this bar accepts the foreign scale. What it does buy is a
+# layer the scale paints only mostly: four features hand-set still agree
+# 8/12 = 0.67, five drop it to 7/12 = 0.58.
 _FILL_AUTHOR_AGREE = 0.6
 
 
@@ -263,14 +272,17 @@ def _stepped_agreement(
     A stepped scale paints discrete blocks, so membership is exact and needs no
     probability bar: its own layer is painted in exactly those block colors,
     even when a feature's value falls on the far side of a mapclassify bin edge
-    and the scale would draw the adjacent class. A scale the layer was not
-    painted with normally contributes no block the features carry: on an evenly
-    spread sample none of the 132 ordered pairs of the palettes listed at
-    _FILL_AUTHOR_AGREE was accepted. Palettes that share a stop are not
-    separated — 10 of those pairs do within _FILL_AUTHOR_RGB_SLACK, RdYlBu_09
-    and RdYlGn_09 share four — and a layer sorted by the painted value samples
-    one shared block, so such a scale is accepted at 12/12. Membership is the
-    whole test, not proof that the scale is the author's.
+    and the scale would draw the adjacent class. (The premise is that the
+    painted layer is a classified layer whose features carry one of these block
+    colors; a layer not painted by the scale at all scores 0/132 and refuses.
+    ) A scale the layer was not painted with normally contributes no block the
+    features carry: on an evenly spread sample none of the 132 ordered pairs of
+    the palettes listed at _FILL_AUTHOR_AGREE was accepted. Palettes that share
+    a stop are not separated — 10 of those pairs do within
+    _FILL_AUTHOR_RGB_SLACK, RdYlBu_09 and RdYlGn_09 share four — and a layer
+    sorted by the painted value samples one shared block, so such a scale is
+    accepted at 12/12. Membership is the whole test, not proof that the scale
+    is the author's.
     """
     blocks = [
         hex_color
@@ -335,27 +347,29 @@ def _pair_scale(
             # its k blocks, whichever side of a bin edge its value sits on.
             hits, total = _stepped_agreement(colormap, rows, caption)
             agrees = total == 0 or hits == total
+            criterion = "carry one of its blocks"
         else:
             hits, total = _column_agreement(colormap, rows, caption)
             agrees = not total or hits / total >= _FILL_AUTHOR_AGREE
+            criterion = "match its colors"
         if not agrees:
-            _warn_refused_caption(caption, hits, total)
+            _warn_refused_caption(caption, hits, total, criterion=criterion)
             continue
         claimed.add(id(colormap))
         return colormap, caption
     return None
 
 
-# Captions already reported as refused, so re-rendering a page does not repeat
-# the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. The set is a log filter, not
-# state — it is cleared rather than grown when a long process renders many maps.
-_refused_captions: set[tuple[str, int, int]] = set()
+def _warn_refused_caption(
+    caption: str, hits: int, total: int, *, criterion: str
+) -> None:
+    """Report a refused caption once per (caption, criterion, agreement) pair.
 
-
-def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
-    """Report a refused caption once per (caption, agreement) pair."""
-    note = (caption, hits, total)
+    ``criterion`` names the test that failed, so the message says which one: the
+    stepped arm tests exact block membership, the continuous arm tests the
+    color-match ratio against _FILL_AUTHOR_AGREE.
+    """
+    note = (caption, criterion, hits, total)
     if note in _refused_captions:
         return
     if len(_refused_captions) >= 64:
@@ -363,10 +377,11 @@ def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
     _refused_captions.add(note)
     _log.warning(
         "LayerControl: the scale caption %r names a column, but only %d/%d "
-        "sampled features match its colors; not claiming it",
+        "sampled features %s; not claiming it",
         caption,
         hits,
         total,
+        criterion,
     )
 
 
@@ -684,7 +699,7 @@ class LayerControl(BaseControl):
     panel wins, then the declaration, then the author's per-feature paint
     (``explore``'s baked colors) and finally the built-in default. Reset
     returns to the declared ramp. An invalid declaration only warns and falls
-    back; it never paints a ramp the author did not ask for.
+    back; it is dropped rather than painted.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

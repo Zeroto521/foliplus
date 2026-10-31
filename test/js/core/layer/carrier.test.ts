@@ -703,7 +703,7 @@ describe("contentPanesOf", () => {
 
 describe("labelPaneNameOf", () => {
   it("composes the one pane name the declaration and the exporter share", () => {
-    expect(labelPaneNameOf("layer-1")).toBe(LABEL_PANE_PREFIX + "layer-1");
+    expect(labelPaneNameOf("layer-1")).toBe(`${LABEL_PANE_PREFIX}layer-1`);
     expect(labelPaneNameOf("layer-1")).not.toBe(labelPaneNameOf("layer-2"));
   });
 });

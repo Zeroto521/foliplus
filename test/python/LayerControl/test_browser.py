@@ -20,6 +20,7 @@ from conftest import (
     read_css_dir,
     render,
     render_control,
+    snippet,
     use_page,
     use_raw_page,
 )
@@ -1164,8 +1165,8 @@ class TestLayerControlBrowser:
         Style, Attributes and Filter to focus-layer, so those entries showed the
         "layer has no geographic extent" hint instead of opening the panel,
         while a click on the same entry worked. The entry is an
-        <li tabindex=0>, so Chromium performs no native activation for it and
-        the keydown path is the only thing that can dispatch the action — one
+        <button role=menuitem>, so Chromium fires a native click for Enter/Space and
+        the interaction manager stands aside for the button — one
         real key press proves the whole chain. Mouse and keyboard are compared on
         the same entries, then each surface is reached through both activation
         keys, and the two-step delete is exercised from both inputs.
@@ -1197,9 +1198,13 @@ class TestLayerControlBrowser:
             def read() -> dict:
                 return page.evaluate(_js("LayerControl/menu_keyboard_read"))
 
-            style_entry = '.foliplus-layer-more-menu li[data-action="style-layer"]'
-            attrs_entry = '.foliplus-layer-more-menu li[data-action="layer-attributes"]'
-            delete_entry = '.foliplus-layer-more-menu li[data-action="delete-layer"]'
+            style_entry = '.foliplus-layer-more-menu button[data-action="style-layer"]'
+            attrs_entry = (
+                '.foliplus-layer-more-menu button[data-action="layer-attributes"]'
+            )
+            delete_entry = (
+                '.foliplus-layer-more-menu button[data-action="delete-layer"]'
+            )
 
             # Mouse baseline: each entry opens its own panel from a click, so
             # the keyboard cases below can assert identical outcomes.
@@ -5580,7 +5585,7 @@ class TestLayerControlBrowser:
 
             # The owner anchor: the menu is the row's descendant, so the row
             # that owns it stays lit while the pointer is on the menu.
-            page.hover(".foliplus-layer-more-menu.open li")
+            page.hover(".foliplus-layer-more-menu.open button")
             page.wait_for_timeout(250)
             assert page.evaluate(_js("LayerControl/read_owner_row_lit")), (
                 "the row owning the open menu must stay lit while hovering it"
@@ -6643,7 +6648,7 @@ class TestLayerControlBrowser:
             # A mirrored page keeps the same invariant: the logical anchors
             # swap sides, the physical shift flips with them, so every number
             # still centres on the edge (and therefore the thumb) it names.
-            page.evaluate("() => { document.documentElement.dir = 'rtl'; }")
+            page.evaluate(_js("LayerControl/set_document_dir_rtl"))
             mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
             check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)
@@ -7465,37 +7470,7 @@ class TestLayerControlBrowser:
 
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            chrome = page.evaluate(
-                """() => {
-                  const panel = document.querySelector(".foliplus-layer-filter-panel");
-                  const trigger =
-                    panel &&
-                    panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
-                  trigger && trigger.click();
-                  const list = document.querySelector(".foliplus-dropdown-list");
-                  const options = Array.from(
-                    document.querySelectorAll(".foliplus-dropdown-option"),
-                  );
-                  return {
-                    panelSelects: panel ? panel.querySelectorAll("select").length : null,
-                    pageNativeMultiple: document.querySelectorAll("select[multiple]").length,
-                    triggerClasses: trigger ? trigger.className : null,
-                    haspopup: trigger ? trigger.getAttribute("aria-haspopup") : null,
-                    formSelectChrome: Boolean(
-                      trigger && trigger.classList.contains("foliplus-form-select"),
-                    ),
-                    listRole: list ? list.getAttribute("role") : null,
-                    listMultiselectable: list
-                      ? list.getAttribute("aria-multiselectable")
-                      : null,
-                    listInsidePanel: Boolean(list && panel && panel.contains(list)),
-                    optionRoles: options.map(el => el.getAttribute("role")),
-                    optionSelected: options.map(el =>
-                      el.getAttribute("aria-selected"),
-                    ),
-                  };
-                }"""
-            )
+            chrome = page.evaluate(snippet("layer/filter_enum_chrome"))
             assert chrome["panelSelects"] == 0, chrome
             assert chrome["pageNativeMultiple"] == 0, chrome
             assert chrome["formSelectChrome"] is True, chrome

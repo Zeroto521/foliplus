@@ -1,10 +1,7 @@
 // Tests for the shared scheme picker (common/schemePicker.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  SCHEME_PICKER_PORTAL_SELECTOR,
-  type SchemePicker,
-  createSchemePicker,
-} from "#common/schemePicker.js";
+import { isInsideOverlay } from "#core/overlay.js";
+import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 
 // ── color-scale helper ────────────────────────────────────────────────
 
@@ -15,7 +12,7 @@ const colorScale = vi.fn((name: string, n: number) => {
   // Simulate chroma.scale().mode().colors() returning distinct colors.
   return Array.from({ length: n }, (_, i) => {
     const hue = Math.round((i / n) * 360);
-    return "hsl(" + hue + ", 70%, 50%)";
+    return `hsl(${hue}, 70%, 50%)`;
   });
 });
 
@@ -183,6 +180,18 @@ describe("listbox keyboard navigation", () => {
     picker.destroy();
   });
 
+  it("Tab closes dropdown and returns focus to trigger", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(picker.getDropdown()).toBeNull();
+    expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+    picker.destroy();
+  });
+
   it("wraps around on ArrowDown at last item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -204,6 +213,38 @@ describe("listbox keyboard navigation", () => {
       .getDropdown()!
       .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[0].focus();
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(document.activeElement).toBe(items[2]);
+    picker.destroy();
+  });
+
+  it("ArrowDown with focus outside the rows lands on the first row", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    // The dropdown auto-focuses the active row on open; move focus to the
+    // trigger so the keydown sees no focused row (idx === -1).
+    trigger.focus();
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(document.activeElement).toBe(items[0]);
+    picker.destroy();
+  });
+
+  it("ArrowUp with focus outside the rows lands on the last row", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    // Focus outside the rows (on the trigger) so the keydown sees no focused
+    // row (idx === -1) and must fall back to the last focusable row.
+    trigger.focus();
     picker
       .getDropdown()!
       .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
@@ -409,6 +450,47 @@ describe("ARIA attributes", () => {
 
 // ── Hidden select sync ─────────────────────────────────────────────────
 
+describe("disabled entry affordance", () => {
+  const itemsOf = (picker: SchemePicker): HTMLElement[] =>
+    Array.from(
+      picker.getDropdown()?.querySelectorAll<HTMLElement>("[role=option]") ?? [],
+    );
+
+  it("gives a disabled scheme entry the disabled hint as its title", () => {
+    const { picker, trigger } = makePicker({
+      disabledSchemes: ["Greens"],
+      disabledHint: "Unavailable",
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const greens = items.find(el => el.getAttribute("data-scheme-name") === "Greens")!;
+    expect(greens.getAttribute("aria-disabled")).toBe("true");
+    expect(greens.title).toBe("Unavailable");
+  });
+
+  it("leaves an enabled scheme entry's title to its scheme label", () => {
+    const { picker, trigger } = makePicker({
+      disabledSchemes: ["Greens"],
+      disabledHint: "Unavailable",
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const reds = items.find(el => el.getAttribute("data-scheme-name") === "Reds")!;
+    expect(reds.getAttribute("aria-disabled")).toBeNull();
+    expect(reds.title).toBe("Reds");
+    expect(reds.title).not.toBe("Unavailable");
+  });
+
+  it("falls back to the scheme label when no disabled hint is given", () => {
+    const { picker, trigger } = makePicker({ disabledSchemes: ["Greens"] });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = itemsOf(picker);
+    const greens = items.find(el => el.getAttribute("data-scheme-name") === "Greens")!;
+    expect(greens.getAttribute("aria-disabled")).toBe("true");
+    expect(greens.title).toBe("Greens");
+  });
+});
+
 describe("hidden select sync", () => {
   it("populates options from schemes", () => {
     const { hiddenSelect } = makePicker();
@@ -585,14 +667,26 @@ describe("portal mode", () => {
     picker.destroy();
   });
 
-  it("publishes a selector that matches the mounted portalled dropdown", () => {
-    // The panel dismiss predicate classifies the portalled list through this
-    // selector, so it has to match the node the picker actually mounts — a
-    // renamed class would otherwise silently stop counting the list as part of
-    // the overlay.
+  it("registers the mounted list under its trigger while it is open", () => {
+    // The panel dismiss predicate classifies the portalled list by ownership,
+    // not by a class name: while the list is mounted the picker registers it
+    // against the trigger, and the registration is released when the list
+    // closes. A picker that stopped registering would make every panel dismiss
+    // under the press that selects a colour.
     const { picker, trigger } = makePicker({ portal: true });
+    // A panel-shaped scope that owns the trigger, as the style drawer does.
+    const panel = document.createElement("div");
+    panel.appendChild(trigger);
+    document.body.appendChild(panel);
+
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()!.matches(SCHEME_PICKER_PORTAL_SELECTOR)).toBe(true);
+    const dropdown = picker.getDropdown()!;
+    const row = dropdown.firstElementChild as HTMLElement;
+    expect(isInsideOverlay(dropdown, panel)).toBe(true);
+    expect(isInsideOverlay(row, panel)).toBe(true);
+
+    picker.close();
+    expect(isInsideOverlay(row, panel)).toBe(false);
     picker.destroy();
   });
 
