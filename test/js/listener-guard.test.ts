@@ -193,10 +193,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/dropdown.ts",
-    n: 11,
+    n: 1,
     pairedOff: 0,
     reason:
-      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
+      "shared select-replacement ADAPTER over common/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into common/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
+  },
+  {
+    f: "common/listbox.ts",
+    n: 10,
+    pairedOff: 0,
+    reason:
+      "the ONE listbox engine (shared by common/dropdown now; common/schemePicker in S-B): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
   },
 ];
 
