@@ -8,7 +8,7 @@
   // and the image load races the export. A data-URI icon sidesteps both: the
   // export path sees exactly the pixels the icon element's `src` points at.
   //
-  // A bare `map.addLayer(marker)` is NOT exported — it is not in the LayerAPI
+  // A bare `map.addLayer(marker)` is NOT exported - it is not in the LayerAPI
   // registry (only registered layers are) and the default `markerPane` is
   // excluded from pane discovery. So the marker is registered through the
   // LayerAPI into a foliplus pane, exactly like a folium Marker that
@@ -16,7 +16,7 @@
   //
   // The map is centered at [26.08, 119.30] zoom 12 and the marker sits at
   // map center. Returns the export-canvas window to sample. Crop box is the
-  // default centered box (25% padding): CSS (320,180)→(960,540), scaled 2x →
+  // default centered box (25% padding): CSS (320,180)->(960,540), scaled 2x ->
   // export canvas 1280x720 with canvas (0,0) = CSS (320,180). The marker's
   // icon lands at canvas (616..665, 278..359), so an 80x100 window at
   // {x:600,y:270} covers it.
