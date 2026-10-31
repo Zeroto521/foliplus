@@ -90,10 +90,10 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("common/")) return "common." + spec.split("/")[1];
+  if (spec.startsWith("common/")) return `common.${spec.split("/")[1]}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
-    return sub === "index" ? "#" + spec : "core." + sub;
+    return sub === "index" ? `#${spec}` : `core.${sub}`;
   }
   if (spec.startsWith("foliplus/")) return spec.slice("foliplus/".length);
   return spec;
@@ -129,7 +129,7 @@ const sharedGlobalNamespace = spec => {
   // `core/index` is handled inside `runtimeTarget` (it returns a `#`-prefixed
   // form so the shim declaration is invalid JS and the build fails loudly).
   const canonical = spec.replace(/^#/, "").replace(/\.js$/, "");
-  return "foliplus." + runtimeTarget(canonical);
+  return `foliplus.${runtimeTarget(canonical)}`;
 };
 
 /** Engine-backed scan, in the shape this plugin has always consumed:
@@ -188,11 +188,9 @@ const globalNamespacePlugin = sourceRoot => ({
 
       if (namesToShim.length === 0) return { contents: "", loader: "js" };
 
-      const shimName = ns.replace(/\./g, "_") + "_shim";
-      const shimDecl = "var " + shimName + " = globalThis." + ns + ";";
-      const lines = namesToShim.map(
-        n => "export const " + n + " = " + shimName + '["' + n + '"];',
-      );
+      const shimName = `${ns.replace(/\./g, "_")}_shim`;
+      const shimDecl = `var ${shimName} = globalThis.${ns};`;
+      const lines = namesToShim.map(n => `export const ${n} = ${shimName}["${n}"];`);
       lines.unshift(shimDecl);
       return { contents: lines.join("\n"), loader: "js" };
     });

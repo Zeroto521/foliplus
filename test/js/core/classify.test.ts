@@ -164,7 +164,7 @@ describe("computeBreaks", () => {
     // color count the other side was handed.
     for (const n of [3, 4, 5, 9]) {
       const values = Array.from({ length: n }, (_, i) => i);
-      expect(computeBreaks(values, 2, "equal").length, "n=" + n).toBe(3);
+      expect(computeBreaks(values, 2, "equal").length, `n=${n}`).toBe(3);
     }
   });
 

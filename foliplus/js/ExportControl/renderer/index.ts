@@ -61,9 +61,7 @@ const resolveExportPanes = (
  *  export. */
 const warnShadowLoadFailure = (src: string, error: unknown): void => {
   log.warn(
-    `marker shadow left out of the export: "` +
-      src +
-      `" could not be loaded (cross-origin images need CORS headers)`,
+    `marker shadow left out of the export: "${src}" could not be loaded (cross-origin images need CORS headers)`,
     error,
   );
 };
@@ -462,8 +460,7 @@ class ExportRenderer {
       // the signal they are meant to carry.
       if (labelCanvasesMissing.length > 0) {
         log.warn(
-          `annotation labels left out of the export: label canvas missing for ` +
-            labelCanvasesMissing.join(","),
+          `annotation labels left out of the export: label canvas missing for ${labelCanvasesMissing.join(",")}`,
         );
       }
     }

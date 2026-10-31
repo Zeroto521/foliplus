@@ -194,8 +194,7 @@ const renderShape = (x, path = "") => {
   if (typeof x === "string") {
     if (!isShapePrimitive(x)) {
       throw new Error(
-        `Unknown shape primitive "${x}" at ${path} — expected one of ` +
-          Object.keys(SHAPE_PRIMITIVES).sort().join(", "),
+        `Unknown shape primitive "${x}" at ${path} — expected one of ${Object.keys(SHAPE_PRIMITIVES).sort().join(", ")}`,
       );
     }
     return SHAPE_PRIMITIVES[x];
@@ -219,19 +218,15 @@ const renderShape = (x, path = "") => {
     if (keys.length === 1 && keys[0] === "*") {
       return `Record<string, ${renderShape(x["*"], `${path}.*`)}>`;
     }
-    return (
-      "{ " +
-      keys
-        .map(k => {
-          const v = x[k];
-          if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
-            return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
-          }
-          return `${k}: ${renderShape(v, `${path}.${k}`)}`;
-        })
-        .join("; ") +
-      " }"
-    );
+    return `{ ${keys
+      .map(k => {
+        const v = x[k];
+        if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
+          return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
+        }
+        return `${k}: ${renderShape(v, `${path}.${k}`)}`;
+      })
+      .join("; ")} }`;
   }
   throw new Error(`Unknown shape type at ${path}: ${typeof x}`);
 };
@@ -291,7 +286,7 @@ const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}
   const head = extendsShared ? `${name} extends ConfigCommon` : name;
   const lines = [`${indent}interface ${head} {`];
   for (const [fieldName, field] of Object.entries(schema)) {
-    lines.push(...formatField(fieldName, field, indent + "  "));
+    lines.push(...formatField(fieldName, field, `${indent}  `));
   }
   lines.push(`${indent}}`);
   return lines;
@@ -466,8 +461,7 @@ const main = async (o = opts) => {
     const existing = readFileSync(o.out, "utf-8").replace(/\r\n/g, "\n");
     if (existing !== text) {
       console.error(
-        "foliplus/js/config-schema.ts is out of date with foliplus/_config_schema.py. " +
-          "Regenerate with:",
+        `foliplus/js/config-schema.ts is out of date with foliplus/_config_schema.py. Regenerate with:`,
       );
       console.error(
         "  python foliplus/_config_schema.py --out foliplus/.build/js/config-schema.json",

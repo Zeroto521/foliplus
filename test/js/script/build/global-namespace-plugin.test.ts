@@ -404,7 +404,7 @@ describe("collectSources", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
-    const base = path.join(os.tmpdir(), "dsh-test-cs-" + Date.now());
+    const base = path.join(os.tmpdir(), `dsh-test-cs-${Date.now()}`);
     fs.mkdirSync(base, { recursive: true });
     fs.mkdirSync(path.join(base, "sub"), { recursive: true });
     fs.writeFileSync(path.join(base, "a.ts"), "export const A = 1;", "utf-8");
@@ -426,7 +426,7 @@ describe("scanSharedImports", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
-    const base = path.join(os.tmpdir(), "dsh-test-si-" + Date.now());
+    const base = path.join(os.tmpdir(), `dsh-test-si-${Date.now()}`);
     fs.mkdirSync(base, { recursive: true });
     fs.writeFileSync(
       path.join(base, "comp.ts"),
@@ -471,7 +471,7 @@ describe("scanSharedImports", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
-    const base = path.join(os.tmpdir(), "dsh-test-si-fol-" + Date.now());
+    const base = path.join(os.tmpdir(), `dsh-test-si-fol-${Date.now()}`);
     fs.mkdirSync(base, { recursive: true });
     fs.writeFileSync(
       path.join(base, "comp.ts"),
@@ -499,7 +499,7 @@ describe("scanSharedImports", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
-    const base = path.join(os.tmpdir(), "dsh-test-si2-" + Date.now());
+    const base = path.join(os.tmpdir(), `dsh-test-si2-${Date.now()}`);
     fs.mkdirSync(base, { recursive: true });
     fs.writeFileSync(
       path.join(base, "comp.ts"),
@@ -526,7 +526,7 @@ describe("scanSharedImports", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
-    const base = path.join(os.tmpdir(), "dsh-test-si3-" + Date.now());
+    const base = path.join(os.tmpdir(), `dsh-test-si3-${Date.now()}`);
     fs.mkdirSync(base, { recursive: true });
     fs.writeFileSync(
       path.join(base, "comp.ts"),
@@ -662,7 +662,7 @@ let tmpCount = 0;
 function createTempFile(name: string, content: string) {
   const fs = require("fs");
   const path = require("path");
-  const filePath = path.join(tmpDir, "dsh-test-" + tmpCount++ + "-" + name);
+  const filePath = path.join(tmpDir, `dsh-test-${tmpCount++}-${name}`);
   fs.writeFileSync(filePath, content, "utf-8");
   return {
     path: filePath,

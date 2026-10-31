@@ -81,6 +81,10 @@ const FIELD_NAMES =
 const QUOTES = `['"\`]`;
 
 const PRIVATE_FIELD_RE = new RegExp(
+  // The segments stay separate on purpose: `String.raw` keeps `\.` / `\b` as
+  // regex escapes, while the quote branch needs a cooked `\\` to match one
+  // backslash. One template cannot carry both readings.
+  // eslint-disable-next-line prefer-template
   String.raw`(?<!\bthis)\._(?:${FIELD_NAMES})\b` +
     String.raw`|\b_(?:panes|paneRenderers)\b` +
     `|${QUOTES}_(?:${FIELD_NAMES})${QUOTES}(?=[\\],)])` +

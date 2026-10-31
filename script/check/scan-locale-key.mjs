@@ -125,4 +125,4 @@ for (const file of walk(ROOT)) {
   for (const k of collect(path.relative(ROOT, file), src)) used.add(k);
 }
 
-process.stdout.write(JSON.stringify([...used].sort(), null, 2) + "\n");
+process.stdout.write(`${JSON.stringify([...used].sort(), null, 2)}\n`);

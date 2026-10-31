@@ -124,7 +124,7 @@ describe("readSizes", () => {
   const mkTmp = (): string => {
     const dir = join(
       tmpdir(),
-      "lib-test-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+      `lib-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     tmpRoots.push(dir);
     return dir;

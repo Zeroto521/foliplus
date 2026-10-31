@@ -398,8 +398,7 @@ const checkListenerRegistrations = (
   for (const e of allow) {
     if (pinned.has(e.f)) {
       problems.push(
-        `${e.f}: duplicate allow-list entry — first pins n=${pinned.get(e.f)}, ` +
-          `this one says n=${e.n}`,
+        `${e.f}: duplicate allow-list entry — first pins n=${pinned.get(e.f)}, this one says n=${e.n}`,
       );
       continue;
     }
@@ -410,9 +409,7 @@ const checkListenerRegistrations = (
     // in the tree and a deliberate bump of this pin.
     if (e.pairedOff !== 0) {
       problems.push(
-        `${e.f}: allow-list pins pairedOff=${e.pairedOff} — today's schema ` +
-          `requires 0 (no paired-off removals exist in the tree). Bump the ` +
-          `tree-level L.DomEvent.off counter-proof at the same time.`,
+        `${e.f}: allow-list pins pairedOff=${e.pairedOff} — today's schema requires 0 (no paired-off removals exist in the tree). Bump the tree-level L.DomEvent.off counter-proof at the same time.`,
       );
     }
   }
@@ -426,13 +423,11 @@ const checkListenerRegistrations = (
     const expected = pinned.get(f);
     if (expected === undefined) {
       problems.push(
-        `${f}: ${n} ${call} call(s) — not on the allow-list; route it ` +
-          `through the tracked entry or add an entry with the reason`,
+        `${f}: ${n} ${call} call(s) — not on the allow-list; route it through the tracked entry or add an entry with the reason`,
       );
     } else if (n !== expected) {
       problems.push(
-        `${f}: ${n} ${call} call(s), allow-list pins ${expected} — a new one ` +
-          `crept in, or the file was already migrated (drop the entry)`,
+        `${f}: ${n} ${call} call(s), allow-list pins ${expected} — a new one crept in, or the file was already migrated (drop the entry)`,
       );
     }
   }
@@ -440,8 +435,7 @@ const checkListenerRegistrations = (
   for (const e of allow) {
     if (!seen.has(e.f)) {
       problems.push(
-        `${e.f}: allow-list entry (n=${e.n}) but the scan found no ${call} ` +
-          `call — the entry is stale, remove it`,
+        `${e.f}: allow-list entry (n=${e.n}) but the scan found no ${call} call — the entry is stale, remove it`,
       );
     }
   }
@@ -547,9 +541,7 @@ describe("pairedOff schema and tree", () => {
       [{ f: "Hypothetical.ts", n: 1, pairedOff: 1, reason: "test" }],
     );
     expect(problems).toEqual([
-      "Hypothetical.ts: allow-list pins pairedOff=1 — today's schema requires " +
-        "0 (no paired-off removals exist in the tree). Bump the tree-level " +
-        "L.DomEvent.off counter-proof at the same time.",
+      `Hypothetical.ts: allow-list pins pairedOff=1 — today's schema requires 0 (no paired-off removals exist in the tree). Bump the tree-level L.DomEvent.off counter-proof at the same time.`,
     ]);
   });
 });
@@ -567,8 +559,7 @@ describe("the listener allow-list guard still bites", () => {
       [],
     );
     expect(problems).toEqual([
-      "NewControl/ui.ts: 1 bare addEventListener call(s) — not on the " +
-        "allow-list; route it through the tracked entry or add an entry with the reason",
+      `NewControl/ui.ts: 1 bare addEventListener call(s) — not on the allow-list; route it through the tracked entry or add an entry with the reason`,
     ]);
   });
 
@@ -579,8 +570,7 @@ describe("the listener allow-list guard still bites", () => {
       [{ f: "BaseControl.ts", n: 1, pairedOff: 0, reason: "test" }],
     );
     expect(problems).toEqual([
-      "BaseControl.ts: 2 bare addEventListener call(s), allow-list pins 1 " +
-        "— a new one crept in, or the file was already migrated (drop the entry)",
+      `BaseControl.ts: 2 bare addEventListener call(s), allow-list pins 1 — a new one crept in, or the file was already migrated (drop the entry)`,
     ]);
   });
 
@@ -591,8 +581,7 @@ describe("the listener allow-list guard still bites", () => {
       [{ f: "GoneControl/ui.ts", n: 3, pairedOff: 0, reason: "test" }],
     );
     expect(problems).toEqual([
-      "GoneControl/ui.ts: allow-list entry (n=3) but the scan found no " +
-        "bare addEventListener call — the entry is stale, remove it",
+      `GoneControl/ui.ts: allow-list entry (n=3) but the scan found no bare addEventListener call — the entry is stale, remove it`,
     ]);
   });
 

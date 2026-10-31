@@ -216,7 +216,7 @@ afterAll(() => {
 // comment budget recorded in build.test.ts history (~17 KB), so any build
 // path that counts comments will visibly change between the two.
 const SRC = "export function add(a: number, b: number): number { return a + b; }";
-const NOISE = "// " + "x".repeat(51196) + "\n";
+const NOISE = `// ${"x".repeat(51196)}\n`;
 
 describe("minify invariant", () => {
   it("the real build config minifies when not in dev mode", () => {
@@ -247,7 +247,7 @@ describe("minify invariant", () => {
       // the plain `//` comment for a `@preserve` block, the two outputs must
       // differ: the invariant really is about ordinary comments being
       // stripped, not about trivially-passing assertions.
-      const LEGAL = "/* @preserve " + "x".repeat(51196) + " */\n";
+      const LEGAL = `/* @preserve ${"x".repeat(51196)} */\n`;
       const cfg = esbuildCfgFor({ dev: false, root: cwd });
       const a = buildWithConfig(SRC, cfg);
       const b = buildWithConfig(LEGAL + SRC, cfg);

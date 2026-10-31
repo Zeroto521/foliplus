@@ -216,8 +216,8 @@ const buildSchemeRow = (
   hiddenSelect: HTMLSelectElement;
 } => {
   const barClass = opts.barInnerClass
-    ? opts.barClass + " foliplus-scheme-picker-bar " + opts.barInnerClass
-    : opts.barClass + " foliplus-scheme-picker-bar";
+    ? `${opts.barClass} foliplus-scheme-picker-bar ${opts.barInnerClass}`
+    : `${opts.barClass} foliplus-scheme-picker-bar`;
   const bar = dom.el("div", {
     class: barClass,
     "data-scheme-bar-inner": "",
