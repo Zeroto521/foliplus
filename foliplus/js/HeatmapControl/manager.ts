@@ -1046,7 +1046,7 @@ class HeatmapManager {
   /** One warning per declared-filter problem: the seed runs again on every
    *  rebuild of the first open, and a per-rebuild warn would flood. */
   private warnDeclaredFilter(reason: string): void {
-    const key = "filter:" + reason;
+    const key = `filter:${reason}`;
     if (this.declarationWarned.has(key)) return;
     this.declarationWarned.add(key);
     this.log.warn("declared filter ignored:", reason);
