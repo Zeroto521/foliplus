@@ -7,15 +7,17 @@ into the JS ``CONFIG`` by :class:`foliplus.BaseControl`.
 
 Usage
 -----
->>> from foliplus import HeatmapControl
+.. code-block:: python
 
-# String input (recommended)
->>> HeatmapControl(locale="zh")
->>> HeatmapControl(locale="en")
+    >>> from foliplus import HeatmapControl
 
-# Load from external JSON
->>> from foliplus.locale import LocaleConfig
->>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
+    # String input (recommended)
+    >>> HeatmapControl(locale="zh")
+    >>> HeatmapControl(locale="en")
+
+    # Load from external JSON
+    >>> from foliplus.locale import LocaleConfig
+    >>> HeatmapControl(locale=LocaleConfig.from_json("my_locale.json"))
 """
 
 from __future__ import annotations

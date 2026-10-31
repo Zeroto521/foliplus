@@ -13,15 +13,17 @@ class ScaleControl(BaseControl):
         Whether to show the current map zoom level.
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance.
+        Language code ("en", "zh") or a :class:`LocaleConfig` instance.
         Defaults to auto-detection, falling back to English.
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import ScaleControl
-    >>> m = folium.Map()
-    >>> ScaleControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import ScaleControl
+        >>> m = folium.Map()
+        >>> ScaleControl().add_to(m)
     """
 
     def __init__(

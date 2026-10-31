@@ -234,10 +234,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     Parameters
     ----------
     position : str, default "topleft"
-        One of ``"topleft"``, ``"topright"``, ``"bottomleft"``, ``"bottomright"``.
+        One of "topleft", "topright", "bottomleft", "bottomright".
 
     locale : str or LocaleConfig, optional
-        Language code (``"en"``, ``"zh"``) or a :class:`LocaleConfig` instance. If
+        Language code ("en", "zh") or a :class:`LocaleConfig` instance. If
         omitted, the browser's ``navigator.language`` is used at runtime to select the
         appropriate locale table, falling back to English.
     """
