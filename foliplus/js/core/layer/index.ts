@@ -110,6 +110,7 @@ export type {
   PersistedLayerState,
 } from "./intent.js";
 export type {
+  AuthorZoomRange,
   CreateCanvasAPI,
   CreateCanvasOpts,
   CreateColorAPI,

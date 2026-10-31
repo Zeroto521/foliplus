@@ -129,15 +129,18 @@ const RENDER = {
  *  the dump instead of emitting an unimported type. */
 const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Primitive shape names → their TS type. Mirrors _TS_PRIMITIVES on the
- *  Python side minus "any", which the shape validator never accepts: the four
- *  names in _TS_PRIMITIVE_NAMES. Only "bool" needs a real mapping, since TS
- *  spells the type `boolean`. */
+/** Shape leaf names → their TS type. Mirrors _TS_PRIMITIVES on the Python
+ *  side minus "any", which the shape validator never accepts: the names in
+ *  _TS_PRIMITIVE_NAMES. Only "bool" and "array_string" need a mapping, since TS
+ *  spells those types `boolean` and `string[]`. "array_string" is a leaf
+ *  because an all-string list renders as a union: `["string"]` is the literal
+ *  `"string"`, so a string array needs its own name. */
 const SHAPE_PRIMITIVES = {
   string: "string",
   number: "number",
   bool: "boolean",
   null: "null",
+  array_string: "string[]",
 };
 
 /** Tell a primitive union apart from a literal union. JSON flattens Python
@@ -175,6 +178,7 @@ const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
  *
  * Shape grammar (validated by _validate_shape on the Python side):
  *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
+ *   - "array_string" → TS string[] (the general list-of-strings leaf)
  *   - null → TS null
  *   - ["string", "number"] (every element a primitive name, ≥2 of them) →
  *     primitive union, unquoted

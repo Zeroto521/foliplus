@@ -7,7 +7,7 @@
 //
 // Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
@@ -19,6 +19,7 @@ import {
   notifyDelta,
 } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
+import { authorZoomRowRange } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
   getDimension,
@@ -69,8 +70,14 @@ const syncZoomRangeRow = (
   liveRange?: [number, number],
 ): void => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-  const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const [min, max] = clampEndpoints(range, mapMin, mapMax);
+  const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  // Only look up the declaration when the user has no range: the row's
+  // author arm is the fallback, not a second source to compare against.
+  const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
+  const [min, max] = liveRange
+    ? clampEndpoints(liveRange, mapMin, mapMax)
+    : rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   const slider = sliderOfRow(row);
@@ -120,16 +127,55 @@ const clampEndpoints = (
   return hi <= mapMin ? [mapMin, mapMin] : [mapMax, mapMax];
 };
 
+/** Resolve the row's [min, max] endpoints.
+ *
+ *  The stored choice wins (clamped + ordered via clampEndpoints — the user's
+ *  persisted choice is never a lock). Without a stored range, the author's
+ *  declared range is the row's starting value (the declaration is only a
+ *  default, so a usable declaration seeds the row); a declaration that cannot
+ *  meet the map is treated as undeclared (authorZoomRowRange → undefined), so
+ *  the row opens on the map's full range. A layer that declared nothing also
+ *  opens on the full map range. Reset clears the intent, landing on the same
+ *  fallback.
+ *
+ *  The author arm is why Reset lands on the declaration instead of the map's
+ *  full range — the declaration is the author's default, and Reset returns to
+ *  it. */
+const rowEndpoints = (
+  stored: [number, number] | undefined,
+  author: AuthorZoomRange | undefined,
+  mapMin: number,
+  mapMax: number,
+): [number, number] => {
+  if (stored) return clampEndpoints(stored, mapMin, mapMax);
+  if (author) {
+    const lo = Math.max(author.min, mapMin);
+    const hi = Math.min(author.max, mapMax);
+    if (lo <= hi) return [lo, hi];
+    // A declaration entirely outside this layer's own rail (its
+    // `options.minZoom/maxZoom`, narrower than the map) collapses onto the
+    // nearest bound: the slider cannot draw a value the rail cannot reach.
+    const point = Math.min(Math.max(author.min, mapMin), mapMax);
+    return [point, point];
+  }
+  return [mapMin, mapMax];
+};
+
 /** Build the zoom-range form row: a dual-thumb slider with the map's current
  *  zoom as a readout mark.
  *
  *  Initial values come from the layer's zoomRange intent (the persisted
  *  choice), clamped to the map's current [min, max]. When no range is stored,
- *  the full map range is used — the "author-undeclared" default. */
+ *  the author's declared range is used; a layer that declared nothing opens on
+ *  the full map range. Reset clears the intent, so it lands on the same
+ *  fallback. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-  const [min, max] = clampEndpoints(stored, mapMin, mapMax);
+  const author = stored
+    ? undefined
+    : authorZoomRowRange(ui, ui.c.layerRegistry.get(layerId));
+  const [min, max] = rowEndpoints(stored, author, mapMin, mapMax);
   const current = ui.c.map.getZoom();
 
   // The primitive adds .foliplus-slider itself; the row only names its hook.
@@ -241,7 +287,8 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!layerInfo) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
-    const [min, max] = clampEndpoints(stored, mapMin, mapMax);
+    const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
+    const [min, max] = rowEndpoints(stored, author, mapMin, mapMax);
     return { min, max };
   },
   row: buildZoomRangeRow,
