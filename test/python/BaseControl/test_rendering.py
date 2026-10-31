@@ -281,18 +281,20 @@ class TestBaseControlRendering:
         results keep record ink on press.
         """
         css = read_css_dir("foliplus/css/common", "menu.css")
-        assert "):not([disabled]):active" in css
+        assert (
+            '.foliplus-layer-more-menu button:not([aria-disabled="true"]):active' in css
+        )
         assert "background: var(--foliplus-accent-soft-bg)" in css
         # Search result is a record: text stays text-primary on press too.
         assert ".foliplus-search-result-item:not([disabled]):active" in css
         assert "color: var(--foliplus-text-primary)" in css
         # Disabled menu entries keep their muted non-answer.
-        assert ".foliplus-layer-more-menu li[disabled]:active" in css
+        assert '.foliplus-layer-more-menu button[aria-disabled="true"]:active' in css
 
     def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
         """Layer overflow menu items take the shared focus-ring + fast transition."""
         css = read_css_dir("foliplus/css/LayerControl", "menu.css")
-        idx = css.find(".foliplus-layer-more-menu li:focus-visible")
+        idx = css.find(".foliplus-layer-more-menu button:focus-visible")
         assert idx != -1
         block = css[idx : css.index("}", idx)]
         assert "var(--foliplus-focus-ring)" in block

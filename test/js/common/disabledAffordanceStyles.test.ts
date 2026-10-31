@@ -47,14 +47,16 @@ describe("disabled-entry affordance stylesheet contract", () => {
   });
 
   it("gives a disabled menu item a not-allowed cursor", () => {
+    // The more-menu items are native buttons (task-12), so their disabled
+    // state is aria-disabled rather than a bare li[disabled].
     expect(menuCss).toMatch(
-      /\.foliplus-layer-more-menu li\[disabled\]\s*\{[^}]*cursor:\s*not-allowed/,
+      /\.foliplus-layer-more-menu button\[aria-disabled="true"\]\s*\{[^}]*cursor:\s*not-allowed/,
     );
   });
 
   it("excludes disabled menu items from the shared hover", () => {
     expect(menuCss).toMatch(
-      /:is\(\.foliplus-search-result-item, \.foliplus-layer-more-menu li\):not\(\[disabled\]\):hover/,
+      /\.foliplus-layer-more-menu button:not\(\[aria-disabled="true"\]\):hover/,
     );
   });
 
@@ -68,7 +70,8 @@ describe("disabled-entry affordance stylesheet contract", () => {
       /\.foliplus-scheme-picker-item:not\(\[disabled\]\):active/,
     );
     expect(menuCss).not.toMatch(
-      /:is\(\.foliplus-search-result-item, \.foliplus-layer-more-menu li\):hover/,
+      /:is\(\.foliplus-search-result-item, \.foliplus-layer-more-menu button\):hover/,
     );
+    expect(menuCss).not.toMatch(/\.foliplus-layer-more-menu li\[disabled\]/);
   });
 });

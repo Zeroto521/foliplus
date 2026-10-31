@@ -1871,9 +1871,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1883,9 +1883,9 @@ describe("LayerUI style panel", () => {
     ui.openMoreMenu(item);
 
     const styleItem = item.querySelector(
-      `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
     ) as HTMLElement;
-    expect(styleItem.getAttribute("disabled")).toBeNull();
+    expect(styleItem.getAttribute("aria-disabled")).not.toBe("true");
     expect(styleItem.getAttribute("title")).toBe("LayerControl.style_layer_tooltip");
   });
 
@@ -1901,16 +1901,16 @@ describe("LayerUI style panel", () => {
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const styleItemOf = () =>
       item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
       ) as HTMLElement;
 
     box.checked = false;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBe("disabled");
+    expect(styleItemOf().getAttribute("aria-disabled")).toBe("true");
 
     box.checked = true;
     ui.openMoreMenu(item);
-    expect(styleItemOf().getAttribute("disabled")).toBeNull();
+    expect(styleItemOf().getAttribute("aria-disabled")).not.toBe("true");
   });
 
   // ─────────────────── field cache ───────────────────

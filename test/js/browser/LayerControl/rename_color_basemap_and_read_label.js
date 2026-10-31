@@ -9,7 +9,7 @@
   if (!input()) {
     row()?.querySelector(".foliplus-layer-more-btn")?.click();
     const rename = document.querySelector(
-      '.foliplus-layer-more-menu.open li[data-action="rename-layer"]',
+      '.foliplus-layer-more-menu.open button[data-action="rename-layer"]',
     );
     if (!rename) return null;
     rename.dispatchEvent(new MouseEvent("click", { bubbles: true }));
