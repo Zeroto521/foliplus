@@ -32,11 +32,7 @@
   // alpha's registry index is a different layer.
   if (domOrder[alphaIdx] === "alpha") {
     throw new Error(
-      "no registry/DOM divergence for alpha (dom " +
-        JSON.stringify(domOrder) +
-        ", registry " +
-        JSON.stringify(m.layers.map(l => l.id)) +
-        ")",
+      `no registry/DOM divergence for alpha (dom ${JSON.stringify(domOrder)}, registry ${JSON.stringify(m.layers.map(l => l.id))})`,
     );
   }
 

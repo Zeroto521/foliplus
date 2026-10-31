@@ -82,8 +82,7 @@ const saveState = (ui: LayerUI) => {
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   if (!hasLiveValue(ui, id, override)) {
     ui.log.warn(
-      `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
-        `marker not recorded — set the value before marking`,
+      `markOverride("${override}", "${id}"): no stored value for this dimension, marker not recorded — set the value before marking`,
     );
     return;
   }

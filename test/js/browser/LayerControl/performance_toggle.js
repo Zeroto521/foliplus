@@ -16,7 +16,7 @@
     const t0 = performance.now();
     items[0].click();
     const t1 = performance.now();
-    results.push({ op: "toggle-layer-" + i, ms: +(t1 - t0).toFixed(3) });
+    results.push({ op: `toggle-layer-${i}`, ms: +(t1 - t0).toFixed(3) });
   }
 
   // Toggle-all 3 times
@@ -24,7 +24,7 @@
     const t0 = performance.now();
     toggleAll.click();
     const t1 = performance.now();
-    results.push({ op: "toggle-all-" + i, ms: +(t1 - t0).toFixed(3) });
+    results.push({ op: `toggle-all-${i}`, ms: +(t1 - t0).toFixed(3) });
   }
 
   return results;

@@ -621,10 +621,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
     file: "LayerControl/ui/focus/index.ts",
     slot: "checkbox.checked",
     n: 1,
-    reason:
-      "momentary flip: checkbox.checked = !checkbox.checked → " +
-      "dispatchEvent('change') → applyUserState → applyRowView " +
-      "redraws the row from corrected intent",
+    reason: `momentary flip: checkbox.checked = !checkbox.checked → dispatchEvent('change') → applyUserState → applyRowView redraws the row from corrected intent`,
   },
 ];
 
@@ -702,8 +699,7 @@ describe("applyRowView is the only module writing row visual slots", () => {
         const allowed = fileAllowances?.get(pattern.slot) ?? 0;
         if (found > allowed) {
           problems.push(
-            `${name}: "${pattern.slot}" ${found}` +
-              `${allowed ? ` > ${allowed}` : " (no allowance)"}`,
+            `${name}: "${pattern.slot}" ${found}${allowed ? ` > ${allowed}` : " (no allowance)"}`,
           );
         }
       }

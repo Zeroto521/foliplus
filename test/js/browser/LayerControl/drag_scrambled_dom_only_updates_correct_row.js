@@ -37,11 +37,7 @@
   // alpha's registry index — so a DOM-position read reports a self-drop.
   if (domOrder[betaIdx] === "beta" || domOrder.indexOf("beta") !== regIdx("alpha")) {
     throw new Error(
-      "no usable registry/DOM divergence (dom " +
-        JSON.stringify(domOrder) +
-        ", registry " +
-        JSON.stringify(beforeRegistry) +
-        ")",
+      `no usable registry/DOM divergence (dom ${JSON.stringify(domOrder)}, registry ${JSON.stringify(beforeRegistry)})`,
     );
   }
 

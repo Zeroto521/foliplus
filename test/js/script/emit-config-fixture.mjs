@@ -167,9 +167,7 @@ const buildConfigFixture = async schema => {
 const resolveSchemaJson = o => {
   if (o.json) return resolve(o.json);
   throw new Error(
-    "resolveSchemaJson: --json is required. Run " +
-      "`python foliplus/_config_schema.py --out <path>` first, then " +
-      "`node test/js/script/emit-config-fixture.mjs --json <path>`.",
+    `resolveSchemaJson: --json is required. Run \`python foliplus/_config_schema.py --out <path>\` first, then \`node test/js/script/emit-config-fixture.mjs --json <path>\`.`,
   );
 };
 

@@ -258,7 +258,7 @@ const renderFontAwesome = async (
       const match = raw.match(/^\\([0-9a-fA-F]+)/);
       if (match) iconText = String.fromCharCode(parseInt(match[1], 16));
       const match2 = raw.match(/^\\\\f([0-9a-fA-F]+)/);
-      if (match2) iconText = String.fromCharCode(parseInt("f" + match2[1], 16));
+      if (match2) iconText = String.fromCharCode(parseInt(`f${match2[1]}`, 16));
     }
 
     const iconCS = window.getComputedStyle(iconEl);

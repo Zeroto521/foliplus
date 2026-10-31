@@ -958,7 +958,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     annCanvas.className = "foliplus-label-canvas";
     labelPane.appendChild(annCanvas);
     map.getPane = (name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
     map.foliplus = {
       LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
@@ -1019,7 +1019,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     annCanvas.className = "foliplus-label-canvas";
     labelPane.appendChild(annCanvas);
     map.getPane = (name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
     map.foliplus = {
       LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
@@ -1084,7 +1084,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     pinBox(annCanvas, 1200, 1200, 80, 40);
     labelPane.appendChild(annCanvas);
     map.getPane = (name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
+      name === `${CONST.LABEL_PANE_PREFIX}vec` ? labelPane : null;
     map.foliplus = {
       LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };

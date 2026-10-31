@@ -61,13 +61,13 @@ const bridged = (
 };
 
 const labelOf = (dropdown: Dropdown): string =>
-  dropdown.element.querySelector("." + CLS.label)?.textContent ?? "";
+  dropdown.element.querySelector(`.${CLS.label}`)?.textContent ?? "";
 
 // The popup is portalled out of the wrapper while it is open (a short panel
 // must not clip it), so the rows are read off the list, not the wrapper.
 const optionEls = (dropdown: Dropdown): HTMLButtonElement[] =>
   Array.from(
-    dropdown.getList()?.querySelectorAll<HTMLButtonElement>("." + CLS.option) ?? [],
+    dropdown.getList()?.querySelectorAll<HTMLButtonElement>(`.${CLS.option}`) ?? [],
   );
 
 const key = (
@@ -358,7 +358,7 @@ describe("dropdown: multiple selections", () => {
       items,
       multiple: true,
       placeholder: "Any value",
-      selectedLabel: labels => labels.length + " picked",
+      selectedLabel: labels => `${labels.length} picked`,
       onChange: (_value, values) => changes.push([...values]),
     });
     cleanup.push(() => dropdown.destroy());
@@ -390,7 +390,7 @@ describe("dropdown: multiple selections", () => {
       items,
       multiple: true,
       placeholder: "Any value",
-      selectedLabel: labels => labels.length + " picked",
+      selectedLabel: labels => `${labels.length} picked`,
     });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
@@ -441,7 +441,7 @@ describe("dropdown: multiple selections", () => {
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     dropdown.trigger.click();
-    expect(dropdown.getList()?.querySelector("." + CLS.check)).toBeNull();
+    expect(dropdown.getList()?.querySelector(`.${CLS.check}`)).toBeNull();
     expect(dropdown.getList()?.hasAttribute("aria-multiselectable")).toBe(false);
   });
 
@@ -679,9 +679,9 @@ describe("dropdown: portal lifetime", () => {
   it("destroy takes the portalled popup out of the document", () => {
     const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
     dropdown.open();
-    expect(document.body.querySelectorAll("." + CLS.list).length).toBe(1);
+    expect(document.body.querySelectorAll(`.${CLS.list}`).length).toBe(1);
     dropdown.destroy();
-    expect(document.body.querySelectorAll("." + CLS.list).length).toBe(0);
+    expect(document.body.querySelectorAll(`.${CLS.list}`).length).toBe(0);
   });
 
   it("re-seats the popup when the page enters and leaves fullscreen", () => {
@@ -968,7 +968,7 @@ describe("dropdown: keyboard and edge cases", () => {
       dropdown.destroy();
     }).not.toThrow();
     expect(dropdown.isOpen()).toBe(false);
-    expect(document.body.querySelectorAll("." + CLS.list).length).toBe(0);
+    expect(document.body.querySelectorAll(`.${CLS.list}`).length).toBe(0);
   });
 });
 describe("dropdown: remaining contracts", () => {

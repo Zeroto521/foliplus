@@ -12,7 +12,7 @@ const colorScale = vi.fn((name: string, n: number) => {
   // Simulate chroma.scale().mode().colors() returning distinct colors.
   return Array.from({ length: n }, (_, i) => {
     const hue = Math.round((i / n) * 360);
-    return "hsl(" + hue + ", 70%, 50%)";
+    return `hsl(${hue}, 70%, 50%)`;
   });
 });
 

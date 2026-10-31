@@ -578,7 +578,7 @@ describe("BaseControl", () => {
       // bus's per-map unload teardown (ensureEvents wires it), and no
       // cleanup has fired this cycle yet.
       expect(m.listenerCount()).toBe(2);
-      expect(document.querySelector("#cycle-" + i)).not.toBeNull();
+      expect(document.querySelector(`#cycle-${i}`)).not.toBeNull();
       const beforeThisCycle = i;
 
       c.onRemove();

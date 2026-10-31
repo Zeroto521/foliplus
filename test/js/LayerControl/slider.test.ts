@@ -978,7 +978,7 @@ describe("Slider primitive", () => {
     document.body.appendChild(host);
     hosts.push(host);
     new Slider(host, { min: 0, max: 100, value: 50, label: "x" });
-    const thumbEl = host.querySelector<HTMLElement>("." + SLIDER.THUMB)!;
+    const thumbEl = host.querySelector<HTMLElement>(`.${SLIDER.THUMB}`)!;
     press(thumbEl, "ArrowRight");
     expect(sliderOf(host)!.value).toBe(49);
     press(thumbEl, "ArrowLeft");
