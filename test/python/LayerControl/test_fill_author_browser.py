@@ -150,6 +150,15 @@ class TestFillAuthorBrowser:
             # do not weaken it to read the inline style.
             assert initial["methodTextAlign"] == "center", initial
             assert initial["countTextAlign"] == "center", initial
+            # The value span is a flex child: text-align only centers once the
+            # span fills the box (flex:1, min-width:0). Measure the real glyph
+            # position against the box — computed text-align alone would not
+            # catch a content-width span. Negative control: removing flex:1
+            # from either value rule must turn this red on the browser job.
+            assert initial["methodTextDeviation"] is not None, initial
+            assert initial["methodTextDeviation"] <= 2, initial
+            assert initial["countTextDeviation"] is not None, initial
+            assert initial["countTextDeviation"] <= 2, initial
             # The two readouts stay distinguishable to assistive tech, the same
             # split the by-value classes row keeps for its two selects. The
             # name rides on role="group": a bare div exposes the aria-label in

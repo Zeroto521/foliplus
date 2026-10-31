@@ -49,10 +49,15 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     expect(count).toContain("flex-shrink: 0");
     // The value inside the box is horizontally centered, matching the count
     // select's own value.
+    // The value span must fill the box (flex:1, min-width:0) for the
+    // text-align to actually center the text: a flex child only as wide as its
+    // content would ignore text-align.
     const value = blockOf(
       layer,
       ".foliplus-style-fill-original-count .foliplus-style-fill-original-value {",
     );
+    expect(value).toContain("flex: 1");
+    expect(value).toContain("min-width: 0");
     expect(value).toContain("text-align: center");
   });
 
@@ -71,10 +76,14 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     expect(layer.indexOf(".foliplus-style-fill-original-count,")).toBe(-1);
     // The method value is centered like the count value (a readout states a
     // value, not a spanning label).
+    // Same centering contract as the count value: the span fills the box so
+    // text-align:center is real, not a no-op on a content-width flex child.
     const value = blockOf(
       layer,
       ".foliplus-style-fill-original-method .foliplus-style-fill-original-value {",
     );
+    expect(value).toContain("flex: 1");
+    expect(value).toContain("min-width: 0");
     expect(value).toContain("text-align: center");
   });
 });

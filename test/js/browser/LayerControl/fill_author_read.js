@@ -12,6 +12,21 @@
   const columnBox = box("foliplus-style-fill-original-column");
   const countBox = box("foliplus-style-fill-original-count");
   const methodBox = box("foliplus-style-fill-original-method");
+  // The pixel distance between the value text's center and the box's center.
+  // The value span is a flex child: text-align only centers when the span
+  // fills the box (flex:1, min-width:0), so this measures the real rendering,
+  // not the computed style.
+  const textCenterDeviation = el => {
+    const value = el?.querySelector(".foliplus-style-fill-original-value");
+    if (!value) return null;
+    const range = document.createRange();
+    range.selectNodeContents(value);
+    const textRect = range.getBoundingClientRect();
+    const boxRect = el.getBoundingClientRect();
+    const textCenter = textRect.left + textRect.width / 2;
+    const boxCenter = boxRect.left + boxRect.width / 2;
+    return Math.abs(textCenter - boxCenter);
+  };
   const readout = el => {
     const value = el?.querySelector(".foliplus-style-fill-original-value");
     return value ? value.textContent : null;
@@ -72,6 +87,8 @@
       ? getComputedStyle(countBox.querySelector(".foliplus-style-fill-original-value"))
           .textAlign
       : null,
+    methodTextDeviation: methodBox ? textCenterDeviation(methodBox) : null,
+    countTextDeviation: countBox ? textCenterDeviation(countBox) : null,
     // The compact width token: the count readout must equal it (not a hardcoded
     // pixel) so a token change does not silently break the geometry contract.
     secondaryWidth: panel

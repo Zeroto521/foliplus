@@ -97,6 +97,8 @@
 /* The method value is centered like the count value (both readouts state a
    value, not a spanning label). */
 .foliplus-style-fill-original-method .foliplus-style-fill-original-value {
+  flex: 1;
+  min-width: 0;
   text-align: center;
 }
 
@@ -106,6 +108,8 @@
 }
 
 .foliplus-style-fill-original-count .foliplus-style-fill-original-value {
+  flex: 1;
+  min-width: 0;
   text-align: center;
 }
 
