@@ -11,7 +11,7 @@
 - `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781))
 - `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
 - `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}`; the style row opens on it, Reset returns to it, and an unusable declaration is ignored with one warning ([#804](https://github.com/Zeroto521/foliplus/pull/804))
-- Tooling: a `make check` local fast gate — typecheck, changed-file prettier/eslint/ruff, full-tree listener/toolchain guards, changed-file vitest/pytest and the changelog/mojibake/dead-barrel scripts — catches the reds a "run the tests I touched" workflow misses before push (full suite stays with PR CI)
+- Tooling: a `make check` local fast gate — typecheck, changed-file prettier/eslint/ruff, full-tree listener/toolchain guards, changed-file vitest/pytest and the changelog/mojibake/dead-barrel scripts — catches the reds a "run the tests I touched" workflow misses before push (full suite stays with PR CI) ([#838](https://github.com/Zeroto521/foliplus/pull/838))
 
 ### Changed
 
