@@ -750,7 +750,8 @@ class LayerControl(BaseControl):
       below).
     - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
-    .. rubric:: Shortcuts
+    Shortcuts
+    ---------
 
     Focus a layer row by clicking it, then use:
 
@@ -790,14 +791,25 @@ class LayerControl(BaseControl):
 
     Parameters
     ----------
-    position : str, optional
+    position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
+
     label_collide : bool, default True
-        Default for a layer's own "avoid overlap" label setting.
+        Page-wide default for the per-layer "avoid overlap" setting: when
+        enabled, a layer's own labels thin themselves out where they overlap.
+        Labels from *different* layers never avoid each other — the layers are
+        stacked, so an upper layer simply covers the lower one's. The style
+        panel overrides this per layer.
+
     collapse_on_outside : bool, default False
-        Collapse the panel when a press lands outside it.
+        Whether a press outside the panel collapses it. Off by default: the
+        panel is a working surface read at the same time as the map, and the
+        map's busiest gesture is drag-pan / click-select. The header close
+        button collapses it explicitly either way.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
+        Defaults to auto-detection, falling back to English.
 
     Examples
     --------
