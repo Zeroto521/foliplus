@@ -290,8 +290,8 @@ describe("renderShape", () => {
     // Mirrors _validate_shape's message on the Python side, which sorts the
     // accepted names.
     expect(() => renderShape("integer", "T.count")).toThrow(
-      'Unknown shape primitive "integer" at T.count — expected one of ' +
-        "array_string, bool, null, number, string",
+      `Unknown shape primitive "integer" at T.count — expected one of bool, null, number, string`,
+    );
     );
     // A prototype-chain name must take this path too, not resolve to Object's
     // constructor and be returned as if it were a TS primitive.

@@ -94,7 +94,7 @@ const dom = {
         } else if (DOM_PROPS.has(key)) Reflect.set(el, key, val);
         else if (DOM_EVENT_KEYS.has(key)) {
           const handler = val as EventListener;
-          Reflect.set(el, "on" + key.slice(2), handler);
+          Reflect.set(el, `on${key.slice(2)}`, handler);
         } else el.setAttribute(key, String(val));
       }
     }

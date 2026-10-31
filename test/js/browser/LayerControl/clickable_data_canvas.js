@@ -22,8 +22,7 @@
   // Park it in the middle of the map, clear of every control overlay.
   const left = Math.max(0, (container.width - 200) / 2);
   const top = Math.max(0, (container.height - 200) / 2);
-  canvas.style.cssText =
-    `position:absolute;left:${left}px;top:${top}px;` + "width:200px;height:200px;";
+  canvas.style.cssText = `position:absolute;left:${left}px;top:${top}px;width:200px;height:200px;`;
   canvas.addEventListener("click", () => {
     window.__clickableDataCanvasHits += 1;
   });

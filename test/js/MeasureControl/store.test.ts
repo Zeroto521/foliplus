@@ -388,7 +388,7 @@ describe("MeasureStore — assignMissingIds (restore path)", () => {
     store.assignMissingIds();
     const ids = store.all().map(m => m.id);
     expect(new Set(ids).size).toBe(2);
-    expect(ids.every(id => id.startsWith(CONST.ID + "_marker_"))).toBe(true);
+    expect(ids.every(id => id.startsWith(`${CONST.ID}_marker_`))).toBe(true);
   });
 });
 
@@ -404,6 +404,6 @@ describe("MeasureStore — nextId", () => {
 
   it("uses the CONST.ID prefix", () => {
     const store = makeStore().store;
-    expect(store.nextId("marker").startsWith(CONST.ID + "_")).toBe(true);
+    expect(store.nextId("marker").startsWith(`${CONST.ID}_`)).toBe(true);
   });
 });

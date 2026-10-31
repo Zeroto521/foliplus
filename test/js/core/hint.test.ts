@@ -503,16 +503,14 @@ describe("ensureHint", () => {
     for (const name of components) {
       registerHintIcon(
         name,
-        '<svg viewBox="0 0 8 8" class="' +
-          name +
-          '"><rect width="4" height="4"/></svg>',
+        `<svg viewBox="0 0 8 8" class="${name}"><rect width="4" height="4"/></svg>`,
       );
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
-      map.foliplus!.showHint!(name, name + " msg", 0);
+      map.foliplus!.showHint!(name, `${name} msg`, 0);
       const icon = document.querySelector(".foliplus-hint-icon");
-      expect(icon, name + " hint should have an icon").not.toBeNull();
-      expect(icon!.innerHTML, name + " icon should match").toContain(name);
+      expect(icon, `${name} hint should have an icon`).not.toBeNull();
+      expect(icon!.innerHTML, `${name} icon should match`).toContain(name);
     }
   });
 

@@ -111,10 +111,7 @@ const SHARED_MODULE_EXACTS = ["#foliplus/BaseControl.js"];
  *   - `#foliplus/<anything-else>` — bundled into the component, not shared
  *   - `#script/…` — vitest-only, never shared
  */
-const SHARED_SPEC_REGEX_SOURCE =
-  `#(?:${SHARED_MODULE_PREFIXES.join("|")})/[^"']+` +
-  `|` +
-  SHARED_MODULE_EXACTS.map(spec => spec.replace(/\./g, "\\.")).join("|");
+const SHARED_SPEC_REGEX_SOURCE = `#(?:${SHARED_MODULE_PREFIXES.join("|")})/[^"']+|${SHARED_MODULE_EXACTS.map(spec => spec.replace(/\./g, "\\.")).join("|")}`;
 
 /**
  * package.json `imports` entries for the shared aliases, derived from the

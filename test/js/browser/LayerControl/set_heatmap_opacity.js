@@ -4,8 +4,7 @@
   // markOverride, saveState. Anchoring on the heatmap's own id keeps this
   // independent of row order.
   const row = document.querySelector(
-    '.foliplus-layer-item:not([data-layer-type="base"])' +
-      '[data-layer-id^="foliplus_heatmap"]',
+    `.foliplus-layer-item:not([data-layer-type="base"])[data-layer-id^="foliplus_heatmap"]`,
   );
   if (!row) {
     return {

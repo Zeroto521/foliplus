@@ -78,9 +78,7 @@
   // Document-order skeleton, so a mismatch names the shape that produced it.
   const struct = [...panel.querySelectorAll(sel)].map(
     n =>
-      `${pos(n)}` +
-      `:${kindOf(n)}` +
-      `:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
+      `${pos(n)}:${kindOf(n)}:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
   );
 
   const host = zoomRow.querySelector(".foliplus-style-zoom-range-control");

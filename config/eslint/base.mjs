@@ -239,6 +239,11 @@ export default [
       "object-shorthand": ["error", "always"],
       "one-var": ["error", "never"],
       "prefer-const": "error",
+      // Build strings with template literals, not `+`. The rule flags the
+      // literal/expression forms; adjacent template literals (multi-line
+      // message composition) were merged in the same sweep, so one message
+      // reads as one literal.
+      "prefer-template": "error",
 
       // Zero-cost guards: every one of these flagged nothing across the tree,
       // so they are pure future-proofing rather than churn. The one exception

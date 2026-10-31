@@ -28,8 +28,7 @@ async () => {
   const ctrl = window.__heatmapCtrl;
   if (!window.__probeDocBase) {
     throw new Error(
-      "_probe/doc_listener_probe not installed (pass it to make_browser_page " +
-        "as prelude=)",
+      `_probe/doc_listener_probe not installed (pass it to make_browser_page as prelude=)`,
     );
   }
   if (!map || !ctrl) throw new Error("map or __heatmapCtrl not exposed");

@@ -1139,7 +1139,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     // A reorder / fold rebuild clears the container without closing the panel.
@@ -1152,7 +1152,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const finish = vi.spyOn(sliderOf(host)!, "finish");
     manager.unregisterLayer("overlay1");
@@ -1166,7 +1166,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const slider = sliderOf(host)!;
     const finish = vi.spyOn(slider, "finish");
@@ -1205,7 +1205,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const host = panel.querySelector(
-      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
     const li = manager.layerRegistry.get("overlay1")!;
     // The layer changes outside the panel while it is open; moving the thumb

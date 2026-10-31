@@ -315,8 +315,7 @@ class LayerInfoRegistry {
     if (!valid) {
       throw new Error(
         log.msg(
-          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ` +
-            `${idx} — the base block starts at ${firstBase}`,
+          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ${idx} — the base block starts at ${firstBase}`,
         ),
       );
     }
@@ -350,8 +349,7 @@ class LayerInfoRegistry {
     if (existing.role !== layerInfo.role) {
       throw new Error(
         log.msg(
-          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ` +
-            `${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
+          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
         ),
       );
     }
@@ -451,8 +449,7 @@ class LayerInfoRegistry {
     if (side(fromIdx) !== side(toIdx)) {
       throw new Error(
         log.msg(
-          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary ` +
-            `(firstBaseIdx=${firstBase})`,
+          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary (firstBaseIdx=${firstBase})`,
         ),
       );
     }

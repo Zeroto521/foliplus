@@ -52,7 +52,7 @@ const LABEL_MIN_GAP_PCT = 12;
 /** The slider inside a zoom-range row. */
 const sliderOfRow = (row: HTMLElement): Slider | undefined =>
   sliderOf(
-    row.querySelector<HTMLElement>("." + CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL),
+    row.querySelector<HTMLElement>(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`),
   );
 
 /** Update the zoom-range row's visual state: thumb positions, limit dots,

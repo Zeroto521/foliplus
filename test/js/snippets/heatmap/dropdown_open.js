@@ -17,7 +17,7 @@
     zIndex: getComputedStyle(list).zIndex,
     topIsInsideList: top ? list.contains(top) : false,
     topTag: top
-      ? top.tagName.toLowerCase() + "." + String(top.className || "").slice(0, 40)
+      ? `${top.tagName.toLowerCase()}.${String(top.className || "").slice(0, 40)}`
       : null,
     option: option
       ? {
