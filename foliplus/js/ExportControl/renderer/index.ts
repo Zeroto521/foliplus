@@ -13,7 +13,14 @@ import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
-import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
+import {
+  type CanvasSnapshot,
+  type PaneSnapshot,
+  renderCanvasElement,
+  renderCanvasSnapshot,
+  renderPaneCanvas,
+  snapshotPaneCanvases,
+} from "./canvas.js";
 import {
   collectLayerShadows,
   collectPaneRoots,
@@ -253,6 +260,24 @@ class ExportRenderer {
         (surface != null ||
           (layer != null && !(layer instanceof L.TileLayer && layerUrl(layer)))),
     );
+    // Task-22: freeze each layer's label canvas pixels synchronously, before the
+    // first await. The label pass used to read the live canvas via toDataURL at
+    // pass time, but the tile wait + nextFrame between here and that pass is an
+    // async window where an annotation refresh can clear or re-mount the canvas;
+    // the export then came back label-free with no warning. The snapshot makes
+    // the export answer the question the user saw when they pressed Export.
+    // Keyed by layer id so the label pass reads its own layer's frozen pixels,
+    // not whatever the pane holds at pass time.
+    const labelSnapshots = new Map<string, PaneSnapshot>();
+    for (const { info, visible } of entries) {
+      if (!visible) continue;
+      const labelPane = this.map.getPane(labelPaneNameOf(info.id));
+      if (!labelPane) continue;
+      labelSnapshots.set(
+        info.id,
+        snapshotPaneCanvases(this.container, rc, labelPane, CONST.SEL.LABEL_CANVAS),
+      );
+    }
     let drawn = 0;
     const labelCanvasesMissing: string[] = [];
     if (entries.length) {
@@ -387,22 +412,27 @@ class ExportRenderer {
 
           // The layer's annotation labels sit one z-step above its content, in
           // a pane the content walk never visits (created with map.createPane).
-          // Drawing them here — right after this layer, before the next layer
-          // up — keeps the export's stack order identical to the map's: a layer
-          // above covers this layer's labels.
-          const labelPane = this.map.getPane(labelPaneNameOf(info.id));
-          if (labelPane) {
-            // The pane leaking through means this layer declared labels, so a
-            // pane this pass serialized nothing from is a loss, not "no labels
-            // configured": the label canvas was torn down between the snapshot
-            // and this pass. The old code walked straight past an empty pane
-            // and the export came back without the labels and without a word.
-            const serialized = await this.renderPaneCanvas(
-              rc,
-              labelPane,
-              CONST.SEL.LABEL_CANVAS,
-            );
-            if (serialized === 0) labelCanvasesMissing.push(info.id);
+          // They are drawn right after the layer's content — before the next
+          // layer up covers them — so the export's stack order matches the map's.
+          // The pixels are the snapshot frozen when the export started
+          // (task-22), not the live canvas: a refresh in the async window
+          // between the snapshot and this pass would otherwise blank the labels
+          // silently, and drawing the snapshot keeps the export exactly what the
+          // user saw when they pressed Export.
+          const snapshot = labelSnapshots.get(info.id);
+          if (snapshot) {
+            // Loss, not "no labels configured": the pane held a canvas at
+            // snapshot time but nothing made it into the snapshot — a canvas
+            // that was too small / out of crop / failed toDataURL, or one that
+            // the pane no longer holds because a refresh recreated it. A pane
+            // that declared labels but never had a canvas (labels off) is NOT
+            // a loss and must not be reported.
+            if (snapshot.sawCanvas && snapshot.snaps.length === 0) {
+              labelCanvasesMissing.push(info.id);
+            }
+            for (const snap of snapshot.snaps) {
+              await renderCanvasSnapshot(rc, snap);
+            }
           }
 
           // Markers and divIcons in this layer.  The sweep takes the resolved

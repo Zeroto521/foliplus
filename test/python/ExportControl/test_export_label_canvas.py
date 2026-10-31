@@ -3,8 +3,14 @@
 The export renders for seconds (tile pass, shadow pass), and annotation
 rendering can be torn down inside that window — a layer unload/re-register
 removes every label canvas. The export used to walk past the now-empty label
-pane and come back without the labels and without a word; the fix reports it
-as one aggregated warning instead.
+pane, read the live canvas at pass time, and come back without the labels and
+without a word.
+
+The task-22 fix freezes each layer's label canvas pixels synchronously at
+render() start — before the first await. A teardown inside the render window
+therefore cannot blank the labels: the export draws the frozen pixels the user
+saw when they pressed Export. This test arms the same teardown hook and asserts
+the labels are still in the export (they would be absent on the old code).
 """
 
 from __future__ import annotations
@@ -15,7 +21,7 @@ from .helper import _install_canvas_hook, _make_page
 
 
 class TestExportLabelCanvasBrowser:
-    def test_label_canvas_lost_mid_export_is_reported(self, browser, tmp_path):
+    def test_label_canvas_survives_mid_export_teardown(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path, slug="export_label_loss") as (
             page,
             _,
@@ -46,7 +52,10 @@ class TestExportLabelCanvasBrowser:
             # Tear the annotation rendering down inside the render window: the
             # layer stays on the map, its label canvas does not. The trigger is
             # the first tile image the export loads, so the teardown lands in
-            # the render no matter how fast or slow the host is.
+            # the render no matter how fast or slow the host is. The task-22
+            # snapshot ran before the teardown, so the export still draws the
+            # labels the user saw — this is the assertion that used to fail
+            # silently on the live-canvas read.
             page.evaluate(
                 """() => {
                   let armed = false;
@@ -86,13 +95,26 @@ class TestExportLabelCanvasBrowser:
             assert page.evaluate("() => window.__labelTornDown") is True, (
                 "the label teardown never fired inside the render window"
             )
+
+            # The frozen snapshot carried the labels: the export must still
+            # contain non-background (label) pixels even though the live canvas
+            # was torn down mid-render.
+            result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
+            assert result["found"] is True, result
+            assert result["nonBg"] > 0, (
+                f"labels lost from export despite the task-22 snapshot: {result}; "
+                f"warnings={warnings}"
+            )
+
+            # Nothing was lost, so the aggregated warning must not fire.
             reported = [
                 w
                 for w in warnings
                 if "label canvas missing" in w and "__export_ann__" in w
             ]
-            assert reported, (
-                f"a label canvas lost mid-export was not reported; warnings={warnings}"
+            assert not reported, (
+                f"a label canvas that the snapshot preserved was reported lost; "
+                f"warnings={warnings}"
             )
             assert len(errors) == 0, (
                 f"JS errors during a mid-export label teardown: {errors}"
