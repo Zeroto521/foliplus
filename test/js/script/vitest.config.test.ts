@@ -123,11 +123,14 @@ describe("vitest.config.mjs", () => {
     // A literal path dies silently the moment a control grows its first module
     // subdir (LayerControl/ui.ts -> LayerControl/ui/*): the entry still looks
     // right, but it no longer excludes anything.
-    // script/build/build.mjs and script/check/scan-locale-key.mjs are intentional
-    // exceptions: one file, one role each.
+    // script/build/build.mjs, script/check/scan-locale-key.mjs and
+    // script/check/local-check.mjs are intentional exceptions: one file, one
+    // role each. The local gate orchestrator spawns the toolchain, so it is not
+    // unit-testable in isolation the way a pure module is.
     const LITERALS = new Set([
       "script/build/build.mjs",
       "script/check/scan-locale-key.mjs",
+      "script/check/local-check.mjs",
     ]);
     const offenders = EXCLUDES.filter(
       glob => !glob.includes("*") && !LITERALS.has(glob),
