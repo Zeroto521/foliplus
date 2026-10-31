@@ -327,7 +327,7 @@ class TestPickerCloseBrowser:
                 assert state["portalCount"] == 0, state
                 assert state["stylePanelOpen"], state
                 assert state["styleDrawerVisible"], state
-                warns = page.evaluate("() => window.__setupWarns || []")
+                warns = page.evaluate(_js("LayerControl/read_setup_warns"))
                 dup = [w for w in warns if "duplicate overlay id" in w]
                 assert not dup, (
                     f"duplicate overlay id warning (layer_first={layer_first}): {dup}"
