@@ -207,6 +207,12 @@ describe("renderShape", () => {
     expect(renderShape(null)).toBe("null");
   });
 
+  it("renders the array_string leaf as a string array", () => {
+    // A leaf tag, not ["string"]: an all-string list is a union by content,
+    // so the one-element list would render as the literal "string".
+    expect(renderShape("array_string")).toBe("string[]");
+  });
+
   it("renders a list of primitive names as an unquoted primitive union", () => {
     expect(renderShape(["string", "number"])).toBe("string | number");
     expect(renderShape(["bool", "null"])).toBe("boolean | null");
@@ -215,7 +221,11 @@ describe("renderShape", () => {
   it("keeps a mixed or single-element list a quoted literal union", () => {
     expect(renderShape(["base", "overlay"])).toBe('"base" | "overlay"');
     expect(renderShape(["string", "base"])).toBe('"string" | "base"');
+    // Pinned against the array_string leaf: adding it must not change the
+    // meaning of a one-element list. ["string"] is the literal "string"; a
+    // string array is written "array_string".
     expect(renderShape(["string"])).toBe('"string"');
+    expect(renderShape(["string"])).not.toBe("string[]");
   });
 
   it("treats Object.prototype names as literal values, not primitives", () => {
@@ -280,7 +290,7 @@ describe("renderShape", () => {
     // Mirrors _validate_shape's message on the Python side, which sorts the
     // accepted names.
     expect(() => renderShape("integer", "T.count")).toThrow(
-      `Unknown shape primitive "integer" at T.count — expected one of bool, null, number, string`,
+      `Unknown shape primitive "integer" at T.count — expected one of array_string, bool, null, number, string`,
     );
     // A prototype-chain name must take this path too, not resolve to Object's
     // constructor and be returned as if it were a TS primitive.
