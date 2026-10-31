@@ -123,6 +123,51 @@ class TestFillAuthorBrowser:
             assert initial["note"] == _NOTE, initial
             assert initial["column"] == "score", initial
             assert initial["count"] == "—", initial
+            # A continuous scale is the default explore mapping (an equally
+            # spaced LinearColormap): the method readout states Equal Interval.
+            assert initial["method"] == "Equal Interval", initial
+            # The method and count share one row (the by-value classes row's
+            # shape): the method readout fills the control column from its left
+            # edge, the count readout hugs the right edge at the compact
+            # secondary width, and both values are centered.
+            m = initial["methodGeom"]
+            c = initial["countGeom"]
+            k = initial["colorsGeom"]
+            assert m is not None and c is not None and k is not None, initial
+            # Method starts at the control column's left edge and ends where the
+            # count begins (side by side in one inline row).
+            assert m["left"] == k["left"], initial
+            assert c["left"] >= m["right"], initial
+            assert c["right"] == k["right"], initial
+            assert c["width"] == initial["secondaryWidth"], (
+                f"count width {c['width']} != secondary {initial['secondaryWidth']}: {initial}"
+            )
+            # The count value is centered by the stylesheet (style.css rule
+            # .foliplus-style-fill-original-count .foliplus-style-fill-original-value
+            # { text-align: center }), read here via getComputedStyle because the
+            # inline style is always empty. Negative control: deleting that
+            # text-align line turns this assertion red on the browser job —
+            # do not weaken it to read the inline style.
+            assert initial["methodTextAlign"] == "center", initial
+            assert initial["countTextAlign"] == "center", initial
+            # The value span is a flex child: text-align only centers once the
+            # span fills the box (flex:1, min-width:0). Measure the real glyph
+            # position against the box — computed text-align alone would not
+            # catch a content-width span. Negative control: removing flex:1
+            # from either value rule must turn this red on the browser job.
+            assert initial["methodTextDeviation"] is not None, initial
+            assert initial["methodTextDeviation"] <= 2, initial
+            assert initial["countTextDeviation"] is not None, initial
+            assert initial["countTextDeviation"] <= 2, initial
+            # The two readouts stay distinguishable to assistive tech, the same
+            # split the by-value classes row keeps for its two selects. The
+            # name rides on role="group": a bare div exposes the aria-label in
+            # Chromium but that is not dependable across AT/browsers (and
+            # "text" is not an ARIA role — it is a Safari/WebKit-ism).
+            assert initial["methodRole"] == "group", initial
+            assert initial["countRole"] == "group", initial
+            assert initial["methodAria"] == "Method", initial
+            assert initial["countAria"] == "Classes", initial
             assert initial["caption"] == "Original · continuous", initial
             assert initial["colorsLabel"] == "Original · continuous", initial
             assert initial["gradient"].startswith("linear-gradient(90deg,"), initial

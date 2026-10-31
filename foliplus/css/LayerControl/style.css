@@ -84,6 +84,35 @@
   white-space: nowrap;
 }
 
+/* Method + class-count share one row (the by-value rampForm classes row's
+   shape): the method readout fills the control column the way the by-value
+   method select does, and the count readout takes the same compact secondary
+   width as the by-value class-count select. The count value stays centered
+   inside its box, matching the count select's own value. */
+.foliplus-style-fill-original-method {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The method value is centered like the count value (both readouts state a
+   value, not a spanning label). */
+.foliplus-style-fill-original-method .foliplus-style-fill-original-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.foliplus-style-fill-original-count {
+  width: var(--foliplus-form-secondary-width);
+  flex-shrink: 0;
+}
+
+.foliplus-style-fill-original-count .foliplus-style-fill-original-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
 /* The colors box carries the gradient edge to edge, the same inset the scheme
    trigger gives its bar — one box, one ordered ramp, no per-color blocks to
    overflow the control column. */
@@ -91,9 +120,13 @@
   padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
 }
 
+/* The strip is the same height and border as the by-value scheme bar
+   (common/scheme-picker.css), so the two arms' color preview reads alike. */
 .foliplus-style-fill-original-strip {
   flex: 1;
-  height: 10px;
+  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  box-sizing: border-box;
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   border-radius: var(--foliplus-radius-sm);
 }
 

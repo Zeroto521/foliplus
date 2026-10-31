@@ -11,9 +11,34 @@
   const colors = box("foliplus-style-fill-original-colors");
   const columnBox = box("foliplus-style-fill-original-column");
   const countBox = box("foliplus-style-fill-original-count");
+  const methodBox = box("foliplus-style-fill-original-method");
+  // The pixel distance between the value text's center and the box's center.
+  // The value span is a flex child: text-align only centers when the span
+  // fills the box (flex:1, min-width:0), so this measures the real rendering,
+  // not the computed style.
+  const textCenterDeviation = el => {
+    const value = el?.querySelector(".foliplus-style-fill-original-value");
+    if (!value) return null;
+    const range = document.createRange();
+    range.selectNodeContents(value);
+    const textRect = range.getBoundingClientRect();
+    const boxRect = el.getBoundingClientRect();
+    const textCenter = textRect.left + textRect.width / 2;
+    const boxCenter = boxRect.left + boxRect.width / 2;
+    return Math.abs(textCenter - boxCenter);
+  };
   const readout = el => {
     const value = el?.querySelector(".foliplus-style-fill-original-value");
     return value ? value.textContent : null;
+  };
+  const geom = el => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      left: Math.round(r.left),
+      right: Math.round(r.right),
+      width: Math.round(r.width),
+    };
   };
   const gradient = strip ? strip.style.background : "";
   const fills = [
@@ -35,7 +60,44 @@
     note: select ? select.title : null,
     column: readout(columnBox),
     count: readout(countBox),
+    method: readout(methodBox),
+    methodRole: methodBox ? methodBox.getAttribute("role") : null,
+    countRole: countBox ? countBox.getAttribute("role") : null,
+    methodAria: methodBox ? methodBox.getAttribute("aria-label") : null,
+    countAria: countBox ? countBox.getAttribute("aria-label") : null,
     caption: colors ? colors.title : null,
+    // Geometry: the method and count share one row (the by-value classes row's
+    // shape). The method readout fills the control column from its left edge,
+    // the count readout hugs the right edge at the compact secondary width. The
+    // value's textAlign distinguishes the method readout (left) from the
+    // centered count value.
+    methodGeom: geom(methodBox),
+    countGeom: geom(countBox),
+    colorsGeom: geom(colors),
+    // The read-only value box centers the count (a number box reads centered)
+    // and left-aligns the method (a spanning readout reads as a label). The
+    // alignment comes from the stylesheet, not inline style, so it is read via
+    // getComputedStyle — el.style.textAlign is always empty (the rule lives in
+    // style.css) and would hide a regression on the browser job only.
+    methodTextAlign: methodBox
+      ? getComputedStyle(methodBox.querySelector(".foliplus-style-fill-original-value"))
+          .textAlign
+      : null,
+    countTextAlign: countBox
+      ? getComputedStyle(countBox.querySelector(".foliplus-style-fill-original-value"))
+          .textAlign
+      : null,
+    methodTextDeviation: methodBox ? textCenterDeviation(methodBox) : null,
+    countTextDeviation: countBox ? textCenterDeviation(countBox) : null,
+    // The compact width token: the count readout must equal it (not a hardcoded
+    // pixel) so a token change does not silently break the geometry contract.
+    secondaryWidth: panel
+      ? Math.round(
+          parseFloat(
+            getComputedStyle(panel).getPropertyValue("--foliplus-form-secondary-width"),
+          ),
+        )
+      : null,
     colorsLabel: colors ? colors.getAttribute("aria-label") : null,
     gradient,
     // Every stop of a linear-gradient names two positions, so halving the
