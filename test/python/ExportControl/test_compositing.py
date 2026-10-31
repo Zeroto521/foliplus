@@ -585,3 +585,92 @@ class TestExportCompositeBrowser:
                 f"Marker window not red-dominant (ratio {ratio:.3f}): {result}"
             )
             assert len(errors) == 0, f"JS errors on default-marker export: {errors}"
+
+    def test_export_bare_default_icon_pixels(self, browser, tmp_path):
+        """A bare ``L.marker(...)`` (Leaflet's ``Icon.Default``) exports the
+        true default blue marker-icon.png pixels.
+
+        #813 introduced ``test_export_default_marker_pixels``, which uses a
+        deterministic red data-URI icon because the default ``marker-icon.png``
+        was not in the offline CDN cache (test/python/cdn.json) and the image
+        load raced the export. That test covers the export path for the
+        DEFAULT icon geometry but not the actual default icon artwork.
+
+        This test restores the pixel coverage for the real default icon. It
+        relies on two things #813 did not have:
+          * ``marker-icon.png`` (plus ``marker-icon-2x`` / ``marker-shadow``)
+            is now in ``test/python/cdn.json``, so the CDN route answers it
+            from the local cache instead of letting the request fail.
+          * ``test/python/conftest.py`` now adds
+            ``Access-Control-Allow-Origin: *`` to every CDN fulfill, because
+            the export renderer re-reads icon pixels with
+            ``loadImage(src, "anonymous")`` (crossOrigin=anonymous) and a
+            cross-origin anonymous image without CORS would fail to load.
+
+        The marker is a bare ``L.marker`` (no icon option), registered through
+        the LayerAPI into a foliplus pane (a bare ``map.addLayer`` marker is
+        not exported). The exported canvas is sampled in an 80x100 window that
+        covers the icon body, and the window must be blue-dominant among
+        non-transparent pixels.
+        """
+        with use_page(_make_page, browser, tmp_path, slug="export_bare_default") as (
+            page,
+            errors,
+        ):
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            state = page.evaluate(_js("ExportControl/setup_bare_default_marker"))
+            assert state is not None and "error" not in state, state
+            assert state["marker"] is True, state
+
+            _install_canvas_hook(page)
+            _run_export(page)
+            # Canvas-ready only proves the background fill: the marker's icon
+            # image loads asynchronously (renderRemaining awaits loadImage
+            # before drawImage). Wait for the blue-dominant marker signature --
+            # the observable end state this test asserts on.
+            _wait_export_canvas_ready(page)
+            page.wait_for_function(
+                _js("ExportControl/wait_bare_marker_drawn"), timeout=15000
+            )
+
+            page.evaluate(
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": {"marker": state["window"]},
+                    # The default marker-icon.png main color is (46,133,203).
+                    # tol 40 admits the antialiased blue edge; alphaMin 100
+                    # keeps the icon body. (This path is not the primary
+                    # assertion -- the ratio check below is -- but it gives a
+                    # fast-fail hint if the window lands on the wrong spot.)
+                    "color": [46, 133, 203],
+                    "tol": 40,
+                    "alphaMin": 100,
+                },
+            )
+            result = page.evaluate(
+                _js("ExportControl/sample_bare_default_window"),
+            )
+            assert result is not None, "Export canvas not captured"
+            assert result["total"] > 0, (
+                f"Marker window has no opaque pixels in export: {result}"
+            )
+            # Semantic invariant: the default Leaflet marker is a blue pin
+            # whose body fills well over half its 25x41 bbox. So among the
+            # window's opaque pixels the blue-dominant share must exceed half.
+            # The white outline and the gray background are explicitly NOT
+            # blue-dominant, so a blank canvas, a wrong-color draw, or a
+            # missing icon all fail this threshold. Threshold 0.5 (not a
+            # hand-tuned 0.55) keeps the semantic margin honest while still
+            # requiring the icon body to dominate.
+            assert result["blue"] > 50, (
+                f"Default marker blue pixels missing from export: {result}"
+            )
+            assert result["ratio"] >= 0.5, (
+                f"Marker window not blue-dominant (ratio {result['ratio']:.3f}): "
+                f"{result}"
+            )
+            assert len(errors) == 0, (
+                f"JS errors on bare-default-marker export: {errors}"
+            )
