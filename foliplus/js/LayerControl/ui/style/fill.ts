@@ -1067,7 +1067,7 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
   schemePickerOverlayByUi.set(
     ui,
     ensureOverlayRegistry(ui.c.map).register({
-      id: OVERLAY_IDS.PICKER_DROPDOWN,
+      id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
       isOpen: () => picker.getDropdown() !== null,
       panels: () => [trigger],
       close: ({ restoreFocus }) => picker.close({ restoreFocus }),
