@@ -220,9 +220,9 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
-    const li = document.createElement("li");
+    const li = document.createElement("button");
     li.dataset.action = "focus-layer";
-    if (disabled) li.setAttribute("disabled", "disabled");
+    if (disabled) li.setAttribute("aria-disabled", "true");
     menu.appendChild(li);
 
     ui.overlayPanel.activeMenu = {
@@ -310,7 +310,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
-    const li = document.createElement("li");
+    const li = document.createElement("button");
     li.dataset.action = "unknown-action";
     menu.appendChild(li);
     ui.overlayPanel.activeMenu = {
@@ -332,7 +332,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ui = makeUI();
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
-    const li = document.createElement("li");
+    const li = document.createElement("button");
     menu.appendChild(li);
     ui.overlayPanel.activeMenu = {
       item: document.createElement("div"),
@@ -353,7 +353,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ui = makeUI(); // activeMenu stays null
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
-    const li = document.createElement("li");
+    const li = document.createElement("button");
     li.dataset.action = "focus-layer";
     menu.appendChild(li);
     document.body.appendChild(menu);
@@ -370,7 +370,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     const ui = makeUI(); // activeMenu stays null
     const menu = document.createElement("ul");
     menu.className = "foliplus-layer-more-menu";
-    const li = document.createElement("li");
+    const li = document.createElement("button");
     menu.appendChild(li);
     document.body.appendChild(menu);
 

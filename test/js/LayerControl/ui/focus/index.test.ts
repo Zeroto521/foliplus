@@ -1721,7 +1721,7 @@ describe("LayerUI focus", () => {
       ) as HTMLElement;
       menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       const menuItem = overlay.querySelector(
-        ".foliplus-layer-more-menu li",
+        ".foliplus-layer-more-menu button",
       ) as HTMLElement;
       expect(menuItem).not.toBeNull();
       ui.handleDblClick({ target: menuItem, bubbles: true } as unknown as MouseEvent);

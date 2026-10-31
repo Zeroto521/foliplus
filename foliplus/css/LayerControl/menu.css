@@ -75,22 +75,33 @@
   .foliplus-layer-more-menu.open {
     display: block;
   }
-  .foliplus-layer-more-menu li {
+  :where(.foliplus-layer-more-menu button) {
+    /* Reset the native <button> chrome: the button is the hit target that
+    fills the shell. :where() keeps this at (0,0,0) so the shared
+    hover/active rules in common/menu.css (0,2,1 / 0,3,1) always win —
+    this only neutralizes the UA default background, never the states. */
     display: flex;
     align-items: center;
-    /* Icon stays left, label aligns right (the gap is the minimum spacing). */
     justify-content: space-between;
     gap: var(--foliplus-space-md);
+    width: 100%;
     padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+    margin: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
     white-space: nowrap;
   }
-  .foliplus-layer-more-menu li:focus-visible {
+  .foliplus-layer-more-menu button:focus-visible {
     outline: none;
     box-shadow: var(--foliplus-focus-ring);
     border-radius: var(--foliplus-radius-sm);
     transition: box-shadow var(--foliplus-transition-fast);
   }
-  .foliplus-layer-more-menu li svg {
+  .foliplus-layer-more-menu button svg {
     flex-shrink: 0;
     width: var(--foliplus-icon-size-xs);
     height: var(--foliplus-icon-size-xs);
@@ -104,11 +115,11 @@
   /* Icon wakes to black on hover AND keyboard focus, matching the LayerControl
      type-icon language (identity wakes to black, not accent — accent is reserved
      for actions/status). Disabled stays muted. */
-  .foliplus-layer-more-menu li:not([disabled]) svg {
+  .foliplus-layer-more-menu button:not([aria-disabled="true"]) svg {
     transition: color var(--foliplus-transition-fast);
   }
-  .foliplus-layer-more-menu li:not([disabled]):hover svg,
-  .foliplus-layer-more-menu li:not([disabled]):focus-visible svg {
+  .foliplus-layer-more-menu button:not([aria-disabled="true"]):hover svg,
+  .foliplus-layer-more-menu button:not([aria-disabled="true"]):focus-visible svg {
     color: var(--foliplus-text-primary);
   }
   /* Disabled menu item (e.g. layer is hidden).
@@ -117,14 +128,14 @@
      "this entry is unavailable" — for a hidden layer the Focus and Style
      rows are both disabled, so half the menu went gray. Color is the
      disabled signal everywhere else in the control. */
-  .foliplus-layer-more-menu li[disabled] {
+  .foliplus-layer-more-menu button[aria-disabled="true"] {
     cursor: not-allowed;
     color: var(--foliplus-text-muted);
   }
-  .foliplus-layer-more-menu li[disabled] svg {
+  .foliplus-layer-more-menu button[aria-disabled="true"] svg {
     color: var(--foliplus-text-muted);
   }
-  .foliplus-layer-more-menu li[disabled]:hover {
+  .foliplus-layer-more-menu button[aria-disabled="true"]:hover {
     background: transparent;
     /* Keep text muted: the unified hover tints text accent, but a disabled
        item must not answer with accent. */
@@ -154,23 +165,23 @@
      (near-black), which was the one color this control never otherwise
      uses as a surface and read as a foreign element.
      Every rule that touches the icon also carries the `:hover` leg:
-     common/menu.css's `li:not([disabled]):hover svg` is (0,4,2) and would
+     common/menu.css's `button:not([aria-disabled="true"]):hover svg` is (0,4,2) and would
      otherwise outrank a plain `…delete-armed svg` (0,3,2) and paint a
      near-black stroke over this fill — that is what made the armed trash
      glyph unreadable. `stroke` is set here too rather than trusting
      `currentColor`, so a later `color` rule cannot desync the glyph. */
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed,
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover {
     background: var(--foliplus-accent-primary);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:active,
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover:active {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:active,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover:active {
     background: var(--foliplus-accent-hover);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg,
-  .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover svg {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed svg,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover svg {
     color: var(--foliplus-on-accent);
     stroke: var(--foliplus-on-accent);
   }

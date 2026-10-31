@@ -501,7 +501,7 @@ class TestLayerControlRendering:
         more_icon = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "more-menu li svg" in html[max(0, i - 60) : i + 60]
+            if "more-menu button svg" in html[max(0, i - 60) : i + 60]
         ]
         assert any("color: var(--foliplus-text-muted)" in b for b in more_icon), (
             "more-menu icon must be muted at rest"
@@ -509,7 +509,8 @@ class TestLayerControlRendering:
         more_icon_hover = [
             html[i : html.index("}", i)]
             for i in range(len(html))
-            if "more-menu li:not([disabled]):hover svg" in html[max(0, i - 60) : i + 60]
+            if "more-menu button:not([aria-disabled=true]):hover svg"
+            in html[max(0, i - 60) : i + 60]
         ]
         assert any(
             "color: var(--foliplus-text-primary)" in b for b in more_icon_hover
