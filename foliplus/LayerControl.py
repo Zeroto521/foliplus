@@ -788,50 +788,104 @@ class LayerControl(BaseControl):
     on click or keyboard focus. Their ⋮ "Focus layer" item is disabled
     (not-allowed cursor) — toggle visibility from the checkbox as usual.
 
-    Args:
-        position (str, default "topleft"): one of "topleft", "topright",
-            "bottomleft", "bottomright".
-        label_collide (bool, default True): page-wide default for the per-layer
-            "avoid overlap" setting: when enabled, a layer's own labels thin
-            themselves out where they overlap. Labels from *different* layers
-            never avoid each other — the layers are stacked, so an upper layer
-            simply covers the lower one's. The style panel overrides this per
-            layer.
-        collapse_on_outside (bool, default False): whether a press outside the
-            panel collapses it. Off by default: the panel is a working surface
-            read at the same time as the map, and the map's busiest gesture is
-            drag-pan / click-select. The header close button collapses it
-            explicitly either way.
-        locale (str or LocaleConfig, optional): language code ("en", "zh") or a
-            LocaleConfig instance. Defaults to auto-detection, falling back to
-            English.
+    Parameters
+    ----------
+    position : str, optional
+        One of "topleft", "topright", "bottomleft", "bottomright".
+    label_collide : bool, default True
+        Default for a layer's own "avoid overlap" label setting.
+    collapse_on_outside : bool, default False
+        Collapse the panel when a press lands outside it.
+    locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
 
-    Examples:
-        >>> import folium
-        >>> from foliplus import LayerControl
-        >>> m = folium.Map()
-        >>> LayerControl().add_to(m)
+    Examples
+    --------
+    Mount the panel on a map:
 
-        A layer may declare its own defaults on the layer itself, under the
-        ``foliplus=`` namespace. LayerControl reads them from
-        ``layer.options["foliplus"]``, so both ``explore`` and ``GeoJson``
-        carry a declaration the same way:
+    >>> import folium
+    >>> from foliplus import LayerControl
+    >>> m = folium.Map()
+    >>> LayerControl().add_to(m)
 
-        >>> import geopandas as gpd
-        >>> gdf = gpd.read_file("boundaries.geojson")
-        >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+    A layer may declare its own defaults on the layer itself, in the same
+    ``foliplus=`` namespace the fill and label declarations use. Declare a
+    visible zoom range:
 
-        >>> folium.GeoJson(
-        ...     gdf,
-        ...     foliplus={"zoom": {"min": 8, "max": 12}},
-        ... ).add_to(m)
+    >>> import geopandas as gpd
+    >>> gdf = gpd.read_file("boundaries.geojson")
+    >>> m = gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+    >>> LayerControl().add_to(m)
 
-    Notes:
-        A layer may declare its label defaults under the ``label`` key:
+    Declare per-layer text labels:
 
-        >>> gdf.explore(
-        ...     foliplus={"label": {"field": "name", "collide": False}}
-        ... )
+    >>> gdf.explore(foliplus={"label": {"field": "name", "collide": False}})
+
+    Notes
+    -----
+    Recognised keys:
+
+    +----------+--------+--------------------------------------------------------------+
+    | Key      | Type   | Meaning                                                      |
+    +==========+========+==============================================================+
+    | ``fill`` | dict   | The layer's fill by value, with a ``ramp`` arm for numeric   |
+    |          |        | fields (see the fill table below).                           |
+    +----------+--------+--------------------------------------------------------------+
+    | ``label``| dict   | The layer's text labels (see the label table below).         |
+    +----------+--------+--------------------------------------------------------------+
+    | ``zoom`` | dict   | The layer's visible zoom range (see the zoom table below).   |
+    +----------+--------+--------------------------------------------------------------+
+
+    The ``zoom`` declaration keys:
+
+    +---------+------+----------+--------------------------------------------------------------+
+    | Key     | Type | Required | Meaning                                                      |
+    +=========+======+==========+==============================================================+
+    | ``min`` | int  | yes      | Lowest zoom at which the layer is visible (inclusive).       |
+    +---------+------+----------+--------------------------------------------------------------+
+    | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
+    +---------+------+----------+--------------------------------------------------------------+
+
+    How a ``zoom`` declaration is resolved:
+
+    +-------------------------------+--------------------------------------------------------------+
+    |Condition                      |Behaviour                                                     |
+    +===============================+==============================================================+
+    |User stored range              |The row shows the stored range; it always wins.               |
+    +-------------------------------+--------------------------------------------------------------+
+    |Valid declaration              |The row opens on it and Reset returns to it.                  |
+    +-------------------------------+--------------------------------------------------------------+
+    |No declaration                 |The row opens on the map's own range.                         |
+    +-------------------------------+--------------------------------------------------------------+
+    |Declared range cannot meet the |Treated as undeclared: the layer stays visible at every level,|
+    |map's zoom levels              |the degradation warns once, and the row stays editable (it    |
+    |                               |shows the stored value, else the map's range).                |
+    +-------------------------------+--------------------------------------------------------------+
+    |Malformed declaration (missing |Warns once and is treated as undeclared; never hides the      |
+    |key, non-int, inverted, unknown|layer.                                                        |
+    |key)                           |                                                              |
+    +-------------------------------+--------------------------------------------------------------+
+
+    A declaration is a default, never a rewrite: it does not modify the
+    author's own layer data.
+
+    The ``fill`` declaration keys:
+
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | Key              | Default                                                       | Meaning                                                                  |
+    +==================+===============================================================+==========================================================================+
+    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill arm: one color (``solid``) or color by value (``ramp``)             |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.method``  | ``jenks``                                                     | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``) |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.classes`` | ``6``                                                         | number of classes, any integer ``>= 2`` (``12`` is a common example)     |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
+    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+
+    The ``label`` declaration keys:
 
     +-------------+-------------------------------------+--------------------------------------------------------------+
     | Key         | Default                             | Meaning                                                      |
@@ -849,68 +903,6 @@ class LayerControl(BaseControl):
     | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
     +-------------+-------------------------------------+--------------------------------------------------------------+
 
-        Keys stay short because the declaration's own namespace already says
-        label; the ``label_`` prefix belongs to the flat surfaces (Python
-        kwargs, CONF, locale). A declaration is the layer's default: a later
-        choice in the style panel is the user's intent and wins, and Reset
-        shows the declaration through again.
-
-        A layer may declare its fill on the same per-layer namespace, under
-        the ``fill`` key:
-
-        >>> gdf.explore(
-        ...     foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}}
-        ... )
-
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | Key              | Default                                                       | Meaning                                                                  |
-    +==================+===============================================================+==========================================================================+
-    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill arm: one color (``solid``) or color by value (``ramp``)             |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.method``  | ``jenks``                                                     | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``) |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.classes`` | ``6``                                                         | number of classes, any integer ``>= 2`` (``12`` is a common example)     |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-
-        Precedence matches the label declaration: the user's choice in the
-        style panel wins, then the declaration, then the layer's per-feature
-        paint (``explore``'s baked colors) and finally the built-in default.
-        Reset returns to the declared ramp. An invalid declaration only warns
-        and falls back; it is dropped rather than painted.
-
-        A layer may declare its own visible zoom range on the same per-layer
-        namespace, under the ``zoom`` key:
-
-        >>> gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
-
-    +---------+----------+----------------------------------------------------------------------------+
-    | Key     | Required | Meaning                                                                    |
-    +=========+==========+============================================================================+
-    | ``min`` | yes      | lowest zoom at which the layer is visible (inclusive); must be an integer  |
-    +---------+----------+----------------------------------------------------------------------------+
-    | ``max`` | yes      | highest zoom at which the layer is visible (inclusive); must be an integer |
-    +---------+----------+----------------------------------------------------------------------------+
-
-        Both keys are required and must be integers (``min <= max``); a
-        declaration missing one, or with a non-integer end, is rejected whole
-        — there is no "omit to take the map's range" form, so a one-sided or
-        malformed declaration warns once and is ignored rather than silently
-        meaning something the layer never declared.
-
-        Precedence matches the label and fill declarations: the user's choice
-        in the style panel wins, then the declaration, then the map's own
-        range. A stored user range always takes precedence — the row shows
-        the stored range whenever one exists. A declaration that cannot
-        intersect the map's zoom levels (declared [20, 30] on a map capped at
-        18) is not a reason to hide the layer: the policy treats it as
-        undeclared and warns once, and the row stays editable — the
-        declaration is only the starting value, not a locked range. An
-        invalid declaration only warns and falls back; it never hides the
-        layer.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
