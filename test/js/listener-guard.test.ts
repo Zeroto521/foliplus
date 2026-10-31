@@ -109,10 +109,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "core/overlayRegistry.ts",
-    n: 3,
+    n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, one document click-capture probe for outside presses (a target's own stopPropagation must not hide them) plus the click-bubble half that decides inside presses, and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
   },
   {
     f: "ExportControl/session.ts",
