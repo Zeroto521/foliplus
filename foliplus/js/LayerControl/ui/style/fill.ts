@@ -528,6 +528,10 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
       author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
     ),
   );
+  // A bare div is a generic role, where aria-label is ignored: these are text
+  // readouts, so role="text" makes the label a real accessible name (the same
+  // problem the colors box solved with role="img").
+  methodBox.setAttribute("role", "text");
   methodBox.setAttribute("aria-label", ui.T("style_method"));
   const countBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
@@ -537,6 +541,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
       originalCount(author),
     ),
   );
+  countBox.setAttribute("role", "text");
   countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
     formRow(

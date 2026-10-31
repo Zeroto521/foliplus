@@ -69,12 +69,12 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     // No comma-joined selector merges the two — that would hide a shared
     // compact width behind the method's name.
     expect(layer.indexOf(".foliplus-style-fill-original-count,")).toBe(-1);
-    // No method-value rule either: the value keeps the generic read-only value
-    // (left-aligned, clipped), not the count's centered number.
-    expect(
-      layer.indexOf(
-        ".foliplus-style-fill-original-method .foliplus-style-fill-original-value {",
-      ),
-    ).toBe(-1);
+    // The method value is centered like the count value (a readout states a
+    // value, not a spanning label).
+    const value = blockOf(
+      layer,
+      ".foliplus-style-fill-original-method .foliplus-style-fill-original-value {",
+    );
+    expect(value).toContain("text-align: center");
   });
 });

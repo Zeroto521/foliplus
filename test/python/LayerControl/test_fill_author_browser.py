@@ -129,7 +129,7 @@ class TestFillAuthorBrowser:
             # The method and count share one row (the by-value classes row's
             # shape): the method readout fills the control column from its left
             # edge, the count readout hugs the right edge at the compact
-            # secondary width, and the count value is centered.
+            # secondary width, and both values are centered.
             m = initial["methodGeom"]
             c = initial["countGeom"]
             k = initial["colorsGeom"]
@@ -148,9 +148,12 @@ class TestFillAuthorBrowser:
             # inline style is always empty. Negative control: deleting that
             # text-align line turns this assertion red on the browser job —
             # do not weaken it to read the inline style.
+            assert initial["methodTextAlign"] == "center", initial
             assert initial["countTextAlign"] == "center", initial
             # The two readouts stay distinguishable to assistive tech, the same
             # split the by-value classes row keeps for its two selects.
+            assert initial["methodRole"] == "text", initial
+            assert initial["countRole"] == "text", initial
             assert initial["methodAria"] == "Method", initial
             assert initial["countAria"] == "Classes", initial
             assert initial["caption"] == "Original · continuous", initial

@@ -2937,6 +2937,11 @@ describe("fill row — original colors", () => {
     // The two readouts stay distinguishable to assistive tech: the method box
     // is named by the method label, the count box by the class-count label (the
     // by-value classes row keeps the same split for its two selects).
+    // The label only reaches assistive tech through a namable role: a bare div
+    // is a generic role where aria-label is ignored (the colors box had to take
+    // role="img" for the same reason). role="text" makes the name real.
+    expect(method!.getAttribute("role")).toBe("text");
+    expect(count!.getAttribute("role")).toBe("text");
     expect(method!.getAttribute("aria-label")).toBe("LayerControl.style_method");
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
