@@ -139,33 +139,32 @@ class MeasureControl(BaseControl):
     **Filter declaration.** ``filter`` is a list of measurement-type names (the
     range arm, a ``between`` mapping, belongs to ``HeatmapControl``):
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Item
-         - Type
-         - Required
-         - Meaning
-       * - each element
-         - ``str``
-         - yes
-         - A measurement-type name the panel's filter row offers: ``distance``, ``polygon``, ``circle``, ``marker``.
+    +--------------+----------+----------+--------------------------------------------------+
+    | Key          | Type     | Required | Meaning                                          |
+    +==============+==========+==========+==================================================+
+    | each element | ``str``  | yes      | A measurement-type name the panel's filter row   |
+    |              |          |          | offers: ``distance``, ``polygon``, ``circle``,   |
+    |              |          |          | ``marker``.                                      |
+    +--------------+----------+----------+--------------------------------------------------+
 
     **Situation → behavior.**
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Situation
-         - Behavior
-       * - A name the runtime does not know
-         - Dropped (not a filter that hides every measurement)
-       * - A declaration that keeps no type at all
-         - Reported once with a warning; treated as undeclared
-       * - User write
-         - Wins from then on; the declaration is a starting condition only
-       * - User explicit Clear (= factory Reset)
-         - Deletes the saved record, so a reload re-applies the declaration
+    +--------------------------------------------+--------------------------------------------+
+    | Situation                                  | Behavior                                   |
+    +============================================+============================================+
+    | A name the runtime does not know           | Dropped (not a filter that hides every     |
+    |                                            | measurement).                              |
+    +--------------------------------------------+--------------------------------------------+
+    | A declaration that keeps no type at all    | Reported once with a warning; treated as   |
+    |                                            | undeclared.                                |
+    +--------------------------------------------+--------------------------------------------+
+    | User write                                 | Wins from then on; the declaration is a    |
+    |                                            | starting condition only.                   |
+    +--------------------------------------------+--------------------------------------------+
+    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
+    |                                            | declaration re-seeds (this session and on  |
+    |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
     """
 
     @validate

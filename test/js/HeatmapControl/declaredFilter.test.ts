@@ -348,4 +348,24 @@ describe("declared heatmap filter — slot ownership", () => {
     expect(manager.filtersTouched).toBe(true);
     expect(manager.layerFilters.get("pts")).toEqual(RANGE);
   });
+  it("a data change that drops the field re-seeds the declaration on rebuild", () => {
+    const manager = seedable(RANGE as Record<string, unknown>);
+    manager.renderHexagons = vi.fn() as any;
+
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+    expect(manager.filtersTouched).toBe(false);
+
+    manager.resetState(makeConfig());
+
+    manager.selectedLayerId = "pts";
+    manager.availableFields = ["score"];
+    manager.field = "";
+    manager.cachedSnapshot = snapshot();
+    manager.getSelectedPoints = vi.fn(() => []) as any;
+    manager.seedDeclaredFilter();
+
+    expect(manager.filtersTouched).toBe(false);
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+  });
 });

@@ -80,7 +80,7 @@ class HeatmapControl(BaseControl):
     filter : dict, optional
         Starting filter on the aggregation field: a mapping with ``between``
         (the range is bound to ``field=``). See Notes for the declaration
-        shape and the two failure modes.
+        shape and the failure modes listed there.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
@@ -157,33 +157,33 @@ class HeatmapControl(BaseControl):
     **Filter declaration.** ``filter`` is a mapping with one key (the enum arm,
     a list of measurement types, belongs to ``MeasureControl``):
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Type
-         - Required
-         - Meaning
-       * - ``between``
-         - ``[number, number]``
-         - yes
-         - Inclusive range on the aggregation field (``field=``).
+    +--------------+----------------------+----------+----------------------------------------------+
+    | Key          | Type                 | Required | Meaning                                      |
+    +==============+======================+==========+==============================================+
+    | ``between``  | ``[number, number]`` | yes      | Inclusive range on the aggregation field     |
+    |              |                      |          | (``field=``).                                |
+    +--------------+----------------------+----------+----------------------------------------------+
 
     **Situation → behavior.**
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Situation
-         - Behavior
-       * - ``field`` key inside ``filter``, or no aggregation field (no ``field=``, or ``agg="count"``)
-         - ``ValueError`` in the cell that wrote the declaration
-       * - Data-shaped problem (no numeric extent, range outside the data, non-numeric bound)
-         - Reported once with a warning; treated as undeclared — never silently filtered to empty
-       * - User write
-         - Wins from then on; the declaration is a starting condition only
-       * - User explicit Clear (= factory Reset)
-         - Deletes the saved record, so a reload re-applies the declaration
+    +--------------------------------------------+--------------------------------------------+
+    | Situation                                  | Behavior                                   |
+    +============================================+============================================+
+    | ``field`` key inside ``filter``, or no     | ``ValueError`` in the cell that wrote the  |
+    | aggregation field (no ``field=``, or       | declaration.                               |
+    | ``agg="count"``)                           |                                            |
+    +--------------------------------------------+--------------------------------------------+
+    | Data-shaped problem (no numeric extent,    | Reported once with a warning; treated as   |
+    | range outside the data, non-numeric bound) | undeclared — never silently filtered to    |
+    |                                            | empty.                                     |
+    +--------------------------------------------+--------------------------------------------+
+    | User write                                 | Wins from then on; the declaration is a    |
+    |                                            | starting condition only.                   |
+    +--------------------------------------------+--------------------------------------------+
+    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
+    |                                            | declaration re-seeds (this session and on  |
+    |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
     """
 
     @validate
