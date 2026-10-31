@@ -896,6 +896,27 @@ describe("LayerUI style panel", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("reset closes the panel without bubbling to the map", () => {
+    // A press on the Reset button must not also become a map click: closing the
+    // panel removes it mid-dispatch, so the click would otherwise keep walking
+    // its original path with no live control ancestor and land on the map (the
+    // same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
+  });
+
   it("reset also restores collide (not just show/field/format)", () => {
     // Regression: DEFAULT_ANNOTATION alone omits collide, so a user-toggled
     // avoid-overlap switch used to survive Reset. defaultConfig() carries it.
@@ -1358,6 +1379,27 @@ describe("LayerUI style panel", () => {
       .dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("header click closes the panel without bubbling to the map", () => {
+    // A press on the header (or the × inside it) must not also become a map
+    // click: closing the panel removes it mid-dispatch, so the click would
+    // otherwise keep walking its original path with no live control ancestor
+    // and land on the map (the same guarantee as the ⋮ menu — #807).
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const bubbled = vi.fn();
+    item.addEventListener("click", bubbled);
+
+    panel
+      .querySelector(".foliplus-panel-header")!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The panel still closes…
+    expect(panelOf(item)).toBeUndefined();
+    // …and the press was swallowed, never reaching the row / map.
+    expect(bubbled).not.toHaveBeenCalled();
   });
 
   it("Escape closes an open style panel and returns focus to its row", () => {

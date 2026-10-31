@@ -57,9 +57,15 @@
   white-space: nowrap;
 }
 
-/* Nothing selected in a multi-select: the trigger carries the prompt in the
-   muted ink the empty panels use, not the value ink. */
-.foliplus-dropdown-placeholder {
+/* Nothing selected (a multi-select prompt, or a bridged select whose empty
+   value is the layer prompt): the trigger carries that prompt in the muted
+   ink the empty panels use, not the value ink. The trigger also carries
+   .foliplus-form-select, whose color rule lives in common/form.css and lands
+   LATER in the merged bundle — a single-class selector here would lose that
+   tie (same (0,1,0) specificity, later file wins) and muted would never show.
+   The compound class (0,2,0) beats it regardless of file order, which is why
+   this rule can stay in dropdown.css instead of moving into form.css. */
+.foliplus-dropdown-trigger.foliplus-dropdown-placeholder {
   color: var(--foliplus-text-muted);
 }
 

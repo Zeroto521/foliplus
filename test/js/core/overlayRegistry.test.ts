@@ -438,7 +438,7 @@ describe("OverlayRegistry", () => {
         panels: () => [panel("style")],
       });
       const dropdown = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         dismissOn: "click",
         pressPriority: 100,
         panels: () => [panel("picker")],
@@ -757,7 +757,7 @@ describe("OverlayRegistry", () => {
       // The picker popup is portalled, so its entry owns no panel: Escape is
       // ordered by ESC_PRIORITY, not by which surface contains the focus.
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [],
         dismissOn: "click",
       });
@@ -782,7 +782,7 @@ describe("OverlayRegistry", () => {
         panels: () => [stylePanel],
       });
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [],
       });
       registry.register(style.entry);
@@ -808,7 +808,7 @@ describe("OverlayRegistry", () => {
         panels: () => [stylePanel],
       });
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [pickerPanel],
       });
       registry.register(style.entry);
@@ -870,7 +870,7 @@ describe("OverlayRegistry", () => {
         dismissOn: "click",
       });
       const picker = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         panels: () => [],
         dismissOn: "click",
       });
@@ -1166,7 +1166,7 @@ describe("OverlayRegistry", () => {
         exclusiveGroup: "layer-control",
       });
       const other = makeEntry({
-        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
         exclusiveGroup: "picker",
       });
       registry.register(first.entry);

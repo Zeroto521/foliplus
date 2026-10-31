@@ -331,6 +331,32 @@ describe("dropdown: multiple selections", () => {
     expect(dropdown.getValues()).toEqual(["a"]);
   });
 
+  it("carries the muted placeholder class until a value is picked", () => {
+    const dropdown = createDropdown({
+      items,
+      multiple: true,
+      placeholder: "Any value",
+      selectedLabel: labels => labels.length + " picked",
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+
+    // Nothing picked: the trigger shows the prompt in the muted ink.
+    expect(labelOf(dropdown)).toBe("Any value");
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+
+    // One pick: value ink, placeholder class gone.
+    dropdown.trigger.click();
+    optionEls(dropdown)[0].click();
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(false);
+    expect(labelOf(dropdown)).toBe("Alpha");
+
+    // Deselecting back to nothing restores the prompt and its ink.
+    optionEls(dropdown)[0].click();
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+    expect(labelOf(dropdown)).toBe("Any value");
+  });
+
   it("keeps focus in the list after a toggle", () => {
     const dropdown = createDropdown({ items, multiple: true });
     cleanup.push(() => dropdown.destroy());
