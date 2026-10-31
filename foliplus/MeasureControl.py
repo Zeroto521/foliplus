@@ -137,7 +137,7 @@ class MeasureControl(BaseControl):
     Notes
     -----
     **Filter declaration.** ``filter`` is a list of measurement-type names (the
-    range arm, a ``between`` mapping, belongs to ``HeatmapControl``):
+    range arm, a ``min``/``max`` mapping, belongs to ``HeatmapControl``):
 
     +--------------+----------+----------+--------------------------------------------------+
     | Key          | Type     | Required | Meaning                                          |

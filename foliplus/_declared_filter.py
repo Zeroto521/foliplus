@@ -71,7 +71,7 @@ def _json_number(value: numbers.Real) -> int | float:
     """Coerce a validated endpoint to a number ``json`` can serialise.
 
     numpy and pandas scalars pass the ``numbers.Real`` check but not
-    ``json.dumps``, and ``between=[df["pop"].min(), df["pop"].max()]`` is the
+    ``json.dumps``, and ``{"min": df["pop"].min(), "max": df["pop"].max()}`` is the
     natural way to write a declaration from a frame - so the AST carries
     builtins only (``numbers.Integral`` -> int, every other Real -> float).
     """
@@ -83,7 +83,7 @@ def _json_number(value: numbers.Real) -> int | float:
 def _range_atom(
     raw: Mapping[Any, Any], owner: str, bound_field: str | None
 ) -> dict[str, Any] | None:
-    """The numeric arm: {between: [low, high]} -> a between atom on bound_field.
+    """The numeric arm: {min: low, max: high} -> a between atom on bound_field.
 
     The range is bound to the control's aggregation field (``field=``), never
     written into the declaration: ``filter`` carries only the range, and the
@@ -103,34 +103,31 @@ def _range_atom(
             f"{owner}: filter= needs the aggregation field it binds to — pass "
             f"field='<column>' (a value aggregation, not agg='count')."
         )
-    unknown = sorted(str(key) for key in raw if key not in {"between"})
+    unknown = sorted(str(key) for key in raw if key not in {"min", "max"})
     if unknown:
         _warn(f"{owner}: filter= has unknown key(s) {unknown}; ignored")
         return None
-    between = raw.get("between")
-    if (
-        not isinstance(between, Sequence)
-        or isinstance(between, (str, bytes))
-        or len(between) != 2
-    ):
+    if "min" not in raw or "max" not in raw:
         _warn(
-            f"{owner}: filter['between'] must be [low, high]; got {between!r}; ignored"
+            f"{owner}: filter= needs both 'min' and 'max'; "
+            f"got key(s) {sorted(str(key) for key in raw)}; ignored"
         )
         return None
-    low, high = between
-    for name, value in (("low", low), ("high", high)):
+    for key in ("min", "max"):
+        value = raw[key]
         if (
             isinstance(value, bool)
             or not isinstance(value, numbers.Real)
             or not math.isfinite(value)
         ):
             _warn(
-                f"{owner}: filter['between'] {name} must be a finite number; "
+                f"{owner}: filter['{key}'] must be a finite number; "
                 f"got {value!r}; ignored"
             )
             return None
+    low, high = raw["min"], raw["max"]
     if low > high:
-        _warn(f"{owner}: filter['between'] is inverted ({low} > {high}); ignored")
+        _warn(f"{owner}: filter= is inverted (min > max); ignored")
         return None
     return {
         "kind": "atom",
@@ -183,7 +180,7 @@ def normalize_declared_filter(
 
     Two friendly arms, one AST:
 
-    - arm="range": a mapping with between -> a numeric range atom bound to
+    - arm="range": a mapping with min and max -> a numeric range atom bound to
       bound_field (HeatmapControl; the range is bound to the aggregation field
       field=, never written into the declaration).
     - arm="enum": a list of value names -> an enum atom (MeasureControl; the
@@ -194,7 +191,7 @@ def normalize_declared_filter(
     key inside a range declaration is API misuse (the range is bound to the
     aggregation field) and raises ValueError; a range declaration with no
     bound field (no field=, or agg="count") also raises ValueError — the
-    bound-field check runs before the ``between`` validation, so an inverted
+    bound-field check runs before the ``min``/``max`` validation, so an inverted
     or malformed range with no field still raises instead of being masked by
     a warning. It fails in the author's notebook cell, where the typo is,
     instead of being buried in a warning among the page output.
@@ -205,7 +202,7 @@ def normalize_declared_filter(
         if isinstance(raw, Mapping):
             return _range_atom(raw, owner, bound_field)
         _warn(
-            f"{owner}: filter= must be a mapping with between; "
+            f"{owner}: filter= must be a mapping with min and max; "
             f"got {type(raw).__name__}; ignored"
         )
         return None

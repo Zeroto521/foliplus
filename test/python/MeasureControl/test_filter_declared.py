@@ -70,8 +70,8 @@ def test_non_string_values_warn_and_leave_the_filter_undeclared(declaration):
 
 def test_a_mapping_is_not_a_measure_declaration():
     # The range arm belongs to HeatmapControl; Measure's panel dimension is the
-    # measurement type, so a field/between mapping has no row to render it on.
+    # measurement type, so a field/min-max mapping has no row to render it on.
     with pytest.warns(UserWarning, match="must be a list of value names"):
-        conf = _render(filter={"field": "type", "between": [1, 2]})
+        conf = _render(filter={"field": "type", "min": 1, "max": 2})
 
     assert conf["filter"] is None

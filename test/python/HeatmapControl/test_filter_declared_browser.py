@@ -111,7 +111,7 @@ class TestDeclaredHeatmapFilterBrowser:
             tmp_path,
             agg="sum",
             field="val",
-            filter={"between": [26.075, 26.085]},
+            filter={"min": 26.075, "max": 26.085},
         ) as (page, errors):
             state = page.evaluate(_READ)
 
@@ -132,7 +132,7 @@ class TestDeclaredHeatmapFilterBrowser:
             tmp_path,
             agg="sum",
             field="val",
-            filter={"between": [26.075, 26.085]},
+            filter={"min": 26.075, "max": 26.085},
         ) as (page, errors):
             picked = page.evaluate(_PICK, "Beta")
             assert picked["ok"], picked
@@ -178,7 +178,7 @@ class TestDeclaredHeatmapFilterBrowser:
             tmp_path,
             agg="sum",
             field="val",
-            filter={"between": [1000, 2000]},
+            filter={"min": 1000, "max": 2000},
         ) as (page, errors):
             state = page.evaluate(_READ)
 

@@ -78,8 +78,8 @@ class HeatmapControl(BaseControl):
         with ``agg="count"`` is therefore API misuse and raises (see Notes).
 
     filter : dict, optional
-        Starting filter on the aggregation field: a mapping with ``between``
-        (the range is bound to ``field=``). See Notes for the declaration
+        Starting filter on the aggregation field: a mapping with ``min`` and
+        ``max`` (the range is bound to ``field=``). See Notes for the declaration
         shape and the failure modes listed there.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
@@ -149,7 +149,7 @@ class HeatmapControl(BaseControl):
     >>> from foliplus import HeatmapControl
     >>> m = folium.Map()
     >>> HeatmapControl(
-    ...     agg="sum", field="score", filter={"between": [10, 50]}
+    ...     agg="sum", field="score", filter={"min": 10, "max": 50}
     ... ).add_to(m)
 
     Notes
@@ -157,12 +157,12 @@ class HeatmapControl(BaseControl):
     **Filter declaration.** ``filter`` is a mapping with one key (the enum arm,
     a list of measurement types, belongs to ``MeasureControl``):
 
-    +--------------+----------------------+----------+----------------------------------------------+
-    | Key          | Type                 | Required | Meaning                                      |
-    +==============+======================+==========+==============================================+
-    | ``between``  | ``[number, number]`` | yes      | Inclusive range on the aggregation field     |
-    |              |                      |          | (``field=``).                                |
-    +--------------+----------------------+----------+----------------------------------------------+
+    +--------------------+----------------------+----------+----------------------------------------------+
+    | Key                | Type                 | Required | Meaning                                      |
+    +====================+======================+==========+==============================================+
+    | ``min`` / ``max``  | ``number`` each      | yes      | Inclusive range on the aggregation field     |
+    |                    |                      |          | (``field=``).                                |
+    +--------------------+----------------------+----------+----------------------------------------------+
 
     **Situation → behavior.**
 
@@ -211,7 +211,7 @@ class HeatmapControl(BaseControl):
             FieldSpec(
                 ts="",
                 note=(
-                    "Declared filter on the aggregation field: a mapping with between "
+                    "Declared filter on the aggregation field: a mapping with min and max "
                     "(bound to field=), normalised to the shared filter AST; a persisted "
                     "user filter wins."
                 ),
