@@ -45,6 +45,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 
@@ -60,8 +61,10 @@ const ROOT = process.cwd();
 // On Windows cmd.exe rejects forward slashes in command position, so the venv
 // python.exe path must use backslashes (spawnSync with shell:true routes the
 // whole command through cmd.exe /c).
-const PYTEST_EXE =
-  process.platform === "win32" ? ".venv\\Scripts\\python.exe" : ".venv/bin/python";
+const pytestExeFor = platform =>
+  platform === "win32" ? ".venv\\Scripts\\python.exe" : ".venv/bin/python";
+
+const PYTEST_EXE = pytestExeFor(process.platform);
 
 /**
  * Run a shell command. Injectable for tests (see main/runGates deps).
@@ -450,6 +453,23 @@ const runGates = (gates, run = sh, io = defaultIo) => {
 };
 
 /**
+ * Resolve the injectable dependencies for a make-check run. run/io default to
+ * the real runner/console; ruff defaults to findRuff() unless an explicit
+ * null/array is passed (null skips the ruff gates).
+ * @param {{run?: (cmd: string, env?: Record<string, string|undefined>) => SpawnResult,
+ *          io?: {log: Function, err: Function, write: Function},
+ *          ruff?: string[]|null, vitestCmdFn?: Function, pytestExe?: string}} [deps]
+ * @returns {{run: (cmd: string, env?: Record<string, string|undefined>) => SpawnResult,
+ *            io: {log: Function, err: Function, write: Function},
+ *            ruff: string[]|null}}
+ */
+const resolveDeps = (deps = {}) => ({
+  run: deps.run ?? sh,
+  io: deps.io ?? defaultIo,
+  ruff: deps.ruff !== undefined ? deps.ruff : findRuff(),
+});
+
+/**
  * Run the local gates. Exits non-zero (via process.exitCode) on the first
  * failing gate. run/io/ruff/vitestCmdFn/pytestExe are injectable for tests;
  * omitted, they default to the real toolchain.
@@ -459,8 +479,7 @@ const runGates = (gates, run = sh, io = defaultIo) => {
  * @returns {number}
  */
 const main = (deps = {}) => {
-  const run = deps.run ?? sh;
-  const io = deps.io ?? defaultIo;
+  const { run, io, ruff } = resolveDeps(deps);
   fetchOriginMain({ run, io });
   const files = collectChangedFiles({ run });
   const base = resolveBase(run("git merge-base origin/main HEAD"));
@@ -470,7 +489,6 @@ const main = (deps = {}) => {
     }${RESET}`,
   );
 
-  const ruff = deps.ruff !== undefined ? deps.ruff : findRuff();
   const gates = buildGates(files, {
     ruff,
     vitestCmdFn: deps.vitestCmdFn,
@@ -490,6 +508,8 @@ const main = (deps = {}) => {
 export {
   ROOT,
   PYTEST_EXE,
+  pytestExeFor,
+  resolveDeps,
   sh,
   RED,
   GREEN,
@@ -508,14 +528,16 @@ export {
   mapPyTests,
   fetchOriginMain,
   resolveBase,
+  isCliEntry,
   buildGates,
   runGates,
   main,
 };
 
 // Only run the gates when invoked as a CLI (not when imported by a test).
-if (
-  import.meta.url === `file:///${resolve(process.argv[1] ?? "").replace(/\\/g, "/")}`
-) {
+const isCliEntry = entry =>
+  import.meta.url === pathToFileURL(resolve(entry ?? "")).href;
+
+if (isCliEntry(process.argv[1])) {
   main();
 }

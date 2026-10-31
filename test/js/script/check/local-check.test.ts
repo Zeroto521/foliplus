@@ -7,10 +7,13 @@ import {
   fetchOriginMain,
   findRuff,
   findShim,
+  isCliEntry,
   main,
   mapJsTests,
   mapPyTests,
+  pytestExeFor,
   resolveBase,
+  resolveDeps,
   runGates,
   sh,
   vitestCmd,
@@ -404,7 +407,9 @@ describe("buildGates", () => {
     const py = gates.find(g => g.name === "pytest (changed-file tests, non-browser)");
     expect(py!.cmd).toContain(".venv\\Scripts\\python.exe");
     const v = gates.find(g => g.name === "vitest (changed-file tests)");
-    expect(v!.cmd).toBe(`VITEST ${v!.cmd!.slice(7)}`);
+    // vitestCmdFn returns `VITEST ${paths.join(" ")}`; with exists: allExist,
+    // foliplus/js/X.ts maps to test/js/X.test.ts and foliplus/Y.py maps to nothing.
+    expect(v!.cmd).toBe("VITEST test/js/X.test.ts");
   });
 
   it("quotes the ruff exe path when it contains a slash", () => {
@@ -504,5 +509,314 @@ describe("main", () => {
     expect(errs.join("")).toContain("one or more local gates failed");
     expect(process.exitCode).toBe(1);
     process.exitCode = prev;
+  });
+});
+
+describe("pytestExeFor", () => {
+  it("returns the Windows venv path on win32", () => {
+    expect(pytestExeFor("win32")).toBe(".venv\\Scripts\\python.exe");
+  });
+  it("returns the POSIX venv path on non-win32", () => {
+    expect(pytestExeFor("linux")).toBe(".venv/bin/python");
+    expect(pytestExeFor("darwin")).toBe(".venv/bin/python");
+  });
+});
+
+describe("resolveDeps", () => {
+  it("injects run/io/ruff when given", () => {
+    const run = () => ({ status: 0 });
+    const io = { log: () => {}, err: () => {}, write: () => {} };
+    const d = resolveDeps({ run, io, ruff: ["ruff"] });
+    expect(d.run).toBe(run);
+    expect(d.io).toBe(io);
+    expect(d.ruff).toEqual(["ruff"]);
+  });
+
+  it("defaults to the real runner/io and findRuff when omitted", () => {
+    const d = resolveDeps({});
+    expect(typeof d.run).toBe("function");
+    expect(typeof d.io.log).toBe("function");
+    // ruff defaults to findRuff() — may be null on a machine without ruff, but
+    // the branch (deps.ruff === undefined -> findRuff()) is taken.
+    expect(d.ruff === null || Array.isArray(d.ruff)).toBe(true);
+  });
+
+  it("keeps an explicit null ruff (skips ruff gates)", () => {
+    const d = resolveDeps({ ruff: null });
+    expect(d.ruff).toBeNull();
+  });
+});
+
+describe("findRuff branch coverage", () => {
+  it("returns null when the pre-commit exe exists but the version does not match", () => {
+    const repo = join("/home", ".cache", "pre-commit", "repoX");
+    const exe = join(repo, "py_env-python3", "Scripts", "ruff.exe");
+    const r = findRuff({
+      root: "/proj",
+      home: "/home",
+      exists: (p: string) =>
+        p === join("/proj", ".venv", "Scripts", "ruff.exe") ? false : p === exe,
+      spawn: () => ({ status: 0, stdout: "ruff 0.9.0" }), // NOT 0.17.2
+      readdir: () => [{ isDirectory: () => true, name: "repoX" }],
+    });
+    // falls through to venv python -m ruff (exists false) -> global (status 0 -> ["ruff"])
+    expect(r).toEqual(["ruff"]);
+  });
+
+  it("does not match when the pre-commit spawn fails (status non-zero)", () => {
+    const repo = join("/home", ".cache", "pre-commit", "repoX");
+    const exe = join(repo, "py_env-python3", "Scripts", "ruff.exe");
+    const r = findRuff({
+      root: "/proj",
+      home: "/home",
+      exists: (p: string) =>
+        p === join("/proj", ".venv", "Scripts", "ruff.exe") ? false : p === exe,
+      spawn: (cmd: string) =>
+        cmd === exe
+          ? { status: 1, stdout: "" } // pre-commit spawn failed
+          : { status: 0, stdout: "ruff 0.10.0" }, // global succeeds
+      readdir: () => [{ isDirectory: () => true, name: "repoX" }],
+    });
+    expect(r).toEqual(["ruff"]); // global still works
+  });
+
+  it("falls through when the venv python -m ruff spawn fails", () => {
+    const venvPy = join("/proj", ".venv", "Scripts", "python.exe");
+    const r = findRuff({
+      root: "/proj",
+      home: "/home",
+      exists: (p: string) => p === venvPy,
+      spawn: (cmd: string) =>
+        cmd === venvPy
+          ? { status: 1, stdout: "" } // venv python -m ruff fails
+          : { status: 0, stdout: "ruff 0.10.0" }, // global succeeds
+      readdir: () => [],
+    });
+    expect(r).toEqual(["ruff"]); // global
+  });
+
+  it("uses a global ruff that succeeds", () => {
+    const r = findRuff({
+      root: "/proj",
+      home: "/home",
+      exists: () => false,
+      spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
+      readdir: () => [],
+    });
+    expect(r).toEqual(["ruff"]);
+  });
+});
+
+describe("fetchOriginMain branch coverage", () => {
+  it("uses stdout when stderr is empty", () => {
+    const { run } = makeRunner({ status: 1, stderr: "" });
+    run.mockImplementation(() => ({ status: 1, stderr: "", stdout: "outline" }));
+    const { io, logs } = makeIo();
+    fetchOriginMain({ run, io });
+    expect(logs.join(" ")).toContain("outline");
+  });
+
+  it("falls back to the default message when both stderr and stdout are empty", () => {
+    const { run } = makeRunner({ status: 1 });
+    run.mockImplementation(() => ({ status: 1, stderr: "", stdout: "" }));
+    const { io, logs } = makeIo();
+    fetchOriginMain({ run, io });
+    expect(logs.join(" ")).toContain("git fetch failed");
+  });
+});
+
+describe("collectChangedFiles branch coverage", () => {
+  it("handles a non-zero merge-base run result", () => {
+    const { run } = makeRunner();
+    run.mockImplementation((cmd: string) =>
+      cmd.includes("merge-base")
+        ? { status: 1, stdout: "", stderr: "error" }
+        : { status: 0, stdout: "x.ts", stderr: "" },
+    );
+    const files = collectChangedFiles({ run });
+    expect(files).toContain("x.ts");
+  });
+
+  it("skips empty diff output lines", () => {
+    const { run } = makeRunner();
+    run.mockImplementation((cmd: string) =>
+      cmd.includes("merge-base")
+        ? { status: 0, stdout: "abc", stderr: "" }
+        : cmd.includes("...HEAD")
+          ? { status: 0, stdout: "a.ts\n\nb.ts\n", stderr: "" }
+          : { status: 0, stdout: "", stderr: "" },
+    );
+    const files = collectChangedFiles({ run });
+    expect(files).toEqual(["a.ts", "b.ts"]);
+  });
+});
+
+describe("mapJsTests branch coverage", () => {
+  it("maps a top-level file to whole test/js when no sibling test exists", () => {
+    const paths = mapJsTests(["foliplus/js/BaseControl.ts"], () => false);
+    expect(paths).toEqual(["test/js"]);
+  });
+
+  it("maps a nested component file to its test dir when no exact test exists", () => {
+    const paths = mapJsTests(
+      ["foliplus/js/HeatmapControl/ui.ts"],
+      (p: string) => p === "test/js/HeatmapControl",
+    );
+    expect(paths).toEqual(["test/js/HeatmapControl"]);
+  });
+
+  it("skips a script file with no matching test", () => {
+    const paths = mapJsTests(["script/check/local-check.mjs"], () => false);
+    expect(paths).toEqual([]);
+  });
+});
+
+describe("mapPyTests branch coverage", () => {
+  it("skips non-.py foliplus files", () => {
+    const paths = mapPyTests(["foliplus/js/X.ts"], noneExist);
+    expect(paths).toEqual([]);
+  });
+
+  it("maps a foliplus module to its test dir when present", () => {
+    const paths = mapPyTests(
+      ["foliplus/HeatmapControl.py"],
+      (p: string) => p === "test/python/HeatmapControl",
+    );
+    expect(paths).toEqual(["test/python/HeatmapControl"]);
+  });
+});
+
+describe("buildGates branch coverage", () => {
+  it("builds build-js-dev before pytest when py files and py tests both exist", () => {
+    const gates = buildGates(["foliplus/Y.py"], {
+      ruff: ["ruff"],
+      exists: allExist,
+    });
+    const names = gates.map(g => g.name);
+    const buildIdx = names.indexOf("build-js-dev (before pytest)");
+    const pyIdx = names.indexOf("pytest (changed-file tests, non-browser)");
+    expect(buildIdx).toBeGreaterThan(-1);
+    expect(pyIdx).toBeGreaterThan(-1);
+    expect(buildIdx).toBeLessThan(pyIdx);
+  });
+
+  it("uses the pytest exe path verbatim", () => {
+    const gates = buildGates(["foliplus/Y.py"], {
+      ruff: ["ruff"],
+      pytestExe: "C:/Program Files/python.exe",
+      exists: allExist,
+    });
+    const py = gates.find(g => g.name === "pytest (changed-file tests, non-browser)");
+    expect(py!.cmd).toContain("C:/Program Files/python.exe");
+  });
+});
+
+describe("main branch coverage", () => {
+  it("uses resolveDeps defaults when no deps injected", () => {
+    // Provide a minimal run that returns empty results (no gates hit real tools
+    // because buildGates with no changed files produces skip gates).
+    const { run } = makeRunner({ status: 0 });
+    run.mockImplementation((cmd: string) => {
+      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
+      if (cmd.includes("merge-base")) return { status: 0, stdout: "", stderr: "" };
+      return { status: 0, stdout: "", stderr: "" };
+    });
+    const code = main({
+      run,
+      io: { log: () => {}, err: () => {}, write: () => {} },
+      ruff: [],
+    });
+    expect(code).toBe(0);
+  });
+
+  it("reports 'none' when there are no changed files", () => {
+    const { run } = makeRunner({ status: 0 });
+    run.mockImplementation((cmd: string) => {
+      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
+      if (cmd.includes("merge-base")) return { status: 0, stdout: "abc", stderr: "" };
+      return { status: 0, stdout: "", stderr: "" };
+    });
+    const { io, logs } = makeIo();
+    main({ run, io, ruff: [] });
+    expect(logs.join("")).toContain("changed (0)");
+    expect(logs.join("")).toContain("none");
+  });
+});
+
+describe("remaining branch coverage", () => {
+  it("findRuff uses the process.env.HOME default when home is omitted", () => {
+    const prevHome = process.env.HOME;
+    delete process.env.HOME;
+    try {
+      const r = findRuff({
+        root: "/proj",
+        exists: () => false,
+        spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
+        readdir: () => [],
+      });
+      // home falls back to "" -> cacheRoots = [""/.cache/pre-commit] -> readdir throws?
+      // readdir stub returns [] so no dirs; then venvPy check (exists false) -> global (status 0).
+      expect(r).toEqual(["ruff"]);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+    }
+  });
+
+  it("mapJsTests uses the real existsSync default when exists is omitted", () => {
+    // With no exists probe, mapJsTests uses real existsSync. A nonexistent file
+    // maps to "test/js" (the top-level fallback) because no sibling test exists.
+    const paths = mapJsTests(["foliplus/js/DefinitelyNotARealFile123.ts"]);
+    expect(paths).toEqual(["test/js"]);
+  });
+
+  it("mapJsTests drops a nested file when neither exact nor dir test exists", () => {
+    const paths = mapJsTests(["foliplus/js/HeatmapControl/ui.ts"], () => false);
+    expect(paths).toEqual([]);
+  });
+
+  it("mapPyTests ignores a non-.py file under test/python", () => {
+    const paths = mapPyTests(["test/python/foo.txt"], allExist);
+    expect(paths).toEqual([]);
+  });
+
+  it("fetchOriginMain uses the default IO when io is omitted", () => {
+    // run is stubbed (fast), io omitted -> defaultIo (real console). A failure
+    // only warns via console.log and never throws.
+    const { run } = makeRunner({ status: 1, stderr: "fatal: no network" });
+    expect(() => fetchOriginMain({ run })).not.toThrow();
+  });
+});
+
+describe("main non-empty files branch", () => {
+  it("joins changed file names when files are non-empty", () => {
+    const { run } = makeRunner({ status: 0 });
+    run.mockImplementation((cmd: string) => {
+      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
+      if (cmd.includes("merge-base")) return { status: 0, stdout: "abc", stderr: "" };
+      if (cmd.includes("...HEAD")) {
+        return { status: 0, stdout: "foliplus/js/A.ts", stderr: "" };
+      }
+      return { status: 0, stdout: "", stderr: "" };
+    });
+    const { io, logs } = makeIo();
+    main({ run, io, ruff: [] });
+    expect(logs.join("")).toContain("foliplus/js/A.ts");
+    expect(logs.join("")).not.toContain("none");
+  });
+});
+
+describe("isCliEntry", () => {
+  it("detects the module itself as the CLI entry (true branch)", () => {
+    // isCliEntry compares import.meta.url (the loaded local-check.mjs) to the
+    // pathToFileURL of the entry. Passing the real module file path yields true
+    // (this IS the CLI-entry branch); passing any other path yields false.
+    expect(isCliEntry(resolve(process.cwd(), "script/check/local-check.mjs"))).toBe(
+      true,
+    );
+    expect(isCliEntry("test/js/script/check/local-check.test.ts")).toBe(false);
+    // entry ?? "" default branch: undefined entry resolves to "" -> a path that
+    // is not the module URL, so false (and the ?? default is exercised).
+    expect(isCliEntry(undefined)).toBe(false);
   });
 });

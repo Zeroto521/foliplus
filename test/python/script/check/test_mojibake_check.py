@@ -18,6 +18,7 @@ import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -861,3 +862,70 @@ class TestCliAllMode:
         assert proc.returncode == 0
         assert proc.stdout == b""
         assert proc.stderr == b""
+
+
+class TestIsBinaryGitAttr:
+    """Cover the git check-attr branches in _is_binary (codecov misses)."""
+
+    def test_check_attr_oserror_returns_false(self, monkeypatch):
+        """git check-attr OSError (git missing) -> treated as text."""
+
+        def boom(*args, **kwargs):
+            raise OSError("git not found")
+
+        monkeypatch.setattr(
+            mod,
+            "subprocess",
+            SimpleNamespace(run=boom, CalledProcessError=subprocess.CalledProcessError),
+        )
+        assert mod._is_binary("some-file.txt") is False
+
+    def test_check_attr_calledprocesserror_returns_false(self, monkeypatch):
+        """git check-attr non-zero exit -> treated as text."""
+
+        def boom(*args, **kwargs):
+            raise subprocess.CalledProcessError(128, ["git", "check-attr"])
+
+        monkeypatch.setattr(
+            mod,
+            "subprocess",
+            SimpleNamespace(run=boom, CalledProcessError=subprocess.CalledProcessError),
+        )
+        assert mod._is_binary("some-file.txt") is False
+
+    def test_check_attr_unset_value_returns_true(self, monkeypatch):
+        """A file with diff/text unset is binary (git marks it)."""
+        fake = SimpleNamespace(stdout="file.txt\x00diff\x00unset\x00")
+        monkeypatch.setattr(
+            mod, "subprocess", SimpleNamespace(run=lambda *a, **k: fake)
+        )
+        assert mod._is_binary("file.txt") is True
+
+    def test_check_attr_text_set_returns_true(self, monkeypatch):
+        """A file with text=set is binary (git marks it)."""
+        fake = SimpleNamespace(stdout="file.txt\x00text\x00set\x00")
+        monkeypatch.setattr(
+            mod, "subprocess", SimpleNamespace(run=lambda *a, **k: fake)
+        )
+        assert mod._is_binary("file.txt") is True
+
+    def test_check_attr_other_attr_returns_false(self, monkeypatch):
+        """A diff/text value that is neither unset nor text=set -> text."""
+        fake = SimpleNamespace(stdout="file.txt\x00diff\x00set\x00")
+        monkeypatch.setattr(
+            mod, "subprocess", SimpleNamespace(run=lambda *a, **k: fake)
+        )
+        assert mod._is_binary("file.txt") is False
+
+    def test_all_files_ls_failed_returns_empty(self, monkeypatch):
+        """git ls-files failure -> no files scanned (empty list)."""
+
+        def boom(*args, **kwargs):
+            raise subprocess.CalledProcessError(128, ["git", "ls-files"])
+
+        monkeypatch.setattr(
+            mod,
+            "subprocess",
+            SimpleNamespace(run=boom, CalledProcessError=subprocess.CalledProcessError),
+        )
+        assert mod._all_files() == []
