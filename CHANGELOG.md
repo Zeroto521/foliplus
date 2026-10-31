@@ -11,6 +11,7 @@
 - `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count and classification method (Equal Interval for a continuous scale) on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781), [#828](https://github.com/Zeroto521/foliplus/pull/828))
 - `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
 - `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}`; the style row opens on it, Reset returns to it, and an unusable declaration is ignored with one warning ([#804](https://github.com/Zeroto521/foliplus/pull/804))
+- `HeatmapControl` / `MeasureControl`: a declared `filter=` seeds the first render; the user's own filter wins from then on ([#805](https://github.com/Zeroto521/foliplus/pull/805))
 
 ### Changed
 

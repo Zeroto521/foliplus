@@ -94,6 +94,11 @@ const parseSavedConfig = (raw: unknown): SavedConfig | null => {
   if (field !== undefined) out.field = field;
   const filters = parsePersistedFilters(data.filters);
   if (filters) out.filters = filters;
+  // Ownership of the filter slot: a record that says the user touched it
+  // keeps the Python declaration out on the next load.
+  if (typeof data.filtersTouched === "boolean") {
+    out.filtersTouched = data.filtersTouched;
+  }
   return out;
 };
 
@@ -118,6 +123,8 @@ interface ManagerLike {
   /** Per-source committed filters (restored before the first render, then
    *  re-validated against the rebuilt snapshot by the manager). */
   layerFilters: Map<string, LayerFilter>;
+  /** Whether the user owns the filter slot (see SavedConfig.filtersTouched). */
+  filtersTouched: boolean;
 }
 
 /** Load saved configuration from localStorage, through the runtime schema. */
@@ -168,6 +175,12 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   // stored filter against the rebuilt snapshot (clamp to the current extent,
   // drop a field that disappeared) before it can exclude a point.
   restoreFilters(mgr.layerFilters, saved.filters);
+  // A record written before this key existed carries no ownership: its filter
+  // map (if any) is restored above and still wins per source, and the
+  // declaration may seed a source the record never filtered.
+  if (saved.filtersTouched !== undefined) {
+    mgr.filtersTouched = saved.filtersTouched;
+  }
 };
 
 export { applySavedConfig, clearSavedConfig, loadSavedConfig };
