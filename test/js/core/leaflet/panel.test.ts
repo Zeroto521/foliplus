@@ -903,19 +903,67 @@ describe("pinRowPanel", () => {
     );
   });
 
-  it("keeps the last placement while the row is hidden (folded role)", () => {
+  const flushPlacement = (): Promise<void> =>
+    new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+  it("clamps to the map box rather than the raw viewport", () => {
+    // A map embedded in a page: its right edge is at 500 and its top at 100,
+    // well inside the 1024x720 test viewport. The row sits past the right edge
+    // and near the map's bottom, so both axes must use the map's box.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 400 });
+    stubBox(row, { top: 450, left: 400, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+
+    // row.right - card.width = 320, clamped to map right (500) - 280 - 8.
+    expect(panel.style.left).toBe("212px");
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    expect(panel.style.top).toBe("248px");
+  });
+
+  it("holds the floor inside the map's top edge on a short map", () => {
+    // 8px below, 58px above, 300px of content: the flip lands on the wider
+    // strip but the 120px floor is taller than it, so the top clamps to the
+    // map's edge instead of escaping above it.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 100 });
+    stubBox(row, { top: 160, left: 120, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 300 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    expect(panel.style.top).toBe("108px");
+  });
+
+  it("keeps the last placement while the row is hidden (folded role)", async () => {
     const { row, panel } = make({ width: 280, height: 200 });
     stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);
 
     stubBox(row, { top: 0, left: 0, width: 0, height: 0 });
     window.dispatchEvent(new Event("resize"));
+    await flushPlacement();
 
     expect(panel.style.left).toBe("30px");
     expect(panel.style.top).toBe("132px");
   });
 
-  it("follows the row on a scroll and a resize", () => {
+  it("follows the row on a scroll and a resize", async () => {
     const { row, panel } = make({ width: 280, height: 400 });
     stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);
@@ -923,29 +971,57 @@ describe("pinRowPanel", () => {
 
     stubBox(row, { top: 200, left: 20, width: 300, height: 30 });
     window.dispatchEvent(new Event("resize"));
+    await flushPlacement();
     expect(panel.style.top).toBe("232px");
 
     stubBox(row, { top: 100, left: 20, width: 300, height: 30 });
     window.dispatchEvent(new Event("scroll"));
+    await flushPlacement();
     expect(panel.style.top).toBe("132px");
     // Placement never writes an inline height cap.
     expect(panel.style.maxHeight).toBe("");
   });
 
-  it("stops following once unpinned", () => {
+  it("returns the card to its CSS box once unpinned", async () => {
     const { row, panel } = make({ width: 280, height: 200 });
     stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);
     expect(panel.style.top).toBe("132px");
 
     unpinRowPanel(row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
+    expect(panel.style.top).toBe("");
+    expect(panel.style.left).toBe("");
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe("");
+
+    // The page-level listener pair goes away with the last card, so a later
+    // resize cannot move the released box.
     stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
     window.dispatchEvent(new Event("resize"));
-
-    expect(panel.style.top).toBe("132px");
+    await flushPlacement();
+    expect(panel.style.top).toBe("");
   });
 
-  it("drops a detached card instead of positioning it", () => {
+  it("releases the previous card when the same row is pinned again", () => {
+    const row = document.createElement("div");
+    const first = document.createElement("div");
+    const second = document.createElement("div");
+    document.body.append(row, first, second);
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    stubBox(first, { top: 0, left: 0, width: 280, height: 200 });
+    stubBox(second, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(first, row);
+    pinRowPanel(second, row);
+
+    expect(first.classList.contains("foliplus-is-pinned")).toBe(false);
+    expect(first.style.top).toBe("");
+    expect(second.classList.contains("foliplus-is-pinned")).toBe(true);
+    expect(second.style.top).toBe("132px");
+  });
+
+  it("drops a detached card instead of positioning it", async () => {
     const { row, panel } = make({ width: 280, height: 200 });
     stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);
@@ -954,6 +1030,7 @@ describe("pinRowPanel", () => {
     panel.remove();
     stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
     expect(() => window.dispatchEvent(new Event("resize"))).not.toThrow();
+    await flushPlacement();
     expect(panel.style.top).toBe(placed);
   });
 

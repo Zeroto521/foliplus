@@ -331,11 +331,13 @@ const PINNED_CLASS = "foliplus-is-pinned";
 /** Class that records a card anchored above its row. */
 const ROW_PANEL_UP_CLASS = "foliplus-row-panel-up";
 
-/** The strip a row panel has to fit into: the map's visible box when the card
- *  lives inside one, otherwise the viewport's vertical bounds. */
+/** The box a row panel has to fit into: the map's visible box clipped to the
+ *  viewport when the card lives inside one, otherwise the viewport itself. */
 interface RowPanelBounds {
   top: number;
+  right: number;
   bottom: number;
+  left: number;
 }
 
 /** Compare the anchor row against its bounds and write the pinned card's
@@ -467,6 +469,40 @@ const createRowPanel = (opts: {
 const rowPanels = new Map<HTMLElement, HTMLElement>();
 let rowPanelEventsBound = false;
 
+/** The visible box a pinned card may use. A fixed card floats over the map, so
+ *  clip the map's client rect to the viewport: an embedded map can be smaller
+ *  than the page, and a page can scroll part of the map off screen. Without a
+ *  map (a row panel outside Leaflet) the viewport is the whole box. */
+const visibleRowPanelBounds = (panel: HTMLElement): RowPanelBounds => {
+  const viewport: RowPanelBounds = {
+    top: 0,
+    left: 0,
+    right: window.innerWidth,
+    bottom: window.innerHeight,
+  };
+  const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
+  const mapRect = mapEl?.getBoundingClientRect();
+  if (!mapRect || mapRect.width === 0 || mapRect.height === 0) return viewport;
+
+  const clipped: RowPanelBounds = {
+    top: Math.max(mapRect.top, viewport.top),
+    left: Math.max(mapRect.left, viewport.left),
+    right: Math.min(mapRect.right, viewport.right),
+    bottom: Math.min(mapRect.bottom, viewport.bottom),
+  };
+  // Keep the map coordinates when it is fully off screen; the row check in
+  // placeRowPanel then leaves the card where it was instead of snapping it to
+  // the page corner.
+  return clipped.right > clipped.left && clipped.bottom > clipped.top
+    ? clipped
+    : {
+        top: mapRect.top,
+        left: mapRect.left,
+        right: mapRect.right,
+        bottom: mapRect.bottom,
+      };
+};
+
 /** Place one pinned card against its row: fixed, right-aligned with the row,
  *  opening downward unless the strip below is tighter than the strip above.
  *  The panel must already be in the DOM: its measured width is one horizontal
@@ -477,37 +513,48 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   // last placement rather than pinning the card to the viewport corner.
   if (row.width === 0 && row.height === 0) return;
   const card = panel.getBoundingClientRect();
+  const bounds = visibleRowPanelBounds(panel);
+
   // Right-aligned with the row, like the card's original `right: 0` anchor,
-  // clamped so a row at the viewport edge cannot push the card offscreen.
-  const left = Math.max(
-    ROW_PANEL_EDGE,
-    Math.min(row.right - card.width, window.innerWidth - card.width - ROW_PANEL_EDGE),
-  );
+  // clamped to the same box the vertical fit uses. If the map is narrower than
+  // the card, the min wins and the card overflows to the right; width clamping
+  // belongs to the panel recipe, not the placement math.
+  const minLeft = bounds.left + ROW_PANEL_EDGE;
+  const maxLeft = bounds.right - card.width - ROW_PANEL_EDGE;
+  const left = Math.max(minLeft, Math.min(row.right - card.width, maxLeft));
   panel.style.left = `${left}px`;
 
-  // A fixed card floats over the map; fit it to the map's visible box when the
-  // rows live in one, otherwise to the viewport.
-  const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
-  const mapRect = mapEl?.getBoundingClientRect();
-  const bounds =
-    mapRect && mapRect.width > 0 && mapRect.height > 0
-      ? { top: mapRect.top, bottom: mapRect.bottom }
-      : { top: 0, bottom: window.innerHeight };
   const fit = fitRowPanel(panel, anchor, bounds, ROW_PANEL_GAP);
   if (!fit) return;
 
   const height = Math.min(fit.natural, fit.cap);
-  const top = fit.flipUp
+  const wantedTop = fit.flipUp
     ? row.top - ROW_PANEL_GAP - height
     : row.bottom + ROW_PANEL_GAP;
-  panel.style.top = `${Math.max(ROW_PANEL_EDGE, top)}px`;
+  // Clamp against the box's own top edge, not the raw viewport: a floor-height
+  // card over an embedded map must not park above the map. The bottom edge
+  // needs no extra inset: the cap already leaves the row gap, and subtracting
+  // another edge would pull a down-opening card up over its own row.
+  const minTop = bounds.top + ROW_PANEL_EDGE;
+  const maxTop = Math.max(minTop, bounds.bottom - height);
+  panel.style.top = `${Math.max(minTop, Math.min(wantedTop, maxTop))}px`;
+};
+
+const resetPinnedPanel = (panel: HTMLElement): void => {
+  panel.classList.remove(PINNED_CLASS, ROW_PANEL_UP_CLASS);
+  panel.style.removeProperty("--foliplus-row-panel-max-height");
+  // The pinned box wrote viewport coordinates; clear them so an unpinned card
+  // returns to the row-anchored absolute box instead of staying at the old
+  // fixed position.
+  panel.style.removeProperty("top");
+  panel.style.removeProperty("left");
 };
 
 /** Re-place every open card. Document-level capture, so a scroll inside the
  *  layer list (which does not bubble) still reports. A card whose row was
  *  rebuilt away is dropped here as well, which keeps the map from holding a
  *  detached row forever if a close path forgot to unpin. */
-const replaceRowPanels = (): void => {
+const placeOpenRowPanels = (): void => {
   for (const [anchor, panel] of rowPanels) {
     if (!panel.isConnected || !anchor.isConnected) {
       rowPanels.delete(anchor);
@@ -515,34 +562,49 @@ const replaceRowPanels = (): void => {
     }
     placeRowPanel(panel, anchor);
   }
+  if (rowPanels.size === 0) unbindRowPanelEvents();
+};
+
+/** Scroll and resize can fire faster than a frame; coalesce the whole pass so
+ *  the panel does not force a layout read on every event. */
+const scheduleRowPanels = throttleRaf(placeOpenRowPanels);
+
+const unbindRowPanelEvents = (): void => {
+  if (!rowPanelEventsBound) return;
+  rowPanelEventsBound = false;
+  scheduleRowPanels.cancel();
+  window.removeEventListener("scroll", scheduleRowPanels, true);
+  window.removeEventListener("resize", scheduleRowPanels);
 };
 
 /** Pin a mounted row panel to the viewport, anchored under `anchor`.
  *  Call right after the card is appended to the row. Adds the opt-in
  *  `foliplus-is-pinned` class (the fixed box) before the first placement, so a
- *  panel that was never pinned keeps its plain row-anchored absolute box. */
+ *  panel that was never pinned keeps its plain row-anchored absolute box.
+ *  Re-pinning the same anchor releases the card that occupied it first. */
 const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  const previous = rowPanels.get(anchor);
+  if (previous && previous !== panel) resetPinnedPanel(previous);
   panel.classList.add(PINNED_CLASS);
   rowPanels.set(anchor, panel);
   if (!rowPanelEventsBound) {
     rowPanelEventsBound = true;
-    window.addEventListener("scroll", replaceRowPanels, true);
-    window.addEventListener("resize", replaceRowPanels);
+    window.addEventListener("scroll", scheduleRowPanels, true);
+    window.addEventListener("resize", scheduleRowPanels);
   }
   placeRowPanel(panel, anchor);
 };
 
 /** Drop a row panel's placement bookkeeping and its pinned marker. Call when
  *  the card closes or its row is rebuilt; a miss only leaves one stale map
- *  entry until the next scroll/resize pass prunes it. */
+ *  entry until the next scroll/resize pass prunes it. The page-level listener
+ *  pair is released when the last card goes away. */
 const unpinRowPanel = (anchor: HTMLElement | null): void => {
   if (!anchor) return;
   const panel = rowPanels.get(anchor);
-  if (panel) {
-    panel.classList.remove(PINNED_CLASS, ROW_PANEL_UP_CLASS);
-    panel.style.removeProperty("--foliplus-row-panel-max-height");
-  }
+  if (panel) resetPinnedPanel(panel);
   rowPanels.delete(anchor);
+  if (rowPanels.size === 0) unbindRowPanelEvents();
 };
 
 /**
