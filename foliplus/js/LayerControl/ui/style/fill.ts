@@ -528,10 +528,12 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
       author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
     ),
   );
-  // A bare div is a generic role, where aria-label is ignored: these are text
-  // readouts, so role="text" makes the label a real accessible name (the same
-  // problem the colors box solved with role="img").
-  methodBox.setAttribute("role", "text");
+  // A bare div is a generic role: Chromium does expose the aria-label on it,
+  // but that is not guaranteed across AT/browsers (and "text" is not an ARIA
+  // role at all — it is a Safari/WebKit-ism). A standard namable role makes
+  // the name stable, so these readout groups take role="group" the way the
+  // colors box takes role="img".
+  methodBox.setAttribute("role", "group");
   methodBox.setAttribute("aria-label", ui.T("style_method"));
   const countBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
@@ -541,7 +543,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
       originalCount(author),
     ),
   );
-  countBox.setAttribute("role", "text");
+  countBox.setAttribute("role", "group");
   countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
     formRow(

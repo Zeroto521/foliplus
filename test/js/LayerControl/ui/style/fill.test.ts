@@ -2937,11 +2937,13 @@ describe("fill row — original colors", () => {
     // The two readouts stay distinguishable to assistive tech: the method box
     // is named by the method label, the count box by the class-count label (the
     // by-value classes row keeps the same split for its two selects).
-    // The label only reaches assistive tech through a namable role: a bare div
-    // is a generic role where aria-label is ignored (the colors box had to take
-    // role="img" for the same reason). role="text" makes the name real.
-    expect(method!.getAttribute("role")).toBe("text");
-    expect(count!.getAttribute("role")).toBe("text");
+    // The name only reaches assistive tech reliably through a standard namable
+    // role: Chromium does put the aria-label on a bare div, but "text" is not
+    // an ARIA role at all (a Safari/WebKit-ism), so a generic div is not a
+    // dependable target across AT/browsers. role="group" (like the colors
+    // box's role="img") makes the name stable.
+    expect(method!.getAttribute("role")).toBe("group");
+    expect(count!.getAttribute("role")).toBe("group");
     expect(method!.getAttribute("aria-label")).toBe("LayerControl.style_method");
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
