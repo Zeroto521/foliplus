@@ -218,7 +218,7 @@ class TestLocateControlBrowser:
             # The parked request is what the pending state *is*: one reverse
             # call in flight. Without this, a popup that never issues the
             # request could satisfy the assertions below for the wrong reason.
-            assert page.evaluate("() => window.__geoHold.seen") == 1, (
+            assert page.evaluate(_js("LocateControl/read_geo_hold_seen")) == 1, (
                 "the reverse-geocode request was not parked"
             )
             popup = page.evaluate(_js("LocateControl/read_popup"))
