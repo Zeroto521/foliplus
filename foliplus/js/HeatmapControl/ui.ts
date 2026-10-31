@@ -35,6 +35,8 @@ interface HeatmapControlUI {
   config: ComponentConfig;
   /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
+  /** Unscoped translator (raw keys, e.g. the shared "foliplus.*" vocabulary). */
+  _: (key: string) => string;
   ctrl: HTMLElement;
   /** Shared scheme picker instance. */
   schemePicker: SchemePicker | null;
@@ -374,6 +376,9 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
       class: CONST.CLASSES.PLACEHOLDER_OPTION,
       parent: sel,
       selected: !ctrl.mgr.selectedLayerId ? "" : undefined,
+      // The placeholder is a disabled row: it needs the "unavailable" reason on
+      // hover (mirroring the menu's disabled items), not just a muted label.
+      title: ctrl._("foliplus.option_disabled"),
     },
     ctrl.T("layer_placeholder"),
   );
