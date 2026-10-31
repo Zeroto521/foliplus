@@ -96,9 +96,11 @@ function makeMockCtx() {
   return {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
+    fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
     fillStyle: "",
+    globalAlpha: 1,
     clearRect: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
 }
@@ -1402,6 +1404,70 @@ describe("ExportRenderer — marker pass wrappers delegate without throwing", ()
     await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
+  });
+});
+
+describe("ExportRenderer — renderFontAwesome glyph decoding", () => {
+  it("decodes the doubled-backslash \\\\fXXXX content form", async () => {
+    // FontAwesome's computed ::before content sometimes arrives as the
+    // escaped `\\f2b9` form rather than a single `\f2b9`. Both must decode to
+    // the same code point, so this pins the second branch.
+    const root = document.createElement("div");
+    const icon = document.createElement("i");
+    root.appendChild(icon);
+    document.body.appendChild(root);
+    const box = { left: 10, top: 10, width: 20, height: 20 } as DOMRect;
+    vi.spyOn(root, "getBoundingClientRect").mockReturnValue({
+      ...box,
+      right: 30,
+      bottom: 30,
+      x: 10,
+      y: 10,
+      toJSON: () => box,
+    } as DOMRect);
+    vi.spyOn(icon, "getBoundingClientRect").mockReturnValue({
+      ...box,
+      right: 30,
+      bottom: 30,
+      x: 10,
+      y: 10,
+      toJSON: () => box,
+    } as DOMRect);
+    const computed = {
+      content: '"\\\\f2b9"',
+      fontWeight: "900",
+      fontSize: "14px",
+      fontFamily: "FontAwesome",
+      color: "#fff",
+      opacity: "",
+    } as unknown as CSSStyleDeclaration;
+    vi.spyOn(window, "getComputedStyle").mockReturnValue(computed);
+    const previousFonts = Object.getOwnPropertyDescriptor(document, "fonts");
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: {
+        load: vi.fn().mockResolvedValue([]),
+        check: vi.fn().mockReturnValue(true),
+        ready: Promise.resolve(),
+      },
+    });
+
+    const ctx = makeMockCtx();
+    const rc = makeRC(100, 100, ctx);
+    rc.contRect = { left: 0, top: 0, width: 100, height: 100 } as DOMRect;
+
+    try {
+      await makeRenderer().renderFontAwesome(rc, [root]);
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        "\uf2b9",
+        expect.any(Number),
+        expect.any(Number),
+      );
+    } finally {
+      root.remove();
+      if (previousFonts) Object.defineProperty(document, "fonts", previousFonts);
+      else Reflect.deleteProperty(document, "fonts");
+    }
   });
 });
 
