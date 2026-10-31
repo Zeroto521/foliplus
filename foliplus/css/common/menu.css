@@ -22,7 +22,7 @@
    anchor and rows, never this box. */
 :is(.foliplus-search-result-panel, .foliplus-layer-more-menu, .foliplus-dropdown-list) {
   box-sizing: border-box;
-  margin-top: var(--foliplus-space-xs);
+  margin-top: var(--foliplus-menu-gap);
   background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);

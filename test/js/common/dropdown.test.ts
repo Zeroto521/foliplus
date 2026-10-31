@@ -1,6 +1,11 @@
 // Tests for the shared select replacement (common/dropdown.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Dropdown, createDropdown, dropdownOf } from "#common/dropdown.js";
+import {
+  type Dropdown,
+  applyOptionA11y,
+  createDropdown,
+  dropdownOf,
+} from "#common/dropdown.js";
 
 // The class names are the module's DOM contract (its table stays private), so
 // the tests pin them by literal name, exactly like the stylesheet does.
@@ -47,9 +52,10 @@ const makeCell = (
 const bridged = (
   value: string,
   options: readonly { value: string; label: string; disabled?: boolean }[],
+  extra: Record<string, unknown> = {},
 ): { select: HTMLSelectElement; cell: HTMLElement; dropdown: Dropdown } => {
   const { select, cell } = makeCell(value, options);
-  const dropdown = createDropdown({ nativeSelect: select });
+  const dropdown = createDropdown({ nativeSelect: select, ...extra });
   cleanup.push(() => dropdown.destroy());
   return { select, cell, dropdown };
 };
@@ -80,6 +86,35 @@ const key = (
 };
 
 // ── Bridged (native select) mode ──────────────────────────────────────
+
+describe("applyOptionA11y — the shared option-row ARIA contract", () => {
+  it("paints role, tabindex and aria-selected on the row", () => {
+    const el = document.createElement("div");
+    applyOptionA11y(el, { selected: true });
+    expect(el.getAttribute("role")).toBe("option");
+    expect(el.getAttribute("tabindex")).toBe("-1");
+    expect(el.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("reflects an unselected row as aria-selected=false", () => {
+    const el = document.createElement("div");
+    applyOptionA11y(el, { selected: false });
+    expect(el.getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("leaves data-*, disabled and the selected class to the caller", () => {
+    const el = document.createElement("button");
+    // The helper must not touch anything beyond the ARIA trio — the
+    // divergent data key, disabled semantics and selected class stay the
+    // caller's (see the divergence note on renderOptions).
+    applyOptionA11y(el, { selected: true });
+    expect(el.hasAttribute("data-value")).toBe(false);
+    expect(el.hasAttribute("data-scheme-name")).toBe(false);
+    expect(el.hasAttribute("disabled")).toBe(false);
+    expect(el.hasAttribute("aria-disabled")).toBe(false);
+    expect(el.className).toBe("");
+  });
+});
 
 describe("dropdown: bridged single select", () => {
   it("moves the select out of the tab order and shows its current label", () => {
@@ -331,6 +366,32 @@ describe("dropdown: multiple selections", () => {
     expect(dropdown.getValues()).toEqual(["a"]);
   });
 
+  it("carries the muted placeholder class until a value is picked", () => {
+    const dropdown = createDropdown({
+      items,
+      multiple: true,
+      placeholder: "Any value",
+      selectedLabel: labels => labels.length + " picked",
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+
+    // Nothing picked: the trigger shows the prompt in the muted ink.
+    expect(labelOf(dropdown)).toBe("Any value");
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+
+    // One pick: value ink, placeholder class gone.
+    dropdown.trigger.click();
+    optionEls(dropdown)[0].click();
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(false);
+    expect(labelOf(dropdown)).toBe("Alpha");
+
+    // Deselecting back to nothing restores the prompt and its ink.
+    optionEls(dropdown)[0].click();
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+    expect(labelOf(dropdown)).toBe("Any value");
+  });
+
   it("keeps focus in the list after a toggle", () => {
     const dropdown = createDropdown({ items, multiple: true });
     cleanup.push(() => dropdown.destroy());
@@ -482,7 +543,7 @@ describe("dropdown: popup geometry", () => {
     dropdown.open();
     const list = dropdown.getList() as HTMLElement;
     expect(list.style.position).toBe("fixed");
-    expect(list.style.top).toBe("138px");
+    expect(list.style.top).toBe("134px");
     expect(list.style.left).toBe("120px");
     expect(list.style.width).toBe("160px");
     expect(list.classList.contains("foliplus-dropdown-up")).toBe(false);
@@ -500,7 +561,7 @@ describe("dropdown: popup geometry", () => {
     const list = dropdown.getList() as HTMLElement;
     expect(list.classList.contains("foliplus-dropdown-up")).toBe(true);
     expect(list.style.top).toBe("");
-    expect(list.style.bottom).toBe("48px");
+    expect(list.style.bottom).toBe("44px");
     dropdown.close();
     restore();
   });
@@ -517,7 +578,7 @@ describe("dropdown: popup geometry", () => {
     pin(dropdown.trigger, 60, 30);
     window.dispatchEvent(new Event("scroll"));
     expect(dropdown.isOpen()).toBe(true);
-    expect((dropdown.getList() as HTMLElement).style.top).toBe("98px");
+    expect((dropdown.getList() as HTMLElement).style.top).toBe("94px");
     window.dispatchEvent(new Event("resize"));
     expect(dropdown.isOpen()).toBe(true);
     dropdown.close();
@@ -532,7 +593,7 @@ describe("dropdown: popup geometry", () => {
     const list = dropdown.getList() as HTMLElement;
     list.dispatchEvent(new Event("scroll", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(true);
-    expect(list.style.top).toBe("138px");
+    expect(list.style.top).toBe("134px");
     dropdown.close();
     restore();
   });
@@ -1038,10 +1099,77 @@ describe("dropdown: remaining branches", () => {
     expect(dropdown.isOpen()).toBe(true);
   });
 
-  it("reports an empty value for a standalone dropdown with nothing selected", () => {
+  it("opens a standalone single-select on its first enabled item", () => {
+    // No stored value and no placeholder: the control has no empty state, so
+    // the trigger must show the value it will report, never a placeholder.
     const dropdown = make(three);
+    expect(dropdown.getValue()).toBe("a");
+    expect(dropdown.getValues()).toEqual(["a"]);
+    expect(labelOf(dropdown)).toBe("Alpha");
+  });
+
+  it("keeps the empty state when the dropdown declares a placeholder", () => {
+    const dropdown = createDropdown({
+      items: [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Bee" },
+      ],
+      placeholder: "Any",
+    });
+    document.body.append(dropdown.element);
+    cleanup.push(() => dropdown.destroy());
+    expect(dropdown.getValue()).toBe("");
+    expect(labelOf(dropdown)).toBe("Any");
+  });
+
+  it("keeps a bridged select empty unless the surface opts in", () => {
+    // A bridged select reports whatever its own select holds; "" is a state
+    // (the heatmap's "no source picked yet"), never "not initialised yet".
+    const { select, dropdown } = bridged("", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    expect(dropdown.getValue()).toBe("");
+    expect(select.value).toBe("");
+  });
+
+  it("takes the first enabled item when a bridged surface asks for it", () => {
+    // The opt-in for a field domain with no empty state. The native select is
+    // the value carrier, so it has to be written too: leaving it on "" would
+    // let the next refresh read the empty value back and undo the pick.
+    const { select, dropdown } = bridged(
+      "",
+      [
+        { value: "", label: "Choose", disabled: true },
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Bee" },
+      ],
+      { defaultToFirst: true },
+    );
+    expect(select.value).toBe("a");
+    expect(dropdown.getValue()).toBe("a");
+    expect(labelOf(dropdown)).toBe("Alpha");
+    dropdown.refresh();
+    expect(labelOf(dropdown)).toBe("Alpha");
+  });
+
+  it("lets a call site opt out of the standalone default", () => {
+    const dropdown = make(three, { defaultToFirst: false });
     expect(dropdown.getValue()).toBe("");
     expect(dropdown.getValues()).toEqual([]);
+  });
+
+  it("never opens a single-select trigger on its placeholder", () => {
+    // The #801 default rule: a single trigger's first frame is a value.
+    const standalone = make(three);
+    expect(standalone.trigger.classList.contains(CLS.placeholder)).toBe(false);
+    expect(labelOf(standalone)).toBe("Alpha");
+    const { dropdown } = bridged("a", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    expect(labelOf(dropdown)).toBe("Alpha");
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(false);
   });
 
   it("setValue('') clears a bridged select back to its placeholder", () => {

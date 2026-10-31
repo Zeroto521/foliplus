@@ -183,6 +183,18 @@ describe("listbox keyboard navigation", () => {
     picker.destroy();
   });
 
+  it("Tab closes dropdown and returns focus to trigger", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(picker.getDropdown()).toBeNull();
+    expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+    picker.destroy();
+  });
+
   it("wraps around on ArrowDown at last item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -204,6 +216,38 @@ describe("listbox keyboard navigation", () => {
       .getDropdown()!
       .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[0].focus();
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(document.activeElement).toBe(items[2]);
+    picker.destroy();
+  });
+
+  it("ArrowDown with focus outside the rows lands on the first row", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    // The dropdown auto-focuses the active row on open; move focus to the
+    // trigger so the keydown sees no focused row (idx === -1).
+    trigger.focus();
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(document.activeElement).toBe(items[0]);
+    picker.destroy();
+  });
+
+  it("ArrowUp with focus outside the rows lands on the last row", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    // Focus outside the rows (on the trigger) so the keydown sees no focused
+    // row (idx === -1) and must fall back to the last focusable row.
+    trigger.focus();
     picker
       .getDropdown()!
       .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));

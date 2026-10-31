@@ -227,7 +227,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // clearHeatmapCanvas when data is cleared. The picker stays alive.
   ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
   ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
-    id: OVERLAY_IDS.PICKER_DROPDOWN,
+    id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
     isOpen: () => ctrl.schemePicker?.getDropdown() != null,
     panels: () => [ctrl.schemeBar],
     close: ({ restoreFocus }) => ctrl.schemePicker?.close({ restoreFocus }),
