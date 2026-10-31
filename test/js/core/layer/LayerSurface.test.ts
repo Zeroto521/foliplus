@@ -215,10 +215,10 @@ describe("LayerSurface pane resolution", () => {
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}heat`,
       canvas: true,
     });
-    expect(surface.paneNames).toEqual([CONST.CANVAS_PANE_PREFIX + "heat"]);
+    expect(surface.paneNames).toEqual([`${CONST.CANVAS_PANE_PREFIX}heat`]);
     expect(surface.panes[0].renderer).toBeNull();
   });
 
@@ -733,7 +733,7 @@ describe("LayerSurface.materialize", () => {
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}heat`,
       canvas: true,
     });
     // A canvas surface has no layer to pin — materialize is a no-op.
@@ -1022,7 +1022,7 @@ describe("LayerSurface.matches", () => {
     const base = {
       id: "solid",
       layer: null,
-      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      paneName: `${CONST.COLOR_PANE_PREFIX}solid`,
       canvas: true,
       color: "#000000",
     };
@@ -1040,7 +1040,7 @@ describe("LayerSurface.matches", () => {
     const color = {
       id: "solid",
       layer: null,
-      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      paneName: `${CONST.COLOR_PANE_PREFIX}solid`,
       canvas: true,
       color: "#000000",
     };
@@ -1114,7 +1114,7 @@ describe("LayerSurface.matches", () => {
     const base = {
       id: "heat",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}heat`,
       canvas: true,
     };
     const surface = new LayerSurface(host, base);
@@ -1385,7 +1385,7 @@ describe("LayerSurface.geometryType / invalidate", () => {
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}heat`,
       canvas: true,
     });
     expect(surface.geometryType()).toBeNull();
@@ -1438,7 +1438,7 @@ describe("LayerSurface.geometryType / invalidate", () => {
     const surface = new LayerSurface(host, {
       id: "empty",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "empty",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}empty`,
       canvas: true,
     });
     expect(() => surface.invalidate()).not.toThrow();
@@ -1515,7 +1515,7 @@ describe("LayerSurface capabilities", () => {
     const surface = new LayerSurface(host, {
       id: "solid",
       layer: null,
-      paneName: CONST.COLOR_PANE_PREFIX + "solid",
+      paneName: `${CONST.COLOR_PANE_PREFIX}solid`,
       canvas: true,
       color: "#000000",
     });
@@ -1534,7 +1534,7 @@ describe("LayerSurface capabilities", () => {
     });
     // The declared color pane is taken as base — no synthesis, and no SVG
     // renderer, since a flat fill has no vectors to render into.
-    expect(surface.paneNames).toEqual([CONST.COLOR_PANE_PREFIX + "solid"]);
+    expect(surface.paneNames).toEqual([`${CONST.COLOR_PANE_PREFIX}solid`]);
     expect(surface.panes[0].role).toBe("base");
     expect(surface.panes[0].renderer).toBeNull();
     expect(surface.synthesizedPaneName).toBeNull();
@@ -1548,7 +1548,7 @@ describe("LayerSurface capabilities", () => {
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
-      paneName: CONST.CANVAS_PANE_PREFIX + "heat",
+      paneName: `${CONST.CANVAS_PANE_PREFIX}heat`,
       canvas: true,
     });
     expect(surface.capabilities.zoomRange).toBe("pane");

@@ -64,8 +64,7 @@ const normalizeFields = (
       if (fields[name] !== raw && !collisions.has(name)) {
         collisions.add(name);
         log.warn(
-          `field collision on "${name}": explicit contract holds ${fields[name]}, ` +
-            `feature.properties.${name} holds ${raw}; the explicit value wins`,
+          `field collision on "${name}": explicit contract holds ${fields[name]}, feature.properties.${name} holds ${raw}; the explicit value wins`,
         );
       }
       continue;

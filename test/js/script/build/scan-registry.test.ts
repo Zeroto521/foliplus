@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 function mkDir(name: string, files: Record<string, string>): string {
-  tmpDir = PATH.join(OS.tmpdir(), "scan-registry-test-" + Date.now());
+  tmpDir = PATH.join(OS.tmpdir(), `scan-registry-test-${Date.now()}`);
   mkdirSync(tmpDir, { recursive: true });
   for (const [relative, content] of Object.entries(files)) {
     const filePath = PATH.join(tmpDir, relative);
@@ -174,7 +174,7 @@ describe("registryUsedExports", () => {
 describe("generateRegistry", () => {
   /** Build a fake foliplus/js tree and return (jsDir, outputDir). */
   function buildFakeTree(files: Record<string, string>): [string, string] {
-    tmpDir = PATH.join(OS.tmpdir(), "scan-registry-gen-" + Date.now());
+    tmpDir = PATH.join(OS.tmpdir(), `scan-registry-gen-${Date.now()}`);
     const jsDir = PATH.join(tmpDir, "js");
     mkdirSync(jsDir, { recursive: true });
     for (const [relative, content] of Object.entries(files)) {

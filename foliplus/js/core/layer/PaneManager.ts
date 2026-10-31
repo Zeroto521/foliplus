@@ -225,8 +225,7 @@ class PaneManager {
     // co-writing (or restyling) someone else's carrier.
     if (held && held.owner !== owner) {
       log.warn(
-        `pane "${paneName}" is held by surface ${held.owner}; refusing ` +
-          `acquire from ${owner}`,
+        `pane "${paneName}" is held by surface ${held.owner}; refusing acquire from ${owner}`,
       );
       return { pane: null, renderer: null };
     }
@@ -239,8 +238,7 @@ class PaneManager {
         // that is the unregister/re-register cycle re-adopting its OWN
         // declared pane, children included, not a foreign takeover.)
         log.warn(
-          `pane "${paneName}" already carries foreign content; refusing ` +
-            `adoption from ${owner}`,
+          `pane "${paneName}" already carries foreign content; refusing adoption from ${owner}`,
         );
         return { pane: null, renderer: null };
       }
@@ -639,15 +637,13 @@ class PaneManager {
         // the whole map. Skip the spec — the surface's own synthesis gives
         // the layer a pane that is provably its own.
         log.warn(
-          `PaneSpec.name rejected ("${spec.name}" is one of Leaflet's shared ` +
-            `panes); the layer gets its own synthesized pane instead`,
+          `PaneSpec.name rejected ("${spec.name}" is one of Leaflet's shared panes); the layer gets its own synthesized pane instead`,
         );
         continue;
       }
       if (!CONST.DECLARED_PANE_ROLES.includes(spec.role)) {
         log.warn(
-          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared ` +
-            `role); keeping the spec but falling back to "base"`,
+          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared role); keeping the spec but falling back to "base"`,
         );
         this.paneSpecs.set(spec.name, {
           ...spec,
@@ -801,8 +797,7 @@ class PaneManager {
       // would both pass a name-only check and style each other's content.
       throw new Error(
         log.msg(
-          `refusing a layer-style write on unclaimed pane "${paneName}": no ` +
-            `surface on this map claimed it as its exclusive carrier`,
+          `refusing a layer-style write on unclaimed pane "${paneName}": no surface on this map claimed it as its exclusive carrier`,
         ),
       );
     }
@@ -812,10 +807,7 @@ class PaneManager {
    *  declaration gate so both sides warn identically. */
   private sharedPaneRejection(paneName: string): string {
     return log.msg(
-      `refusing a layer-style write on shared pane "${paneName}": the pane ` +
-        `does not belong to one layer. Resolve the layer's own pane ` +
-        `(LayerSurface.panes) instead — a write here would style every ` +
-        `layer on the map.`,
+      `refusing a layer-style write on shared pane "${paneName}": the pane does not belong to one layer. Resolve the layer's own pane (LayerSurface.panes) instead — a write here would style every layer on the map.`,
     );
   }
 

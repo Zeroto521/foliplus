@@ -241,10 +241,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     if (view.filtered) {
       // Funnel first, then the compact kept count. innerHTML is the funnel's
       // own module SVG (never a caller string), same as the type column.
-      countCol.innerHTML =
-        `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">` +
-        `${view.countIconSvg}</span>` +
-        `<span class="foliplus-layer-count-value">${view.countText}</span>`;
+      countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="foliplus-layer-count-value">${view.countText}</span>`;
     } else {
       countCol.textContent = view.countText;
     }

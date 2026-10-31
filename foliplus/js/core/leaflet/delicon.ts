@@ -37,7 +37,7 @@ const buildDelIcon = (
   } = opts;
   return L.marker(latlng, {
     icon: L.divIcon({
-      className: (className ? className + " " : "") + DEL_ICON_CLASS,
+      className: (className ? `${className} ` : "") + DEL_ICON_CLASS,
       html: `<span data-${DEL_ICON_ROLE}="" data-foliplus-export="exclude">${DEL_ICON_CHAR}</span>`,
       iconSize: [0, 0],
       iconAnchor,

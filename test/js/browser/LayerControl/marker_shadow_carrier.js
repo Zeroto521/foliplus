@@ -102,7 +102,7 @@ async () => {
     if (cls.includes("leaflet-marker-shadow")) return "shadow";
     if (cls.includes("leaflet-interactive") || cls.includes("leaflet-overlay-pane"))
       return "overlay";
-    return "other:" + cls + "." + h.tagName.toLowerCase();
+    return `other:${cls}.${h.tagName.toLowerCase()}`;
   };
 
   const polyHit = () => {

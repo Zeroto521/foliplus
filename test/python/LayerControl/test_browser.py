@@ -6648,7 +6648,7 @@ class TestLayerControlBrowser:
             # A mirrored page keeps the same invariant: the logical anchors
             # swap sides, the physical shift flips with them, so every number
             # still centres on the edge (and therefore the thumb) it names.
-            page.evaluate("() => { document.documentElement.dir = 'rtl'; }")
+            page.evaluate(_js("LayerControl/set_document_dir_rtl"))
             mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
             check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)

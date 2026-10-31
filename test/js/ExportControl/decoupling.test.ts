@@ -48,9 +48,7 @@ describe("ExportControl ↔ LayerControl decoupling", () => {
     }
     expect(
       hits,
-      `ExportControl references LayerControl-internal "${id}" — the ` +
-        `export background must come from the map container's computed ` +
-        `backgroundColor, not from LayerControl state`,
+      `ExportControl references LayerControl-internal "${id}" — the export background must come from the map container's computed backgroundColor, not from LayerControl state`,
     ).toEqual([]);
   });
 });

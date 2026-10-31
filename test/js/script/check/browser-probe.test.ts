@@ -48,56 +48,34 @@ const makeFixture = (options: FixtureOptions = {}): string => {
   }
   if (options.many) {
     for (let index = 0; index < 21; index += 1) {
-      write(join(root, "test/js/browser/Many/more-" + index + ".js"), "() => 4;\n");
+      write(join(root, `test/js/browser/Many/more-${index}.js`), "() => 4;\n");
     }
   }
   if (options.python !== false) {
     write(join(root, "test/python/conftest.py"), "def _js(path):\n    return path\n");
     write(
       join(root, "test/python/test_refs.py"),
-      [
+      `${[
         "from conftest import _js",
-        "X = _js(" +
-          String.fromCharCode(39) +
-          "Alpha/one" +
-          String.fromCharCode(39) +
-          ")",
+        `X = _js(${String.fromCharCode(39)}Alpha/one${String.fromCharCode(39)})`,
         ...(options.allReferenced
-          ? [
-              "W = _js(" +
-                String.fromCharCode(39) +
-                "Alpha/two" +
-                String.fromCharCode(39) +
-                ")",
-            ]
+          ? [`W = _js(${String.fromCharCode(39)}Alpha/two${String.fromCharCode(39)})`]
           : []),
-      ].join("\n") + "\n",
+      ].join("\n")}\n`,
     );
     write(
       join(root, "test/python/notes.py"),
-      [
-        "``_js(" +
-          String.fromCharCode(39) +
-          "Doc/Example" +
-          String.fromCharCode(39) +
-          ")``",
-        "# _js(" +
-          String.fromCharCode(39) +
-          "Comment/Nope" +
-          String.fromCharCode(39) +
-          ")",
-        "name = " + String.fromCharCode(39) + "Alpha/one" + String.fromCharCode(39),
+      `${[
+        `\`\`_js(${String.fromCharCode(39)}Doc/Example${String.fromCharCode(39)})\`\``,
+        `# _js(${String.fromCharCode(39)}Comment/Nope${String.fromCharCode(39)})`,
+        `name = ${String.fromCharCode(39)}Alpha/one${String.fromCharCode(39)}`,
         "Y = _js(name)",
-      ].join("\n") + "\n",
+      ].join("\n")}\n`,
     );
     if (options.dangling) {
       write(
         join(root, "test/python/test_more.py"),
-        "Z = _js(" +
-          String.fromCharCode(39) +
-          "Alpha/missing" +
-          String.fromCharCode(39) +
-          ")\n",
+        `Z = _js(${String.fromCharCode(39)}Alpha/missing${String.fromCharCode(39)})\n`,
       );
     }
   }
@@ -204,7 +182,7 @@ describe("buildReport — inventory", () => {
     write(join(root, "test/js/browser/_parse_probe.js"), "() => 1;\n");
     write(
       join(root, "test/python/test_support.py"),
-      ["from conftest import _js", "S = _js('_parse_probe')"].join("\n") + "\n",
+      `${["from conftest import _js", "S = _js('_parse_probe')"].join("\n")}\n`,
     );
 
     const report = buildReport(root);

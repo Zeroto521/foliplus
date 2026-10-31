@@ -75,7 +75,7 @@ const LOCALE_PY = `_JS_USED_KEYS = {
 
 /** Minimal repo fixture that scaffoldControl can patch. */
 function mkFixture(files: Record<string, string>): string {
-  const root = join(tmpdir(), "new-control-test-" + Date.now() + Math.random());
+  const root = join(tmpdir(), `new-control-test-${Date.now()}${Math.random()}`);
   for (const [rel, content] of Object.entries(files)) {
     const path = join(root, ...rel.split("/"));
     mkdirSync(join(path, ".."), { recursive: true });

@@ -182,7 +182,7 @@ interface InternalState {
 }
 
 let idCounter = 0;
-const nextListId = (): string => "foliplus-dropdown-list-" + String(++idCounter);
+const nextListId = (): string => `foliplus-dropdown-list-${String(++idCounter)}`;
 
 /** One dropdown per select: a second upgrade of the same element would stack
  *  two triggers and two `change` bridges on one control. */
@@ -301,7 +301,7 @@ const positionList = (state: InternalState): void => {
 
   list.style.position = "fixed";
   list.style.right = "auto";
-  list.style.left = String(rect.left) + "px";
+  list.style.left = `${String(rect.left)}px`;
   // Width follows the trigger, but a label must not be cut when the control's
   // own cell leaves room to grow: the closed trigger ellipsizes on purpose
   // (the row is fixed-width), while the popup is the place that spells the
@@ -317,17 +317,17 @@ const positionList = (state: InternalState): void => {
     rect.width,
     Math.min(contentWidth, Math.max(rect.width, room)),
   );
-  list.style.width = String(width) + "px";
+  list.style.width = `${String(width)}px`;
   if (up) {
     list.style.top = "";
-    list.style.bottom = String(window.innerHeight - rect.top + POPUP_GAP) + "px";
+    list.style.bottom = `${String(window.innerHeight - rect.top + POPUP_GAP)}px`;
     list.classList.add(DROPDOWN_CLASSES.up);
   } else {
     list.style.bottom = "";
-    list.style.top = String(rect.bottom + POPUP_GAP) + "px";
+    list.style.top = `${String(rect.bottom + POPUP_GAP)}px`;
   }
   list.classList.add(DROPDOWN_CLASSES.portal);
-  if (height < natural) list.style.maxHeight = String(Math.round(height)) + "px";
+  if (height < natural) list.style.maxHeight = `${String(Math.round(height))}px`;
 };
 
 const focusOption = (state: InternalState, index: number): void => {
@@ -691,7 +691,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   const wrapper = dom.el("div", { class: DROPDOWN_CLASSES.wrapper });
   const trigger = dom.el("button", {
     type: "button",
-    class: "foliplus-form-select " + DROPDOWN_CLASSES.trigger,
+    class: `foliplus-form-select ${DROPDOWN_CLASSES.trigger}`,
     "aria-haspopup": "listbox",
     "aria-expanded": "false",
   }) as HTMLButtonElement;
@@ -744,7 +744,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     placeholder: opts.placeholder ?? "",
     hint: "",
     selectedLabel:
-      opts.selectedLabel ?? (labels => String(labels.length) + " selected"),
+      opts.selectedLabel ?? (labels => `${String(labels.length)} selected`),
     onChange: opts.onChange ?? null,
     onToggle: opts.onToggle ?? null,
     resolveHost: opts.resolveHost ?? null,

@@ -31,7 +31,7 @@ let tmpRoots: string[] = [];
 const mkTmp = (): string => {
   const dir = join(
     tmpdir(),
-    "fuse-test-" + Date.now() + "-" + Math.random().toString(36).slice(2),
+    `fuse-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   tmpRoots.push(dir);
   return dir;

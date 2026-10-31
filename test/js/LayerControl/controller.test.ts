@@ -378,7 +378,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
-      name === CONST.LABEL_PANE_PREFIX + "base1" ? null : realGetPane(name),
+      name === `${CONST.LABEL_PANE_PREFIX}base1` ? null : realGetPane(name),
     );
 
     expect(() => manager.enforceOrder()).not.toThrow();
@@ -618,7 +618,7 @@ describe("LayerController", () => {
     vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
-    const paneName = CONST.LABEL_PANE_PREFIX + "lbl";
+    const paneName = `${CONST.LABEL_PANE_PREFIX}lbl`;
     const pane = paneRegistry[paneName];
     expect(pane).toBeDefined();
     expect(pane!.classList.contains("foliplus-layer-pane")).toBe(true);

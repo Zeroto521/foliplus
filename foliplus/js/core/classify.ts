@@ -95,7 +95,7 @@ const computeBreaks = (
   // is unrecognised only when the layer happens to have values.
   if (!isClassifyMethod(method)) {
     throw new ClassifyMethodError(
-      log.msg("unknown classification method: " + String(method)),
+      log.msg(`unknown classification method: ${String(method)}`),
     );
   }
   if (data.length === 0) return [];
@@ -110,7 +110,7 @@ const computeBreaks = (
   // it.
   if (needsSimpleStatistics(method) && !hasSimpleStatistics()) {
     throw new ClassifierDependencyError(
-      log.msg("simple-statistics is not loaded; the " + method + " method needs it"),
+      log.msg(`simple-statistics is not loaded; the ${method} method needs it`),
     );
   }
   // Two is the floor, not three: the picker's own contract is 2-9 on both

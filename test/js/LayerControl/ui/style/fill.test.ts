@@ -128,7 +128,7 @@ const makePerFeatureLayer = (colors: readonly string[]) => {
     leaf.options = { fillColor: color, fillOpacity: 0.5, fill: true };
     // explore output: the color and the column value live on the feature.
     leaf.feature = {
-      properties: { __folium_color: color, cat: "c" + value, count: value },
+      properties: { __folium_color: color, cat: `c${value}`, count: value },
     };
     leaf.setStyle = vi.fn();
     leaf.on = vi.fn();
@@ -2804,7 +2804,7 @@ describe("fill row — original colors", () => {
     vi.unstubAllGlobals();
   });
 
-  const selector = (name: string): string => "." + name;
+  const selector = (name: string): string => `.${name}`;
 
   const blockOf = (ui: LayerUI): HTMLElement => {
     const item = findItem(ui, "overlay1");
@@ -3391,7 +3391,7 @@ describe("fill row — original colors option", () => {
   });
 
   const modeSelect = (row: HTMLElement): HTMLSelectElement =>
-    row.querySelector("." + CONST.CLASSES.STYLE_FILL_MODE_SELECT) as HTMLSelectElement;
+    row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
 
   it("offers the original colors beside the other arms", () => {
     const { ui } = initWithPerFeatureLayer();
@@ -3416,7 +3416,7 @@ describe("fill row — original colors option", () => {
       "LayerControl.style_fill_per_feature_note",
     );
     expect(option.title).toBe("LayerControl.style_fill_per_feature_note");
-    expect(row.querySelector("." + CONST.CLASSES.STYLE_FILL_COLOR_INPUT)).toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
   it("keeps the solid arm when the leaves share one color", () => {
@@ -3474,7 +3474,7 @@ describe("fill row — original colors option", () => {
     expect(getIntent(ui, "feature1", "fillMode")).toBe("solid");
     expect(select.querySelector('option[value="original"]')).not.toBeNull();
     expect(
-      row.querySelector("." + CONST.CLASSES.STYLE_FILL_COLOR_INPUT),
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
     // The choice must also reach the map: seeded from the swatch base, so the
     // row and the paint agree instead of claiming one color for many.
@@ -3522,7 +3522,7 @@ describe("fill row — original colors option", () => {
     });
     // The read-only detail is back and holds nothing to operate.
     const detail = row.querySelector(
-      "." + CONST.CLASSES.STYLE_FILL_DETAIL,
+      `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
     ) as HTMLElement;
     expect(detail.querySelector("select")).toBeNull();
   });

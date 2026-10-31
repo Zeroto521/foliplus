@@ -38,14 +38,14 @@ kind => {
 
   if (kind === "attrs") ui.openAttrsPanel(row);
   else if (kind === "style") ui.openStylePanel(layerId);
-  else return { error: "unknown panel kind: " + kind };
+  else return { error: `unknown panel kind: ${kind}` };
 
   const PANEL =
     kind === "attrs" ? ".foliplus-layer-attrs-panel" : ".foliplus-layer-style-panel";
   const panel = document.querySelector(PANEL);
-  if (!panel) return { error: "panel did not open: " + PANEL };
+  if (!panel) return { error: `panel did not open: ${PANEL}` };
   const close = panel.querySelector(".foliplus-panel-header .foliplus-close-btn");
-  if (!close) return { error: "close button not found in " + PANEL };
+  if (!close) return { error: `close button not found in ${PANEL}` };
   close.focus();
 
   const cb = row.querySelector('input[type="checkbox"]');
