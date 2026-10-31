@@ -13,9 +13,11 @@ not repeat a line.
 
 from __future__ import annotations
 
+import numbers
 import os
 import sys
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from types import FrameType
 
@@ -69,7 +71,7 @@ def _caller_stacklevel() -> int:
     one frame lower). Walking out to the first frame that is not plumbing is
     therefore the only stable rule.
     """
-    frame: FrameType | None = sys._getframe(1)  # _warn_foliplus, its caller
+    frame: FrameType | None = sys._getframe(1)  # the warning helper that called us
     level = 1
     while frame is not None:
         if not _is_plumbing(frame.f_code.co_filename):
@@ -114,15 +116,16 @@ def _warn_foliplus(note: str, message: str) -> None:
 def _zoom_level(raw: object) -> int | None:
     """One declared zoom end as an int, or None when it is not an integer.
 
-    bool is an int subclass but never a zoom level, so it is rejected too.
-    Returning the narrowed value keeps the caller's comparison and dict in int
-    territory; a loop-body isinstance check does not narrow past the loop, so
-    validating in a loop and using the names afterwards would need a second
-    round of checks here (or a cast) for no behavioural gain.
+    ``numbers.Integral`` rather than ``int`` so a numpy/pandas scalar from a
+    data-driven declaration is accepted like any other integer; the result is
+    narrowed to a plain ``int`` so the caller's comparison and the emitted dict
+    stay in int territory (and JSON-serialisable). ``bool`` is an ``int``
+    subclass but never a zoom level, so it is rejected too. Returning the
+    narrowed value keeps the caller from re-checking after the loop.
     """
-    if isinstance(raw, int) and not isinstance(raw, bool):
-        return raw
-    return None
+    if isinstance(raw, bool) or not isinstance(raw, numbers.Integral):
+        return None
+    return int(raw)
 
 
 def _normalise_zoom_range(
@@ -159,10 +162,13 @@ def _normalise_zoom_range(
             f"{where} declares {declared} {reason} - ignored",
         )
 
-    if not isinstance(raw, dict):
+    if not isinstance(raw, Mapping):
         _reject(f"as {type(raw).__name__}; expected a mapping")
         return None
-    extra = sorted(set(raw) - {"min", "max"})
+    # ``key=repr`` keeps a mixed-type payload (``{1: ..., "min": ...}``) from
+    # raising inside ``sorted``: a malformed declaration warns, it never takes
+    # the page down.
+    extra = sorted((key for key in raw if key not in {"min", "max"}), key=repr)
     if extra:
         _reject(f"with unknown key(s) {extra}; expected only min and max")
         return None

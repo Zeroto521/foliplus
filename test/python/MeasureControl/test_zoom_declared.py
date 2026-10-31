@@ -51,6 +51,7 @@ def test_equal_bounds_are_a_valid_declaration():
         {"min": True, "max": 12},
         {"min": "8", "max": "12"},
         {"min": 8, "max": 12, "step": 1},
+        {1: 8, "min": 8, "max": 12},
         [8, 12],
     ],
 )
@@ -77,6 +78,22 @@ def test_a_repeated_construction_repeats_no_declaration_warning():
 
     assert len(first) == 1
     assert second == []
+
+
+def test_a_warning_names_the_zoom_range_argument():
+    # A control takes the declaration directly, so the warning must point at
+    # ``zoom_range=`` — not at the layer namespace's ``foliplus[...]`` form,
+    # which this entry point does not accept.
+    from foliplus._declaration import _foliplus_reports
+
+    _foliplus_reports.clear()
+
+    with pytest.warns(UserWarning) as record:
+        MeasureControl(zoom_range={"min": 8.5, "max": 12})
+
+    message = str(record[0].message)
+    assert "declares zoom_range" in message
+    assert "foliplus[" not in message
 
 
 def test_a_warning_points_at_the_calling_cell():

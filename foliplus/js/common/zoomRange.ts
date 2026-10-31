@@ -22,6 +22,41 @@ interface DeclaredZoomRange {
 /** The shared hidden state (common/reset.css). */
 const HIDDEN_CLASS = "foliplus-hidden";
 
+/** Whether `raw` is a usable declaration: both ends integer zoom levels, in
+ *  order. The predicate is the JS half of the Python validation in
+ *  `foliplus/_declaration.py` — `Number.isInteger`, not `Number.isFinite`,
+ *  because a fractional bound is a payload Python would never have emitted and
+ *  a range the map's integer levels cannot honour. */
+const isZoomRange = (raw: unknown): raw is DeclaredZoomRange =>
+  typeof raw === "object" &&
+  raw !== null &&
+  Number.isInteger((raw as DeclaredZoomRange).min) &&
+  Number.isInteger((raw as DeclaredZoomRange).max) &&
+  (raw as DeclaredZoomRange).min <= (raw as DeclaredZoomRange).max;
+
+/** Whether the declaration can meet the map's own reachable range.
+ *
+ *  Leaflet reports an open rail as `Infinity`, which cannot rule a range out,
+ *  so only two finite ends are judged. A declaration that cannot intersect is
+ *  unusable on this map (it would hide the layer/control at every reachable
+ *  level) and every read site degrades it to "undeclared" instead. */
+const intersectsMapZoom = (
+  range: DeclaredZoomRange,
+  mapMin: number,
+  mapMax: number,
+): boolean =>
+  !Number.isFinite(mapMin) ||
+  !Number.isFinite(mapMax) ||
+  (range.min <= mapMax && range.max >= mapMin);
+
+/** The one wording for a payload that cannot be a range. */
+const unusableZoomRange = (raw: unknown): string =>
+  `declares an unusable zoom range (got ${JSON.stringify(raw)}); treating it as undeclared`;
+
+/** The one wording for a range the map can never reach. */
+const unreachableZoomRange = (range: DeclaredZoomRange): string =>
+  `declares zoom range ${JSON.stringify(range)} outside the map's zoom range; treating it as undeclared`;
+
 /** Both events can change the verdict: the current level (`zoomend`) and the
  *  map's own reachable range after a basemap switch (`zoomlevelschange`, which
  *  Leaflet fires when min/max zoom moves without a zoom change). */
@@ -52,21 +87,14 @@ const readZoomRange = (
   warned: { payload: boolean },
 ): DeclaredZoomRange | undefined => {
   if (raw == null) return undefined;
-  if (
-    typeof raw !== "object" ||
-    !Number.isFinite((raw as DeclaredZoomRange).min) ||
-    !Number.isFinite((raw as DeclaredZoomRange).max) ||
-    (raw as DeclaredZoomRange).min > (raw as DeclaredZoomRange).max
-  ) {
+  if (!isZoomRange(raw)) {
     if (!warned.payload) {
       warned.payload = true;
-      log.warn(
-        `declares an unusable zoom range (got ${JSON.stringify(raw)}); treating it as undeclared`,
-      );
+      log.warn(unusableZoomRange(raw));
     }
     return undefined;
   }
-  return raw as DeclaredZoomRange;
+  return raw;
 };
 
 /**
@@ -80,29 +108,27 @@ const readZoomRange = (
  * narrows the map's range keeps its endpoints: `zoom >= min && zoom <= max`
  * already intersects the map without rewriting the author's values.
  *
+ * An undeclared (or malformed) range is the common case, so it installs no
+ * map listener at all: the control is visible and nothing can change that
+ * verdict without a new mount.
+ *
  * @returns a cleanup that detaches the map listener.
  */
 const bindControlZoomRange = (opts: BindControlZoomRangeOptions): (() => void) => {
   const warned = { payload: false, degenerate: false };
   const range = readZoomRange(opts.range, opts.log, warned);
+  if (!range) {
+    opts.container.classList.remove(HIDDEN_CLASS);
+    return () => undefined;
+  }
 
   const apply = (): void => {
-    if (!range) {
-      opts.container.classList.remove(HIDDEN_CLASS);
-      return;
-    }
     const mapMin = opts.map.getMinZoom();
     const mapMax = opts.map.getMaxZoom();
-    if (
-      Number.isFinite(mapMin) &&
-      Number.isFinite(mapMax) &&
-      (range.max < mapMin || range.min > mapMax)
-    ) {
+    if (!intersectsMapZoom(range, mapMin, mapMax)) {
       if (!warned.degenerate) {
         warned.degenerate = true;
-        opts.log.warn(
-          `declares zoom range ${JSON.stringify(range)} outside the map's zoom range; treating it as undeclared`,
-        );
+        opts.log.warn(unreachableZoomRange(range));
       }
       opts.container.classList.remove(HIDDEN_CLASS);
       return;
@@ -121,4 +147,12 @@ const bindControlZoomRange = (opts: BindControlZoomRangeOptions): (() => void) =
   };
 };
 
-export { HIDDEN_CLASS, bindControlZoomRange, readZoomRange };
+export {
+  HIDDEN_CLASS,
+  bindControlZoomRange,
+  intersectsMapZoom,
+  isZoomRange,
+  readZoomRange,
+  unreachableZoomRange,
+  unusableZoomRange,
+};

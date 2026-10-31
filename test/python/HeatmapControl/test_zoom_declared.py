@@ -43,6 +43,28 @@ def test_equal_bounds_are_a_valid_declaration():
     }
 
 
+def test_numpy_integer_bounds_are_accepted_as_plain_ints():
+    # A declaration built from data (``df.zoom.min()``) arrives as a numpy
+    # scalar, which is not a Python ``int`` but is an integer. It is accepted
+    # and narrowed, so CONF stays JSON-serialisable.
+    np = pytest.importorskip("numpy")
+    conf = _conf(zoom_range={"min": np.int64(8), "max": np.int32(12)})
+
+    assert conf["zoomRange"] == {"min": 8, "max": 12}
+    assert all(type(value) is int for value in conf["zoomRange"].values())
+
+
+def test_a_generic_mapping_is_accepted():
+    # The reader accepts any Mapping, not just dict: a declaration assembled
+    # through MappingProxyType (or another mapping type) is a mapping, and the
+    # warning already says "expected a mapping".
+    from types import MappingProxyType
+
+    conf = _conf(zoom_range=MappingProxyType({"min": 8, "max": 12}))
+
+    assert conf["zoomRange"] == {"min": 8, "max": 12}
+
+
 @pytest.mark.parametrize(
     "declaration",
     [
@@ -52,6 +74,7 @@ def test_equal_bounds_are_a_valid_declaration():
         {"min": True, "max": 12},
         {"min": "8", "max": "12"},
         {"min": 8, "max": 12, "step": 1},
+        {1: 8, "min": 8, "max": 12},
         [8, 12],
     ],
 )
@@ -78,6 +101,22 @@ def test_a_repeated_construction_repeats_no_declaration_warning():
 
     assert len(first) == 1
     assert second == []
+
+
+def test_a_warning_names_the_zoom_range_argument():
+    # A control takes the declaration directly, so the warning must point at
+    # ``zoom_range=`` — not at the layer namespace's ``foliplus[...]`` form,
+    # which this entry point does not accept.
+    from foliplus._declaration import _foliplus_reports
+
+    _foliplus_reports.clear()
+
+    with pytest.warns(UserWarning) as record:
+        HeatmapControl(zoom_range={"min": 8.5, "max": 12})
+
+    message = str(record[0].message)
+    assert "declares zoom_range" in message
+    assert "foliplus[" not in message
 
 
 def test_a_warning_points_at_the_calling_cell():

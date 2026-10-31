@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   HIDDEN_CLASS,
   bindControlZoomRange,
+  intersectsMapZoom,
+  isZoomRange,
   readZoomRange,
 } from "#common/zoomRange.js";
 
@@ -85,12 +87,14 @@ describe("bindControlZoomRange", () => {
     expect(container.classList.contains(HIDDEN_CLASS)).toBe(true);
   });
 
-  it("leaves an undeclared control visible", () => {
-    const { container, map } = bind(null, { zoom: 10 });
+  it("leaves an undeclared control visible without a listener", () => {
+    const { container, map, cleanup } = bind(null, { zoom: 10 });
 
+    expect(map.on).not.toHaveBeenCalled();
     expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
     map.setZoom(18);
     expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(() => cleanup()).not.toThrow();
   });
 
   it("treats a declaration that cannot meet the map as undeclared and warns once", () => {
@@ -205,5 +209,66 @@ describe("readZoomRange", () => {
       readZoomRange({ min: 12, max: 8 }, logger, { payload: false }),
     ).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects fractional bounds, matching the Python integer contract", () => {
+    const warn = vi.fn();
+    const logger = { warn };
+
+    expect(
+      readZoomRange({ min: 8.5, max: 12 }, logger, { payload: false }),
+    ).toBeUndefined();
+    expect(
+      readZoomRange({ min: 8, max: 12.5 }, logger, { payload: false }),
+    ).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("warns once per mount about repeated malformed payloads", () => {
+    const warn = vi.fn();
+    const warned = { payload: false };
+
+    expect(readZoomRange({ min: 12, max: 8 }, { warn }, warned)).toBeUndefined();
+    expect(readZoomRange({ min: 12, max: 8 }, { warn }, warned)).toBeUndefined();
+    expect(readZoomRange("not a range", { warn }, warned)).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warned.payload).toBe(true);
+  });
+});
+
+describe("isZoomRange", () => {
+  it("accepts an ordered integer range", () => {
+    expect(isZoomRange({ min: 8, max: 12 })).toBe(true);
+    expect(isZoomRange({ min: 8, max: 8 })).toBe(true);
+    expect(isZoomRange({ min: -2, max: 0 })).toBe(true);
+  });
+
+  it("rejects anything that is not an ordered integer range", () => {
+    expect(isZoomRange(null)).toBe(false);
+    expect(isZoomRange(undefined)).toBe(false);
+    expect(isZoomRange([8, 12])).toBe(false);
+    expect(isZoomRange("8-12")).toBe(false);
+    expect(isZoomRange({ min: 12, max: 8 })).toBe(false);
+    expect(isZoomRange({ min: 8.5, max: 12 })).toBe(false);
+    expect(isZoomRange({ min: 8 })).toBe(false);
+    expect(isZoomRange({ min: Number.NaN, max: 12 })).toBe(false);
+  });
+});
+
+describe("intersectsMapZoom", () => {
+  it("judges finite rails by overlap", () => {
+    expect(intersectsMapZoom({ min: 8, max: 12 }, 0, 18)).toBe(true);
+    expect(intersectsMapZoom({ min: 20, max: 30 }, 0, 18)).toBe(false);
+    expect(intersectsMapZoom({ min: -10, max: -5 }, 0, 18)).toBe(false);
+    expect(intersectsMapZoom({ min: 18, max: 30 }, 0, 18)).toBe(true);
+  });
+
+  it("never rules a range out against an open rail", () => {
+    expect(intersectsMapZoom({ min: 20, max: 30 }, 0, Number.POSITIVE_INFINITY)).toBe(
+      true,
+    );
+    expect(intersectsMapZoom({ min: 20, max: 30 }, Number.NEGATIVE_INFINITY, 18)).toBe(
+      true,
+    );
   });
 });

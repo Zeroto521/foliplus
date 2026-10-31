@@ -269,6 +269,18 @@ describe("inZoomRange (author-declared range)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("treats a fractional declaration as undeclared", () => {
+    // Python only ever emits integer bounds; a fractional record is a
+    // hand-edited payload the map's integer levels cannot honour, so it takes
+    // the same "warn once, stay visible" path as any other malformed record.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ zoom: 10 });
+    expect(inZoomRange(ui, layerWithZoom("fractional", { min: 8.5, max: 12 }))).toBe(
+      true,
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("warns once per layer about a malformed declaration", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ui = makeUIWith({ zoom: 10 });

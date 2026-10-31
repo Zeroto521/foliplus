@@ -16,13 +16,11 @@ from __future__ import annotations
 
 import math
 import numbers
-import os
-import sys
 import warnings
 from collections.abc import Mapping, Sequence
-from pathlib import Path
-from types import FrameType
 from typing import Any, Literal
+
+from ._declaration import _caller_stacklevel
 
 #: The field the measurement-type filter is bound to. Mirrors
 #: CONST.FILTER.FIELD in foliplus/js/MeasureControl/const.ts: the enum arm
@@ -32,37 +30,16 @@ MEASURE_TYPE_FIELD = "type"
 FilterArm = Literal["range", "enum"]
 
 
-#: This package's directory, with a trailing separator so a sibling whose name
-#: merely starts with it (``foliplus-demo``) cannot pass for library code. A
-#: declaration is written in the caller's cell, so a warning has to walk out of
-#: here to find the line worth pointing at.
-_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
-
-
-def _caller_stacklevel() -> int:
-    """Frames from ``warnings.warn`` out to the first frame outside this package.
-
-    The depth differs per call path - an arm helper is one frame further in
-    than the shape checks ``normalize_declared_filter`` makes itself - so the
-    caller's frame is found by walking out of the package instead of
-    hard-coding one number per call site.
-    """
-    frame: FrameType | None = sys._getframe(1)  # _warn, the warn() caller
-    level = 1
-    while frame is not None:
-        if not frame.f_code.co_filename.startswith(_PACKAGE_DIR):
-            return level
-        frame = frame.f_back
-        level += 1
-    return level  # pragma: no cover - only when the whole stack is library code
-
-
 def _warn(message: str) -> None:
     """Report one unusable declaration at the line that wrote it.
 
     Never raises: a data-shaped problem (a range outside the field, a type
     name the runtime does not know) must be visible and ignored, not take the
     page down.
+
+    The frame walk lives in :mod:`foliplus._declaration` and is shared with the
+    zoom-range reader: a fixed stacklevel cannot cover both a control's
+    ``__init__`` and a layer read during the Jinja render.
     """
     warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
 
