@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
-from ._declaration import _normalise_zoom_range
-from ._declared_filter import MEASURE_TYPE_FIELD, normalize_declared_filter
+from ._declaration import (
+    MEASURE_TYPE_FIELD,
+    _normalise_zoom_range,
+    normalize_declared_filter,
+)
 from ._typing import ControlPosition
 from ._validate import validate
 from .BaseControl import BaseControl

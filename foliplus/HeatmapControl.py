@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
-from ._declaration import _normalise_zoom_range
-from ._declared_filter import normalize_declared_filter
+from ._declaration import _normalise_zoom_range, normalize_declared_filter
 from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl

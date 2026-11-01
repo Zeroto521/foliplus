@@ -186,9 +186,9 @@ def test_family_filters_do_not_crowd_each_other_out_at_capacity():
 def test_a_warning_points_at_the_calling_cell():
     # The declaration is written in the user's own cell, so the warning has to
     # name that file: a warning pointing inside the library is not actionable
-    # where the author can see it. Same contract as
-    # _declared_filter._caller_stacklevel on the declared-filter branch
-    # (#805); the walk lives in _caller_stacklevel here.
+    # where the author can see it. Same contract as the declared-filter branch
+    # (#805): one shared frame walk in _declaration._caller_stacklevel, so both
+    # entry points blame the author's cell.
     with pytest.warns(UserWarning) as record:
         _render(_geo(name="Blame", foliplus={"zooom": {"min": 1, "max": 2}}))
 
