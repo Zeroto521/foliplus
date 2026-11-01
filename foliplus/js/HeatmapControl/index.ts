@@ -2,6 +2,7 @@ import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { createPanelControl } from "#core/leaflet/index.js";
 import { finalize } from "#common/finalize.js";
+import { bindControlZoomRange } from "#common/zoomRange.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
@@ -79,6 +80,17 @@ class HeatmapControl extends defineControl({
     bindControls(this, panelContent);
     setupObserver(this);
     this.startScan();
+    // The component-level zoom_range declaration gates the whole control;
+    // the heatmap canvas is not touched (LayerControl still manages it as a
+    // layer, exactly as it manages any other declared layer).
+    this.effect(() =>
+      bindControlZoomRange({
+        map,
+        container,
+        range: this.config.zoomRange,
+        log: this.log,
+      }),
+    );
     return container;
   }
 

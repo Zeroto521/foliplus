@@ -216,7 +216,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
           name: "Polygons",
           role: "overlay",
           layer: polygonLayer(),
-          zoom: { min: 20, max: 30 },
+          zoomRange: { min: 20, max: 30 },
         },
       ],
     });
@@ -385,14 +385,15 @@ it("a reset that lands after a teardown does not deref the container", () => {
 });
 
 // ── Author-declared range: the row initial value and Reset ──
-// CONF `data[].zoom` (normalised from `foliplus={"zoom": {...}}`) is the
-// layer default range. The row opens on it, and Reset — which only clears the
-// user override — lands back on it instead of on the map full range.
+// CONF `data[].zoomRange` (normalised from `foliplus={"zoom_range": {...}}`)
+// is the layer default range. The row opens on it, and Reset — which only
+// clears the user override — lands back on it instead of on the map full
+// range.
 
-const declaredFixture = (zoom: { min: number; max: number }) => {
+const declaredFixture = (zoomRange: { min: number; max: number }) => {
   const layer = polygonLayer();
   const fixture = initFixture({
-    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer, zoom }],
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer, zoomRange }],
   });
   const onMap = trackMembership(fixture.map);
   onMap.set(layer, true);
@@ -448,7 +449,7 @@ it("collapses a declaration outside the layer's own rail onto the nearest bound"
         name: "Polygons",
         role: "overlay",
         layer,
-        zoom: { min: 5, max: 8 },
+        zoomRange: { min: 5, max: 8 },
       },
     ],
   });
@@ -474,7 +475,7 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
         name: "Polygons",
         role: "overlay",
         layer,
-        zoom: { min: 20, max: 30 },
+        zoomRange: { min: 20, max: 30 },
       },
     ],
   });
@@ -522,7 +523,7 @@ it("the policy reports the degradation once; the row arm is silent", () => {
         name: "Polygons",
         role: "overlay",
         layer,
-        zoom: { min: 20, max: 30 },
+        zoomRange: { min: 20, max: 30 },
       },
     ],
   });
@@ -562,7 +563,7 @@ it("a stored range wins over an unusable declaration and keeps the row editable"
         name: "Polygons",
         role: "overlay",
         layer,
-        zoom: { min: 20, max: 30 },
+        zoomRange: { min: 20, max: 30 },
       },
     ],
   });

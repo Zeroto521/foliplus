@@ -218,8 +218,9 @@ const controlArtifacts = name => [
  * The expected list comes from the manifest the build wrote, not from
  * `findComponents()`: re-deriving it here would mean the gate can disagree with
  * the build it is checking, and a component the build forgot to write would
- * silently satisfy both. `test/python/test_asset.py` and `build.test.ts`
- * read the same file, so all three consumers share one source of truth.
+ * silently satisfy both. `test/python/script/build/test_asset.py` and
+ * `build.test.ts` read the same file, so all three consumers share one source
+ * of truth.
  *
  * The manifest only exists after a real build, so its absence is reported as
  * "not built" rather than an unreadable manifest — this runs on a checkout that
@@ -302,7 +303,7 @@ Values are bare names (`LayerControl`, `common`) — every artifact filename
 is `foliplus-<name>.min.<ext>`, so a reader builds both halves without
 knowing which entry is the shared runtime.
 
-Tested from both stacks: `test/python/test_asset.py` asserts wheel
+Tested from both stacks: `test/python/script/build/test_asset.py` asserts wheel
 membership, `test/js/script/build/build.test.ts` asserts artifact presence.
 Deriving each from `findComponents` in prose gave three drifting copies;
 this is the one they read. Written only on a real build — `--verify` runs
