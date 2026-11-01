@@ -60,6 +60,22 @@ class TestShouldReport:
         assert _should_report(("new",), store) is True
         assert store == {("new",)}
 
+    def test_families_do_not_crowd_each_other_out_at_the_cap(self) -> None:
+        # #804: each diagnostic family owns its own store, so a flood of
+        # declaration notes must not roll over the caption history - otherwise
+        # a caption that was already reported would print again once the other
+        # family's set cleared.
+        declarations: set[tuple[str, ...]] = set()
+        captions: set[tuple[str, ...]] = set()
+        caption = ("caption", "C", "1", "1")
+
+        assert _should_report(caption, captions) is True
+        for index in range(_declaration._LOG_FILTER_CAP):
+            assert _should_report((str(index),), declarations) is True
+        assert len(declarations) == _declaration._LOG_FILTER_CAP
+
+        assert _should_report(caption, captions) is False
+
 
 class TestWarnFoliplus:
     def test_the_same_note_warns_once(self) -> None:

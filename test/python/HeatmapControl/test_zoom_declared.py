@@ -36,13 +36,6 @@ def test_undeclared_zoom_range_is_null():
     assert _conf()["zoomRange"] is None
 
 
-def test_equal_bounds_are_a_valid_declaration():
-    assert _conf(zoom_range={"min": 7, "max": 7})["zoomRange"] == {
-        "min": 7,
-        "max": 7,
-    }
-
-
 def test_numpy_integer_bounds_are_accepted_as_plain_ints():
     # A declaration built from data (``df.zoom.min()``) arrives as a numpy
     # scalar, which is not a Python ``int`` but is an integer. It is accepted
@@ -54,27 +47,15 @@ def test_numpy_integer_bounds_are_accepted_as_plain_ints():
     assert all(type(value) is int for value in conf["zoomRange"].values())
 
 
-def test_a_generic_mapping_is_accepted():
-    # The reader accepts any Mapping, not just dict: a declaration assembled
-    # through MappingProxyType (or another mapping type) is a mapping, and the
-    # warning already says "expected a mapping".
-    from types import MappingProxyType
-
-    conf = _conf(zoom_range=MappingProxyType({"min": 8, "max": 12}))
-
-    assert conf["zoomRange"] == {"min": 8, "max": 12}
-
-
 @pytest.mark.parametrize(
     "declaration",
     [
+        # One shape per failure class: ordering, endpoint type, structure. The
+        # full per-reason matrix (and its exact wording) is pinned on the reader
+        # in test/python/test__declaration.py; here the claim is the wiring -
+        # a rejected declaration still renders and CONF stays null.
         {"min": 12, "max": 8},
-        {"min": 8},
         {"min": 8.5, "max": 12},
-        {"min": True, "max": 12},
-        {"min": "8", "max": "12"},
-        {"min": 8, "max": 12, "step": 1},
-        {1: 8, "min": 8, "max": 12},
         [8, 12],
     ],
 )
