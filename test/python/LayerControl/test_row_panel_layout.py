@@ -36,7 +36,9 @@ OPEN_PANEL = r"""
   row.querySelector('.foliplus-layer-more-btn').click();
   const menu = row.querySelector('.foliplus-layer-more-menu.open');
   if (!menu) return { ok: false, reason: 'menu-not-open' };
-  const item = menu.querySelector('li[data-action="style-layer"]');
+  // Tag-agnostic: the overflow menu renders native <button>s, and the row
+  // contract is the data-action value, not the element name.
+  const item = menu.querySelector('[data-action="style-layer"]');
   if (!item) return { ok: false, reason: 'no-style-item' };
   item.click();
   const panel = row.querySelector('.foliplus-layer-style-panel');

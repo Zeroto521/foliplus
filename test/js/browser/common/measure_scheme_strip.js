@@ -21,11 +21,30 @@ triggerSelector => {
     dropdown.clientWidth -
     parseFloat(style.borderLeftWidth) -
     parseFloat(style.borderRightWidth);
+  // Diagnostics for an alignment failure: the strips can only match when the
+  // dropdown is as wide as the trigger and its item inset subtracts the lane it
+  // actually has. A stale dropdown width or an unmeasured lane shows up here.
+  const content = trigger.closest(".foliplus-panel-content");
   return {
     ok: true,
     triggerBar: rect(triggerBar),
     itemBars,
     lane: Math.round(lane),
     scrollable: dropdown.scrollHeight > dropdown.clientHeight,
+    laneVar: style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width").trim(),
+    trigger: rect(trigger),
+    dropdown: rect(dropdown),
+    dropdownInlineWidth: dropdown.style.width,
+    itemPaddingRight: getComputedStyle(
+      dropdown.querySelector(".foliplus-scheme-picker-item"),
+    ).paddingRight,
+    content: content
+      ? {
+          clientWidth: content.clientWidth,
+          offsetWidth: content.offsetWidth,
+          clientHeight: content.clientHeight,
+          scrollHeight: content.scrollHeight,
+        }
+      : null,
   };
 };
