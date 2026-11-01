@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Annotated, Any
 
 import pytest
 
@@ -276,6 +277,35 @@ class TestSchemaMatchesConfigFields:
         # pins the exact position where ordering diverges.
         for i, (a, b) in enumerate(zip(derived, expected)):
             assert a == b, f"{name}._config_fields[{i}] = {a!r}, schema[{i}] = {b!r}"
+
+
+class TestConfigKeyCollision:
+    """Two parameters may not export the same CONFIG key.
+
+    ``config_key`` is how a Python kwarg (``zoom_range``) reaches CONF under
+    the shared name (``zoomRange``). It also makes a silent overwrite possible
+    if a second parameter maps onto the same key, so derivation must fail loud
+    rather than let one field disappear from ``_config_fields``.
+    """
+
+    def test_duplicate_config_key_raises(self) -> None:
+        class Collision(BaseControl):
+            def __init__(
+                self,
+                *,
+                zoom: Annotated[
+                    dict[str, Any] | None,
+                    FieldSpec(ts="object", config_key="zoomRange"),
+                ] = None,
+                zoom_range: Annotated[
+                    dict[str, Any] | None,
+                    FieldSpec(ts="object", config_key="zoomRange"),
+                ] = None,
+            ) -> None:
+                super().__init__()
+
+        with pytest.raises(ValueError, match="exports CONFIG key 'zoomRange'"):
+            derive_schema(Collision)
 
 
 class TestSchemaDefaultsMatchPython:

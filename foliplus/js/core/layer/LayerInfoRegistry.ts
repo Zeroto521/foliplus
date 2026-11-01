@@ -196,10 +196,11 @@ class LayerInfoRegistry {
       meta: opts.meta ?? existingLi?.meta ?? null,
       metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
       fillAuthor: opts.fillAuthor ?? existingLi?.fillAuthor ?? null,
-      // Carried the same way `fillAuthor` is: CONF `data[].zoom` reaches this
-      // entry through the bulk build's `opts`, and a re-registration that does
-      // not resend it keeps the declared range (`existingLi.zoom`).
-      zoom: opts.zoom ?? existingLi?.zoom ?? null,
+      // Carried the same way `fillAuthor` is: CONF `data[].zoomRange`
+      // reaches this entry through the bulk build's `opts`, and a
+      // re-registration that does not resend it keeps the declared range
+      // (`existingLi.zoomRange`).
+      zoomRange: opts.zoomRange ?? existingLi?.zoomRange ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),

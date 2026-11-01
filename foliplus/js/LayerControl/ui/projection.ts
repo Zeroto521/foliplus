@@ -10,6 +10,12 @@
 // Nothing in this file touches the map, the registry, or storage.
 import type { AuthorZoomRange } from "#core/layer/index.js";
 import { createLogger } from "#common/log.js";
+import {
+  intersectsMapZoom,
+  isZoomRange,
+  unreachableZoomRange,
+  unusableZoomRange,
+} from "#common/zoomRange.js";
 import type { Projection } from "../type.js";
 import { INTENT, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
@@ -44,46 +50,25 @@ const warnZoomOnce = (id: string, kind: ZoomWarningKind, message: string): void 
 const authorZoomRangeOf = (
   layerInfo: LayerInfo | null | undefined,
 ): AuthorZoomRange | undefined => {
-  const zoom = layerInfo?.zoom;
-  if (!zoom) return undefined;
-  if (
-    typeof zoom !== "object" ||
-    !Number.isFinite(zoom.min) ||
-    !Number.isFinite(zoom.max) ||
-    zoom.min > zoom.max
-  ) {
-    warnZoomOnce(
-      layerInfo!.id,
-      "payload",
-      `declares an unusable zoom range (got ${JSON.stringify(zoom)}); treating it as undeclared`,
-    );
+  const zoomRange = layerInfo?.zoomRange;
+  if (!zoomRange) return undefined;
+  if (!isZoomRange(zoomRange)) {
+    warnZoomOnce(layerInfo!.id, "payload", unusableZoomRange(zoomRange));
     return undefined;
   }
-  return zoom;
+  return zoomRange;
 };
 
-/** Clamp a declared range onto the map's own range without ever producing an
- *  empty interval.
+/** Clamp a declared range onto the map's own range. Callers check
+ *  {@link intersectsMapZoom} first, so the result is never empty.
  *
  *  Clamping is a policy/display step only — the declared values are never
  *  rewritten, so switching the basemap back restores the declared range
- *  verbatim (the same reversibility rule the stored range follows). A
- *  declaration sitting entirely outside the map (author `[20, 30]` on a map
- *  capped at 18) would clamp to `min > max`; that degenerate interval
- *  collapses onto the nearest bound and the caller is told via `degenerate`
- *  so it can decide how to read it. */
-const clampZoomRangeToMap = (
-  ui: LayerUI,
-  range: AuthorZoomRange,
-): { range: AuthorZoomRange; degenerate: boolean } => {
-  const mapMin = ui.c.map.getMinZoom();
-  const mapMax = ui.c.map.getMaxZoom();
-  const lo = Math.max(range.min, mapMin);
-  const hi = Math.min(range.max, mapMax);
-  if (lo <= hi) return { range: { min: lo, max: hi }, degenerate: false };
-  const point = Math.min(Math.max(range.min, mapMin), mapMax);
-  return { range: { min: point, max: point }, degenerate: true };
-};
+ *  verbatim (the same reversibility rule the stored range follows). */
+const clampZoomRangeToMap = (ui: LayerUI, range: AuthorZoomRange): AuthorZoomRange => ({
+  min: Math.max(range.min, ui.c.map.getMinZoom()),
+  max: Math.min(range.max, ui.c.map.getMaxZoom()),
+});
 
 /** The author's declaration as the *visibility policy* sees it.
  *
@@ -102,20 +87,19 @@ const authorZoomPolicyRange = (
 ): AuthorZoomRange | undefined => {
   const declared = authorZoomRangeOf(layerInfo);
   if (!declared) return undefined;
-  const { range, degenerate } = clampZoomRangeToMap(ui, declared);
-  if (!degenerate) return range;
-  warnZoomOnce(
-    layerInfo.id,
-    "policy",
-    `declares zoom range ${JSON.stringify(declared)} outside the map's zoom range; treating it as undeclared`,
-  );
-  return undefined;
+  if (!intersectsMapZoom(declared, ui.c.map.getMinZoom(), ui.c.map.getMaxZoom())) {
+    warnZoomOnce(layerInfo.id, "policy", unreachableZoomRange(declared));
+    return undefined;
+  }
+  return clampZoomRangeToMap(ui, declared);
 };
 
 /** The author's declaration as the zoom-range *row* sees it: clamped to the
- *  map's rail and never empty, so the slider always has a drawable value.
- *  Distinct from {@link authorZoomPolicyRange} on the degenerate case only —
- *  a row must show something, so it collapses onto the nearest bound. */
+ *  map's rail. A declaration that cannot meet the rail is treated as
+ *  undeclared (the same verdict the policy gives it), so the row falls to the
+ *  map's full range instead of a fake collapsed point a drag could persist as
+ *  a real hidden interval. The policy is the single place that reports the
+ *  degradation, so this path is silent. */
 const authorZoomRowRange = (
   ui: LayerUI,
   layerInfo: LayerInfo | null | undefined,
@@ -123,14 +107,10 @@ const authorZoomRowRange = (
   if (!layerInfo) return undefined;
   const declared = authorZoomRangeOf(layerInfo);
   if (!declared) return undefined;
-  const { range, degenerate } = clampZoomRangeToMap(ui, declared);
-  // A declaration that cannot meet the map's rail is treated as undeclared
-  // (the same verdict the policy gives it): the row falls to the map's full
-  // range instead of a fake collapsed [x, x] a drag could persist as a real
-  // hidden interval. The policy is the single place that reports the
-  // degradation, so this path is silent.
-  if (degenerate) return undefined;
-  return range;
+  if (!intersectsMapZoom(declared, ui.c.map.getMinZoom(), ui.c.map.getMaxZoom())) {
+    return undefined;
+  }
+  return clampZoomRangeToMap(ui, declared);
 };
 
 /**
@@ -138,7 +118,7 @@ const authorZoomRowRange = (
  *
  *  Two sources, one predicate. The user's stored range wins when it exists
  *  (the persisted choice is the user's, and nothing in foliplus writes
- *  through it); otherwise the author's `foliplus={"zoom": {...}}` declaration
+ *  through it); otherwise the author's `foliplus={"zoom_range": {...}}` declaration
  *  is the policy, exactly as `data[].show` is the author default for
  *  visibility. A layer with neither is unconstrained.
  *
@@ -234,7 +214,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice. The range itself
-  // resolves intent-first, then the author's `data[].zoom` declaration (see
+  // resolves intent-first, then the author's `data[].zoomRange` declaration (see
   // `inZoomRange`).
   const policy =
     ui.focusController.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);

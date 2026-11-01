@@ -4,12 +4,7 @@ import json
 import logging
 import math
 import numbers
-import os
-import sys
-import warnings
 from collections.abc import Iterable
-from pathlib import Path
-from types import FrameType
 from typing import Annotated, Any, cast
 
 import folium
@@ -19,6 +14,14 @@ from folium import GeoJson
 from folium.map import Layer
 
 from ._config_schema import FieldSpec
+from ._declaration import (
+    ZOOM_RANGE_KEY,
+    _foliplus_reports,
+    _normalise_zoom_range,
+    _refused_captions,
+    _should_report,
+    _warn_foliplus,
+)
 from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
@@ -26,21 +29,6 @@ from .locale import LocaleConfig
 _FOLIUM_COLOR_PROP = "__folium_color"
 
 _log = logging.getLogger(__name__)
-
-# Diagnostics already reported in this process, so re-rendering a page does not
-# repeat the same line for the same data: one refused caption is a signal, and a
-# two-layer map measured 16 identical warnings. Each set is a log filter, not
-# state — it is cleared rather than grown when a long process renders many maps.
-# Split per family (#804): the caption refusal (#781) and the foliplus={...}
-# declaration rejections each own a 64-note budget, so a flood of malformed
-# declarations cannot clear the caption history (or vice versa) — each family's
-# dedup only needs to remember its own notes. Notes are string tuples whose
-# first element is the domain tag, kept so a note is self-describing when a
-# store is inspected or logged.
-_refused_captions: set[tuple[str, ...]] = set()
-_foliplus_reports: set[tuple[str, ...]] = set()
-
-_LOG_FILTER_CAP = 64
 
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
@@ -81,105 +69,25 @@ _FILL_AUTHOR_AGREE = 0.6
 #: The keys the per-layer foliplus={...} declaration namespace accepts.
 #: fill and label are consumed by the JS panel straight off
 #: layer.options.foliplus (folium forwards the unknown keyword into the
-#: layer options); zoom is normalised here into CONFIG data[].zoom so the
-#: visibility policy reads one CONF fact instead of the raw namespace.
-_FOLIPLUS_KEYS = frozenset({"fill", "label", "zoom"})
+#: layer options); zoom_range is normalised here into CONFIG data[].zoomRange
+#: so the visibility policy reads one CONF fact instead of the raw namespace.
+_FOLIPLUS_KEYS = frozenset({"fill", "label", ZOOM_RANGE_KEY})
 
 
-#: Directory of this package with a trailing separator, so a sibling whose name
-#: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
-_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
-#: Installed dependency tree. A foliplus= warning is raised while the control is
-#: being *rendered*, so between this package and the author's cell sit the Jinja
-#: template machinery, folium and branca. Pointing the warning at
-#: jinja2/environment.py would be technically accurate and useless; the walk
-#: skips the plumbing too, and stops at the first frame that is neither this
-#: package nor an installed dependency.
-_DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
-_PLUMBING_DIRS = (_PACKAGE_DIR, _DEPENDENCY_DIR)
+def _declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
+    """Normalise one layer ``foliplus={"zoom_range": {"min": ..., "max": ...}}``.
 
-
-def _is_plumbing(filename: str) -> bool:
-    """True for a frame that is machinery, not the author's code.
-
-    Three shapes count: this package; the installed dependency tree (a render
-    passes through jinja2, folium and branca); and a synthetic source name -
-    Jinja compiles a template *string* to a code object whose filename is
-    "<template>", and that is the frame a render-time warning is raised from.
-    """
-    return filename.startswith(_PLUMBING_DIRS) or filename.startswith("<")
-
-
-def _caller_stacklevel() -> int:
-    """Frames from warnings.warn out to the first frame that is the author's.
-
-    A fixed stacklevel cannot work here, and that is a fact of the call path
-    rather than a guess: a declaration is read during the Jinja render, which
-    compiles the control template to a "<template>" frame and calls through its
-    own interpreter frames, so between this package and the author's cell sit
-    the template frame, jinja2 and folium. The depth also differs between call
-    paths (_reject sits one frame further in than the shape checks). Walking
-    out to the first frame that is not plumbing is therefore the only stable
-    rule. Same idea as _declared_filter._caller_stacklevel on the
-    declared-filter branch (#805), kept as a private copy on purpose: the two
-    branches land independently, and a shared module would be an add/add
-    conflict to resolve for no behaviour. Fold them together in a follow-up
-    once both are in - the difference to reconcile is the dependency skip,
-    which #805's construction-time warnings do not need.
-    """
-    frame: FrameType | None = sys._getframe(1)  # _warn_foliplus, its caller
-    level = 1
-    while frame is not None:
-        if not _is_plumbing(frame.f_code.co_filename):
-            return level
-        frame = frame.f_back
-        level += 1
-    return level  # pragma: no cover - only when the whole stack is library code
-
-
-def _warn_foliplus(note: str, message: str) -> None:
-    """Report one unusable foliplus={...} declaration at the line that wrote it.
-
-    De-duplicated through the same process-wide log-filter mechanism as the
-    refused captions, but its own family store (see _should_report below and
-    the _foliplus_reports / _refused_captions split): the note carries the
-    layer name and the defect, so one typo on three layers prints three
-    attributable warnings and re-rendering the same page stays quiet. Never
-    raises: a typo in the declaration namespace is a warning, not a page
-    failure.
-    """
-    if not _should_report(("foliplus", note), _foliplus_reports):
-        return
-    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
-
-
-def _zoom_level(raw: object) -> int | None:
-    """One declared zoom end as an int, or None when it is not an integer.
-
-    bool is an int subclass but never a zoom level, so it is rejected too.
-    Returning the narrowed value keeps the caller's comparison and dict in int
-    territory; a loop-body isinstance check does not narrow past the loop, so
-    validating in a loop and using the names afterwards would need a second
-    round of checks here (or a cast) for no behavioural gain.
-    """
-    if isinstance(raw, int) and not isinstance(raw, bool):
-        return raw
-    return None
-
-
-def _declared_zoom(item: Layer, layer_name: str) -> dict[str, int] | None:
-    """Normalise one layer foliplus={"zoom": {"min": ..., "max": ...}}.
-
-    Returns {"min": int, "max": int} when the declaration is usable, else
-    None: "not declared" and "declared but invalid" are the same state
-    downstream - the visibility policy stays unconstrained rather than
-    hiding the layer on a payload the author never saw validated.
+    Returns ``{"min": int, "max": int}`` when the declaration is usable, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the visibility policy stays unconstrained rather than hiding
+    the layer on a payload the author never saw validated.
 
     The namespace is a folium passthrough, so nothing validates it at
-    construction. This is the single read point, hence the single place that
-    warns; every message names the layer so a typo is attributable, and the
-    de-duplication note carries the layer and the defect so two different
-    layers (or two different typos) are each reported once.
+    construction. This is the single read point for layers, hence the single
+    place that warns; every message names the layer so a typo is attributable.
+    The shared reader in :mod:`foliplus._declaration` owns the
+    ``zoom_range`` shape and the warning family, so layering the same rules
+    here and on the controls cannot drift.
     """
     # folium's base Layer (map.py) never assigns self.options: only the
     # concrete subclasses do (Marker, GeoJson, FeatureGroup, TileLayer, ...).
@@ -212,36 +120,9 @@ def _declared_zoom(item: Layer, layer_name: str) -> dict[str, int] | None:
                 "mapping - ignored",
             )
 
-    zoom = raw.get("zoom")
-    if zoom is None:
-        return None
-
-    def _reject(reason: str) -> None:
-        _warn_foliplus(
-            f"{layer_name}:zoom:{reason}",
-            f"LayerControl: layer {layer_name!r} declares "
-            f"foliplus[zoom] {reason} - ignored",
-        )
-
-    if not isinstance(zoom, dict):
-        _reject(f"as {type(zoom).__name__}; expected a mapping")
-        return None
-    extra = sorted(set(zoom) - {"min", "max"})
-    if extra:
-        _reject(f"with unknown key(s) {extra}; expected only min and max")
-        return None
-    raw_lo, raw_hi = zoom.get("min"), zoom.get("max")
-    lo, hi = _zoom_level(raw_lo), _zoom_level(raw_hi)
-    if lo is None:
-        _reject(f"with a non-integer min={raw_lo!r}")
-        return None
-    if hi is None:
-        _reject(f"with a non-integer max={raw_hi!r}")
-        return None
-    if lo > hi:
-        _reject(f"with min={lo} > max={hi}")
-        return None
-    return {"min": lo, "max": hi}
+    return _normalise_zoom_range(
+        raw.get(ZOOM_RANGE_KEY), owner="LayerControl", subject=f"layer {layer_name!r}"
+    )
 
 
 def _fill_author_color(props: dict[str, Any]) -> str | None:
@@ -540,22 +421,6 @@ def _pair_scale(
     return None
 
 
-def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
-    """True when this diagnostic has not been printed in this process yet.
-
-    ``store`` is the family's own filter (one per diagnostic family, so the
-    families do not crowd each other out at the cap). The cap keeps a long
-    process that renders many maps from growing the set without bound;
-    clearing it wholesale is what #781 chose over an LRU.
-    """
-    if note in store:
-        return False
-    if len(store) >= _LOG_FILTER_CAP:
-        store.clear()
-    store.add(note)
-    return True
-
-
 def _warn_refused_caption(
     caption: str, hits: int, total: int, *, criterion: str
 ) -> None:
@@ -826,7 +691,7 @@ class LayerControl(BaseControl):
 
     >>> import geopandas as gpd
     >>> gdf = gpd.read_file("boundaries.geojson")
-    >>> m = gdf.explore(foliplus={"zoom": {"min": 8, "max": 12}})
+    >>> m = gdf.explore(foliplus={"zoom_range": {"min": 8, "max": 12}})
     >>> LayerControl().add_to(m)
 
     Declare per-layer text labels:
@@ -837,16 +702,17 @@ class LayerControl(BaseControl):
     -----
     Recognised keys:
 
-    +----------+--------+--------------------------------------------------------------+
-    | Key      | Type   | Meaning                                                      |
-    +==========+========+==============================================================+
-    | ``fill`` | dict   | The layer's fill by value, with a ``ramp`` arm for numeric   |
-    |          |        | fields (see the fill table below).                           |
-    +----------+--------+--------------------------------------------------------------+
-    | ``label``| dict   | The layer's text labels (see the label table below).         |
-    +----------+--------+--------------------------------------------------------------+
-    | ``zoom`` | dict   | The layer's visible zoom range (see the zoom table below).   |
-    +----------+--------+--------------------------------------------------------------+
+    +----------------+--------+--------------------------------------------------------------+
+    | Key            | Type   | Meaning                                                      |
+    +================+========+==============================================================+
+    | ``fill``       | dict   | The layer's fill by value, with a ``ramp`` arm for numeric   |
+    |                |        | fields (see the fill table below).                           |
+    +----------------+--------+--------------------------------------------------------------+
+    | ``label``      | dict   | The layer's text labels (see the label table below).         |
+    +----------------+--------+--------------------------------------------------------------+
+    | ``zoom_range`` | dict   | The layer's visible zoom range (see the zoom range table     |
+    |                |        | below).                                                      |
+    +----------------+--------+--------------------------------------------------------------+
 
     The ``fill`` declaration keys:
 
@@ -882,7 +748,7 @@ class LayerControl(BaseControl):
     | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
     +-------------+-------------------------------------+--------------------------------------------------------------+
 
-    The ``zoom`` declaration keys:
+    The ``zoom_range`` declaration keys:
 
     +---------+------+----------+--------------------------------------------------------------+
     | Key     | Type | Required | Meaning                                                      |
@@ -892,7 +758,7 @@ class LayerControl(BaseControl):
     | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
     +---------+------+----------+--------------------------------------------------------------+
 
-    How a ``zoom`` declaration is resolved:
+    How a ``zoom_range`` declaration is resolved:
 
     +-------------------------------+--------------------------------------------------------------+
     |Condition                      |Behaviour                                                     |
@@ -957,10 +823,13 @@ class LayerControl(BaseControl):
                             "?",
                         ),
                         # Optional: the author-declared zoom range,
-                        # normalised from foliplus={"zoom": {...}}. Absent
-                        # when the layer declares none - the visibility
-                        # policy then keeps the map range.
-                        "zoom": ({"min": "number", "max": "number"}, "?"),
+                        # normalised from foliplus={"zoom_range": {...}}.
+                        # Absent when the layer declares none - the
+                        # visibility policy then keeps the map range.
+                        "zoomRange": (
+                            {"min": "number", "max": "number"},
+                            "?",
+                        ),
                     }
                 ],
             ),
@@ -995,7 +864,7 @@ class LayerControl(BaseControl):
         -------
         dict
             ``{"data": [{"name", "id", "role", "show"}, ...]}`` with optional
-            ``fillAuthor`` / ``zoom`` — the ``data`` key is merged into the JS
+            ``fillAuthor`` / ``zoomRange`` — the ``data`` key is merged into the JS
             ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
@@ -1027,9 +896,9 @@ class LayerControl(BaseControl):
             author = _fill_author(item, colormaps, claimed)
             if author is not None:
                 entry["fillAuthor"] = author
-            zoom = _declared_zoom(item, item.layer_name)
-            if zoom is not None:
-                entry["zoom"] = zoom
+            zoom_range = _declared_zoom_range(item, item.layer_name)
+            if zoom_range is not None:
+                entry["zoomRange"] = zoom_range
             data.append(entry)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
