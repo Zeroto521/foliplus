@@ -18,9 +18,10 @@ const ROOT = resolve(process.cwd());
 const distDir = resolve(ROOT, "foliplus/dist");
 
 // Artifact names come from dist/manifest.json, which `script/build/build.mjs`
-// writes on every real build — the same list `test/python/test_asset.py`
-// asserts wheel membership against. A new component therefore shows up in
-// both stacks without either test hardcoding its name.
+// writes on every real build — the same list
+// `test/python/script/build/test_asset.py` asserts wheel membership against.
+// A new component therefore shows up in both stacks without either test
+// hardcoding its name.
 const names: string[] = (
   JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")) as {
     artifacts: string[];
