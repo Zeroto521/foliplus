@@ -209,10 +209,10 @@ interface RegisterLayerOpts {
    *  (folium's own default), so the registry does not have to invent a
    *  value the caller never gave. */
   show?: boolean;
-  /** Author's declared zoom range — mirrors CONFIG `data[].zoom`, which
-   *  Python normalises from the `foliplus={"zoom": {...}}` declaration.
+  /** Author's declared zoom range — mirrors CONFIG `data[].zoomRange`, which
+   *  Python normalises from the `foliplus={"zoom_range": {...}}` declaration.
    *  Absent means the author did not declare one. */
-  zoom?: AuthorZoomRange | null;
+  zoomRange?: AuthorZoomRange | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -345,8 +345,9 @@ interface FillAuthor {
   scale?: FillAuthorScale;
 }
 
-/** An author-declared zoom range — the normalised `foliplus={"zoom": {...}}`
- *  layer declaration, carried from CONFIG `data[].zoom`.
+/** An author-declared zoom range — the normalised
+ *  `foliplus={"zoom_range": {...}}` layer declaration, carried from CONFIG
+ *  `data[].zoomRange`.
  *
  *  One shape on both sides of the bridge (Python emits `{min, max}`, every
  *  read site consumes `{min, max}`), so no site converts it and no site can
@@ -418,12 +419,12 @@ interface LayerInfo {
   metaProvider?: (() => Record<string, string | number>) | null;
   /** Author's declarative per-feature fill (explore layers only). */
   fillAuthor?: FillAuthor | null;
-  /** Author's declared zoom range (CONFIG `data[].zoom`). Absent/null means
-   *  the author declared nothing: the visibility policy stays unconstrained
-   *  and the zoom-range row opens on the map's own range. A *policy* input
-   *  (`inZoomRange`), never a carrier write — foliplus does not write
-   *  `layer.options.minZoom/maxZoom` (see `ui/apply.ts`). */
-  zoom?: AuthorZoomRange | null;
+  /** Author's declared zoom range (CONFIG `data[].zoomRange`). Absent/null
+   *  means the author declared nothing: the visibility policy stays
+   *  unconstrained and the zoom-range row opens on the map's own range. A
+   *  *policy* input (`inZoomRange`), never a carrier write — foliplus does not
+   *  write `layer.options.minZoom/maxZoom` (see `ui/apply.ts`). */
+  zoomRange?: AuthorZoomRange | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
