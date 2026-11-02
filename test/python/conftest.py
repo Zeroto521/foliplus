@@ -49,9 +49,9 @@ def snippet(path: str) -> str:
     duplicated across files. The snippet is returned verbatim (its own line
     endings).
     """
-    return (
-        Path(__file__).resolve().parent.parent / f"js/snippet/{path}.js"
-    ).read_text(encoding="utf-8")
+    return (Path(__file__).resolve().parent.parent / f"js/snippet/{path}.js").read_text(
+        encoding="utf-8"
+    )
 
 
 # ── CDN cache (browser tests) ──
