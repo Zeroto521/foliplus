@@ -6,17 +6,17 @@ This is the single source of truth for CDN dependencies.
 import json
 from pathlib import Path
 
-_CDN_PATH = Path(__file__).parent / "cdn.json"
-_cache: dict[str, dict[str, str]] | None = None
+CDN_PATH = Path(__file__).parent / "cdn.json"
+cache: dict[str, dict[str, str]] | None = None
 
 
-def _load_all() -> dict[str, dict[str, str]]:
-    global _cache
-    if _cache is None:
+def load_all() -> dict[str, dict[str, str]]:
+    global cache
+    if cache is None:
         # cdn.json is a controlled source file, not a user-input boundary;
-        # _cache's annotation narrows json.loads's Any to the declared shape.
-        _cache = json.loads(_CDN_PATH.read_text(encoding="utf-8"))
-    return _cache
+        # cache's annotation narrows json.loads's Any to the declared shape.
+        cache = json.loads(CDN_PATH.read_text(encoding="utf-8"))
+    return cache
 
 
 def load_cdn(control_name: str) -> list[tuple[str, str]]:
@@ -25,5 +25,5 @@ def load_cdn(control_name: str) -> list[tuple[str, str]]:
     The returned list matches the format folium expects:
     ``[(name, url), ...]``.
     """
-    data = _load_all()
+    data = load_all()
     return list(data.get(control_name, {}).items())
