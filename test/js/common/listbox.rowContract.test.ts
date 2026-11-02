@@ -292,7 +292,30 @@ describe("listbox row contract: picker shape", () => {
       }),
     );
     expect(document.activeElement).toBe(els[1]);
-    expect(trigger.getAttribute("aria-activedescendant")).toBe(els[1].id);
+    // The focused row must have a stable, non-empty id (the engine assigns it
+    // only for the activedescendant=trigger shape).
+    const activeId = els[1].id;
+    expect(activeId).not.toBe("");
+    // The trigger's aria-activedescendant must resolve back to that same row
+    // (a string equality alone would pass if BOTH sides were empty).
+    expect(trigger.getAttribute("aria-activedescendant")).toBe(activeId);
+    expect(document.getElementById(activeId)).toBe(els[1]);
+  });
+
+  it("activedescendant: no row focused → the attribute is absent, never empty", () => {
+    const { trigger, listbox } = makePicker([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    listbox.open();
+    // Open only: no row has been focused, so the trigger must not track one.
+    // The attribute must be absent (null), never an empty string — an empty
+    // value would be indistinguishable from a missing row id and hide a bug.
+    expect(trigger.getAttribute("aria-activedescendant")).toBeNull();
+    expect(trigger.hasAttribute("aria-activedescendant")).toBe(false);
+    // Closing removes it entirely.
+    listbox.close();
+    expect(trigger.hasAttribute("aria-activedescendant")).toBe(false);
   });
 });
 
