@@ -17,7 +17,7 @@ import pytest
 
 from foliplus import LayerControl
 
-_layer_control_mod = importlib.import_module("foliplus.plugin.LayerControl.control")
+_layer_control_mod = importlib.import_module("foliplus.control.LayerControl.control")
 
 
 def _collection(
@@ -575,7 +575,7 @@ def test_a_refused_stepped_caption_reports_block_membership(caplog):
     # must name it: features carry none of this scale's blocks.
     scale = _stepped(caption="membership_probe")
     colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
-    with caplog.at_level("WARNING", logger="foliplus.plugin.LayerControl.control"):
+    with caplog.at_level("WARNING", logger="foliplus.control.LayerControl.control"):
         _meta(
             _geo(colors, column="membership_probe", values=[20.0] * len(colors)),
             scale,
@@ -592,7 +592,7 @@ def test_a_refused_continuous_caption_reports_color_match(caplog):
         ("#440154", "#fde725"), caption="color_match_probe", vmin=0, vmax=100
     )
     colors = ["#0d0887", "#6a00a8", "#f0f921"]
-    with caplog.at_level("WARNING", logger="foliplus.plugin.LayerControl.control"):
+    with caplog.at_level("WARNING", logger="foliplus.control.LayerControl.control"):
         _meta(
             _geo(colors, column="color_match_probe", values=[1.0, 2.0, 3.0]),
             scale,

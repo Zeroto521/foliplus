@@ -439,10 +439,7 @@ describe("scaffoldControl", () => {
       "**FooControl**",
     );
     expect(
-      readFileSync(
-        join(tmpRoot, "script", "check", "scan-locale-key.mjs"),
-        "utf-8",
-      ),
+      readFileSync(join(tmpRoot, "script", "check", "scan-locale-key.mjs"), "utf-8"),
     ).toContain('"FooControl",');
     expect(
       readFileSync(join(tmpRoot, "foliplus", "js", "FooControl", "index.ts"), "utf-8"),
@@ -578,9 +575,9 @@ describe("CLI entry", () => {
     main(["FooControl", `--root=${tmpRoot}`, "--description=Foo."]);
     const out = log.mock.calls.join("\n");
     expect(out).toContain("scaffolded FooControl");
-    expect(readFileSync(join(tmpRoot, "foliplus", "control", "FooControl.py"), "utf-8")).toContain(
-      "class FooControl",
-    );
+    expect(
+      readFileSync(join(tmpRoot, "foliplus", "control", "FooControl.py"), "utf-8"),
+    ).toContain("class FooControl");
   });
 
   it("defaults the description and skips already-present patches on a second run", () => {

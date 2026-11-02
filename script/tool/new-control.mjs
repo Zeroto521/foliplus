@@ -205,7 +205,10 @@ const patchScannerControls = (text, name) => {
   let insertAt = lines.length - 1;
   for (let i = 0; i < lines.length; i++) {
     const cur = lines[i].trim().replace(/",$/, "").replace(/^"/, "");
-    if (cur && cur !== "const CONTROLS = [" && cur > name) { insertAt = i; break; }
+    if (cur && cur !== "const CONTROLS = [" && cur > name) {
+      insertAt = i;
+      break;
+    }
   }
   lines.splice(insertAt, 0, `  "${name}",`);
   return text.slice(0, start) + lines.join("\n") + text.slice(end);

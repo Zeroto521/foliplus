@@ -18,7 +18,7 @@ _PKG = Path(foliplus.__file__).parent
 COMPONENTS = tuple(
     sorted(
         p.name if p.is_dir() else p.stem
-        for p in _PKG.glob("plugin/*")
+        for p in _PKG.glob("control/*")
         if (
             (p.is_dir() and (p / "control.py").is_file())
             or (p.is_file() and p.suffix == ".py" and p.name != "__init__.py")
