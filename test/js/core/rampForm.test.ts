@@ -324,7 +324,9 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   it("insets the dropdown strip by the same token as the trigger", () => {
     // The two bars line up only while both use one inset token: the trigger
     // pads by it, the item pads by it minus its reserved selection border and
-    // the measured scrollbar lane (a layout scrollbar steals real width).
+    // the measured scrollbar lane. A lane wider than the inset leaves the
+    // strip shorter than the trigger by (lane - inset) px — a classic
+    // scrollbar's gutter cannot be painted by the row (physical limit).
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
     expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
     expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
@@ -336,10 +338,27 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
 
   it("reserves the scrollbar lane in both list states", () => {
     // A stable gutter keeps the lane constant so crossing the max-height does
-    // not re-inset every strip; the item subtracts that same lane.
+    // not re-inset every strip; the item subtracts that same lane. overflow-x
+    // hidden is harmless and keeps any overhang from scrolling horizontally.
     const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
     expect(dropdown).toContain("overflow-y: auto");
+    expect(dropdown).toContain("overflow-x: hidden");
     expect(dropdown).toContain("scrollbar-gutter: stable");
+  });
+
+  it("keeps the strip on the scrollport right edge when the lane exceeds the inset", () => {
+    // True invariant: strip right = min(padding-box right - inset, scrollport
+    // right). With lane <= inset (or lane = 0, overlay scrollbars) the strip
+    // lands on padding-box right - inset, exactly under the trigger's strip.
+    // With lane > inset the gutter cannot be painted, so the strip stops at
+    // the scrollport right edge, shorter than the trigger by (lane - inset).
+    const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
+    expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
+    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
+    expect(item).toContain("max(");
+    expect(item).toContain("calc(");
+    // The subtractive form, not an extending margin: no negative margin.
+    expect(item).not.toContain("margin-right");
   });
 
   it("defines the strip inset and scrollbar lane tokens in the token file", () => {
