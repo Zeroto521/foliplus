@@ -131,7 +131,10 @@ const collect = (): Array<[string, string, string]> => {
   for (const file of files) {
     // Repo-relative path, /-separated. layerOf/componentOf/allowedFor all
     // key off this shape (e.g. "foliplus/js/plugin/LayerControl/ui/index.ts").
-    const rel = file.slice(REPO_ROOT.length + 1).split("\\").join("/");
+    const rel = file
+      .slice(REPO_ROOT.length + 1)
+      .split("\\")
+      .join("/");
     const layer = layerOf(rel);
     const comp = componentOf(rel);
     const src = readFileSync(file, "utf-8");
@@ -168,11 +171,23 @@ const collect = (): Array<[string, string, string]> => {
 
       // ── Rule 3: layer direction ──
       if (layer === "common" && !spec.startsWith("#common/")) {
-        problems.push([rel.replace("foliplus/js/", ""), spec, "common imports outside #common"]);
+        problems.push([
+          rel.replace("foliplus/js/", ""),
+          spec,
+          "common imports outside #common",
+        ]);
       } else if (layer === "ui" && !/^#(?:common|ui)\//.test(spec)) {
-        problems.push([rel.replace("foliplus/js/", ""), spec, "ui imports outside #common/#ui"]);
+        problems.push([
+          rel.replace("foliplus/js/", ""),
+          spec,
+          "ui imports outside #common/#ui",
+        ]);
       } else if (layer === "core" && !/^#(?:common|core)\//.test(spec)) {
-        problems.push([rel.replace("foliplus/js/", ""), spec, "core imports outside #common/#core"]);
+        problems.push([
+          rel.replace("foliplus/js/", ""),
+          spec,
+          "core imports outside #common/#core",
+        ]);
       }
     }
   }
@@ -186,17 +201,26 @@ describe("JS import boundaries", () => {
 
   it("every #plugin import stays within the component's own namespace", () => {
     const violations = collect();
-    const plugin = violations.filter(v => v[2].includes("cross-component") || v[2].includes("#plugin/*"));
+    const plugin = violations.filter(
+      v => v[2].includes("cross-component") || v[2].includes("#plugin/*"),
+    );
     expect(plugin, plugin.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("no non-plugin layer (common/ui/core/root) imports #plugin/*", () => {
-    const violations = collect().filter(v => v[2] === "non-plugin layer imports #plugin/*");
+    const violations = collect().filter(
+      v => v[2] === "non-plugin layer imports #plugin/*",
+    );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("layers depend only downward (common/ui/core rules)", () => {
-    const violations = collect().filter(v => v[2].startsWith("common imports") || v[2].startsWith("ui imports") || v[2].startsWith("core imports"));
+    const violations = collect().filter(
+      v =>
+        v[2].startsWith("common imports") ||
+        v[2].startsWith("ui imports") ||
+        v[2].startsWith("core imports"),
+    );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 

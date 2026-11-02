@@ -16,10 +16,10 @@ import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/plugin/LayerControl/slider.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
 import {
   LABEL_SIZE,
   bindLiveColor,
