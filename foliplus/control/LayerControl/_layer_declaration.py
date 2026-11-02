@@ -4,8 +4,8 @@ from folium.map import Layer
 
 from foliplus._declaration import (
     ZOOM_RANGE_KEY,
-    _normalise_zoom_range,
-    _warn_foliplus,
+    normalise_zoom_range,
+    warn_foliplus,
 )
 
 #: The keys the per-layer foliplus={...} declaration namespace accepts.
@@ -39,7 +39,7 @@ def declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        _warn_foliplus(
+        warn_foliplus(
             f"{layer_name}:shape:{type(raw).__name__}",
             f"LayerControl: layer {layer_name!r} declares foliplus= as "
             f"{type(raw).__name__}; expected a mapping - ignored",
@@ -48,20 +48,20 @@ def declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
 
     for key, value in raw.items():
         if key not in FOLIPLUS_KEYS:
-            _warn_foliplus(
+            warn_foliplus(
                 f"{layer_name}:unknown:{key}",
                 f"LayerControl: layer {layer_name!r} declares unknown "
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
         elif key in {"fill", "label"} and not isinstance(value, dict):
-            _warn_foliplus(
+            warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
                 f"foliplus[{key!r}] as {type(value).__name__}; expected a "
                 "mapping - ignored",
             )
 
-    return _normalise_zoom_range(
+    return normalise_zoom_range(
         raw.get(ZOOM_RANGE_KEY), owner="LayerControl", subject=f"layer {layer_name!r}"
     )
