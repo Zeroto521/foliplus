@@ -821,6 +821,61 @@ describe("portal mode", () => {
     ).toBe("0px");
     picker.destroy();
   });
+
+  it("follows the trigger when it resizes while open", async () => {
+    // The trigger is the dropdown's width source, and it can change without a
+    // window resize: a panel that gains or loses a layout scrollbar lane moves
+    // every control inside it by that lane. The observer has to re-read the
+    // width, or the dropdown keeps the stale mount-time box and the item strip
+    // stops matching the trigger strip (the style-drawer regression).
+    const observers: Array<{
+      callback: ResizeObserverCallback;
+      target: Element | null;
+      observer: { disconnect: ReturnType<typeof vi.fn> };
+    }> = [];
+
+    class FakeResizeObserver {
+      disconnect = vi.fn();
+      constructor(readonly callback: ResizeObserverCallback) {
+        observers.push({ callback, target: null, observer: this });
+      }
+      observe(target: Element): void {
+        observers[observers.length - 1].target = target;
+      }
+      unobserve(): void {}
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    try {
+      const { picker, trigger } = makePicker({ portal: true });
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const dropdown = picker.getDropdown()!;
+      expect(observers).toHaveLength(1);
+      expect(observers[0].target).toBe(trigger);
+
+      const width = 240;
+      trigger.getBoundingClientRect = () =>
+        ({
+          width,
+          height: 24,
+          top: 0,
+          left: 0,
+          right: width,
+          bottom: 24,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect;
+      observers[0].callback([], observers[0].observer as unknown as ResizeObserver);
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+      expect(dropdown.style.width).toBe(`${width}px`);
+
+      picker.close();
+      expect(observers[0].observer.disconnect).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 // ── onToggle callback ──────────────────────────────────────────────────
