@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ._config_schema import FieldSpec
-from ._typing import ControlPosition, Fraction, PositiveInt
-from ._validate import Bound, validate
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._config_schema import FieldSpec
+from foliplus._typing import ControlPosition, Fraction, PositiveInt
+from foliplus._validate import Bound, validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 FORMAT = Literal["png", "jpeg", "webp", "geotiff"]
 

@@ -31,8 +31,19 @@ _SCAFFOLD = "Prefer: npm run new-control -- <NameControl>"
 
 def discover_python_controls() -> set[str]:
     names: set[str] = set()
-    for path in PKG.glob("*Control.py"):
-        stem = path.stem
+    for path in (PKG / "control").glob("*"):
+        # Directory package: control/<Name>/control.py
+        if path.is_dir():
+            control = path / "control.py"
+            stem = path.name
+        # Single-file module: control/<Name>.py
+        elif path.is_file() and path.suffix == ".py":
+            control = path
+            stem = path.stem
+        else:
+            continue
+        if not control.is_file():
+            continue
         if stem in _NON_CONTROL_MODULES:
             continue
         names.add(stem)
@@ -82,11 +93,11 @@ class TestPythonPackage:
         missing = [
             n
             for n in sorted(controls)
-            if f"from .{n} import {n}" not in text or f'"{n}"' not in text
+            if f"from .control.{n} import {n}" not in text or f'"{n}"' not in text
         ]
         assert not missing, (
             f"missing from foliplus/__init__.py: {missing}\n"
-            f"Add `from .{{Name}} import {{Name}}` and __all__. {_SCAFFOLD}"
+            f"Add `from .control.{{Name}} import {{Name}}` and __all__. {_SCAFFOLD}"
         )
 
     def test_locale_tables_exist(self, controls: set[str]):
@@ -140,9 +151,9 @@ class TestPythonTests:
     def test_build_components_derived_from_package(self):
         """test_build.py must derive COMPONENTS from the package (not a hand list)."""
         text = _read(ROOT / "test" / "python" / "script" / "build" / "test_build.py")
-        assert "glob" in text and "*Control.py" in text, (
+        assert "glob" in text and "control/*" in text, (
             "test_build.py should discover COMPONENTS via "
-            'Path(foliplus.__file__).parent.glob("*Control.py")'
+            'Path(foliplus.__file__).parent.glob("control/*")'
         )
 
     def test_locale_used_keys_cover_control_prefixes(self, controls: set[str]):
