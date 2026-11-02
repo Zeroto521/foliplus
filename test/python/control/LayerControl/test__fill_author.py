@@ -280,7 +280,7 @@ def test_feature_without_properties_is_skipped():
 
 
 def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
-    monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_SCAN_LIMIT", 2)
+    monkeypatch.setattr(_layer_control_mod, "FILL_AUTHOR_SCAN_LIMIT", 2)
     # A layer sorted by the painted value: a head-only scan would see one class
     # and read the whole layer as a single color.
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
@@ -307,15 +307,15 @@ def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
     scale = _linear()
     values = [10.0, 40.0, 90.0]
     rows = [({"score": value}, str(scale(value))[:7]) for value in values]
-    original = _layer_control_mod._colormap_sample
+    original = _layer_control_mod.colormap_sample
     calls = {"count": 0}
 
     def flaky(colormap: object, value: object) -> str | None:
         calls["count"] += 1
         return None if calls["count"] == 1 else original(colormap, value)
 
-    monkeypatch.setattr(_layer_control_mod, "_colormap_sample", flaky)
-    hits, total = _layer_control_mod._column_agreement(scale, rows, "score")
+    monkeypatch.setattr(_layer_control_mod, "colormap_sample", flaky)
+    hits, total = _layer_control_mod.column_agreement(scale, rows, "score")
 
     # One feature could not be sampled: it neither counts nor breaks agreement.
     assert (hits, total) == (2, 2)
@@ -336,7 +336,7 @@ def test_a_short_scale_strip_keeps_every_stop():
 
 def test_numeric_values_cover_booleans_numpy_integers_and_nan():
     np = pytest.importorskip("numpy")
-    numeric = _layer_control_mod._numeric_value
+    numeric = _layer_control_mod.numeric_value
 
     assert numeric(True) is None
     assert numeric(np.int64(7)) == 7.0
@@ -347,22 +347,22 @@ def test_numeric_values_cover_booleans_numpy_integers_and_nan():
 def test_color_helpers_degrade_on_bad_input():
     module = _layer_control_mod
 
-    assert module._rgb("#12") is None
-    assert module._rgb("not-a-color") is None
+    assert module.rgb("#12") is None
+    assert module.rgb("not-a-color") is None
     # A non-sequence and a channel that is not a float both yield no color
     # instead of raising inside a render.
-    assert module._rgba_hex(5) is None
-    assert module._rgba_hex("not-a-color") is None
-    assert module._rgba_hex([1.0, 2.0]) is None
+    assert module.rgba_hex(5) is None
+    assert module.rgba_hex("not-a-color") is None
+    assert module.rgba_hex([1.0, 2.0]) is None
 
 
 def test_palette_hex_reads_hex_strings_and_stops():
     module = _layer_control_mod
 
-    assert module._palette_hex("#abc") == "#aabbcc"
-    assert module._palette_hex("#AABBCCFF") == "#aabbcc"
-    assert module._palette_hex("nope") is None
-    assert module._palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
+    assert module.palette_hex("#abc") == "#aabbcc"
+    assert module.palette_hex("#AABBCCFF") == "#aabbcc"
+    assert module.palette_hex("nope") is None
+    assert module.palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
 
 
 def test_author_rows_skips_malformed_and_uncolored_features():
@@ -372,30 +372,30 @@ def test_author_rows_skips_malformed_and_uncolored_features():
         *[{"properties": {"__folium_color": "#0d0887"}} for _ in range(20)],
     ]
 
-    rows = _layer_control_mod._author_rows(features)
+    rows = _layer_control_mod.author_rows(features)
 
-    assert len(rows) == _layer_control_mod._FILL_AUTHOR_SAMPLE
+    assert len(rows) == _layer_control_mod.FILL_AUTHOR_SAMPLE
     assert all(color == "#0d0887" for _, color in rows)
 
 
 def test_rgb_reads_short_hex_and_rejects_broken_hex():
     module = _layer_control_mod
 
-    assert module._rgb("#abc") == (170, 187, 204)
-    assert module._rgb("#zzzzzz") is None
-    assert module._rgb("#12345") is None
-    assert module._same_color("nope", "#0d0887") is False
+    assert module.rgb("#abc") == (170, 187, 204)
+    assert module.rgb("#zzzzzz") is None
+    assert module.rgb("#12345") is None
+    assert module.same_color("nope", "#0d0887") is False
 
 
 def test_colormap_sample_returns_none_for_a_broken_scale():
     # A scale that raises on call yields no sample instead of a failed render.
-    assert _layer_control_mod._colormap_sample(object(), 1.0) is None
+    assert _layer_control_mod.colormap_sample(object(), 1.0) is None
 
 
 def test_pair_scale_needs_a_sampled_color_row():
     scale = _linear()
 
-    assert _layer_control_mod._pair_scale([scale], [{"properties": {}}], set()) is None
+    assert _layer_control_mod.pair_scale([scale], [{"properties": {}}], set()) is None
 
 
 def test_a_caption_that_names_a_text_property_claims_nothing():
@@ -416,7 +416,7 @@ def test_continuous_stops_degrades_for_an_unreadable_index():
         index = None
         colors = ()
 
-    assert _layer_control_mod._continuous_stops(Scale()) == []
+    assert _layer_control_mod.continuous_stops(Scale()) == []
 
 
 def test_continuous_stops_returns_empty_for_an_empty_index():
@@ -424,7 +424,7 @@ def test_continuous_stops_returns_empty_for_an_empty_index():
         index = []
         colors = ()
 
-    assert _layer_control_mod._continuous_stops(Scale()) == []
+    assert _layer_control_mod.continuous_stops(Scale()) == []
 
 
 def test_continuous_stops_falls_back_to_interpolation_without_a_palette():
@@ -437,7 +437,7 @@ def test_continuous_stops_falls_back_to_interpolation_without_a_palette():
             return "#0d0887ff" if value < 50 else "#f0f921ff"
 
     # The middle sample fails: the fallback drops that stop and keeps the rest.
-    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+    assert _layer_control_mod.continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
 
 
 def test_continuous_stops_drops_unreadable_stops():
@@ -445,7 +445,7 @@ def test_continuous_stops_drops_unreadable_stops():
         index = [0.0, 50.0, 100.0]
         colors = ["#0d0887", "nope", "#f0f921"]
 
-    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+    assert _layer_control_mod.continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
 
 
 def test_scale_walk_ignores_nodes_without_children():
@@ -453,13 +453,13 @@ def test_scale_walk_ignores_nodes_without_children():
         _children = None
         _parent = None
 
-    assert _layer_control_mod._map_colormaps(Node()) == []
+    assert _layer_control_mod.map_colormaps(Node()) == []
 
 
 def test_scale_payload_without_a_column_omits_it():
     scale = _linear()
 
-    scale_payload, stops = _layer_control_mod._scale_payload(scale, None)
+    scale_payload, stops = _layer_control_mod.scale_payload(scale, None)
 
     assert "column" not in scale_payload
     assert len(stops) == 64
@@ -472,7 +472,7 @@ def test_a_scale_without_stops_is_not_shipped(monkeypatch):
     layer = _geo(colors, values=values)
     monkeypatch.setattr(
         _layer_control_mod,
-        "_scale_payload",
+        "scale_payload",
         lambda colormap, column: ({"kind": "continuous"}, []),
     )
     meta = _meta(layer, scale)
@@ -481,7 +481,7 @@ def test_a_scale_without_stops_is_not_shipped(monkeypatch):
 
 
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
-    monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_STOPS", 2)
+    monkeypatch.setattr(_layer_control_mod, "FILL_AUTHOR_STOPS", 2)
     meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))
 
     assert meta["capped"] is True
@@ -577,9 +577,7 @@ def test_a_refused_stepped_caption_reports_block_membership(caplog):
     # must name it: features carry none of this scale's blocks.
     scale = _stepped(caption="membership_probe")
     colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
-    with caplog.at_level(
-        "WARNING", logger="foliplus.control.LayerControl._fill_author"
-    ):
+    with caplog.at_level("WARNING", logger="foliplus.control.LayerControl"):
         _meta(
             _geo(colors, column="membership_probe", values=[20.0] * len(colors)),
             scale,
@@ -596,9 +594,7 @@ def test_a_refused_continuous_caption_reports_color_match(caplog):
         ("#440154", "#fde725"), caption="color_match_probe", vmin=0, vmax=100
     )
     colors = ["#0d0887", "#6a00a8", "#f0f921"]
-    with caplog.at_level(
-        "WARNING", logger="foliplus.control.LayerControl._fill_author"
-    ):
+    with caplog.at_level("WARNING", logger="foliplus.control.LayerControl"):
         _meta(
             _geo(colors, column="color_match_probe", values=[1.0, 2.0, 3.0]),
             scale,
@@ -656,7 +652,7 @@ def test_a_fisherjenks_caption_survives_the_bin_edges(k):
         for v in m._children.values()
         if type(v).__name__ in ("LinearColormap", "StepColormap")
     ]
-    payload = _layer_control_mod._fill_author(layer, scales, set())
+    payload = _layer_control_mod.fill_author(layer, scales, set())
 
     assert payload["scale"]["kind"] == "stepped"
     assert payload["scale"]["column"] == "score"
