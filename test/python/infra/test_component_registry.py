@@ -32,11 +32,18 @@ _SCAFFOLD = "Prefer: npm run new-control -- <NameControl>"
 def discover_python_controls() -> set[str]:
     names: set[str] = set()
     for path in (PKG / "plugin").glob("*"):
-        if not path.is_dir():
+        # Directory package: plugin/<Name>/control.py
+        if path.is_dir():
+            control = path / "control.py"
+            stem = path.name
+        # Single-file module: plugin/<Name>.py
+        elif path.is_file() and path.suffix == ".py":
+            control = path
+            stem = path.stem
+        else:
             continue
-        if not (path / "control.py").is_file():
+        if not control.is_file():
             continue
-        stem = path.name
         if stem in _NON_CONTROL_MODULES:
             continue
         names.add(stem)
