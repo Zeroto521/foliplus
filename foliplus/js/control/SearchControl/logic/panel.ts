@@ -70,13 +70,17 @@ const removePanel = (ctrl: SearchControlCtx) => {
 
 const positionPanel = (ctrl: SearchControlCtx) => {
   if (!ctrl.panelWrap) return;
+  // The result panel is position: fixed, so rect is already viewport-relative
+  // and the scroll offset must NOT be added. Adding window.scrollX/scrollY
+  // made the panel drift by the scroll amount once the page scrolled (a fixed
+  // element is positioned against the viewport, not the document).
   const rect = ctrl.ctrl.getBoundingClientRect();
-  let left = rect.left + window.scrollX;
+  let left = rect.left;
   if (left + rect.width > window.innerWidth) {
-    left = window.innerWidth - rect.width + window.scrollX;
+    left = window.innerWidth - rect.width;
   }
   ctrl.panelWrap.style.left = `${left}px`;
-  ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
+  ctrl.panelWrap.style.top = `${rect.bottom}px`;
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {

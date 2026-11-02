@@ -1296,4 +1296,44 @@ describe("pinRowPanel", () => {
     expect(parseFloat(panel.style.top)).toBeGreaterThanOrEqual(808);
     expect(parseFloat(panel.style.top)).toBeLessThanOrEqual(900);
   });
+
+  it("keeps its own floor and horizontal policy instead of the kernel outputs", () => {
+    // The row panel is a partial adapter: it consumes only placement.side
+    // and placement.maxHeight, and deliberately keeps its own ROW_PANEL_EDGE
+    // insets + comfort floor. This pins the #853 P3-3 / P3-5 decision: no
+    // minRows/rowHeight is passed (no kernel row-floor), and the kernel's
+    // left/top/maxWidth are not written to the card.
+    //
+    // Map box 100..500 x 100..500 (bounds height 400). Row at top 300, bottom
+    // 330. Natural card 400: below strip = 500 - 330 - gap(2) = 168, above
+    // strip = 300 - 100 - 2 = 198. Natural 400 > both, so the kernel picks the
+    // larger strip (above) and caps to 198 — the adapter's own 120px floor is
+    // smaller than the cap, so it does not override the strip cap.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 400 });
+    stubBox(row, { top: 300, left: 120, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 400 });
+
+    pinRowPanel(panel, row);
+
+    // Kernel: side=above, maxHeight=198, maxWidth=280 (fits the 400-wide
+    // bounds), left=100 (right-align 320-280, clamped to 100..220), top=108
+    // (anchor.top - gap - cap = 100, clamped to the map top inset 108). The
+    // adapter uses side + maxHeight but NOT left/top/maxWidth: it applies its
+    // own edge insets to both axes, so left=108 and no max-width is written
+    // (the 280 card fits the usable 384 strip).
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "198px",
+    );
+    expect(panel.style.maxWidth).toBe("");
+    expect(panel.style.left).toBe("108px");
+    expect(panel.style.top).toBe("108px");
+  });
 });

@@ -279,6 +279,49 @@ describe("positionPanel", () => {
     expect(ctrl.panelWrap.style.top).toBe("100px");
   });
 
+  it("keeps the wrap fixed to the control when the page is scrolled", () => {
+    // The result panel is position: fixed (viewport-relative), so the scroll
+    // offset must NOT be added to the control's rect — otherwise the panel
+    // drifts by scrollX/scrollY once the page scrolls (real bug, #846 step 3).
+    const originalScrollX = window.scrollX;
+    const originalScrollY = window.scrollY;
+    try {
+      Object.defineProperty(window, "scrollX", {
+        value: 120,
+        configurable: true,
+      });
+      Object.defineProperty(window, "scrollY", {
+        value: 80,
+        configurable: true,
+      });
+      const ctrl: any = {
+        ...ctx(),
+        panelWrap: { style: {} },
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 10,
+            top: 20,
+            bottom: 100,
+            width: 200,
+          }),
+        },
+      };
+      positionPanel(ctrl);
+      // Same as the scroll=0 case: rect.left and rect.bottom, no +scroll.
+      expect(ctrl.panelWrap.style.left).toBe("10px");
+      expect(ctrl.panelWrap.style.top).toBe("100px");
+    } finally {
+      Object.defineProperty(window, "scrollX", {
+        value: originalScrollX,
+        configurable: true,
+      });
+      Object.defineProperty(window, "scrollY", {
+        value: originalScrollY,
+        configurable: true,
+      });
+    }
+  });
+
   it("clips suggestions wrap to the right edge when it would overflow", () => {
     const originalWidth = window.innerWidth;
     try {

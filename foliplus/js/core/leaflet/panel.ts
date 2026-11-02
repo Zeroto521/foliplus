@@ -379,6 +379,21 @@ const fitRowPanel = (
   // cannot overflow) and reports maxHeight as the strip cap. The row panel's
   // own comfort floor and edge insets are surface policy, applied here on top
   // of the kernel's cap (they are not part of the kernel's generic model).
+  //
+  // Only placement.side and placement.maxHeight are consumed here. The
+  // kernel's left/top/maxWidth are generic outputs for full adapters (the
+  // listbox / scheme-picker / slider / measure surfaces, migration steps 4-6);
+  // this adapter deliberately owns horizontal placement (right-align with the
+  // row, the ROW_PANEL_EDGE insets and the shrink-to-available-width rule) and
+  // its own vertical clamp, because those are row-panel policy the generic
+  // kernel does not model. width stays in the surface (the required shape
+  // feeds naturalW), but the returned maxWidth is unused.
+  //
+  // minRows / rowHeight are deliberately NOT passed: the kernel's row floor
+  // is a "keep N rows visible" guarantee for callers that measure rows, while
+  // this panel's floor is a comfort minimum (ROW_PANEL_MIN_HEIGHT) applied
+  // after the kernel. Passing them would compose a second floor into the
+  // kernel's flip decision (desiredH) and change behaviour with no benefit.
   const placement = computePlacement(
     anchorRect,
     { width: cardRect.width, height: natural },
