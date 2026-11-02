@@ -31,8 +31,12 @@ _SCAFFOLD = "Prefer: npm run new-control -- <NameControl>"
 
 def discover_python_controls() -> set[str]:
     names: set[str] = set()
-    for path in PKG.glob("*Control.py"):
-        stem = path.stem
+    for path in (PKG / "plugin").glob("*"):
+        if not path.is_dir():
+            continue
+        if not (path / "control.py").is_file():
+            continue
+        stem = path.name
         if stem in _NON_CONTROL_MODULES:
             continue
         names.add(stem)
@@ -82,11 +86,11 @@ class TestPythonPackage:
         missing = [
             n
             for n in sorted(controls)
-            if f"from .{n} import {n}" not in text or f'"{n}"' not in text
+            if f"from .plugin.{n} import {n}" not in text or f'"{n}"' not in text
         ]
         assert not missing, (
             f"missing from foliplus/__init__.py: {missing}\n"
-            f"Add `from .{{Name}} import {{Name}}` and __all__. {_SCAFFOLD}"
+            f"Add `from .plugin.{{Name}} import {{Name}}` and __all__. {_SCAFFOLD}"
         )
 
     def test_locale_tables_exist(self, controls: set[str]):
@@ -140,9 +144,9 @@ class TestPythonTests:
     def test_build_components_derived_from_package(self):
         """test_build.py must derive COMPONENTS from the package (not a hand list)."""
         text = _read(ROOT / "test" / "python" / "script" / "build" / "test_build.py")
-        assert "glob" in text and "*Control.py" in text, (
+        assert "glob" in text and "plugin/*" in text, (
             "test_build.py should discover COMPONENTS via "
-            'Path(foliplus.__file__).parent.glob("*Control.py")'
+            'Path(foliplus.__file__).parent.glob("plugin/*")'
         )
 
     def test_locale_used_keys_cover_control_prefixes(self, controls: set[str]):

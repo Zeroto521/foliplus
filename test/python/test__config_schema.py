@@ -568,7 +568,7 @@ class TestRuntimeZeroChange:
         repo_root = Path(__file__).resolve().parents[2]
         probe = (
             "import foliplus\n"
-            "from foliplus.FullscreenControl import FullscreenControl\n"
+            "from foliplus import FullscreenControl\n"
             "assert FullscreenControl._config_fields == ('hide_self', 'hide_others'), \\\n"
             "    FullscreenControl._config_fields\n"
         )

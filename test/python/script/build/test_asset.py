@@ -41,8 +41,8 @@ from foliplus.BaseControl import (
     dist_dir,
     expected_artifacts,
 )
-from foliplus.ExportControl import ExportControl
-from foliplus.SearchControl import SearchControl
+from foliplus import ExportControl
+from foliplus import SearchControl
 
 # Single source for the artifact list: `script/build/build.mjs` writes
 # `dist/manifest.json` on every real build, and both this file and
