@@ -216,8 +216,7 @@ class TestNormaliseZoomRange:
             warnings.simplefilter("always")
             for _ in range(3):
                 assert (
-                    normalise_zoom_range({"min": 8.5, "max": 12}, owner="Owner")
-                    is None
+                    normalise_zoom_range({"min": 8.5, "max": 12}, owner="Owner") is None
                 )
 
         assert len(caught) == 1

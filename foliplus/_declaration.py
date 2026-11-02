@@ -299,9 +299,7 @@ def range_atom(
     }
 
 
-def enum_atom(
-    raw: Sequence[Any], owner: str, enum_field: str
-) -> dict[str, Any] | None:
+def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any] | None:
     """The equality arm: a list of value names -> an enum atom.
 
     Value names are not validated here on purpose: the measurement-type

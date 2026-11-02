@@ -851,9 +851,7 @@ def schema_to_json() -> str:
         "version": 1,
         "shared": field_dict_list(SHARED),
         "runtime_only": field_dict_list(RUNTIME_ONLY),
-        "controls": {
-            name: field_dict_list(schema) for name, schema in control_schemas
-        },
+        "controls": {name: field_dict_list(schema) for name, schema in control_schemas},
     }
     verify_tags(
         collect_tags(SHARED, RUNTIME_ONLY, *(s for _, s in control_schemas)),
