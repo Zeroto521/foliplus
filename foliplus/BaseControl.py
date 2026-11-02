@@ -142,9 +142,10 @@ def control_assets(name: str) -> tuple[Path, Path]:
 def expected_artifacts() -> list[str]:
     """Every ``dist/`` filename a complete build emits, as bare names.
 
-    Read from the manifest the build writes, not re-derived: ``test_asset.py``
-    asserts wheel membership against this list and ``build.test.ts`` asserts
-    artifact presence, so a component added on one side fails both stacks.
+    Read from the manifest the build writes, not re-derived:
+    ``test/python/script/build/test_asset.py`` asserts wheel membership against
+    this list and ``build.test.ts`` asserts artifact presence, so a component
+    added on one side fails both stacks.
 
     Filenames come through :func:`control_assets`, the one place that knows how
     a component name maps to artifacts — re-deriving them here would let a

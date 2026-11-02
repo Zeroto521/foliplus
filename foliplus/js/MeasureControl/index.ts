@@ -7,6 +7,7 @@ import {
 } from "#core/leaflet/index.js";
 import { createIconButton } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
+import { bindControlZoomRange } from "#common/zoomRange.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
@@ -95,6 +96,18 @@ const MeasureControl = defineControl<MeasureManager>({
         this.mgr.setMode(btn.dataset.mode ?? null);
       };
     });
+
+    // The component-level zoom_range declaration gates the toolbar. It never
+    // touches the measurements already on the map — the declaration is about
+    // where the tool is offered, not about the data.
+    this.effect(() =>
+      bindControlZoomRange({
+        map,
+        container,
+        range: this.config.zoomRange,
+        log: this.log,
+      }),
+    );
 
     return container;
   },
