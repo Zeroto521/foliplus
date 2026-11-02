@@ -228,7 +228,14 @@ class TestBaseControlRendering:
         frame = Path("foliplus/js/control/LayerControl/ui/style/frame.ts").read_text(
             encoding="utf-8"
         )
-        assert 'class: "foliplus-panel-btn foliplus-style-reset-btn"' in frame
+        # The class-name recipe is split across the builder (ui/affordance.ts
+        # joins the shared foliplus-panel-btn) and the caller (frame.ts passes
+        # the reset-specific class). Assert the combination source, not the
+        # rendered DOM name — the DOM contract itself is asserted in
+        # test/js/ui/affordance.test.ts.
+        affordance = Path("foliplus/js/ui/affordance.ts").read_text(encoding="utf-8")
+        assert "PANEL_CLASS.PANEL_BTN" in affordance
+        assert 'className: "foliplus-style-reset-btn"' in frame
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""
