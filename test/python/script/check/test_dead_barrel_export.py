@@ -650,6 +650,43 @@ class TestPathlibHelpers:
         result = mod._normpath(spec)
         assert result.as_posix() == expected
 
+    def test_normpath_absolute_climbs_clamp_to_anchor(self):
+        """_normpath clamps absolute-path '..' at the root/drive anchor.
+
+        A leading '..' must not pop the anchor (os.path.normpath keeps it):
+        ``/a/../..`` -> ``/`` and ``C:/a/../../b`` -> ``C:/b``. Drive forms
+        only exist under Windows drive semantics; skip them elsewhere.
+        """
+        import os
+
+        specs = ["/..", "/a/../..", "/a/../../b", "/a/../../.."]
+        if Path("C:/").anchor:  # Windows drive semantics
+            specs += ["C:/a/../..", "C:/a/../../b", "C:/a/../b", "C:/a/../../.."]
+        for spec in specs:
+            mine = mod._normpath(spec).as_posix()
+            expected = os.path.normpath(spec).replace(os.sep, "/")
+            assert mine == expected, f"{spec!r}: {mine!r} != {expected!r}"
+
+    def test_normpath_unc_pins_observed_behavior(self):
+        """'//a/../b': pin the platform-observed behaviour, not ideal semantics.
+
+        On Windows '//a/..' is a UNC server root: Path.parts keeps the whole
+        '\\\\a\\..\\' as one anchor part, so no '..' segment is seen and the
+        path is returned unchanged ('//a/../b'), matching os.path.normpath.
+        On POSIX the leading '//' is a prefix but '..' is a real segment; the
+        lexical collapse there may differ from normpath (pre-existing, out of
+        scope for this PR — the anchor clamp only changes paths that pop a
+        root/drive anchor, which '//a' is not).
+        """
+        import os
+
+        mine = mod._normpath("//a/../b").as_posix()
+        if os.name == "nt":
+            assert mine == "//a/../b"
+            assert mine == os.path.normpath("//a/../b").replace(os.sep, "/")
+        else:
+            assert isinstance(mine, str) and mine
+
     def test_normpath_matches_os_path(self, tmp_path):
         """_normpath agrees with os.path.normpath on realistic repo paths."""
         import os

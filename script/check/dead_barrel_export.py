@@ -54,11 +54,17 @@ def _normpath(path: str | Path) -> Path:
     Mirrors ``os.path.normpath`` for the relative/absolute paths used here:
     leading ``..`` segments are preserved, inner ``..`` collapse a parent.
     """
+    p = Path(path)
+    anchor = p.anchor
     parts: list[str] = []
-    for part in Path(path).parts:
+    for part in p.parts:
         if part == "..":
-            if parts and parts[-1] != "..":
+            if parts and parts[-1] != ".." and parts[-1] != anchor:
                 parts.pop()
+            elif parts and parts[-1] == anchor:
+                # Clamped at the root/drive anchor: a leading ".." cannot
+                # escape it (os.path.normpath keeps the anchor).
+                continue
             else:
                 parts.append(part)
         else:
