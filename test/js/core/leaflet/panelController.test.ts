@@ -535,4 +535,81 @@ describe("PanelController", () => {
     expect(state.closeCalls).toHaveLength(1);
     expect(controller.isOpen()).toBe(false);
   });
+
+  // ─────────────────────────── P2-1 / P3-3 / P3-4 / P3-5 ───────────────────
+
+  it("swallowPress swallows a mousedown without changing state (P2-1)", () => {
+    // A fresh root WITHOUT the fixture's own mousedown guard, so the primitive
+    // is the only thing standing between the press and the ancestor. A
+    // bubble-phase listener on the parent must not see the press, and the
+    // event must be defaultPrevented.
+    const { spec, state } = makeFixture();
+    const controller = createPanel(spec);
+    controller.open();
+    const bareRoot = document.createElement("div");
+    bareRoot.setAttribute("role", "dialog");
+    document.body.appendChild(bareRoot);
+    const parent = document.createElement("div");
+    parent.appendChild(bareRoot);
+    const bubblesToParent = vi.fn();
+    parent.addEventListener("mousedown", bubblesToParent);
+    bareRoot.addEventListener("mousedown", e => controller.swallowPress(e));
+    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    bareRoot.dispatchEvent(event);
+    expect(bubblesToParent).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+    expect(controller.isOpen()).toBe(true);
+    expect(state.closeCalls).toHaveLength(0);
+  });
+
+  it("open rolls back and rethrows when spec.open throws (P3-3)", () => {
+    let first = true;
+    const { spec, state } = makeFixture({
+      open: () => {
+        if (first) {
+          first = false;
+          throw new Error("boom");
+        }
+        state.open = true;
+        state.openCalls += 1;
+      },
+    });
+    const controller = createPanel(spec);
+    expect(() => controller.open()).toThrow("boom");
+    expect(controller.isOpen()).toBe(false);
+    expect(state.onOpenCalls).toBe(0);
+    // The idempotence guard must not be stuck: a later open succeeds.
+    controller.open();
+    expect(controller.isOpen()).toBe(true);
+    expect(state.openCalls).toBe(1);
+    expect(state.onOpenCalls).toBe(1);
+  });
+
+  it("closeFromClick swallows and keeps the panel open when spec.close refuses (P3-4)", () => {
+    const { spec, state, closeButton } = makeFixture();
+    state.canClose = () => false;
+    const controller = createPanel(spec);
+    controller.open();
+    const bubblesToDocument = vi.fn();
+    document.addEventListener("click", bubblesToDocument);
+    closeButton.addEventListener("click", e => controller.closeFromClick(e));
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    closeButton.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(bubblesToDocument).not.toHaveBeenCalled();
+    expect(controller.isOpen()).toBe(true);
+  });
+
+  it("attachPanel throws for a destroyed controller (P3-5)", () => {
+    const { map } = track(makeMap());
+    const { spec } = makeFixture();
+    const controller = createPanel(spec);
+    attachPanel(map, controller);
+    controller.destroy();
+    // A second attach of the SAME (destroyed) controller must throw, not
+    // silently register a dead entry.
+    expect(() => attachPanel(map, controller)).toThrow(
+      /cannot attach a destroyed panel/,
+    );
+  });
 });

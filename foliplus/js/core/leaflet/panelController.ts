@@ -85,6 +85,12 @@ interface PanelController {
   /** Swallow a press without closing (a Reset-style control whose own action
    *  runs afterwards). */
   swallowClick(e: MouseEvent): void;
+  /** Swallow a mousedown press without closing and without changing state: a
+   *  raw event-swallow primitive for the row-panel mousedown handlers that
+   *  must neither start a row drag nor leak to the map. Unlike swallowClick
+   *  it also calls preventDefault (a press inside a draggable row must not
+   *  trigger the browser's text-selection / drag machinery). */
+  swallowPress(e: MouseEvent): void;
   /** Silent close (if open) + unregister. Idempotent. */
   destroy(): void;
 }
@@ -118,6 +124,11 @@ const internals = new WeakMap<
 >();
 
 const wires = new WeakMap<PanelController, ControllerWire>();
+
+/** Controllers that have been destroyed (terminal): attachPanel must reject
+ *  them instead of silently registering a dead entry. Module-private so the
+ *  check reads the same terminal flag the impl uses. */
+const destroyed = new WeakSet<PanelControllerImpl>();
 
 class PanelControllerImpl implements PanelController {
   readonly owner: string;
@@ -158,12 +169,20 @@ class PanelControllerImpl implements PanelController {
   open(): void {
     if (this.#destroyed || this.#open) return;
     this.#open = true;
-    // Opening one surface closes the open siblings of its exclusive group
-    // (top-layer exclusivity). The hook is installed by attachPanel (which
-    // owns the registry entry); before attach it is a no-op.
-    wires.get(this)?.groupOpen();
-    this.#spec.open();
-    this.#spec.onOpen?.();
+    try {
+      // Opening one surface closes the open siblings of its exclusive group
+      // (top-layer exclusivity). The hook is installed by attachPanel (which
+      // owns the registry entry); before attach it is a no-op.
+      wires.get(this)?.groupOpen();
+      this.#spec.open();
+      this.#spec.onOpen?.();
+    } catch (error) {
+      // spec.open threw: roll back so the controller is not left "open but
+      // with no DOM" (which would also make the idempotence guard swallow
+      // every later open). Rethrow so the caller sees the failure.
+      this.#open = false;
+      throw error;
+    }
   }
 
   close(opts?: { restoreFocus?: boolean }): boolean {
@@ -187,9 +206,15 @@ class PanelControllerImpl implements PanelController {
     e.stopPropagation();
   }
 
+  swallowPress(e: MouseEvent): void {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
+    destroyed.add(this);
     if (this.#open) {
       // Best-effort teardown: destroy is terminal, so a "cannot close right
       // now" refusal is overridden (the surface is going away regardless).
@@ -218,6 +243,11 @@ const createPanel = (spec: PanelSpec): PanelController => new PanelControllerImp
  *  contract rejects duplicates instead of silently keeping the old entry. */
 const attachPanel = (map: L.Map, controller: PanelController): (() => void) => {
   const impl = controller as PanelControllerImpl;
+  if (destroyed.has(impl)) {
+    throw new Error(
+      `cannot attach a destroyed panel: ${controller.owner}.${controller.localId}`,
+    );
+  }
   const config = internals.get(impl);
   const id = `${controller.owner}.${controller.localId}`;
   const ids = attached.get(map) ?? new Set<string>();
