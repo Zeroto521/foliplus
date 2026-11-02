@@ -42,12 +42,12 @@ def _js(path: str) -> str:
 
 
 def snippet(path: str) -> str:
-    """Read an extracted JS snippet, e.g. ``snippet("heatmap/dropdown_open")``.
+    """Read an extracted JS snippet, e.g. ``snippet("HeatmapControl/dropdown_open")``.
 
-    An extracted snippet lives in ``test/js/snippet/<area>/<name>.js`` and is
-    read by the Python side so inline JS strings in browser tests are not
-    duplicated across files. The snippet is returned verbatim (its own line
-    endings).
+    An extracted snippet lives in ``test/js/snippet/<Component>/<name>.js``
+    (shared helpers under ``common/``) and is read by the Python side so inline
+    JS strings in browser tests are not duplicated across files. The snippet is
+    returned verbatim (its own line endings).
     """
     return (Path(__file__).resolve().parent.parent / f"js/snippet/{path}.js").read_text(
         encoding="utf-8"

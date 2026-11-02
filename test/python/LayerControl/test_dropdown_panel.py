@@ -22,13 +22,13 @@ from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import HeatmapControl, LayerControl
 
-STATE = snippet("layer/dropdown_state")
+STATE = snippet("LayerControl/dropdown_state")
 
 
-FIRST_TRIGGER = snippet("layer/dropdown_first_trigger")
+FIRST_TRIGGER = snippet("LayerControl/dropdown_first_trigger")
 
 
-FIRST_OPTION = snippet("layer/dropdown_first_option")
+FIRST_OPTION = snippet("LayerControl/dropdown_first_option")
 
 
 def _make_page(browser, tmp_path):
@@ -132,15 +132,15 @@ class TestStyleDrawerDropdownBrowser:
             panel_ready(page)
             page.evaluate(_js("LayerControl/rename_first_layer"))
             page.wait_for_timeout(250)
-            assert page.evaluate(snippet("layer/has_rename_input")), (
+            assert page.evaluate(snippet("LayerControl/has_rename_input")), (
                 "the rename input did not open"
             )
 
             opened = page.evaluate(_js("LayerControl/open_style_panel"))
             assert opened["ok"], opened
             page.wait_for_timeout(250)
-            assert page.evaluate(snippet("layer/has_style_panel"))
-            assert not page.evaluate(snippet("layer/has_rename_input")), (
+            assert page.evaluate(snippet("LayerControl/has_style_panel"))
+            assert not page.evaluate(snippet("LayerControl/has_rename_input")), (
                 "opening the style drawer left the row rename live; the popup's "
                 "window-capture Escape could then steal the rename's cancel"
             )
@@ -164,14 +164,14 @@ class TestStyleDrawerDropdownBrowser:
             panel_ready(page)
             page.evaluate(_js("LayerControl/rename_first_layer"))
             page.wait_for_timeout(250)
-            assert page.evaluate(snippet("layer/has_rename_input")), (
+            assert page.evaluate(snippet("LayerControl/has_rename_input")), (
                 "the rename input did not open"
             )
 
-            toggle = page.evaluate(snippet("layer/dropdown_heatmap_toggle"))
+            toggle = page.evaluate(snippet("LayerControl/dropdown_heatmap_toggle"))
             page.mouse.click(toggle["x"], toggle["y"])
             page.wait_for_timeout(300)
-            assert not page.evaluate(snippet("layer/has_rename_input")), (
+            assert not page.evaluate(snippet("LayerControl/has_rename_input")), (
                 "a real press on another panel left the row rename live; the "
                 "popup's window-capture Escape could then steal the rename cancel"
             )
@@ -200,7 +200,7 @@ class TestStyleDrawerDropdownBrowser:
 
 _GEOMETRY = _js("LayerControl/read_fill_row_geometry")
 
-_TO_RAMP = snippet("layer/dropdown_to_ramp")
+_TO_RAMP = snippet("LayerControl/dropdown_to_ramp")
 
 
 # The English method name is what breaks the row: 93px of nowrap text in a

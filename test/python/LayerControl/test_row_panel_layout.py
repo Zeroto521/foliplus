@@ -28,8 +28,8 @@ SHOTS = HERE / ".foliplus"
 # and diffed as JavaScript instead of as Python string literals.
 # `layer/row_panel_open` opens the ⋮ → Style panel on the row at *index*;
 # `layer/row_panel_measure` reports the open card against the map's visible area.
-OPEN_PANEL = snippet("layer/row_panel_open")
-MEASURE = snippet("layer/row_panel_measure")
+OPEN_PANEL = snippet("LayerControl/row_panel_open")
+MEASURE = snippet("LayerControl/row_panel_measure")
 
 
 def _make_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):

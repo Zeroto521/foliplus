@@ -297,7 +297,7 @@ class TestHeatmapControlSelectionBrowser:
             assert again["hasCachedFeatures"] is True, (
                 f"reopening after Clear must redraw the declared layer: {again}"
             )
-            canvases = page.evaluate(snippet("heatmap/selection_canvas_hidden"))
+            canvases = page.evaluate(snippet("HeatmapControl/selection_canvas_hidden"))
             assert canvases and not all(canvases), (
                 f"the heatmap canvas should be visible after Clear + reopen: {canvases}"
             )
@@ -323,7 +323,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            other = page.evaluate(snippet("heatmap/selection_set_persisted"))
+            other = page.evaluate(snippet("HeatmapControl/selection_set_persisted"))
             page.reload()
             heatmap_ready(page)
 

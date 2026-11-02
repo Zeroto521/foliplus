@@ -7473,7 +7473,7 @@ class TestLayerControlBrowser:
 
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            chrome = page.evaluate(snippet("layer/filter_enum_chrome"))
+            chrome = page.evaluate(snippet("LayerControl/filter_enum_chrome"))
             assert chrome["panelSelects"] == 0, chrome
             assert chrome["pageNativeMultiple"] == 0, chrome
             assert chrome["formSelectChrome"] is True, chrome

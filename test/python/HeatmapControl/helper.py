@@ -12,7 +12,7 @@ from conftest import _js, heatmap_ready, make_browser_page, snippet
 from foliplus import HeatmapControl
 from foliplus._cdn_loader import load_cdn
 
-_H3_STUB = snippet("heatmap/h3_stub").strip()
+_H3_STUB = snippet("HeatmapControl/h3_stub").strip()
 
 
 def _stub_html(html: str, *, marker: str = 'CONFIG = {"name": "HeatmapControl"') -> str:
