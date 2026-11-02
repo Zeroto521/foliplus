@@ -174,26 +174,22 @@ def _open_layer_list(page) -> None:
 
 
 def _measure(page, trigger: str) -> dict:
-    # The picker follows the trigger's width through a ResizeObserver +
-    # throttleRaf, which settles on the next frame after the dropdown mounts.
-    # A slow CI frame stretches that window, so a measurement taken too early
-    # reads a stale width (e.g. DPR2: dropdown 145 vs trigger 160) and fails
-    # for the wrong reason. Wait until the dropdown width converges to the
-    # trigger's before sampling.
-    page.wait_for_function(
-        """triggerSel => {
-            const dropdown = document.querySelector(
-                ".foliplus-scheme-picker-portal",
-            );
-            const trigger = document.querySelector(triggerSel);
-            if (!dropdown || !trigger) return false;
-            const want = trigger.getBoundingClientRect().width;
-            const have = parseFloat(dropdown.style.width || "0");
-            return Math.abs(have - want) <= 0.5;
-        }""",
-        arg=trigger,
-        timeout=5000,
-    )
+    """Sample the strip geometry once the picker width has settled.
+
+    The picker's dropdown is positioned with the trigger width at open, but the
+    trigger can resize one frame later (a layout scrollbar lane disappears from
+    the panel content when the picker portals out, widening the trigger). The
+    dropdown follows via a ResizeObserver on the next animation frame, so a
+    measurement taken immediately after the portal is attached can read a stale
+    width (e.g. DPR2: dropdown 145 vs trigger 160) and fail for the wrong
+    reason.
+
+    Wait for the widths to agree before sampling. If they never settle (a
+    genuine product bug), the wait resolves a diagnostics object instead of
+    silently passing, and this fails loudly with the widths/lane evidence.
+    """
+    settled = page.evaluate(_js("common/wait_scheme_picker_settled"), trigger)
+    assert settled is True, f"picker width did not settle: {settled}"
     return page.evaluate(_js("common/measure_scheme_strip"), trigger)
 
 
