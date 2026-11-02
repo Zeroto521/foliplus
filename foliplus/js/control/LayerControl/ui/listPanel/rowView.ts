@@ -1,0 +1,275 @@
+// LayerControl UI — Row projection: intent + derived state → the row's visual.
+//
+// The layer row used to be both painter and reconciler. This file takes the
+// painting half and makes it a projection, so `LayerUI` is left with painting
+// only.
+//
+// Nothing here writes to the map, the registry, or the persisted record. The
+// map writes stay in state.ts, and the row renders from whatever intent and
+// derived state that pipeline has already established: rendering is a function
+// of state, not a sweep that mutates the world.
+//
+// Two pieces:
+//   inZoomRange / rowView — the projection (read-only + pure)
+//   buildRowCell / applyRowView        — gather the cell, then paint the row
+import { ROLE } from "#core/layer/index.js";
+import * as CONST from "#foliplus/control/LayerControl/const.js";
+import * as SVGs from "#foliplus/control/LayerControl/icon.js";
+import * as Util from "#foliplus/control/LayerControl/util.js";
+import { setLabelTitle } from "#common/dom.js";
+import { formatNumber } from "#common/format.js";
+import * as Icons from "#common/icon.js";
+import { INTENT, getIntent } from "../intent.js";
+import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
+import type { LayerUI } from "../surface.js";
+
+/** One layer's inputs to the row visual. Nothing here is written back. */
+interface RowCell {
+  id: string;
+  /** Display name: rename → registry → locale fallback. */
+  name: string;
+  /** The checkbox state — intent, never the map membership. */
+  checked: boolean;
+  /**
+   * Whether the policy has the layer painted right now (intent ∧ policy). The
+   * map-membership fact, not the row's decoration — `list` reads it to decide
+   * whether a base layer counts as visible for the color-basemap fallback.
+   * Nothing paints it; see `rowView`.
+   */
+  shown: boolean;
+  /** Formatted feature count, or "" when the layer publishes none. */
+  countText: string;
+  /** The type icon's markup, or "" when nothing should be painted. */
+  typeSvg: string;
+  typeLabel: string;
+  /** Short type word for the row tooltip only (点/Point), never the attrs
+   *  panel's "点图层/Point Layer" wording. */
+  titleTypeLabel?: string;
+  /** True when the row's owner reports a committed filter (kept < total). */
+  filtered?: boolean;
+  /** Hover title used while filtered: kept / total filtered · type. */
+  filterTitle?: string;
+}
+
+/** What one row element should look like. */
+interface RowView {
+  checked: boolean;
+  active: boolean;
+  checkboxTitle: string;
+  countText: string;
+  typeSvg: string;
+  typeLabel: string;
+  /** Whether the count is filter-narrowed (funnel + accent + exact count). */
+  filtered: boolean;
+  /** The funnel glyph prefixed to a filtered count, or "". */
+  countIconSvg: string;
+  /** The row's hover tooltip: "count  type" or the filtered sentence. */
+  title: string;
+}
+
+/** The two localized checkbox tooltips the projection picks between. */
+interface RowLabels {
+  select: string;
+  deselect: string;
+}
+
+/**
+ * The row visual as a pure function of the cell.
+ *
+ *  No DOM, no registry, no map: the same cell always gives the same row. The
+ *  two rules worth naming — `active = checked` and `title = "count  type"` —
+ *  live here and nowhere else.
+ *
+ *  `active` is `checked` and nothing else. The highlight is the checkbox's own
+ *  decoration, so a row the policy is hiding (outside its stored zoom range)
+ *  still reads as checked. Gating it on `shown` lost the highlight whenever the
+ *  range excluded the current zoom, so a checked row looked unchecked — as if
+ *  the user had hidden it, which the policy alone was doing. The range's own
+ *  state is signalled in the style panel, not on the row; the policy fact still
+ *  reaches the panel logic as `cell.shown`.
+ */
+const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
+  checked: cell.checked,
+  active: cell.checked,
+  checkboxTitle: cell.checked ? labels.deselect : labels.select,
+  countText: cell.countText,
+  typeSvg: cell.typeSvg,
+  typeLabel: cell.typeLabel,
+  filtered: Boolean(cell.filtered),
+  countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
+  title: cell.filtered
+    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
+    : cell.countText
+      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
+      : (cell.titleTypeLabel ?? cell.typeLabel),
+});
+
+/**
+ * Effective panel display name for a layer: the user-assigned rename wins,
+ * falling back to the registry name, then to the locale label for the
+ * virtual color basemap — the only row with no registry entry.
+ *
+ *  Every render path resolves names through here so a registry mutation
+ *  (re-registration, type refresh) can no longer resurrect the original
+ *  third-party name over a rename.
+ */
+const displayName = (ui: LayerUI, id: string): string => {
+  return (
+    (getIntent(ui, id, INTENT.NAME) as string | undefined) ??
+    ui.c.layerRegistry.get(id)?.name ??
+    (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
+  );
+};
+
+/**
+ * The type icon and its label for one layer.
+ *
+ *  Render-only: the surface is the probe authority, and `layerInfo.type` is
+ *  that result's snapshot with a single writer (`LayerController.getLayerType`).
+ *  Reading the surface here is not a second probe, and painting must not
+ *  stamp the snapshot — the row is a projection, not a writer.
+ */
+const rowType = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+  layer: L.Layer | null,
+): { svg: string; key: string } => {
+  if (layerInfo.role === ROLE.BASE) {
+    // The color basemap uses its own swatch icon, not the globe.
+    if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
+      return { svg: SVGs.ICON_COLOR, key: "type_color_map" };
+    }
+    return { svg: Icons.ICON_GLOBE, key: "type_tile_map" };
+  }
+  if (layerInfo.iconSvg) {
+    return { svg: layerInfo.iconSvg, key: "type_custom" };
+  }
+  if (layer) {
+    const gtype = ui.c.surfaceFor(layerInfo).geometryType();
+    return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
+  }
+  return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
+};
+
+/**
+ * One layer's inputs to the row visual: the projection input builder.
+ *
+ *  Everything the row shows is read here and nothing is written, so the row
+ *  cannot read a stale decoration and looking at a layer cannot move the map.
+ */
+const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
+  const layer = ui.c.findLayer(layerInfo);
+  const checked = intentVisibleOf(ui, layerInfo.id);
+  const type = rowType(ui, layerInfo, layer);
+  const typeLabel = ui.T(type.key);
+  // Row tooltips say 点/Point and 地图/Map for a base row; the attrs panel
+  // keeps the long 点图层/Point Layer and 瓦片底图/Tile Map labels. The base
+  // row's pair is type_tile_map + type_tile_map_short so both words name the
+  // row itself without borrowing the color row's vocabulary. `type.key` is
+  // dynamic, so the short keys are listed in the locale guard's supplement.
+  const titleTypeLabel = ui.T(`${type.key}_short`);
+  // The filter belongs to the row whose capability declares it: the funnel
+  // and count report that owner's own unit (Heatmap = hex cells, a point
+  // layer = features). The column stays compact ("2.5K"); the hover title is
+  // the full report ("2,500 / 6,000 filtered · 点"), never the layer name.
+  const filterModel =
+    typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
+  const filtered = Boolean(filterModel?.filter);
+  const rawCount = filtered ? filterModel!.kept : ui.c.getFeatureCount(layerInfo.id);
+  const countText =
+    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
+  const filterTitle = filtered
+    ? ui
+        .T("filter_row_title")
+        .replace(
+          "{kept}",
+          formatNumber(filterModel!.kept, "comma", ui.config.locale_code, 0),
+        )
+        .replace(
+          "{total}",
+          formatNumber(filterModel!.total, "comma", ui.config.locale_code, 0),
+        )
+        .replace("{type}", titleTypeLabel)
+    : "";
+  return {
+    id: layerInfo.id,
+    name: displayName(ui, layerInfo.id),
+    checked,
+    filtered,
+    filterTitle,
+    // Read the projection: focus overrides the range, the range never
+    // overrides the intent. Focus dims the other rows visually without
+    // removing them from the map, so while it holds every checked layer is
+    // on screen regardless of its range. The policy write side reads the
+    // same projection, so the formula has one home.
+    shown: projectLayer(ui, layerInfo).effectiveShown,
+    countText,
+    typeSvg: type.svg,
+    typeLabel,
+    titleTypeLabel,
+  };
+};
+
+/**
+ * The single DOM write point for a layer row: every site that paints a row's
+ * checkbox, highlight, count, type icon, or tooltip goes through here instead
+ * of writing fields by hand.
+ *
+ *  Each field is guarded independently, so a row missing one decoration
+ *  updates the rest rather than being skipped. An empty `typeSvg` leaves the
+ *  icon column as it is — nothing to paint is not the same as a blank.
+ */
+const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
+  const view = rowView(cell, {
+    select: ui.T("select_tooltip"),
+    deselect: ui.T("deselect_tooltip"),
+  });
+
+  const input = item.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  if (input) {
+    input.checked = view.checked;
+    input.title = view.checkboxTitle;
+    // The name reaches assistive tech via aria-label. `title` is the
+    // Select/Deselect slot, so the two do not compete for the same attribute.
+    input.setAttribute("aria-label", cell.name);
+  }
+  item.classList.toggle(CONST.CLASSES.ACTIVE, view.active);
+
+  const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (countCol) {
+    countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
+    if (view.filtered) {
+      // Funnel first, then the compact kept count. innerHTML is the funnel's
+      // own module SVG (never a caller string), same as the type column.
+      countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="foliplus-layer-count-value">${view.countText}</span>`;
+    } else {
+      countCol.textContent = view.countText;
+    }
+    // The count cell is annotation, but its sentence is the filtered fact:
+    // mirror the row title so hover/AT read the same numbers. Set the
+    // attribute only when it carries text: an empty title attribute would
+    // swallow the row title on hover instead of letting it bubble.
+    if (view.filtered) countCol.title = view.title;
+    else countCol.removeAttribute("title");
+    countCol.setAttribute("aria-label", view.title);
+  }
+  if (view.typeSvg) {
+    const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
+    if (typeCol) typeCol.innerHTML = view.typeSvg;
+  }
+  // The label always carries the full layer name: long names are clipped
+  // visually and styles can shorten the text, so the title is the one place
+  // the whole name is available — no measurement, no lazy hover state. The
+  // write/remove rule is shared with updateItemLabel (a rename's write point).
+  setLabelTitle(
+    item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`),
+    cell.name,
+  );
+  // Persist the type label so a count-only refresh can rebuild the tooltip
+  // without re-running type detection.
+  item.setAttribute(CONST.DATA.TITLE, view.typeLabel);
+  item.title = view.title;
+};
+
+export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export type { RowCell, RowLabels, RowView };

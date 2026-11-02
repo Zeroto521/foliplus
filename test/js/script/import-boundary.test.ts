@@ -9,12 +9,12 @@ import { describe, expect, it } from "vitest";
 //   - common: only #common (pure utilities; no DOM/config dependencies)
 //   - ui:     only #common + #ui (facade only today; may grow)
 //   - core:   #common + #core; core/leaflet may also use #ui
-//   - plugin: #common + #core + #ui + its OWN #plugin/<Name>
+//   - plugin: #common + #core + #ui + its OWN #control/<Name>
 //
-// The #plugin/* alias (added in this PR) namespaces component code. A
-// component may only import its own namespace (#plugin/<Name>/... or
-// #foliplus/plugin/<Name>/...); it must never import another component's
-// namespace, and no non-plugin layer may reach into #plugin/* at all.
+// The #control/* alias (added in this PR) namespaces component code. A
+// component may only import its own namespace (#control/<Name>/... or
+// #foliplus/control/<Name>/...); it must never import another component's
+// namespace, and no non-plugin layer may reach into #control/* at all.
 //
 // Cross-boundary imports that predate this test are listed in ALLOWED (a
 // documented whitelist, same shape as the rowView/decoupling guards). Any
@@ -30,12 +30,12 @@ const layerOf = (rel: string): Layer => {
   if (rel.startsWith("foliplus/js/common/")) return "common";
   if (rel.startsWith("foliplus/js/ui/")) return "ui";
   if (rel.startsWith("foliplus/js/core/")) return "core";
-  if (rel.startsWith("foliplus/js/plugin/")) return "plugin";
+  if (rel.startsWith("foliplus/js/control/")) return "plugin";
   return "root";
 };
 
 const componentOf = (rel: string): string | null => {
-  const m = rel.match(/^foliplus\/js\/plugin\/([A-Za-z0-9]+)\//);
+  const m = rel.match(/^foliplus\/js\/control\/([A-Za-z0-9]+)\//);
   return m ? m[1] : null;
 };
 
@@ -130,7 +130,7 @@ const collect = (): Array<[string, string, string]> => {
   const files = walk(JS_ROOT);
   for (const file of files) {
     // Repo-relative path, /-separated. layerOf/componentOf/allowedFor all
-    // key off this shape (e.g. "foliplus/js/plugin/LayerControl/ui/index.ts").
+    // key off this shape (e.g. "foliplus/js/control/LayerControl/ui/index.ts").
     const rel = file
       .slice(REPO_ROOT.length + 1)
       .split("\\")
@@ -144,13 +144,13 @@ const collect = (): Array<[string, string, string]> => {
       const reason = allowed.get(spec);
       if (reason) continue;
 
-      // ── Rule 1: non-plugin layers must not reach into #plugin/* ──
+      // ── Rule 1: non-plugin layers must not reach into #control/* ──
       if (layer !== "plugin") {
-        if (spec.startsWith("#plugin/") || spec.startsWith("#foliplus/plugin/")) {
+        if (spec.startsWith("#control/") || spec.startsWith("#foliplus/control/")) {
           problems.push([
             rel.replace("foliplus/js/", ""),
             spec,
-            "non-plugin layer imports #plugin/*",
+            "non-plugin layer imports #control/*",
           ]);
           continue;
         }
@@ -158,7 +158,7 @@ const collect = (): Array<[string, string, string]> => {
 
       // ── Rule 2: a component imports only its own namespace ──
       if (layer === "plugin" && comp) {
-        const target = spec.match(/^#(?:plugin|foliplus\/plugin)\/([A-Za-z0-9]+)/);
+        const target = spec.match(/^#(?:control|foliplus\/control)\/([A-Za-z0-9]+)/);
         if (target && target[1] !== comp) {
           problems.push([
             rel.replace("foliplus/js/", ""),
@@ -199,17 +199,17 @@ describe("JS import boundaries", () => {
     expect(walk(JS_ROOT).length).toBeGreaterThanOrEqual(80);
   });
 
-  it("every #plugin import stays within the component's own namespace", () => {
+  it("every #control import stays within the component's own namespace", () => {
     const violations = collect();
     const plugin = violations.filter(
-      v => v[2].includes("cross-component") || v[2].includes("#plugin/*"),
+      v => v[2].includes("cross-component") || v[2].includes("#control/*"),
     );
     expect(plugin, plugin.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
-  it("no non-plugin layer (common/ui/core/root) imports #plugin/*", () => {
+  it("no non-plugin layer (common/ui/core/root) imports #control/*", () => {
     const violations = collect().filter(
-      v => v[2] === "non-plugin layer imports #plugin/*",
+      v => v[2] === "non-plugin layer imports #control/*",
     );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });

@@ -129,13 +129,13 @@ describe("config/eslint/base.mjs rule scoping", () => {
     }
   });
 
-  it("component-isolation zones target the plugin/ namespace", () => {
+  it("component-isolation zones target the control/ namespace", () => {
     // Counter-proof for the directory move: after JS sources moved to
-    // foliplus/js/plugin/<Name>/, the no-restricted-paths zone targets and
+    // foliplus/js/control/<Name>/, the no-restricted-paths zone targets and
     // COMPONENT_GLOBS had to follow. A stale glob (still foliplus/js/<Name>/)
     // matches nothing and silently disables component isolation.
-    expect(lintConfig).toContain("foliplus/js/plugin/${d}/**");
-    expect(lintConfig).toContain("target: [`./foliplus/js/plugin/${dir}/**`]");
+    expect(lintConfig).toContain("foliplus/js/control/${d}/**");
+    expect(lintConfig).toContain("target: [`./foliplus/js/control/${dir}/**`]");
   });
   it("require() is exempted only for the test scripts", () => {
     // The exemption is a single scope containing nothing else: if it ever

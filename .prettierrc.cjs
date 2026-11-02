@@ -32,7 +32,7 @@ module.exports = {
     "^#foliplus/",
     "^#common/",
     "^#ui/",
-    "^#plugin/",
+    "^#control/",
     "^#script/",
     "^[.]",
   ],

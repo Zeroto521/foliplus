@@ -30,10 +30,10 @@ export default defineConfig({
         "foliplus/js/runtime/**",
         // Entry modules — require full Leaflet runtime (L.Control, addTo).
         // Glob so a newly scaffolded control is excluded without editing this list.
-        "foliplus/js/plugin/*/index.ts",
+        "foliplus/js/control/*/index.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
         // Glob so a newly added mode is excluded without editing this list.
-        "foliplus/js/plugin/MeasureControl/mode/*.ts",
+        "foliplus/js/control/MeasureControl/mode/*.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",

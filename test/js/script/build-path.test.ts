@@ -27,13 +27,13 @@ describe("build-path.mjs", () => {
       "#common",
       "#core",
       "#ui",
-      "#plugin",
+      "#control",
       "#foliplus",
     ]);
     expect(alias["#common"]).toBe(resolve(ROOT, "foliplus/js/common"));
     expect(alias["#core"]).toBe(resolve(ROOT, "foliplus/js/core"));
     expect(alias["#ui"]).toBe(resolve(ROOT, "foliplus/js/ui"));
-    expect(alias["#plugin"]).toBe(resolve(ROOT, "foliplus/js/plugin"));
+    expect(alias["#control"]).toBe(resolve(ROOT, "foliplus/js/control"));
     expect(alias["#foliplus"]).toBe(resolve(ROOT, "foliplus/js"));
   });
 
@@ -62,12 +62,12 @@ describe("build-path.mjs", () => {
     // specifier appears in both shapes with the same target directory.
     expect(PACKAGE_IMPORTS["#common/*"]).toBe("./foliplus/js/common/*");
     expect(PACKAGE_IMPORTS["#ui/*"]).toBe("./foliplus/js/ui/*");
-    expect(PACKAGE_IMPORTS["#plugin/*"]).toBe("./foliplus/js/plugin/*");
+    expect(PACKAGE_IMPORTS["#control/*"]).toBe("./foliplus/js/control/*");
     expect(PACKAGE_IMPORTS["#script/*"]).toBe("./script/*");
   });
 
   it("SHARED_MODULE_PREFIXES is #common/#core only — #foliplus is aliased but not shared", () => {
-    // The alias table has five entries (#common/#core/#ui/#plugin/#foliplus), but only
+    // The alias table has five entries (#common/#core/#ui/#control/#foliplus), but only
     // #common and #core have their whole namespace published on
     // window.foliplus. #foliplus/BaseControl.js is shared by exact name
     // (see SHARED_MODULE_EXACTS); every other #foliplus/* path — a component
@@ -100,9 +100,9 @@ describe("build-path.mjs", () => {
     expect(re.test("#foliplus/BaseControl.js")).toBe(true);
     // #foliplus/* self-imports — bundled, not externalized
     expect(re.test("#foliplus/config-schema.js")).toBe(false);
-    expect(re.test("#plugin/LayerControl/const.js")).toBe(false);
-    expect(re.test("#plugin/LayerControl/ui/index.js")).toBe(false);
-    expect(re.test("#plugin/SearchControl/const.js")).toBe(false);
+    expect(re.test("#control/LayerControl/const.js")).toBe(false);
+    expect(re.test("#control/LayerControl/ui/index.js")).toBe(false);
+    expect(re.test("#control/SearchControl/const.js")).toBe(false);
     // Unrelated aliases
     expect(re.test("#script/build.mjs")).toBe(false);
     expect(re.test("#core")).toBe(false); // bare prefix without /

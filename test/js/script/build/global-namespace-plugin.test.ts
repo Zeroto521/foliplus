@@ -477,8 +477,8 @@ describe("scanSharedImports", () => {
       path.join(base, "comp.ts"),
       [
         'import { BaseControl } from "#foliplus/BaseControl.js";',
-        'import { CONST } from "#plugin/LayerControl/const.js";',
-        'import { Z_INDEX } from "#plugin/LayerControl/ui/style/zoomRange.js";',
+        'import { CONST } from "#control/LayerControl/const.js";',
+        'import { Z_INDEX } from "#control/LayerControl/ui/style/zoomRange.js";',
         'import { ConfigSchema } from "#foliplus/config-schema.js";',
       ].join("\n"),
       "utf-8",
@@ -487,8 +487,8 @@ describe("scanSharedImports", () => {
       const { used } = scanSharedImports(base);
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
-      expect(used.has("#plugin/LayerControl/const.js")).toBe(false);
-      expect(used.has("#plugin/LayerControl/ui/style/zoomRange.js")).toBe(false);
+      expect(used.has("#control/LayerControl/const.js")).toBe(false);
+      expect(used.has("#control/LayerControl/ui/style/zoomRange.js")).toBe(false);
       expect(used.has("#foliplus/config-schema.js")).toBe(false);
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -597,7 +597,7 @@ describe("globalNamespacePlugin", () => {
 
   it("onResolve filter matches the shared set and rejects non-shared #foliplus/*", () => {
     // Regression for #628: the old filter `^#(common|core|foliplus)/`
-    // externalized component self-imports (#plugin/LayerControl/const.js,
+    // externalized component self-imports (#control/LayerControl/const.js,
     // #foliplus/config-schema.js) as empty shims, which then resolved to
     // `undefined` at runtime. The new filter is anchored and only accepts
     // #common/*, #core/*, and the exact #foliplus/BaseControl.js.
@@ -607,8 +607,8 @@ describe("globalNamespacePlugin", () => {
     expect(filter.test("#common/dom.js")).toBe(true);
     expect(filter.test("#core/layer/LayerFactory.js")).toBe(true);
     expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
-    expect(filter.test("#plugin/LayerControl/const.js")).toBe(false);
-    expect(filter.test("#plugin/LayerControl/ui/index.js")).toBe(false);
+    expect(filter.test("#control/LayerControl/const.js")).toBe(false);
+    expect(filter.test("#control/LayerControl/ui/index.js")).toBe(false);
     expect(filter.test("#foliplus/config-schema.js")).toBe(false);
     expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
     expect(filter.test("#script/build.mjs")).toBe(false);

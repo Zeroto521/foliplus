@@ -343,7 +343,7 @@ describe("form width tokens (stylesheet contract)", () => {
     // class replaced them, and a re-introduced override would split the two
     // panels' method/class-count rows again.
     expect(tokens).not.toContain("--foliplus-heatmap-inline-width");
-    const heatmap = css("foliplus/css/plugin/HeatmapControl.css");
+    const heatmap = css("foliplus/css/control/HeatmapControl.css");
     expect(heatmap).not.toContain(".foliplus-heatmap-class-select");
     expect(heatmap).not.toContain(".foliplus-classes-select");
   });

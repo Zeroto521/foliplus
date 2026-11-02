@@ -115,70 +115,70 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
   },
   {
-    f: "plugin/ExportControl/session.ts",
+    f: "control/ExportControl/session.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "image preview click-dismiss on an ephemeral overlay img. ExportManager is a plain class (not a BaseControl subclass) with no mounting signal to route through; the listener is self-terminating — paired removeEventListener inside the same closure, plus a bounded setTimeout — and threading a signal would mean a manager ↔ control callback surface for no gain: an abort would drop the listener but not the img, which would linger on document.body until the timer fires anyway",
   },
   {
-    f: "plugin/LayerControl/ui/overlayPanel/attr.ts",
+    f: "control/LayerControl/ui/overlayPanel/attr.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "plugin/LayerControl/ui/overlayPanel/filter.ts",
+    f: "control/LayerControl/ui/overlayPanel/filter.ts",
     n: 3,
     pairedOff: 0,
     reason:
       "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
-    f: "plugin/LayerControl/ui/focus/focusMarquee.ts",
+    f: "control/LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "geometry-focus marquee focusin/focusout on the map container; returns its own unbind",
   },
   {
-    f: "plugin/LayerControl/ui/lifecycle.ts",
+    f: "control/LayerControl/ui/lifecycle.ts",
     n: 11,
     pairedOff: 0,
     reason:
       "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
-    f: "plugin/LayerControl/ui/overlayPanel/menu.ts",
+    f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
   },
   {
-    f: "plugin/LayerControl/ui/style/index.ts",
+    f: "control/LayerControl/ui/style/index.ts",
     n: 3,
     pairedOff: 0,
     reason:
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "plugin/LayerControl/slider.ts",
+    f: "control/LayerControl/slider.ts",
     n: 10,
     pairedOff: 0,
     reason:
       "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through core/fullscreen's shared subscription",
   },
   {
-    f: "plugin/MeasureControl/mode/circle.ts",
+    f: "control/MeasureControl/mode/circle.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "ripple animationend on an ephemeral decoration layer: a one-shot listener that terminates itself (paired removeEventListener in the handler) and is collected with the element the moment the ripple is removed. CircleMode extends MeasureMode, not BaseControl, so no mounting signal is in scope",
   },
   {
-    f: "plugin/MeasureControl/util.ts",
+    f: "control/MeasureControl/util.ts",
     n: 1,
     pairedOff: 0,
     reason:
@@ -504,17 +504,17 @@ describe("no module-level map.on in *Control/index.ts", () => {
     expect(
       globSync({
         cwd: ROOT,
-        patterns: ["foliplus/js/plugin/*Control/index.ts"],
+        patterns: ["foliplus/js/control/*Control/index.ts"],
       }).sort(),
     ).toEqual([
-      "foliplus/js/plugin/ExportControl/index.ts",
-      "foliplus/js/plugin/FullscreenControl/index.ts",
-      "foliplus/js/plugin/HeatmapControl/index.ts",
-      "foliplus/js/plugin/LayerControl/index.ts",
-      "foliplus/js/plugin/LocateControl/index.ts",
-      "foliplus/js/plugin/MeasureControl/index.ts",
-      "foliplus/js/plugin/ScaleControl/index.ts",
-      "foliplus/js/plugin/SearchControl/index.ts",
+      "foliplus/js/control/ExportControl/index.ts",
+      "foliplus/js/control/FullscreenControl/index.ts",
+      "foliplus/js/control/HeatmapControl/index.ts",
+      "foliplus/js/control/LayerControl/index.ts",
+      "foliplus/js/control/LocateControl/index.ts",
+      "foliplus/js/control/MeasureControl/index.ts",
+      "foliplus/js/control/ScaleControl/index.ts",
+      "foliplus/js/control/SearchControl/index.ts",
     ]);
   });
 });

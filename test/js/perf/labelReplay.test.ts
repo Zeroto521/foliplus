@@ -43,7 +43,7 @@
 // jsdom + stub canvas is a LOWER bound: real canvas painting costs more, so the
 // absolute ms is not a browser promise. Nothing here asserts one.
 import { describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "#plugin/LayerControl/annotation/index.js";
+import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
 
 const mocks = vi.hoisted(() => {
   const instances: any[] = [];
@@ -59,7 +59,7 @@ const mocks = vi.hoisted(() => {
   }
   return { MockCanvas, instances };
 });
-vi.mock("#plugin/LayerControl/annotation/canvas.js", () => ({
+vi.mock("#control/LayerControl/annotation/canvas.js", () => ({
   AnnotationCanvas: mocks.MockCanvas,
 }));
 

@@ -74,9 +74,9 @@ const CFG = raw;
 CFG.root = resolve(CFG.root);
 
 const srcDir = resolveJsRoot(CFG.root);
-const pluginDir = resolve(srcDir, "plugin");
+const controlDir = resolve(srcDir, "control");
 const cssDir = resolve(CFG.root, "foliplus/css");
-const pluginCssDir = resolve(cssDir, "plugin");
+const controlCssDir = resolve(cssDir, "control");
 const distDir = resolve(CFG.root, "foliplus/dist");
 // Two scratch dirs, both gitignored: .build/js holds the generated shared
 // registry (scan-registry.mjs writes it, resolveSharedRegistryPlugin reads it
@@ -143,8 +143,8 @@ const artifact = (entryPoints, outfile, name) => {
 const resolveEntry = candidates => candidates.find(existsSync);
 
 /** Discover component entries (dirs with a matching `{Name}.{ts|js}`) under
- *  `foliplus/js/plugin/`, plus the shared runtime entry (`runtime/`) which
- *  lives outside `plugin/` and bundles as `foliplus-common.min.js`. */
+ *  `foliplus/js/control/`, plus the shared runtime entry (`runtime/`) which
+ *  lives outside `control/` and bundles as `foliplus-common.min.js`. */
 const findComponents = () => {
   const components = [];
   // Shared runtime first (bundles as foliplus-common.min.js).
@@ -155,19 +155,19 @@ const findComponents = () => {
   if (runtimeJs) {
     components.push({ name: SHARED_ENTRY, js: runtimeJs, css: null });
   }
-  const entries = readdirSync(pluginDir, { withFileTypes: true });
+  const entries = readdirSync(controlDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const name = entry.name;
     const jsFile = resolveEntry([
-      resolve(pluginDir, name, "index.ts"),
-      resolve(pluginDir, name, "index.js"),
+      resolve(controlDir, name, "index.ts"),
+      resolve(controlDir, name, "index.js"),
     ]);
-    // A component entry may live at `css/plugin/{Name}.css` (single file) or,
-    // when the stylesheet is split across modules, at `css/plugin/{Name}/index.css`.
+    // A component entry may live at `css/control/{Name}.css` (single file) or,
+    // when the stylesheet is split across modules, at `css/control/{Name}/index.css`.
     const cssFile = resolveEntry([
-      resolve(pluginCssDir, name, "index.css"),
-      resolve(pluginCssDir, `${name}.css`),
+      resolve(controlCssDir, name, "index.css"),
+      resolve(controlCssDir, `${name}.css`),
     ]);
     if (jsFile) {
       components.push({ name, js: jsFile, css: cssFile });
@@ -204,12 +204,12 @@ const mergeCommonCss = () => {
   return mergeCss(readCssDir(dir), "common");
 };
 
-/** A component's split stylesheet (`css/plugin/{Name}/index.css`), concatenated in
+/** A component's split stylesheet (`css/control/{Name}/index.css`), concatenated in
  *  the entry's declared @import order — the cascade order, not a dependency
- *  graph. Falls back to null for a flat `css/plugin/{Name}.css` (no entry to expand),
+ *  graph. Falls back to null for a flat `css/control/{Name}.css` (no entry to expand),
  *  in which case the caller feeds the single file straight to esbuild. */
 const mergeComponentCss = name => {
-  const dir = resolve(pluginCssDir, name);
+  const dir = resolve(controlCssDir, name);
   const entryFile = resolve(dir, "index.css");
   if (!existsSync(entryFile)) return null;
   return expandEntry(readCssDir(dir), "index.css", name);

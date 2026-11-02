@@ -7,7 +7,7 @@
 // of a silent crash a dozen tests downstream.
 import { describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { makeLayerUIMock, restoreNativeFetch } from "./fixture.js";
 
 // LayerUI keeps its fields private, so the completeness gate reads the mock

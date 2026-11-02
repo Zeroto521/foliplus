@@ -372,12 +372,12 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
     elif specifier.startswith("#foliplus/"):
         base = os.path.join(repo_root, "foliplus/js")
         spec = specifier[len("#foliplus/") :]
-    elif specifier.startswith("#plugin/"):
-        # New component namespace (foliplus/js/plugin/), same shape as #core:
+    elif specifier.startswith("#control/"):
+        # New component namespace (foliplus/js/control/), same shape as #core:
         # the barrel/type graph must resolve it or test-file consumer edges
         # vanish and live exports go spuriously dead.
-        base = os.path.join(repo_root, "foliplus/js/plugin")
-        spec = specifier[len("#plugin/") :]
+        base = os.path.join(repo_root, "foliplus/js/control")
+        spec = specifier[len("#control/") :]
     elif specifier.startswith("#script/"):
         base = os.path.join(repo_root, "script")
         spec = specifier[len("#script/") :]

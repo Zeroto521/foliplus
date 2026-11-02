@@ -28,13 +28,13 @@ const ALIAS_TO_REL = {
   "#common": "foliplus/js/common",
   "#core": "foliplus/js/core",
   "#ui": "foliplus/js/ui",
-  "#plugin": "foliplus/js/plugin",
+  "#control": "foliplus/js/control",
   "#foliplus": "foliplus/js",
   "#script": "script",
 };
 
 /** The shared aliases; `#script` is vitest-only. */
-const SHARED_ALIASES = ["#common", "#core", "#ui", "#plugin", "#foliplus"];
+const SHARED_ALIASES = ["#common", "#core", "#ui", "#control", "#foliplus"];
 
 /** Resolve `foliplus/js` under a project `root`. */
 const resolveJsRoot = root => resolve(root, ALIAS_TO_REL["#foliplus"]);

@@ -93,11 +93,11 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     .map(f => f.name.replace(/\.ts$/, ""))
     .sort();
 
-  const pluginDir = resolve(sourceDir, "plugin");
-  const componentDirs = existsSync(pluginDir)
-    ? readdirSync(pluginDir, { withFileTypes: true })
+  const controlDir = resolve(sourceDir, "control");
+  const componentDirs = existsSync(controlDir)
+    ? readdirSync(controlDir, { withFileTypes: true })
         .filter(e => e.isDirectory())
-        .map(e => resolve(pluginDir, e.name))
+        .map(e => resolve(controlDir, e.name))
     : [];
 
   const usedExports = {};
