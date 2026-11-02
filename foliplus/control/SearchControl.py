@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Literal, TypedDict, get_args
 
-from ._config_schema import FieldSpec
-from ._typing import ControlPosition, Zoom
-from ._validate import validate
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._config_schema import FieldSpec
+from foliplus._typing import ControlPosition, Zoom
+from foliplus._validate import validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 MODE = Literal["coord", "addr"]
 # Single source of truth: the Literal drives both the annotation (static

@@ -21,7 +21,7 @@ from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import LayerControl
 
-HERE = Path(__file__).resolve().parents[3]
+HERE = Path(__file__).resolve().parents[4]
 SHOTS = HERE / ".foliplus"
 
 # The probes live next to the other browser JS so they are formatted, reviewed

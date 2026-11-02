@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ._typing import ControlPosition, Zoom
-from ._validate import validate
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._typing import ControlPosition, Zoom
+from foliplus._validate import validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 
 class LocateControl(BaseControl):
