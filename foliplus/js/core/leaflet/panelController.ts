@@ -87,9 +87,9 @@ interface PanelController {
   swallowClick(e: MouseEvent): void;
   /** Swallow a mousedown press without closing and without changing state: a
    *  raw event-swallow primitive for the row-panel mousedown handlers that
-   *  must neither start a row drag nor leak to the map. Unlike swallowClick
-   *  it also calls preventDefault (a press inside a draggable row must not
-   *  trigger the browser's text-selection / drag machinery). */
+   *  must not leak to the map. stopPropagation only — do NOT preventDefault:
+   *  native controls inside the panel (a <select>, an input, a text region)
+   *  must keep focus and text selection. */
   swallowPress(e: MouseEvent): void;
   /** Silent close (if open) + unregister. Idempotent. */
   destroy(): void;
@@ -175,7 +175,6 @@ class PanelControllerImpl implements PanelController {
       // owns the registry entry); before attach it is a no-op.
       wires.get(this)?.groupOpen();
       this.#spec.open();
-      this.#spec.onOpen?.();
     } catch (error) {
       // spec.open threw: roll back so the controller is not left "open but
       // with no DOM" (which would also make the idempotence guard swallow
@@ -183,6 +182,11 @@ class PanelControllerImpl implements PanelController {
       this.#open = false;
       throw error;
     }
+    // onOpen is deliberately outside the try: a successful spec.open that
+    // throws in onOpen must NOT roll the state back — the DOM is built and
+    // visible, so the surface is genuinely open. The failure is the callback's
+    // to handle (it already ran; the panel is on screen).
+    this.#spec.onOpen?.();
   }
 
   close(opts?: { restoreFocus?: boolean }): boolean {
@@ -207,7 +211,6 @@ class PanelControllerImpl implements PanelController {
   }
 
   swallowPress(e: MouseEvent): void {
-    e.preventDefault();
     e.stopPropagation();
   }
 

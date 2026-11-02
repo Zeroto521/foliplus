@@ -557,7 +557,9 @@ describe("PanelController", () => {
     const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
     bareRoot.dispatchEvent(event);
     expect(bubblesToParent).not.toHaveBeenCalled();
-    expect(event.defaultPrevented).toBe(true);
+    // stopPropagation only: a native control inside the panel must keep its
+    // default behaviour (focus / text selection / select popup).
+    expect(event.defaultPrevented).toBe(false);
     expect(controller.isOpen()).toBe(true);
     expect(state.closeCalls).toHaveLength(0);
   });
@@ -611,5 +613,19 @@ describe("PanelController", () => {
     expect(() => attachPanel(map, controller)).toThrow(
       /cannot attach a destroyed panel/,
     );
+  });
+
+  it("open does not roll back when onOpen throws after a successful spec.open (P3-1)", () => {
+    const { spec, state } = makeFixture({
+      onOpen: () => {
+        throw new Error("boom-on-open");
+      },
+    });
+    const controller = createPanel(spec);
+    // spec.open succeeded (state.open=true, DOM built), onOpen threw. The
+    // surface is genuinely on screen, so the controller must stay open.
+    expect(() => controller.open()).toThrow("boom-on-open");
+    expect(controller.isOpen()).toBe(true);
+    expect(state.openCalls).toBe(1);
   });
 });
