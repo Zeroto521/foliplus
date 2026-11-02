@@ -21,7 +21,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Dropdown, createDropdown } from "#common/dropdown.js";
 import { type DropdownSurface, createListbox } from "#common/listbox.js";
 
-// P2 record — flip/clamp divergence (NOT changed in this PR; tracked for the schemePicker engine migration).
+// P2 record — flip/clamp divergence (NOT changed in this PR; deferred to the schemePicker engine migration).
 // The engine's positionList flips above the trigger when the room below is less than
 // MIN_ROWS_BELOW (2) rows (listbox.ts:337: fitsBelow = space.below >= min(desired,
 // rowHeight * MIN_ROWS_BELOW)). The historical schemePicker (its own pre-engine
