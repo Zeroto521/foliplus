@@ -174,47 +174,62 @@ def _open_layer_list(page) -> None:
 
 
 def _measure(page, trigger: str) -> dict:
+    # The picker follows the trigger's width through a ResizeObserver +
+    # throttleRaf, which settles on the next frame after the dropdown mounts.
+    # A slow CI frame stretches that window, so a measurement taken too early
+    # reads a stale width (e.g. DPR2: dropdown 145 vs trigger 160) and fails
+    # for the wrong reason. Wait until the dropdown width converges to the
+    # trigger's before sampling.
+    page.wait_for_function(
+        """triggerSel => {
+            const dropdown = document.querySelector(
+                ".foliplus-scheme-picker-portal",
+            );
+            const trigger = document.querySelector(triggerSel);
+            if (!dropdown || !trigger) return false;
+            const want = trigger.getBoundingClientRect().width;
+            const have = parseFloat(dropdown.style.width || "0");
+            return Math.abs(have - want) <= 0.5;
+        }""",
+        arg=trigger,
+        timeout=5000,
+    )
     return page.evaluate(_js("common/measure_scheme_strip"), trigger)
 
 
-def _assert_aligned(sample: dict) -> None:
-    assert sample["ok"], sample
-    trigger = sample["triggerBar"]
-    assert sample["itemBars"], sample
-    for bar in sample["itemBars"]:
-        # The whole sample rides on the message: a strip mismatch is a geometry
-        # bug, and the lane/width diagnostics are what identify its cause.
-        assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger, sample)
-        assert abs(bar["right"] - trigger["right"]) <= 1, (bar, trigger, sample)
-        assert abs(bar["width"] - trigger["width"]) <= 1, (bar, trigger, sample)
+def _assert_invariant(sample: dict) -> None:
+    """Strip right == min(padding-box right - inset, scrollport right).
 
+    The true invariant: a row cannot paint into a classic scrollbar's gutter
+    (it lies outside the scrollport), so the strip stops at the scrollport
+    edge whenever the measured lane exceeds the inset, and sits on the
+    trigger's strip edge otherwise. Both branches are one rule:
 
-def _assert_lane_clipped(sample: dict) -> None:
-    """The lane exceeds the inset, so the strip stops at the scrollport edge.
+      strip right = min(paddingBoxRight - inset, scrollportRight)
 
-    Physical limit: a classic scrollbar's gutter lies outside the scrollport,
-    so a row cannot paint into it. When the lane exceeds the item inset the
-    strip is shorter than the trigger by (lane - inset) px — this is the
-    correct, expected behaviour, not a bug. The strip's left edge still lines
-    up with the trigger's.
+    - lane <= inset (DPR1, ~15 <= inset): the strip aligns with the trigger bar.
+    - lane > inset (DPR2, ~30 > inset): the strip clips at the scrollport,
+      shorter than the trigger by (lane - inset) px — expected, not a bug.
+
+    The strip's left edge always matches the trigger's.
     """
     assert sample["ok"], sample
     trigger = sample["triggerBar"]
     assert sample["itemBars"], sample
-    lane = sample["lane"]
-    inset = 18  # --foliplus-scheme-picker-bar-inset-x = --foliplus-icon-size-md
-    assert lane > inset, (
-        f"expected lane > inset, got lane={lane} inset={inset}: {sample}"
+    # The strip inset read from the DOM (--foliplus-scheme-picker-bar-inset-x)
+    # rather than hardcoded, so the invariant tracks a consumer override too.
+    inset = sample["itemInset"]
+    expected_right = min(
+        sample["paddingBoxRight"] - inset, sample["scrollportRight"]
     )
     for bar in sample["itemBars"]:
+        # The whole sample rides on the message: a mismatch is a geometry bug,
+        # and the lane/width diagnostics are what identify its cause.
         assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger, sample)
-        # Right edge == scrollport right, not the layout/padding-box right.
-        assert abs(bar["right"] - sample["scrollportRight"]) <= 1, (
+        assert abs(bar["right"] - expected_right) <= 1, (bar, trigger, sample)
+        assert abs(bar["width"] - (expected_right - bar["left"])) <= 1, (
             bar,
-            sample,
-        )
-        assert abs(bar["width"] - (sample["scrollportRight"] - bar["left"])) <= 1, (
-            bar,
+            trigger,
             sample,
         )
 
@@ -232,7 +247,7 @@ class TestSchemeStripAlignmentBrowser:
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
-            _assert_aligned(sample)
+            _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -254,7 +269,7 @@ class TestSchemeStripAlignmentBrowser:
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
-            _assert_lane_clipped(sample)
+            _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -268,7 +283,7 @@ class TestSchemeStripAlignmentBrowser:
             _open_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert not sample["scrollable"], sample
-            _assert_aligned(sample)
+            _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
@@ -282,7 +297,7 @@ class TestSchemeStripAlignmentBrowser:
             _open_layer_list(page)
             sample = _measure(page, LAYER_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
-            _assert_aligned(sample)
+            _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
