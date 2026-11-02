@@ -35,8 +35,13 @@ import type {
   LayerFilterModel,
   LayerInfo,
 } from "#core/layer/index.js";
-import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import {
+  attachPanel,
+  createPanel,
+  createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
+} from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -419,15 +424,37 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // filterable data — a stale row that still reached the panel).
   if (cap) reconcile(ui, state, hooks, cap);
 
+  // The PanelController owns the dismissal contract: closeFromClick swallows
+  // the close-button press and closes with focus restore, swallowPress keeps
+  // a mousedown off the row's drag handler. The registry entry is generated
+  // by attachPanel below.
+  const controller = createPanel({
+    owner: "layer",
+    localId: "filter",
+    rank: 700,
+    exclusiveGroup: "layer:rows",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "mousedown" },
+    isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
+    root: () => ui.overlayPanel.activeFilterPanel?.panel ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(panel);
+      // The layer list is a scrolling box with overflow hidden; pin to viewport.
+      pinRowPanel(panel, item);
+    },
+    close: ({ restoreFocus }) => {
+      closeFilterPanel(ui, restoreFocus);
+      return true;
+    },
+  });
+
   // Header click dismisses, matching `attr.ts` — the × sits inside the
   // header, so one listener covers both. The press is stopped here (the same
   // guarantee as the ⋮ menu): closing the panel removes it mid-dispatch, so
   // the click would otherwise keep walking its original path with no live
   // control ancestor and land on the map.
-  header.addEventListener("click", e => {
-    e.stopPropagation();
-    closeFilterPanel(ui, true);
-  });
+  header.addEventListener("click", e => controller.closeFromClick(e));
 
   // The panel sits inside a draggable layer row: a press on the panel
   // must neither start a row drag nor inherit `user-select: none`. The
@@ -435,16 +462,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // container); the registry entry below classifies the press as inside or
   // outside this surface — `dragstart` is dispatched on the draggable row, so
   // it cannot answer that.
-  panel.addEventListener("mousedown", e => e.stopPropagation());
-
-  item.style.position = "relative";
-  item.appendChild(panel);
-  // The layer list is a scrolling box with `overflow: hidden`; an absolute
-  // card would be clipped at its edge (the Clear footer and the lower form
-  // rows became unpickable), so pin the panel to the viewport under its row.
-  // The enum popup itself is portalled by common/dropdown, so it escapes both
-  // clip boxes.
-  pinRowPanel(panel, item);
+  panel.addEventListener("mousedown", e => controller.swallowPress(e));
 
   // Register the open surface with the per-map overlay registry: it owns the
   // one document capture-phase mousedown dispatcher and the one Escape
@@ -455,18 +473,11 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // stops the event, so one Escape closes the popup and the next one reaches
   // this layer.
   ui.overlayPanel.activeFilterPanel = state;
-  ui.overlayPanel.filterOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
-    id: OVERLAY_IDS.LAYER_FILTER,
-    isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
-    panels: () => {
-      const active = ui.overlayPanel.activeFilterPanel;
-      return active ? [active.panel] : [];
-    },
-    close: ({ restoreFocus }) => closeFilterPanel(ui, restoreFocus),
-    dismissOn: "mousedown",
-    pressPriority: 700,
-    clearsCursorOnClose: true,
-  });
+  // Same controller wiring as attr.ts: the dismissal contract and registry
+  // identity live on the PanelController; attachPanel generates the entry
+  // (id "layer.filter") and returns the detach the close path uses.
+  ui.overlayPanel.filterOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
   ui.overlayPanel.filterUnsubscribe = subscribeFilterSignals(ui, state, hooks);
 };
 
