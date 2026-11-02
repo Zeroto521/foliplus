@@ -27,7 +27,7 @@ from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
 # Every visible trigger in the panel, in DOM order, with the geometry a real
 # click needs. Re-read before each click: the panel reflows as rows appear.
-TRIGGERS = snippet("heatmap/dropdown_trigger")
+TRIGGERS = snippet("HeatmapControl/dropdown_trigger")
 
 
 # The five migrated controls, named by the bridged select they replaced. Row
@@ -42,13 +42,13 @@ CONTROLS = [
     ("Aggregation", "select[data-heatmap-agg]"),
 ]
 
-TRIGGER_AT = snippet("heatmap/dropdown_trigger_at")
+TRIGGER_AT = snippet("HeatmapControl/dropdown_trigger_at")
 
 
-OPEN = snippet("heatmap/dropdown_open")
+OPEN = snippet("HeatmapControl/dropdown_open")
 
 
-AFTER_PICK = snippet("heatmap/dropdown_after_pick")
+AFTER_PICK = snippet("HeatmapControl/dropdown_after_pick")
 
 
 def _stub_native_fullscreen(html: str) -> str:
@@ -98,9 +98,9 @@ def _hexbin_panel_ready(page) -> None:
     page.wait_for_selector(
         ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached"
     )
-    page.evaluate(snippet("heatmap/panel_ready_watch"))
+    page.evaluate(snippet("HeatmapControl/panel_ready_watch"))
     page.wait_for_timeout(400)
-    page.evaluate(snippet("heatmap/panel_set_agg_sum"))
+    page.evaluate(snippet("HeatmapControl/panel_set_agg_sum"))
     page.wait_for_timeout(400)
 
 
@@ -168,12 +168,12 @@ class TestHeatmapDropdownPanelBrowser:
             page.wait_for_timeout(150)
             page.keyboard.press("ArrowDown")
             page.wait_for_timeout(120)
-            where = page.evaluate(snippet("heatmap/arrow_down_inside_popup"))
+            where = page.evaluate(snippet("HeatmapControl/arrow_down_inside_popup"))
             assert where["insidePopup"], where
 
             page.keyboard.press("Tab")
             page.wait_for_timeout(150)
-            after = page.evaluate(snippet("heatmap/tab_after_state"))
+            after = page.evaluate(snippet("HeatmapControl/tab_after_state"))
             assert after["openLists"] == 0, after
             assert not after["onBody"], (
                 "Tab left focus on <body>; the next Tab would restart from the "
@@ -205,7 +205,7 @@ class TestHeatmapDropdownPanelBrowser:
                 "the popup must stay above the opaque pseudo-fullscreen map, "
                 f"the centre resolves to {opened['topTag']}"
             )
-            host = page.evaluate(snippet("heatmap/host_check"))
+            host = page.evaluate(snippet("HeatmapControl/host_check"))
             assert host["pseudoActive"], host
             assert host["hostIsContainer"], (
                 f"the list must mount in the pseudo-fullscreen container, got "

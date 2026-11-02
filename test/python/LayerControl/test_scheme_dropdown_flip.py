@@ -131,7 +131,7 @@ def _open_layer_list(page) -> dict:
     panel_ready(page)
     # Open the polygon's row, not the first overlay row: the point group sorts
     # first and has no fill arm.
-    opened = page.evaluate(snippet("layer/dropdown_open_style_panel"))
+    opened = page.evaluate(snippet("LayerControl/dropdown_open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))

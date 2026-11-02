@@ -14,7 +14,7 @@ from foliplus._cdn_loader import load_cdn
 # emits must be replaced with these inline stubs or the page never boots.
 # Kept here so the two _make_page variants (with / without LayerControl)
 # share one source of truth.
-_TURF_STUB = f"<script>{snippet('measure/turf_stub').strip()}</script>"
+_TURF_STUB = f"<script>{snippet('MeasureControl/turf_stub').strip()}</script>"
 
 
 def _stub_cdn(html: str, stubs: dict[str, str]) -> str:
