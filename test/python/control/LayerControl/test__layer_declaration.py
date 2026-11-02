@@ -17,6 +17,7 @@ import folium
 import pytest
 
 from foliplus import LayerControl
+from foliplus.control.LayerControl._layer_declaration import declared_zoom_range
 
 
 def _render(*layers: folium.Layer) -> str:
@@ -181,27 +182,15 @@ def test_non_mapping_fill_namespace_warns_and_is_ignored():
 
 
 def test_declared_zoom_range_returns_normalised_bounds():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo(foliplus={"zoom_range": {"min": 8, "max": 12}})
     assert declared_zoom_range(layer, "Declared") == {"min": 8, "max": 12}
 
 
 def test_declared_zoom_range_undeclared_layer_is_none():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo()
     assert declared_zoom_range(layer, "Declared") is None
 
 
 def test_declared_zoom_range_invalid_is_dropped():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo(foliplus={"zoom_range": {"min": "eight"}})
     assert declared_zoom_range(layer, "Declared") is None

@@ -48,6 +48,7 @@ from foliplus._config_schema import (
     FieldSpec,
     config_fields,
     derive_schema,
+    derived_control_schemas,
     render_ts_type,
     schema_to_json,
     validate_shape,
@@ -491,8 +492,6 @@ class TestSchemaDump:
         # already-imported ``BaseControl`` rather than a subprocess, because a
         # fresh interpreter under an editable install would resolve ``foliplus``
         # to the checkout it was installed from — not this worktree.
-        from foliplus import BaseControl
-        from foliplus._config_schema import derived_control_schemas
 
         out = tmp_path / "config-schema.json"
         control_schemas = derived_control_schemas(BaseControl)

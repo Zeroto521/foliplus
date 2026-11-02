@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from foliplus import HeatmapControl
+from foliplus._declaration import foliplus_reports
 
 
 def _conf(**kwargs: object) -> dict:
@@ -67,8 +68,6 @@ def test_invalid_zoom_range_warns_and_is_treated_as_undeclared(declaration):
 
 
 def test_a_repeated_construction_repeats_no_declaration_warning():
-    from foliplus._declaration import foliplus_reports
-
     foliplus_reports.clear()
     declaration = {"min": 8, "max": 8.5}
 
@@ -88,8 +87,6 @@ def test_a_warning_names_the_zoom_range_argument():
     # A control takes the declaration directly, so the warning must point at
     # ``zoom_range=`` — not at the layer namespace's ``foliplus[...]`` form,
     # which this entry point does not accept.
-    from foliplus._declaration import foliplus_reports
-
     foliplus_reports.clear()
 
     with pytest.warns(UserWarning) as record:
@@ -104,8 +101,6 @@ def test_a_warning_points_at_the_calling_cell():
     # The declaration is written in the user's own cell, so the warning has to
     # name that file: a warning pointing inside the library is not actionable
     # where the author can see it.
-    from foliplus._declaration import foliplus_reports
-
     foliplus_reports.clear()
 
     with pytest.warns(UserWarning) as record:
