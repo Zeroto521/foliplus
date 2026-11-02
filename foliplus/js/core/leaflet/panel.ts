@@ -6,6 +6,7 @@
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import * as SVGs from "#common/icon.js";
+import { computePlacement } from "#common/placement.js";
 import { isPortalOf } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
@@ -358,14 +359,13 @@ const fitRowPanel = (
   const anchorRect = anchor.getBoundingClientRect();
   if (anchorRect.height === 0) return null;
 
-  const below = bounds.bottom - anchorRect.bottom - gap;
-  const above = anchorRect.top - bounds.top - gap;
   // The card itself is the flex column; its content box is the scroll
   // container. Read the content's natural height and add back the non-content
   // chrome (header, padding, border) so a long panel reports the height it
   // would want, not the cap it currently has. Fall back to the measured card
   // height for a jsdom/unrendered panel whose scrollHeight is zero.
-  const cardHeight = panel.getBoundingClientRect().height;
+  const cardRect = panel.getBoundingClientRect();
+  const cardHeight = cardRect.height;
   const content = panel.querySelector(
     ":scope > .foliplus-panel-content",
   ) as HTMLElement | null;
@@ -373,13 +373,25 @@ const fitRowPanel = (
     ? Math.max(cardHeight, cardHeight - content.clientHeight + content.scrollHeight)
     : panel.scrollHeight || cardHeight;
 
-  const flipUp = below < natural && above > below;
-  const room = Math.max(0, flipUp ? above : below);
+  // The shared placement kernel decides the side (above vs below) and the
+  // strip-capped height from the anchor, the natural card size and the bounds.
+  // It clamps both strips into the bounds (so an anchor outside the bounds
+  // cannot overflow) and reports maxHeight as the strip cap. The row panel's
+  // own comfort floor and edge insets are surface policy, applied here on top
+  // of the kernel's cap (they are not part of the kernel's generic model).
+  const placement = computePlacement(
+    anchorRect,
+    { width: cardRect.width, height: natural },
+    bounds,
+    { gap },
+  );
+
+  const flipUp = placement.side === "above";
   // The floor is a comfort minimum, not a promise to overflow a map shorter
   // than it: cap it to the box's own usable height first.
   const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
   const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
-  const cap = Math.max(floor, Math.min(natural, room));
+  const cap = Math.max(floor, placement.maxHeight);
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
   panel.classList.toggle(ROW_PANEL_UP_CLASS, flipUp);

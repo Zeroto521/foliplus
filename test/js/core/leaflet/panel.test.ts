@@ -1200,4 +1200,100 @@ describe("pinRowPanel", () => {
       remove.mockRestore();
     }
   });
+
+  it("keeps the card inside a narrow viewport (map edge to edge)", () => {
+    // A phone-width viewport with the map flush to both edges: the card is
+    // wider than the strip, so it shrinks to the usable width and stays
+    // inside the bounds on every axis (no overflow past the right edge).
+    setViewport(320, 568);
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 0, left: 0, width: 320, height: 568 });
+    stubBox(row, { top: 200, left: 0, width: 320, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 400 });
+
+    pinRowPanel(panel, row);
+
+    // Usable width = 320 - 2*8 = 304; the 280 card fits, so no maxWidth.
+    expect(panel.style.maxWidth).toBe("");
+    expect(panel.style.left).toBe("32px");
+    expect(panel.style.top).toBe("232px");
+  });
+
+  it("does not overflow when the row sits at the map's bottom edge", () => {
+    // The row's bottom is at the map's bottom edge: the below strip is just
+    // the gap, so the card flips above and must land inside the map's box.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 400 });
+    stubBox(row, { top: 468, left: 120, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(true);
+    expect(panel.style.top).toBe("266px");
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "200px",
+    );
+  });
+
+  it("keeps a wide card inside the bounds on a short map", () => {
+    // The map is narrower than the card but tall enough: the card shrinks to
+    // the usable width and the placement keeps it inside the map's box.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 240, height: 300 });
+    stubBox(row, { top: 150, left: 110, width: 220, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 400, height: 300 });
+
+    pinRowPanel(panel, row);
+
+    // Usable width = 240 - 2*8 = 224, so the 400px card shrinks to 224.
+    expect(panel.style.maxWidth).toBe("224px");
+    expect(panel.style.left).toBe("108px");
+    expect(panel.style.top).toBe("182px");
+  });
+
+  it("keeps the card on screen when the map is degenerate (offscreen)", () => {
+    // The map is fully off the viewport bottom, so visibleRowPanelBounds
+    // returns the map's own box (not the viewport). The card must stay within
+    // that box rather than snapping to the page corner, and the cap must not
+    // exceed the box height (the strip clamp from #846).
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 800, left: 100, width: 400, height: 100 });
+    stubBox(row, { top: 860, left: 200, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 400 });
+
+    pinRowPanel(panel, row);
+
+    // bounds = map box (top 800, bottom 900, height 100). The 400px card caps
+    // to the usable box (100 - 16 = 84) and the top clamps to the map's edge.
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "84px",
+    );
+    expect(parseFloat(panel.style.top)).toBeGreaterThanOrEqual(808);
+    expect(parseFloat(panel.style.top)).toBeLessThanOrEqual(900);
+  });
 });
