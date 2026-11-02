@@ -178,8 +178,13 @@ class PanelControllerImpl implements PanelController {
     } catch (error) {
       // spec.open threw: roll back so the controller is not left "open but
       // with no DOM" (which would also make the idempotence guard swallow
-      // every later open). Rethrow so the caller sees the failure.
+      // every later open). destroy() also detaches the registry entry the
+      // attachPanel created (the surface never came up, so the entry must
+      // not stay live: a later open would otherwise trip the duplicate-id
+      // guard, and closeOverlays could not reach it because the controller
+      // is not registered as open). Rethrow so the caller sees the failure.
       this.#open = false;
+      this.destroy();
       throw error;
     }
     // onOpen is deliberately outside the try: a successful spec.open that

@@ -268,6 +268,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     } else {
       return;
     }
+    // Only the label panel's change reaches here (delegated label controls
+    // stop the shared root). Stop the change from bubbling to the map: a
+    // change is not a click, so it would not dismiss the panel on its own,
+    // but letting it escape would leak a stray change event onto the map.
     event.stopPropagation();
   });
 

@@ -564,27 +564,30 @@ describe("PanelController", () => {
     expect(state.closeCalls).toHaveLength(0);
   });
 
-  it("open rolls back and rethrows when spec.open throws (P3-3)", () => {
-    let first = true;
+  it("open rolls back, detaches and rethrows when spec.open throws (P3-3/P3-4)", () => {
+    const { map } = track(makeMap());
     const { spec, state } = makeFixture({
       open: () => {
-        if (first) {
-          first = false;
-          throw new Error("boom");
-        }
-        state.open = true;
-        state.openCalls += 1;
+        throw new Error("boom");
       },
     });
     const controller = createPanel(spec);
+    const detach = attachPanel(map, controller);
     expect(() => controller.open()).toThrow("boom");
     expect(controller.isOpen()).toBe(false);
     expect(state.onOpenCalls).toBe(0);
-    // The idempotence guard must not be stuck: a later open succeeds.
-    controller.open();
-    expect(controller.isOpen()).toBe(true);
-    expect(state.openCalls).toBe(1);
-    expect(state.onOpenCalls).toBe(1);
+    // The failed open detached the entry (P3-4): re-attaching the same
+    // owner+localId no longer trips the duplicate-id guard. Without the
+    // detach the entry would linger in the press/Escape dispatch and the
+    // next open would throw "duplicate overlay".
+    const again = createPanel(makeFixture().spec);
+    expect(() => attachPanel(map, again)).not.toThrow();
+    // The original controller is terminal after a failed open: the caller
+    // must build a fresh one (the component pattern is one per open).
+    expect(() => attachPanel(map, controller)).toThrow(/destroyed/);
+    detach(); // idempotent: already detached by the failed open
+    again.open();
+    expect(again.isOpen()).toBe(true);
   });
 
   it("closeFromClick swallows and keeps the panel open when spec.close refuses (P3-4)", () => {
