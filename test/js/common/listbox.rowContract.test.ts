@@ -220,6 +220,7 @@ const makePicker = (
       open: "is-open",
     },
     surface,
+    ownDismiss: true,
     dismiss: { kind: "local" },
     onRowActivate: index => {
       activated.push(index);

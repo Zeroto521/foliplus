@@ -127,6 +127,11 @@ interface ListboxSpec {
   surface?: DropdownSurface;
   /** Phase 1: always { kind: "local" }. */
   dismiss: ListboxDismiss;
+  /** The engine's own outside-press / Escape dismissal. Default OFF: #807
+   *  gives the overlay registry single ownership of closing a floating layer,
+   *  and the scheme picker's consumer wires that registry itself. The bridged
+   *  dropdown has no such owner, so its adapter opts in. */
+  ownDismiss?: boolean;
   /** Called at the very start of open(), before rows are rendered, so the
    *  consumer can re-read its value/items from a source that may have changed
    *  since the last open (a bridged select's options are rebuilt whenever the
@@ -401,6 +406,10 @@ const positionList = (state: InternalState): void => {
   );
 
   list.style.position = "fixed";
+  // CSS gives in-flow mounts the gap via margin-top; a fixed (portalled) mount
+  // expresses the same gap via its offset, so the margin must be zeroed or the
+  // two stack and every real scheme dropdown sits 4px low (P2-1).
+  list.style.marginTop = "0px";
   list.style.right = "auto";
   list.style.left = `${String(rect.left)}px`;
   list.style.width = "max-content";
@@ -507,19 +516,21 @@ const open = (state: InternalState): void => {
   }
 
   if (!state.spec.inline) {
-    // Dismiss on any press outside the control. Capture phase, so the press
-    // closes the popup before the element under it reacts.
-    const onOutsidePress = (event: Event): void => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      const wrapper = state.trigger.parentElement;
-      if (wrapper?.contains(target) || state.list.contains(target)) return;
-      close(state, { restoreFocus: false });
-    };
-    document.addEventListener("pointerdown", onOutsidePress, true);
-    state.mountCleanup.push(() =>
-      document.removeEventListener("pointerdown", onOutsidePress, true),
-    );
+    if (state.spec.ownDismiss) {
+      // Dismiss on any press outside the control. Capture phase, so the press
+      // closes the popup before the element under it reacts.
+      const onOutsidePress = (event: Event): void => {
+        const target = event.target as Node | null;
+        if (!target) return;
+        const wrapper = state.trigger.parentElement;
+        if (wrapper?.contains(target) || state.list.contains(target)) return;
+        close(state, { restoreFocus: false });
+      };
+      document.addEventListener("pointerdown", onOutsidePress, true);
+      state.mountCleanup.push(() =>
+        document.removeEventListener("pointerdown", onOutsidePress, true),
+      );
+    }
 
     // Re-pin on scroll/resize instead of dismissing.
     const reposition = (event: Event): void => {
@@ -564,19 +575,21 @@ const open = (state: InternalState): void => {
       });
     }
 
-    // Escape belongs to the popup while it is open. The panel dispatcher (#783)
-    // listens on document *capture*, so this sits on window capture, which runs
-    // before any document capture listener and stops the event there.
-    const onEscapeCapture = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      event.stopPropagation();
-      close(state, { restoreFocus: true });
-    };
-    window.addEventListener("keydown", onEscapeCapture, true);
-    state.mountCleanup.push(() =>
-      window.removeEventListener("keydown", onEscapeCapture, true),
-    );
+    if (state.spec.ownDismiss) {
+      // Escape belongs to the popup while it is open. The panel dispatcher (#783)
+      // listens on document *capture*, so this sits on window capture, which runs
+      // before any document capture listener and stops the event there.
+      const onEscapeCapture = (event: KeyboardEvent): void => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        event.preventDefault();
+        event.stopPropagation();
+        close(state, { restoreFocus: true });
+      };
+      window.addEventListener("keydown", onEscapeCapture, true);
+      state.mountCleanup.push(() =>
+        window.removeEventListener("keydown", onEscapeCapture, true),
+      );
+    }
   }
 
   // Focus the requested row now that the list is in the DOM and all listeners
