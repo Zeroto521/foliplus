@@ -185,13 +185,6 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
   {
-    f: "common/schemePicker.ts",
-    n: 9,
-    pairedOff: 0,
-    reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), fullscreenchange (mount-scope), and a wheel stop-propagation on the portalled dropdown (a wheel over the open list must not bubble to the map container where Leaflet's scrollWheelZoom fires; the dropdown element is removed in closeDropdown, so the listener goes with it). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
-  },
-  {
     f: "common/dropdown.ts",
     n: 1,
     pairedOff: 0,
@@ -200,10 +193,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/listbox.ts",
-    n: 10,
+    n: 11,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by common/dropdown now; common/schemePicker in S-B): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by common/dropdown and common/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
   },
 ];
 

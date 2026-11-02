@@ -23,6 +23,7 @@
 // divergence source: each has a contract-test case on both sides.
 import { dom } from "#common/dom.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
+import { throttleRaf } from "#common/throttle.js";
 
 /** The three ARIA attributes shared by every option row. The engine paints
  *  the exact trio the dropdown and picker have always painted, so existing
@@ -139,6 +140,36 @@ interface ListboxSpec {
    *  open (single closes, multiple stays) and refreshes the row state. */
   onRowActivate: (index: number) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
+  /** Positioning strategy. "listbox" (default) is the shared dropdown rule
+   *  (max-content width, room-based clamp, flip by a two-row minimum). "picker"
+   *  is the scheme picker's historical rule: fixed trigger width, 8px viewport
+   *  edge clamp, flip by the full popup height. */
+  position?: "listbox" | "picker";
+  /** Focus a row on open. The picker lands on the selected row (fallback row
+   *  0); the dropdown focuses nothing (its rows are reached by keyboard). */
+  focusOnOpen?: "first" | "last" | "selected";
+  /** Called after every position pass (portal) or after the inline mount —
+   *  the consumer publishes a measured lane (scrollbar width) here. */
+  onPosition?: () => void;
+  /** Inline mount: append into the trigger's parent instead of portalling to
+   *  the surface, no fixed coordinates / portal class / surface listeners.
+   *  CSS anchors the list. Default false (the dropdown always portals). */
+  inline?: boolean;
+  /** Inline mount host. Default: trigger.parentElement ?? trigger. */
+  inlineHost?: () => HTMLElement;
+  /** Trigger keyboard mode. "native" (dropdown): Arrow opens and focuses; no
+   *  Enter/Space handling (a <button> trigger fires its own click). "cycle"
+   *  (picker): Arrow cycles the selection without opening, Enter/Space open. */
+  triggerKeys?: "native" | "cycle";
+  /** stopPropagation on a trigger click. The picker's trigger sits inside a
+   *  panel whose own handlers must not see the press. */
+  stopTriggerClick?: boolean;
+  /** Detach the closed list from the DOM instead of parking it in the
+   *  trigger's wrapper. The dropdown parks its hidden list in the wrapper
+   *  (a closed control keeps its DOM shape); the picker detaches it, which
+   *  is what keeps the closed list out of the owning panel — a detached
+   *  node is not inside any overlay. Default false (park in wrapper). */
+  detachOnClose?: boolean;
 }
 
 interface Listbox {
@@ -291,6 +322,18 @@ const buildRow = (
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
   applyOptionA11y(row, { selected });
   row.classList.toggle(shape.selectedClass, selected);
+  // The trigger shape tracks the focused row via aria-activedescendant. A
+  // click (or a programmatic .focus()) focuses a row directly, bypassing
+  // focusOption, so the engine listens for the row's own focus event and
+  // re-publishes it. The guard re-checks the active element: a focus event
+  // queued after focus already left the list must not claim it is on the row.
+  if (shape.activedescendant === "trigger") {
+    row.addEventListener("focus", () => {
+      if (document.activeElement === row) {
+        state.trigger.setAttribute("aria-activedescendant", row.id);
+      }
+    });
+  }
   const content = shape.renderRow
     ? shape.renderRow(item, { selected, index })
     : dom.el("span", classes.rowLabel ? { class: classes.rowLabel } : null, item.label);
@@ -324,17 +367,33 @@ const renderRows = (state: InternalState): void => {
 /** Pin the popup to the trigger in viewport coordinates: below it when there
  *  is room for at least two rows, otherwise above it, and clamped to the room
  *  the viewport leaves. */
+/** Pin the popup to the trigger in viewport coordinates: below it when there
+ *  is room for at least two rows, otherwise above it, and clamped to the room
+ *  the viewport leaves. The picker mode keeps the scheme picker's historical
+ *  rule (fixed trigger width, 8px viewport edge clamp, flip by full height). */
+/** classList.add/remove throw on an empty token; the scheme picker's up slot
+ *  is deliberately empty (its stylesheet keys nothing off the flipped class).
+ *  Skip empty strings. */
+const classAdd = (el: HTMLElement, cls: string): void => {
+  if (cls) el.classList.add(cls);
+};
+const classRemove = (el: HTMLElement, cls: string): void => {
+  if (cls) el.classList.remove(cls);
+};
 const positionList = (state: InternalState): void => {
   const list = state.list;
   list.style.maxHeight = "";
-  list.classList.remove(state.spec.classes.up);
+  classRemove(list, state.spec.classes.up);
 
   const rect = state.trigger.getBoundingClientRect();
   const natural = list.getBoundingClientRect().height;
   const rowHeight = Math.max(24, ...state.rowEls.map(row => row.offsetHeight));
   const desired = Math.min(natural, rowHeight * MAX_VISIBLE_ROWS);
   const space = spaceAround(state.trigger);
-  const fitsBelow = space.below >= Math.min(desired, rowHeight * MIN_ROWS_BELOW);
+  const fitsBelow =
+    state.spec.position === "picker"
+      ? space.below >= natural
+      : space.below >= Math.min(desired, rowHeight * MIN_ROWS_BELOW);
   const up = !fitsBelow && space.above > space.below;
   const height = Math.max(
     rowHeight,
@@ -353,25 +412,44 @@ const positionList = (state: InternalState): void => {
     Math.min(contentWidth, Math.max(rect.width, room)),
   );
   list.style.width = `${String(width)}px`;
-  if (up) {
+  if (state.spec.position === "picker") {
+    // Fixed trigger width, right-edge clamp at 8px, top/bottom clamp at 8px.
+    list.style.width = `${String(rect.width)}px`;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = rect.left;
+    const listRect = list.getBoundingClientRect();
+    if (left + listRect.width > vw - 8) {
+      left = Math.max(8, vw - listRect.width - 8);
+    }
+    let top = up ? rect.top - listRect.height - POPUP_GAP : rect.bottom + POPUP_GAP;
+    top = Math.max(8, Math.min(top, vh - 8 - listRect.height));
+    list.style.left = `${String(left)}px`;
+    list.style.bottom = "";
+    list.style.top = `${String(top)}px`;
+    if (up) {
+      classAdd(list, state.spec.classes.up);
+    }
+  } else if (up) {
     list.style.top = "";
     list.style.bottom = `${String(window.innerHeight - rect.top + POPUP_GAP)}px`;
-    list.classList.add(state.spec.classes.up);
+    classAdd(list, state.spec.classes.up);
   } else {
     list.style.bottom = "";
     list.style.top = `${String(rect.bottom + POPUP_GAP)}px`;
   }
   list.classList.add(state.spec.classes.portal);
   if (height < natural) list.style.maxHeight = `${String(Math.round(height))}px`;
+  state.spec.onPosition?.();
 };
-
 const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void => {
   const wasOpen = state.isOpen;
   state.isOpen = false;
   const openIndex = openStates.indexOf(state);
   if (openIndex >= 0) openStates.splice(openIndex, 1);
   state.list.hidden = true;
-  state.list.classList.remove(state.spec.classes.up, state.spec.classes.portal);
+  classRemove(state.list, state.spec.classes.up);
+  classRemove(state.list, state.spec.classes.portal);
   state.list.style.maxHeight = "";
   state.trigger.classList.remove(state.spec.classes.open);
   state.trigger.setAttribute("aria-expanded", "false");
@@ -382,8 +460,14 @@ const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void =>
   state.releasePortalRoot = null;
   // The popup goes back into the wrapper when it is closed: the open state is
   // the only one that has to escape the panel's clip box.
-  const wrapper = state.trigger.parentElement;
-  if (wrapper && state.list.parentElement !== wrapper) wrapper.append(state.list);
+  if (state.spec.detachOnClose) {
+    state.list.remove();
+  } else {
+    const wrapper = state.spec.inline
+      ? (state.spec.inlineHost?.() ?? state.trigger.parentElement ?? state.trigger)
+      : state.trigger.parentElement;
+    if (wrapper && state.list.parentElement !== wrapper) wrapper.append(state.list);
+  }
   if (wasOpen && opts?.restoreFocus !== false) state.trigger.focus();
   if (wasOpen) state.spec.onToggle?.(false, null);
 };
@@ -400,71 +484,123 @@ const open = (state: InternalState): void => {
   renderRows(state);
   state.spec.renderTrigger?.();
   // Mount on the portal host *before* unhiding so the first measurement has a
-  // laid-out box to read (a detached list reports 0×0).
-  const host = popupHost(state);
-  if (state.list.parentElement !== host) host.appendChild(state.list);
-  state.list.hidden = false;
-  state.releasePortalRoot = registerPortalRoot(state.list, state.trigger);
-  state.isOpen = true;
-  state.trigger.classList.add(state.spec.classes.open);
-  state.trigger.setAttribute("aria-expanded", "true");
-  positionList(state);
+  // laid-out box to read (a detached list reports 0×0). Inline mode stays in
+  // the trigger's parent — CSS anchors it, no fixed coordinates.
+  if (state.spec.inline) {
+    const host =
+      state.spec.inlineHost?.() ?? state.trigger.parentElement ?? state.trigger;
+    if (state.list.parentElement !== host) host.appendChild(state.list);
+    state.list.hidden = false;
+    state.isOpen = true;
+    state.trigger.classList.add(state.spec.classes.open);
+    state.trigger.setAttribute("aria-expanded", "true");
+    state.spec.onPosition?.();
+  } else {
+    const host = popupHost(state);
+    if (state.list.parentElement !== host) host.appendChild(state.list);
+    state.list.hidden = false;
+    state.releasePortalRoot = registerPortalRoot(state.list, state.trigger);
+    state.isOpen = true;
+    state.trigger.classList.add(state.spec.classes.open);
+    state.trigger.setAttribute("aria-expanded", "true");
+    positionList(state);
+  }
 
-  // Dismiss on any press outside the control. Capture phase, so the press
-  // closes the popup before the element under it reacts.
-  const onOutsidePress = (event: Event): void => {
-    const target = event.target as Node | null;
-    if (!target) return;
-    const wrapper = state.trigger.parentElement;
-    if (wrapper?.contains(target) || state.list.contains(target)) return;
-    close(state, { restoreFocus: false });
-  };
-  document.addEventListener("pointerdown", onOutsidePress, true);
-  state.mountCleanup.push(() =>
-    document.removeEventListener("pointerdown", onOutsidePress, true),
-  );
+  if (!state.spec.inline) {
+    // Dismiss on any press outside the control. Capture phase, so the press
+    // closes the popup before the element under it reacts.
+    const onOutsidePress = (event: Event): void => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const wrapper = state.trigger.parentElement;
+      if (wrapper?.contains(target) || state.list.contains(target)) return;
+      close(state, { restoreFocus: false });
+    };
+    document.addEventListener("pointerdown", onOutsidePress, true);
+    state.mountCleanup.push(() =>
+      document.removeEventListener("pointerdown", onOutsidePress, true),
+    );
 
-  // Re-pin on scroll/resize instead of dismissing.
-  const reposition = (event: Event): void => {
-    const target = event.target;
-    if (target instanceof Node) {
-      if (state.list === target || state.list.contains(target)) return;
+    // Re-pin on scroll/resize instead of dismissing.
+    const reposition = (event: Event): void => {
+      const target = event.target;
+      if (target instanceof Node) {
+        if (state.list === target || state.list.contains(target)) return;
+      }
+      positionList(state);
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition, { passive: true });
+    const reseat = (): void => {
+      if (!state.isOpen) return;
+      const nextHost = popupHost(state);
+      if (state.list.parentElement !== nextHost) nextHost.appendChild(state.list);
+      positionList(state);
+    };
+    const unsubscribeSurface = state.spec.surface?.onSurfaceChange
+      ? state.spec.surface.onSurfaceChange(reseat)
+      : (() => {
+          document.addEventListener("fullscreenchange", reseat);
+          return () => document.removeEventListener("fullscreenchange", reseat);
+        })();
+    state.mountCleanup.push(() => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+      unsubscribeSurface();
+    });
+
+    // The trigger is the popup's width source and can resize without a window
+    // resize (a panel gaining/losing a layout scrollbar lane moves every control
+    // inside it by that lane). Follow the trigger, coalesced per frame.
+    const followTrigger = throttleRaf(() => {
+      if (state.isOpen && !state.spec.inline) positionList(state);
+    });
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(followTrigger);
+      observer.observe(state.trigger);
+      state.mountCleanup.push(() => {
+        observer.disconnect();
+        followTrigger.cancel();
+      });
     }
-    positionList(state);
-  };
-  window.addEventListener("scroll", reposition, true);
-  window.addEventListener("resize", reposition, { passive: true });
-  const reseat = (): void => {
-    if (!state.isOpen) return;
-    const nextHost = popupHost(state);
-    if (state.list.parentElement !== nextHost) nextHost.appendChild(state.list);
-    positionList(state);
-  };
-  const unsubscribeSurface = state.spec.surface?.onSurfaceChange
-    ? state.spec.surface.onSurfaceChange(reseat)
-    : (() => {
-        document.addEventListener("fullscreenchange", reseat);
-        return () => document.removeEventListener("fullscreenchange", reseat);
-      })();
-  state.mountCleanup.push(() => {
-    window.removeEventListener("scroll", reposition, true);
-    window.removeEventListener("resize", reposition);
-    unsubscribeSurface();
-  });
 
-  // Escape belongs to the popup while it is open. The panel dispatcher (#783)
-  // listens on document *capture*, so this sits on window capture, which runs
-  // before any document capture listener and stops the event there.
-  const onEscapeCapture = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
-    event.preventDefault();
-    event.stopPropagation();
-    close(state, { restoreFocus: true });
-  };
-  window.addEventListener("keydown", onEscapeCapture, true);
-  state.mountCleanup.push(() =>
-    window.removeEventListener("keydown", onEscapeCapture, true),
-  );
+    // Escape belongs to the popup while it is open. The panel dispatcher (#783)
+    // listens on document *capture*, so this sits on window capture, which runs
+    // before any document capture listener and stops the event there.
+    const onEscapeCapture = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close(state, { restoreFocus: true });
+    };
+    window.addEventListener("keydown", onEscapeCapture, true);
+    state.mountCleanup.push(() =>
+      window.removeEventListener("keydown", onEscapeCapture, true),
+    );
+  }
+
+  // Focus the requested row now that the list is in the DOM and all listeners
+  // are installed (the picker lands on the selected row; the dropdown focuses
+  // nothing). Doing this before the toggle callback lets the consumer read the
+  // focused row.
+  if (state.spec.focusOnOpen && state.rowEls.length > 0) {
+    let index = 0;
+    if (state.spec.focusOnOpen === "selected") {
+      const selected = state.spec.selected();
+      const found = state.rowEls.findIndex((row, i) =>
+        selected.includes(state.spec.items()[i]?.value ?? ""),
+      );
+      index = found >= 0 ? found : 0;
+    } else if (state.spec.focusOnOpen === "last") {
+      index = state.rowEls.length - 1;
+    }
+    const target = enabledFrom(
+      state,
+      index,
+      state.spec.focusOnOpen === "last" ? -1 : 1,
+    );
+    if (target >= 0) focusOption(state, target);
+  }
 
   state.spec.onToggle?.(true, state.list);
 };
@@ -522,7 +658,26 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     event.preventDefault();
     event.stopPropagation();
     if (state.isOpen) {
+      if (state.spec.triggerKeys === "cycle") return;
       stepFocus(state, key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (state.spec.triggerKeys === "cycle") {
+      // The picker cycles the selection without opening, never wrapping:
+      // ArrowDown stops at the last enabled scheme, ArrowUp at the first.
+      const items = state.spec.items();
+      const selected = state.spec.selected();
+      const current = items.findIndex(item => selected.includes(item.value));
+      if (current < 0) return;
+      const step = key === "ArrowDown" ? 1 : -1;
+      let index = -1;
+      for (let at = current + step; at >= 0 && at < items.length; at += step) {
+        if (isEnabled(state, at)) {
+          index = at;
+          break;
+        }
+      }
+      if (index >= 0 && index !== current) state.spec.onRowActivate(index);
       return;
     }
     const items = state.spec.items();
@@ -532,6 +687,12 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
       const index = enabledFrom(state, from, key === "ArrowDown" ? 1 : -1);
       if (index >= 0) focusOption(state, index);
     }
+    return;
+  }
+  if ((key === "Enter" || key === " ") && state.spec.triggerKeys === "cycle") {
+    event.preventDefault();
+    event.stopPropagation();
+    open(state);
     return;
   }
   if ((key === "Home" || key === "End") && state.isOpen) {
@@ -571,9 +732,12 @@ const createListbox = (spec: ListboxSpec): Listbox => {
     releasePortalRoot: null,
   };
 
-  const onTriggerClick = (): void => {
+  const onTriggerClick = (event: MouseEvent): void => {
     // destroy() removes this listener before setting state.destroyed, so the
     // destroyed flag can never be observed here — the guard would be dead.
+    // The picker's trigger sits inside a panel whose own handlers must not
+    // see the press, so it stops propagation before toggling.
+    if (spec.stopTriggerClick) event.stopPropagation();
     if (state.isOpen) close(state, { restoreFocus: false });
     else open(state);
   };
