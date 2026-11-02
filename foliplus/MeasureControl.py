@@ -21,20 +21,19 @@ class MeasureControl(BaseControl):
     Measure distances, areas, and circles; place geocoded markers; then edit by
     dragging nodes.
 
-    - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
-      address. Click the popup or the × on the marker to delete it.
+    The modes:
 
-    The three drawing modes:
-
-    +-------------+-----------------------------------------------------------+--------------------------------------------------------------------------------+
-    | Mode        | Finish gesture                                            | Behavior                                                                       |
-    +=============+===========================================================+================================================================================+
-    | 📏 Distance | Double-click / right-click / click the last node          | Click to draw a polyline; segment and total distances update in real-time.     |
-    +-------------+-----------------------------------------------------------+--------------------------------------------------------------------------------+
-    | 🔲 Area     | Double-click / right-click / click the first or last node | Click to draw a polygon; the enclosed area and each side’s length are labeled. |
-    +-------------+-----------------------------------------------------------+--------------------------------------------------------------------------------+
-    | ⭕ Circle   | Second click confirms                                     | First click sets the center; move the mouse to set the radius.                 |
-    +-------------+-----------------------------------------------------------+--------------------------------------------------------------------------------+
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | Mode        | Finish gesture                                            | Behavior                                                                              |
+    +=============+===========================================================+=======================================================================================+
+    | 📍 Locate   | Click the toolbar button                                  | Shows coordinates and a reverse-geocoded address; click the popup or the × to delete. |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | 📏 Distance | Double-click / right-click / click the last node          | Click to draw a polyline; segment and total distances update in real-time.            |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | 🔲 Area     | Double-click / right-click / click the first or last node | Click to draw a polygon; the enclosed area and each side’s length are labeled.        |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | ⭕ Circle   | Second click confirms                                     | First click sets the center; move the mouse to set the radius.                        |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
 
     .. rubric:: Editing
 
