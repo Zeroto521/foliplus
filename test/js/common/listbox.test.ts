@@ -695,3 +695,216 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     expect(select.value).toBe("");
   });
 });
+
+describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
+  const pinRect = (el: HTMLElement, top: number, height: number): void => {
+    Object.defineProperty(el, "getBoundingClientRect", {
+      value: () =>
+        ({
+          x: 0,
+          y: top,
+          top,
+          bottom: top + height,
+          left: 0,
+          right: 160,
+          width: 160,
+          height,
+          toJSON: () => ({}),
+        }) as DOMRect,
+      configurable: true,
+    });
+  };
+  const setViewport = (height: number): (() => void) => {
+    const original = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerHeight", { value: height, configurable: true });
+    return () => {
+      if (original) Object.defineProperty(window, "innerHeight", original);
+    };
+  };
+  const makeGeom = () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "geom-trigger";
+    const cell = document.createElement("div");
+    cell.className = "geom-cell";
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [{ value: "a", label: "Alpha" }],
+      selected: () => [],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "geom-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "geom-list",
+        row: "geom-row",
+        portal: "geom-portal",
+        up: "geom-up",
+        open: "geom-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    return { trigger, listbox };
+  };
+
+  it("zeroes margin-top on a down-portalled popup (fixed mount uses offset, not the in-flow gap)", () => {
+    const restore = setViewport(400);
+    cleanup.push(restore);
+    const { trigger, listbox } = makeGeom();
+    // Pin the list before open: the engine measures its height inside open().
+    const list = listbox.getList() as HTMLElement;
+    pinRect(list, 134, 30);
+    // Trigger near the top: plenty of room below, so it opens downward.
+    pinRect(trigger, 100, 30);
+    listbox.open();
+    // The list is portalled; the in-flow margin gap must be zeroed or the real
+    // dropdown stacks 4px low (P2-1).
+    expect(list.style.marginTop).toBe("0px");
+    expect(list.style.bottom).toBe("");
+    expect(list.style.top).toBe("134px"); // rect.bottom(130) + POPUP_GAP(4)
+    listbox.close();
+  });
+
+  it("zeroes margin-top on an up-flipped popup and adds the up class", () => {
+    const restore = setViewport(400);
+    cleanup.push(restore);
+    const { trigger, listbox } = makeGeom();
+    // Pin the list before open: the engine measures its height inside open().
+    const list = listbox.getList() as HTMLElement;
+    pinRect(list, 316, 30);
+    // Trigger near the bottom: room above wins, so it flips upward.
+    pinRect(trigger, 350, 30);
+    listbox.open();
+    expect(list.style.marginTop).toBe("0px");
+    expect(list.style.top).toBe("");
+    expect(list.style.bottom).toBe("54px"); // innerHeight(400) - rect.top(350) + POPUP_GAP(4)
+    expect(list.classList.contains("geom-up")).toBe(true);
+    listbox.close();
+  });
+});
+
+describe("listbox engine: listener hygiene (no registration before open)", () => {
+  it("createListbox + destroy without open() registers nothing on document/window", () => {
+    // Instrument EventTarget.prototype to count document/window listeners.
+    const ET = EventTarget.prototype;
+    const origAdd = ET.addEventListener;
+    const origRemove = ET.removeEventListener;
+    let docCount = 0;
+    let winCount = 0;
+    const bump = (target: EventTarget, delta: number) => {
+      if (target === document) docCount += delta;
+      else if (target === window) winCount += delta;
+    };
+    ET.addEventListener = function (type, fn, options) {
+      bump(this, 1);
+      return origAdd.call(this, type, fn, options);
+    };
+    ET.removeEventListener = function (type, fn, options) {
+      bump(this, -1);
+      return origRemove.call(this, type, fn, options);
+    };
+    try {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      const cell = document.createElement("div");
+      cell.appendChild(trigger);
+      document.body.appendChild(cell);
+      const listbox = createListbox({
+        trigger,
+        items: () => [{ value: "a", label: "Alpha" }],
+        selected: () => [],
+        shape: {
+          rowTag: "button",
+          dataKey: "data-value",
+          selectedClass: "hyg-selected",
+          disabledAttr: "disabled",
+          activedescendant: "none",
+        },
+        classes: {
+          list: "hyg-list",
+          row: "hyg-row",
+          portal: "hyg-portal",
+          up: "hyg-up",
+          open: "hyg-open",
+        },
+        surface: { onSurfaceChange: () => () => {} },
+        dismiss: { kind: "local" },
+        onRowActivate: () => {},
+      });
+      // Never open. Construction must not bind document/window listeners.
+      const before = docCount + winCount;
+      listbox.destroy();
+      const after = docCount + winCount;
+      expect(after).toBe(before);
+    } finally {
+      ET.addEventListener = origAdd;
+      ET.removeEventListener = origRemove;
+    }
+  });
+
+  it("open + close drains every document/window listener (mountCleanup)", () => {
+    const ET = EventTarget.prototype;
+    const origAdd = ET.addEventListener;
+    const origRemove = ET.removeEventListener;
+    let docCount = 0;
+    let winCount = 0;
+    const bump = (target: EventTarget, delta: number) => {
+      if (target === document) docCount += delta;
+      else if (target === window) winCount += delta;
+    };
+    ET.addEventListener = function (type, fn, options) {
+      bump(this, 1);
+      return origAdd.call(this, type, fn, options);
+    };
+    ET.removeEventListener = function (type, fn, options) {
+      bump(this, -1);
+      return origRemove.call(this, type, fn, options);
+    };
+    try {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      const cell = document.createElement("div");
+      cell.appendChild(trigger);
+      document.body.appendChild(cell);
+      const listbox = createListbox({
+        trigger,
+        items: () => [{ value: "a", label: "Alpha" }],
+        selected: () => [],
+        shape: {
+          rowTag: "button",
+          dataKey: "data-value",
+          selectedClass: "hyg-selected",
+          disabledAttr: "disabled",
+          activedescendant: "none",
+        },
+        classes: {
+          list: "hyg-list",
+          row: "hyg-row",
+          portal: "hyg-portal",
+          up: "hyg-up",
+          open: "hyg-open",
+        },
+        surface: { onSurfaceChange: () => () => {} },
+        dismiss: { kind: "local" },
+        ownDismiss: true,
+        onRowActivate: () => {},
+      });
+      listbox.open();
+      expect(docCount + winCount).toBeGreaterThan(0);
+      listbox.close();
+      expect(docCount + winCount).toBe(0);
+      listbox.destroy();
+    } finally {
+      ET.addEventListener = origAdd;
+      ET.removeEventListener = origRemove;
+    }
+  });
+});
