@@ -109,7 +109,7 @@ const ALLOWED: ReadonlyArray<{
   {
     file: "type/global.d.ts",
     spec: "#foliplus/config-schema.js",
-    reason: "global type declaration re-uses the config schema",
+    reason: "global type declaration reuses the config schema",
   },
 ];
 
