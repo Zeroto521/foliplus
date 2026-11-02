@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from foliplus._config_schema import FieldSpec
-from foliplus._declaration import _normalise_zoom_range, normalize_declared_filter
+from foliplus._declaration import normalise_zoom_range, normalize_declared_filter
 from foliplus._typing import ControlPosition, Fraction, PositiveInt
 from foliplus._validate import Bound, validate
 from foliplus.BaseControl import BaseControl
@@ -313,7 +313,7 @@ class HeatmapControl(BaseControl):
             owner="HeatmapControl",
             arm="range",
             # A count aggregation has no field to bind the range to — the
-            # declaration is API misuse and raises (see _range_atom).
+            # declaration is API misuse and raises (see range_atom).
             bound_field=self.field if agg != "count" else None,
         )
         self.method = method
@@ -332,6 +332,6 @@ class HeatmapControl(BaseControl):
         # The author writes zoom_range={"min": ..., "max": ...}; CONF carries
         # the normalised {min, max} under the shared `zoomRange` key. Invalid
         # declarations warn once and stay None (the control is not hidden).
-        self.zoomRange = _normalise_zoom_range(
+        self.zoomRange = normalise_zoom_range(
             zoom_range, owner="HeatmapControl", source="zoom_range"
         )

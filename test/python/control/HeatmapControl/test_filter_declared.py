@@ -147,7 +147,7 @@ def test_a_non_mapping_non_list_warns():
 @pytest.mark.parametrize(
     "declaration",
     [
-        {"min": 50, "max": 10},  # warned from _range_atom
+        {"min": 50, "max": 10},  # warned from range_atom
         ["score"],  # warned from normalize_declared_filter itself
     ],
 )

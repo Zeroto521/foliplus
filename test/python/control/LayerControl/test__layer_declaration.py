@@ -17,6 +17,7 @@ import folium
 import pytest
 
 from foliplus import LayerControl
+from foliplus.control.LayerControl._layer_declaration import declared_zoom_range
 
 
 def _render(*layers: folium.Layer) -> str:
@@ -97,7 +98,7 @@ def test_invalid_zoom_is_dropped_with_a_warning(declaration):
 
 def test_unknown_key_warns_once_per_layer():
     # One typo on three layers is three attributable warnings, not one: the
-    # de-duplication note carries the layer name (see _warn_foliplus), so a
+    # de-duplication note carries the layer name (see warn_foliplus), so a
     # reader can tell which layer holds the misspelled key.
     layers = [
         _geo(name=f"L{i}", foliplus={"zooom": {"min": 1, "max": 2}}) for i in range(3)
@@ -138,7 +139,7 @@ def test_a_warning_points_at_the_calling_cell():
     # The declaration is written in the user's own cell, so the warning has to
     # name that file: a warning pointing inside the library is not actionable
     # where the author can see it. Same contract as the declared-filter branch
-    # (#805): one shared frame walk in _declaration._caller_stacklevel, so both
+    # (#805): one shared frame walk in _declaration.caller_stacklevel, so both
     # entry points blame the author's cell.
     with pytest.warns(UserWarning) as record:
         _render(_geo(name="Blame", foliplus={"zooom": {"min": 1, "max": 2}}))
@@ -181,27 +182,15 @@ def test_non_mapping_fill_namespace_warns_and_is_ignored():
 
 
 def test_declared_zoom_range_returns_normalised_bounds():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo(foliplus={"zoom_range": {"min": 8, "max": 12}})
     assert declared_zoom_range(layer, "Declared") == {"min": 8, "max": 12}
 
 
 def test_declared_zoom_range_undeclared_layer_is_none():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo()
     assert declared_zoom_range(layer, "Declared") is None
 
 
 def test_declared_zoom_range_invalid_is_dropped():
-    from foliplus.control.LayerControl._layer_declaration import (
-        declared_zoom_range,
-    )
-
     layer = _geo(foliplus={"zoom_range": {"min": "eight"}})
     assert declared_zoom_range(layer, "Declared") is None
