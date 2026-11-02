@@ -21,41 +21,42 @@ class MeasureControl(BaseControl):
     Measure distances, areas, and circles; place geocoded markers; then edit by
     dragging nodes.
 
-    - 📍 **Locate**: click to place a marker showing coordinates and reverse-geocoded
-      address. Click the popup or the × on the marker to delete it.
-    - 📏 **Distance**: click to draw a polyline. Segment and total distances update in
-      real-time. Double-click / right-click / click the last node to finish.
-    - 🔲 **Area**: click to draw a polygon. The enclosed area and each side's length are
-      labeled. Double-click / right-click / click the first or last node to finish.
-    - ⭕ **Circle**: first click sets the center; move the mouse to set the radius;
-      second click confirms.
-    - ✏️ **Edit**: enter edit mode to reposition finished measurements. Click a
-      measurement to reveal its × delete handles, then drag its nodes to reshape it —
-      labels update live and changes persist on release. Drag the circle center or the
-      area centroid to translate the whole shape, the circle radius node to resize, or
-      a marker to move it (its address is re-resolved on drop).
-    - 🗑️ **Clear**: remove all measurement layers at once.
-    - 🏷️ **Labels**: measurement labels sit on their anchor (segment midpoint,
-      centroid, or radius) and are never nudged. When dense, the collision
-      detector hides the least-important overlapping chips so labels remain
-      readable — see ``label_collide`` for the exact hiding rule and
-      priority order.
+    The modes:
 
-    **Editing.** The pencil toolbar button toggles edit mode. Outside edit mode,
-    clicking a measurement does not reveal its × handles. Edit mode and the drawing
-    modes are mutually exclusive: entering one exits the other. Only one measurement
-    shows × handles at a time — clicking another measurement closes the previous one.
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | Mode        | Finish gesture                                            | Behavior                                                                              |
+    +=============+===========================================================+=======================================================================================+
+    | 📍 Locate   | Click the toolbar button                                  | Shows coordinates and a reverse-geocoded address; click the popup or the × to delete. |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | 📏 Distance | Double-click / right-click / click the last node          | Click to draw a polyline; segment and total distances update in real-time.            |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | 🔲 Area     | Double-click / right-click / click the first or last node | Click to draw a polygon; the enclosed area and each side’s length are labeled.        |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+    | ⭕ Circle   | Second click confirms                                     | First click sets the center; move the mouse to set the radius.                        |
+    +-------------+-----------------------------------------------------------+---------------------------------------------------------------------------------------+
+
+    .. rubric:: Editing
+
+    The pencil toolbar button toggles edit mode:
+
+    +---------------------------------------------------+----------------------------------------------------------------------------------+
+    | Situation                                         | Behavior                                                                         |
+    +===================================================+==================================================================================+
+    | Click a measurement outside edit mode             | Does not reveal its × delete handles.                                            |
+    +---------------------------------------------------+----------------------------------------------------------------------------------+
+    | Enter edit mode while a drawing mode is armed     | The drawing mode exits — edit mode and the drawing modes are mutually exclusive. |
+    +---------------------------------------------------+----------------------------------------------------------------------------------+
+    | Click a measurement while another shows × handles | The previous one closes; only one measurement shows handles at a time.           |
+    +---------------------------------------------------+----------------------------------------------------------------------------------+
 
     Shortcuts
     ---------
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Action
-       * - Escape
-         - Exit the current measurement mode, or exit edit mode
+    +--------+------------------------------------------------------+
+    | Key    | Action                                               |
+    +========+======================================================+
+    | Escape | Exit the current measurement mode, or exit edit mode |
+    +--------+------------------------------------------------------+
 
     Parameters
     ----------
@@ -136,29 +137,37 @@ class MeasureControl(BaseControl):
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import MeasureControl
-    >>> m = folium.Map()
-    >>> MeasureControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import MeasureControl
+        >>> m = folium.Map()
+        >>> MeasureControl().add_to(m)
 
     With a declared starting filter on the measurement types:
 
-    >>> import folium
-    >>> from foliplus import MeasureControl
-    >>> m = folium.Map()
-    >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import MeasureControl
+        >>> m = folium.Map()
+        >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
 
     Only show the toolbar while the map is between zoom levels 8 and 12:
 
-    >>> import folium
-    >>> from foliplus import MeasureControl
-    >>> m = folium.Map()
-    >>> MeasureControl(zoom_range={"min": 8, "max": 12}).add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import MeasureControl
+        >>> m = folium.Map()
+        >>> MeasureControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
-    **Filter declaration.** ``filter`` is a list of measurement-type names (the
-    range arm, a ``min``/``max`` mapping, belongs to ``HeatmapControl``):
+    .. rubric:: Filter declaration
+
+    ``filter`` is a list of measurement-type names (the range arm, a
+    ``min``/``max`` mapping, belongs to ``HeatmapControl``):
 
     +--------------+----------+----------+--------------------------------------------------+
     | Key          | Type     | Required | Meaning                                          |
@@ -168,7 +177,7 @@ class MeasureControl(BaseControl):
     |              |          |          | ``marker``.                                      |
     +--------------+----------+----------+--------------------------------------------------+
 
-    **Situation → behavior.**
+    .. rubric:: Situation → behavior
 
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
@@ -187,8 +196,10 @@ class MeasureControl(BaseControl):
     |                                            | reload).                                   |
     +--------------------------------------------+--------------------------------------------+
 
-    **Zoom-range declaration.** ``zoom_range={"min": 8, "max": 12}`` takes the
-    same shape the per-layer ``foliplus`` declaration uses:
+    .. rubric:: Zoom-range declaration
+
+    ``zoom_range={"min": 8, "max": 12}`` takes the same shape the per-layer
+    ``foliplus`` declaration uses:
 
     +---------+------+----------+--------------------------------------------------+
     | Key     | Type | Required | Meaning                                          |
