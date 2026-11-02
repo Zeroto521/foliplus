@@ -20,7 +20,7 @@ import {
   inlineControls,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { PANEL_CLASS } from "#common/panelClass.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 
 /** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)

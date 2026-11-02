@@ -225,9 +225,6 @@ class TestBaseControlRendering:
         html = render_control(HeatmapControl())
         assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
 
-        frame = Path("foliplus/js/control/LayerControl/ui/style/frame.ts").read_text(
-            encoding="utf-8"
-        )
         # The DOM contract (panel-btn + caller class on the same button) is
         # asserted in the jsdom style tests and ui/affordance.test.ts; the
         # Python layer only pins the CSS recipe that both buttons share.

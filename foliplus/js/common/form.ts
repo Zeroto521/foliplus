@@ -3,7 +3,7 @@
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
 import { dom } from "./dom.js";
-import { PANEL_CLASS } from "./panelClass.js";
+import { PANEL_CLASS } from "./panelClassName.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */

@@ -450,11 +450,11 @@ describe("clickable-box family (stylesheet contract)", () => {
 });
 
 describe("common/form.ts emits the shared chrome classes", () => {
-  // The shared chrome classes live in panelClass.ts (single source); form.ts
+  // The shared chrome classes live in panelClassName.ts (single source); form.ts
   // references them via PANEL_CLASS, so the contract test asserts against the
   // source of truth, not the consumer.
   const panelSource = readFileSync(
-    resolve(ROOT, "foliplus/js/common/panelClass.ts"),
+    resolve(ROOT, "foliplus/js/common/panelClassName.ts"),
     "utf-8",
   );
   const source = readFileSync(resolve(ROOT, "foliplus/js/common/form.ts"), "utf-8");

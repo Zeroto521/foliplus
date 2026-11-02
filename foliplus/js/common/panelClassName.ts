@@ -1,4 +1,4 @@
-// common/panelClass — single source for panel class names.
+// common/panelClassName — single source for panel class names.
 //
 // These names are shared across the common/ui/core layers (form rows are used
 // by core/rampForm and core/label, affordances by the layer control panels and
