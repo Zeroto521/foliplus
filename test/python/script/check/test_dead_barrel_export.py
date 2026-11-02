@@ -668,24 +668,21 @@ class TestPathlibHelpers:
             assert mine == expected, f"{spec!r}: {mine!r} != {expected!r}"
 
     def test_normpath_unc_pins_observed_behavior(self):
-        """'//a/../b': pin the platform-observed behaviour, not ideal semantics.
+        """'//a/../b' collapses to '//b' on both platforms.
 
         On Windows '//a/..' is a UNC server root: Path.parts keeps the whole
         '\\\\a\\..\\' as one anchor part, so no '..' segment is seen and the
         path is returned unchanged ('//a/../b'), matching os.path.normpath.
         On POSIX the leading '//' is a prefix but '..' is a real segment; the
-        lexical collapse there may differ from normpath (pre-existing, out of
-        scope for this PR — the anchor clamp only changes paths that pop a
-        root/drive anchor, which '//a' is not).
+        anchor clamp then pops 'a' (leaving '//'), so the '..' is clamped and
+        the path collapses to '//b'. Verified equal to posixpath.normpath,
+        which also gives '//b'. The unified assertion holds on both platforms.
         """
         import os
 
         mine = mod._normpath("//a/../b").as_posix()
-        if os.name == "nt":
-            assert mine == "//a/../b"
-            assert mine == os.path.normpath("//a/../b").replace(os.sep, "/")
-        else:
-            assert isinstance(mine, str) and mine
+        expected = os.path.normpath("//a/../b").replace(os.sep, "/")
+        assert mine == expected
 
     def test_normpath_matches_os_path(self, tmp_path):
         """_normpath agrees with os.path.normpath on realistic repo paths."""
