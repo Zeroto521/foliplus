@@ -330,11 +330,20 @@ class TestNormalizeDeclaredFilter:
             bound_field="score",
         ) == range_atom({"min": 10, "max": 50}, "HeatmapControl", "score")
 
-    def test_the_range_arm_rejects_a_non_mapping(self) -> None:
+    def test_the_range_arm_rejects_an_enum_and_points_at_measurecontrol(self) -> None:
+        with pytest.raises(ValueError, match="enum filters belong to MeasureControl"):
+            normalize_declared_filter(
+                ["score"],
+                owner="HeatmapControl",
+                arm="range",
+                bound_field="score",
+            )
+
+    def test_the_range_arm_warns_on_a_non_mapping_scalar(self) -> None:
         with pytest.warns(UserWarning, match="must be a mapping with min and max"):
             assert (
                 normalize_declared_filter(
-                    ["score"],
+                    "score",
                     owner="HeatmapControl",
                     arm="range",
                     bound_field="score",

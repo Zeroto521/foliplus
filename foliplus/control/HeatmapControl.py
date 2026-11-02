@@ -304,10 +304,11 @@ class HeatmapControl(BaseControl):
         self.field = field
         # The declaration is normalised here, at construction, so CONF carries
         # the AST the runtime reads (never the friendly shape). A 'field' key
-        # inside the declaration, or a range with no aggregation field to bind
-        # to (no field=, or agg="count" — a count aggregates by nothing), raises
-        # ValueError; a data-shaped problem warns and drops the declaration
-        # instead of filtering to nothing.
+        # inside the declaration, a range with no aggregation field to bind to
+        # (no field=, or agg="count" — a count aggregates by nothing), or a
+        # list of value names (the enum arm, which belongs to MeasureControl)
+        # raises ValueError; a data-shaped problem warns and drops the
+        # declaration instead of filtering to nothing.
         self.filter = normalize_declared_filter(
             filter,
             owner="HeatmapControl",
