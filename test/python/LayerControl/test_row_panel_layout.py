@@ -17,66 +17,19 @@ from __future__ import annotations
 from pathlib import Path
 
 import folium
-from conftest import make_browser_page, panel_ready, use_page
+from conftest import _js, make_browser_page, panel_ready, snippet, use_page
 
 from foliplus import LayerControl
 
 HERE = Path(__file__).resolve().parents[3]
 SHOTS = HERE / ".foliplus"
 
-# Shared JS: open the ⋮ → Style panel on the row at *index*.
-OPEN_PANEL = r"""
-(index) => {
-  const rows = Array.from(
-    document.querySelectorAll('.foliplus-layer-item[data-layer-type=overlay]'),
-  );
-  if (rows.length === 0) return { ok: false, reason: 'no-overlay-row' };
-  const row = rows[index];
-  if (!row) return { ok: false, reason: 'row-out-of-range', n: rows.length };
-  row.querySelector('.foliplus-layer-more-btn').click();
-  const menu = row.querySelector('.foliplus-layer-more-menu.open');
-  if (!menu) return { ok: false, reason: 'menu-not-open' };
-  // Tag-agnostic: the overflow menu renders native <button>s, and the row
-  // contract is the data-action value, not the element name.
-  const item = menu.querySelector('[data-action="style-layer"]');
-  if (!item) return { ok: false, reason: 'no-style-item' };
-  item.click();
-  const panel = row.querySelector('.foliplus-layer-style-panel');
-  return { ok: !!panel, nRows: rows.length };
-}
-"""
-
-# Shared JS: measure the open style panel against the map's visible area.
-MEASURE = r"""
-() => {
-  const panel = document.querySelector('.foliplus-layer-style-panel');
-  if (!panel) return { ok: false, reason: 'panel-missing' };
-  const row = panel.closest('.foliplus-layer-item');
-  if (!row) return { ok: false, reason: 'row-missing' };
-  const mapEl = document.querySelector('.leaflet-container');
-  if (!mapEl) return { ok: false, reason: 'map-missing' };
-  const pr = panel.getBoundingClientRect();
-  const mr = mapEl.getBoundingClientRect();
-  const rr = row.getBoundingClientRect();
-  const cs = getComputedStyle(panel);
-  return {
-    ok: true,
-    panel: {
-      top: pr.top,
-      bottom: pr.bottom,
-      height: pr.height,
-      scrollHeight: panel.scrollHeight,
-      clientHeight: panel.clientHeight,
-      cssMaxHeight: cs.maxHeight,
-      topCss: cs.top,
-      bottomCss: cs.bottom,
-    },
-    row: { top: rr.top, bottom: rr.bottom },
-    map: { top: mr.top, bottom: mr.bottom, height: mr.height },
-    flipUp: panel.classList.contains('foliplus-row-panel-up'),
-  };
-}
-"""
+# The probes live next to the other browser JS so they are formatted, reviewed
+# and diffed as JavaScript instead of as Python string literals.
+# `layer/row_panel_open` opens the ⋮ → Style panel on the row at *index*;
+# `layer/row_panel_measure` reports the open card against the map's visible area.
+OPEN_PANEL = snippet("layer/row_panel_open")
+MEASURE = snippet("layer/row_panel_measure")
 
 
 def _make_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
@@ -99,9 +52,7 @@ def _make_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     html = m.get_root().render()
     page, errors = make_browser_page(browser, tmp_path, html, slug)
     page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-    page.evaluate(
-        "() => { const c = document.querySelector('.foliplus-layer-ctrl'); if (!c.classList.contains('foliplus-is-expanded')) c.querySelector('.foliplus-toggle-btn').click(); return true; }"
-    )
+    page.evaluate(_js("LayerControl/open_panel"))
     page.wait_for_selector(
         ".foliplus-layer-ctrl.foliplus-is-expanded",
         state="attached",
