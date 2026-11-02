@@ -1,32 +1,38 @@
 import { join, resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  NPM,
   buildGates,
+  chunk,
   collectChangedFiles,
+  colorEnabled,
   defaultIo,
   fetchOriginMain,
-  findRuff,
+  findPreCommit,
   findShim,
+  formatCmd,
   isCliEntry,
+  jsSources,
   main,
-  mapJsTests,
-  mapPyTests,
+  paint,
+  parseArgs,
+  preCommitExeFor,
+  preCommitOnPath,
+  preview,
+  printGates,
+  pyChanged,
   pytestExeFor,
   resolveBase,
-  resolveDeps,
+  resolveRoot,
+  runCmd,
   runGates,
-  sh,
-  vitestCmd,
+  shimArgs,
+  splitNul,
+  vitestRelated,
+  vitestRun,
 } from "#script/check/local-check.mjs";
 
-// The mapping helpers are pure: they take an injected existence probe, so the
-// path rules can be asserted without touching the real tree.
-
-const allExist = () => true;
-const noneExist = () => false;
-
-/** The loose result shape a stub runner returns (mirrors the real
- *  spawnSync subset the checker reads). */
+/** The loose result shape a stub runner returns. */
 type SpawnLike = {
   status?: number | null;
   stdout?: string;
@@ -34,19 +40,21 @@ type SpawnLike = {
   error?: unknown;
 };
 
-/** A stub command runner that records the commands it was given and
- *  returns a canned result. The run signature is loose so mockImplementation
- *  callbacks may return only the fields a test needs. */
-const makeRunner = (result: SpawnLike = { status: 0, stdout: "", stderr: "" }) => {
-  const calls: string[] = [];
-  const run = vi.fn(
-    (cmd: string, _env?: Record<string, string | undefined>): SpawnLike => {
-      calls.push(cmd);
-      return { status: 0, stdout: "", stderr: "", ...result };
-    },
-  );
+/** A stub runner that records argv and answers by matching the joined argv. */
+const makeRunner = (answers: Record<string, SpawnLike> = {}) => {
+  const calls: string[][] = [];
+  const run = vi.fn((cmd: { argv: string[] }): SpawnLike => {
+    const key = cmd.argv.join(" ");
+    calls.push(cmd.argv);
+    const hit = Object.keys(answers).find(k => key.includes(k));
+    return hit ? answers[hit] : { status: 0, stdout: "", stderr: "" };
+  });
   return { run, calls };
 };
+
+/** A green runner: `git grep` needs status 1 (no hits) to count as passing. */
+const greenRunner = () =>
+  makeRunner({ "git grep": { status: 1, stdout: "", stderr: "" } });
 
 /** A stub console IO that records everything written. */
 const makeIo = () => {
@@ -61,11 +69,24 @@ const makeIo = () => {
   return { io, logs, errs, writes };
 };
 
-describe("sh", () => {
-  it("runs a command through the shell and returns its result", () => {
-    const r = sh("node --version");
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain("v");
+afterEach(() => {
+  process.exitCode = undefined;
+  vi.restoreAllMocks();
+});
+
+describe("paint / colorEnabled", () => {
+  it("wraps text in ANSI when enabled", () => {
+    expect(paint(true, "red", "x")).toBe("\x1b[31mx\x1b[0m");
+  });
+
+  it("returns plain text when disabled", () => {
+    expect(paint(false, "red", "x")).toBe("x");
+  });
+
+  it("enables color only for a TTY without NO_COLOR", () => {
+    expect(colorEnabled({}, true)).toBe(true);
+    expect(colorEnabled({ NO_COLOR: "1" }, true)).toBe(false);
+    expect(colorEnabled({}, false)).toBe(false);
   });
 });
 
@@ -74,18 +95,83 @@ describe("defaultIo", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    try {
-      defaultIo.log("a", "b");
-      defaultIo.err("c");
-      defaultIo.write("d");
-      expect(logSpy).toHaveBeenCalledWith("a", "b");
-      expect(errSpy).toHaveBeenCalledWith("c");
-      expect(writeSpy).toHaveBeenCalledWith("d");
-    } finally {
-      logSpy.mockRestore();
-      errSpy.mockRestore();
-      writeSpy.mockRestore();
-    }
+    defaultIo.log("a", "b");
+    defaultIo.err("c");
+    defaultIo.write("d");
+    expect(logSpy).toHaveBeenCalledWith("a", "b");
+    expect(errSpy).toHaveBeenCalledWith("c");
+    expect(writeSpy).toHaveBeenCalledWith("d");
+  });
+});
+
+describe("runCmd", () => {
+  it("spawns argv directly with no shell by default", () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+    runCmd({ argv: ["git", "status"] }, { spawn, cwd: "/repo" });
+    expect(spawn).toHaveBeenCalledWith(
+      "git",
+      ["status"],
+      expect.objectContaining({ cwd: "/repo", shell: false }),
+    );
+  });
+
+  it("opts into a shell for the npm literal and merges env", () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+    runCmd({ argv: ["npm run test"], shell: true, env: { A: "1" } }, { spawn });
+    const [, , opts] = spawn.mock.calls[0] as unknown as [string, string[], object];
+    expect(opts).toMatchObject({
+      shell: true,
+      env: expect.objectContaining({ A: "1" }),
+    });
+  });
+});
+
+describe("NPM", () => {
+  it("builds a shell command line from the literal", () => {
+    expect(NPM("run typecheck")).toEqual({
+      argv: ["npm run typecheck"],
+      shell: true,
+    });
+  });
+});
+
+describe("pytestExeFor / preCommitExeFor", () => {
+  it("uses Scripts on win32", () => {
+    expect(pytestExeFor("win32")).toBe(join(".venv", "Scripts", "python.exe"));
+    expect(preCommitExeFor("win32")).toBe(join(".venv", "Scripts", "pre-commit.exe"));
+  });
+
+  it("uses bin on POSIX", () => {
+    expect(pytestExeFor("linux")).toBe(join(".venv", "bin", "python"));
+    expect(preCommitExeFor("linux")).toBe(join(".venv", "bin", "pre-commit"));
+  });
+});
+
+describe("findPreCommit", () => {
+  it("prefers the venv executable", () => {
+    const exe = resolve("/proj", preCommitExeFor());
+    expect(findPreCommit({ root: "/proj", exists: p => p === exe })).toBe(exe);
+  });
+
+  it("falls back to PATH when the venv has none", () => {
+    expect(findPreCommit({ root: "/proj", exists: () => false })).toBe("pre-commit");
+  });
+});
+
+describe("preCommitOnPath", () => {
+  it("asks where on Windows and which on POSIX", () => {
+    const win = makeRunner({ where: { status: 0 } });
+    expect(preCommitOnPath({ run: win.run, platform: "win32" })).toBe(true);
+    expect(win.calls[0]).toEqual(["where", "pre-commit"]);
+
+    const posix = makeRunner({ which: { status: 0 } });
+    expect(preCommitOnPath({ run: posix.run, platform: "linux" })).toBe(true);
+    expect(posix.calls[0]).toEqual(["which", "pre-commit"]);
+  });
+
+  it("is false when the lookup misses", () => {
+    const { run } = makeRunner({ which: { status: 1 } });
+    expect(preCommitOnPath({ run, platform: "linux" })).toBe(false);
   });
 });
 
@@ -93,8 +179,7 @@ describe("findShim", () => {
   it("returns the shim when it exists at the given root", () => {
     const p = findShim({
       root: "/proj",
-      exists: (p: string) =>
-        p === resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"),
+      exists: p => p === resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"),
     });
     expect(p).toBe(resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"));
   });
@@ -102,721 +187,571 @@ describe("findShim", () => {
   it("walks up the tree until it finds the shim", () => {
     const p = findShim({
       root: "/proj/wt/child",
-      exists: (p: string) =>
-        p === resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"),
+      exists: p => p === resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"),
     });
     expect(p).toBe(resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"));
   });
 
   it("falls back to root/.foliplus when nothing is found", () => {
-    const p = findShim({ root: "/proj", exists: () => false });
-    expect(p).toBe(resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"));
+    expect(findShim({ root: "/proj", exists: () => false })).toBe(
+      resolve("/proj", ".foliplus", "vite-spawn-patch.mjs"),
+    );
   });
 });
 
-describe("vitestCmd", () => {
-  it("normalises Windows backslashes in the shim path", () => {
-    const cmd = vitestCmd(
-      ["test/js/X.test.ts"],
-      "C:\\proj\\.foliplus\\vite-spawn-patch.mjs",
-    );
-    expect(cmd).toContain("file:///C:/proj/.foliplus/vite-spawn-patch.mjs");
-    expect(cmd).toContain("--pool=threads");
+describe("shimArgs", () => {
+  it("adds --import only on Windows when the shim exists", () => {
+    const shim = resolve("/proj", ".foliplus", "vite-spawn-patch.mjs");
+    const args = shimArgs({ shim, exists: () => true, platform: "win32" });
+    expect(args[0]).toBe("--import");
+    // A file URL of the shim, whatever the host separator is.
+    expect(args[1]).toMatch(/^file:\/\/.*vite-spawn-patch\.mjs$/);
+    expect(args[1]).toContain(".foliplus");
   });
 
-  it("joins test paths with the vitest invocation", () => {
-    const cmd = vitestCmd(["a.test.ts", "b.test.ts"], resolve("/x", "shim.mjs"));
-    expect(cmd).toContain(`file:///${resolve("/x", "shim.mjs").replace(/\\/g, "/")}`);
-    expect(cmd).toContain("a.test.ts b.test.ts");
-  });
-});
-
-describe("findRuff", () => {
-  it("prefers the project venv ruff.exe", () => {
-    const venvExe = join("/proj", ".venv", "Scripts", "ruff.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) => p === venvExe,
-      spawn: () => ({ status: 0, stdout: "" }),
-      readdir: () => [],
-    });
-    expect(r).toEqual([venvExe]);
+  it("is empty when the shim is missing", () => {
+    expect(shimArgs({ exists: () => false, platform: "win32" })).toEqual([]);
   });
 
-  it("uses the pre-commit cache v0.17.2 ruff when present", () => {
-    const repo = join("/home", ".cache", "pre-commit", "repoX");
-    const exe = join(repo, "py_env-python3", "Scripts", "ruff.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) =>
-        p === join("/proj", ".venv", "Scripts", "ruff.exe") ? false : p === exe,
-      spawn: () => ({ status: 0, stdout: "ruff 0.17.2" }),
-      readdir: () => [{ isDirectory: () => true, name: "repoX" }],
-    });
-    expect(r).toEqual([exe]);
-  });
-
-  it("falls back to venv python -m ruff", () => {
-    const venvPy = join("/proj", ".venv", "Scripts", "python.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) => p === venvPy,
-      spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
-      readdir: () => [],
-    });
-    expect(r).toEqual([venvPy, "-m", "ruff"]);
-  });
-
-  it("falls back to global ruff on PATH", () => {
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: () => false,
-      spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
-      readdir: () => [],
-    });
-    expect(r).toEqual(["ruff"]);
-  });
-
-  it("returns null when no ruff is usable", () => {
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: () => false,
-      spawn: () => ({ status: 1, stdout: "" }),
-      readdir: () => [],
-    });
-    expect(r).toBeNull();
-  });
-
-  it("tolerates an unreadable pre-commit cache dir", () => {
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: () => false,
-      spawn: () => ({ status: 1, stdout: "" }),
-      readdir: () => {
-        throw new Error("EPERM");
-      },
-    });
-    expect(r).toBeNull();
+  it("is empty on POSIX (the sandbox workaround does not apply)", () => {
+    expect(shimArgs({ exists: () => true, platform: "linux" })).toEqual([]);
   });
 });
 
-describe("collectChangedFiles", () => {
-  it("dedupes and drops .foliplus scratch", () => {
-    const files = collectChangedFiles({
-      changedFiles: ["foliplus/js/X.ts", "foliplus/js/X.ts", ".foliplus/tmp/a.js"],
+describe("vitestRun / vitestRelated", () => {
+  it("runs an explicit test list", () => {
+    const cmd = vitestRun(["a.test.ts"], { exists: () => false, platform: "linux" });
+    expect(cmd.argv).toContain("run");
+    expect(cmd.argv).toContain("a.test.ts");
+    expect(cmd.argv).toContain("--pool=threads");
+  });
+
+  it("uses related with --run and --passWithNoTests", () => {
+    const cmd = vitestRelated(["foliplus/js/x.ts"], {
+      exists: () => false,
+      platform: "linux",
     });
-    expect(files).toEqual(["foliplus/js/X.ts"]);
+    expect(cmd.argv).toContain("related");
+    expect(cmd.argv).toContain("--run");
+    expect(cmd.argv).toContain("--passWithNoTests");
+  });
+});
+
+describe("splitNul", () => {
+  it("splits a NUL-separated list and drops the trailing empty token", () => {
+    expect(splitNul("a\0b\0")).toEqual(["a", "b"]);
   });
 
-  it("merges branch, unstaged and staged changes via the runner", () => {
-    const { run } = makeRunner();
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("merge-base")) {
-        return { status: 0, stdout: "abc123", stderr: "" };
-      }
-      if (cmd.includes("...HEAD")) {
-        return { status: 0, stdout: "foliplus/js/A.ts\nfoliplus/js/A.ts", stderr: "" };
-      }
-      if (cmd.includes("--cached")) {
-        return { status: 0, stdout: "foliplus/js/B.ts\n.foliplus/x.js", stderr: "" };
-      }
-      return { status: 0, stdout: "foliplus/js/C.ts", stderr: "" };
-    });
-    const files = collectChangedFiles({ run });
-    expect([...files].sort()).toEqual([
-      "foliplus/js/A.ts",
-      "foliplus/js/B.ts",
-      "foliplus/js/C.ts",
-    ]);
-    expect(run.mock.calls.length).toBe(4); // merge-base + 3 diffs
-  });
-
-  it("uses the explicit mergeBase when given", () => {
-    const { run } = makeRunner();
-    run.mockImplementation((cmd: string) =>
-      cmd.includes("...HEAD")
-        ? { status: 0, stdout: "a.ts", stderr: "" }
-        : { status: 0, stdout: "", stderr: "" },
-    );
-    collectChangedFiles({ run, mergeBase: "deadbeef" });
-    expect(run.mock.calls[0][0]).toContain("deadbeef...HEAD");
-  });
-
-  it("falls back to origin/main when merge-base returns nothing", () => {
-    const { run } = makeRunner();
-    run.mockImplementation((cmd: string) =>
-      cmd.includes("merge-base")
-        ? { status: 0, stdout: "", stderr: "" }
-        : { status: 0, stdout: "x.ts", stderr: "" },
-    );
-    collectChangedFiles({ run });
-    expect(run.mock.calls[1][0]).toContain("origin/main...HEAD");
+  it("returns [] for empty output", () => {
+    expect(splitNul("")).toEqual([]);
   });
 });
 
 describe("resolveBase", () => {
-  it("returns the trimmed stdout", () => {
-    expect(resolveBase({ stdout: "  abc123\n" })).toBe("abc123");
+  it("returns the trimmed sha", () => {
+    expect(resolveBase({ status: 0, stdout: " abc \n" })).toBe("abc");
   });
-  it("falls back to origin/main when empty", () => {
-    expect(resolveBase({ stdout: "" })).toBe("origin/main");
+
+  it("falls back to origin/main on failure or empty output", () => {
+    expect(resolveBase({ status: 1, stdout: "abc" })).toBe("origin/main");
+    expect(resolveBase({ status: 0, stdout: "  " })).toBe("origin/main");
+  });
+});
+
+describe("collectChangedFiles", () => {
+  it("merges branch, staged, unstaged and untracked files and drops .foliplus", () => {
+    const { run } = makeRunner({
+      "diff --name-only -z --diff-filter=ACMR": {
+        status: 0,
+        stdout: "a.ts\0.foliplus/x\0",
+      },
+      "--cached": { status: 0, stdout: "b.py\0" },
+      "ls-files --others": { status: 0, stdout: "c.ts\0" },
+    });
+    expect(collectChangedFiles({ run, base: "abc", io: makeIo().io })).toEqual([
+      "a.ts",
+      "b.py",
+      "c.ts",
+    ]);
+  });
+
+  it("resolves the base itself when none is given", () => {
+    const { run, calls } = makeRunner({
+      "merge-base": { status: 0, stdout: "abc\n" },
+    });
+    collectChangedFiles({ run, io: makeIo().io });
+    expect(calls[0]).toEqual(["git", "merge-base", "origin/main", "HEAD"]);
+    expect(calls[1]).toContain("abc...HEAD");
+  });
+
+  it("warns and keeps working-tree changes when the branch diff fails", () => {
+    const { io, logs } = makeIo();
+    const { run } = makeRunner({
+      "abc...HEAD": { status: 128, stdout: "" },
+      "diff --name-only -z --diff-filter=ACMR": { status: 0, stdout: "a.ts\0" },
+    });
+    expect(collectChangedFiles({ run, base: "abc", io })).toEqual(["a.ts"]);
+    expect(logs.join("\n")).toContain("checking working-tree changes only");
+  });
+
+  it("ignores a failed working-tree diff", () => {
+    const { run } = makeRunner({
+      "diff --name-only -z --diff-filter=ACMR": { status: 1 },
+    });
+    expect(collectChangedFiles({ run, base: "abc", io: makeIo().io })).toEqual([]);
+  });
+});
+
+describe("resolveRoot", () => {
+  it("returns the git toplevel", () => {
+    const { run } = makeRunner({ "rev-parse": { status: 0, stdout: "/repo\n" } });
+    expect(resolveRoot(run)).toBe("/repo");
+  });
+
+  it("falls back to cwd when git fails or prints nothing", () => {
+    expect(resolveRoot(makeRunner({ "rev-parse": { status: 1 } }).run)).toBe(
+      process.cwd(),
+    );
+    expect(
+      resolveRoot(makeRunner({ "rev-parse": { status: 0, stdout: "" } }).run),
+    ).toBe(process.cwd());
   });
 });
 
 describe("fetchOriginMain", () => {
   it("logs ok on success", () => {
-    const { run } = makeRunner({ status: 0 });
     const { io, logs } = makeIo();
-    fetchOriginMain({ run, io });
-    expect(logs.join(" ")).toContain("fetched origin/main ok");
+    fetchOriginMain({ run: makeRunner().run, io });
+    expect(logs.join("\n")).toContain("fetched origin/main ok");
   });
 
-  it("warns on failure but does not throw", () => {
-    const { run } = makeRunner({ status: 1, stderr: "fatal: no network\n" });
+  it("warns with the first stderr line on failure", () => {
     const { io, logs } = makeIo();
-    expect(() => fetchOriginMain({ run, io })).not.toThrow();
-    expect(logs.join(" ")).toContain("git fetch origin main failed");
+    const { run } = makeRunner({
+      fetch: { status: 1, stderr: "no network\ndetails", stdout: "" },
+    });
+    fetchOriginMain({ run, io });
+    expect(logs.join("\n")).toContain("no network");
+    expect(logs.join("\n")).not.toContain("details");
   });
 
-  it("reports the first stderr line in the warning", () => {
-    const { run } = makeRunner({ status: 1, stderr: "line1\nline2" });
+  it("falls back to the default message when stderr and stdout are empty", () => {
     const { io, logs } = makeIo();
+    const { run } = makeRunner({ fetch: { status: 1, stderr: "", stdout: "" } });
     fetchOriginMain({ run, io });
-    expect(logs.join(" ")).toContain("line1");
+    expect(logs.join("\n")).toContain("git fetch failed");
+  });
+
+  it("uses the default IO when none is injected", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    fetchOriginMain({ run: makeRunner().run });
+    expect(logSpy).toHaveBeenCalled();
   });
 });
 
-describe("mapJsTests", () => {
-  it("maps a component source file to its sibling test file", () => {
-    const paths = mapJsTests(["foliplus/js/HeatmapControl/manager.ts"], allExist);
-    expect(paths).toEqual(["test/js/HeatmapControl/manager.test.ts"]);
+describe("jsSources / pyChanged", () => {
+  it("keeps JS/TS/CSS under the source roots", () => {
+    expect(
+      jsSources([
+        "foliplus/js/a.ts",
+        "script/b.mjs",
+        "config/c.mjs",
+        "test/js/d.test.ts",
+        "foliplus/css/e.css",
+      ]),
+    ).toHaveLength(5);
   });
 
-  it("falls back to the component test dir when no sibling test exists", () => {
-    const paths = mapJsTests(
-      ["foliplus/js/HeatmapControl/ui.ts"],
-      p => p === "test/js/HeatmapControl", // dir exists, sibling file does not
-    );
-    expect(paths).toEqual(["test/js/HeatmapControl"]);
+  it("drops non-source roots and non-JS extensions", () => {
+    expect(jsSources(["doc/a.ts", "foliplus/py/a.py", "CHANGELOG.md"])).toEqual([]);
   });
 
-  it("maps a top-level foliplus/js file to its test file", () => {
-    const paths = mapJsTests(["foliplus/js/BaseControl.ts"], allExist);
-    expect(paths).toEqual(["test/js/BaseControl.test.ts"]);
-  });
-
-  it("maps a shared common file to its sibling test", () => {
-    const paths = mapJsTests(["foliplus/js/common/dom.ts"], allExist);
-    expect(paths).toEqual(["test/js/common/dom.test.ts"]);
-  });
-
-  it("maps a script module to its test file", () => {
-    const paths = mapJsTests(["script/build/build.mjs"], allExist);
-    expect(paths).toEqual(["test/js/script/build/build.test.ts"]);
-  });
-
-  it("returns [] when no changed file maps to a test", () => {
-    expect(mapJsTests([], noneExist)).toEqual([]);
-    expect(mapJsTests(["foliplus/css/HeatmapControl.css"], noneExist)).toEqual([]);
+  it("detects every Python change shape", () => {
+    for (const f of [
+      "foliplus/a.py",
+      "test/python/a.py",
+      "script/a.py",
+      "pyproject.toml",
+    ]) {
+      expect(pyChanged([f]), f).toBe(true);
+    }
+    expect(pyChanged(["foliplus/js/a.ts"])).toBe(false);
   });
 });
 
-describe("mapPyTests", () => {
-  it("maps a control module to its test/python subdir", () => {
-    const paths = mapPyTests(
-      ["foliplus/HeatmapControl.py"],
-      p => p === "test/python/HeatmapControl",
-    );
-    expect(paths).toEqual(["test/python/HeatmapControl"]);
+describe("chunk / preview", () => {
+  it("splits into fixed-size batches", () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunk([], 2)).toEqual([]);
   });
 
-  it("maps a control module to its test file when no subdir exists", () => {
-    const paths = mapPyTests(
-      ["foliplus/ScaleControl.py"],
-      p => p === "test/python/ScaleControl.py",
-    );
-    expect(paths).toEqual(["test/python/ScaleControl.py"]);
-  });
-
-  it("maps a changed test/python file to itself", () => {
-    const paths = mapPyTests(["test/python/test_locale.py"], allExist);
-    expect(paths).toEqual(["test/python/test_locale.py"]);
-  });
-
-  it("returns [] when no changed file maps to a test", () => {
-    expect(mapPyTests([], noneExist)).toEqual([]);
+  it("shortens long path lists", () => {
+    expect(preview(["a", "b"])).toBe("a, b");
+    expect(preview(Array.from({ length: 10 }, (_, i) => `${i}`))).toContain("… (+2)");
   });
 });
 
 describe("buildGates", () => {
-  it("builds the full gate list with ruff and changed py/js files", () => {
-    const gates = buildGates(["foliplus/js/X.ts", "foliplus/Y.py", "CHANGELOG.md"], {
-      ruff: ["/x/ruff.exe"],
-      exists: allExist,
-    });
-    const names = gates.map(g => g.name);
-    expect(names).toContain("typecheck");
-    expect(names).toContain("prettier");
-    expect(names).toContain("eslint");
-    expect(names).toContain("ruff");
-    expect(names).toContain("ruff-format");
-    expect(names).toContain("listener-guard + toolchain-guard");
-    expect(names).toContain("vitest (changed-file tests)");
-    expect(names).toContain("build-js-dev (before pytest)");
-    expect(names).toContain("pytest (changed-file tests, non-browser)");
-    expect(names).toContain("pytest test_locale.py");
-    expect(names).toContain("changelog_check --skip-exists");
-    expect(names).toContain("mojibake_check (full tree)");
-    expect(names).toContain("dead_barrel_export");
-    // CHANGELOG.md must not reach prettier.
-    const prettier = gates.find(g => g.name === "prettier");
-    expect(prettier!.cmd).not.toContain("CHANGELOG.md");
-    expect(prettier!.cmd).toContain("foliplus/js/X.ts");
+  const opts = { exists: () => false, platform: "linux", hasPython: true };
+  type GateLike = {
+    name: string;
+    cmds: { argv: string[] }[];
+    ok?: (r: { status?: number | null }) => boolean;
+    error?: string;
+  };
+  const byName = (gates: GateLike[], name: string) => gates.find(g => g.name === name);
+
+  it("orders prettier, eslint, pre-commit, guards, vitest, typecheck, pytest", () => {
+    const gates = buildGates(["foliplus/js/a.ts", "foliplus/b.py"], opts);
+    expect(gates.map(g => g.name)).toEqual([
+      "prettier (1 changed file)",
+      "eslint (1 changed file)",
+      "pre-commit (2 changed files)",
+      "mojibake (full tree)",
+      "guards (listener + toolchain, full tree)",
+      "vitest related (1 source file)",
+      "typecheck",
+      "build-js-dev (pytest reads foliplus/dist/)",
+      "pytest (full non-browser suite)",
+    ]);
   });
 
-  it("skips prettier/eslint/ruff/vitest/pytest when no matching files", () => {
-    const gates = buildGates(["docs/x.rst"], { ruff: ["/x/ruff.exe"] });
-    const skip = gates.filter(g => g.cmd === null).map(g => g.name);
-    expect(skip).toContain("prettier (no changed formattable files)");
-    expect(skip).toContain("eslint (no changed JS/TS files)");
-    expect(skip).toContain("ruff (no changed .py files)");
-    expect(skip).toContain("vitest (no changed-file tests)");
-    expect(skip).toContain("pytest (no changed-file tests)");
+  it("runs prettier and eslint only on the globs CI covers", () => {
+    const gates = buildGates(
+      ["foliplus/js/a.ts", "test/js/a.test.ts", "README.md", "doc/a.md"],
+      opts,
+    );
+    expect(byName(gates, "prettier (2 changed files)")?.cmds[0].argv).toEqual([
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--check",
+      "foliplus/js/a.ts",
+      "test/js/a.test.ts",
+    ]);
+    expect(byName(gates, "eslint (2 changed files)")?.cmds[0].argv).toContain(
+      "config/eslint/typed.mjs",
+    );
   });
 
-  it("warns and skips ruff gates when no ruff binary is found", () => {
+  it("passes every changed file to pre-commit in one batch", () => {
+    const gates = buildGates(["a.ts", "b.ts"], opts);
+    expect(byName(gates, "pre-commit (2 changed files)")?.cmds[0].argv).toEqual([
+      "pre-commit",
+      "run",
+      "--files",
+      "a.ts",
+      "b.ts",
+      "--show-diff-on-failure",
+    ]);
+  });
+
+  it("batches more than PRECOMMIT_CHUNK files", () => {
+    const files = Array.from({ length: 61 }, (_, i) => `f${i}.ts`);
+    const gates = buildGates(files, opts);
+    expect(byName(gates, "pre-commit (61 changed files)")?.cmds).toHaveLength(2);
+  });
+
+  it("skips the changed-file gates when nothing changed", () => {
+    const gates = buildGates([], opts);
+    expect(byName(gates, "prettier (no changed formattable files)")?.cmds).toEqual([]);
+    expect(byName(gates, "eslint (no changed JS/TS files)")?.cmds).toEqual([]);
+    expect(byName(gates, "pre-commit (no changed files)")?.cmds).toEqual([]);
+    expect(byName(gates, "vitest related (no changed JS/TS files)")).toBeTruthy();
+  });
+
+  it("treats git grep status 1 as clean and 0 as a hit", () => {
+    const mojibake = byName(buildGates([], opts), "mojibake (full tree)");
+    expect(mojibake?.ok?.({ status: 1 })).toBe(true);
+    expect(mojibake?.ok?.({ status: 0 })).toBe(false);
+  });
+
+  it("runs the cheap locale check for a JS-only change", () => {
+    const gates = buildGates(["foliplus/js/a.ts"], opts);
+    expect(gates.map(g => g.name)).toContain(
+      "pytest test_locale (cross-language keys)",
+    );
+  });
+
+  it("fails loudly when Python changed but .venv is missing", () => {
+    const gates = buildGates(["foliplus/a.py"], { ...opts, hasPython: false });
+    expect(byName(gates, "pytest (no .venv)")?.error).toContain(".venv");
+  });
+
+  it("fails loudly with an install hint when pre-commit is missing", () => {
+    const gates = buildGates(["a.ts"], { ...opts, hasPreCommit: false });
+    const gate = byName(gates, "pre-commit (not installed)");
+    expect(gate?.error).toContain("not on PATH");
+    expect(gate?.cmds).toEqual([]);
+  });
+
+  it("skips Python gates with a warning on a JS-only machine", () => {
     const { io, logs } = makeIo();
-    const gates = buildGates(["foliplus/Y.py"], { ruff: null, io });
-    expect(gates.some(g => g.name === "ruff")).toBe(false);
-    expect(logs.join(" ")).toContain("no ruff binary found");
+    const gates = buildGates(["foliplus/js/a.ts"], {
+      ...opts,
+      hasPython: false,
+      io,
+    });
+    expect(gates.map(g => g.name)).toContain("pytest test_locale (no .venv)");
+    expect(logs.join("\n")).toContain("no .venv");
   });
 
-  it("uses the injected pytest exe and vitest command builder", () => {
-    const gates = buildGates(["foliplus/Y.py", "foliplus/js/X.ts"], {
-      ruff: ["ruff"],
-      pytestExe: ".venv\\Scripts\\python.exe",
-      vitestCmdFn: (paths: string[]) => `VITEST ${paths.join(" ")}`,
-      exists: allExist,
+  it("adds the Windows shim to the vitest commands", () => {
+    const gates = buildGates([], {
+      ...opts,
+      platform: "win32",
+      exists: () => true,
+      shim: "C:\\p\\.foliplus\\vite-spawn-patch.mjs",
     });
-    const py = gates.find(g => g.name === "pytest (changed-file tests, non-browser)");
-    expect(py!.cmd).toContain(".venv\\Scripts\\python.exe");
-    const v = gates.find(g => g.name === "vitest (changed-file tests)");
-    // vitestCmdFn returns `VITEST ${paths.join(" ")}`; with exists: allExist,
-    // foliplus/js/X.ts maps to test/js/X.test.ts and foliplus/Y.py maps to nothing.
-    expect(v!.cmd).toBe("VITEST test/js/X.test.ts");
+    const guards = gates.find(g => g.name.startsWith("guards"));
+    expect(guards?.cmds[0].argv).toContain("--import");
   });
 
-  it("quotes the ruff exe path when it contains a slash", () => {
-    const gates = buildGates(["foliplus/Y.py"], {
-      ruff: ["/x/ruff.exe"],
-      exists: allExist,
+  it("uses the injected pytest exe and pre-commit path", () => {
+    const gates = buildGates(["a.py"], {
+      ...opts,
+      pytestExe: "/venv/python",
+      preCommit: "/venv/pre-commit",
     });
-    const ruff = gates.find(g => g.name === "ruff");
-    expect(ruff!.cmd).toContain('"/x/ruff.exe" check');
+    expect(byName(gates, "pre-commit (1 changed file)")?.cmds[0].argv[0]).toBe(
+      "/venv/pre-commit",
+    );
+    expect(gates.at(-1)?.cmds[0].argv[0]).toBe("/venv/python");
   });
 });
 
 describe("runGates", () => {
-  it("prints a checkmark and continues when a gate passes", () => {
-    const gates = [{ name: "typecheck", cmd: "npm run typecheck", fix: null }];
-    const { run } = makeRunner({ status: 0 });
+  const gate = (name: string, cmds: object[], fix: string | null = null) =>
+    ({ name, cmds, fix }) as never;
+
+  it("prints a checkmark with timing and continues", () => {
     const { io, logs, writes } = makeIo();
-    const failed = runGates(gates, run, io);
-    expect(failed).toBe(false);
-    expect(writes.join("")).toContain("→ typecheck");
-    expect(logs.join("")).toContain("✓");
+    const failed = runGates(
+      [gate("a", [{ argv: ["x"] }]), gate("b", [{ argv: ["y"] }])],
+      { run: makeRunner().run, io },
+    );
+    expect(failed).toEqual([]);
+    expect(writes[0]).toContain("→ a");
+    expect(logs.filter(l => l.includes("✓"))).toHaveLength(2);
   });
 
-  it("prints a skip marker and does not run when cmd is null", () => {
-    const gates = [{ name: "x (skip)", cmd: null, fix: null }];
-    const { run } = makeRunner();
+  it("marks an empty command list as a skip", () => {
     const { io, logs } = makeIo();
-    runGates(gates, run, io);
-    expect(run).not.toHaveBeenCalled();
-    expect(logs.join("")).toContain("(skip)");
+    runGates([gate("skip", [])], { run: makeRunner().run, io });
+    expect(logs.join("\n")).toContain("(skip)");
   });
 
-  it("reports stdout, stderr and the fix hint and aborts on failure", () => {
-    const gates = [
-      { name: "prettier", cmd: "npx prettier", fix: "npx prettier --write" },
-    ];
-    const { run } = makeRunner({
-      status: 1,
-      stdout: "stdout line",
-      stderr: "stderr line",
-    });
+  it("reports stdout, stderr, the spawn error and the fix hint", () => {
     const { io, logs, errs } = makeIo();
-    const failed = runGates(gates, run, io);
-    expect(failed).toBe(true);
-    expect(logs.join("")).toContain("stdout line");
-    expect(errs.join("")).toContain("stderr line");
-    expect(errs.join("")).toContain("GATE FAILED: prettier");
-    expect(errs.join("")).toContain("fix: npx prettier --write");
+    const failed = runGates([gate("red", [{ argv: ["x"] }], "do the thing")], {
+      run: makeRunner({
+        x: { status: 1, stdout: "out", stderr: "err", error: new Error("boom") },
+      }).run,
+      io,
+    });
+    expect(failed).toHaveLength(1);
+    expect(logs.join("\n")).toContain("out");
+    expect(errs.join("\n")).toContain("err");
+    expect(errs.join("\n")).toContain("boom");
+    expect(errs.join("\n")).toContain("fix: do the thing");
   });
 
-  it("does not print a fix hint when fix is null", () => {
-    const gates = [{ name: "typecheck", cmd: "tsc", fix: null }];
-    const { run } = makeRunner({ status: 1 });
+  it("stops at the first red with failFast", () => {
+    const { io } = makeIo();
+    const { run, calls } = makeRunner({ a: { status: 1 } });
+    const failed = runGates(
+      [gate("first", [{ argv: ["a"] }]), gate("second", [{ argv: ["b"] }])],
+      { run, io, failFast: true },
+    );
+    expect(failed.map(g => g.name)).toEqual(["first"]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("honours a custom ok predicate", () => {
+    const { io } = makeIo();
+    const failed = runGates(
+      [{ name: "grep", cmds: [{ argv: ["x"] }], fix: null, ok: () => true } as never],
+      { run: makeRunner({ x: { status: 1 } }).run, io },
+    );
+    expect(failed).toEqual([]);
+  });
+
+  it("reports an unavailable gate as a failure", () => {
     const { io, errs } = makeIo();
-    runGates(gates, run, io);
-    expect(errs.join("")).not.toContain("fix:");
+    const failed = runGates(
+      [{ name: "no venv", cmds: [], fix: "make env", error: "missing" } as never],
+      { run: makeRunner().run, io },
+    );
+    expect(failed.map(g => g.name)).toEqual(["no venv"]);
+    expect(errs.join("\n")).toContain("missing");
+    expect(errs.join("\n")).toContain("make env");
+  });
+
+  it("continues past an unavailable gate when failFast is off", () => {
+    const { io } = makeIo();
+    const failed = runGates(
+      [
+        { name: "no venv", cmds: [], fix: null, error: "missing" } as never,
+        gate("later", [{ argv: ["x"] }]),
+      ],
+      { run: makeRunner().run, io },
+    );
+    expect(failed.map(g => g.name)).toEqual(["no venv"]);
+  });
+});
+
+describe("parseArgs", () => {
+  it("parses every flag", () => {
+    expect(parseArgs(["--list", "--fail-fast", "--no-fetch"])).toMatchObject({
+      list: true,
+      failFast: true,
+      fetch: false,
+    });
+    expect(parseArgs(["--base", "abc"]).base).toBe("abc");
+    expect(parseArgs(["--base=abc"]).base).toBe("abc");
+    expect(parseArgs(["--help"]).help).toBe(true);
+    expect(parseArgs(["-h"]).help).toBe(true);
+    expect(parseArgs(["--dry-run"]).list).toBe(true);
+  });
+
+  it("collects unknown flags", () => {
+    expect(parseArgs(["--nope", "x"]).unknown).toEqual(["--nope", "x"]);
+  });
+});
+
+describe("formatCmd / printGates", () => {
+  it("prints a shell command as its literal", () => {
+    expect(formatCmd(NPM("run test"))).toBe("npm run test");
+  });
+
+  it("quotes argv entries with spaces", () => {
+    expect(formatCmd({ argv: ["node", "a b.ts"] })).toBe('node "a b.ts"');
+  });
+
+  it("escapes the U+FFFD probe so --list stays readable", () => {
+    expect(formatCmd({ argv: ["git", "grep", "-e", "\uFFFD"] })).toBe(
+      "git grep -e \\uFFFD",
+    );
+  });
+
+  it("lists gates, skips and unavailable ones", () => {
+    const { io, logs } = makeIo();
+    printGates(
+      [
+        { name: "run", cmds: [{ argv: ["x"] }], fix: null } as never,
+        { name: "skip", cmds: [], fix: null } as never,
+        { name: "down", cmds: [], fix: null, error: "no venv" } as never,
+      ],
+      io,
+    );
+    const text = logs.join("\n");
+    expect(text).toContain("run:");
+    expect(text).toContain("skip — skip");
+    expect(text).toContain("down — unavailable: no venv");
   });
 });
 
 describe("main", () => {
-  it("runs the full flow and returns 0 when every gate passes", () => {
-    const { run } = makeRunner({ status: 0 });
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
-      if (cmd.includes("merge-base")) {
-        return { status: 0, stdout: "abc123", stderr: "" };
-      }
-      if (cmd.includes("diff")) return { status: 0, stdout: "", stderr: "" };
-      return { status: 0, stdout: "", stderr: "" };
-    });
+  const base = {
+    preCommit: "/venv/pre-commit",
+    hasPython: true,
+    exists: () => false,
+    platform: "linux",
+  };
+
+  it("prints help and returns 0", () => {
     const { io, logs } = makeIo();
-    const code = main({ run, io, ruff: ["ruff"], pytestExe: "python" });
-    expect(code).toBe(0);
-    expect(logs.join("")).toContain("base: abc123");
-    expect(logs.join("")).toContain("all local gates green");
+    expect(main({ argv: ["--help"], io, run: makeRunner().run })).toBe(0);
+    expect(logs.join("\n")).toContain("--fail-fast");
   });
 
-  it("returns 1 and sets exitCode when a gate fails", () => {
-    const { run } = makeRunner({ status: 0 });
-    let n = 0;
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
-      if (cmd.includes("merge-base")) {
-        return { status: 0, stdout: "abc123", stderr: "" };
-      }
-      if (cmd.includes("diff")) return { status: 0, stdout: "", stderr: "" };
-      n++;
-      // First real gate (typecheck) fails.
-      return n === 1
-        ? { status: 1, stdout: "typecheck error", stderr: "" }
-        : { status: 0, stdout: "", stderr: "" };
+  it("rejects unknown flags with exit code 2", () => {
+    const { io, errs } = makeIo();
+    expect(main({ argv: ["--nope"], io, run: makeRunner().run })).toBe(2);
+    expect(process.exitCode).toBe(2);
+    expect(errs.join("\n")).toContain("unknown argument");
+  });
+
+  it("runs every gate and returns 0 when green", () => {
+    const { run, calls } = greenRunner();
+    const { io, logs } = makeIo();
+    expect(main({ argv: ["--no-fetch"], io, run, ...base })).toBe(0);
+    expect(logs.join("\n")).toContain("all local gates green");
+    expect(calls.some(c => c.includes("merge-base"))).toBe(true);
+    expect(calls.some(c => c.includes("fetch"))).toBe(false);
+  });
+
+  it("lists the gates without running them", () => {
+    const { run } = greenRunner();
+    const { io, logs } = makeIo();
+    expect(main({ argv: ["--list", "--base", "abc"], io, run, ...base })).toBe(0);
+    expect(logs.join("\n")).toContain("pre-commit");
+    expect(logs.join("\n")).toContain("base: abc");
+  });
+
+  it("returns 1 and names the failing gate", () => {
+    const { run } = makeRunner({
+      "git grep": { status: 1 },
+      "npm run typecheck": { status: 2, stderr: "tsc boom" },
     });
     const { io, errs } = makeIo();
-    const prev = process.exitCode;
-    const code = main({ run, io, ruff: ["ruff"], pytestExe: "python" });
-    expect(code).toBe(1);
-    expect(errs.join("")).toContain("one or more local gates failed");
+    expect(main({ argv: ["--no-fetch"], io, run, ...base })).toBe(1);
     expect(process.exitCode).toBe(1);
-    process.exitCode = prev;
-  });
-});
-
-describe("pytestExeFor", () => {
-  it("returns the Windows venv path on win32", () => {
-    expect(pytestExeFor("win32")).toBe(".venv\\Scripts\\python.exe");
-  });
-  it("returns the POSIX venv path on non-win32", () => {
-    expect(pytestExeFor("linux")).toBe(".venv/bin/python");
-    expect(pytestExeFor("darwin")).toBe(".venv/bin/python");
-  });
-});
-
-describe("resolveDeps", () => {
-  it("injects run/io/ruff when given", () => {
-    const run = () => ({ status: 0 });
-    const io = { log: () => {}, err: () => {}, write: () => {} };
-    const d = resolveDeps({ run, io, ruff: ["ruff"] });
-    expect(d.run).toBe(run);
-    expect(d.io).toBe(io);
-    expect(d.ruff).toEqual(["ruff"]);
+    expect(errs.join("\n")).toContain("typecheck");
+    expect(errs.join("\n")).toContain("tsc boom");
   });
 
-  it("defaults to the real runner/io and findRuff when omitted", () => {
-    const d = resolveDeps({});
-    expect(typeof d.run).toBe("function");
-    expect(typeof d.io.log).toBe("function");
-    // ruff defaults to findRuff() — may be null on a machine without ruff, but
-    // the branch (deps.ruff === undefined -> findRuff()) is taken.
-    expect(d.ruff === null || Array.isArray(d.ruff)).toBe(true);
+  it("fetches by default and skips the fetch when a base is pinned", () => {
+    const { run, calls } = greenRunner();
+    main({ argv: [], io: makeIo().io, run, ...base });
+    expect(calls.some(c => c.includes("fetch"))).toBe(true);
+    const pinned = greenRunner();
+    const pinnedIo = makeIo();
+    main({ argv: ["--base", "abc"], io: pinnedIo.io, run: pinned.run, ...base });
+    expect(pinned.calls.some(c => c.includes("fetch"))).toBe(false);
+    expect(pinnedIo.logs.join("\n")).toContain("base pinned to abc");
   });
 
-  it("keeps an explicit null ruff (skips ruff gates)", () => {
-    const d = resolveDeps({ ruff: null });
-    expect(d.ruff).toBeNull();
-  });
-});
-
-describe("findRuff branch coverage", () => {
-  it("returns null when the pre-commit exe exists but the version does not match", () => {
-    const repo = join("/home", ".cache", "pre-commit", "repoX");
-    const exe = join(repo, "py_env-python3", "Scripts", "ruff.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) =>
-        p === join("/proj", ".venv", "Scripts", "ruff.exe") ? false : p === exe,
-      spawn: () => ({ status: 0, stdout: "ruff 0.9.0" }), // NOT 0.17.2
-      readdir: () => [{ isDirectory: () => true, name: "repoX" }],
+  it("resolves the repo root and passes hasPython through", () => {
+    const { run, calls } = makeRunner({
+      "git grep": { status: 1 },
+      "rev-parse": { status: 0, stdout: "/repo\n" },
     });
-    // falls through to venv python -m ruff (exists false) -> global (status 0 -> ["ruff"])
-    expect(r).toEqual(["ruff"]);
+    const { io } = makeIo();
+    main({ argv: ["--no-fetch"], io, run, ...base, hasPython: false });
+    expect(calls[0]).toEqual(["git", "rev-parse", "--show-toplevel"]);
   });
 
-  it("does not match when the pre-commit spawn fails (status non-zero)", () => {
-    const repo = join("/home", ".cache", "pre-commit", "repoX");
-    const exe = join(repo, "py_env-python3", "Scripts", "ruff.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) =>
-        p === join("/proj", ".venv", "Scripts", "ruff.exe") ? false : p === exe,
-      spawn: (cmd: string) =>
-        cmd === exe
-          ? { status: 1, stdout: "" } // pre-commit spawn failed
-          : { status: 0, stdout: "ruff 0.10.0" }, // global succeeds
-      readdir: () => [{ isDirectory: () => true, name: "repoX" }],
+  it("checks PATH for pre-commit only when the venv copy is absent", () => {
+    const found = makeRunner({ "git grep": { status: 1 }, which: { status: 0 } });
+    main({
+      argv: ["--no-fetch"],
+      io: makeIo().io,
+      run: found.run,
+      ...base,
+      preCommit: "pre-commit",
     });
-    expect(r).toEqual(["ruff"]); // global still works
-  });
+    expect(found.calls.some(c => c[0] === "which")).toBe(true);
 
-  it("falls through when the venv python -m ruff spawn fails", () => {
-    const venvPy = join("/proj", ".venv", "Scripts", "python.exe");
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: (p: string) => p === venvPy,
-      spawn: (cmd: string) =>
-        cmd === venvPy
-          ? { status: 1, stdout: "" } // venv python -m ruff fails
-          : { status: 0, stdout: "ruff 0.10.0" }, // global succeeds
-      readdir: () => [],
+    const venv = makeRunner({ "git grep": { status: 1 } });
+    main({
+      argv: ["--no-fetch"],
+      io: makeIo().io,
+      run: venv.run,
+      ...base,
+      preCommit: "/venv/pre-commit",
     });
-    expect(r).toEqual(["ruff"]); // global
-  });
-
-  it("uses a global ruff that succeeds", () => {
-    const r = findRuff({
-      root: "/proj",
-      home: "/home",
-      exists: () => false,
-      spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
-      readdir: () => [],
-    });
-    expect(r).toEqual(["ruff"]);
-  });
-});
-
-describe("fetchOriginMain branch coverage", () => {
-  it("uses stdout when stderr is empty", () => {
-    const { run } = makeRunner({ status: 1, stderr: "" });
-    run.mockImplementation(() => ({ status: 1, stderr: "", stdout: "outline" }));
-    const { io, logs } = makeIo();
-    fetchOriginMain({ run, io });
-    expect(logs.join(" ")).toContain("outline");
-  });
-
-  it("falls back to the default message when both stderr and stdout are empty", () => {
-    const { run } = makeRunner({ status: 1 });
-    run.mockImplementation(() => ({ status: 1, stderr: "", stdout: "" }));
-    const { io, logs } = makeIo();
-    fetchOriginMain({ run, io });
-    expect(logs.join(" ")).toContain("git fetch failed");
-  });
-});
-
-describe("collectChangedFiles branch coverage", () => {
-  it("handles a non-zero merge-base run result", () => {
-    const { run } = makeRunner();
-    run.mockImplementation((cmd: string) =>
-      cmd.includes("merge-base")
-        ? { status: 1, stdout: "", stderr: "error" }
-        : { status: 0, stdout: "x.ts", stderr: "" },
-    );
-    const files = collectChangedFiles({ run });
-    expect(files).toContain("x.ts");
-  });
-
-  it("skips empty diff output lines", () => {
-    const { run } = makeRunner();
-    run.mockImplementation((cmd: string) =>
-      cmd.includes("merge-base")
-        ? { status: 0, stdout: "abc", stderr: "" }
-        : cmd.includes("...HEAD")
-          ? { status: 0, stdout: "a.ts\n\nb.ts\n", stderr: "" }
-          : { status: 0, stdout: "", stderr: "" },
-    );
-    const files = collectChangedFiles({ run });
-    expect(files).toEqual(["a.ts", "b.ts"]);
-  });
-});
-
-describe("mapJsTests branch coverage", () => {
-  it("maps a top-level file to whole test/js when no sibling test exists", () => {
-    const paths = mapJsTests(["foliplus/js/BaseControl.ts"], () => false);
-    expect(paths).toEqual(["test/js"]);
-  });
-
-  it("maps a nested component file to its test dir when no exact test exists", () => {
-    const paths = mapJsTests(
-      ["foliplus/js/HeatmapControl/ui.ts"],
-      (p: string) => p === "test/js/HeatmapControl",
-    );
-    expect(paths).toEqual(["test/js/HeatmapControl"]);
-  });
-
-  it("skips a script file with no matching test", () => {
-    const paths = mapJsTests(["script/check/local-check.mjs"], () => false);
-    expect(paths).toEqual([]);
-  });
-});
-
-describe("mapPyTests branch coverage", () => {
-  it("skips non-.py foliplus files", () => {
-    const paths = mapPyTests(["foliplus/js/X.ts"], noneExist);
-    expect(paths).toEqual([]);
-  });
-
-  it("maps a foliplus module to its test dir when present", () => {
-    const paths = mapPyTests(
-      ["foliplus/HeatmapControl.py"],
-      (p: string) => p === "test/python/HeatmapControl",
-    );
-    expect(paths).toEqual(["test/python/HeatmapControl"]);
-  });
-});
-
-describe("buildGates branch coverage", () => {
-  it("builds build-js-dev before pytest when py files and py tests both exist", () => {
-    const gates = buildGates(["foliplus/Y.py"], {
-      ruff: ["ruff"],
-      exists: allExist,
-    });
-    const names = gates.map(g => g.name);
-    const buildIdx = names.indexOf("build-js-dev (before pytest)");
-    const pyIdx = names.indexOf("pytest (changed-file tests, non-browser)");
-    expect(buildIdx).toBeGreaterThan(-1);
-    expect(pyIdx).toBeGreaterThan(-1);
-    expect(buildIdx).toBeLessThan(pyIdx);
-  });
-
-  it("uses the pytest exe path verbatim", () => {
-    const gates = buildGates(["foliplus/Y.py"], {
-      ruff: ["ruff"],
-      pytestExe: "C:/Program Files/python.exe",
-      exists: allExist,
-    });
-    const py = gates.find(g => g.name === "pytest (changed-file tests, non-browser)");
-    expect(py!.cmd).toContain("C:/Program Files/python.exe");
-  });
-});
-
-describe("main branch coverage", () => {
-  it("uses resolveDeps defaults when no deps injected", () => {
-    // Provide a minimal run that returns empty results (no gates hit real tools
-    // because buildGates with no changed files produces skip gates).
-    const { run } = makeRunner({ status: 0 });
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
-      if (cmd.includes("merge-base")) return { status: 0, stdout: "", stderr: "" };
-      return { status: 0, stdout: "", stderr: "" };
-    });
-    const code = main({
-      run,
-      io: { log: () => {}, err: () => {}, write: () => {} },
-      ruff: [],
-    });
-    expect(code).toBe(0);
-  });
-
-  it("reports 'none' when there are no changed files", () => {
-    const { run } = makeRunner({ status: 0 });
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
-      if (cmd.includes("merge-base")) return { status: 0, stdout: "abc", stderr: "" };
-      return { status: 0, stdout: "", stderr: "" };
-    });
-    const { io, logs } = makeIo();
-    main({ run, io, ruff: [] });
-    expect(logs.join("")).toContain("changed (0)");
-    expect(logs.join("")).toContain("none");
-  });
-});
-
-describe("remaining branch coverage", () => {
-  it("findRuff uses the process.env.HOME default when home is omitted", () => {
-    const prevHome = process.env.HOME;
-    delete process.env.HOME;
-    try {
-      const r = findRuff({
-        root: "/proj",
-        exists: () => false,
-        spawn: () => ({ status: 0, stdout: "ruff 0.10.0" }),
-        readdir: () => [],
-      });
-      // home falls back to "" -> cacheRoots = [""/.cache/pre-commit] -> readdir throws?
-      // readdir stub returns [] so no dirs; then venvPy check (exists false) -> global (status 0).
-      expect(r).toEqual(["ruff"]);
-    } finally {
-      if (prevHome === undefined) delete process.env.HOME;
-      else process.env.HOME = prevHome;
-    }
-  });
-
-  it("mapJsTests uses the real existsSync default when exists is omitted", () => {
-    // With no exists probe, mapJsTests uses real existsSync. A nonexistent file
-    // maps to "test/js" (the top-level fallback) because no sibling test exists.
-    const paths = mapJsTests(["foliplus/js/DefinitelyNotARealFile123.ts"]);
-    expect(paths).toEqual(["test/js"]);
-  });
-
-  it("mapJsTests drops a nested file when neither exact nor dir test exists", () => {
-    const paths = mapJsTests(["foliplus/js/HeatmapControl/ui.ts"], () => false);
-    expect(paths).toEqual([]);
-  });
-
-  it("mapPyTests ignores a non-.py file under test/python", () => {
-    const paths = mapPyTests(["test/python/foo.txt"], allExist);
-    expect(paths).toEqual([]);
-  });
-
-  it("fetchOriginMain uses the default IO when io is omitted", () => {
-    // run is stubbed (fast), io omitted -> defaultIo (real console). A failure
-    // only warns via console.log and never throws.
-    const { run } = makeRunner({ status: 1, stderr: "fatal: no network" });
-    expect(() => fetchOriginMain({ run })).not.toThrow();
-  });
-});
-
-describe("main non-empty files branch", () => {
-  it("joins changed file names when files are non-empty", () => {
-    const { run } = makeRunner({ status: 0 });
-    run.mockImplementation((cmd: string) => {
-      if (cmd.includes("fetch")) return { status: 0, stdout: "", stderr: "" };
-      if (cmd.includes("merge-base")) return { status: 0, stdout: "abc", stderr: "" };
-      if (cmd.includes("...HEAD")) {
-        return { status: 0, stdout: "foliplus/js/A.ts", stderr: "" };
-      }
-      return { status: 0, stdout: "", stderr: "" };
-    });
-    const { io, logs } = makeIo();
-    main({ run, io, ruff: [] });
-    expect(logs.join("")).toContain("foliplus/js/A.ts");
-    expect(logs.join("")).not.toContain("none");
+    expect(venv.calls.some(c => c[0] === "which")).toBe(false);
   });
 });
 
 describe("isCliEntry", () => {
-  it("detects the module itself as the CLI entry (true branch)", () => {
-    // isCliEntry compares import.meta.url (the loaded local-check.mjs) to the
-    // pathToFileURL of the entry. Passing the real module file path yields true
-    // (this IS the CLI-entry branch); passing any other path yields false.
-    expect(isCliEntry(resolve(process.cwd(), "script/check/local-check.mjs"))).toBe(
-      true,
-    );
-    expect(isCliEntry("test/js/script/check/local-check.test.ts")).toBe(false);
-    // entry ?? "" default branch: undefined entry resolves to "" -> a path that
-    // is not the module URL, so false (and the ?? default is exercised).
+  it("matches this module's URL", () => {
+    const modulePath = resolve(process.cwd(), "script/check/local-check.mjs");
+    expect(isCliEntry(modulePath)).toBe(true);
+  });
+
+  it("rejects another path and an undefined entry", () => {
+    expect(isCliEntry(resolve("other.mjs"))).toBe(false);
     expect(isCliEntry(undefined)).toBe(false);
   });
 });

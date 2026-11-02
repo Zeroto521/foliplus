@@ -48,6 +48,31 @@ jobs:
       - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
 
+  # `make check` canary. The local gate is only worth having if it works on a
+  # clean checkout and a POSIX runner — not just on the machine that wrote it.
+  # This job runs the same command a developer runs before pushing, so a gate
+  # that silently depends on local scratch (a Windows-only shim, a pre-commit
+  # cache path, a missing .venv) goes red here instead of on someone's laptop.
+  #
+  # Deliberately NOT a required check: branch protection decides that, and the
+  # gate is still new. Promote it once it has a track record.
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # merge-base(origin/main, HEAD) needs real history, not a shallow tip.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-deps
+        with:
+          python-version: "3.15"
+      - run: uv sync --group test
+      # Into .venv, which is where `local-check.mjs` looks for it; `make env`
+      # does not install pre-commit, so CI pins it here.
+      - run: uv pip install pre-commit
+      - run: make check
+
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
   # This job only checks that every referenced #NNN exists as a real PR/issue.

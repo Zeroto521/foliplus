@@ -1,91 +1,85 @@
 #!/usr/bin/env node
 /**
- * local-check.mjs — `make check` implementation.
+ * local-check.mjs — `make check`, the local fast gate.
  *
- * Runs the locally-reproducible subset of the CI gates on just the changed
- * files, plus the two cheap full-tree guards and the three cheap repo scripts
- * that CI would otherwise be the first to catch. The full suite (all JS/Python
- * tests, docs build, bundle build + size gates, browser tests) is deliberately
- * NOT here — that belongs to PR CI.
+ * It reuses the tool definitions the repo already has instead of re-deriving
+ * them per tool:
+ *   - prettier / eslint   changed files, same config CI uses (`npm run
+ *                         format:check` / `npm run lint` globs)
+ *   - pre-commit          every changed-file hook (ruff, ruff-format, mypy,
+ *                         codespell, style, mojibake, changelog order,
+ *                         EOF/whitespace)
+ *   - vitest `related`    the JS tests that import the changed files
+ *   - pytest              the full non-browser suite, when Python changed
+ *   - full-tree guards    listener/toolchain suites, and mojibake via
+ *                         `git grep -I` (dead-barrel export is a pre-commit
+ *                         hook, so it runs on changed files above)
  *
- * Gates, in order (first failure aborts with a hint):
- *   1. typecheck            — npm run typecheck
- *   2. prettier --check     — changed ts/js/css/md/json files (CHANGELOG.md excluded)
- *   3. eslint               — changed ts/js/mjs/cjs files
- *   4. ruff check           — changed .py files (pinned ruff from pre-commit cache)
- *   5. ruff format --check  — changed .py files
- *   6. listener/toolchain guards — full-tree (cheap, catch "only touched
- *      files" blind spots) — via the vitest spawn shim
- *   7. JS tests             — vitest (via shim) on the test dirs matching changed files
- *   8. Python tests         — pytest (non-browser) on dirs matching changed
- *      files, plus test/python/test_locale.py; build-js-dev runs first when a
- *      .py file changed
- *   9. repo scripts         — changelog_check --skip-exists, mojibake_check --all
- *      (full tree, batched), dead_barrel_export
+ * The full suite, docs build, bundle gates and browser tests stay in PR CI.
+ *
+ * Gates run cheapest-first and all of them run: the summary at the end names
+ * every failure, so one pass tells you everything to fix (`--fail-fast` stops
+ * at the first red).
+ *
+ * Usage:
+ *   node script/check/local-check.mjs [--list] [--fail-fast] [--no-fetch]
+ *                                     [--base <ref>]
  *
  * The diff base is merge-base(origin/main, HEAD) after a best-effort
- * `git fetch origin main` (a fetch failure only warns — the local
- * origin/main ref is used and the actual base sha is printed). Working-tree
- * unstaged and staged changes are included.
- *
- * The logic is split so the pure parts are unit-testable
- * (test/js/script/check/local-check.test.ts) without spawning the toolchain:
- * the runner (sh) and the console IO (io) are injectable, so `main` and
- * `runGates` are exercised with stubs and the real subprocess calls never
- * run in a test. The pure helpers (collectChangedFiles, findShim, findRuff,
- * mapJsTests, mapPyTests, vitestCmd, buildGates) take their dependencies as
- * options for the same reason.
- *
- * Windows note: the vitest shim (.foliplus/vite-spawn-patch.mjs) is mandatory
- * for every jsdom test run — without it Playwright/Vitest spawn fails with
- * WinError 5 (the default stdio 'pipe' cannot cross the sandbox). ruff is not
- * a project venv package here, so the pinned pre-commit cache copy is used
- * (ruff v0.17.2, per .pre-commit-config.yaml).
+ * `git fetch origin main`. Committed, staged, unstaged and untracked changes
+ * are all included. Paths are passed as argv (never through a shell) and read
+ * from `git ... -z`, so spaces and non-ASCII names survive intact.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
+const U_FFFD = "\uFFFD";
+/** pre-commit re-spawns each hook with the file list, and cmd.exe caps a
+ *  command line at 8191 chars — 60 paths per run stays well under it. */
+const PRECOMMIT_CHUNK = 60;
+const JS_EXT = /\.(ts|js|mjs|cjs|css)$/;
+const SOURCE_PREFIX = ["foliplus/", "script/", "config/", "test/js/"];
+/** The globs `npm run format:check` covers — anything outside them is not a
+ *  prettier target, so a local run never reds a file CI does not check. */
+const PRETTIER_GLOB =
+  /^(foliplus\/js\/.*\.(js|ts)|foliplus\/css\/.*\.css|script\/.*\.(js|cjs|mjs|ts)|test\/js\/.*\.(js|ts)|config\/.*\.mjs|eslint\.config\.js)$/;
+/** The globs `npm run lint` covers (non-type-aware pass). */
+const ESLINT_GLOB =
+  /^(foliplus\/js\/.*\.ts|test\/js\/.*\.ts|script\/.*\.mjs|config\/.*\.mjs|eslint\.config\.js)$/;
+const PRETTIER_BIN = "node_modules/prettier/bin/prettier.cjs";
+const ESLINT_BIN = "node_modules/eslint/bin/eslint.js";
+/** A change here means pytest has something new to cover. */
+const PY_CHANGED =
+  /^(foliplus\/.*\.py|test\/python\/.*\.py|script\/.*\.py|pyproject\.toml)$/;
+
+const COLORS = {
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  dim: "\x1b[2m",
+  reset: "\x1b[0m",
+};
+
+/** Respect NO_COLOR and non-TTY output (CI logs, redirected files). */
+const colorEnabled = (env = process.env, isTTY = process.stdout.isTTY) =>
+  Boolean(isTTY) && !env.NO_COLOR;
+
+const useColor = colorEnabled();
 
 /**
- * The subset of spawnSync's result this script reads. Looser than
- * SpawnSyncReturns on purpose: `main`/`runGates` are called with fakes in
- * their tests, so the injectable run signature is this shape, not the full
- * Node type. Mirrors script/typecheck-test.mjs.
- *
- * @typedef {{error?: unknown, status?: number | null, stdout?: string, stderr?: string}} SpawnResult
+ * Wrap `text` in a terminal color when `enabled`.
+ * @param {boolean} enabled
+ * @param {"red"|"green"|"yellow"|"dim"} name
+ * @param {string} text
+ * @returns {string}
  */
+const paint = (enabled, name, text) =>
+  enabled ? `${COLORS[name]}${text}${COLORS.reset}` : text;
 
-// On Windows cmd.exe rejects forward slashes in command position, so the venv
-// python.exe path must use backslashes (spawnSync with shell:true routes the
-// whole command through cmd.exe /c).
-const pytestExeFor = platform =>
-  platform === "win32" ? ".venv\\Scripts\\python.exe" : ".venv/bin/python";
-
-const PYTEST_EXE = pytestExeFor(process.platform);
-
-/**
- * Run a shell command. Injectable for tests (see main/runGates deps).
- * @param {string} cmd
- * @param {Record<string, string|undefined>} [env]
- * @returns {SpawnResult}
- */
-const sh = (cmd, env) =>
-  spawnSync(cmd, {
-    shell: true,
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 128 * 1024 * 1024,
-    env: { ...process.env, ...env },
-  });
-
-const RED = "\x1b[31m";
-const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
-const DIM = "\x1b[2m";
-const RESET = "\x1b[0m";
+const c = (name, text) => paint(useColor, name, text);
 
 /** Default console IO — injectable so tests capture without touching stdout. */
 const defaultIo = {
@@ -94,16 +88,93 @@ const defaultIo = {
   write: s => process.stdout.write(s),
 };
 
-/** Prettier covers these; CHANGELOG.md is deliberately excluded (changelog_check owns it). */
-const PRETTIER_EXT = /\.(ts|js|cjs|mjs|css|md|json)$/;
-const ESLINT_EXT = /\.(ts|js|mjs|cjs)$/;
-
-/** The vitest spawn shim — mandatory on Windows for jsdom runs.
+/**
+ * The subset of spawnSync's result this script reads. Looser than
+ * SpawnSyncReturns on purpose: `main`/`runGates` are called with fakes in
+ * their tests, so the injectable run signature is this shape.
  *
- * The shim lives in .foliplus/ of the MAIN checkout. A git worktree
- * (e.g. .foliplus/wt-*) has no .foliplus/ of its own, so walk up the directory
- * chain until a .foliplus/vite-spawn-patch.mjs is found. The root and the
- * existence probe are injectable for tests.
+ * @typedef {{error?: unknown, status?: number | null, stdout?: string,
+ *            stderr?: string}} SpawnResult
+ * @typedef {{argv: string[], shell?: boolean,
+ *            env?: Record<string, string|undefined>}} Command
+ * @typedef {{name: string, cmds: Command[], fix: string|null,
+ *            ok?: (r: SpawnResult) => boolean, error?: string}} Gate
+ */
+
+/**
+ * Run one command. File paths live in `argv`, so no shell ever parses them;
+ * the two npm invocations are literals and opt into `shell` (npm is a .cmd
+ * shim on Windows, which Node cannot spawn without one).
+ * @param {Command} cmd
+ * @param {{spawn?: Function, cwd?: string}} [deps]
+ * @returns {SpawnResult}
+ */
+const runCmd = (cmd, deps = {}) => {
+  const spawn = deps.spawn ?? spawnSync;
+  const [exe, ...args] = cmd.argv;
+  return spawn(exe, args, {
+    cwd: deps.cwd ?? ROOT,
+    encoding: "utf8",
+    maxBuffer: 128 * 1024 * 1024,
+    shell: cmd.shell ?? false,
+    env: { ...process.env, ...cmd.env },
+  });
+};
+
+/** npm's Windows shim cannot be spawned directly; the command line is a
+ *  literal here, so `shell: true` adds no injection surface. */
+const NPM = script => ({ argv: [`npm ${script}`], shell: true });
+
+/** The venv python, relative to the repo root. */
+const pytestExeFor = platform =>
+  join(
+    ".venv",
+    platform === "win32" ? "Scripts" : "bin",
+    platform === "win32" ? "python.exe" : "python",
+  );
+
+/** The venv pre-commit, relative to the repo root. */
+const preCommitExeFor = (platform = process.platform) =>
+  join(
+    ".venv",
+    platform === "win32" ? "Scripts" : "bin",
+    platform === "win32" ? "pre-commit.exe" : "pre-commit",
+  );
+
+/**
+ * Resolve the pre-commit executable: the project venv first, then PATH.
+ * @param {{root?: string, exists?: (p: string) => boolean}} [deps]
+ * @returns {string}
+ */
+const findPreCommit = (deps = {}) => {
+  const root = deps.root ?? ROOT;
+  const exists = deps.exists ?? existsSync;
+  const exe = resolve(root, preCommitExeFor());
+  return exists(exe) ? exe : "pre-commit";
+};
+
+/**
+ * Is `pre-commit` runnable from PATH? `make env` does not install it (it is
+ * in neither the `test` nor the `dev` group), so a fresh checkout can reach
+ * this gate with nothing to spawn — worth a clear message instead of ENOENT.
+ * @param {{run?: Function, platform?: string}} [deps]
+ * @returns {boolean}
+ */
+const preCommitOnPath = (deps = {}) => {
+  const run = deps.run ?? runCmd;
+  const platform = deps.platform ?? process.platform;
+  const which = platform === "win32" ? "where" : "which";
+  return run({ argv: [which, "pre-commit"] }).status === 0;
+};
+
+/**
+ * The vitest spawn shim — needed on Windows for jsdom runs.
+ *
+ * The shim lives in `.foliplus/` of the main checkout; a git worktree has no
+ * `.foliplus/` of its own, so walk up the directory chain. Missing is normal
+ * (fresh clone, CI, POSIX), so callers add it only when it exists.
+ * @param {{root?: string, exists?: (p: string) => boolean}} [deps]
+ * @returns {string}
  */
 const findShim = (deps = {}) => {
   const root = deps.root ?? ROOT;
@@ -120,423 +191,572 @@ const findShim = (deps = {}) => {
 };
 const VITEST_SHIM = findShim();
 
-/** Build the vitest invocation for the given test paths (via the shim).
- *  The shim path is injectable so tests can exercise the Windows backslash
- *  normalisation without touching the real checkout. */
-const vitestCmd = (testPaths, shim = VITEST_SHIM) =>
-  [
+/**
+ * `node --import` args for the shim, or none. Windows-only: on POSIX the
+ * sandbox workaround the shim exists for does not apply.
+ * @param {{shim?: string, exists?: (p: string) => boolean,
+ *          platform?: string}} [deps]
+ * @returns {string[]}
+ */
+const shimArgs = (deps = {}) => {
+  const shim = deps.shim ?? VITEST_SHIM;
+  const exists = deps.exists ?? existsSync;
+  const platform = deps.platform ?? process.platform;
+  if (platform !== "win32" || !exists(shim)) return [];
+  return ["--import", pathToFileURL(shim).href];
+};
+
+/**
+ * `vitest run` for an explicit test list (the full-tree guards).
+ * @param {string[]} testPaths
+ * @param {object} [deps] forwarded to shimArgs
+ * @returns {Command}
+ */
+const vitestRun = (testPaths, deps = {}) => ({
+  argv: [
     "node",
-    "--import",
-    `file:///${shim.replace(/\\/g, "/")}`.trim(),
+    ...shimArgs(deps),
     "node_modules/vitest/vitest.mjs",
     "run",
     ...testPaths,
     "--pool=threads",
-  ].join(" ");
+  ],
+});
 
-/** Locate a ruff binary.
- *
- * Preference order, all verified to run with --config pyproject.toml:
- *   1. .venv/Scripts/ruff.exe if present (project venv, matches CI's pin best)
- *   2. pre-commit cache v0.17.2 ruff.exe (the hook pin; .venv usually has no ruff
- *      because ruff is a pre-commit-only dev dependency)
- *   3. the project venv python running `python -m ruff` (falls back to whatever
- *      ruff version uv resolved, without uv run's sync side-effects)
- *   4. global ruff on PATH
- * Returns the command prefix (array) to use, or null if nothing usable.
- * Dependencies (root/home/spawn/exists/readdir) are injectable for tests.
+/**
+ * `vitest related` — the tests that import any of `sources`, including a
+ * changed test file itself. Vitest owns the import graph; no path mapping
+ * here to drift out of date.
+ * @param {string[]} sources
+ * @param {object} [deps] forwarded to shimArgs
+ * @returns {Command}
  */
-const findRuff = (deps = {}) => {
-  const root = deps.root ?? ROOT;
-  const home = deps.home ?? process.env.HOME ?? "";
-  const spawn = deps.spawn ?? spawnSync;
-  const exists = deps.exists ?? existsSync;
-  const readdir = deps.readdir ?? readdirSync;
-  // 1. project venv binary
-  const venvExe = join(root, ".venv", "Scripts", "ruff.exe");
-  if (exists(venvExe)) return [venvExe];
-  // 2. pre-commit cache v0.17.2
-  const cacheRoots = [join(home, ".cache", "pre-commit")];
-  const dirs = cacheRoots.flatMap(d => {
-    try {
-      return readdir(d, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith("repo"))
-        .map(e => join(d, e.name));
-    } catch {
-      return [];
-    }
-  });
-  for (const dir of dirs) {
-    const exe = join(dir, "py_env-python3", "Scripts", "ruff.exe");
-    if (exists(exe)) {
-      const r = spawn(exe, ["--version"], { encoding: "utf8" });
-      if (r.status === 0 && /0\.17\.2/.test(r.stdout)) return [exe];
-    }
-  }
-  // 3. project venv python -m ruff
-  const venvPy = join(root, ".venv", "Scripts", "python.exe");
-  if (exists(venvPy)) {
-    const r = spawn(venvPy, ["-m", "ruff", "--version"], { encoding: "utf8" });
-    if (r.status === 0 && r.stdout.trim()) return [venvPy, "-m", "ruff"];
-  }
-  // 4. global ruff on PATH
-  const r = spawn("ruff", ["--version"], { encoding: "utf8" });
-  if (r.status === 0 && r.stdout.trim()) return ["ruff"];
-  return null;
+const vitestRelated = (sources, deps = {}) => ({
+  argv: [
+    "node",
+    ...shimArgs(deps),
+    "node_modules/vitest/vitest.mjs",
+    "related",
+    "--run",
+    ...sources,
+    "--pool=threads",
+    "--passWithNoTests",
+  ],
+});
+
+/** Split `git ... -z` output. */
+const splitNul = s => (s ? s.split("\0").filter(Boolean) : []);
+
+/**
+ * Resolve the diff base from a merge-base result.
+ * @param {SpawnResult} r
+ * @returns {string} the base sha, or "origin/main" when it could not be read
+ */
+const resolveBase = r => {
+  const sha = (r.stdout || "").trim();
+  return r.status === 0 && sha ? sha : "origin/main";
 };
 
-/** Collect the set of changed file paths (branch commits vs merge-base, plus
- * unstaged and staged working-tree changes), excluding .foliplus scratch.
- * @param {{mergeBase?: string, changedFiles?: string[], run?: Function}} [deps]
+/**
+ * Collect changed paths (branch commits vs the merge-base, plus staged,
+ * unstaged and untracked working-tree files), excluding .foliplus scratch.
+ * Untracked files matter: a new source or test file is exactly what a
+ * "run the tests I touched" workflow forgets to lint.
+ * @param {{run?: Function, io?: {log: Function}, base?: string}} [deps]
  * @returns {string[]}
  */
 const collectChangedFiles = (deps = {}) => {
-  const runCmd = deps.run ?? sh;
-  const run = c => {
-    if (deps.changedFiles) return deps.changedFiles.join("\n");
-    const r = runCmd(c);
-    return (r.status === 0 ? r.stdout : "").trim();
-  };
+  const run = deps.run ?? runCmd;
+  const io = deps.io ?? defaultIo;
   const base =
-    (deps.mergeBase ?? run("git merge-base origin/main HEAD")) || "origin/main";
+    deps.base ??
+    resolveBase(run({ argv: ["git", "merge-base", "origin/main", "HEAD"] }));
   const changed = new Set();
-  for (const c of [
-    `git diff --name-only --diff-filter=ACMR ${base}...HEAD`,
-    "git diff --name-only --diff-filter=ACMR",
-    "git diff --name-only --cached --diff-filter=ACMR",
-  ]) {
-    const s = run(c);
-    if (s) for (const f of s.split(/\r?\n/)) if (f) changed.add(f);
+  const add = r => {
+    if (r.status !== 0) return false;
+    for (const f of splitNul(r.stdout ?? "")) changed.add(f);
+    return true;
+  };
+  const branch = [
+    "git",
+    "diff",
+    "--name-only",
+    "-z",
+    "--diff-filter=ACMR",
+    `${base}...HEAD`,
+  ];
+  if (!add(run({ argv: branch }))) {
+    io.log(
+      c("yellow", `! ${branch.join(" ")} failed — checking working-tree changes only`),
+    );
   }
+  add(run({ argv: ["git", "diff", "--name-only", "-z", "--diff-filter=ACMR"] }));
+  add(
+    run({
+      argv: ["git", "diff", "--name-only", "-z", "--cached", "--diff-filter=ACMR"],
+    }),
+  );
+  // New files are untracked until someone `git add`s them; they still need
+  // prettier/eslint/pre-commit, so they belong in the change set.
+  add(run({ argv: ["git", "ls-files", "--others", "--exclude-standard", "-z"] }));
   return [...changed].filter(f => !f.startsWith(".foliplus/"));
 };
 
 /**
- * Map changed files to the vitest path(s) that cover them. A changed prod
- * file maps to its sibling test file when one exists, else to its test dir;
- * a top-level foliplus/js file maps to its test file or the whole test/js.
- * @param {string[]} files
- * @param {(p: string) => boolean} [exists] file-existence probe (injectable for tests)
- * @returns {string[]} deduped relative test paths (file or dir), or [] if none
+ * Resolve the repo root so `make check` also works from a subdirectory.
+ * @param {Function} [run]
+ * @returns {string}
  */
-const mapJsTests = (files, exists = p => existsSync(resolve(ROOT, p))) => {
-  const out = new Set();
-  for (const f of files) {
-    if (f.startsWith("foliplus/js/")) {
-      const rel = f.slice("foliplus/js/".length);
-      if (!rel.includes("/")) {
-        const t = `test/js/${rel.replace(/\.ts$/, ".test.ts")}`;
-        out.add(exists(t) ? t : "test/js");
-      } else {
-        const top = rel.split("/")[0];
-        const dir = `test/js/${top}`;
-        const rest = rel.split("/").slice(1).join("/").replace(/\.ts$/, "");
-        const exact = `${dir}/${rest}.test.ts`;
-        if (exists(exact)) out.add(exact);
-        else if (exists(dir)) out.add(dir);
-      }
-    } else if (f.startsWith("script/") && /\.(mjs|cjs|js)$/.test(f)) {
-      const rel = f.slice("script/".length).replace(/\.(mjs|cjs|js)$/, ".test.ts");
-      if (exists(`test/js/script/${rel}`)) out.add(`test/js/script/${rel}`);
-    }
-  }
-  return [...out];
-};
-
-/**
- * Map changed files to the pytest path(s) that cover them. A changed
- * foliplus/X.py maps to test/python/X/ (or X.py); a changed test/python
- * file maps to itself.
- * @param {string[]} files
- * @param {(p: string) => boolean} [exists] file-existence probe (injectable for tests)
- * @returns {string[]} deduped relative pytest paths (dir or file), or [] if none
- */
-const mapPyTests = (files, exists = p => existsSync(resolve(ROOT, p))) => {
-  const out = new Set();
-  for (const f of files) {
-    if (f.startsWith("test/python/")) {
-      if (f.endsWith(".py")) out.add(f);
-    } else if (f.startsWith("foliplus/") && f.endsWith(".py")) {
-      const base = f.slice("foliplus/".length).replace(/\.py$/, "");
-      if (exists(`test/python/${base}`)) out.add(`test/python/${base}`);
-      else if (exists(`test/python/${base}.py`)) {
-        out.add(`test/python/${base}.py`);
-      }
-    }
-  }
-  return [...out];
+const resolveRoot = (run = runCmd) => {
+  const r = run({ argv: ["git", "rev-parse", "--show-toplevel"] });
+  const out = (r.stdout || "").trim();
+  return r.status === 0 && out ? out : process.cwd();
 };
 
 /** Best-effort fetch so merge-base(origin/main, HEAD) is current. A failure
- * only warns; the local origin/main ref is used and the real base printed.
- * run and io are injectable for tests. */
+ *  only warns; the local origin/main ref is used. */
 const fetchOriginMain = (deps = {}) => {
-  const run = deps.run ?? sh;
+  const run = deps.run ?? runCmd;
   const io = deps.io ?? defaultIo;
-  const r = run("git fetch origin main");
+  const r = run({ argv: ["git", "fetch", "--no-tags", "origin", "main"] });
   if (r.status === 0) {
-    io.log(`${DIM}fetched origin/main ok${RESET}`);
-  } else {
-    const msg = (r.stderr || r.stdout || "git fetch failed").trim().split("\n")[0];
-    io.log(
-      `${YELLOW}! git fetch origin main failed (continuing with local ref): ${msg}${RESET}`,
-    );
+    io.log(c("dim", "fetched origin/main ok"));
+    return;
   }
+  const msg = (r.stderr || r.stdout || "git fetch failed").trim().split("\n")[0];
+  io.log(
+    c("yellow", `! git fetch origin main failed (continuing with local ref): ${msg}`),
+  );
 };
 
-/** Resolve the diff base from a merge-base command output.
- * @param {{stdout?: string}} r
- * @returns {string}
- */
-const resolveBase = r => (r.stdout || "").trim() || "origin/main";
+/** Changed files that vitest `related` should look at. */
+const jsSources = files =>
+  files.filter(
+    f => JS_EXT.test(f) && SOURCE_PREFIX.some(prefix => f.startsWith(prefix)),
+  );
+
+/** True when the change set touches Python (or its dependency manifest). */
+const pyChanged = files => files.some(f => PY_CHANGED.test(f));
+
+/** Split a list into fixed-size batches. */
+const chunk = (items, size) => {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+};
+
+/** One-line preview of a long path list. */
+const preview = (items, limit = 8) =>
+  items.length > limit
+    ? `${items.slice(0, limit).join(", ")}, … (+${items.length - limit})`
+    : items.join(", ");
+
+/** "1 changed file" / "3 changed files". */
+const filesWord = n => `${n} changed file${n === 1 ? "" : "s"}`;
 
 /**
- * Build the ordered gate list for the given changed files. Pure: it never
- * runs a command. The ruff command prefix, the vitest command builder and the
- * pytest exe are injected so tests can pin the exact commands without the
- * toolchain. `io` is used only for the "no ruff" warning.
+ * Build the ordered gate list. Pure: it never runs a command, so tests pin
+ * the exact argv without the toolchain.
  * @param {string[]} files
- * @param {{ruff?: string[]|null, vitestCmdFn?: Function, pytestExe?: string,
- *          io?: {log: Function, err: Function, write: Function},
- *          exists?: (p: string) => boolean}} [opts]
- * @returns {{name: string, cmd: string|null, fix: string|null}[]}
+ * @param {{io?: object, preCommit?: string, hasPreCommit?: boolean,
+ *          pytestExe?: string, hasPython?: boolean, shim?: string,
+ *          exists?: (p: string) => boolean, platform?: string}} [opts]
+ * @returns {Gate[]}
  */
 const buildGates = (files, opts = {}) => {
   const {
-    ruff,
-    vitestCmdFn = vitestCmd,
-    pytestExe = PYTEST_EXE,
     io = defaultIo,
-    exists,
+    preCommit = "pre-commit",
+    hasPreCommit = true,
+    pytestExe = resolve(ROOT, pytestExeFor(process.platform)),
+    hasPython = true,
+    shim = VITEST_SHIM,
+    exists = existsSync,
+    platform = process.platform,
   } = opts;
+  const vOpts = { shim, exists, platform };
   const gates = [];
-  const gate = (name, cmd, fix) => gates.push({ name, cmd, fix });
+  const gate = (name, cmds, fix, extra = {}) =>
+    gates.push({ name, cmds, fix, ...extra });
 
-  gate(
-    "typecheck",
-    "npm run typecheck",
-    "npm run typecheck — fix the reported tsc / typecheck-test / eslint-typed errors",
-  );
-
-  const prettierFiles = files.filter(
-    f => PRETTIER_EXT.test(f) && !f.endsWith("CHANGELOG.md"),
-  );
+  const prettierFiles = files.filter(f => PRETTIER_GLOB.test(f));
   if (prettierFiles.length) {
     gate(
-      "prettier",
-      `npx prettier --check ${prettierFiles.join(" ")}`,
-      `npx prettier --write ${prettierFiles.join(" ")}  then re-run`,
+      `prettier (${filesWord(prettierFiles.length)})`,
+      [{ argv: ["node", PRETTIER_BIN, "--check", ...prettierFiles] }],
+      `npx prettier --write ${preview(prettierFiles, 4)}  then re-run`,
     );
-  } else gate("prettier (no changed formattable files)", null, null);
+  } else {
+    gate("prettier (no changed formattable files)", [], null);
+  }
 
-  const eslintFiles = files.filter(f => ESLINT_EXT.test(f));
+  const eslintFiles = files.filter(f => ESLINT_GLOB.test(f));
   if (eslintFiles.length) {
     gate(
-      "eslint",
-      `npx eslint -c config/eslint/typed.mjs ${eslintFiles.join(" ")}`,
-      `npx eslint --fix -c config/eslint/typed.mjs ${eslintFiles.join(
-        " ",
-      )}  then re-run`,
+      `eslint (${filesWord(eslintFiles.length)})`,
+      [
+        {
+          argv: ["node", ESLINT_BIN, "-c", "config/eslint/typed.mjs", ...eslintFiles],
+        },
+      ],
+      `npx eslint --fix -c config/eslint/typed.mjs ${preview(eslintFiles, 4)}  then re-run`,
     );
-  } else gate("eslint (no changed JS/TS files)", null, null);
-
-  const pyFiles = files.filter(f => f.endsWith(".py"));
-  if (ruff) {
-    const ruffCmd = ruff.map(a => (/[/\\\s]/.test(a) ? `"${a}"` : a)).join(" ");
-    if (pyFiles.length) {
-      gate(
-        "ruff",
-        `${ruffCmd} check --config pyproject.toml ${pyFiles.join(" ")}`,
-        `${ruffCmd} check --fix --config pyproject.toml ${pyFiles.join(
-          " ",
-        )}  then re-run`,
-      );
-      gate(
-        "ruff-format",
-        `${ruffCmd} format --check --config pyproject.toml ${pyFiles.join(" ")}`,
-        `${ruffCmd} format ${pyFiles.join(" ")}  then re-run`,
-      );
-    } else gate("ruff (no changed .py files)", null, null);
   } else {
-    io.log(
-      `${YELLOW}! no ruff binary found (.venv/Scripts/ruff.exe, pre-commit cache v0.17.2, or python -m ruff) — skipping ruff gates${RESET}`,
+    gate("eslint (no changed JS/TS files)", [], null);
+  }
+
+  if (files.length && hasPreCommit) {
+    const batches = chunk(files, PRECOMMIT_CHUNK).map(batch => ({
+      argv: [preCommit, "run", "--files", ...batch, "--show-diff-on-failure"],
+    }));
+    gate(
+      `pre-commit (${filesWord(files.length)})`,
+      batches,
+      "a hook rewrote or rejected a file — review the diff above, then re-run make check",
     );
+  } else if (files.length) {
+    gate(
+      "pre-commit (not installed)",
+      [],
+      "install it: `uv pip install pre-commit` (or `pipx install pre-commit`)",
+      {
+        error: "pre-commit is not on PATH and not in .venv",
+      },
+    );
+  } else {
+    gate("pre-commit (no changed files)", [], null);
+  }
+
+  // git grep -I is git's own text filter: it skips binaries (and .gitattributes
+  // `-text` paths) and scans 1277 files in ~0.3s, in one process.
+  gate(
+    "mojibake (full tree)",
+    [{ argv: ["git", "grep", "-I", "-n", "--no-color", "-e", U_FFFD] }],
+    "a U+FFFD replacement char slipped in — restore the original character",
+    { ok: r => r.status === 1 },
+  );
+
+  gate(
+    "guards (listener + toolchain, full tree)",
+    [
+      vitestRun(
+        ["test/js/listener-guard.test.ts", "test/js/toolchain-guard.test.ts"],
+        vOpts,
+      ),
+    ],
+    "a bare addEventListener / L.DomEvent.on slipped in, or a script-module rule broke",
+  );
+
+  const sources = jsSources(files);
+  if (sources.length) {
+    gate(
+      `vitest related (${sources.length} source file${sources.length === 1 ? "" : "s"})`,
+      [vitestRelated(sources, vOpts)],
+      "fix the failing vitest test(s)",
+    );
+  } else {
+    gate("vitest related (no changed JS/TS files)", [], null);
   }
 
   gate(
-    "listener-guard + toolchain-guard",
-    vitestCmdFn(["test/js/listener-guard.test.ts", "test/js/toolchain-guard.test.ts"]),
-    "a bare addEventListener / L.DomEvent.on slipped in, or a script-module rule broke — see test/js/listener-guard.test.ts and test/js/toolchain-guard.test.ts",
+    "typecheck",
+    [NPM("run typecheck")],
+    "npm run typecheck — fix the reported tsc / typecheck-test errors",
   );
 
-  const jsTests = mapJsTests(files, exists);
-  if (jsTests.length) {
-    gate(
-      "vitest (changed-file tests)",
-      vitestCmdFn(jsTests),
-      "fix the failing vitest test(s)",
-    );
-  } else gate("vitest (no changed-file tests)", null, null);
-
-  const pyTests = mapPyTests(files, exists);
-  if (pyTests.length) {
-    if (pyFiles.length) {
+  if (pyChanged(files)) {
+    if (!hasPython) {
       gate(
-        "build-js-dev (before pytest)",
-        "npm run build:dev",
+        "pytest (no .venv)",
+        [],
+        "run `make env` to create .venv, then re-run make check",
+        {
+          error: "Python changed but .venv is missing",
+        },
+      );
+    } else {
+      gate(
+        "build-js-dev (pytest reads foliplus/dist/)",
+        [NPM("run build:dev")],
         "npm run build:dev failed — the Python layer reads foliplus/dist/",
       );
+      gate(
+        "pytest (full non-browser suite)",
+        [
+          {
+            argv: [
+              pytestExe,
+              "-m",
+              "pytest",
+              "-m",
+              "not browser",
+              "-n",
+              "auto",
+              "-q",
+              "--no-cov",
+              "test/python",
+            ],
+          },
+        ],
+        "fix the failing pytest test(s)",
+      );
     }
-    gate(
-      "pytest (changed-file tests, non-browser)",
-      `${pytestExe} -m pytest ${pyTests.join(" ")} -m "not browser" -q --no-cov`,
-      "fix the failing pytest test(s)",
+  } else if (!hasPython) {
+    io.log(
+      c(
+        "yellow",
+        "! no .venv — skipping the Python locale check (run `make env` to enable it)",
+      ),
     );
-  } else gate("pytest (no changed-file tests)", null, null);
-  gate(
-    "pytest test_locale.py",
-    `${pytestExe} -m pytest test/python/test_locale.py -q --no-cov`,
-    "an unused locale key / a T() key mismatch — fix the locale table or the key usage",
-  );
-
-  gate(
-    "changelog_check --skip-exists",
-    "python script/check/changelog_check.py --skip-exists",
-    "CHANGELOG.md bullet order / PR-number sort — run python script/check/changelog_check.py --fix",
-  );
-  gate(
-    "mojibake_check (full tree)",
-    "python script/check/mojibake_check.py --all",
-    "a U+FFFD replacement char slipped in (encoding round-trip) — restore the original char",
-  );
-  gate(
-    "dead_barrel_export",
-    "python script/check/dead_barrel_export.py",
-    "a dead barrel/type.ts export — remove the export or the symbol",
-  );
+    gate("pytest test_locale (no .venv)", [], null);
+  } else {
+    // JS-only change: locale keys cross the JS/Python boundary, so the cheap
+    // cross-language check still runs.
+    gate(
+      "pytest test_locale (cross-language keys)",
+      [
+        {
+          argv: [
+            pytestExe,
+            "-m",
+            "pytest",
+            "test/python/test_locale.py",
+            "-q",
+            "--no-cov",
+          ],
+        },
+      ],
+      "an unused locale key / a T() key mismatch — fix the locale table or the key usage",
+    );
+  }
 
   return gates;
 };
 
 /**
- * Run the gate list, aborting on the first failure. Returns true when a
- * gate failed. run and io are injectable for tests (no real subprocess).
- * @param {{name: string, cmd: string|null, fix: string|null}[]} gates
- * @param {(cmd: string, env?: Record<string, string|undefined>) => SpawnResult} [run]
- * @param {{log: Function, err: Function, write: Function}} [io]
- * @returns {boolean}
+ * Run the gate list. Returns the failing gates (empty = green).
+ * @param {Gate[]} gates
+ * @param {{run?: Function, io?: object, failFast?: boolean}} [deps]
+ * @returns {Gate[]}
  */
-const runGates = (gates, run = sh, io = defaultIo) => {
+const runGates = (gates, deps = {}) => {
+  const run = deps.run ?? runCmd;
+  const io = deps.io ?? defaultIo;
+  const failFast = deps.failFast ?? false;
+  const failed = [];
   io.log();
-  let failed = false;
-  for (const { name, cmd, fix } of gates) {
-    if (!cmd) {
-      io.log(`${GREEN}✓ ${name} (skip)${RESET}`);
+  for (const g of gates) {
+    if (g.error) {
+      io.err(`${c("red", "✗")} ${g.name} — ${g.error}`);
+      if (g.fix) io.err(c("yellow", `  fix: ${g.fix}`));
+      failed.push(g);
+      if (failFast) break;
       continue;
     }
-    io.write(`${DIM}→ ${name} ... ${RESET}`);
-    const r = run(cmd);
-    if (r.status === 0) {
-      io.log(`${GREEN}✓${RESET}`);
-    } else {
-      io.log(`${RED}✗${RESET}`);
-      if (r.stdout) io.log(r.stdout);
-      if (r.stderr) io.err(r.stderr);
-      io.err(`${RED}✗ GATE FAILED: ${name}${RESET}`);
-      if (fix) io.err(`${YELLOW}  fix: ${fix}${RESET}`);
-      failed = true;
-      break;
+    if (!g.cmds.length) {
+      io.log(`${c("green", "✓")} ${g.name} (skip)`);
+      continue;
     }
+    io.write(`${c("dim", `→ ${g.name} ... `)}`);
+    const started = Date.now();
+    let bad = null;
+    for (const cmd of g.cmds) {
+      const r = run(cmd);
+      if (!(g.ok ? g.ok(r) : r.status === 0)) {
+        bad = r;
+        break;
+      }
+    }
+    if (!bad) {
+      io.log(
+        `${c("green", "✓")} ${c("dim", `${((Date.now() - started) / 1000).toFixed(1)}s`)}`,
+      );
+      continue;
+    }
+    io.log(c("red", "✗"));
+    if (bad.stdout) io.log(bad.stdout);
+    if (bad.stderr) io.err(bad.stderr);
+    if (bad.error) io.err(String(bad.error.message ?? bad.error));
+    if (g.fix) io.err(c("yellow", `  fix: ${g.fix}`));
+    failed.push(g);
+    if (failFast) break;
   }
   io.log();
   return failed;
 };
 
 /**
- * Resolve the injectable dependencies for a make-check run. run/io default to
- * the real runner/console; ruff defaults to findRuff() unless an explicit
- * null/array is passed (null skips the ruff gates).
- * @param {{run?: (cmd: string, env?: Record<string, string|undefined>) => SpawnResult,
- *          io?: {log: Function, err: Function, write: Function},
- *          ruff?: string[]|null, vitestCmdFn?: Function, pytestExe?: string}} [deps]
- * @returns {{run: (cmd: string, env?: Record<string, string|undefined>) => SpawnResult,
- *            io: {log: Function, err: Function, write: Function},
- *            ruff: string[]|null}}
+ * Parse CLI flags.
+ * @param {string[]} argv
+ * @returns {{list: boolean, failFast: boolean, fetch: boolean,
+ *            help: boolean, base?: string, unknown: string[]}}
  */
-const resolveDeps = (deps = {}) => ({
-  run: deps.run ?? sh,
-  io: deps.io ?? defaultIo,
-  ruff: deps.ruff !== undefined ? deps.ruff : findRuff(),
-});
+const parseArgs = argv => {
+  const out = {
+    list: false,
+    failFast: false,
+    fetch: true,
+    help: false,
+    base: undefined,
+    unknown: [],
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--list" || a === "--dry-run") out.list = true;
+    else if (a === "--fail-fast") out.failFast = true;
+    else if (a === "--no-fetch") out.fetch = false;
+    else if (a === "--help" || a === "-h") out.help = true;
+    else if (a === "--base") out.base = argv[(i += 1)];
+    else if (a.startsWith("--base=")) out.base = a.slice("--base=".length);
+    else out.unknown.push(a);
+  }
+  return out;
+};
+
+/** Render a command for display only (never for execution). The U+FFFD probe
+ *  is escaped so `--list` does not print a replacement char that looks like
+ *  mojibake of its own. */
+const formatCmd = cmd =>
+  cmd.shell
+    ? cmd.argv[0]
+    : cmd.argv
+        .map(a => (/[\s"'$`]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a))
+        .join(" ")
+        .replaceAll(U_FFFD, "\\uFFFD");
+
+const printHelp = io => {
+  io.log("usage: node script/check/local-check.mjs [options]");
+  io.log("");
+  io.log("  --list        print the gates and commands without running them");
+  io.log("  --fail-fast   stop at the first failing gate");
+  io.log("  --no-fetch    do not `git fetch origin main` (use the local ref)");
+  io.log("  --base <ref>  diff base (default: merge-base(origin/main, HEAD))");
+  io.log("  -h, --help    show this help");
+};
+
+const printGates = (gates, io) => {
+  io.log();
+  for (const g of gates) {
+    if (g.error) io.log(`${g.name} — unavailable: ${g.error}`);
+    else if (!g.cmds.length) io.log(`${g.name} — skip`);
+    else for (const cmd of g.cmds) io.log(`${g.name}:\n  ${formatCmd(cmd)}`);
+  }
+};
 
 /**
- * Run the local gates. Exits non-zero (via process.exitCode) on the first
- * failing gate. run/io/ruff/vitestCmdFn/pytestExe are injectable for tests;
- * omitted, they default to the real toolchain.
- * @param {{run?: (cmd: string, env?: Record<string, string|undefined>) => SpawnResult,
- *          io?: {log: Function, err: Function, write: Function},
- *          ruff?: string[]|null, vitestCmdFn?: Function, pytestExe?: string}} [deps]
+ * Run the local gates. Exits non-zero (via process.exitCode) when any gate
+ * fails. run/io/argv are injectable for tests; omitted, they default to the
+ * real toolchain.
+ * @param {object} [deps]
  * @returns {number}
  */
 const main = (deps = {}) => {
-  const { run, io, ruff } = resolveDeps(deps);
-  fetchOriginMain({ run, io });
-  const files = collectChangedFiles({ run });
-  const base = resolveBase(run("git merge-base origin/main HEAD"));
+  const io = deps.io ?? defaultIo;
+  const rawRun = deps.run ?? runCmd;
+  const argv = deps.argv ?? process.argv.slice(2);
+  const opts = parseArgs(argv);
+
+  if (opts.unknown.length) {
+    io.err(c("red", `unknown argument(s): ${opts.unknown.join(" ")} — see --help`));
+    process.exitCode = 2;
+    return 2;
+  }
+  if (opts.help) {
+    printHelp(io);
+    return 0;
+  }
+
+  const root = deps.root ?? resolveRoot(rawRun);
+  const run = deps.run ? rawRun : cmd => runCmd(cmd, { cwd: root });
+
+  if (opts.fetch && !opts.base) fetchOriginMain({ run, io });
+  else if (opts.base) io.log(c("dim", `base pinned to ${opts.base} (no fetch)`));
+  else io.log(c("dim", "using the local origin/main ref (no fetch)"));
+
+  const base =
+    opts.base ??
+    resolveBase(run({ argv: ["git", "merge-base", "origin/main", "HEAD"] }));
+  const files = collectChangedFiles({ run, io, base });
+  const pytestExe = resolve(root, pytestExeFor(process.platform));
+  const preCommit = deps.preCommit ?? findPreCommit({ root });
+  const hasPreCommit =
+    deps.hasPreCommit ??
+    (preCommit !== "pre-commit" || preCommitOnPath({ run, platform: deps.platform }));
+  const gates = buildGates(files, {
+    io,
+    preCommit,
+    hasPreCommit,
+    pytestExe,
+    hasPython: deps.hasPython ?? existsSync(pytestExe),
+    shim: deps.shim,
+    exists: deps.exists,
+    platform: deps.platform,
+  });
+
   io.log(
-    `${DIM}base: ${base}  changed (${files.length}): ${
-      files.length ? files.join(", ") : "none"
-    }${RESET}`,
+    c(
+      "dim",
+      `base: ${base}  changed (${files.length}): ${files.length ? preview(files) : "none"}`,
+    ),
   );
 
-  const gates = buildGates(files, {
-    ruff,
-    vitestCmdFn: deps.vitestCmdFn,
-    pytestExe: deps.pytestExe,
-    io,
-  });
-  const failed = runGates(gates, run, io);
-  if (failed) {
-    io.err(`${RED}❌ make check: one or more local gates failed${RESET}`);
+  if (opts.list) {
+    printGates(gates, io);
+    return 0;
+  }
+
+  const failed = runGates(gates, { run, io, failFast: opts.failFast });
+  const active = gates.filter(g => g.cmds.length || g.error).length;
+  if (failed.length) {
+    io.err(c("red", `❌ make check: ${failed.length}/${active} gate(s) failed`));
+    for (const g of failed) io.err(c("red", `   - ${g.name}`));
     process.exitCode = 1;
     return 1;
   }
-  io.log(`${GREEN}✅ make check: all local gates green${RESET}`);
+  io.log(c("green", "✅ make check: all local gates green"));
   return 0;
-};
-
-export {
-  ROOT,
-  PYTEST_EXE,
-  pytestExeFor,
-  resolveDeps,
-  sh,
-  RED,
-  GREEN,
-  YELLOW,
-  DIM,
-  RESET,
-  defaultIo,
-  PRETTIER_EXT,
-  ESLINT_EXT,
-  findShim,
-  VITEST_SHIM,
-  vitestCmd,
-  findRuff,
-  collectChangedFiles,
-  mapJsTests,
-  mapPyTests,
-  fetchOriginMain,
-  resolveBase,
-  isCliEntry,
-  buildGates,
-  runGates,
-  main,
 };
 
 // Only run the gates when invoked as a CLI (not when imported by a test).
 const isCliEntry = entry =>
-  import.meta.url === pathToFileURL(resolve(entry ?? "")).href;
+  Boolean(entry) && import.meta.url === pathToFileURL(resolve(entry)).href;
+
+export {
+  ROOT,
+  U_FFFD,
+  PRECOMMIT_CHUNK,
+  COLORS,
+  colorEnabled,
+  paint,
+  defaultIo,
+  runCmd,
+  NPM,
+  pytestExeFor,
+  preCommitExeFor,
+  findPreCommit,
+  preCommitOnPath,
+  findShim,
+  VITEST_SHIM,
+  shimArgs,
+  vitestRun,
+  vitestRelated,
+  splitNul,
+  resolveBase,
+  collectChangedFiles,
+  resolveRoot,
+  fetchOriginMain,
+  jsSources,
+  pyChanged,
+  chunk,
+  preview,
+  buildGates,
+  runGates,
+  parseArgs,
+  formatCmd,
+  printGates,
+  main,
+  isCliEntry,
+};
 
 if (isCliEntry(process.argv[1])) {
   main();
