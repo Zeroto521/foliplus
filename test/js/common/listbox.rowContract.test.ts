@@ -21,13 +21,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Dropdown, createDropdown } from "#common/dropdown.js";
 import { type DropdownSurface, createListbox } from "#common/listbox.js";
 
-// P2 record — flip/clamp divergence (NOT changed in this PR; tracked by task-73 step 4).
+// P2 record — flip/clamp divergence (NOT changed in this PR).
 // The engine's positionList flips above the trigger when the room below is less than
 // MIN_ROWS_BELOW (2) rows (listbox.ts:337: fitsBelow = space.below >= min(desired,
 // rowHeight * MIN_ROWS_BELOW)). The historical schemePicker (its own pre-engine
 // implementation on main) flipped using the whole dropdown height instead, so the
 // two layers can disagree about when a popup flips. This PR records the divergence
-// and does NOT unify it — unification is task-73 migration step 4 (the schemePicker
+// and does NOT unify it — unification is a later migration step (the schemePicker
 // engine migration), which is where the single flip policy is decided.
 
 const cleanup: (() => void)[] = [];

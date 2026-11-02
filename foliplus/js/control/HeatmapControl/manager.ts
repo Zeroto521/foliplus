@@ -1108,7 +1108,7 @@ class HeatmapManager {
     const declared = this.declaredFilter;
     if (declared.kind !== "atom") {
       // The panel's only dimension is a numeric range; a declared enum/logical
-      // node has no row to show it on (task-102 covers that dimension).
+      // node has no row to show it on.
       this.warnDeclaredFilter("the panel filters a numeric range only");
       return;
     }

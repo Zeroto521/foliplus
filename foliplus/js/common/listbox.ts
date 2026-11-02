@@ -82,8 +82,8 @@ interface DropdownSurface {
 /**
  * Dismiss ownership. Phase 1 (S-A..S-E): the engine is the ONLY implementation
  * of outside-press / Escape / one-at-a-time, so its "local" port is a single
- * implementation rather than a second one. Phase 2 (S-F, after task-47 M1 +
- * M2 PR-B/C) switches to the PanelController registry and the engine stops
+ * implementation rather than a second one. Phase 2 (S-F, after the M1 +
+ * M2 milestones PR-B/C) switches to the PanelController registry and the engine stops
  * listening on document/window entirely.
  */
 type ListboxDismiss =
