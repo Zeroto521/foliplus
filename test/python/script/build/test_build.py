@@ -15,9 +15,7 @@ import foliplus
 _PKG = Path(foliplus.__file__).parent
 # Discover from the package so a scaffolded control is covered without
 # hand-editing this tuple. BaseControl is the shared base, not a component.
-COMPONENTS = tuple(
-    sorted(p.name for p in _PKG.glob("plugin/*") if p.is_dir())
-)
+COMPONENTS = tuple(sorted(p.name for p in _PKG.glob("plugin/*") if p.is_dir()))
 
 
 def _dist() -> Path:

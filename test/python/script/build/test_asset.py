@@ -32,6 +32,7 @@ from conftest import read_css, render, render_control
 # and `dist_dir` would be invisible. The real module is what owns `dist_dir`.
 BaseControlModule = importlib.import_module("foliplus.BaseControl")
 
+from foliplus import ExportControl, SearchControl
 from foliplus.BaseControl import (
     MissingAssetsError,
     _build_component_template,
@@ -41,8 +42,6 @@ from foliplus.BaseControl import (
     dist_dir,
     expected_artifacts,
 )
-from foliplus import ExportControl
-from foliplus import SearchControl
 
 # Single source for the artifact list: `script/build/build.mjs` writes
 # `dist/manifest.json` on every real build, and both this file and
