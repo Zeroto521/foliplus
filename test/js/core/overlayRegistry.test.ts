@@ -1,8 +1,11 @@
 import type * as L from "leaflet";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ESC_PRIORITY,
   type EscapeHandled,
+  OVERLAY_ESCAPE_EXEMPTIONS,
   OVERLAY_IDS,
   type OverlayEntry,
   type OverlayPhase,
@@ -12,6 +15,27 @@ import {
   orderOf,
 } from "#core/overlayRegistry.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
+
+/** Every `id: OVERLAY_IDS.<NAME>` register call site across the source tree.
+ *  The Escape table itself uses computed keys (`[OVERLAY_IDS.X]:`), so this
+ *  pattern cannot match the priority table — it names real registerers only. */
+const registeredEscapeIds = (): Set<string> => {
+  const root = resolve("foliplus/js");
+  const files: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith(".ts")) files.push(path);
+    }
+  };
+  walk(root);
+  const source = files.map(file => readFileSync(file, "utf8")).join("\n");
+  const registered = new Set<string>();
+  const pattern = /id:\s*OVERLAY_IDS\.([A-Z_]+)/g;
+  for (const match of source.matchAll(pattern)) registered.add(match[1]);
+  return registered;
+};
 
 /** A map stand-in: the registry only needs the unload hook. */
 const makeMap = () => {
@@ -740,6 +764,43 @@ describe("OverlayRegistry", () => {
       const ranks = Object.values(OVERLAY_IDS).map(orderOf);
       expect(new Set(ranks).size).toBe(ranks.length);
       expect([...ranks].sort((a, b) => b - a)).toEqual(ranks);
+    });
+
+    it("every Escape table id is registered or explicitly exempted", () => {
+      // A table id must be owned by a registered overlay OR by a documented
+      // non-registry mechanism (inline rename, focus spotlight, crop modal).
+      // The exemption table is the only sanctioned absence of a registerer;
+      // a bare id with no registerer and no exemption is a contract break.
+      const registered = registeredEscapeIds();
+      const missing: string[] = [];
+      for (const id of Object.values(OVERLAY_IDS)) {
+        // `registeredEscapeIds` returns constant names (e.g. "LAYER_RENAME");
+        // the exemption table is keyed by the id value (e.g. "layer.rename").
+        const key = (Object.keys(OVERLAY_IDS) as (keyof typeof OVERLAY_IDS)[]).find(
+          k => OVERLAY_IDS[k] === id,
+        );
+        if (!key) continue;
+        if (!registered.has(key) && !(id in OVERLAY_ESCAPE_EXEMPTIONS)) {
+          missing.push(key);
+        }
+      }
+      expect(missing).toEqual([]);
+    });
+
+    it("exemptions are only for ids the table knows and carry a reason", () => {
+      const known = new Set(Object.values(OVERLAY_IDS));
+      for (const id of Object.keys(OVERLAY_ESCAPE_EXEMPTIONS)) {
+        expect(known.has(id)).toBe(true);
+        expect(
+          typeof OVERLAY_ESCAPE_EXEMPTIONS[
+            id as keyof typeof OVERLAY_ESCAPE_EXEMPTIONS
+          ],
+        ).toBe("string");
+        expect(
+          OVERLAY_ESCAPE_EXEMPTIONS[id as keyof typeof OVERLAY_ESCAPE_EXEMPTIONS]
+            .length,
+        ).toBeGreaterThan(20);
+      }
     });
   });
 
