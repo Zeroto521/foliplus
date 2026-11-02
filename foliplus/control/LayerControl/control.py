@@ -169,15 +169,19 @@ class LayerControl(BaseControl):
     How a ``fill`` declaration is resolved:
 
     +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
-    | User panel choice (stored)  | The style panel's own solid or by-value choice wins: it is recorded as user intent and the declaration no longer paints.            |
+    | Case                        | Resolution                                                                                                                          |
     +=============================+=====================================================================================================================================+
+    | User panel choice (stored)  | The style panel's own solid or by-value choice wins: it is recorded as user intent and the declaration no longer paints.            |
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
     | Valid declaration           | The declared ramp paints each feature by ``field`` at load (classify, not flatten); Reset returns to it.                            |
     +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
     | No declaration              | The layer keeps its author paint: the per-feature colours from ``explore``, else the built-in solid.                                |
     +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
-    | Ramp without a usable field | The whole declaration is dropped, never partly applied: the layer keeps its author paint and one warning reports the unusable ramp. |
+    | Ramp without a usable field | A declared ramp with no usable ``ramp.field``, or whose field the data no longer carries, is dropped whole and the layer keeps its  |
+    |                             | author paint; only an explicit ``mode="ramp"`` with a missing ``field`` warns once.                                                 |
     +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
-    | Invalid declaration keys    | Each invalid key degrades on its own with a single warning; the panel default survives for the dropped key.                         |
+    | Invalid declaration keys    | An invalid value on a known key degrades on its own with one warning per (layer, key); the panel default survives for the dropped   |
+    |                             | key. Unknown keys are ignored.                                                                                                      |
     +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
 
     A declaration is a default, never a rewrite: it does not modify the
