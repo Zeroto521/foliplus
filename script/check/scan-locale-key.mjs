@@ -42,7 +42,8 @@ const CONTROLS = [
 
 /** Map a file path under `ROOT` to its control prefix, or null for shared/core. */
 const prefixFor = rel => {
-  const top = rel.split(/[\\/]/)[0];
+  const seg = rel.split(/[\\/]/);
+  const top = seg[0] === "control" ? (seg[1] ?? "") : seg[0];
   return CONTROLS.includes(top) ? top : null;
 };
 

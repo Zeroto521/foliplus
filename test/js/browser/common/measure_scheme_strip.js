@@ -38,6 +38,25 @@ triggerSelector => {
     itemPaddingRight: getComputedStyle(
       dropdown.querySelector(".foliplus-scheme-picker-item"),
     ).paddingRight,
+    // The resolved strip inset: the item's left padding (the shared
+    // --foliplus-scheme-picker-bar-inset-x token), read from the DOM rather
+    // than hardcoded, so the invariant tracks a consumer override too.
+    itemInset: parseFloat(
+      getComputedStyle(dropdown.querySelector(".foliplus-scheme-picker-item"))
+        .paddingLeft,
+    ),
+    // The dropdown's padding-box right edge: border-box right minus the right
+    // border. This is where the trigger's strip would sit minus the inset.
+    paddingBoxRight:
+      dropdown.getBoundingClientRect().right - parseFloat(style.borderRightWidth),
+    // The scrollport right edge = padding-box left + clientWidth. clientWidth
+    // is the padding box minus any scrollbar gutter, so this is the right edge
+    // of the visible content area (the clip line). A classic scrollbar's
+    // gutter lies beyond it and cannot be painted by the row.
+    scrollportRight:
+      dropdown.getBoundingClientRect().left +
+      parseFloat(style.borderLeftWidth) +
+      dropdown.clientWidth,
     content: content
       ? {
           clientWidth: content.clientWidth,

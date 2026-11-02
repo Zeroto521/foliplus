@@ -13,8 +13,8 @@ from branca.element import Element
 from folium import GeoJson
 from folium.map import Layer
 
-from ._config_schema import FieldSpec
-from ._declaration import (
+from foliplus._config_schema import FieldSpec
+from foliplus._declaration import (
     ZOOM_RANGE_KEY,
     _foliplus_reports,
     _normalise_zoom_range,
@@ -22,9 +22,9 @@ from ._declaration import (
     _should_report,
     _warn_foliplus,
 )
-from ._typing import ControlPosition
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._typing import ControlPosition
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 _FOLIUM_COLOR_PROP = "__folium_color"
 

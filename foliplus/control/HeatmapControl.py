@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from ._config_schema import FieldSpec
-from ._declaration import _normalise_zoom_range, normalize_declared_filter
-from ._typing import ControlPosition, Fraction, PositiveInt
-from ._validate import Bound, validate
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._config_schema import FieldSpec
+from foliplus._declaration import _normalise_zoom_range, normalize_declared_filter
+from foliplus._typing import ControlPosition, Fraction, PositiveInt
+from foliplus._validate import Bound, validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
@@ -29,25 +29,23 @@ class HeatmapControl(BaseControl):
     Shortcuts
     ---------
 
-    .. list-table::
-       :header-rows: 1
-
-       * - Key
-         - Action
-       * - ArrowUp
-         - Select the previous color scheme
-       * - ArrowDown
-         - Select the next color scheme
-       * - Enter / Space
-         - Open the scheme dropdown
-       * - ArrowDown (dropdown)
-         - Focus the next scheme option
-       * - ArrowUp (dropdown)
-         - Focus the previous scheme option
-       * - Enter (dropdown)
-         - Select the focused scheme option
-       * - Escape (dropdown)
-         - Close the dropdown without selecting
+    +----------------------+--------------------------------------+
+    | Key                  | Action                               |
+    +======================+======================================+
+    | ArrowUp              | Select the previous color scheme     |
+    +----------------------+--------------------------------------+
+    | ArrowDown            | Select the next color scheme         |
+    +----------------------+--------------------------------------+
+    | Enter / Space        | Open the scheme dropdown             |
+    +----------------------+--------------------------------------+
+    | ArrowDown (dropdown) | Focus the next scheme option         |
+    +----------------------+--------------------------------------+
+    | ArrowUp (dropdown)   | Focus the previous scheme option     |
+    +----------------------+--------------------------------------+
+    | Enter (dropdown)     | Select the focused scheme option     |
+    +----------------------+--------------------------------------+
+    | Escape (dropdown)    | Close the dropdown without selecting |
+    +----------------------+--------------------------------------+
 
     Parameters
     ----------
@@ -148,31 +146,39 @@ class HeatmapControl(BaseControl):
 
     Examples
     --------
-    >>> import folium
-    >>> from foliplus import HeatmapControl
-    >>> m = folium.Map()
-    >>> HeatmapControl().add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import HeatmapControl
+        >>> m = folium.Map()
+        >>> HeatmapControl().add_to(m)
 
     With a declared starting filter on the aggregation field:
 
-    >>> import folium
-    >>> from foliplus import HeatmapControl
-    >>> m = folium.Map()
-    >>> HeatmapControl(
-    ...     agg="sum", field="score", filter={"min": 10, "max": 50}
-    ... ).add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import HeatmapControl
+        >>> m = folium.Map()
+        >>> HeatmapControl(
+        ...     agg="sum", field="score", filter={"min": 10, "max": 50}
+        ... ).add_to(m)
 
     Only show the control while the map is between zoom levels 8 and 12:
 
-    >>> import folium
-    >>> from foliplus import HeatmapControl
-    >>> m = folium.Map()
-    >>> HeatmapControl(zoom_range={"min": 8, "max": 12}).add_to(m)
+    .. code-block:: python
+
+        >>> import folium
+        >>> from foliplus import HeatmapControl
+        >>> m = folium.Map()
+        >>> HeatmapControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
-    **Filter declaration.** ``filter`` is a mapping with ``min`` and ``max``
-    (the enum arm, a list of measurement types, belongs to ``MeasureControl``):
+    .. rubric:: Filter declaration
+
+    ``filter`` is a mapping with ``min`` and ``max`` (the enum arm, a list of
+    measurement types, belongs to ``MeasureControl``):
 
     +--------------------+----------------------+----------+----------------------------------------------+
     | Key                | Type                 | Required | Meaning                                      |
@@ -181,7 +187,7 @@ class HeatmapControl(BaseControl):
     |                    |                      |          | (``field=``).                                |
     +--------------------+----------------------+----------+----------------------------------------------+
 
-    **Situation → behavior.**
+    .. rubric:: Situation → behavior
 
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
@@ -202,8 +208,10 @@ class HeatmapControl(BaseControl):
     |                                            | reload).                                   |
     +--------------------------------------------+--------------------------------------------+
 
-    **Zoom-range declaration.** ``zoom_range={"min": 8, "max": 12}`` takes the
-    same shape the per-layer ``foliplus`` declaration uses:
+    .. rubric:: Zoom-range declaration
+
+    ``zoom_range={"min": 8, "max": 12}`` takes the same shape the per-layer
+    ``foliplus`` declaration uses:
 
     +---------+------+----------+--------------------------------------------------+
     | Key     | Type | Required | Meaning                                          |

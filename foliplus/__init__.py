@@ -11,15 +11,15 @@ except ImportError:
         __version__ = "unknown"
 
 from .BaseControl import BaseControl
-from .ExportControl import ExportControl
-from .FullscreenControl import FullscreenControl
-from .HeatmapControl import HeatmapControl
-from .LayerControl import LayerControl
+from .control.ExportControl import ExportControl
+from .control.FullscreenControl import FullscreenControl
+from .control.HeatmapControl import HeatmapControl
+from .control.LayerControl import LayerControl
+from .control.LocateControl import LocateControl
+from .control.MeasureControl import MeasureControl
+from .control.ScaleControl import ScaleControl
+from .control.SearchControl import SearchControl
 from .locale import LocaleConfig
-from .LocateControl import LocateControl
-from .MeasureControl import MeasureControl
-from .ScaleControl import ScaleControl
-from .SearchControl import SearchControl
 
 __all__ = [
     "BaseControl",

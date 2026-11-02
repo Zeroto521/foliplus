@@ -418,7 +418,8 @@
      value on the mounted dropdown (a layout scrollbar reserves real space, an
      overlay one reserves none, and a stable gutter keeps the lane constant
      between the scrolling and fitting states); the item strip subtracts it so
-     its right edge stays on the trigger strip's right edge. */
+     its right edge stays on the trigger strip's right edge whenever the lane
+     fits inside the inset. */
   --foliplus-scheme-picker-scrollbar-width: 0px;
 
   /* ── LayerControl (row layout) ──

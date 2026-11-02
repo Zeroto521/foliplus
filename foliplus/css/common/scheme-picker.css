@@ -88,9 +88,13 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
-  /* The item strip subtracts the lane from its right inset, so the lane must
-     be the same whether the list scrolls or fits — otherwise a list that
-     crosses the max-height would narrow every strip mid-session. */
+  /* The item strip subtracts the measured lane from its right inset, so a
+     list that crosses the max-height keeps the strip on the same edge (a
+     stable gutter keeps the lane constant between the scrolling and fitting
+     states). The gutter is a classic scrollbar's lane outside the scrollport:
+     it cannot be painted by the row, so a lane wider than the inset leaves the
+     strip shorter than the trigger by (lane - inset) px — see the item rule. */
+  overflow-x: hidden;
   scrollbar-gutter: stable;
   /* Optional, and cheap: a scheme list of seven rows usually fits, but a
      custom long list should not get a full-width OS scrollbar. */
@@ -130,7 +134,11 @@
   /* Same strip inset as the trigger bar. The item's reserved selection border
      (below) sits *inside* the inset, so its strip lands on the trigger strip's
      x on both sides — the trigger insets by the token, the item by the token
-     minus that border. */
+     minus that border and the scrollbar lane. Physical limit: the lane is a
+     classic scrollbar's gutter, which lies outside the scrollport and cannot
+     be painted by the row, so when the lane exceeds the inset the strip is
+     shorter than the trigger's by (lane - inset) px; when the lane is at or
+     below the inset the two align exactly. */
   padding: 0
     max(
       0px,

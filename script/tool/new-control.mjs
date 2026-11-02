@@ -132,8 +132,8 @@ const insertSortedLine = (text, block, line) => {
 
 /** Add `from .Name import Name` and a sorted `__all__` entry. */
 const patchInitPy = (text, name) => {
-  if (text.includes(`from .${name} import ${name}`)) return text;
-  const importLine = `from .${name} import ${name}`;
+  if (text.includes(`from .control.${name} import ${name}`)) return text;
+  const importLine = `from .control.${name} import ${name}`;
   const afterImports = text.replace(
     /(from \.BaseControl import BaseControl\n)/,
     `$1${importLine}\n`,
@@ -194,6 +194,26 @@ const patchLocaleKeys = (text, name, key = `${name}.title`) => {
   return text.slice(0, close + 1) + marker + text.slice(close + 1);
 };
 
+/** Add `${name}` to the locale-key scanner's CONTROLS list (alphabetical). */
+const patchScannerControls = (text, name) => {
+  if (text.includes(`  "${name}",`)) return text;
+  const start = text.indexOf("const CONTROLS = [");
+  if (start < 0) throw new Error("CONTROLS list not found");
+  const end = text.indexOf("];", start);
+  if (end < 0) throw new Error("CONTROLS closing bracket not found");
+  const lines = text.slice(start, end).split("\n");
+  let insertAt = lines.length - 1;
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i].trim().replace(/",$/, "").replace(/^"/, "");
+    if (cur && cur !== "const CONTROLS = [" && cur > name) {
+      insertAt = i;
+      break;
+    }
+  }
+  lines.splice(insertAt, 0, `  "${name}",`);
+  return text.slice(0, start) + lines.join("\n") + text.slice(end);
+};
+
 /** Build every skeleton file path → content pair for a control. */
 const buildSkeleton = ({ name, description, position, icon = "🧩" }) => {
   const slug = controlSlug(name);
@@ -202,7 +222,7 @@ const buildSkeleton = ({ name, description, position, icon = "🧩" }) => {
   const files = new Map();
 
   files.set(
-    `foliplus/${name}.py`,
+    `foliplus/control/${name}.py`,
     `from __future__ import annotations
 
 from ._typing import Position
@@ -245,7 +265,7 @@ class ${name}(BaseControl):
 
   // Import order matches .prettierrc.cjs: #core → #foliplus → #common.
   files.set(
-    `foliplus/js/plugin/${name}/index.ts`,
+    `foliplus/js/control/${name}/index.ts`,
     `import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -269,7 +289,7 @@ new ${name}({ position: CONFIG.position }).addTo(map);
 
   // Tokens must exist in css/common/token.css — never invent new ones here.
   files.set(
-    `foliplus/css/plugin/${name}.css`,
+    `foliplus/css/control/${name}.css`,
     `.${cssClass} {
   padding: var(--foliplus-space-sm) var(--foliplus-space-md);
   background: var(--foliplus-ctrl-bg);
@@ -296,7 +316,7 @@ new ${name}({ position: CONFIG.position }).addTo(map);
   }
 
   files.set(
-    `test/python/test_${name}.py`,
+    `test/python/control/${name}/test_${name}.py`,
     `"""Tests for ${name}."""
 
 from __future__ import annotations
@@ -383,9 +403,14 @@ const scaffoldControl = (opts, root = ROOT) => {
   );
   patchFile(abs("doc", "source", "api.rst"), t => patchApiRst(t, name));
   patchFile(abs("README.md"), t => patchReadme(t, name, description, icon));
+  patchFile(abs("script", "check", "scan-locale-key.mjs"), t =>
+    patchScannerControls(t, name),
+  );
   // test_build.py derives COMPONENTS from the package — no patch needed.
   // vitest.config.mjs excludes foliplus/js/*/index.ts by glob — no patch needed.
-  patchFile(abs("test", "python", "test_locale.py"), t => patchLocaleKeys(t, name));
+  // test_locale.py derives _JS_USED_KEYS dynamically (_scan_js_keys) — a new
+  // control's T("title") is picked up automatically once scan-locale-key.mjs
+  // lists it in CONTROLS; no literal set to patch (removed on main).
 
   return { created, patched, skipped, name, description, position, icon };
 };
@@ -410,7 +435,7 @@ const report = result => {
 Manual next steps:
   1. Implement buildDOM() / __init__ kwargs / _config_fields as needed
   2. Add real locale strings to foliplus/locale/${name}.{en,zh}.json
-     and keep test/python/test_locale.py::_JS_USED_KEYS in sync
+     (test_locale.py derives _JS_USED_KEYS dynamically via scan-locale-key.mjs)
   3. If the control participates in mode locking or EventBus, register it in
      foliplus/js/core/mode.ts and foliplus/js/core/event/const.ts
   4. If the control exposes a typed CONFIG shape, extend foliplus/js/type/global.d.ts
