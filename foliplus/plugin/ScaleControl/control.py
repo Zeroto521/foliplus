@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 
 class ScaleControl(BaseControl):

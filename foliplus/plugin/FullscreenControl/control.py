@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ._typing import ControlPosition
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._typing import ControlPosition
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 
 class FullscreenControl(BaseControl):

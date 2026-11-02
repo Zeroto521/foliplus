@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from ._config_schema import FieldSpec
-from ._declaration import (
+from foliplus._config_schema import FieldSpec
+from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
     _normalise_zoom_range,
     normalize_declared_filter,
 )
-from ._typing import ControlPosition
-from ._validate import validate
-from .BaseControl import BaseControl
-from .locale import LocaleConfig
+from foliplus._typing import ControlPosition
+from foliplus._validate import validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
 
 ExportFormat = Literal["geojson", "csv"]
 

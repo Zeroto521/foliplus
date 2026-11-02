@@ -815,7 +815,7 @@ class TestLayerControlRendering:
         raw — `read_css` expands `@import`, so through it every row "contains"
         token.css.
         """
-        root = Path(__file__).resolve().parents[3]
+        root = Path(__file__).resolve().parents[4]
         for rel in (
             "foliplus/css/common/form.css",
             "foliplus/css/LayerControl/style.css",
