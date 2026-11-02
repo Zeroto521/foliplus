@@ -14,9 +14,9 @@ import pytest
 
 from foliplus._config_schema import (
     FieldSpec,
+    derive_schema,
     evaluate,
     resolve_tag,
-    derive_schema,
     verify_tags,
 )
 from foliplus._validate import Bound

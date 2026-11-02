@@ -24,11 +24,11 @@ from foliplus._declaration import (
     enum_atom,
     json_number,
     normalise_zoom_range,
+    normalize_declared_filter,
     range_atom,
     should_report,
     warn_foliplus,
     zoom_level,
-    normalize_declared_filter,
 )
 
 

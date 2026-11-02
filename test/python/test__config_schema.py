@@ -42,15 +42,15 @@ from foliplus import (
     SearchControl,
 )
 from foliplus._config_schema import (
-    UNSET,
     RUNTIME_ONLY,
     SHARED,
+    UNSET,
     FieldSpec,
-    validate_shape,
     config_fields,
     derive_schema,
     render_ts_type,
     schema_to_json,
+    validate_shape,
 )
 
 # Controls the schema covers. Every entry must appear as a foliplus-module
