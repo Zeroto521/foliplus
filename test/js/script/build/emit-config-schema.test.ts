@@ -287,7 +287,7 @@ describe("renderShape", () => {
   });
 
   it("rejects an unknown primitive name, naming the path", () => {
-    // Mirrors _validate_shape's message on the Python side, which sorts the
+    // Mirrors validate_shape's message on the Python side, which sorts the
     // accepted names.
     expect(() => renderShape("integer", "T.count")).toThrow(
       `Unknown shape primitive "integer" at T.count — expected one of array_string, bool, null, number, string`,
