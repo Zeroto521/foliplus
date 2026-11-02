@@ -44,6 +44,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import { readOnlyValue } from "#ui/form.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   type DeclaredFill,
@@ -437,12 +438,11 @@ const originalCount = (author: AuthorFill | null): string => {
  *  author's presentation, so every control in it is a readout the panel cannot
  *  open, toggle or edit. */
 const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement =>
-  dom.el(
-    "div",
-    {
-      class: `${CONST.CLASSES.STYLE_FILL_READONLY} ${className}`,
-      "aria-disabled": "true",
-    },
+  // The shared primitive supplies the semantic READONLY class and
+  // aria-disabled; the caller keeps both its frame class (the read-only
+  // frame is component-styled) and its specific hook class.
+  readOnlyValue(
+    { className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${className}` },
     ...children,
   );
 
