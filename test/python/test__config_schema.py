@@ -233,6 +233,16 @@ class TestValidateShape:
         }
         assert json.loads(json.dumps(literal)) == {"role": ["base", "overlay"]}
 
+    def test_mixed_literal_null_union_round_trips(self) -> None:
+        # A literal union may mix one literal with null (the method field of
+        # the author scale: "equal" or null). null is a primitive name, so the
+        # generator renders it unquoted beside the quoted literal — the
+        # validator must accept the descriptor and the round trip must not
+        # coerce the null into a string.
+        mixed = {"method": ("equal", "null")}
+        validate_shape(mixed, "T")
+        assert json.loads(json.dumps(mixed)) == {"method": ["equal", "null"]}
+
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):
             FieldSpec(shape={"a": "string"})

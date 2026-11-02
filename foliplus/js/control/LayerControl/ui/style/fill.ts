@@ -20,7 +20,11 @@
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
-import { numericPropertiesKeys, resolveField } from "#core/field.js";
+import {
+  categoricalPropertiesKeys,
+  numericPropertiesKeys,
+  resolveField,
+} from "#core/field.js";
 import {
   dropdownSurface,
   fullscreenSurface,
@@ -570,13 +574,24 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
-  kind: "numeric",
-  field: ramp.field,
-  method: ramp.method,
-  classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
-  scheme: ramp.scheme,
-});
+const persistedRamp = (ramp: FillRampConfig): FillRampConfig =>
+  ramp.kind === "category"
+    ? {
+        kind: "category",
+        field: ramp.field,
+        // method/classes are type-required (the union stays assignable to
+        // the numeric RampConfig) but unused at runtime on a category.
+        method: ramp.method,
+        classes: ramp.classes,
+        scheme: ramp.scheme,
+      }
+    : {
+        kind: "numeric",
+        field: ramp.field,
+        method: ramp.method,
+        classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
+        scheme: ramp.scheme,
+      };
 
 /** The scheme picker owned by the open style panel. It installs
  *  document-level listeners while its listbox is open, so the panel must
@@ -614,11 +629,29 @@ const numericFields = (ui: LayerUI, layerId: string): string[] => {
   return layer ? numericPropertiesKeys(layer) : [];
 };
 
+/** Categorical field names offered by the category fill arm. Same cache
+ *  source as the numeric arm — the annotation panel field cache first, a
+ *  tree walk as the fallback — so a layer whose cache has not been
+ *  populated yet still sees its categorical columns. */
+const categoryFields = (ui: LayerUI, layerId: string): string[] => {
+  const cached = layerFields(ui, layerId)
+    .filter(field => !field.numeric)
+    .map(field => field.name);
+  if (cached.length > 0) return cached;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as L.Layer | null;
+  return layer ? categoricalPropertiesKeys(layer) : [];
+};
+
 /** Resolve a stored ramp config's field against the fields the layer offers
  *  right now. Display (`rampForUi`), the dimension's value and the paint path
  *  all go through this, so a stale stored name cannot make the panel show one
  *  column while the map paints by the author's face. The stored record keeps
- *  its name until the next write — the column may come back. */
+ *  its name until the next write — the column may come back. The candidate
+ *  list follows the ramp kind: a category ramp resolves against the
+ *  categorical columns, a numeric ramp against the numeric ones — the kind
+ *  is part of the record, so a same-named column in the other set must not
+ *  be re-pointed at. */
 const resolvedRamp = (
   ui: LayerUI,
   layerId: string,
@@ -626,7 +659,15 @@ const resolvedRamp = (
 ): FillRampConfig | undefined =>
   ramp === undefined
     ? undefined
-    : { ...ramp, field: resolveField(ramp.field, numericFields(ui, layerId)) };
+    : {
+        ...ramp,
+        field: resolveField(
+          ramp.field,
+          (ramp.kind ?? "numeric") === "category"
+            ? categoryFields(ui, layerId)
+            : numericFields(ui, layerId),
+        ),
+      };
 
 /** The author's fill declaration in force on this layer, or undefined.
  *
@@ -646,9 +687,16 @@ const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined =>
     layerId,
   ).declared;
   if (!declared?.ramp) return declared;
-  return numericFields(ui, layerId).includes(declared.ramp.field)
-    ? declared
-    : undefined;
+  // The declaration kind selects the candidate set: a category ramp
+  // needs its column among the categorical fields, a numeric ramp among
+  // the numeric ones. A declaration whose field vanished from the matching
+  // set is not re-pointed — the whole declaration steps aside, same as a
+  // numeric declaration whose column is gone.
+  const fields =
+    (declared.ramp.kind ?? "numeric") === "category"
+      ? categoryFields(ui, layerId)
+      : numericFields(ui, layerId);
+  return fields.includes(declared.ramp.field) ? declared : undefined;
 };
 
 /** A fill ramp the layer *declares* from Python (#789).

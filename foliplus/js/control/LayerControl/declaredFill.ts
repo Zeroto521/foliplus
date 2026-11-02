@@ -113,6 +113,20 @@ const parseRamp = (
   }
   const data = raw as Record<string, unknown>;
 
+  // The kind selects the arm. Absent reads as "numeric" (the pre-kind record
+  // shape); an unrecognized kind drops the ramp whole — the persistence
+  // reader applies the same rule, so a declaration this client cannot build
+  // is never misapplied as a numeric ramp.
+  if (data.kind !== undefined && data.kind !== "numeric" && data.kind !== "category") {
+    reject(
+      invalid,
+      layerId,
+      "ramp.kind",
+      `invalid ramp.kind ${JSON.stringify(data.kind)} (expected "numeric" or "category")`,
+    );
+    return undefined;
+  }
+
   let field: string | undefined;
   if (data.field !== undefined) {
     if (isName(data.field)) field = data.field;
@@ -124,6 +138,48 @@ const parseRamp = (
         `invalid ramp.field ${JSON.stringify(data.field)} (expected a property name)`,
       );
     }
+  }
+
+  // No usable field: nothing to classify, so the ramp cannot be built. The
+  // caller drops the declaration instead of painting a solid face under a
+  // "ramp" panel state.
+  if (field === undefined) return undefined;
+
+  if (data.kind === "category") {
+    // A categorical arm needs its qualitative palette — that is the one key
+    // beyond the field a category ramp cannot build without. method/classes
+    // are irrelevant (a category is not ordered, so "classify" has no
+    // meaning) and deliberately not validated, the same rule isFillRampConfig
+    // applies to a persisted category record; they are kept at the type level
+    // so the union stays assignable to the numeric RampConfig.
+    let scheme: string = CONST.RAMP.SCHEME_DEFAULT;
+    if (data.scheme !== undefined) {
+      if (isName(data.scheme)) scheme = data.scheme;
+      else {
+        reject(
+          invalid,
+          layerId,
+          "ramp.scheme",
+          `invalid ramp.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+        );
+        return undefined;
+      }
+    } else {
+      reject(
+        invalid,
+        layerId,
+        "ramp.scheme",
+        "a category ramp declaration without a ramp.scheme",
+      );
+      return undefined;
+    }
+    return {
+      kind: "category",
+      field,
+      method: CONST.RAMP.METHOD_DEFAULT,
+      classes: CLASS_COUNT.DEFAULT,
+      scheme,
+    };
   }
 
   let method: FillRampConfig["method"] = CONST.RAMP.METHOD_DEFAULT;
@@ -176,12 +232,7 @@ const parseRamp = (
     }
   }
 
-  // No usable field: nothing to classify, so the ramp cannot be built. The
-  // caller drops the declaration instead of painting a solid face under a
-  // "ramp" panel state.
-  return field === undefined
-    ? undefined
-    : { kind: "numeric", field, method, classes, scheme };
+  return { kind: "numeric", field, method, classes, scheme };
 };
 
 const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {

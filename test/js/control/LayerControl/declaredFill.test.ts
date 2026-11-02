@@ -236,4 +236,68 @@ describe("readDeclaredFill", () => {
     expect(second).toBe(first);
     expect(second.declared?.ramp?.field).toBe("a");
   });
+
+  it("reads a category ramp declaration", () => {
+    // The categorical arm: kind:"category" + field + scheme. method/classes
+    // are irrelevant and deliberately not validated — the declaration keeps
+    // the type-level defaults so the union stays assignable to RampConfig.
+    const read = readDeclaredFill(
+      layerWith({
+        fill: {
+          mode: "ramp",
+          ramp: { kind: "category", field: "kind", scheme: "Set3" },
+        },
+      }),
+      "overlay1",
+    );
+
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toEqual({
+      mode: "ramp",
+      ramp: {
+        kind: "category",
+        field: "kind",
+        method: "jenks",
+        classes: 6,
+        scheme: "Set3",
+      },
+    });
+  });
+
+  it("rejects a category ramp without a scheme", () => {
+    // A category palette is the one key beyond the field a category ramp
+    // cannot build without; dropping it is fatal, not a degrade.
+    const read = readDeclaredFill(
+      layerWith({ fill: { ramp: { kind: "category", field: "kind" } } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid).toHaveLength(1);
+    expect(read.invalid[0]).toContain("without a ramp.scheme");
+  });
+
+  it("rejects an unrecognized ramp kind instead of misapplying it", () => {
+    // The persistence reader drops an unknown kind whole; the declaration
+    // reader must apply the same rule so a declaration this client cannot
+    // build is never silently painted as a numeric ramp.
+    const read = readDeclaredFill(
+      layerWith({ fill: { ramp: { kind: "rainbow", field: "score" } } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid).toHaveLength(1);
+    expect(read.invalid[0]).toContain("invalid ramp.kind");
+  });
+
+  it("rejects a category ramp with a non-name scheme", () => {
+    const read = readDeclaredFill(
+      layerWith({
+        fill: { ramp: { kind: "category", field: "kind", scheme: "" } },
+      }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid).toHaveLength(1);
+    expect(read.invalid[0]).toContain("invalid ramp.scheme");
+  });
 });

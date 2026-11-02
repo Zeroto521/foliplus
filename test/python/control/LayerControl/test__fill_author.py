@@ -184,7 +184,7 @@ def test_stepped_scale_with_uneven_breaks_has_no_provable_method():
     assert scale_payload["method"] is None
 
 
-def testprovable_equal_interval_is_math_only():
+def test_provable_equal_interval_is_math_only():
     provable = _layer_control_mod.provable_equal_interval
     # The helper is private; call it through the module so the rename rule
     # (module-internal names carry no underscore) keeps working.

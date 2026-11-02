@@ -442,7 +442,11 @@ def provable_equal_interval(index: list[float]) -> bool:
     is ``equal_interval``: every class spans the same width, so the adjacent
     break gaps are identical. quantiles/fisherjenks/head_tail_breaks have no
     closed form from the edges alone, so they are deliberately never guessed --
-    the panel states a dash instead. Future geopandas that does expose the
+    the panel states a dash instead. This is a *consistency* proof, not a
+    claim about the author's scheme: a uniform distribution under quantiles,
+    or an author who hand-set equal-width breaks, would also produce equal
+    gaps, so the proof states "provably equal-interval spacing" rather than
+    naming the scheme argument. Future geopandas that does expose the
     scheme can extend this without changing the honest None arm.
     """
     if len(index) < 3:
@@ -457,7 +461,9 @@ def provable_equal_interval(index: list[float]) -> bool:
     first = gaps[0]
     # float division may leave a rounding hair (a 100-wide range over three
     # classes yields 33.333...), so compare with a relative tolerance rather
-    # than exact equality.
+    # than exact equality. The tolerance only absorbs float noise (~ulp); it
+    # never absorbs a deliberate re-rounding, so a scheme that quantised its
+    # edges to whole numbers is not misread as equal-interval.
     return all(math.isclose(gap, first, rel_tol=1e-9, abs_tol=1e-9) for gap in gaps[1:])
 
 
