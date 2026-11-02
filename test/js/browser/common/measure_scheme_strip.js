@@ -38,6 +38,16 @@ triggerSelector => {
     itemPaddingRight: getComputedStyle(
       dropdown.querySelector(".foliplus-scheme-picker-item"),
     ).paddingRight,
+    // The scrollport right edge: the dropdown's padding-box right, i.e. where
+    // the content box ends. A classic scrollbar's gutter lies beyond this and
+    // cannot be painted by the row, so a strip is clipped here when the lane
+    // exceeds the inset.
+    scrollportRight: dropdown.getBoundingClientRect().left
+      + parseFloat(style.borderLeftWidth)
+      + dropdown.clientWidth,
+    itemRight: dropdown
+      .querySelector(".foliplus-scheme-picker-item")
+      .getBoundingClientRect().right,
     content: content
       ? {
           clientWidth: content.clientWidth,

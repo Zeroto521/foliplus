@@ -189,6 +189,34 @@ def _assert_aligned(sample: dict) -> None:
         assert abs(bar["width"] - trigger["width"]) <= 1, (bar, trigger, sample)
 
 
+def _assert_lane_clipped(sample: dict) -> None:
+    """The lane exceeds the inset, so the strip stops at the scrollport edge.
+
+    Physical limit: a classic scrollbar's gutter lies outside the scrollport,
+    so a row cannot paint into it. When the lane exceeds the item inset the
+    strip is shorter than the trigger by (lane - inset) px — this is the
+    correct, expected behaviour, not a bug. The strip's left edge still lines
+    up with the trigger's.
+    """
+    assert sample["ok"], sample
+    trigger = sample["triggerBar"]
+    assert sample["itemBars"], sample
+    lane = sample["lane"]
+    inset = 18  # --foliplus-scheme-picker-bar-inset-x = --foliplus-icon-size-md
+    assert lane > inset, f"expected lane > inset, got lane={lane} inset={inset}: {sample}"
+    for bar in sample["itemBars"]:
+        assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger, sample)
+        # Right edge == scrollport right, not the layout/padding-box right.
+        assert abs(bar["right"] - sample["scrollportRight"]) <= 1, (
+            bar,
+            sample,
+        )
+        assert abs(bar["width"] - (sample["scrollportRight"] - bar["left"])) <= 1, (
+            bar,
+            sample,
+        )
+
+
 class TestSchemeStripAlignmentBrowser:
     """One strip geometry for the trigger and every list row, both states."""
 
@@ -203,6 +231,28 @@ class TestSchemeStripAlignmentBrowser:
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
             _assert_aligned(sample)
+            assert not errors, f"JS errors: {errors}"
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize("dpr", [1, 2])
+    def test_heatmap_strips_clip_at_the_scrollport_when_lane_exceeds_inset(
+        self, scrollbar_browser, tmp_path, dpr
+    ):
+        """A gutter wider than the inset clips the strip at the scrollport.
+
+        The classic scrollbar's lane is ~15px at DPR1 and ~30px at DPR2; the
+        item inset is 18px, so only DPR2 (and a real scrollbar) reliably
+        exceeds it. This asserts the true invariant: the strip stops at the
+        scrollport right edge, shorter than the trigger by (lane - inset).
+        """
+        page, errors = _make_page(scrollbar_browser, tmp_path, dpr)
+        try:
+            _open_heatmap_list(page)
+            sample = _measure(page, HEATMAP_TRIGGER)
+            assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
+            assert sample["scrollable"], sample
+            _assert_lane_clipped(sample)
             assert not errors, f"JS errors: {errors}"
         finally:
             page.close()
