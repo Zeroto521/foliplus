@@ -10,7 +10,6 @@ Exemptions: 8 IIFE component entry ``index.ts`` files and ``config-schema.ts``.
 
 from __future__ import annotations
 
-import os
 import runpy
 import sys
 from pathlib import Path
@@ -115,7 +114,7 @@ class TestResolveImport:
         fp = str(tmp_path / "a" / "index.ts")
         out = mod._resolve_import(fp, "./util.js", str(tmp_path))
         assert out is not None
-        assert out.endswith(os.path.join("a", "util.ts"))
+        assert Path(out).as_posix().endswith("a/util.ts")
 
     def test_alias_common(self, tmp_path):
         _make(tmp_path, "foliplus/js/common/log.ts")
@@ -135,7 +134,7 @@ class TestResolveImport:
         out = mod._resolve_import(fp, "#control/LayerControl/const.js", str(tmp_path))
         assert out is not None
         assert out.endswith(
-            os.path.join("foliplus", "js", "control", "LayerControl", "const.ts")
+            str(Path("foliplus") / "js" / "control" / "LayerControl" / "const.ts")
         )
 
     def test_external_module_returns_none(self, tmp_path):
