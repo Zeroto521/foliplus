@@ -182,9 +182,11 @@ def _assert_aligned(sample: dict) -> None:
     trigger = sample["triggerBar"]
     assert sample["itemBars"], sample
     for bar in sample["itemBars"]:
-        assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger)
-        assert abs(bar["right"] - trigger["right"]) <= 1, (bar, trigger)
-        assert abs(bar["width"] - trigger["width"]) <= 1, (bar, trigger)
+        # The whole sample rides on the message: a strip mismatch is a geometry
+        # bug, and the lane/width diagnostics are what identify its cause.
+        assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger, sample)
+        assert abs(bar["right"] - trigger["right"]) <= 1, (bar, trigger, sample)
+        assert abs(bar["width"] - trigger["width"]) <= 1, (bar, trigger, sample)
 
 
 class TestSchemeStripAlignmentBrowser:

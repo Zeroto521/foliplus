@@ -6094,11 +6094,11 @@ class TestLayerControlBrowser:
     def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
         """The pinned style card opens downward and scrolls its own content.
 
-        Placement is deliberately simple now: it sits just under its row and
-        never measures the viewport, flips upward or writes an inline height
-        cap. The shared 400px row-panel recipe plus the content's own scrollbar
-        keep a long panel usable, and a wheel over the card must stay inside it
-        instead of chaining to the layer list behind.
+        A row near the top has plenty of room below, so placement keeps the card
+        under it and caps it to the measured strip instead of the old fixed
+        400px token. The content's own scrollbar keeps the long panel usable,
+        and a wheel over the card must stay inside it instead of chaining to the
+        layer list behind.
         """
         data = {
             "type": "FeatureCollection",
@@ -6152,7 +6152,10 @@ class TestLayerControlBrowser:
             gap = before["panel"]["top"] - before["row"]["bottom"]
             assert 0 < gap <= 8, before
             assert before["content"]["overflowY"] == "auto", before
-            assert before["content"]["panelMaxHeight"] == "400px", before
+            assert before["content"]["panelMaxHeight"] != "400px", (
+                "placement should write the measured strip, not the token "
+                f"default: {before['content']}"
+            )
             assert (
                 before["content"]["scrollHeight"] > before["content"]["clientHeight"]
             ), f"the long style panel does not need its own scrollbar: {before}"

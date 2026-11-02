@@ -27,7 +27,7 @@ from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
 # Every visible trigger in the panel, in DOM order, with the geometry a real
 # click needs. Re-read before each click: the panel reflows as rows appear.
-TRIGGERS = snippet("heatmap/dropdown_triggers")
+TRIGGERS = snippet("heatmap/dropdown_trigger")
 
 
 # The five migrated controls, named by the bridged select they replaced. Row

@@ -11,6 +11,7 @@ import { dom } from "#common/dom.js";
 import { applyOptionA11y } from "#common/dropdown.js";
 import { createLogger } from "#common/log.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
+import { throttleRaf } from "#common/throttle.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
@@ -411,6 +412,22 @@ const mountDropdown = (state: InternalState) => {
       window.removeEventListener("scroll", reposition, true);
       window.removeEventListener("resize", reposition);
     });
+    // The trigger is the dropdown's width source, and it can resize without a
+    // window resize: a panel that gains or loses a layout scrollbar lane moves
+    // every control inside it by that lane. Following the trigger keeps the
+    // item strip on the trigger strip's right edge after the lane disappears
+    // (the stale mount-time width is what the style-drawer strip test caught).
+    // Coalesced per frame: the callback writes the dropdown's box, and a
+    // ResizeObserver that re-triggers itself would report an undelivered loop.
+    const followTrigger = throttleRaf(reposition);
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(followTrigger);
+      observer.observe(state.trigger);
+      state.mountCleanupFns.push(() => {
+        observer.disconnect();
+        followTrigger.cancel();
+      });
+    }
   } else {
     // Inline mode: mount into the trigger's parent (schemeControlWrap)
     const parent =

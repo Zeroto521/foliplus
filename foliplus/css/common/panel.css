@@ -45,7 +45,10 @@
   flex-direction: column;
   align-items: stretch;
   width: var(--foliplus-panel-width);
-  max-height: var(--foliplus-panel-max-height);
+  /* The placement code writes `--foliplus-row-panel-max-height` from the
+     measured space between the anchor and the map's edge; the token fallback
+     keeps an older page without the JS placement working as before. */
+  max-height: var(--foliplus-row-panel-max-height, var(--foliplus-panel-max-height));
   padding: 0;
   overflow-x: hidden;
   border-radius: var(--foliplus-radius-card);
@@ -83,10 +86,17 @@
   left: 0;
   right: auto;
   z-index: var(--foliplus-z-index-floating);
+  /* `placeRowPanel` owns the gap; the in-flow row-panel margin would add to the
+     measured top and make the card overflow the cap by that amount. */
+  margin-top: 0;
   /* The card is fixed but still a DOM child of the layer list's scroll box, so
      a wheel over it would chain to the list and move the row (and the card
      with it) beneath the pointer. Keep the scroll inside the card. */
   overscroll-behavior: contain;
+  /* `.foliplus-panel-content` is the scroll container for a pinned card; the
+     outer box must not become a second one (menu.css sets overflow-y: auto on
+     every `.foliplus-row-panel` for the absolute fallback). */
+  overflow-y: hidden;
 }
 
 /* ── Container ── */

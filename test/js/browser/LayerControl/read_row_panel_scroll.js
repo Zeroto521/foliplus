@@ -1,10 +1,10 @@
-// Style-panel placement and inner scroll: the pinned card always opens
-// downward from its row, and a long panel scrolls inside its own content box
-// instead of flipping up or growing over the viewport.
+// Style-panel placement and inner scroll: the pinned card caps itself to the
+// strip around its row and flips upward only when that strip is the tighter
+// side. A long panel still scrolls inside its own content box.
 //
 // `ramp` switches the fill detail to the by-value arm and the label section is
-// expanded when the layer offers it, so the card is genuinely long: the shared
-// 400px cap then has to make the content itself scrollable.
+// expanded when the layer offers it, so the card is genuinely long: the
+// measured cap then has to make the content itself scrollable.
 ({ ramp } = {}) => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { ok: false, reason: "no-panel" };
