@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import {
-  HISTORY,
-  MODE,
-  RECORD_VERSION,
-  ZOOM,
-} from "#foliplus/plugin/SearchControl/const.js";
+import { HISTORY, MODE, RECORD_VERSION, ZOOM } from "#plugin/SearchControl/const.js";
 import {
   addHistoryEntry,
   clearHistory,
@@ -14,14 +9,14 @@ import {
   loadHistory,
   recordHistorySearch,
   renderHistory,
-} from "#foliplus/plugin/SearchControl/logic/history.js";
+} from "#plugin/SearchControl/logic/history.js";
 import {
   fetchSuggestions,
   searchAddress,
   searchCoord,
-} from "#foliplus/plugin/SearchControl/logic/search.js";
-import type { SearchControlCtx } from "#foliplus/plugin/SearchControl/logic/util.js";
-import type { SearchHistoryEntry } from "#foliplus/plugin/SearchControl/type.js";
+} from "#plugin/SearchControl/logic/search.js";
+import type { SearchControlCtx } from "#plugin/SearchControl/logic/util.js";
+import type { SearchHistoryEntry } from "#plugin/SearchControl/type.js";
 
 // Module-level code captured window.foliplus and window.map from setup.js.
 // Use vi.spyOn to track calls on those already-setup mocks.

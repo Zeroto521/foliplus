@@ -4,7 +4,7 @@ import {
   positionPanel,
   removePanel,
   renderResults,
-} from "#foliplus/plugin/SearchControl/logic/panel.js";
+} from "#plugin/SearchControl/logic/panel.js";
 
 // ─── Fixture helpers ───
 // Direct tests of the 4 panel.ts exports; imports bypass the search.ts

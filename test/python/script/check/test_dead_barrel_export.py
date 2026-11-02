@@ -129,6 +129,15 @@ class TestResolveImport:
         out = mod._resolve_import(fp, "#core/component.js", str(tmp_path))
         assert out is not None
 
+    def test_alias_plugin(self, tmp_path):
+        _make(tmp_path, "foliplus/js/plugin/LayerControl/const.ts")
+        fp = str(tmp_path / "foliplus" / "js" / "a" / "index.ts")
+        out = mod._resolve_import(fp, "#plugin/LayerControl/const.js", str(tmp_path))
+        assert out is not None
+        assert out.endswith(
+            os.path.join("foliplus", "js", "plugin", "LayerControl", "const.ts")
+        )
+
     def test_external_module_returns_none(self, tmp_path):
         fp = str(tmp_path / "index.ts")
         assert mod._resolve_import(fp, "leaflet", str(tmp_path)) is None

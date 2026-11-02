@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#foliplus/core/layer/const.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import * as CONST from "#plugin/LayerControl/const.js";
 
 describe("init ready signal", () => {
   it("no longer exposes the removed INIT_DELAY_MS timer", () => {

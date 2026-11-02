@@ -1,16 +1,16 @@
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import type { MeasureManager } from "#foliplus/plugin/MeasureControl/manager.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import type { MeasureManager } from "#plugin/MeasureControl/manager.js";
 import {
   createDeferredDelete,
   wireFinalized,
-} from "#foliplus/plugin/MeasureControl/mode/base.js";
+} from "#plugin/MeasureControl/mode/base.js";
 import {
   DistanceMode,
   MeasureMode,
   PolygonMode,
   PreviewMode,
-} from "#foliplus/plugin/MeasureControl/mode/index.js";
+} from "#plugin/MeasureControl/mode/index.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 beforeEach(initMocks);

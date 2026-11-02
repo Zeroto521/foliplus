@@ -7,14 +7,14 @@
 // real walk and its cost live in the annotation suite and the perf test.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { closeStylePanel } from "#foliplus/plugin/LayerControl/ui/style/index.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { closeStylePanel } from "#plugin/LayerControl/ui/style/index.js";
 import {
   FACE,
   flushStyleDimApply,
   hasStyleDimApply,
-} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
+} from "#plugin/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
 // The base layer every fixture carries — the hub's BASE early-return must

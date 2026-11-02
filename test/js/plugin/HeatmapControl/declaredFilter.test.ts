@@ -276,7 +276,7 @@ describe("declared heatmap filter — seed", () => {
 
 describe("declared heatmap filter — a source picked by hand", () => {
   it("seeds before the frame is drawn when the user picks a source", async () => {
-    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
+    const { initScan } = await import("#plugin/HeatmapControl/ui.js");
     const declared = {
       kind: "atom",
       field: "val",

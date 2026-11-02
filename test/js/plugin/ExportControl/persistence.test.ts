@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/ExportControl/const.js";
-import { ExportManager } from "#foliplus/plugin/ExportControl/manager.js";
 import * as Storage from "#common/storage.js";
+import * as CONST from "#plugin/ExportControl/const.js";
+import { ExportManager } from "#plugin/ExportControl/manager.js";
 
 vi.mock("#common/locale.js", async () => {
   const real = await vi.importActual("#common/locale.js");

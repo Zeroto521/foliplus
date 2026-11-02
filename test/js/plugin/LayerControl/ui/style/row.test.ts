@@ -2,7 +2,7 @@
 // icon / size by value). Kept in its own suite so the primitive is tested for
 // what it promises, independent of any one dimension's wiring.
 import { describe, expect, it } from "vitest";
-import { buildModeRow } from "#foliplus/plugin/LayerControl/ui/style/row.js";
+import { buildModeRow } from "#plugin/LayerControl/ui/style/row.js";
 
 const build = (
   overrides: Partial<Parameters<typeof buildModeRow>[0]> = {},

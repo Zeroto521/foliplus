@@ -3,9 +3,9 @@
 // makeCtrl builds the HeatmapControlUI state object carrying its own CONFIG so
 // the UI functions can be exercised with per-instance configuration.
 import { vi } from "vitest";
-import { HeatmapManager } from "#foliplus/plugin/HeatmapControl/manager.js";
-import type { HeatmapControlUI } from "#foliplus/plugin/HeatmapControl/ui.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { HeatmapManager } from "#plugin/HeatmapControl/manager.js";
+import type { HeatmapControlUI } from "#plugin/HeatmapControl/ui.js";
 
 /** A CONFIG with the heatmap fields the UI functions read, in English. */
 const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({

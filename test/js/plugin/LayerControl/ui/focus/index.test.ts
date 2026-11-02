@@ -5,8 +5,8 @@ import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureInteraction } from "#foliplus/core/interaction/index.js";
 import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
@@ -19,15 +19,11 @@ import {
   registerAutoCancel,
   showFocusDisabledHint,
   toggleFocusedLayer,
-} from "#foliplus/plugin/LayerControl/ui/focus/index.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  getIntent,
-  seedIntentMap,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
-import { getActiveLayerItem } from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
-import { projectLayer } from "#foliplus/plugin/LayerControl/ui/projection.js";
+} from "#plugin/LayerControl/ui/focus/index.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap, setIntent } from "#plugin/LayerControl/ui/intent.js";
+import { getActiveLayerItem } from "#plugin/LayerControl/ui/listPanel/index.js";
+import { projectLayer } from "#plugin/LayerControl/ui/projection.js";
 import {
   GridLayer,
   attachWithGroup,

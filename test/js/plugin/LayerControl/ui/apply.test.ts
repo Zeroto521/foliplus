@@ -8,26 +8,19 @@ import {
   carrierTargetOf,
   contentPanesOf,
 } from "#core/layer/index.js";
-import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
+import { LayerController } from "#plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
 import {
   applyProjection,
   applyProjectionAll,
   authorZoomBoundsForLayer,
   dispatchStateOp,
   notifyDelta,
-} from "#foliplus/plugin/LayerControl/ui/apply.js";
-import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  clearIntent,
-  getIntent,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
-import {
-  intentVisibleOf,
-  projectLayer,
-} from "#foliplus/plugin/LayerControl/ui/projection.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
+} from "#plugin/LayerControl/ui/apply.js";
+import { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
+import { intentVisibleOf, projectLayer } from "#plugin/LayerControl/ui/projection.js";
 import {
   TEST_ENV,
   findItem,

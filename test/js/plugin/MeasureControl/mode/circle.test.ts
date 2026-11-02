@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import { CircleMode } from "#foliplus/plugin/MeasureControl/mode/index.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import { CircleMode } from "#plugin/MeasureControl/mode/index.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachCircleUI's opts so the start/restore callbacks
@@ -19,11 +19,9 @@ const { attachCircleUIMock } = vi.hoisted(() => ({
 }));
 let capturedCircleOpts: any = null;
 
-vi.mock("#foliplus/plugin/MeasureControl/ui/index.js", async importOriginal => {
+vi.mock("#plugin/MeasureControl/ui/index.js", async importOriginal => {
   const actual =
-    await importOriginal<
-      typeof import("#foliplus/plugin/MeasureControl/ui/index.js")
-    >();
+    await importOriginal<typeof import("#plugin/MeasureControl/ui/index.js")>();
   return { ...actual, attachCircleUI: attachCircleUIMock };
 });
 

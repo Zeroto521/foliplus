@@ -4,8 +4,8 @@ import {
   renderCanvasSnapshot,
   renderPaneCanvas,
   snapshotPaneCanvases,
-} from "#foliplus/plugin/ExportControl/renderer/canvas.js";
-import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
+} from "#plugin/ExportControl/renderer/canvas.js";
+import * as UTIL from "#plugin/ExportControl/util.js";
 import {
   makeMockCtx,
   makeRenderer,
@@ -14,8 +14,8 @@ import {
   stubLoad,
 } from "./fixture.js";
 
-vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
+vi.mock("#plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

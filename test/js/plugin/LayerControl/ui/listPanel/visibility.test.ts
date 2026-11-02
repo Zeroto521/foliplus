@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HIDDEN, ROLE } from "#core/layer/const.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { getIntent, setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerController } from "#plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   applyVisibility,
   getLayerItems,
@@ -14,8 +14,8 @@ import {
   syncToggleAll,
   syncToggleAllFromCount,
   toggleAll,
-} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
-import { intentVisibleOf } from "#foliplus/plugin/LayerControl/ui/projection.js";
+} from "#plugin/LayerControl/ui/listPanel/index.js";
+import { intentVisibleOf } from "#plugin/LayerControl/ui/projection.js";
 import {
   TEST_ENV,
   attachedPanel,

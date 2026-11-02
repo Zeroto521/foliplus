@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
-import * as CONST from "#foliplus/plugin/HeatmapControl/const.js";
 import { BORDER_WEIGHT } from "#common/form.js";
+import * as CONST from "#plugin/HeatmapControl/const.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {

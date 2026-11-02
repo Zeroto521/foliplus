@@ -119,7 +119,7 @@ describe("HeatmapControl entry — half-initialised manager", () => {
     mockMap = new MockMap();
     (window as any).map = mockMap;
     vi.resetModules();
-    await import("#foliplus/plugin/HeatmapControl/index.js");
+    await import("#plugin/HeatmapControl/index.js");
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
   });

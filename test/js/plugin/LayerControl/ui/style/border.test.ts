@@ -1,12 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  getIntent,
-  seedIntentMap,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   BORDER_DIMENSION,
   applyBorderToLayer,
@@ -19,15 +15,15 @@ import {
   commitBorderWeight,
   layerCanBorder,
   resetLayerBorder,
-} from "#foliplus/plugin/LayerControl/ui/style/border.js";
-import { commitFillColor } from "#foliplus/plugin/LayerControl/ui/style/fill.js";
-import { closeStylePanel } from "#foliplus/plugin/LayerControl/ui/style/index.js";
-import { pinnedGetterCount } from "#foliplus/plugin/LayerControl/ui/style/pin.js";
+} from "#plugin/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#plugin/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#plugin/LayerControl/ui/style/index.js";
+import { pinnedGetterCount } from "#plugin/LayerControl/ui/style/pin.js";
 import {
   FACE,
   flushStyleDimApply,
   hasStyleDimApply,
-} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
+} from "#plugin/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the

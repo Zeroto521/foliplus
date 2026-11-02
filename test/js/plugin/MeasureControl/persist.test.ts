@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import { MeasureStore } from "#foliplus/plugin/MeasureControl/store.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import { MeasureStore } from "#plugin/MeasureControl/store.js";
 import { makeControlEnv } from "../../fixture.js";
 
 // Mock Storage + ensureEvents so persistence shapes are tested in isolation —

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { seedIntentMap } from "#foliplus/plugin/LayerControl/ui/intent.js";
 import { createScopedTranslator } from "#common/locale.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { seedIntentMap } from "#plugin/LayerControl/ui/intent.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI attrs", () => {

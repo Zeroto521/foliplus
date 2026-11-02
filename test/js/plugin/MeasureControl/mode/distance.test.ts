@@ -1,7 +1,7 @@
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import type { MeasureManager } from "#foliplus/plugin/MeasureControl/manager.js";
-import { DistanceMode } from "#foliplus/plugin/MeasureControl/mode/index.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import type { MeasureManager } from "#plugin/MeasureControl/manager.js";
+import { DistanceMode } from "#plugin/MeasureControl/mode/index.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
@@ -21,11 +21,9 @@ const { attachDistanceUIMock } = vi.hoisted(() => ({
 
 let capturedDistanceOpts: any = null;
 
-vi.mock("#foliplus/plugin/MeasureControl/ui/index.js", async importOriginal => {
+vi.mock("#plugin/MeasureControl/ui/index.js", async importOriginal => {
   const actual =
-    await importOriginal<
-      typeof import("#foliplus/plugin/MeasureControl/ui/index.js")
-    >();
+    await importOriginal<typeof import("#plugin/MeasureControl/ui/index.js")>();
   return { ...actual, attachDistanceUI: attachDistanceUIMock };
 });
 
@@ -284,8 +282,7 @@ describe("DistanceMode — toGeoFeature", () => {
   });
 
   it("has NAME_LABEL and TYPE static properties", async () => {
-    const { DistanceMode } =
-      await import("#foliplus/plugin/MeasureControl/mode/index.js");
+    const { DistanceMode } = await import("#plugin/MeasureControl/mode/index.js");
     expect(DistanceMode.NAME_LABEL).toBe("Distance Measurement");
     expect(DistanceMode.NAME_LABEL_KEY).toContain("name_distance");
   });

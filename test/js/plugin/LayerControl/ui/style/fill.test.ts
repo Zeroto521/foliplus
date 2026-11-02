@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  clearIntent,
-  getIntent,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { dropdownOf } from "#common/dropdown.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   FILL_DIMENSION,
   applyFillToLayer,
@@ -18,19 +15,18 @@ import {
   layerCanFill,
   replayFillState,
   resetLayerFill,
-} from "#foliplus/plugin/LayerControl/ui/style/fill.js";
-import { closeStylePanel } from "#foliplus/plugin/LayerControl/ui/style/index.js";
+} from "#plugin/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#plugin/LayerControl/ui/style/index.js";
 import {
   MAX_STOPS,
   originalGradient,
-} from "#foliplus/plugin/LayerControl/ui/style/originalColor.js";
+} from "#plugin/LayerControl/ui/style/originalColor.js";
 import {
   FACE,
   dropStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
-} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
-import { dropdownOf } from "#common/dropdown.js";
+} from "#plugin/LayerControl/ui/style/styleBag.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each

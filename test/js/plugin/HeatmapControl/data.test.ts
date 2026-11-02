@@ -1,7 +1,8 @@
 // Unit tests for HeatmapControl/data — the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
-import * as CONST from "#foliplus/plugin/HeatmapControl/const.js";
+import { createLogger } from "#common/log.js";
+import * as CONST from "#plugin/HeatmapControl/const.js";
 import {
   aggregateBins,
   aggregateData,
@@ -9,9 +10,8 @@ import {
   buildFeatures,
   getH3Res,
   readMarkerField,
-} from "#foliplus/plugin/HeatmapControl/data.js";
-import type { SelectedPoint } from "#foliplus/plugin/HeatmapControl/type.js";
-import { createLogger } from "#common/log.js";
+} from "#plugin/HeatmapControl/data.js";
+import type { SelectedPoint } from "#plugin/HeatmapControl/type.js";
 
 const LOG = createLogger("HeatmapControl");
 

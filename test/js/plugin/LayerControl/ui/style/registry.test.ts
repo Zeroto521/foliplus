@@ -12,15 +12,15 @@
 // is at file scope below; every test after it can rely on the test dim
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerDimension } from "#foliplus/plugin/LayerControl/type.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
-import { ANNOTATION_DIMENSION } from "#foliplus/plugin/LayerControl/ui/style/annotation.js";
-import { BORDER_DIMENSION } from "#foliplus/plugin/LayerControl/ui/style/border.js";
-import { DELEGATED_DIM_ORDER } from "#foliplus/plugin/LayerControl/ui/style/delegated.js";
-import { FILL_DIMENSION } from "#foliplus/plugin/LayerControl/ui/style/fill.js";
-import { OPACITY_DIMENSION } from "#foliplus/plugin/LayerControl/ui/style/opacity.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerDimension } from "#plugin/LayerControl/type.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { setIntent } from "#plugin/LayerControl/ui/intent.js";
+import { ANNOTATION_DIMENSION } from "#plugin/LayerControl/ui/style/annotation.js";
+import { BORDER_DIMENSION } from "#plugin/LayerControl/ui/style/border.js";
+import { DELEGATED_DIM_ORDER } from "#plugin/LayerControl/ui/style/delegated.js";
+import { FILL_DIMENSION } from "#plugin/LayerControl/ui/style/fill.js";
+import { OPACITY_DIMENSION } from "#plugin/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
   LABEL_DIM_ORDER,
@@ -30,11 +30,11 @@ import {
   registerDimension,
   resetIntentKeys,
   writeIntentKeys,
-} from "#foliplus/plugin/LayerControl/ui/style/registry.js";
+} from "#plugin/LayerControl/ui/style/registry.js";
 import {
   ZOOM_RANGE_DIMENSION,
   resetLayerZoomRange,
-} from "#foliplus/plugin/LayerControl/ui/style/zoomRange.js";
+} from "#plugin/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";

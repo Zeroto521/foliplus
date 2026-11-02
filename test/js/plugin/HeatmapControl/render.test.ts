@@ -1,13 +1,13 @@
 // Unit tests for HeatmapControl/render — the pure canvas draw helpers.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import {
   drawHexLabel,
   drawHexagon,
   resolveLabelStyle,
-} from "#foliplus/plugin/HeatmapControl/render.js";
-import type { HexFeature } from "#foliplus/plugin/HeatmapControl/type.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
+} from "#plugin/HeatmapControl/render.js";
+import type { HexFeature } from "#plugin/HeatmapControl/type.js";
 
 const makeCtx = () => {
   const canvas = document.createElement("canvas");

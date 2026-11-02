@@ -17,9 +17,9 @@
 //     of the list the controller really returns.
 import L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ExportRenderer } from "#foliplus/plugin/ExportControl/renderer/index.js";
-import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
-import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import { ExportRenderer } from "#plugin/ExportControl/renderer/index.js";
+import * as UTIL from "#plugin/ExportControl/util.js";
+import { LayerController } from "#plugin/LayerControl/controller.js";
 
 // index.ts binds its logger and translator to CONFIG.name at module-import
 // time, so the component name has to be set before the import resolves —
@@ -36,8 +36,8 @@ window.L = L as unknown as typeof window.L;
 
 // renderMarkers loads its sprites through the hoisted factory: the module
 // exports are getters, so a plain vi.spyOn on it throws from inside pooledEach.
-vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
+vi.mock("#plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

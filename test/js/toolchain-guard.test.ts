@@ -202,6 +202,8 @@ describe("eslint root entry", () => {
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
+  "import-boundary":
+    "the JS layer import-boundary rules (foliplus/js), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

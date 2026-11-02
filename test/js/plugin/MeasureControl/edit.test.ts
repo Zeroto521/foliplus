@@ -7,7 +7,7 @@ import {
   buildEditOverlay,
   isDragSyntheticClick,
   markDragSyntheticClick,
-} from "#foliplus/plugin/MeasureControl/edit.js";
+} from "#plugin/MeasureControl/edit.js";
 
 // Reset the module-scoped one-shot flag before each test so a prior test's
 // drag end doesn't leak into this test's click handler.

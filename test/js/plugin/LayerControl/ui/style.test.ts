@@ -3,36 +3,29 @@ import { DIM } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { sliderOf } from "#foliplus/plugin/LayerControl/slider.js";
-import { applyProjection } from "#foliplus/plugin/LayerControl/ui/apply.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  getIntent,
-  seedIntentMap,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
-import { renderInitialList } from "#foliplus/plugin/LayerControl/ui/listPanel/list.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import { sliderOf } from "#plugin/LayerControl/slider.js";
+import { applyProjection } from "#plugin/LayerControl/ui/apply.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap, setIntent } from "#plugin/LayerControl/ui/intent.js";
+import { renderInitialList } from "#plugin/LayerControl/ui/listPanel/list.js";
 import {
   buildDelegatedBorderRow,
   renderDelegatedStylePanel,
-} from "#foliplus/plugin/LayerControl/ui/style/delegated.js";
+} from "#plugin/LayerControl/ui/style/delegated.js";
 import {
   closeStylePanel,
   layerHasLabelFields,
   layerHasStyleDelegation,
-} from "#foliplus/plugin/LayerControl/ui/style/index.js";
-import { coerceAnnotationFields } from "#foliplus/plugin/LayerControl/ui/style/label.js";
-import {
-  clampPct,
-  resetLayerOpacity,
-} from "#foliplus/plugin/LayerControl/ui/style/opacity.js";
-import { getDimension } from "#foliplus/plugin/LayerControl/ui/style/registry.js";
-import { resetLayerZoomRange } from "#foliplus/plugin/LayerControl/ui/style/zoomRange.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+} from "#plugin/LayerControl/ui/style/index.js";
+import { coerceAnnotationFields } from "#plugin/LayerControl/ui/style/label.js";
+import { clampPct, resetLayerOpacity } from "#plugin/LayerControl/ui/style/opacity.js";
+import { getDimension } from "#plugin/LayerControl/ui/style/registry.js";
+import { resetLayerZoomRange } from "#plugin/LayerControl/ui/style/zoomRange.js";
 import {
   GridLayer,
   attachedPanel,

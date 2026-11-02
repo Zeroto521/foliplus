@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
 import { attachedPanel, findItem, initFixture } from "./fixture.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a

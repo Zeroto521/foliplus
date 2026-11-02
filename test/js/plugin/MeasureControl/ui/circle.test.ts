@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import * as UI from "#foliplus/plugin/MeasureControl/ui/index.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import * as UI from "#plugin/MeasureControl/ui/index.js";
 import { installStubs, makeMgr } from "./fixture.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
@@ -51,9 +51,9 @@ vi.mock("#core/leaflet/index.js", async importOriginal => {
 // bindNodeDrag stays real (existing tests rely on its cursor/mousemove binding),
 // but we capture the handlers so drag-body coverage is reachable by calling
 // `dragHandlers[i].onDrag(latlng)` directly.
-vi.mock("#foliplus/plugin/MeasureControl/edit.js", async importOriginal => {
+vi.mock("#plugin/MeasureControl/edit.js", async importOriginal => {
   const actual =
-    await importOriginal<typeof import("#foliplus/plugin/MeasureControl/edit.js")>();
+    await importOriginal<typeof import("#plugin/MeasureControl/edit.js")>();
   return {
     ...actual,
     bindNodeDrag: vi.fn((node: any, del: any, map: any, handlers: any) => {

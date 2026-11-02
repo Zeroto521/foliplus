@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { clearIntent, setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
-import { projectLayer } from "#foliplus/plugin/LayerControl/ui/projection.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { clearIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
+import { projectLayer } from "#plugin/LayerControl/ui/projection.js";
 import {
   ZOOM_RANGE_DIMENSION,
   applyZoomRangeLive,
   commitZoomRange,
   resetLayerZoomRange,
-} from "#foliplus/plugin/LayerControl/ui/style/zoomRange.js";
+} from "#plugin/LayerControl/ui/style/zoomRange.js";
 import {
   findItem,
   initFixture,

@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import { ROLE } from "#core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { getIntent, seedIntentMap } from "#foliplus/plugin/LayerControl/ui/intent.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#plugin/LayerControl/ui/intent.js";
 import {
   allFolded,
   attachWithGroup,

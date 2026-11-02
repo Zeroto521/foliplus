@@ -2,14 +2,11 @@ import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import {
-  clearIntent,
-  getIntent,
-  setIntent,
-} from "#foliplus/plugin/LayerControl/ui/intent.js";
+import * as Icons from "#common/icon.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { clearIntent, getIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   type RowCell,
   applyRowView,
@@ -17,12 +14,8 @@ import {
   rowView,
   syncNoBasemap,
   syncToggleAll,
-} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
-import {
-  intentVisibleOf,
-  projectLayer,
-} from "#foliplus/plugin/LayerControl/ui/projection.js";
-import * as Icons from "#common/icon.js";
+} from "#plugin/LayerControl/ui/listPanel/index.js";
+import { intentVisibleOf, projectLayer } from "#plugin/LayerControl/ui/projection.js";
 import { findItem, initFixture } from "../fixture.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };

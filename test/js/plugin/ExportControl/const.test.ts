@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import * as CONST from "#foliplus/plugin/ExportControl/const.js";
+import * as CONST from "#plugin/ExportControl/const.js";
 
 // ===========================================================================
 // Static exported constants (value-only tests, no mocking needed).

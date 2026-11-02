@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isFillRampConfig } from "#core/layer/intent.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import {
-  LayerPersistence,
-  RECORD_VERSION,
-} from "#foliplus/plugin/LayerControl/persistence.js";
-import type { PersistedRecord } from "#foliplus/plugin/LayerControl/type.js";
 import * as Storage from "#common/storage.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerPersistence, RECORD_VERSION } from "#plugin/LayerControl/persistence.js";
+import type { PersistedRecord } from "#plugin/LayerControl/type.js";
 
 const makePersistence = () => new LayerPersistence();
 

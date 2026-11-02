@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
-import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
-import * as Export from "#foliplus/plugin/MeasureControl/export.js";
-import { MarkerMode } from "#foliplus/plugin/MeasureControl/mode/index.js";
 import * as downloadMod from "#common/download.js";
+import * as CONST from "#plugin/MeasureControl/const.js";
+import * as Export from "#plugin/MeasureControl/export.js";
+import { MarkerMode } from "#plugin/MeasureControl/mode/index.js";
 import { makeControlEnv } from "../../fixture.js";
 
 // This file asserts on bare locale-key strings (identity T/_): the export

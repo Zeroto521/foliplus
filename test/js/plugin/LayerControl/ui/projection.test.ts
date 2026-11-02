@@ -4,15 +4,15 @@
 // including the clamp branches that a basemap switch exercises.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { clearIntent, setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { clearIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   authorZoomRowRange,
   currentOpacity,
   inZoomRange,
   projectLayer,
-} from "#foliplus/plugin/LayerControl/ui/projection.js";
+} from "#plugin/LayerControl/ui/projection.js";
 
 const makeLayerInfo = (id: string, opts: { opacity?: number } = {}) =>
   ({ id, layer: null, canvas: null, opacity: opts.opacity }) as any;

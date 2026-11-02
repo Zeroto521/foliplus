@@ -2,8 +2,8 @@
 // Each test file imports initMocks and calls it inside beforeEach.
 import { vi } from "vitest";
 import type { ControlEnv } from "#core/type.js";
-import { isDragSyntheticClick } from "#foliplus/plugin/MeasureControl/edit.js";
-import type { MeasureManager } from "#foliplus/plugin/MeasureControl/manager.js";
+import { isDragSyntheticClick } from "#plugin/MeasureControl/edit.js";
+import type { MeasureManager } from "#plugin/MeasureControl/manager.js";
 import { makeControlEnv } from "../../../fixture.js";
 
 /** Standalone env for tests that hit static mode methods (toGeoFeature,

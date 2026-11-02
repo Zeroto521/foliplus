@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
-import { getTypeSVG } from "#foliplus/plugin/LayerControl/util.js";
+import * as SVGs from "#plugin/LayerControl/icon.js";
+import { getTypeSVG } from "#plugin/LayerControl/util.js";
 
 describe("getTypeSVG", () => {
   it("maps geometry types to their SVG icons", () => {

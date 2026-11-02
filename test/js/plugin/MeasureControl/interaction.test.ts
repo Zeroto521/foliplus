@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   registerExportClick,
   registerInteractions,
-} from "#foliplus/plugin/MeasureControl/interaction.js";
+} from "#plugin/MeasureControl/interaction.js";
 
 function makeMgr(): any {
   const map: any = {

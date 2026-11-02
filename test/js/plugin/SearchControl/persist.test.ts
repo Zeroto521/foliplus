@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { HISTORY, MODE, RECORD_VERSION } from "#foliplus/plugin/SearchControl/const.js";
+import { HISTORY, MODE, RECORD_VERSION } from "#plugin/SearchControl/const.js";
 import {
   flushHistory,
   loadHistory,
   saveHistory,
-} from "#foliplus/plugin/SearchControl/logic/history.js";
-import type { SearchControlCtx } from "#foliplus/plugin/SearchControl/logic/util.js";
-import type { SearchHistoryEntry } from "#foliplus/plugin/SearchControl/type.js";
+} from "#plugin/SearchControl/logic/history.js";
+import type { SearchControlCtx } from "#plugin/SearchControl/logic/util.js";
+import type { SearchHistoryEntry } from "#plugin/SearchControl/type.js";
 
 // Control context for logic functions that now receive ctrl.
 const ctx = (): SearchControlCtx =>

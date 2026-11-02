@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerInfo, ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { type LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { type LayerController } from "#plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
 import {
   applyVisibility,
   displayName,
@@ -18,7 +18,7 @@ import {
   syncRowOrder,
   toggleFold,
   updateLayerItemLabel,
-} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
+} from "#plugin/LayerControl/ui/listPanel/index.js";
 import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 
 const makeUi = () =>

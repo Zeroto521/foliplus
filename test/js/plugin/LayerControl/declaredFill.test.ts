@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { readDeclaredFill } from "#foliplus/plugin/LayerControl/declaredFill.js";
+import { readDeclaredFill } from "#plugin/LayerControl/declaredFill.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test:
  *  the reader caches per layer object, the way a folium layer's options are

@@ -4,10 +4,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { getIntent, seedIntentMap } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerController } from "#plugin/LayerControl/controller.js";
+import { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#plugin/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
   attachedPanel,

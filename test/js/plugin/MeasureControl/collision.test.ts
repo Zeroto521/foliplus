@@ -1,8 +1,8 @@
 // The wall-clock half of this module's tests lives in test/js/perf/collision.test.ts —
 // see the header there for why it is split out.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as Collision from "#foliplus/plugin/MeasureControl/collision.js";
-import type { CollidableLabel } from "#foliplus/plugin/MeasureControl/type.js";
+import * as Collision from "#plugin/MeasureControl/collision.js";
+import type { CollidableLabel } from "#plugin/MeasureControl/type.js";
 
 type Box = { x: number; y: number; w: number; h: number };
 

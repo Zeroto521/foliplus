@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import type { LayerController } from "#plugin/LayerControl/controller.js";
+import type { LayerUI } from "#plugin/LayerControl/ui/index.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -18,7 +18,7 @@ import {
   setActiveItem,
   syncActiveItem,
   syncListCursor,
-} from "#foliplus/plugin/LayerControl/ui/listPanel/cursor.js";
+} from "#plugin/LayerControl/ui/listPanel/cursor.js";
 import { attachWithGroup, attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI cursor (pure cursor primitives)", () => {

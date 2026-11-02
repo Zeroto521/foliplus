@@ -9,7 +9,7 @@ import {
   isStyleSetter,
   pinStyleOnHighlight,
   pinnedGetterCount,
-} from "#foliplus/plugin/LayerControl/ui/style/pin.js";
+} from "#plugin/LayerControl/ui/style/pin.js";
 
 const makeLeaf = () => {
   let handler: (() => void) | null = null;

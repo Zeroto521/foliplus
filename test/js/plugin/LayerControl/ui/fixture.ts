@@ -1,10 +1,10 @@
 import { afterEach, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
-import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import { createLogger } from "#common/log.js";
+import * as CONST from "#plugin/LayerControl/const.js";
+import { LayerController } from "#plugin/LayerControl/controller.js";
+import { LayerUI } from "#plugin/LayerControl/ui/index.js";
 
 /** Translator env for LayerUI constructed in tests — mirrors the identity
  *  translators the old NO_OP_ENV default provided, so `ui.T("key")` reads

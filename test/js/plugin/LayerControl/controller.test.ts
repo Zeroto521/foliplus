@@ -8,24 +8,24 @@ import {
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
 import * as coreLayer from "#foliplus/core/layer/index.js";
-import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
+import * as Storage from "#common/storage.js";
+import * as CONST from "#plugin/LayerControl/const.js";
 import {
   LayerController,
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
-} from "#foliplus/plugin/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
-import { LayerPersistence } from "#foliplus/plugin/LayerControl/persistence.js";
-import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
-import { getIntent, setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
+} from "#plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#plugin/LayerControl/domain/index.js";
+import { LayerPersistence } from "#plugin/LayerControl/persistence.js";
+import { LayerUI } from "#plugin/LayerControl/ui/index.js";
+import { getIntent, setIntent } from "#plugin/LayerControl/ui/intent.js";
 import {
   applyUserState,
   dropPersistedLayerState,
   saveNamesState,
   saveState,
-} from "#foliplus/plugin/LayerControl/ui/state.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import * as Storage from "#common/storage.js";
+} from "#plugin/LayerControl/ui/state.js";
 import {
   TEST_ENV,
   attachWithGroup,
