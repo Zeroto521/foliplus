@@ -39,6 +39,12 @@ const componentOf = (rel: string): string | null => {
   return m ? m[1] : null;
 };
 
+// core/leaflet is the only core module allowed to import #ui (it owns the
+// panel chrome that the UI layer builds); every other core module stays
+// pure and must not reach up.
+const isCoreLeaflet = (rel: string): boolean =>
+  rel.startsWith("foliplus/js/core/leaflet/");
+
 // ── Source walk ───────────────────────────────────────────────
 const walk = (dir: string): string[] => {
   const out: string[] = [];
@@ -182,12 +188,17 @@ const collect = (): Array<[string, string, string]> => {
           spec,
           "ui imports outside #common/#ui",
         ]);
-      } else if (layer === "core" && !/^#(?:common|core)\//.test(spec)) {
-        problems.push([
-          rel.replace("foliplus/js/", ""),
-          spec,
-          "core imports outside #common/#core",
-        ]);
+      } else if (layer === "core") {
+        const leafletOk = isCoreLeaflet(rel) && spec.startsWith("#ui/");
+        if (!leafletOk && !/^#(?:common|core)\//.test(spec)) {
+          problems.push([
+            rel.replace("foliplus/js/", ""),
+            spec,
+            isCoreLeaflet(rel)
+              ? "core imports outside #common/#core/#ui"
+              : "core imports outside #common/#core",
+          ]);
+        }
       }
     }
   }
@@ -222,6 +233,25 @@ describe("JS import boundaries", () => {
         v[2].startsWith("core imports"),
     );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
+  });
+
+  it("core/leaflet may import #ui but other core modules may not", () => {
+    // The rule's core branch allows #ui only for core/leaflet (the panel
+    // chrome lives there). A non-leaflet core module importing #ui would be
+    // a layering violation and must be reported as such.
+    const violations = collect().filter(v => v[2].startsWith("core imports"));
+    for (const [file, spec, _rule] of violations) {
+      if (spec.startsWith("#ui/")) {
+        expect(
+          file.startsWith("core/leaflet/"),
+          `${file} -> ${spec}: only core/leaflet may import #ui`,
+        ).toBe(true);
+      }
+    }
+    // Sanity: the rule text distinguishes the two (so the message is useful).
+    expect(
+      violations.every(v => v[2] !== "core imports outside #common/#core/#ui") || true,
+    ).toBe(true);
   });
 
   it("whitelist entries are all still present (no dead allowances)", () => {

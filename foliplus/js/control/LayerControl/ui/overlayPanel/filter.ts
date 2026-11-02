@@ -39,6 +39,7 @@ import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
+import { buttonRow, panelButton, sectionDivider } from "#ui/affordance.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { finishSlidersIn } from "#control/LayerControl/slider.js";
@@ -201,21 +202,12 @@ const buildFooter = (
   ui: LayerUI,
   hooks: FilterViewHooks,
 ): { footer: HTMLElement; clear: HTMLButtonElement } => {
-  const clear = dom.el(
-    "button",
-    {
-      type: "button",
-      class: `foliplus-panel-btn ${CONST.CLASSES.FILTER_CLEAR}`,
-    },
-    ui.T("filter_clear"),
-  ) as HTMLButtonElement;
+  const clear = panelButton({
+    label: ui.T("filter_clear"),
+    className: CONST.CLASSES.FILTER_CLEAR,
+  });
   clear.addEventListener("click", () => hooks.write(undefined));
-  const footer = dom.el(
-    "div",
-    {},
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el("div", { class: "foliplus-btn-row" }, clear),
-  );
+  const footer = dom.el("div", {}, sectionDivider(), buttonRow(clear));
   return { footer, clear };
 };
 

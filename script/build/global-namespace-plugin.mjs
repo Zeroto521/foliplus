@@ -91,6 +91,7 @@ const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
   if (spec.startsWith("common/")) return `common.${spec.split("/")[1]}`;
+  if (spec.startsWith("ui/")) return `ui.${spec.split("/")[1]}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
     return sub === "index" ? `#${spec}` : `core.${sub}`;
@@ -172,6 +173,7 @@ const globalNamespacePlugin = sourceRoot => ({
       const rel = spec
         .replace(/^#core\//, "core/")
         .replace(/^#common\//, "common/")
+        .replace(/^#ui\//, "ui/")
         .replace(/^#foliplus\//, "");
       const sourcePath = resolve(sourceRoot, rel);
       const ns = sharedGlobalNamespace(spec);

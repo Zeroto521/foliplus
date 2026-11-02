@@ -1,6 +1,7 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { PANEL_CLASS } from "#common/panelClass.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -225,11 +226,11 @@ const CLASSES = {
      once, inside the primitive. */
   SLIDER: "foliplus-slider",
   /** Shared form-row layout classes (also used by HeatmapControl template). */
-  FORM_ROW: "foliplus-form-row",
-  FORM_LABEL: "foliplus-form-label",
-  FORM_CONTROL: "foliplus-form-control",
-  TOGGLE_SWITCH: "foliplus-toggle-switch",
-  TOGGLE_SLIDER: "foliplus-toggle-slider",
+  FORM_ROW: PANEL_CLASS.FORM_ROW,
+  FORM_LABEL: PANEL_CLASS.FORM_LABEL,
+  FORM_CONTROL: PANEL_CLASS.FORM_CONTROL,
+  TOGGLE_SWITCH: PANEL_CLASS.TOGGLE_SWITCH,
+  TOGGLE_SLIDER: PANEL_CLASS.TOGGLE_SLIDER,
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
   /** Floating filter panel opened from the layer overflow menu. */

@@ -2,25 +2,19 @@
 // No state, no events, no manager calls. The rail positioning math that used
 // to live here moved into the slider primitive (LayerControl/slider.ts), which owns
 // the track's coordinate space.
-import { dom } from "#common/dom.js";
+import { buttonRow, panelButton, sectionDivider } from "#ui/affordance.js";
 import type { LayerUI } from "../surface.js";
 
 /** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
 const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   content.append(
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el(
-      "div",
-      { class: "foliplus-btn-row" },
-      dom.el(
-        "button",
-        {
-          type: "button",
-          class: "foliplus-panel-btn foliplus-style-reset-btn",
-        },
-        ui.T("style_reset"),
-      ),
+    sectionDivider(),
+    buttonRow(
+      panelButton({
+        label: ui.T("style_reset"),
+        className: "foliplus-style-reset-btn",
+      }),
     ),
   );
 };
