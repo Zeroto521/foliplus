@@ -56,8 +56,6 @@ def _normpath(path: str | Path) -> Path:
     """
     parts: list[str] = []
     for part in Path(path).parts:
-        if part == ".":
-            continue
         if part == "..":
             if parts and parts[-1] != "..":
                 parts.pop()
