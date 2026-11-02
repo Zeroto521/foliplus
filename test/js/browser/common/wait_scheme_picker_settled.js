@@ -13,6 +13,11 @@
 // settles" product bug turns into a red test carrying the width/lane evidence,
 // rather than a silently slow pass.
 //
+// The deadline is enforced by an independent setTimeout, decoupled from frame
+// polling: if the page is backgrounded/hidden and requestAnimationFrame stops
+// firing, the timer still fires and the promise settles with the diagnostics
+// object within the budget, so page.evaluate never hangs past 5s.
+//
 // Returns: `true` when settled, or a diagnostics object when the budget is
 // exhausted.
 triggerSelector => {
@@ -42,18 +47,32 @@ triggerSelector => {
         }
       : null,
   });
-  const deadline = performance.now() + 5000;
   return new Promise(resolve => {
+    let frame = 0;
+    let timer = 0;
+    let done = false;
+    // Idempotent settle: clear both the frame and the deadline timer, then
+    // resolve exactly once. Safe to call from either the frame tick or the
+    // deadline timer, whichever fires first.
+    const settle = value => {
+      if (done) return;
+      done = true;
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resolve(value);
+    };
     const tick = () => {
       const settled =
         Math.abs(
           dropdown.getBoundingClientRect().width -
             trigger.getBoundingClientRect().width,
         ) <= 0.5;
-      if (settled) return resolve(true);
-      if (performance.now() > deadline) return resolve(diag());
-      requestAnimationFrame(tick);
+      if (settled) return settle(true);
+      frame = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    // Deadline timer is independent of rAF: it fires even if the page is
+    // hidden/backgrounded and frames stop, guaranteeing a settle within 5s.
+    timer = setTimeout(() => settle(diag()), 5000);
+    frame = requestAnimationFrame(tick);
   });
 };
