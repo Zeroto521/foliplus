@@ -12,9 +12,11 @@
 import { dom } from "#common/dom.js";
 import { PANEL_CLASS } from "#common/panelClass.js";
 
-/** Section divider — the hairline between panel sections. */
-const sectionDivider = (): HTMLElement =>
-  dom.el("hr", { class: PANEL_CLASS.SECTION_DIVIDER });
+/** Section divider — the hairline between panel sections.
+ *  Defaults to <hr>; pass "div" where the caller's layout relies on the
+ *  block element (a grid row that must not carry the hr UA margin). */
+const sectionDivider = (tag: "hr" | "div" = "hr"): HTMLElement =>
+  dom.el(tag, { class: PANEL_CLASS.SECTION_DIVIDER });
 
 /** Button row — a flex row holding one or more panel buttons. */
 const buttonRow = (...children: HTMLElement[]): HTMLElement =>

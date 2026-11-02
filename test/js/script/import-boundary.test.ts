@@ -248,10 +248,6 @@ describe("JS import boundaries", () => {
         ).toBe(true);
       }
     }
-    // Sanity: the rule text distinguishes the two (so the message is useful).
-    expect(
-      violations.every(v => v[2] !== "core imports outside #common/#core/#ui") || true,
-    ).toBe(true);
   });
 
   it("whitelist entries are all still present (no dead allowances)", () => {

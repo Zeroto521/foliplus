@@ -89,6 +89,10 @@ describe("runtimeTarget", () => {
     expect(runtimeTarget("common/log")).toBe("common.log");
   });
 
+  it("maps ui modules to ui.<mod>", () => {
+    expect(runtimeTarget("ui/affordance")).toBe("ui.affordance");
+  });
+
   it("returns a #-prefixed spec untouched", () => {
     // The barrel fall-through: runtimeTarget("#core/index") keeps the `#`
     // so the shim declaration is invalid JS and the build fails loudly.
@@ -154,6 +158,10 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
     expect(sharedGlobalNamespace("#common/storage.js")).toBe("foliplus.common.storage");
     expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
+  });
+
+  it("maps ui modules to foliplus.ui.mod", () => {
+    expect(sharedGlobalNamespace("#ui/affordance.js")).toBe("foliplus.ui.affordance");
   });
 
   it("never maps a bare core barrel to a core namespace", () => {
@@ -632,6 +640,21 @@ describe("globalNamespacePlugin", () => {
     const result = onLoad({ path: "#core/layer/foo.js" });
     expect(result.loader).toBe("js");
     expect(result.contents).toContain("export const Foo =");
+  });
+
+  it("strips the #ui/ alias and shims to foliplus.ui.<mod>", () => {
+    // The #ui/* strip chain (added with the ui layer) must turn a #ui spec
+    // into a source-relative path and a foliplus.ui.<mod> global lookup.
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { panelButton } from "#ui/affordance.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
+    const result = onLoad({ path: "#ui/affordance.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("globalThis.foliplus.ui.affordance");
+    expect(result.contents).toContain("export const panelButton =");
   });
 
   it("shims star-imported property usage via starUsed", () => {

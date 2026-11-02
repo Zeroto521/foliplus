@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeButton, panelButton, sectionDivider } from "#ui/affordance.js";
+import { buttonRow, closeButton, panelButton, sectionDivider } from "#ui/affordance.js";
 
 // ui/affordance builders are pure DOM structure. The class-name contract with
 // the Python render-string tests is: a class passed to panelButton is joined
@@ -8,6 +8,25 @@ import { closeButton, panelButton, sectionDivider } from "#ui/affordance.js";
 describe("ui/affordance builders", () => {
   it("sectionDivider emits the shared hairline", () => {
     expect(sectionDivider().outerHTML).toBe('<hr class="foliplus-section-divider">');
+  });
+
+  it("buttonRow wraps children in the shared btn-row", () => {
+    const btn = panelButton({ label: "Reset" });
+    const row = buttonRow(btn);
+    expect(row.tagName).toBe("DIV");
+    expect(row.classList.contains("foliplus-btn-row")).toBe(true);
+    expect(row.children).toHaveLength(1);
+    expect(row.children[0]).toBe(btn);
+  });
+
+  it("sectionDivider accepts div for callers whose layout needs a block", () => {
+    // list.ts's toggle-all row is a CSS grid cell: an <hr> would inherit the
+    // UA margin (0.5em auto) and shift the row; the caller passes "div" to
+    // keep the pre-S1 block element.
+    const div = sectionDivider("div");
+    expect(div.tagName).toBe("DIV");
+    expect(div.classList.contains("foliplus-section-divider")).toBe(true);
+    expect(div.outerHTML).toBe('<div class="foliplus-section-divider"></div>');
   });
 
   it("panelButton joins the shared panel-btn class with the caller class", () => {

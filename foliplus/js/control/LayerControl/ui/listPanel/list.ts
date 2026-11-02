@@ -562,7 +562,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       }),
     ),
     dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
-    sectionDivider(),
+    sectionDivider("div"),
   );
 };
 
