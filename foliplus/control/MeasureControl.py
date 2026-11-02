@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from foliplus._config_schema import FieldSpec
 from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
-    _normalise_zoom_range,
+    normalise_zoom_range,
     normalize_declared_filter,
 )
 from foliplus._typing import ControlPosition
@@ -272,6 +272,6 @@ class MeasureControl(BaseControl):
         # The author writes zoom_range={"min": ..., "max": ...}; CONF carries
         # the normalised {min, max} under the shared `zoomRange` key. Invalid
         # declarations warn once and stay None (the toolbar is not hidden).
-        self.zoomRange = _normalise_zoom_range(
+        self.zoomRange = normalise_zoom_range(
             zoom_range, owner="MeasureControl", source="zoom_range"
         )

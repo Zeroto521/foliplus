@@ -16,11 +16,11 @@ from folium.map import Layer
 from foliplus._config_schema import FieldSpec
 from foliplus._declaration import (
     ZOOM_RANGE_KEY,
-    _foliplus_reports,
-    _normalise_zoom_range,
-    _refused_captions,
-    _should_report,
-    _warn_foliplus,
+    foliplus_reports,
+    normalise_zoom_range,
+    refused_captions,
+    should_report,
+    warn_foliplus,
 )
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
@@ -97,7 +97,7 @@ def _declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        _warn_foliplus(
+        warn_foliplus(
             f"{layer_name}:shape:{type(raw).__name__}",
             f"LayerControl: layer {layer_name!r} declares foliplus= as "
             f"{type(raw).__name__}; expected a mapping - ignored",
@@ -106,21 +106,21 @@ def _declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
 
     for key, value in raw.items():
         if key not in _FOLIPLUS_KEYS:
-            _warn_foliplus(
+            warn_foliplus(
                 f"{layer_name}:unknown:{key}",
                 f"LayerControl: layer {layer_name!r} declares unknown "
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(_FOLIPLUS_KEYS)} - ignored",
             )
         elif key in {"fill", "label"} and not isinstance(value, dict):
-            _warn_foliplus(
+            warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
                 f"foliplus[{key!r}] as {type(value).__name__}; expected a "
                 "mapping - ignored",
             )
 
-    return _normalise_zoom_range(
+    return normalise_zoom_range(
         raw.get(ZOOM_RANGE_KEY), owner="LayerControl", subject=f"layer {layer_name!r}"
     )
 
@@ -430,8 +430,8 @@ def _warn_refused_caption(
     stepped arm tests exact block membership, the continuous arm tests the
     color-match ratio against _FILL_AUTHOR_AGREE.
     """
-    if not _should_report(
-        ("caption", caption, criterion, str(hits), str(total)), _refused_captions
+    if not should_report(
+        ("caption", caption, criterion, str(hits), str(total)), refused_captions
     ):
         return
     _log.warning(

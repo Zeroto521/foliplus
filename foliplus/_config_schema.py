@@ -34,13 +34,13 @@ the shape of complex types stays in one place: Python's schema.
 Special-cased (not bare type names):
 
 * ``"Record<string, ...>"`` / ``"string[]"`` / ``"unknown[]"`` — inline TS
-  constructs, rendered by base-object tags (see :data:`_TS_OBJECTS`).
+  constructs, rendered by base-object tags (see :data:`TS_OBJECTS`).
 * ``"string | ProviderConfig"`` — the SearchControl ``provider`` field is a
   union of a built-in provider id and a custom ``ProviderConfig`` dict; the tag
   renders the union inline because Python has no alias to name that union.
 
 :func:`verify_tags` checks every tag against the union of
-:data:`_SUPPORTED_TAGS` (primitives + base objects + ``ControlPosition`` +
+:data:`SUPPORTED_TAGS` (primitives + base objects + ``ControlPosition`` +
 the special union tag) and the set of generated alias names, so a tag typo or
 a rename on one side fails the dump rather than emitting an unimported type
 into the generated TS.
@@ -92,23 +92,23 @@ if TYPE_CHECKING:
 # no `normalize()`), breaking argparse's gettext import. Strip the script dir
 # so stdlib modules resolve correctly. Safe: `_config_schema.py` imports no foliplus
 # siblings, so it does not need the package on sys.path.
-_script_dir = str(Path(__file__).resolve().parent)
-if _script_dir in sys.path:
-    sys.path.remove(_script_dir)
+script_dir = str(Path(__file__).resolve().parent)
+if script_dir in sys.path:
+    sys.path.remove(script_dir)
 
 # TS type tags supported. Primitives are TS construction instructions; every
 # other tag is a type name exported by `foliplus/js` (or an inline TS
 # construct, listed here so the generator can render it). Add a new tag only
 # when a real control needs it; the generator refuses unknown tags so a typo
 # fails the build rather than emitting a bogus type.
-_TS_PRIMITIVES: dict[str, str] = {
+TS_PRIMITIVES: dict[str, str] = {
     "bool": "boolean",
     "number": "number",
     "string": "string",
     "any": "unknown",
     "null": "null",
 }
-_TS_OBJECTS: dict[str, str] = {
+TS_OBJECTS: dict[str, str] = {
     "object": "Record<string, unknown>",
     "object_string": "Record<string, string>",
     "object_nested": "Record<string, Record<string, string>>",
@@ -124,7 +124,7 @@ _TS_OBJECTS: dict[str, str] = {
     # `Record<string, unknown>`. Not a bare type name.
     "string | ProviderConfig": "string | ProviderConfig",
 }
-_SUPPORTED_TAGS = set(_TS_PRIMITIVES) | set(_TS_OBJECTS)
+SUPPORTED_TAGS = set(TS_PRIMITIVES) | set(TS_OBJECTS)
 
 # Type names the generated `config-schema.ts` imports. Mirrored by
 # `script/build/emit-config-schema.mjs`'s IMPORTS; verify_tags() checks that
@@ -140,11 +140,11 @@ IMPORTS: dict[str, str] = {
 # real default is None (e.g. SearchControl.provider_config) would be treated
 # as "no default" and dropped from the dump. Anything JSON-serializable is a
 # legal default, including None.
-_UNSET = object()
+UNSET = object()
 
 
 # Shape descriptors: JSON-serializable trees describing a TS type. Grammar
-# (validated by :func:`_validate_shape`):
+# (validated by :func:`validate_shape`):
 #
 # * ``"string"`` / ``"number"`` / ``"bool"`` / ``"null"`` — TS primitive
 #   (``"bool"`` renders as ``boolean``).
@@ -172,18 +172,18 @@ _UNSET = object()
 # primitive union, any other all-string list a literal union, and a list
 # holding a non-string an array.
 
-_TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null", "array_string"}
+TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null", "array_string"}
 
 
-def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None:
+def validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None:
     """Recursively validate a shape descriptor, failing loudly on bad inputs."""
     if x is None:
         return
     if isinstance(x, str):
-        if x not in _TS_PRIMITIVE_NAMES:
+        if x not in TS_PRIMITIVE_NAMES:
             raise ValueError(
                 f"shape at {path}: unknown primitive {x!r} — "
-                f"expected one of {sorted(_TS_PRIMITIVE_NAMES)}"
+                f"expected one of {sorted(TS_PRIMITIVE_NAMES)}"
             )
         return
     if isinstance(x, tuple):
@@ -193,7 +193,7 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
                     f"shape at {path}: optional marker (X, '?') is only "
                     "valid as a dict value"
                 )
-            _validate_shape(x[0], f"{path}[0]")
+            validate_shape(x[0], f"{path}[0]")
             return
         # Otherwise: a union of strings. Primitive names render unquoted
         # ("string", "number" → string | number); everything else quoted. That
@@ -209,7 +209,7 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
         if not x:
             raise ValueError(f"shape at {path}: empty array is not a valid shape")
         for i, v in enumerate(x):
-            _validate_shape(v, f"{path}[{i}]")
+            validate_shape(v, f"{path}[{i}]")
         return
     if isinstance(x, dict):
         if "*" in x:
@@ -218,14 +218,14 @@ def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None
                     f"shape at {path}: '*' key cannot be mixed with named "
                     f"keys; got {list(x.keys())!r}"
                 )
-            _validate_shape(x["*"], f"{path}.*")
+            validate_shape(x["*"], f"{path}.*")
             return
         for k, v in x.items():
             if not isinstance(k, str) or not k.isidentifier():
                 raise ValueError(
                     f"shape at {path}: key {k!r} is not a valid JS identifier"
                 )
-            _validate_shape(v, f"{path}.{k}", in_dict_value=True)
+            validate_shape(v, f"{path}.{k}", in_dict_value=True)
         return
     raise ValueError(f"shape at {path}: unknown shape type {type(x).__name__}")
 
@@ -237,7 +237,7 @@ class FieldSpec:
     Attributes
     ----------
     ts
-        Base type tag. One of :data:`_SUPPORTED_TAGS`, or ``"union"`` — in
+        Base type tag. One of :data:`SUPPORTED_TAGS`, or ``"union"`` — in
         the union case, :attr:`values` must be set and renders as
         ``"a" | "b" | "c"``.
 
@@ -269,7 +269,7 @@ class FieldSpec:
         JSON-serializable default used by the vitest fixture. Must be a
         value a Python dict can hold (str, int, float, bool, list, dict,
         or None). ``None`` is a *real* default and is serialized as JSON
-        ``null``; :data:`_UNSET` (the dataclass default) means "no default
+        ``null``; :data:`UNSET` (the dataclass default) means "no default
         declared — omit from fixture" (used for fields whose default is a
         runtime decision, e.g. ``locale_tables``).
 
@@ -283,7 +283,7 @@ class FieldSpec:
         Optional shape descriptor for a complex type. When set,
         :attr:`name` is also required — the generator emits the type as a
         named alias (``export type <name> = <shape>;``) and this field's
-        TS type renders as the name. See :func:`_validate_shape` for the
+        TS type renders as the name. See :func:`validate_shape` for the
         descriptor grammar. A shape without a name is a construction error
         because there is no emitting target.
 
@@ -316,7 +316,7 @@ class FieldSpec:
     item: str | None = None
     runtime_only: bool = False
     dynamic: bool = False
-    default: Any = _UNSET
+    default: Any = UNSET
     note: str = ""
     shape: Any = None
     name: str | None = None
@@ -327,7 +327,7 @@ class FieldSpec:
             # Shape-driven type: the rendered type comes from the alias
             # name, not the base tag. Validate the shape and skip the
             # tag-based checks below — a shape-driven FieldSpec may carry
-            # a ``ts`` that is not in _SUPPORTED_TAGS (e.g. the alias name
+            # a ``ts`` that is not in SUPPORTED_TAGS (e.g. the alias name
             # itself), which is fine because render_ts_type renders by
             # name.
             if not self.name:
@@ -336,13 +336,13 @@ class FieldSpec:
                     "generated alias — a shape without a name has no "
                     "emitting target"
                 )
-            _validate_shape(self.shape, self.name)
+            validate_shape(self.shape, self.name)
         elif self.name is not None and self.ts != "union":
             # A named non-union type names its alias in both ``ts`` and
             # ``name`` (e.g. ``ts="ProviderConfig", name="ProviderConfig"``).
             # render_ts_type renders ``name``, so ``ts`` is a naming
             # declaration rather than a render instruction and is not checked
-            # against _SUPPORTED_TAGS. Its descriptor arrives as a class
+            # against SUPPORTED_TAGS. Its descriptor arrives as a class
             # attribute (see derive_schema), which is why this branch — unlike
             # the shape-driven one — carries no shape. A tag typo is still
             # caught at dump time by verify_tags.
@@ -354,15 +354,15 @@ class FieldSpec:
             # A metadata-only FieldSpec (note, nullable, …) carries no tag.
             # The tag is decided by the reflector; ``ts=""`` means "no
             # override", which is distinct from a typo and must not raise
-            # here — an empty tag is not in _SUPPORTED_TAGS by design.
+            # here — an empty tag is not in SUPPORTED_TAGS by design.
             # ``name`` without ``shape`` is validated after reflection
-            # (see ``_resolve_tag``), because the reflected ``ts``/``values``
+            # (see ``resolve_tag``), because the reflected ``ts``/``values``
             # are not yet known at construction time.
             pass
-        elif self.ts not in _SUPPORTED_TAGS:
+        elif self.ts not in SUPPORTED_TAGS:
             raise ValueError(
                 f"FieldSpec ts={self.ts!r} is not a supported tag; "
-                f"valid: {sorted(set(_SUPPORTED_TAGS) | {'union'})}"
+                f"valid: {sorted(set(SUPPORTED_TAGS) | {'union'})}"
             )
         if self.runtime_only and not self.optional:
             # A field Python never emits can only be present at runtime;
@@ -394,17 +394,17 @@ def render_ts_type(spec: FieldSpec) -> str:
     """
     if spec.name is not None:
         # Named type — render as the alias name; the generator emits the
-        # definition elsewhere. __post_init__ + _resolve_tag guarantee the
+        # definition elsewhere. __post_init__ + resolve_tag guarantee the
         # descriptor (shape or union+values) is present.
         base = spec.name
     elif spec.ts == "union":
         # __post_init__ guarantees values for union; assert so mypy narrows.
         assert spec.values is not None
         base = " | ".join(f'"{v}"' for v in spec.values)
-    elif spec.ts in _TS_PRIMITIVES:
-        base = _TS_PRIMITIVES[spec.ts]
-    elif spec.ts in _TS_OBJECTS:
-        base = _TS_OBJECTS[spec.ts]
+    elif spec.ts in TS_PRIMITIVES:
+        base = TS_PRIMITIVES[spec.ts]
+    elif spec.ts in TS_OBJECTS:
+        base = TS_OBJECTS[spec.ts]
     else:
         raise ValueError(f"unknown FieldSpec.ts={spec.ts!r}")
     if spec.nullable:
@@ -419,19 +419,19 @@ def verify_tags(tags: set[str], named_types: set[str]) -> None:
 
     ``named_types`` are the :attr:`FieldSpec.name` values across the schema —
     types the generator emits as aliases. Any tag not in
-    :data:`_SUPPORTED_TAGS` (which covers primitives, base objects,
+    :data:`SUPPORTED_TAGS` (which covers primitives, base objects,
     ``ControlPosition``, and the ``string | ProviderConfig`` special case)
     must be a named type; otherwise it is a typo or a rename that landed on
     one side only.
     """
     bad = sorted(
-        t for t in tags if t not in _SUPPORTED_TAGS | {"union"} and t not in named_types
+        t for t in tags if t not in SUPPORTED_TAGS | {"union"} and t not in named_types
     )
     if bad:
         raise ValueError(
             f"tags render to a type name that config-schema.ts does not "
             f"declare: {bad} — add to IMPORTS (external import), "
-            f"_TS_OBJECTS (inline construct), or declare as a FieldSpec.name "
+            f"TS_OBJECTS (inline construct), or declare as a FieldSpec.name "
             f"(generated alias)."
         )
 
@@ -486,17 +486,17 @@ RUNTIME_ONLY: ControlSchema = {
 # alias it is declared with (see ``foliplus/_typing.py``).
 
 # Bare Python type → TS tag, for annotations the reflector can decide alone.
-_PRIMITIVES: dict[type, str] = {
+PRIMITIVES: dict[type, str] = {
     str: "string",
     bool: "bool",
     int: "number",
     float: "number",
 }
-_ARRAY_TAGS: dict[tuple[type, ...], str] = {
+ARRAY_TAGS: dict[tuple[type, ...], str] = {
     (str,): "array_string",
     (Any,): "array_unknown",
 }
-_DICT_TAGS: dict[tuple[type, ...], str] = {
+DICT_TAGS: dict[tuple[type, ...], str] = {
     (Any, Any): "object",
     (str, Any): "object",
     (str, str): "object_string",
@@ -506,10 +506,10 @@ _DICT_TAGS: dict[tuple[type, ...], str] = {
 # ``BaseControl.__init__`` parameters that are the base class's job. A
 # subclass that redeclares one in its own signature does not export it as a
 # CONFIG field — it is already covered by :data:`SHARED`.
-_SHARED_PARAMS: frozenset[str] = frozenset({"position", "locale"})
+SHARED_PARAMS: frozenset[str] = frozenset({"position", "locale"})
 
 
-def _field_spec_in(*args: Any) -> FieldSpec | None:
+def field_spec_in(*args: Any) -> FieldSpec | None:
     """Return the ``FieldSpec`` among ``Annotated`` metadata, or ``None``.
 
     ``Annotated[T, Bound(...), FieldSpec(...)]`` carries both channels:
@@ -523,7 +523,7 @@ def _field_spec_in(*args: Any) -> FieldSpec | None:
     return None
 
 
-def _evaluate(arg: Any) -> Any:
+def evaluate(arg: Any) -> Any:
     """Resolve one ``Union`` arm that may still be a string.
 
     With `from __future__ import annotations` the arm of a spelled-out union
@@ -539,7 +539,7 @@ def _evaluate(arg: Any) -> Any:
     return eval(arg, globals())
 
 
-def _is_nullable(hint: Any) -> bool:
+def is_nullable(hint: Any) -> bool:
     """Whether ``hint`` admits JSON ``null`` at its outermost level.
 
     Strips ``Annotated`` first: a tag override names the type, it does not
@@ -548,15 +548,15 @@ def _is_nullable(hint: Any) -> bool:
     """
     origin = get_origin(hint)
     if origin is Annotated:
-        return _is_nullable(get_args(hint)[0])
+        return is_nullable(get_args(hint)[0])
     if origin not in (Union, UnionType):
         return False
-    arms = [_evaluate(a) for a in get_args(hint)]
+    arms = [evaluate(a) for a in get_args(hint)]
     non_null = [a for a in arms if a is not type(None)]
     return len(non_null) == 1 and len(non_null) != len(arms)
 
 
-def _resolve_tag(
+def resolve_tag(
     hint: Any, meta: FieldSpec | None
 ) -> tuple[str, tuple[str, ...] | None, bool, FieldSpec | None]:
     """Resolve one annotation to ``(tag, values, nullable, spec)``.
@@ -585,7 +585,7 @@ def _resolve_tag(
     # nothing to say about the TS tag, so ``base`` must reach ``float``.
     args = get_args(hint) if origin is Annotated else ()
     base = args[0] if args else hint
-    inner_meta = _field_spec_in(*args[1:]) if args else None
+    inner_meta = field_spec_in(*args[1:]) if args else None
     # A layer that carries no FieldSpec keeps the one passed down by an outer
     # layer: `Annotated[PositiveInt | None, FieldSpec(note=...)]` peels to
     # `Annotated[int, Bound(...)] | None`, whose Bound is not a FieldSpec, and
@@ -596,18 +596,18 @@ def _resolve_tag(
     if meta is not None and meta.ts:
         # The author named the type; nullability still comes from the
         # annotation, not from the override.
-        return meta.ts, meta.values, _is_nullable(hint) or meta.nullable, meta
+        return meta.ts, meta.values, is_nullable(hint) or meta.nullable, meta
 
     if origin is Annotated:
         # No tag override, so the type to render is the annotated base. It may
         # itself be a union or another Annotated (PositiveInt is
         # Annotated[int, Bound(...)]), so recurse rather than re-implementing
         # the mapping below; the meta carries note and optional through.
-        tag, values, nullable, inner_meta = _resolve_tag(base, meta)
+        tag, values, nullable, inner_meta = resolve_tag(base, meta)
         return tag, values, nullable, meta or inner_meta
 
     if origin in (Union, UnionType):
-        arms = [_evaluate(a) for a in get_args(hint)]
+        arms = [evaluate(a) for a in get_args(hint)]
         non_null = [a for a in arms if a is not type(None)]
         nullable = len(non_null) != len(arms)
         if len(non_null) == 1:
@@ -617,7 +617,7 @@ def _resolve_tag(
             # the spec back out so the author's ts/name/note survive the null
             # arm — a spec already carried in `meta` by an outer Annotated
             # layer wins.
-            tag, values, inner_nullable, inner_meta = _resolve_tag(non_null[0], meta)
+            tag, values, inner_nullable, inner_meta = resolve_tag(non_null[0], meta)
             return tag, values, nullable or inner_nullable, meta or inner_meta
         # A union of two unrelated arms is not a JSON shape: the author must
         # name it. ProviderConfig's `str | dict` reaches here as
@@ -636,7 +636,7 @@ def _resolve_tag(
         # generator emits it. A ``ts`` override on a Literal returns at the
         # meta.ts check above, because ts names the type outright.
         values = tuple(str(v) for v in get_args(hint))
-        nullable = _is_nullable(hint)
+        nullable = is_nullable(hint)
         if meta is not None and meta.name is not None:
             return "union", values, nullable or meta.nullable, meta
         raise ValueError(
@@ -644,14 +644,14 @@ def _resolve_tag(
             "bare Literal unions are decided automatically"
         )
 
-    if base in _PRIMITIVES:
-        return _PRIMITIVES[base], None, False, None
+    if base in PRIMITIVES:
+        return PRIMITIVES[base], None, False, None
 
     if get_origin(base) is list:
-        return _ARRAY_TAGS.get(get_args(base), "array_unknown"), None, False, None
+        return ARRAY_TAGS.get(get_args(base), "array_unknown"), None, False, None
 
     if get_origin(base) is dict:
-        return _DICT_TAGS.get(get_args(base), "object"), None, False, None
+        return DICT_TAGS.get(get_args(base), "object"), None, False, None
 
     raise ValueError(
         f"cannot map annotation {hint!r} to a TS tag — add FieldSpec(ts=...) "
@@ -659,7 +659,7 @@ def _resolve_tag(
     )
 
 
-def _is_json_serializable(value: Any) -> bool:
+def is_json_serializable(value: Any) -> bool:
     """Return ``True`` when ``value`` can be held by the vitest fixture.
 
     The fixture is JSON; anything else a default could be (an enum member, a
@@ -669,10 +669,10 @@ def _is_json_serializable(value: Any) -> bool:
     return (
         value is None
         or isinstance(value, (str, int, float, bool))
-        or (isinstance(value, list) and all(_is_json_serializable(v) for v in value))
+        or (isinstance(value, list) and all(is_json_serializable(v) for v in value))
         or (
             isinstance(value, dict)
-            and all(_is_json_serializable(v) for v in value.values())
+            and all(is_json_serializable(v) for v in value.values())
         )
     )
 
@@ -697,7 +697,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
     hints = get_type_hints(init, include_extras=True)
     out: ControlSchema = {}
     for name, param in sig.parameters.items():
-        if name == "self" or name == "return" or name in _SHARED_PARAMS:
+        if name == "self" or name == "return" or name in SHARED_PARAMS:
             continue
 
         hint = hints.get(name, param.annotation)
@@ -714,7 +714,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                 "cannot be declared in a signature"
             )
 
-        tag, values, nullable, meta = _resolve_tag(hint, None)
+        tag, values, nullable, meta = resolve_tag(hint, None)
         # A named non-union type renders as the alias ``name``; the alias
         # definition comes from ``shape`` on the same FieldSpec, which the
         # author writes inside the Annotated type. A shape-less named
@@ -733,7 +733,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                         "shape descriptor — set FieldSpec.shape= in the "
                         "annotation"
                     )
-        if not _is_json_serializable(param.default):
+        if not is_json_serializable(param.default):
             raise ValueError(
                 f"{cls.__name__}.{name} default {param.default!r} is not JSON "
                 "serializable — the vitest fixture is generated from it"
@@ -777,7 +777,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                 "in _dynamic_fields — a dynamic field is not a parameter"
             )
         args = get_args(declared)
-        meta = _field_spec_in(*args[1:]) if get_origin(declared) is Annotated else None
+        meta = field_spec_in(*args[1:]) if get_origin(declared) is Annotated else None
         if meta is None:
             raise ValueError(
                 f"{cls.__name__}._dynamic_fields[{name!r}] is not an Annotated "
@@ -832,7 +832,7 @@ def schema_to_json() -> str:
     committed TS artifacts. Kept stable: adding a new ``FieldSpec`` attribute
     is a schema version bump, not a silent change.
 
-    Every tag is checked against the union of :data:`_SUPPORTED_TAGS` and the
+    Every tag is checked against the union of :data:`SUPPORTED_TAGS` and the
     set of generated alias names (:func:`verify_tags`) so a tag that renders
     to a type name ``config-schema.ts`` does not declare fails here rather
     than as an unimported type in the generated TS.
@@ -840,19 +840,19 @@ def schema_to_json() -> str:
     Must not touch ``sys.path`` or ``sys.modules``: in-process callers (pytest)
     already hold a live ``foliplus`` import, and re-importing the package would
     hand the reflector a second ``FieldSpec`` class — the ``isinstance`` check
-    in :func:`_field_spec_in` would then stop finding the ``Annotated``
+    in :func:`field_spec_in` would then stop finding the ``Annotated``
     metadata and every typed field would fail to resolve. Path pinning for
     script mode lives in ``__main__`` below.
     """
     from foliplus import BaseControl
 
-    control_schemas = _derived_control_schemas(BaseControl)
+    control_schemas = derived_control_schemas(BaseControl)
     payload = {
         "version": 1,
-        "shared": _field_dict_list(SHARED),
-        "runtime_only": _field_dict_list(RUNTIME_ONLY),
+        "shared": field_dict_list(SHARED),
+        "runtime_only": field_dict_list(RUNTIME_ONLY),
         "controls": {
-            name: _field_dict_list(schema) for name, schema in control_schemas
+            name: field_dict_list(schema) for name, schema in control_schemas
         },
     }
     verify_tags(
@@ -862,7 +862,7 @@ def schema_to_json() -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
 
 
-def _pin_package_path(
+def pin_package_path(
     keep: tuple[str, ...] = (),
 ) -> None:  # pragma: no cover - script bootstrap: runpy subprocess test
     """Force ``foliplus`` to resolve to this module's own package.
@@ -901,7 +901,7 @@ def _pin_package_path(
         )
 
 
-def _derived_control_schemas(
+def derived_control_schemas(
     base: type[BaseControl],
 ) -> list[tuple[str, ControlSchema]]:
     """Reflect every shipped control, returning ``(name, schema)`` pairs."""
@@ -924,7 +924,7 @@ def collect_tags(*schemas: ControlSchema) -> set[str]:
 
     Empty tags (metadata-only FieldSpecs where the reflector decides the
     tag) are skipped — they are not type names and must not be checked
-    against :data:`_SUPPORTED_TAGS`.
+    against :data:`SUPPORTED_TAGS`.
     """
     return {spec.ts for schema in schemas for spec in schema.values() if spec.ts}
 
@@ -939,7 +939,7 @@ def collect_named_types(*schemas: ControlSchema) -> set[str]:
     return {spec.name for schema in schemas for spec in schema.values() if spec.name}
 
 
-def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
+def field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
     """Convert one ControlSchema to a JSON-friendly dict of field dicts.
 
     Drops the Python-only ``item`` field the generators don't need; ``note`` is
@@ -961,7 +961,7 @@ def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
             entry["values"] = list(spec.values)
         if spec.note:
             entry["note"] = spec.note
-        if spec.default is not _UNSET:
+        if spec.default is not UNSET:
             entry["default"] = spec.default
         if spec.shape is not None:
             entry["shape"] = spec.shape
@@ -971,7 +971,7 @@ def _field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="foliplus._config_schema",
         description="Dump the CONFIG schema as JSON for pytest and manual regeneration.",
@@ -999,9 +999,9 @@ if __name__ == "__main__":
     # As a script this file is not registered as foliplus._config_schema, so a
     # sibling doing `from ._config_schema import FieldSpec` would load a second
     # copy — a second FieldSpec class, which the isinstance() check in
-    # _field_spec_in() would not match. Register this module first.
+    # field_spec_in() would not match. Register this module first.
     sys.modules["foliplus._config_schema"] = sys.modules["__main__"]
     # sys.path[0] was this directory (stripped above), so pin the package path
     # before schema_to_json() imports foliplus.
-    _pin_package_path(keep=("foliplus._config_schema",))
-    raise SystemExit(_main())
+    pin_package_path(keep=("foliplus._config_schema",))
+    raise SystemExit(main())

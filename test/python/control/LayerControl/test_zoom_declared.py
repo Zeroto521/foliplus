@@ -97,7 +97,7 @@ def test_invalid_zoom_is_dropped_with_a_warning(declaration):
 
 def test_unknown_key_warns_once_per_layer():
     # One typo on three layers is three attributable warnings, not one: the
-    # de-duplication note carries the layer name (see _warn_foliplus), so a
+    # de-duplication note carries the layer name (see warn_foliplus), so a
     # reader can tell which layer holds the misspelled key.
     layers = [
         _geo(name=f"L{i}", foliplus={"zooom": {"min": 1, "max": 2}}) for i in range(3)
@@ -138,7 +138,7 @@ def test_a_warning_points_at_the_calling_cell():
     # The declaration is written in the user's own cell, so the warning has to
     # name that file: a warning pointing inside the library is not actionable
     # where the author can see it. Same contract as the declared-filter branch
-    # (#805): one shared frame walk in _declaration._caller_stacklevel, so both
+    # (#805): one shared frame walk in _declaration.caller_stacklevel, so both
     # entry points blame the author's cell.
     with pytest.warns(UserWarning) as record:
         _render(_geo(name="Blame", foliplus={"zooom": {"min": 1, "max": 2}}))
