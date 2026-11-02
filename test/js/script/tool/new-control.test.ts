@@ -73,6 +73,18 @@ const LOCALE_PY = `_JS_USED_KEYS = {
 }
 `;
 
+const SCANNER_MJS = `const CONTROLS = [
+  "ExportControl",
+  "FullscreenControl",
+  "HeatmapControl",
+  "LayerControl",
+  "LocateControl",
+  "MeasureControl",
+  "ScaleControl",
+  "SearchControl",
+];
+`;
+
 /** Minimal repo fixture that scaffoldControl can patch. */
 function mkFixture(files: Record<string, string>): string {
   const root = join(tmpdir(), `new-control-test-${Date.now()}${Math.random()}`);
@@ -90,6 +102,7 @@ const FIXTURE = {
   "doc/source/api.rst": API_RST,
   "README.md": README,
   "test/python/test_locale.py": LOCALE_PY,
+  "script/check/scan-locale-key.mjs": SCANNER_MJS,
 };
 
 let tmpRoot: string | undefined;
@@ -237,7 +250,7 @@ describe("insertSortedLine", () => {
 describe("patchInitPy", () => {
   it("adds the import and a sorted __all__ entry", () => {
     const out = patchInitPy(INIT_PY, "AlphaControl");
-    expect(out).toContain("from .AlphaControl import AlphaControl");
+    expect(out).toContain("from .control.AlphaControl import AlphaControl");
     expect(out.indexOf('"AlphaControl"')).toBeLessThan(out.indexOf('"BaseControl"'));
     expect(out.indexOf('"BaseControl"')).toBeLessThan(out.indexOf('"ExportControl"'));
   });
@@ -249,7 +262,7 @@ describe("patchInitPy", () => {
 
   it("keeps __all__ sorted when only the export is missing", () => {
     const text = `from .BaseControl import BaseControl
-from .ScaleControl import ScaleControl
+from .control.ScaleControl import ScaleControl
 
 __all__ = [
     "BaseControl",
@@ -337,12 +350,12 @@ describe("buildSkeleton", () => {
 
   it("creates the dual-stack file set", () => {
     expect([...skeleton.files.keys()].sort()).toEqual([
-      "foliplus/FooControl.py",
+      "foliplus/control/FooControl.py",
       "foliplus/css/FooControl.css",
       "foliplus/js/FooControl/index.ts",
       "foliplus/locale/FooControl.en.json",
       "foliplus/locale/FooControl.zh.json",
-      "test/python/test_FooControl.py",
+      "test/python/control/FooControl/test_FooControl.py",
     ]);
   });
 
@@ -397,24 +410,24 @@ describe("scaffoldControl", () => {
     );
 
     expect(result.created.sort()).toEqual([
-      "foliplus/FooControl.py",
+      "foliplus/control/FooControl.py",
       "foliplus/css/FooControl.css",
       "foliplus/js/FooControl/index.ts",
       "foliplus/locale/FooControl.en.json",
       "foliplus/locale/FooControl.zh.json",
-      "test/python/test_FooControl.py",
+      "test/python/control/FooControl/test_FooControl.py",
     ]);
     expect(result.patched.sort()).toEqual([
       "README.md",
       "doc/source/api.rst",
       "foliplus/__init__.py",
       "foliplus/js/core/component.ts",
-      "test/python/test_locale.py",
+      "script/check/scan-locale-key.mjs",
     ]);
     expect(result.skipped).toEqual([]);
 
     expect(readFileSync(join(tmpRoot, "foliplus", "__init__.py"), "utf-8")).toContain(
-      "from .FooControl import FooControl",
+      "from .control.FooControl import FooControl",
     );
     expect(
       readFileSync(join(tmpRoot, "foliplus", "js", "core", "component.ts"), "utf-8"),
@@ -426,8 +439,8 @@ describe("scaffoldControl", () => {
       "**FooControl**",
     );
     expect(
-      readFileSync(join(tmpRoot, "test", "python", "test_locale.py"), "utf-8"),
-    ).toContain('"FooControl.title"');
+      readFileSync(join(tmpRoot, "script", "check", "scan-locale-key.mjs"), "utf-8"),
+    ).toContain('"FooControl",');
     expect(
       readFileSync(join(tmpRoot, "foliplus", "js", "FooControl", "index.ts"), "utf-8"),
     ).toContain('from "#core/controlEnv.js"');
@@ -462,7 +475,7 @@ describe("scaffoldControl", () => {
     tmpRoot = mkFixture({ ...FIXTURE, "foliplus/__init__.py": crlfInit });
     scaffoldControl({ name: "FooControl", description: "Foo." }, tmpRoot);
     const out = readFileSync(join(tmpRoot, "foliplus", "__init__.py"), "utf-8");
-    expect(out).toContain("from .FooControl import FooControl");
+    expect(out).toContain("from .control.FooControl import FooControl");
     expect(out.includes("\r\n")).toBe(true);
   });
 
@@ -482,7 +495,7 @@ describe("report", () => {
   it("prints created / patched / skipped sections", () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     report({
-      created: ["foliplus/FooControl.py"],
+      created: ["foliplus/control/FooControl.py"],
       patched: ["README.md"],
       skipped: ["foliplus/__init__.py"],
       name: "FooControl",
@@ -492,7 +505,7 @@ describe("report", () => {
     });
     const out = spy.mock.calls.map(c => c.join(" ")).join("\n");
     expect(out).toContain("scaffolded FooControl");
-    expect(out).toContain("+ foliplus/FooControl.py");
+    expect(out).toContain("+ foliplus/control/FooControl.py");
     expect(out).toContain("~ README.md");
     expect(out).toContain("· foliplus/__init__.py");
     expect(out).toContain("Manual next steps");
@@ -562,9 +575,9 @@ describe("CLI entry", () => {
     main(["FooControl", `--root=${tmpRoot}`, "--description=Foo."]);
     const out = log.mock.calls.join("\n");
     expect(out).toContain("scaffolded FooControl");
-    expect(readFileSync(join(tmpRoot, "foliplus", "FooControl.py"), "utf-8")).toContain(
-      "class FooControl",
-    );
+    expect(
+      readFileSync(join(tmpRoot, "foliplus", "control", "FooControl.py"), "utf-8"),
+    ).toContain("class FooControl");
   });
 
   it("defaults the description and skips already-present patches on a second run", () => {

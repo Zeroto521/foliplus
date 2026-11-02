@@ -185,7 +185,7 @@ class TestLayerControlRendering:
         the field picker) must stay retired: the picker names a real field, so
         there is no pseudo-option left to translate.
         """
-        root = Path(__file__).resolve().parent.parent.parent.parent
+        root = Path(__file__).resolve().parent.parent.parent.parent.parent
         required = {
             "style_layer",
             "style_layer_tooltip",
@@ -815,7 +815,7 @@ class TestLayerControlRendering:
         raw — `read_css` expands `@import`, so through it every row "contains"
         token.css.
         """
-        root = Path(__file__).resolve().parents[3]
+        root = Path(__file__).resolve().parents[4]
         for rel in (
             "foliplus/css/common/form.css",
             "foliplus/css/LayerControl/style.css",
