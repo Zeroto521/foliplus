@@ -180,10 +180,15 @@ class TestVitestCoverageExcludes:
     def test_index_entries_excluded(self, controls: set[str]):
         text = _read(ROOT / "vitest.config.mjs")
         # Prefer a glob; fall back to per-control listing.
-        if "foliplus/js/control/*/index.ts" in text or "foliplus/js/control/**/index.ts" in text:
+        if (
+            "foliplus/js/control/*/index.ts" in text
+            or "foliplus/js/control/**/index.ts" in text
+        ):
             return
         missing = [
-            n for n in sorted(controls) if f"foliplus/js/control/{n}/index.ts" not in text
+            n
+            for n in sorted(controls)
+            if f"foliplus/js/control/{n}/index.ts" not in text
         ]
         assert not missing, (
             f"vitest coverage exclude missing index.ts for: {missing}\n"
