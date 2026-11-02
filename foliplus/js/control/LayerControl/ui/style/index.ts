@@ -122,6 +122,14 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
   ui.overlayPanel.stylePanelEl = panel;
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
   const controller = createPanel({
     owner: "layer",
     localId: "style",

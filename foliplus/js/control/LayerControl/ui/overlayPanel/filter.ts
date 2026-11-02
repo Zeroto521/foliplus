@@ -424,6 +424,14 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // filterable data — a stale row that still reached the panel).
   if (cap) reconcile(ui, state, hooks, cap);
 
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
   // The PanelController owns the dismissal contract: closeFromClick swallows
   // the close-button press and closes with focus restore, swallowPress keeps
   // a mousedown off the row's drag handler. The registry entry is generated

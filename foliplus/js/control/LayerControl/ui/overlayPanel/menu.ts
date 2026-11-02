@@ -236,6 +236,14 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // the menu open. The listener lives on the menu element, so it dies with
   // the menu on close. Click-outside and Escape close through their own
   // paths, and this re-closing is a no-op then (activeMenu is already gone).
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
   // The PanelController owns the dismissal contract (closeFromClick for the
   // close affordance; the menu's own item clicks route through handleMenuClick,
   // which deliberately keeps its stopPropagation — an action may tear the menu
