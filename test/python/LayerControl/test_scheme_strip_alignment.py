@@ -203,7 +203,9 @@ def _assert_lane_clipped(sample: dict) -> None:
     assert sample["itemBars"], sample
     lane = sample["lane"]
     inset = 18  # --foliplus-scheme-picker-bar-inset-x = --foliplus-icon-size-md
-    assert lane > inset, f"expected lane > inset, got lane={lane} inset={inset}: {sample}"
+    assert lane > inset, (
+        f"expected lane > inset, got lane={lane} inset={inset}: {sample}"
+    )
     for bar in sample["itemBars"]:
         assert abs(bar["left"] - trigger["left"]) <= 1, (bar, trigger, sample)
         # Right edge == scrollport right, not the layout/padding-box right.
