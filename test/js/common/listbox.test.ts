@@ -695,3 +695,90 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     expect(select.value).toBe("");
   });
 });
+// Patch the global listener methods once per test (jsdom's window/document
+// own their addEventListener; EventTarget.prototype is not where the engine
+// binds). The patch is restored by afterEach so a second test does not wrap
+// a wrapper.
+let restoreGlobal: (() => void) | null = null;
+const countGlobal = () => {
+  const doc = new Set<string>();
+  const win = new Set<string>();
+  const wadd = window.addEventListener.bind(window);
+  const wremove = window.removeEventListener.bind(window);
+  const dadd = document.addEventListener.bind(document);
+  const dremove = document.removeEventListener.bind(document);
+  const key = (type: string, opts?: boolean | AddEventListenerOptions) =>
+    type + (opts === true ? "|cap" : "");
+  window.addEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | AddEventListenerOptions,
+  ) {
+    win.add(key(type, opts));
+    return wadd(type, fn, opts);
+  } as typeof window.addEventListener;
+  window.removeEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | EventListenerOptions,
+  ) {
+    win.delete(key(type, opts as boolean | AddEventListenerOptions));
+    return wremove(type, fn, opts);
+  } as typeof window.removeEventListener;
+  document.addEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | AddEventListenerOptions,
+  ) {
+    doc.add(key(type, opts));
+    return dadd(type, fn, opts);
+  } as typeof document.addEventListener;
+  document.removeEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | EventListenerOptions,
+  ) {
+    doc.delete(key(type, opts as boolean | AddEventListenerOptions));
+    return dremove(type, fn, opts);
+  } as typeof document.removeEventListener;
+  restoreGlobal = () => {
+    window.addEventListener = wadd;
+    window.removeEventListener = wremove;
+    document.addEventListener = dadd;
+    document.removeEventListener = dremove;
+  };
+  return () => ({ doc: doc.size, win: win.size, total: doc.size + win.size });
+};
+afterEach(() => {
+  restoreGlobal?.();
+  restoreGlobal = null;
+});
+
+it("constructing without opening binds no document/window listeners", () => {
+  const read = countGlobal();
+  const before = read();
+  const { listbox } = makePicker([
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta", disabled: true },
+  ]);
+  const afterConstruct = read();
+  expect(afterConstruct).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
+});
+
+it("open then close returns the global listener count to baseline", () => {
+  const read = countGlobal();
+  const before = read();
+  const { listbox } = makePicker([
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
+  ]);
+  listbox.open();
+  // Open binds window scroll+resize (2) for the portal placement.
+  expect(read().win).toBeGreaterThanOrEqual(before.win + 2);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
+});

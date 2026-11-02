@@ -317,7 +317,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       up: "",
       open: classes.open,
     },
-    position: "picker",
+    place: "fixed",
     focusOnOpen: "selected",
     // Publish the lane after every position pass (the engine calls onPosition
     // after positionList in portal mode and after the inline mount).
