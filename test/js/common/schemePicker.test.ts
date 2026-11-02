@@ -866,7 +866,7 @@ describe("portal mode", () => {
           toJSON: () => ({}),
         }) as DOMRect;
       observers[0].callback([], observers[0].observer as unknown as ResizeObserver);
-      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 
       expect(dropdown.style.width).toBe(`${width}px`);
 
