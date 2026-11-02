@@ -431,6 +431,36 @@ def continuous_stops(colormap: Any) -> list[str]:
     return stops
 
 
+def provable_equal_interval(index: list[float]) -> bool:
+    """Whether a stepped scale's breaks are provably equally spaced.
+
+    geopandas.explore never keeps the ``scheme`` argument it passed to
+    ``mapclassify.classify`` on the mounted Colormap or the GeoJson layer
+    (measured: the colormap ``__dict__`` holds only vmin/vmax/caption/index/
+    colors -- no scheme). So the panel cannot read the author's method string.
+    The one method that is *mathematically provable* from the shipped breaks
+    is ``equal_interval``: every class spans the same width, so the adjacent
+    break gaps are identical. quantiles/fisherjenks/head_tail_breaks have no
+    closed form from the edges alone, so they are deliberately never guessed --
+    the panel states a dash instead. Future geopandas that does expose the
+    scheme can extend this without changing the honest None arm.
+    """
+    if len(index) < 3:
+        # Need at least two intervals to compare; a single class has no
+        # provable method either.
+        return False
+    gaps = [b - a for a, b in zip(index, index[1:])]
+    if any(gap <= 0 for gap in gaps):
+        # Degenerate or descending edges are not a classification; never claim
+        # a method for a scale that cannot classify.
+        return False
+    first = gaps[0]
+    # float division may leave a rounding hair (a 100-wide range over three
+    # classes yields 33.333...), so compare with a relative tolerance rather
+    # than exact equality.
+    return all(math.isclose(gap, first, rel_tol=1e-9, abs_tol=1e-9) for gap in gaps[1:])
+
+
 def scale_payload(
     colormap: Any, column: str | None
 ) -> tuple[dict[str, Any], list[str]]:
@@ -438,6 +468,15 @@ def scale_payload(
 
     A continuous scale ships 64 sampled colors; a classified one ships the
     author's own blocks, because those are what the author's map shows.
+
+    The record also states the classification *method* the panel can prove
+    (see :func:`provable_equal_interval`): ``"equal"`` for a stepped scale
+    whose breaks are equally spaced, ``None`` otherwise -- never a guess, so
+    the JS panel shows "Equal Interval" only on that proof. A continuous
+    scale is an equally spaced LinearColormap sample and carries ``None``
+    here; the panel's "Equal Interval" for it is the honest statement that a
+    LinearColormap *is* an interval ramp, not a claim about the author's
+    ``scheme`` argument (which explore does not retain).
     """
     stepped = isinstance(colormap, StepColormap)
     if stepped:
@@ -464,6 +503,13 @@ def scale_payload(
         # The author's real class edges: the panel states the classification
         # instead of re-deriving one. np.float64 is not JSON-serializable.
         scale["breaks"] = [float(edge) for edge in colormap.index]
+        scale["method"] = (
+            "equal"
+            if provable_equal_interval([float(edge) for edge in colormap.index])
+            else None
+        )
+    else:
+        scale["method"] = None
     return scale, stops[:FILL_AUTHOR_STOPS]
 
 

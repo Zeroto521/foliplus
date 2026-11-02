@@ -228,6 +228,15 @@ describe("renderShape", () => {
     expect(renderShape(["string"])).not.toBe("string[]");
   });
 
+  it("renders a literal union beside null unquoted", () => {
+    // A classification method is a literal ("equal") that may also be null;
+    // the null is a primitive name and must not be quoted, while the literal
+    // stays quoted. This is the mixed case the all-primitive union above
+    // cannot reach (isPrimitiveUnion is false when a literal is present).
+    expect(renderShape(["equal", "null"])).toBe('"equal" | null');
+    expect(renderShape(["equal", "heads", "null"])).toBe('"equal" | "heads" | null');
+  });
+
   it("treats Object.prototype names as literal values, not primitives", () => {
     // Own-property lookup only: `in` or `[]` would resolve "constructor" to
     // Object's constructor through the prototype chain. Even a genuine

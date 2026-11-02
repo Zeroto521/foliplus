@@ -144,6 +144,11 @@ def test_continuous_scale_is_read_from_the_map():
     assert meta["scale"]["vmax"] == 100
     assert len(meta["stops"]) == 64
     assert all(len(stop) == 7 and stop.startswith("#") for stop in meta["stops"])
+    # A continuous LinearColormap is not a classified scheme, so Python
+    # records no provable method: the JS panel states Equal Interval for it
+    # as the honest statement that a LinearColormap *is* an interval ramp,
+    # not a claim about the author's scheme argument.
+    assert meta["scale"]["method"] is None
 
 
 def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
@@ -159,6 +164,42 @@ def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
     assert meta["stops"] == ["#440154", "#3b528b", "#21918c", "#fde725"]
     # JSON-serialisable, not numpy scalars: the CONF block is json.dumps'ed.
     assert all(isinstance(edge, float) for edge in meta["scale"]["breaks"])
+    # The four blocks span equal widths (0-25-50-75-100), so equal-interval
+    # is provable from the shipped breaks alone.
+    assert meta["scale"]["method"] == "equal"
+
+
+def test_stepped_scale_with_uneven_breaks_has_no_provable_method():
+    # A quantiles/jenks classification produces unequal class widths; the
+    # panel must not guess a method for it, so Python records None. The
+    # breaks themselves still ship so the panel can state the author's edges.
+    index = [0.0, 10.0, 30.0, 60.0, 100.0]
+    colormap = branca_cm.StepColormap(
+        ["#440154", "#3b528b", "#21918c", "#fde725"], index=index
+    )
+    scale_payload, _ = _layer_control_mod.scale_payload(colormap, "score")
+
+    assert scale_payload["kind"] == "stepped"
+    assert scale_payload["breaks"] == index
+    assert scale_payload["method"] is None
+
+
+def testprovable_equal_interval_is_math_only():
+    provable = _layer_control_mod.provable_equal_interval
+    # The helper is private; call it through the module so the rename rule
+    # (module-internal names carry no underscore) keeps working.
+    # Too few edges to have two intervals: no method either way.
+    assert provable([]) is False
+    assert provable([0.0]) is False
+    assert provable([0.0, 50.0]) is False
+    # Degenerate / descending edges are not a classification.
+    assert provable([0.0, 25.0, 25.0, 100.0]) is False
+    assert provable([100.0, 75.0, 50.0, 25.0, 0.0]) is False
+    # Equally spaced: provable, including a non-integer step (float division
+    # leaves a rounding hair, so the comparison tolerates it).
+    assert provable([0.0, 33.333333333, 66.666666666, 100.0]) is True
+    # Uneven: never provable.
+    assert provable([0.0, 10.0, 30.0, 60.0, 100.0]) is False
 
 
 def test_a_scale_is_claimed_only_through_its_caption():

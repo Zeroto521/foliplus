@@ -26,6 +26,7 @@ type LayerData = {
       vmin: number;
       vmax: number;
       levels?: number;
+      method?: "equal" | null;
     };
   };
   zoomRange?: { min: number; max: number };

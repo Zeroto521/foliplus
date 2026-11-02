@@ -241,6 +241,7 @@ class LayerControl(BaseControl):
                                         "vmin": "number",
                                         "vmax": "number",
                                         "levels": ("number", "?"),
+                                        "method": (("equal", "null"), "?"),
                                     },
                                     "?",
                                 ),

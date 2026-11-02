@@ -211,6 +211,7 @@ const initWithAuthorScale = ({
     vmax: number;
     levels?: number;
     breaks?: number[];
+    method?: "equal" | null;
   } | null;
   distinct?: number;
   capped?: boolean;
@@ -2976,6 +2977,22 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(blockOf(stepped.ui)).title).toBe(
       "LayerControl.style_fill_original_levels",
     );
+    // A stepped scale whose breaks are provably equally spaced carries
+    // method: "equal" (Python's provable_equal_interval): the panel then
+    // states Equal Interval instead of the honest dash.
+    const equalStepped = initWithAuthorScale({
+      scale: {
+        kind: "stepped",
+        column: "score",
+        vmin: 10,
+        vmax: 30,
+        levels: 3,
+        method: "equal",
+      },
+    });
+    expect(
+      readoutOf(blockOf(equalStepped.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
+    ).toBe("LayerControl.style_method_equal");
 
     // A continuous scale has no count to state: the number row says so.
     const continuous = initWithAuthorScale();

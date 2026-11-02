@@ -510,22 +510,30 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   //
   // The method readout is honest to the record. A continuous scale is a
   // LinearColormap — the default explore mapping, an equally spaced interval
-  // ramp — and states Equal Interval. A stepped scale (the author passed a
-  // scheme whose breaks the classification chose) has no recorded method here,
-  // so the readout states a dash rather than guessing; a categorical layer (no
-  // paired scale) uses the same dash. The row always renders so the arm stays
-  // aligned with the by-value grid.
+  // ramp — and states Equal Interval. A stepped scale states Equal Interval
+  // only when the record proves it (``method: "equal"`` — the breaks are
+  // equally spaced, see ``_fill_author.provable_equal_interval``); a stepped
+  // scale whose method is null or absent (quantiles/jenks/heads are not
+  // provable from the breaks alone) states a dash rather than guessing. A
+  // categorical layer (no paired scale) uses the same dash. The row always
+  // renders so the arm stays aligned with the by-value grid.
   // The two readouts stay distinguishable to assistive tech the way the
   // by-value selects do (the classes row keeps its own aria-labels): the
   // method box is named by the method label, the count box by the class-count
   // label. Both are readouts, never controls — the aria-label describes the
   // value, not an action.
+  // The recorded method is what Python proved from the shipped breaks; the
+  // continuous arm keeps its own honest Equal Interval (a LinearColormap is
+  // an interval ramp by construction). A stepped scale reads "Equal
+  // Interval" only when the record carries method: "equal", else the dash.
   const methodBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-      author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
+      author?.scale?.kind === "continuous" || author?.scale?.method === METHOD.EQUAL
+        ? methodLabel(ui, METHOD.EQUAL)
+        : "—",
     ),
   );
   // A bare div is a generic role: Chromium does expose the aria-label on it,
