@@ -499,6 +499,28 @@ describe("createFoldControl", () => {
     });
     expect(result.ctrl.className).toContain("foliplus-align-right");
   });
+
+  it("prefers the Leaflet position over isLeft when both are given", () => {
+    // `position` is the modern knob: its corner decides the alignment, and
+    // `isLeft` is only the fallback for callers that still pass a boolean.
+    const left = createFoldControl({
+      cssClass: "measure-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      position: "bottomleft",
+      isLeft: false,
+    });
+    const right = createFoldControl({
+      cssClass: "measure-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      position: "topright",
+      isLeft: true,
+    });
+
+    expect(left.ctrl.className).not.toContain("foliplus-align-right");
+    expect(right.ctrl.className).toContain("foliplus-align-right");
+  });
 });
 
 describe("createPanelHeader", () => {
@@ -1092,5 +1114,90 @@ describe("pinRowPanel", () => {
     expect(panel.style.position).toBe("");
     expect(panel.style.top).toBe("");
     expect(panel.style.left).toBe("");
+  });
+
+  it("leaves a zero-height row's card unplaced on the vertical axis", () => {
+    // A row inside a collapsed group still reports its width but no height.
+    // There is no strip to fit, so the card keeps the horizontal placement it
+    // already got and writes no top / cap.
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 0 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("");
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe("");
+  });
+
+  it("falls back to the map's own box when the map is fully off screen", () => {
+    // A page scrolled past the map leaves an empty intersection with the
+    // viewport. Snapping to the viewport then would park the card in the page
+    // corner; keeping the map coordinates leaves it where the row is.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 800, left: 100, width: 400, height: 400 });
+    stubBox(row, { top: 900, left: 200, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.left).toBe("120px");
+    expect(panel.style.top).toBe("932px");
+  });
+
+  it("keeps the card's own width when the map leaves no usable strip", () => {
+    // A 10px map cannot hold the card minus both edge insets. Shrinking it to
+    // the negative remainder would set `max-width: 0`; keep the card's width
+    // and let the horizontal clamp land it on the map's inset instead.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 10, height: 400 });
+    stubBox(row, { top: 200, left: 100, width: 10, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.maxWidth).toBe("");
+    expect(panel.style.left).toBe("108px");
+    expect(panel.style.top).toBe("232px");
+  });
+
+  it("ignores an unpin for a row it never pinned", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+
+    expect(() => unpinRowPanel(document.createElement("div"))).not.toThrow();
+
+    // The real card is untouched: a close path that read back the wrong row
+    // must not tear down the placement of the one that is open.
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(true);
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("does not touch the page listeners when nothing is pinned", async () => {
+    // Drain any bookkeeping a previous test left behind, so the early return
+    // in the teardown path is what runs below.
+    window.dispatchEvent(new Event("resize"));
+    await flushPlacement();
+
+    const remove = vi.spyOn(window, "removeEventListener");
+    try {
+      unpinRowPanel(document.createElement("div"));
+      expect(remove).not.toHaveBeenCalled();
+    } finally {
+      remove.mockRestore();
+    }
   });
 });
