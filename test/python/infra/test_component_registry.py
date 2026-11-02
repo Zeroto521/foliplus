@@ -52,9 +52,11 @@ def discover_python_controls() -> set[str]:
 
 def discover_js_components() -> set[str]:
     names: set[str] = set()
-    js_root = PKG / "js"
+    js_root = PKG / "js" / "control"
+    if not js_root.is_dir():
+        return names
     for entry in js_root.iterdir():
-        if not entry.is_dir() or entry.name in _NON_COMPONENT_JS_DIRS:
+        if not entry.is_dir():
             continue
         if (entry / "index.ts").is_file() or (entry / "index.js").is_file():
             names.add(entry.name)
@@ -177,14 +179,19 @@ class TestVitestCoverageExcludes:
     def test_index_entries_excluded(self, controls: set[str]):
         text = _read(ROOT / "vitest.config.mjs")
         # Prefer a glob; fall back to per-control listing.
-        if "foliplus/js/*/index.ts" in text or "foliplus/js/**/index.ts" in text:
+        if (
+            "foliplus/js/control/*/index.ts" in text
+            or "foliplus/js/control/**/index.ts" in text
+        ):
             return
         missing = [
-            n for n in sorted(controls) if f"foliplus/js/{n}/index.ts" not in text
+            n
+            for n in sorted(controls)
+            if f"foliplus/js/control/{n}/index.ts" not in text
         ]
         assert not missing, (
             f"vitest coverage exclude missing index.ts for: {missing}\n"
-            "Add them or switch the exclude to the glob foliplus/js/*/index.ts."
+            "Add them or switch the exclude to the glob foliplus/js/control/*/index.ts."
         )
 
 

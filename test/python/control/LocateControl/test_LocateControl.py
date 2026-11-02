@@ -74,7 +74,7 @@ class TestLocateControlRendering:
 
     def test_loading_state_css(self):
         """The button swaps the crosshair for a spinner while locating."""
-        css = read_css("foliplus/css/LocateControl.css")
+        css = read_css("foliplus/css/control/LocateControl.css")
         assert ".locate-btn-icon" in css
         assert ".locate-btn-loading" in css
         assert "&.loading" in css
@@ -87,7 +87,7 @@ class TestLocateControlRendering:
         recipe — loading must not steal that language. Clicks stay
         swallowed via pointer-events.
         """
-        css = read_css("foliplus/css/LocateControl.css")
+        css = read_css("foliplus/css/control/LocateControl.css")
         idx = css.find("&.loading")
         assert idx != -1
         block = css[idx : css.index("}", idx)]
@@ -101,7 +101,7 @@ class TestLocateControlRendering:
         scales the SVG nested inside the wrapper spans. A transform on the
         wrapper would compound with it — the icon scaled three times on hover.
         """
-        css = read_css("foliplus/css/LocateControl.css")
+        css = read_css("foliplus/css/control/LocateControl.css")
         # Strip comments: the rationale above names "transform" in prose, and
         # this guard must only see live declarations.
         decls = [l for l in re.sub(r"/\*.*?\*/", "", css, flags=re.S).splitlines()]
@@ -122,7 +122,7 @@ class TestLocateControlRendering:
         assert "@keyframes foliplus-spin" in read_css_dir(
             "foliplus/css/common", "reset.css"
         )
-        assert "@keyframes" not in read_css("foliplus/css/LocateControl.css")
+        assert "@keyframes" not in read_css("foliplus/css/control/LocateControl.css")
 
     def test_contains_gcoord_dependency(self):
         """WGS-84 → map CRS conversion needs gcoord."""

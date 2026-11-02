@@ -181,7 +181,7 @@ class TestHeatmapControlRendering:
         assert "HeatmapControl.section_data" not in html
         assert "HeatmapControl.section_style" not in html
 
-        css = read_css("foliplus/css/HeatmapControl.css")
+        css = read_css("foliplus/css/control/HeatmapControl.css")
         assert ".foliplus-heatmap-section-heading" not in css
         shared = read_css("foliplus/css/common/form.css")
         assert ".foliplus-section-heading" not in shared

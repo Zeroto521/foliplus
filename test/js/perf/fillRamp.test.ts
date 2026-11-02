@@ -36,8 +36,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import type { FillRampConfig } from "#core/layer/intent.js";
-import { applyFillToLayer } from "#foliplus/LayerControl/ui/style/fill.js";
-import { walkFillLeaves } from "#foliplus/LayerControl/ui/style/styleBag.js";
+import { applyFillToLayer } from "#control/LayerControl/ui/style/fill.js";
+import { walkFillLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 
 const N_LEAVES = 6000;
 const TICKS = 60;

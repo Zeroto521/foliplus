@@ -1,0 +1,481 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASSES } from "#control/FullscreenControl/const.js";
+import {
+  buildFullscreenChangeHandler,
+  toggleFullscreen,
+  updateUI,
+} from "#control/FullscreenControl/logic.js";
+
+// Mutable state controlled by each describe's beforeEach to switch between the
+// native API path (isEnabled=true) and the pseudo path (isEnabled=false).
+const mocks = vi.hoisted(() => ({
+  FULLSCREEN_CHANGE: "fullscreenchange",
+  isEnabled: false,
+  getFullscreenEl: vi.fn<() => HTMLElement | null>(() => null),
+}));
+
+vi.mock("#control/FullscreenControl/api.js", () => ({
+  FULLSCREEN_CHANGE: mocks.FULLSCREEN_CHANGE,
+  // Production reads this lazily per call — keep the mock lazy too so
+  // `mocks.isEnabled = …` flips the branch on the very next toggle.
+  isEnabled: vi.fn(() => mocks.isEnabled),
+  get getFullscreenEl() {
+    return mocks.getFullscreenEl;
+  },
+  // Mirrors the production ownership test without importing the real module:
+  // a native session only belongs to the map whose container it relates to.
+  ownsFullscreen: (container: Element) => {
+    const fs = mocks.getFullscreenEl();
+    return Boolean(
+      fs && (fs === container || fs.contains(container) || container.contains(fs)),
+    );
+  },
+}));
+
+const makeContainer = (): HTMLElement => {
+  const el = document.createElement("div");
+  el.innerHTML = `
+    <button class="foliplus-fullscreen-toggle"></button>
+    <button class="foliplus-zoom-in"></button>
+    <button class="foliplus-zoom-out"></button>
+  `;
+  return el;
+};
+
+const makeMapMock = (container: HTMLElement): L.Map =>
+  ({
+    getContainer: () => container,
+    isFullscreen: false,
+    invalidateSize: vi.fn(),
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    on: vi.fn(),
+    off: vi.fn(),
+  }) as L.Map;
+
+const makeNativeMapMock = (container: HTMLElement): L.Map => {
+  const map = makeMapMock(container);
+  (
+    map.getContainer() as HTMLElement & { requestFullscreen: () => Promise<void> }
+  ).requestFullscreen = vi.fn(() => Promise.resolve());
+  return map;
+};
+
+// Mirrors what defineControl hands off via ControlEnv — T is the identity
+// translator so tests can still compare on the raw key.
+const makeEnv = (
+  overrides: Partial<ComponentConfig> = {},
+): { config: ComponentConfig; T: (k: string) => string } => ({
+  config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
+  T: (k: string) => k,
+});
+
+describe("updateUI", () => {
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
+
+  beforeEach(() => {
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = {
+      getContainer: () => container,
+      isFullscreen: false,
+      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    } as L.Map;
+  });
+
+  it("sets MAXIMIZE icon + title when not fullscreen", () => {
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+    expect(fsBtn.title).toContain("title");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+  });
+
+  it("sets MINIMIZE icon + title when fullscreen", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+    expect(fsBtn.title).toContain("title_cancel");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+  });
+
+  it("ignores a sibling map's native fullscreen (stays MAXIMIZE)", () => {
+    // Native fullscreen is document-global. Another map being fullscreen does
+    // not make this map fullscreen, so its button must not offer an exit that
+    // would close the other map.
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+  });
+
+  it("skips hide_others when CONFIG.hide_others is not set", () => {
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    // No class toggling on other controls since CONFIG.hide_others is falsy
+    expect(fsBtn.innerHTML).toContain("M8 3H5");
+  });
+
+  it("skips hide_self when CONFIG.hide_self is not set", () => {
+    updateUI(mapMock, fsBtn, container, makeEnv());
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
+    for (const btn of selfBtns) {
+      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(false);
+    }
+  });
+
+  it("hide_others: hides sibling controls but skips its own container", () => {
+    const selfCtrl = document.createElement("div");
+    selfCtrl.className = "leaflet-control";
+    selfCtrl.appendChild(container); // c.contains(container) → skip
+    const otherCtrl = document.createElement("div");
+    otherCtrl.className = "leaflet-control"; // neither → gets hidden
+    const mapContainer = document.createElement("div");
+    mapContainer.append(selfCtrl, otherCtrl);
+    mapMock.getContainer = () => mapContainer;
+    mapMock.isFullscreen = true;
+
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_others: true }));
+
+    expect(otherCtrl.classList.contains(CLASSES.HIDDEN)).toBe(true);
+    expect(selfCtrl.classList.contains(CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("hide_self: toggles HIDDEN on the toggle / zoom-in / zoom-out buttons", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
+    for (const btn of selfBtns) {
+      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(true);
+    }
+  });
+
+  it("hintText override replaces the default enter/exit wording", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv(), "fallback");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      "fallback",
+      expect.any(Number),
+    );
+  });
+});
+
+describe("toggleFullscreen — pseudo path", () => {
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
+
+  beforeEach(() => {
+    mocks.isEnabled = false;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeMapMock(container);
+  });
+
+  it("enters pseudo-fullscreen", () => {
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.invalidateSize).toHaveBeenCalled();
+    // The enter hint is the fallback wording: in an embed without the
+    // fullscreen permission the native claim "已进入全屏" would be a lie.
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("fallback"),
+      expect.any(Number),
+    );
+  });
+
+  it("exits pseudo-fullscreen on second call", () => {
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(false);
+  });
+
+  it("calls updateUI after toggle (icon changes to MINIMIZE)", () => {
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+  });
+});
+
+describe("buildFullscreenChangeHandler", () => {
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
+
+  beforeEach(() => {
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeMapMock(container);
+  });
+
+  it("returns a handler function", () => {
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    expect(typeof handler).toBe("function");
+  });
+
+  it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    handler();
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+  });
+
+  it("handler syncs isFullscreen from the native fullscreen element", () => {
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    mocks.getFullscreenEl.mockReturnValue(container);
+    handler();
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+  });
+
+  it("handler ignores a sibling map's native fullscreen", () => {
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+
+    handler();
+
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+  });
+
+  it("handler keeps a pseudo session through a sibling map's native transition", () => {
+    // The sibling's transition fires this handler too. This map is still in
+    // pseudo mode, so its state must not be reset to "not fullscreen".
+    container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+    handler();
+
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
+    expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
+  });
+
+  it("handler clears a stale pseudo class when native fullscreen wins", () => {
+    // Native and pseudo cannot both own the same container: the class would
+    // survive the native exit and keep every overlay hosted in a container
+    // that is no longer a surface.
+    container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    mocks.getFullscreenEl.mockReturnValue(container);
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+    handler();
+
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(true);
+  });
+});
+
+describe("toggleFullscreen — native API path", () => {
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
+
+  beforeEach(() => {
+    mocks.isEnabled = true;
+    mocks.getFullscreenEl.mockReturnValue(null);
+    fsBtn = document.createElement("button");
+    container = makeContainer();
+    mapMock = makeNativeMapMock(container);
+
+    // Stub document methods used by the native API path
+    (
+      document as unknown as { requestFullscreen: () => Promise<void> }
+    ).requestFullscreen = vi.fn(() => Promise.resolve());
+    document.exitFullscreen = vi.fn(() => Promise.resolve());
+  });
+
+  it("calls requestFullscreen and sets isFullscreen on resolve", async () => {
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    expect(mapMock.getContainer().requestFullscreen).toHaveBeenCalled();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(true);
+  });
+
+  it("returns early without calling updateUI (fullscreenchange event handles it)", async () => {
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    // updateUI is NOT called in the .then() — only map.isFullscreen is set.
+    // The fullscreenchange event fires updateUI separately.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fsBtn.innerHTML).toBe("");
+  });
+
+  it("falls back to pseudo-fullscreen with the fallback hint on reject", async () => {
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
+      Promise.reject(new Error("denied")),
+    );
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+    // The rejection must not dead-end: the container lands in pseudo mode so
+    // the click still maximizes the map within the page.
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.invalidateSize).toHaveBeenCalled();
+    // The hint explains the fallback instead of announcing "entered fullscreen".
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("fallback"),
+      expect.any(Number),
+    );
+  });
+
+  it("does not enter pseudo when a rejection still left native fullscreen on", async () => {
+    // Some implementations reject after the transition completed. Entering
+    // pseudo here would leave both states on the container, and the exit
+    // branch (native first) would never clear the class.
+    // Null at the toggle's entry check, the map container by the time the
+    // rejection lands: the "reject after a successful transition" ordering.
+    mocks.getFullscreenEl.mockReturnValueOnce(null).mockReturnValue(container);
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
+      Promise.reject(new Error("late reject")),
+    );
+
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(true);
+  });
+
+  it("drops a stale pseudo class on a rejected native request", async () => {
+    // Defense in depth: even if a class was already present (a previous
+    // partial transition), a rejection with native active must reconcile it.
+    container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    mocks.getFullscreenEl.mockReturnValueOnce(null).mockReturnValue(container);
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
+      Promise.reject(new Error("denied")),
+    );
+    document.exitFullscreen = vi.fn(() => Promise.resolve());
+
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+  });
+
+  it("does not exit a sibling map's native fullscreen; requests its own", async () => {
+    // Another map owns the document's fullscreen session. Clicking this
+    // control must not exit that session — it has nothing of its own to exit,
+    // so it enters fullscreen for its own container.
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+
+    expect(document.exitFullscreen).not.toHaveBeenCalled();
+    expect(mapMock.getContainer().requestFullscreen).toHaveBeenCalled();
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(true);
+  });
+
+  it("exits its own pseudo session without touching a sibling's native one", () => {
+    // Permission was off when the pseudo session started, then a sibling map
+    // went native. The click must close this map's pseudo mode and leave the
+    // sibling's session alone.
+    mocks.isEnabled = false;
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    expect(mapMock.isFullscreen).toBe(true);
+
+    mocks.isEnabled = true;
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+
+    expect(document.exitFullscreen).not.toHaveBeenCalled();
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(false);
+  });
+
+  describe("toggle — exit", () => {
+    it("calls exitFullscreen when a native fullscreen element exists", async () => {
+      mocks.getFullscreenEl.mockReturnValue(container);
+      document.exitFullscreen = vi.fn(() => Promise.resolve());
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      expect(document.exitFullscreen).toHaveBeenCalled();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mapMock.isFullscreen).toBe(false);
+    });
+
+    it("exits pseudo mode when only map.isFullscreen is set (stale permission flip)", async () => {
+      // A pseudo session started while the API was disabled must exit as
+      // pseudo even if isEnabled() flips true afterwards — exitFullscreen on
+      // a null element would reject and strand the pseudo class.
+      mapMock.isFullscreen = true;
+      document.exitFullscreen = vi.fn(() => Promise.resolve());
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      expect(document.exitFullscreen).not.toHaveBeenCalled();
+      expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+        false,
+      );
+      expect(mapMock.isFullscreen).toBe(false);
+    });
+
+    it("drops a stale pseudo class when a native exit completes", async () => {
+      // A native session that began during a pseudo session can leave both
+      // states on one container. The native exit path is the last chance to
+      // clear the class; without this it would outlive the session.
+      container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+      mocks.getFullscreenEl.mockReturnValue(container);
+      document.exitFullscreen = vi.fn(() => Promise.resolve());
+
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+        false,
+      );
+      expect(mapMock.isFullscreen).toBe(false);
+    });
+
+    it("recovers state and reports the exit-fail hint on exit reject", async () => {
+      mocks.getFullscreenEl.mockReturnValue(container);
+      document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      await Promise.resolve();
+      await Promise.resolve();
+      // Recovered to the real state — the exit failed, fullscreen is still on.
+      expect(mapMock.isFullscreen).toBe(true);
+      // No updateUI on the failed exit — the icon must not claim "exited".
+      expect(fsBtn.innerHTML).toBe("");
+      expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("exit_fail"),
+        expect.any(Number),
+      );
+    });
+  });
+});
