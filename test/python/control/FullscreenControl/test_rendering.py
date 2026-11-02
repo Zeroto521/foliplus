@@ -40,7 +40,7 @@ class TestFullscreenControlRendering:
 
     def test_css_z_index_tokenized(self):
         """Fullscreen z-index 99999 is tokenized, not a magic number in a rule."""
-        css = read_css("foliplus/css/FullscreenControl.css")
+        css = read_css("foliplus/css/control/FullscreenControl.css")
         assert "var(--foliplus-z-index-fullscreen)" in css
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 99999" not in css

@@ -297,7 +297,7 @@ def test_sdist_contains_all_artifacts():
 # merged entry. Annotation labels have no module: they are drawn on a canvas,
 # not styled by CSS.
 
-LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
+LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "control" / "LayerControl"
 
 # Module name → a token only it owns (proves both existence and ownership).
 # Tokens are chosen to appear in exactly one module across the whole split.
