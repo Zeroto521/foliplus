@@ -193,3 +193,54 @@ describe("computePlacement — degenerate / offscreen bounds", () => {
     expect(p.maxWidth).toBe(200);
   });
 });
+
+describe("computePlacement — regression: strip vs bounds (Copilot #1)", () => {
+  it("caps maxHeight to the bounds height when the surface is taller than the bounds", () => {
+    const bounds: Rect = rect(0, 1280, 300, 0); // height 300
+    const anchor = rect(20, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 400 }, bounds);
+    expect(p.maxHeight).toBeLessThanOrEqual(300);
+    expect(p.top).toBeGreaterThanOrEqual(0);
+    expect(p.top + p.maxHeight).toBeLessThanOrEqual(300);
+  });
+
+  it("does not overflow when the anchor sits above the bounds", () => {
+    const bounds: Rect = rect(0, 1280, 300, 0); // height 300
+    const anchor = rect(-100, 220, -60, 120); // above bounds top
+    const p = computePlacement(anchor, { width: 200, height: 400 }, bounds);
+    expect(p.maxHeight).toBeLessThanOrEqual(300);
+    expect(p.top).toBeGreaterThanOrEqual(0);
+    expect(p.top + p.maxHeight).toBeLessThanOrEqual(300);
+  });
+
+  it("does not overflow when the anchor sits below the bounds", () => {
+    const bounds: Rect = rect(0, 1280, 300, 0); // height 300
+    const anchor = rect(400, 220, 460, 120); // below bounds bottom
+    const p = computePlacement(anchor, { width: 200, height: 400 }, bounds);
+    expect(p.maxHeight).toBeLessThanOrEqual(300);
+    expect(p.top).toBeGreaterThanOrEqual(0);
+    expect(p.top + p.maxHeight).toBeLessThanOrEqual(300);
+  });
+});
+
+describe("computePlacement — regression: row floor vs bounds (Copilot #2)", () => {
+  it("gives the floor when the bounds can hold it", () => {
+    const bounds: Rect = rect(0, 1280, 100, 0); // height 100
+    const anchor = rect(30, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, bounds, {
+      minRows: 3,
+      rowHeight: 20, // floor 60
+    });
+    expect(p.maxHeight).toBe(60);
+  });
+
+  it("caps at the bounds height when the floor exceeds the bounds", () => {
+    const bounds: Rect = rect(0, 1280, 40, 0); // height 40
+    const anchor = rect(30, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, bounds, {
+      minRows: 3,
+      rowHeight: 20, // floor 60 > bounds 40
+    });
+    expect(p.maxHeight).toBe(40);
+  });
+});

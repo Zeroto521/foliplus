@@ -87,6 +87,7 @@ const isDegenerate = (rect: Rect): boolean =>
   rect.top >= rect.bottom || rect.left >= rect.right;
 
 const widthOf = (r: Rect): number => r.right - r.left;
+const heightOf = (r: Rect): number => r.bottom - r.top;
 
 /**
  * Place a floating surface relative to an anchor within a set of bounds.
@@ -119,6 +120,7 @@ const computePlacement = (
 
   const anchorW = widthOf(anchor);
   const boundsW = widthOf(bounds);
+  const boundsH = heightOf(bounds);
 
   // ① Width strategy.
   const preferredW =
@@ -129,21 +131,28 @@ const computePlacement = (
         : naturalW;
   const maxWidth = Math.max(0, Math.min(preferredW, boundsW));
 
-  // Row floor: the caller wants at least `minRows` rows visible.
+  // Available space in each strip, clamped to the bounds so an anchor that
+  // sits outside the bounds cannot yield a strip taller than the bounds.
+  const availBelow = clamp(bounds.bottom - anchor.bottom - gap, 0, boundsH);
+  const availAbove = clamp(anchor.top - bounds.top - gap, 0, boundsH);
+
+  // Row floor: the caller wants at least `minRows` rows visible, but never
+  // more than the bounds can hold.
   const rowFloor = (opts.minRows ?? 0) * (opts.rowHeight ?? 0);
-  const desiredH = Math.max(naturalH, rowFloor);
+  const floorCapped = Math.min(rowFloor, boundsH);
+  const desiredH = Math.max(naturalH, floorCapped);
 
   // ② Flip: below first; flip to above only when below does not fit and
   //    above has more room.
-  const spaceBelow = bounds.bottom - anchor.bottom - gap;
-  const spaceAbove = anchor.top - bounds.top - gap;
   const side: "below" | "above" =
-    spaceBelow >= desiredH || spaceAbove <= spaceBelow ? "below" : "above";
+    availBelow >= desiredH || availAbove <= availBelow ? "below" : "above";
 
-  // ③ Height cap: capped to the chosen strip's available space, but never
-  //    below the row floor.
-  const availH = side === "below" ? spaceBelow : spaceAbove;
-  const maxHeight = Math.max(0, Math.min(desiredH, availH));
+  // ③ Height cap: capped to the chosen strip's available space, then the
+  //    row floor is applied but capped at the bounds height, and the result
+  //    is bounded by the bounds.
+  const availH = side === "below" ? availBelow : availAbove;
+  const stripCapped = Math.min(desiredH, availH);
+  const maxHeight = Math.max(0, Math.min(boundsH, Math.max(stripCapped, floorCapped)));
 
   // ④ Vertical clamp.
   const naturalTop =
