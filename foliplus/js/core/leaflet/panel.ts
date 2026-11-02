@@ -740,6 +740,8 @@ const createPanelControl = (opts: {
 };
 
 export {
+  ROW_PANEL_EDGE,
+  ROW_PANEL_MIN_HEIGHT,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,

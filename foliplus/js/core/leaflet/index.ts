@@ -16,6 +16,8 @@ export { cancelMapPaneTranslate } from "./domAdapter.js";
 export { bindMapEvents, unbindMapEvents } from "./mapEvent.js";
 export type { MapEventHandlers } from "./type.js";
 export {
+  ROW_PANEL_EDGE,
+  ROW_PANEL_MIN_HEIGHT,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,
