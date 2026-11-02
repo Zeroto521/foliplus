@@ -21,11 +21,19 @@ describe("build-path.mjs", () => {
     expect(resolveJsRoot(ROOT)).toBe(resolve(ROOT, "foliplus/js"));
   });
 
-  it("pathAliases pins the three shared # import prefixes", () => {
+  it("pathAliases pins the shared # import prefixes", () => {
     const alias = pathAliases(ROOT);
-    expect(Object.keys(alias)).toEqual(["#common", "#core", "#foliplus"]);
+    expect(Object.keys(alias)).toEqual([
+      "#common",
+      "#core",
+      "#ui",
+      "#control",
+      "#foliplus",
+    ]);
     expect(alias["#common"]).toBe(resolve(ROOT, "foliplus/js/common"));
     expect(alias["#core"]).toBe(resolve(ROOT, "foliplus/js/core"));
+    expect(alias["#ui"]).toBe(resolve(ROOT, "foliplus/js/ui"));
+    expect(alias["#control"]).toBe(resolve(ROOT, "foliplus/js/control"));
     expect(alias["#foliplus"]).toBe(resolve(ROOT, "foliplus/js"));
   });
 
@@ -53,11 +61,13 @@ describe("build-path.mjs", () => {
     // The glob table derives from the same mapping the aliases do, so every
     // specifier appears in both shapes with the same target directory.
     expect(PACKAGE_IMPORTS["#common/*"]).toBe("./foliplus/js/common/*");
+    expect(PACKAGE_IMPORTS["#ui/*"]).toBe("./foliplus/js/ui/*");
+    expect(PACKAGE_IMPORTS["#control/*"]).toBe("./foliplus/js/control/*");
     expect(PACKAGE_IMPORTS["#script/*"]).toBe("./script/*");
   });
 
   it("SHARED_MODULE_PREFIXES is #common/#core only — #foliplus is aliased but not shared", () => {
-    // The alias table has three entries (#common/#core/#foliplus), but only
+    // The alias table has five entries (#common/#core/#ui/#control/#foliplus), but only
     // #common and #core have their whole namespace published on
     // window.foliplus. #foliplus/BaseControl.js is shared by exact name
     // (see SHARED_MODULE_EXACTS); every other #foliplus/* path — a component
@@ -90,9 +100,9 @@ describe("build-path.mjs", () => {
     expect(re.test("#foliplus/BaseControl.js")).toBe(true);
     // #foliplus/* self-imports — bundled, not externalized
     expect(re.test("#foliplus/config-schema.js")).toBe(false);
-    expect(re.test("#foliplus/LayerControl/const.js")).toBe(false);
-    expect(re.test("#foliplus/LayerControl/ui/index.js")).toBe(false);
-    expect(re.test("#foliplus/SearchControl/const.js")).toBe(false);
+    expect(re.test("#control/LayerControl/const.js")).toBe(false);
+    expect(re.test("#control/LayerControl/ui/index.js")).toBe(false);
+    expect(re.test("#control/SearchControl/const.js")).toBe(false);
     // Unrelated aliases
     expect(re.test("#script/build.mjs")).toBe(false);
     expect(re.test("#core")).toBe(false); // bare prefix without /

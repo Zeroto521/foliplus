@@ -27,7 +27,15 @@ module.exports = {
   arrowParens: "avoid",
   htmlWhitespaceSensitivity: "css",
   plugins: [require.resolve("@trivago/prettier-plugin-sort-imports")],
-  importOrder: ["^#core/", "^#foliplus/", "^#common/", "^#script/", "^[.]"],
+  importOrder: [
+    "^#core/",
+    "^#foliplus/",
+    "^#common/",
+    "^#ui/",
+    "^#control/",
+    "^#script/",
+    "^[.]",
+  ],
   importOrderSeparation: false,
   importOrderSortSpecifiers: true,
 };

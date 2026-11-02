@@ -54,7 +54,7 @@ class TestExportControlRendering:
         """The 100000 'above everything' z-index is a token, not a magic number in a rule."""
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/control/ExportControl.css")
         assert "var(--foliplus-z-index-top)" in css
         # The rule uses the token; the literal may only appear in a comment.
         assert "z-index: 100000" not in css
@@ -112,7 +112,7 @@ class TestExportControlRendering:
         """
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/control/ExportControl.css")
         # Nested source form: .foliplus-export-handle { &:is(:hover, :active) }
         assert ".foliplus-export-handle" in css
         assert "&:is(:hover, :active)" in css
@@ -145,7 +145,7 @@ class TestExportControlRendering:
         """
         from conftest import read_css
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/control/ExportControl.css")
         assert "&:not(.foliplus-locked):is(:hover, :active)" in css
         # Box press deepens the soft shadow only — no transform.
         idx = css.find("&:not(.foliplus-locked):is(:hover, :active)")
@@ -196,7 +196,7 @@ class TestExportControlRendering:
         tokens = read_css_dir("foliplus/css/common", "token.css")
         assert "--foliplus-focus-ring:" in tokens
 
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/control/ExportControl.css")
         # One combined selector for both crop anchors.
         assert ".foliplus-export-handle:focus-visible" in css
         assert ".foliplus-export-center:focus-visible" in css

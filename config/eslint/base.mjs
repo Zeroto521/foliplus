@@ -54,7 +54,7 @@ const COMPONENT_DIRS = [
   "HeatmapControl",
   "ScaleControl",
 ];
-const COMPONENT_GLOBS = COMPONENT_DIRS.map(d => `./foliplus/js/${d}/**`);
+const COMPONENT_GLOBS = COMPONENT_DIRS.map(d => `./foliplus/js/control/${d}/**`);
 
 export default [
   // Guard against a bare `eslint .`, which would sweep .venv, doc/, and
@@ -165,7 +165,7 @@ export default [
             // map.foliplus.LayerAPI, never by importing each other's
             // private implementations. Generated from COMPONENT_DIRS.
             ...COMPONENT_DIRS.map((dir, i) => ({
-              target: [`./foliplus/js/${dir}/**`],
+              target: [`./foliplus/js/control/${dir}/**`],
               from: COMPONENT_GLOBS.filter((_, j) => j !== i),
               message:
                 "Components communicate via window.foliplus.events, not by importing each other's private implementations.",

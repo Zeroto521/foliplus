@@ -96,7 +96,7 @@ class TestMeasureControlRendering:
     def test_dash_sweep_drop_shadow(self):
         """Dash sweep line has drop-shadow filter for glow effect."""
 
-        css = read_css("foliplus/css/MeasureControl.css")
+        css = read_css("foliplus/css/control/MeasureControl.css")
         assert "drop-shadow" in css
         assert "dash-sweep" in css
 
@@ -110,7 +110,7 @@ class TestMeasureControlRendering:
         """Ripple duration comes from the motion ladder; its shape parameters
         stay custom properties."""
 
-        css = read_css("foliplus/css/MeasureControl.css")
+        css = read_css("foliplus/css/control/MeasureControl.css")
         assert "--foliplus-motion-normal" in css
         assert "--foliplus-ripple-opacity-start" in css
         assert "--foliplus-ripple-stroke-start" in css
@@ -120,7 +120,7 @@ class TestMeasureControlRendering:
     def test_dash_sweep_css_variables(self):
         """Dash sweep reads its duration from the motion ladder."""
 
-        css = read_css("foliplus/css/MeasureControl.css")
+        css = read_css("foliplus/css/control/MeasureControl.css")
         assert "--foliplus-sweep-length" in css
         assert "--foliplus-motion-fast" in css
 
@@ -133,7 +133,7 @@ class TestMeasureControlRendering:
         decoupled.
         """
         token_css = read_css("foliplus/css/common/token.css")
-        css = read_css("foliplus/css/MeasureControl.css")
+        css = read_css("foliplus/css/control/MeasureControl.css")
         assert "foliplus-measure-label-in-radius" in css
         # Centering transform is defined once in token.css
         assert "--foliplus-label-center: translate(-50%, -50%)" in token_css
@@ -148,7 +148,7 @@ class TestMeasureControlRendering:
 
     def test_label_entrances_read_motion_quick(self):
         """Both label entrances read their duration from the motion ladder."""
-        css = read_css("foliplus/css/MeasureControl.css")
+        css = read_css("foliplus/css/control/MeasureControl.css")
         assert (
             "animation: foliplus-measure-label-in var(--foliplus-motion-quick)" in css
         )

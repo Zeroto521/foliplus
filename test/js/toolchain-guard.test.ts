@@ -129,6 +129,14 @@ describe("config/eslint/base.mjs rule scoping", () => {
     }
   });
 
+  it("component-isolation zones target the control/ namespace", () => {
+    // Counter-proof for the directory move: after JS sources moved to
+    // foliplus/js/control/<Name>/, the no-restricted-paths zone targets and
+    // COMPONENT_GLOBS had to follow. A stale glob (still foliplus/js/<Name>/)
+    // matches nothing and silently disables component isolation.
+    expect(lintConfig).toContain("foliplus/js/control/${d}/**");
+    expect(lintConfig).toContain("target: [`./foliplus/js/control/${dir}/**`]");
+  });
   it("require() is exempted only for the test scripts", () => {
     // The exemption is a single scope containing nothing else: if it ever
     // absorbed script/ or foliplus/js, require() would be banned in the
@@ -202,6 +210,8 @@ describe("eslint root entry", () => {
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
+  "import-boundary":
+    "the JS layer import-boundary rules (foliplus/js), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

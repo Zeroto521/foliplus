@@ -1,0 +1,10 @@
+import { describe, expect, it } from "vitest";
+import * as SVGs from "#control/HeatmapControl/icon.js";
+
+describe("HEXAGON", () => {
+  it("is an SVG string", () => {
+    expect(SVGs.ICON_HEXAGON).toContain("<svg");
+    expect(SVGs.ICON_HEXAGON).toContain("</svg>");
+    expect(SVGs.ICON_HEXAGON).toContain("polygon");
+  });
+});
