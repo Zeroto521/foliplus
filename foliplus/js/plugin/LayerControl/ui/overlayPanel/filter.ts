@@ -37,9 +37,9 @@ import type {
 } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
-import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
+import { finishSlidersIn } from "#foliplus/plugin/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { displayName } from "../listPanel/rowView.js";

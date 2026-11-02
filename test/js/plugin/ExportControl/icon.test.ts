@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as SVGs from "#foliplus/ExportControl/icon.js";
+import * as SVGs from "#foliplus/plugin/ExportControl/icon.js";
 import * as CommonIcons from "#common/icon.js";
 
 describe("CAMERA", () => {

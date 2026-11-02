@@ -17,8 +17,8 @@
 import { dropdownSurface } from "#core/fullscreen.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { AnnotationConfig } from "#foliplus/plugin/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import { createDropdown } from "#common/dropdown.js";
 import {

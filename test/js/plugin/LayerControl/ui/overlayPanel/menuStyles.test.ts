@@ -12,11 +12,11 @@ import { describe, expect, it } from "vitest";
 
 const cssDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../../../foliplus/css",
+  "../../../../../../foliplus/css",
 );
 const read = (name: string): string => readFileSync(resolve(cssDir, name), "utf8");
 
-const layerMenuCss = read("LayerControl/menu.css");
+const layerMenuCss = read("plugin/LayerControl/menu.css");
 const sharedMenuCss = read("common/menu.css");
 
 /** The declarations block that follows the first occurrence of `selector`. */

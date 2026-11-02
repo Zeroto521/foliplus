@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import { MeasureManager } from "#foliplus/MeasureControl/manager.js";
-import { makeControlEnv } from "../fixture.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
+import { MeasureManager } from "#foliplus/plugin/MeasureControl/manager.js";
+import { makeControlEnv } from "../../fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
 // imports collision.js synchronously at module load.
 const placeLabels = vi.hoisted(() => vi.fn(() => 0));
 
-vi.mock("#foliplus/MeasureControl/collision.js", () => ({
+vi.mock("#foliplus/plugin/MeasureControl/collision.js", () => ({
   placeLabels,
   mapProjector: () => ({
     box: () => ({ x: 0, y: 0, w: 64, h: 18 }),

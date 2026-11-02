@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isCorsBlocked, pooledEach } from "#foliplus/ExportControl/renderer/util.js";
+import {
+  isCorsBlocked,
+  pooledEach,
+} from "#foliplus/plugin/ExportControl/renderer/util.js";
 
 afterEach(() => {
   vi.restoreAllMocks();

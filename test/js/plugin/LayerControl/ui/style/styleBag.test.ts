@@ -21,7 +21,7 @@ import {
   styleBaseOf,
   styleDimOverAuthor,
   styleDimPayload,
-} from "#foliplus/LayerControl/ui/style/styleBag.js";
+} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
 
 /** A Path-like leaf: options bag + receiver-bound setStyle (Leaflet
  *  `Path.setStyle` mutates `this.options` via setOptions). */

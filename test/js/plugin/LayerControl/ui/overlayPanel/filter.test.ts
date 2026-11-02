@@ -8,9 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 import { findItem, initFixture } from "../fixture.js";
 
@@ -483,7 +483,8 @@ describe("LayerUI filter panel", () => {
     it("falls back to the layer id when the display name is empty", async () => {
       registerPoints();
       const item = findItem(ui, "pnt");
-      const rowView = await import("#foliplus/LayerControl/ui/listPanel/rowView.js");
+      const rowView =
+        await import("#foliplus/plugin/LayerControl/ui/listPanel/rowView.js");
       const spy = vi.spyOn(rowView, "displayName").mockReturnValue("");
 
       ui.openFilterPanel(item);

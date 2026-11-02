@@ -3,7 +3,7 @@ import {
   registerCropMouseDown,
   registerDrag,
   registerInteractions,
-} from "#foliplus/ExportControl/interaction.js";
+} from "#foliplus/plugin/ExportControl/interaction.js";
 
 function makeMgr(): any {
   const container = document.createElement("div");

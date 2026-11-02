@@ -16,8 +16,8 @@ import type {
   LayerFilter,
   LayerFilterModel,
 } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { Slider } from "#foliplus/LayerControl/slider.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { Slider } from "#foliplus/plugin/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
 

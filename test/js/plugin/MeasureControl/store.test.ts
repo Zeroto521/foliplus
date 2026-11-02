@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import { MeasureStore } from "#foliplus/MeasureControl/store.js";
-import { makeControlEnv } from "../fixture.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
+import { MeasureStore } from "#foliplus/plugin/MeasureControl/store.js";
+import { makeControlEnv } from "../../fixture.js";
 
 // Mock Storage + ensureEvents so the store is tested in isolation — the store's
 // own contract is array + id + persist/emit, not the localStorage I/O (covered

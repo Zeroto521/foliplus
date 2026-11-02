@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nativeConsumesKey } from "#core/interaction/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
-import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
+import { ensureModes } from "#foliplus/core/mode.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import { seedIntentMap } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { activateDeleteItem } from "#foliplus/plugin/LayerControl/ui/overlayPanel/index.js";
 import {
   MENU_ACTIONS,
   handleMenuClick,
-} from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+} from "#foliplus/plugin/LayerControl/ui/overlayPanel/menu.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI menu", () => {

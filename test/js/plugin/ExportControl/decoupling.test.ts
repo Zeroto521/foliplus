@@ -18,7 +18,7 @@ const ROOT = resolve(".");
 const exportSources = () =>
   globSync({
     cwd: ROOT,
-    patterns: ["foliplus/js/ExportControl/**/*.ts"],
+    patterns: ["foliplus/js/plugin/ExportControl/**/*.ts"],
     ignore: ["**/*.d.ts"],
   }).sort();
 

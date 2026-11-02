@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import * as Export from "#foliplus/MeasureControl/export.js";
-import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
+import * as Export from "#foliplus/plugin/MeasureControl/export.js";
+import { MarkerMode } from "#foliplus/plugin/MeasureControl/mode/index.js";
 import * as downloadMod from "#common/download.js";
-import { makeControlEnv } from "../fixture.js";
+import { makeControlEnv } from "../../fixture.js";
 
 // This file asserts on bare locale-key strings (identity T/_): the export
 // hint text is built by key concatenation, so scoped lookups would wrap the

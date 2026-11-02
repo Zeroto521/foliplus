@@ -37,7 +37,7 @@
 // keystroke, and a bulk add of leaves to one layer coalesces the same way.
 import { CAP_TIER, DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
 import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#common/form.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";

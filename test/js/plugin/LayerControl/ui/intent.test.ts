@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import {
   clearIntent,
   dropIntent,
@@ -8,7 +8,7 @@ import {
   hasIntentValue,
   seedIntentMap,
   setIntent,
-} from "#foliplus/LayerControl/ui/intent.js";
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
 
 const ui = (): LayerUI =>
   ({ intentStore: new LayerIntentStore() }) as unknown as LayerUI;

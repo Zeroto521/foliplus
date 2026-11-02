@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerController } from "#foliplus/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
-import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
+import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
+import type { PaneSpec } from "#foliplus/core/layer/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
+import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import {
   getIntent,
   seedIntentMap,
   setIntent,
-} from "#foliplus/LayerControl/ui/intent.js";
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
 import {
   applyUserState,
   buildLayerStates,
@@ -21,11 +24,8 @@ import {
   saveState,
   setVisibleIntent,
   unmarkOverride,
-} from "#foliplus/LayerControl/ui/state.js";
-import { flushStyleDimApplies } from "#foliplus/LayerControl/ui/style/styleBag.js";
-import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
-import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
-import type { PaneSpec } from "#foliplus/core/layer/index.js";
+} from "#foliplus/plugin/LayerControl/ui/state.js";
+import { flushStyleDimApplies } from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { createLogger } from "#common/log.js";
 import {

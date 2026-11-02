@@ -1,22 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import {
-  LayerController,
-  installBringToFrontPatch,
-  uninstallBringToFrontPatch,
-} from "#foliplus/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
-import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
-import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import {
-  applyUserState,
-  dropPersistedLayerState,
-  saveNamesState,
-  saveState,
-} from "#foliplus/LayerControl/ui/state.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -24,6 +8,22 @@ import {
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
 import * as coreLayer from "#foliplus/core/layer/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import {
+  LayerController,
+  installBringToFrontPatch,
+  uninstallBringToFrontPatch,
+} from "#foliplus/plugin/LayerControl/controller.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
+import { LayerPersistence } from "#foliplus/plugin/LayerControl/persistence.js";
+import { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import { getIntent, setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import {
+  applyUserState,
+  dropPersistedLayerState,
+  saveNamesState,
+  saveState,
+} from "#foliplus/plugin/LayerControl/ui/state.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 import {

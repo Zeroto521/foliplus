@@ -1,8 +1,12 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
+import { ensureInteraction } from "#foliplus/core/interaction/index.js";
+import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
+import { ensureModes } from "#foliplus/core/mode.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
@@ -15,19 +19,15 @@ import {
   registerAutoCancel,
   showFocusDisabledHint,
   toggleFocusedLayer,
-} from "#foliplus/LayerControl/ui/focus/index.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+} from "#foliplus/plugin/LayerControl/ui/focus/index.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import {
   getIntent,
   seedIntentMap,
   setIntent,
-} from "#foliplus/LayerControl/ui/intent.js";
-import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
-import { EVENTS } from "#foliplus/core/event/index.js";
-import { ensureInteraction } from "#foliplus/core/interaction/index.js";
-import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { getActiveLayerItem } from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
+import { projectLayer } from "#foliplus/plugin/LayerControl/ui/projection.js";
 import {
   GridLayer,
   attachWithGroup,
@@ -1496,7 +1496,7 @@ describe("LayerUI focus", () => {
         // are foliplus layer panes now (PaneRole.SHADOW), covered by the
         // layer-pane rule above.
         const css = readFileSync(
-          resolve(".", "foliplus/css/LayerControl/focus.css"),
+          resolve(".", "foliplus/css/plugin/LayerControl/focus.css"),
           "utf8",
         );
         expect(css).not.toContain("leaflet-shadow-pane");

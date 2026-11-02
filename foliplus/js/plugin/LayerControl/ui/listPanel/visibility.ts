@@ -1,6 +1,6 @@
 // LayerControl UI — Checkbox / role-toggle visibility.
 import { ROLE, paintsAtZoom } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import {
   type ProjectionBatch,
   type ProjectionDelta,

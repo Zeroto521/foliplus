@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import type { FillRampConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
-import { applyRampToLayer } from "#foliplus/LayerControl/ui/style/fillRamp.js";
-import { pinStyleOnHighlight } from "#foliplus/LayerControl/ui/style/pin.js";
+import { applyRampToLayer } from "#foliplus/plugin/LayerControl/ui/style/fillRamp.js";
+import { pinStyleOnHighlight } from "#foliplus/plugin/LayerControl/ui/style/pin.js";
 
 // A live intent table keyed by the intent-key string, so a test can set the
 // ramp config and the opacity independently — the pin reads both live.
@@ -17,7 +17,7 @@ const mockGetIntent = vi.fn(
   (_ui: unknown, _id: unknown, key: string) => intentValues[key],
 );
 
-vi.mock("#foliplus/LayerControl/ui/intent.js", () => ({
+vi.mock("#foliplus/plugin/LayerControl/ui/intent.js", () => ({
   INTENT: {
     FILL_RAMP: "fillRamp",
     FILL_OPACITY: "fillOpacity",
@@ -25,7 +25,7 @@ vi.mock("#foliplus/LayerControl/ui/intent.js", () => ({
   },
   getIntent: (ui: unknown, id: unknown, key: string) => mockGetIntent(ui, id, key),
 }));
-vi.mock("#foliplus/LayerControl/ui/style/pin.js", () => ({
+vi.mock("#foliplus/plugin/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
 }));
 

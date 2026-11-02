@@ -4,8 +4,8 @@
 // applyStyleLabelState snapshot seed. Called back by the panel
 // assembly in index.ts.
 import { type LabelField, isNumericField } from "#core/label/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { AnnotationConfig } from "#foliplus/plugin/LayerControl/type.js";
 import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { INTENT, getIntent } from "../intent.js";

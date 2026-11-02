@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import {
+  clearIntent,
+  getIntent,
+  setIntent,
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
 import {
   FILL_DIMENSION,
   applyFillToLayer,
@@ -14,18 +18,18 @@ import {
   layerCanFill,
   replayFillState,
   resetLayerFill,
-} from "#foliplus/LayerControl/ui/style/fill.js";
-import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
+} from "#foliplus/plugin/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#foliplus/plugin/LayerControl/ui/style/index.js";
 import {
   MAX_STOPS,
   originalGradient,
-} from "#foliplus/LayerControl/ui/style/originalColor.js";
+} from "#foliplus/plugin/LayerControl/ui/style/originalColor.js";
 import {
   FACE,
   dropStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
-} from "#foliplus/LayerControl/ui/style/styleBag.js";
+} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
 import { dropdownOf } from "#common/dropdown.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 

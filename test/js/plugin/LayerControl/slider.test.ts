@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPseudoFullscreen } from "#core/fullscreen.js";
-import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
+import {
+  Slider,
+  type SliderOptions,
+  sliderOf,
+} from "#foliplus/plugin/LayerControl/slider.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 
 const hosts: HTMLElement[] = [];

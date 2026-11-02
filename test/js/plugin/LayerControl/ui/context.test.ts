@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import type { LayerInfo } from "#foliplus/core/layer/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import {
   ATTRS_ROW_WRAP_CHARS,
   applyNameProjection,
   isKeyboardVisibleFocus,
   owningRow,
-} from "#foliplus/LayerControl/ui/context.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
+} from "#foliplus/plugin/LayerControl/ui/context.js";
 
 describe("ui/context", () => {
   it("owningRow resolves a child control to its layer row", () => {

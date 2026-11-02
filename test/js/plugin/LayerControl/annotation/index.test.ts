@@ -4,10 +4,10 @@
 // the plan needs.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
-import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { AnnotationManager } from "#foliplus/plugin/LayerControl/annotation/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { applyProjection } from "#foliplus/plugin/LayerControl/ui/apply.js";
+import { setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
 import { LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { initFixture } from "../ui/fixture.js";
@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => {
   return { MockAnnotationCanvas, instances };
 });
 
-vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
+vi.mock("#foliplus/plugin/LayerControl/annotation/canvas.js", () => ({
   AnnotationCanvas: mocks.MockAnnotationCanvas,
 }));
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import * as CONST from "#foliplus/MeasureControl/const.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
 import {
   CircleMode,
   DistanceMode,
   MODE_MAP,
   MarkerMode,
   PolygonMode,
-} from "#foliplus/MeasureControl/mode/index.js";
+} from "#foliplus/plugin/MeasureControl/mode/index.js";
 
 describe("MODE_MAP", () => {
   it("maps all four mode types to their classes", () => {

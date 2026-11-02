@@ -22,7 +22,7 @@
  *
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
-import { mkdirSync, readdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
@@ -93,11 +93,12 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     .map(f => f.name.replace(/\.ts$/, ""))
     .sort();
 
-  const componentDirs = readdirSync(sourceDir, { withFileTypes: true })
-    .filter(
-      e => e.isDirectory() && !["core", "common", "type", "runtime"].includes(e.name),
-    )
-    .map(e => resolve(sourceDir, e.name));
+  const pluginDir = resolve(sourceDir, "plugin");
+  const componentDirs = existsSync(pluginDir)
+    ? readdirSync(pluginDir, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => resolve(pluginDir, e.name))
+    : [];
 
   const usedExports = {};
   for (const dir of componentDirs) {

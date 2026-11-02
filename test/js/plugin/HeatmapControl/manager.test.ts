@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
 import { EVENTS, SettledOperation, ensureEvents } from "#core/event/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import * as CONST from "#foliplus/HeatmapControl/const.js";
-import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
-import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { BORDER_WEIGHT } from "#foliplus/common/form.js";
+import * as CONST from "#foliplus/plugin/HeatmapControl/const.js";
+import { HeatmapManager } from "#foliplus/plugin/HeatmapControl/manager.js";
+import { rebuildLayerDropdown } from "#foliplus/plugin/HeatmapControl/ui.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import { makeConfig, makeCtrl, makeManager, makeManagerOn } from "./fixture.js";
@@ -818,7 +818,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   });
 
   it("auto-selects and renders a single layer on first initScan", async () => {
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
       { id: "lonely", name: "Lonely", layer: {} },
@@ -837,7 +837,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   });
 
   it("auto-selects a single layer that appears when a control attaches", async () => {
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     const m = makeManager();
     // First scan finds nothing; a layer appears once LayerControl finishes
     // attaching (CONTROL_ATTACHED). This is still the initial scan phase
@@ -866,7 +866,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   });
 
   it("settles the no-layer hint after the synchronous attach sequence", async () => {
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.showHint = vi.fn();
     window.map.foliplus.LayerAPI.isLayerControl = false;
@@ -885,7 +885,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   });
 
   it("cleanup unsubscribes CONTROL_ATTACHED and is idempotent", async () => {
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.LayerAPI.isLayerControl = true;
     let calls = 0;
@@ -917,7 +917,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   it("restores a previously saved layer selection on reload", async () => {
     // Reload path: the manager restored a saved layerId from localStorage,
     // so initScan must redraw that layer without re-auto-selecting.
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     const m = makeManager();
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
       { id: "p1", name: "P1", layer: {} },
@@ -959,7 +959,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     // Pre-fix, hasScanned is runtime-only; a persisted record with
     // layerId: null was restored by applySavedConfig without closing the
     // guard, so the reload looked like a first open and re-fired.
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     window.localStorage.clear();
 
     // Session 1: user opens the heatmap (single-layer auto-select fires),
@@ -991,7 +991,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   });
 
   it("never auto-selects with two point layers, with or without a saved record", async () => {
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     window.localStorage.clear();
 
     // No persisted record here — the guard is open on first open, so
@@ -1018,7 +1018,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     // Reset (clearSavedConfig) deletes the record entirely — this is the
     // deliberate back-to-declared-state path. Gate 3 proves the fix does
     // not conflate explicit-clear with Reset.
-    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const { initScan } = await import("#foliplus/plugin/HeatmapControl/ui.js");
     window.localStorage.clear();
 
     const m1 = makeManager();

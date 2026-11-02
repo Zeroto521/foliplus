@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import {
   handleMoreClick,
   registerInteractions,
-} from "#foliplus/LayerControl/interaction.js";
-import { handleMenuClick } from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
+} from "#foliplus/plugin/LayerControl/interaction.js";
+import { handleMenuClick } from "#foliplus/plugin/LayerControl/ui/overlayPanel/menu.js";
 
 // ---- Mock the real InteractionManager. The real one creates doc-level
 // listeners + a MutationObserver that don't auto-teardown cleanly in jsdom.

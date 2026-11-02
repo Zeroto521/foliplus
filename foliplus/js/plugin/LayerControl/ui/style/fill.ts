@@ -32,11 +32,11 @@ import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import {
   type DeclaredFill,
   readDeclaredFill,
-} from "#foliplus/LayerControl/declaredFill.js";
+} from "#foliplus/plugin/LayerControl/declaredFill.js";
 import { dom } from "#common/dom.js";
 import { dropdownOf } from "#common/dropdown.js";
 import {

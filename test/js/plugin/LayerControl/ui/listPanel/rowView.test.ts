@@ -2,10 +2,14 @@ import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import {
+  clearIntent,
+  getIntent,
+  setIntent,
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
 import {
   type RowCell,
   applyRowView,
@@ -13,8 +17,11 @@ import {
   rowView,
   syncNoBasemap,
   syncToggleAll,
-} from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
+import {
+  intentVisibleOf,
+  projectLayer,
+} from "#foliplus/plugin/LayerControl/ui/projection.js";
 import * as Icons from "#common/icon.js";
 import { findItem, initFixture } from "../fixture.js";
 
@@ -580,7 +587,7 @@ const PATTERNS: GuardPattern[] = [
   {
     slot: "ACTIVE class",
     re: /\bitem\.classList\.(?:add|remove|toggle)\s*\([^)]*ACTIVE/g,
-    scope: "LayerControl/",
+    scope: "plugin/LayerControl/",
   },
   {
     slot: "count column",
@@ -597,7 +604,7 @@ const PATTERNS: GuardPattern[] = [
   {
     slot: "row title",
     re: /\bitem\.title\s*=/g,
-    scope: "LayerControl/",
+    scope: "plugin/LayerControl/",
   },
 ];
 
@@ -618,7 +625,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
   reason: string;
 }> = [
   {
-    file: "LayerControl/ui/focus/index.ts",
+    file: "plugin/LayerControl/ui/focus/index.ts",
     slot: "checkbox.checked",
     n: 1,
     reason: `momentary flip: checkbox.checked = !checkbox.checked → dispatchEvent('change') → applyUserState → applyRowView redraws the row from corrected intent`,
@@ -627,7 +634,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
 
 // ── Path resolution and scanning ───────────────────────────────
 
-const WRITER = "LayerControl/ui/listPanel/rowView.ts";
+const WRITER = "plugin/LayerControl/ui/listPanel/rowView.ts";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");

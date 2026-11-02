@@ -10,7 +10,7 @@
 // Leaflet runtime and is covered by the browser suite; the lazy getter and
 // destroy() do not.
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { makeConfig } from "../config-fixture.js";
+import { makeConfig } from "../../config-fixture.js";
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -119,7 +119,7 @@ describe("HeatmapControl entry — half-initialised manager", () => {
     mockMap = new MockMap();
     (window as any).map = mockMap;
     vi.resetModules();
-    await import("#foliplus/HeatmapControl/index.js");
+    await import("#foliplus/plugin/HeatmapControl/index.js");
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
   });

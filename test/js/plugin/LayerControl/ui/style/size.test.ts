@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { DIM } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { getIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.js";
-import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
-import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import { getIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { DELEGATED_DIM_ORDER } from "#foliplus/plugin/LayerControl/ui/style/delegated.js";
+import { closeStylePanel } from "#foliplus/plugin/LayerControl/ui/style/index.js";
+import { getDimension } from "#foliplus/plugin/LayerControl/ui/style/registry.js";
 import {
   SIZE_DIMENSION,
   applySizeToLayer,
@@ -16,8 +16,11 @@ import {
   commitSize,
   layerCanSize,
   resetLayerSize,
-} from "#foliplus/LayerControl/ui/style/size.js";
-import { FACE, flushStyleDimApply } from "#foliplus/LayerControl/ui/style/styleBag.js";
+} from "#foliplus/plugin/LayerControl/ui/style/size.js";
+import {
+  FACE,
+  flushStyleDimApply,
+} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
 import { findItem, initFixture } from "../fixture.js";
 
 // A pixel-radius leaf: Leaflet's CircleMarker, which keeps its radius in

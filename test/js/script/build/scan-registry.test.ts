@@ -194,8 +194,8 @@ describe("generateRegistry", () => {
       "common/dom.ts": `export const dom = {};`,
       "core/event/index.ts": `export const EventBus = {};`,
       "runtime/index.ts": `import { dom } from "#common/dom.js";`,
-      "MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
-      "MyComponent/util.ts": `import { EventBus } from "#core/event/index.js";`,
+      "plugin/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "plugin/MyComponent/util.ts": `import { EventBus } from "#core/event/index.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -215,7 +215,7 @@ describe("generateRegistry", () => {
       "common/dom.ts": `export const dom = {};`,
       "core/layer/index.ts": `export const HIDDEN = "hidden";`,
       "core/layer/const.ts": `export const HIDDEN = "hidden";`,
-      "MyComponent/index.ts": `import { HIDDEN } from "#core/layer/const.js";`,
+      "plugin/MyComponent/index.ts": `import { HIDDEN } from "#core/layer/const.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -234,7 +234,7 @@ describe("generateRegistry", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
       "core/lonely/index.ts": `export const nothing = 1;`,
-      "MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "plugin/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -249,7 +249,7 @@ describe("generateRegistry", () => {
       "core/hint.ts": `export const ensureHint = () => {};`,
       "core/mode.ts": `export const ModeManager = {};`,
       "runtime/index.ts": `import { dom } from "#common/dom.js";`,
-      "MyComponent/index.ts": `
+      "plugin/MyComponent/index.ts": `
         import { COMPONENTS } from "#core/component.js";
         import { ensureHint } from "#core/hint.js";
         import { ModeManager } from "#core/mode.js";
@@ -270,7 +270,7 @@ describe("generateRegistry", () => {
       "core/event/index.ts": `export const EventBus = {};`,
       "core/component.ts": `export const COMPONENTS = {};`,
       "runtime/index.ts": ``,
-      "MyComponent/index.ts": `import { EventBus } from "#core/event/index.js";`,
+      "plugin/MyComponent/index.ts": `import { EventBus } from "#core/event/index.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -288,7 +288,7 @@ describe("generateRegistry", () => {
       "core/geo/index.ts": `export const fromWgs84 = () => {};`,
       "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
       "runtime/index.ts": ``,
-      "MyComponent/index.ts": `
+      "plugin/MyComponent/index.ts": `
         import { fromWgs84 } from "#core/geo/index.js";
         import { fromWgs84 as again } from "#core/index.js";
       `,
@@ -305,7 +305,7 @@ describe("generateRegistry", () => {
       "common/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
-      "MyComponent/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
+      "plugin/MyComponent/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -321,7 +321,7 @@ describe("generateRegistry", () => {
       "common/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
-      "MyComponent/index.ts": `import { } from "#foliplus/BaseControl.js";`,
+      "plugin/MyComponent/index.ts": `import { } from "#foliplus/BaseControl.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);

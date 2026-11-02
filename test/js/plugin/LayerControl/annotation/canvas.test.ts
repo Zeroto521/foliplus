@@ -1,8 +1,8 @@
 // AnnotationCanvas unit tests — one canvas per layer, mounted in that layer's
 // own pane; it paints the slice the manager hands it and nothing else.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AnnotationCanvas } from "#foliplus/LayerControl/annotation/canvas.js";
-import type { PlannedLabel } from "#foliplus/LayerControl/annotation/layout.js";
+import { AnnotationCanvas } from "#foliplus/plugin/LayerControl/annotation/canvas.js";
+import type { PlannedLabel } from "#foliplus/plugin/LayerControl/annotation/layout.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 
 const makeCtx = () => ({

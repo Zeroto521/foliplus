@@ -1,7 +1,7 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";

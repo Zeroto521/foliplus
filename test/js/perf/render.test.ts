@@ -12,8 +12,8 @@
 // honest lower bound: a real 2d context is slower, so if this already
 // exceeds 16ms the dual path is mandatory.
 import { describe, expect, it } from "vitest";
-import { drawHexagon } from "#foliplus/HeatmapControl/render.js";
-import type { HexFeature } from "#foliplus/HeatmapControl/type.js";
+import { drawHexagon } from "#foliplus/plugin/HeatmapControl/render.js";
+import type { HexFeature } from "#foliplus/plugin/HeatmapControl/type.js";
 
 const makeFeat = (i: number): HexFeature => ({
   type: "Feature",

@@ -9,8 +9,8 @@
 // (write / reset / valueSource); commitOpacityPct stays a thin delegate that
 // also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { Slider, sliderOf } from "#foliplus/plugin/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import {
   NO_DELTA,

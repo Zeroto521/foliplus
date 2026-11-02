@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bindOpenOverlay } from "#foliplus/MeasureControl/ui/helper.js";
-import * as UI from "#foliplus/MeasureControl/ui/index.js";
+import { bindOpenOverlay } from "#foliplus/plugin/MeasureControl/ui/helper.js";
+import * as UI from "#foliplus/plugin/MeasureControl/ui/index.js";
 import { installStubs } from "./fixture.js";
 
 beforeEach(() => {

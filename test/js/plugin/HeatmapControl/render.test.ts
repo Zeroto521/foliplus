@@ -5,8 +5,8 @@ import {
   drawHexLabel,
   drawHexagon,
   resolveLabelStyle,
-} from "#foliplus/HeatmapControl/render.js";
-import type { HexFeature } from "#foliplus/HeatmapControl/type.js";
+} from "#foliplus/plugin/HeatmapControl/render.js";
+import type { HexFeature } from "#foliplus/plugin/HeatmapControl/type.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 
 const makeCtx = () => {

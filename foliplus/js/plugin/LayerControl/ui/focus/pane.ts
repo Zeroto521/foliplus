@@ -7,7 +7,7 @@ import {
   focusLayerZ,
   zFor,
 } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import type { FinalizeStep } from "#common/finalize.js";
 import { basePaints } from "../listPanel/visibility.js";
 import { projectLayer } from "../projection.js";

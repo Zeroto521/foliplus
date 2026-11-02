@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CLASSES } from "#foliplus/FullscreenControl/const.js";
+import { CLASSES } from "#foliplus/plugin/FullscreenControl/const.js";
 import {
   buildFullscreenChangeHandler,
   toggleFullscreen,
   updateUI,
-} from "#foliplus/FullscreenControl/logic.js";
+} from "#foliplus/plugin/FullscreenControl/logic.js";
 
 // Mutable state controlled by each describe's beforeEach to switch between the
 // native API path (isEnabled=true) and the pseudo path (isEnabled=false).
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   getFullscreenEl: vi.fn<() => HTMLElement | null>(() => null),
 }));
 
-vi.mock("#foliplus/FullscreenControl/api.js", () => ({
+vi.mock("#foliplus/plugin/FullscreenControl/api.js", () => ({
   FULLSCREEN_CHANGE: mocks.FULLSCREEN_CHANGE,
   // Production reads this lazily per call — keep the mock lazy too so
   // `mocks.isEnabled = …` flips the branch on the very next toggle.

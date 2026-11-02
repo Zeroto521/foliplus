@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/index.js";
 import {
   hideSolidBasemap,
   resetSolidBasemap,
   showSolidBasemap,
-} from "#foliplus/LayerControl/ui/color.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+} from "#foliplus/plugin/LayerControl/ui/color.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 
 const makeUi = (layers: Array<{ id: string; role: "base" | "overlay" }> = []) => {
   const uiContainer = document.createElement("div");

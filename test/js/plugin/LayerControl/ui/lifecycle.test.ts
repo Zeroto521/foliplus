@@ -8,27 +8,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import { type LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerDimension } from "#foliplus/LayerControl/type.js";
-import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import { type LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerDimension } from "#foliplus/plugin/LayerControl/type.js";
+import { type LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import { setIntent } from "#foliplus/plugin/LayerControl/ui/intent.js";
 import {
   rebuildList,
   toggleAll,
   toggleFold,
-} from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { commitBorderColor } from "#foliplus/LayerControl/ui/style/border.js";
-import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
-import { registerDimension } from "#foliplus/LayerControl/ui/style/registry.js";
-import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
+} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
+import { commitBorderColor } from "#foliplus/plugin/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/plugin/LayerControl/ui/style/fill.js";
+import { registerDimension } from "#foliplus/plugin/LayerControl/ui/style/registry.js";
+import { commitSize } from "#foliplus/plugin/LayerControl/ui/style/size.js";
 import {
   FACE,
   flushStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
   scheduleStyleDimApply,
-} from "#foliplus/LayerControl/ui/style/styleBag.js";
+} from "#foliplus/plugin/LayerControl/ui/style/styleBag.js";
 import {
   attachedPanel,
   findItem,
@@ -38,18 +38,21 @@ import {
   trackMembership,
 } from "./fixture.js";
 
-vi.mock("#foliplus/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
+vi.mock("#foliplus/plugin/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<
-    typeof import("#foliplus/LayerControl/ui/listPanel/drag.js")
+    typeof import("#foliplus/plugin/LayerControl/ui/listPanel/drag.js")
   >()),
   toggleFold: vi.fn(),
 }));
-vi.mock("#foliplus/LayerControl/ui/listPanel/visibility.js", async importOriginal => ({
-  ...(await importOriginal<
-    typeof import("#foliplus/LayerControl/ui/listPanel/visibility.js")
-  >()),
-  toggleAll: vi.fn(),
-}));
+vi.mock(
+  "#foliplus/plugin/LayerControl/ui/listPanel/visibility.js",
+  async importOriginal => ({
+    ...(await importOriginal<
+      typeof import("#foliplus/plugin/LayerControl/ui/listPanel/visibility.js")
+    >()),
+    toggleAll: vi.fn(),
+  }),
+);
 
 describe("LayerUI lifecycle — defensive rails", () => {
   let manager: LayerController;
@@ -863,7 +866,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
 });
 
 const ROOT = resolve(".");
-const LIFECYCLE = resolve(ROOT, "foliplus/js/LayerControl/ui/lifecycle.ts");
+const LIFECYCLE = resolve(ROOT, "foliplus/js/plugin/LayerControl/ui/lifecycle.ts");
 
 // ── Static guard: every replay is queued before the notify ────────
 //

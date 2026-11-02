@@ -338,8 +338,8 @@ describe("buildSkeleton", () => {
   it("creates the dual-stack file set", () => {
     expect([...skeleton.files.keys()].sort()).toEqual([
       "foliplus/FooControl.py",
-      "foliplus/css/FooControl.css",
-      "foliplus/js/FooControl/index.ts",
+      "foliplus/css/plugin/FooControl.css",
+      "foliplus/js/plugin/FooControl/index.ts",
       "foliplus/locale/FooControl.en.json",
       "foliplus/locale/FooControl.zh.json",
       "test/python/test_FooControl.py",
@@ -347,13 +347,13 @@ describe("buildSkeleton", () => {
   });
 
   it("uses the core controlEnv import (not the old common/guard path)", () => {
-    const ts = skeleton.files.get("foliplus/js/FooControl/index.ts");
+    const ts = skeleton.files.get("foliplus/js/plugin/FooControl/index.ts");
     expect(ts).toContain('from "#core/controlEnv.js"');
     expect(ts).not.toContain("#common/guard.js");
   });
 
   it("only references design tokens that exist in token.css", () => {
-    const css = skeleton.files.get("foliplus/css/FooControl.css");
+    const css = skeleton.files.get("foliplus/css/plugin/FooControl.css");
     const tokens = [...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map(m => m[1]);
     const allowed = new Set([
       "--foliplus-space-sm",
@@ -398,8 +398,8 @@ describe("scaffoldControl", () => {
 
     expect(result.created.sort()).toEqual([
       "foliplus/FooControl.py",
-      "foliplus/css/FooControl.css",
-      "foliplus/js/FooControl/index.ts",
+      "foliplus/css/plugin/FooControl.css",
+      "foliplus/js/plugin/FooControl/index.ts",
       "foliplus/locale/FooControl.en.json",
       "foliplus/locale/FooControl.zh.json",
       "test/python/test_FooControl.py",
@@ -429,7 +429,10 @@ describe("scaffoldControl", () => {
       readFileSync(join(tmpRoot, "test", "python", "test_locale.py"), "utf-8"),
     ).toContain('"FooControl.title"');
     expect(
-      readFileSync(join(tmpRoot, "foliplus", "js", "FooControl", "index.ts"), "utf-8"),
+      readFileSync(
+        join(tmpRoot, "foliplus", "js", "plugin", "FooControl", "index.ts"),
+        "utf-8",
+      ),
     ).toContain('from "#core/controlEnv.js"');
   });
 

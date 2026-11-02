@@ -5,15 +5,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
-import * as CONST from "#foliplus/HeatmapControl/const.js";
-import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
+import * as CONST from "#foliplus/plugin/HeatmapControl/const.js";
+import { HeatmapManager } from "#foliplus/plugin/HeatmapControl/manager.js";
 import {
   bindControls,
   initScan,
   rebuildLayerDropdown,
   resetPanel,
   setupObserver,
-} from "#foliplus/HeatmapControl/ui.js";
+} from "#foliplus/plugin/HeatmapControl/ui.js";
 import { dropdownOf } from "#common/dropdown.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 

@@ -4,8 +4,8 @@ import {
   getFullscreenEl,
   isEnabled,
   ownsFullscreen,
-} from "#foliplus/FullscreenControl/api.js";
-import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
+} from "#foliplus/plugin/FullscreenControl/api.js";
+import { CLASSES, containerId } from "#foliplus/plugin/FullscreenControl/const.js";
 
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {

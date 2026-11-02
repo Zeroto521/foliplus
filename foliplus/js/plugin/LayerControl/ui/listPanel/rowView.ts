@@ -13,9 +13,9 @@
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
-import * as Util from "#foliplus/LayerControl/util.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
+import * as Util from "#foliplus/plugin/LayerControl/util.js";
 import { setLabelTitle } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";

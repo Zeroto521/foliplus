@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/ExportControl/const.js";
-import { renderPaneSVG } from "#foliplus/ExportControl/renderer/svg.js";
-import * as UTIL from "#foliplus/ExportControl/util.js";
+import * as CONST from "#foliplus/plugin/ExportControl/const.js";
+import { renderPaneSVG } from "#foliplus/plugin/ExportControl/renderer/svg.js";
+import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
 import {
   captureSources,
   makeMockCtx,
@@ -11,8 +11,8 @@ import {
   stubLoad,
 } from "./fixture.js";
 
-vi.mock("#foliplus/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
+vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

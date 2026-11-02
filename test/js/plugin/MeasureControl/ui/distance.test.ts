@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import * as UI from "#foliplus/MeasureControl/ui/index.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
+import * as UI from "#foliplus/plugin/MeasureControl/ui/index.js";
 import { installStubs, makeConfig, makeMgr } from "./fixture.js";
 
 const {
@@ -44,9 +44,9 @@ vi.mock("#core/leaflet/index.js", async importOriginal => {
   };
 });
 
-vi.mock("#foliplus/MeasureControl/edit.js", async importOriginal => {
+vi.mock("#foliplus/plugin/MeasureControl/edit.js", async importOriginal => {
   const actual =
-    await importOriginal<typeof import("#foliplus/MeasureControl/edit.js")>();
+    await importOriginal<typeof import("#foliplus/plugin/MeasureControl/edit.js")>();
   return {
     ...actual,
     bindNodeDrag: vi.fn((node: any, del: any, map: any, handlers: any) => {

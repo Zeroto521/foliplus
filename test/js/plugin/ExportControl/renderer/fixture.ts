@@ -2,8 +2,8 @@
 // Extracted from renderer.test.ts so each module test can import only what it
 // needs without dragging the orchestration suite along.
 import { vi } from "vitest";
-import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
-import * as UTIL from "#foliplus/ExportControl/util.js";
+import { ExportRenderer } from "#foliplus/plugin/ExportControl/renderer/index.js";
+import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
 
 // renderer binds its logger to CONFIG.name at module-import time, so the
 // component name has to be set before the import resolves — setup.ts leaves it

@@ -3,7 +3,7 @@
 // rebuild path (list.ts) and the keyboard handler (keyboard.ts) delegate here
 // so they don't need to import each other.
 import { ListCursor } from "#core/interaction/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import { owningRow } from "../context.js";
 import type { LayerUI } from "../surface.js";
 

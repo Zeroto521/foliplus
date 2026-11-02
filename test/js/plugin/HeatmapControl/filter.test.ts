@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
-import type { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
+import type { HeatmapManager } from "#foliplus/plugin/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
 
 /** Set up a manager with a point layer, selected, and points extracted. */

@@ -359,11 +359,11 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   });
 
   it("leaves no consumer-local trigger geometry", () => {
-    const layerStyle = css("foliplus/css/LayerControl/style.css");
+    const layerStyle = css("foliplus/css/plugin/LayerControl/style.css");
     expect(layerStyle).not.toContain(".foliplus-style-scheme-trigger {");
     expect(layerStyle).not.toContain(".foliplus-style-scheme-trigger::after");
 
-    const heatmap = css("foliplus/css/HeatmapControl.css");
+    const heatmap = css("foliplus/css/plugin/HeatmapControl.css");
     expect(heatmap).not.toMatch(/\.foliplus-heatmap-scheme-bar\s*\{/);
     expect(heatmap).not.toMatch(/\.foliplus-heatmap-scheme-bar::after/);
   });

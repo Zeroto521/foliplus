@@ -7,8 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -17,8 +18,7 @@ import {
   handleDrop,
   showReorderBlockedHint,
   toggleFold,
-} from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
+} from "#foliplus/plugin/LayerControl/ui/listPanel/index.js";
 import { attachedPanel, initFixture } from "../fixture.js";
 
 const dragEvent = (target: HTMLElement, dataTransfer = {}): DragEvent =>

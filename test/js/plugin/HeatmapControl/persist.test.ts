@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
-import * as CONST from "#foliplus/HeatmapControl/const.js";
+import * as CONST from "#foliplus/plugin/HeatmapControl/const.js";
 import { BORDER_WEIGHT } from "#common/form.js";
 import { makeManager } from "./fixture.js";
 

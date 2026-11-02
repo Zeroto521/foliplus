@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#foliplus/plugin/LayerControl/ui/intent.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI rename", () => {

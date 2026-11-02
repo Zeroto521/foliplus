@@ -46,8 +46,8 @@ import type { ControlEnv } from "#core/type.js";
 // before the `window.map` mock exists, and the barrel pulls in orchestration.ts
 // whose const.ts reads `map.getContainer()` at module load. LayerIntentStore
 // itself only imports the core/layer barrel, so it is safe to load early.
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { LayerIntentStore } from "#foliplus/plugin/LayerControl/domain/LayerIntentStore.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 

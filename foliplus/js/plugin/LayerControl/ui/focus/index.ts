@@ -5,7 +5,7 @@
 // stays unchanged.
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 import { type FinalizeStep, finalize } from "#common/finalize.js";
 import {
   type ProjectionDeltaItem,

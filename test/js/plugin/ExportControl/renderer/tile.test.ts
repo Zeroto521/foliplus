@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { calcTiles } from "#foliplus/ExportControl/renderer/tile.js";
+import { calcTiles } from "#foliplus/plugin/ExportControl/renderer/tile.js";
 import {
   installTileGlobals,
   makeEPSG3857Mock,
@@ -7,8 +7,8 @@ import {
   makeTileLayer,
 } from "./fixture.js";
 
-vi.mock("#foliplus/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
+vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

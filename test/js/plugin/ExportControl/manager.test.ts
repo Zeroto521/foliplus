@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureHint } from "#core/hint.js";
-import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
+import { ExportManager } from "#foliplus/plugin/ExportControl/manager.js";
+import { ExportRenderer } from "#foliplus/plugin/ExportControl/renderer/index.js";
 import * as downloadMod from "#common/download.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reverseGeocode } from "#core/geocode/index.js";
-import * as CONST from "#foliplus/MeasureControl/const.js";
-import { markDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
-import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
+import { markDragSyntheticClick } from "#foliplus/plugin/MeasureControl/edit.js";
+import { MarkerMode } from "#foliplus/plugin/MeasureControl/mode/index.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 vi.mock("#core/geocode/index.js", () => ({
@@ -70,7 +70,8 @@ describe("MarkerMode — toGeoFeature", () => {
   });
 
   it("has NAME_LABEL and TYPE static properties", async () => {
-    const { MarkerMode } = await import("#foliplus/MeasureControl/mode/index.js");
+    const { MarkerMode } =
+      await import("#foliplus/plugin/MeasureControl/mode/index.js");
     expect(MarkerMode.NAME_LABEL).toBe("Location Marker");
     expect(MarkerMode.NAME_LABEL_KEY).toContain("name_marker");
   });

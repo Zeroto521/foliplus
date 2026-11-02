@@ -2,8 +2,8 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { CAP_TIER } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";

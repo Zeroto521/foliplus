@@ -1,8 +1,8 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
-import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import * as SVGs from "#foliplus/plugin/LayerControl/icon.js";
+import { finishSlidersIn } from "#foliplus/plugin/LayerControl/slider.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";

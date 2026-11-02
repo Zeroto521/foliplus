@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 // shrink, no right-hug of its own) or it would be mistaken for a number
 // field again.
 
-const ROOT = resolve(__dirname, "../../../../..");
+const ROOT = resolve(__dirname, "../../../../../..");
 
 /** Read a stylesheet with normalized line endings. */
 const css = (rel: string): string =>
@@ -39,7 +39,7 @@ const blockOf = (source: string, selector: string): string => {
 };
 
 describe("original-colors readout geometry (stylesheet contract)", () => {
-  const layer = css("foliplus/css/LayerControl/style.css");
+  const layer = css("foliplus/css/plugin/LayerControl/style.css");
 
   it("gives the count readout the compact width and the right edge", () => {
     // The count is the number-field role: same secondary width token as the

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import * as CONST from "#foliplus/LayerControl/const.js";
 import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#foliplus/core/layer/const.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
 
 describe("init ready signal", () => {
   it("no longer exposes the removed INIT_DELAY_MS timer", () => {
@@ -136,7 +136,7 @@ describe("FOCUS", () => {
     // The two values must stay in sync — both dim selection boxes alike.
     // This is a gate, not a comment: if someone changes one and forgets
     // the other, this test goes red.
-    const ROOT = resolve(__dirname, "../../..");
+    const ROOT = resolve(__dirname, "../../../../");
     const tokenCss = readFileSync(
       resolve(ROOT, "foliplus/css/common/token.css"),
       "utf-8",

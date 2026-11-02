@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reverseGeocode } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
-import * as CONST from "#foliplus/MeasureControl/const.js";
+import * as CONST from "#foliplus/plugin/MeasureControl/const.js";
 import {
   bindNodeDrag,
   buildEditOverlay,
   isDragSyntheticClick,
   markDragSyntheticClick,
-} from "#foliplus/MeasureControl/edit.js";
-import * as Util from "#foliplus/MeasureControl/util.js";
+} from "#foliplus/plugin/MeasureControl/edit.js";
+import * as Util from "#foliplus/plugin/MeasureControl/util.js";
 import { stopEvent } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
-import { makeControlEnv } from "../fixture.js";
+import { makeControlEnv } from "../../fixture.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn(),

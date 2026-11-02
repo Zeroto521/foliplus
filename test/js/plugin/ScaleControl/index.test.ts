@@ -173,7 +173,7 @@ describe("ScaleControl inner-Leaflet-Scale teardown", () => {
 
   beforeAll(async () => {
     vi.resetModules();
-    await import("#foliplus/ScaleControl/index.js");
+    await import("#foliplus/plugin/ScaleControl/index.js");
 
     mockMap = (window as any).map as MockMap;
     scaleWrap = document.querySelector<HTMLElement>(".foliplus-scale-wrap")!;

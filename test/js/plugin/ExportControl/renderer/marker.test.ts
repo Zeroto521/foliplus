@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/ExportControl/const.js";
+import * as CONST from "#foliplus/plugin/ExportControl/const.js";
 import {
   collectPaneRoots,
   renderFontAwesome,
   renderMarkers,
   renderRemaining,
   renderTextLabels,
-} from "#foliplus/ExportControl/renderer/marker.js";
-import * as UTIL from "#foliplus/ExportControl/util.js";
+} from "#foliplus/plugin/ExportControl/renderer/marker.js";
+import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
 import {
   makeRenderer,
   pinBox,
@@ -25,8 +25,8 @@ type MockCtx = CanvasRenderingContext2D & {
   fillText: { mock: { calls: any[][] } };
 };
 
-vi.mock("#foliplus/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
+vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

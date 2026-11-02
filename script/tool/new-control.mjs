@@ -245,7 +245,7 @@ class ${name}(BaseControl):
 
   // Import order matches .prettierrc.cjs: #core → #foliplus → #common.
   files.set(
-    `foliplus/js/${name}/index.ts`,
+    `foliplus/js/plugin/${name}/index.ts`,
     `import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -269,7 +269,7 @@ new ${name}({ position: CONFIG.position }).addTo(map);
 
   // Tokens must exist in css/common/token.css — never invent new ones here.
   files.set(
-    `foliplus/css/${name}.css`,
+    `foliplus/css/plugin/${name}.css`,
     `.${cssClass} {
   padding: var(--foliplus-space-sm) var(--foliplus-space-md);
   background: var(--foliplus-ctrl-bg);

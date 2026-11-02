@@ -4,7 +4,7 @@ import {
   isExportExcluded,
   isVisible,
   resolveExportBackground,
-} from "#foliplus/ExportControl/util.js";
+} from "#foliplus/plugin/ExportControl/util.js";
 
 describe("isExportExcluded", () => {
   it("is true when the element matches SKIP_EXPORT", () => {
@@ -127,7 +127,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("returns null when fetch response is not ok", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/plugin/ExportControl/util.js");
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: false }),
     ) as unknown as typeof fetch;
@@ -136,7 +136,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("returns null when fetch rejects (network error)", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/plugin/ExportControl/util.js");
     globalThis.fetch = vi.fn(() =>
       Promise.reject(new TypeError("network error")),
     ) as unknown as typeof fetch;
@@ -145,7 +145,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("returns null when blob() rejects", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/plugin/ExportControl/util.js");
     globalThis.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, blob: () => Promise.reject(new Error("blob err")) }),
     ) as unknown as typeof fetch;
@@ -154,7 +154,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("returns null when createImageBitmap rejects (decode failure)", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/plugin/ExportControl/util.js");
     globalThis.fetch = makeFetchOk();
     globalThis.createImageBitmap = vi.fn(() =>
       Promise.reject(new Error("decode failed")),
@@ -164,7 +164,7 @@ describe("loadImageBitmap", () => {
   });
 
   it("loads a fresh ImageBitmap each call (no caching)", async () => {
-    const { loadImageBitmap } = await import("#foliplus/ExportControl/util.js");
+    const { loadImageBitmap } = await import("#foliplus/plugin/ExportControl/util.js");
     globalThis.fetch = makeFetchOk();
     const bitmap1 = { close: vi.fn() };
     const bitmap2 = { close: vi.fn() };
@@ -212,7 +212,7 @@ describe("resolveExportBackground", () => {
 
 describe("loadImage", () => {
   it("resolves on image load", async () => {
-    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const { loadImage } = await import("#foliplus/plugin/ExportControl/util.js");
     const origImage = globalThis.Image;
     let onloadHandler: (() => void) | null = null;
     globalThis.Image = class {
@@ -229,7 +229,7 @@ describe("loadImage", () => {
   });
 
   it("detaches event handlers on success", async () => {
-    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const { loadImage } = await import("#foliplus/plugin/ExportControl/util.js");
     const origImage = globalThis.Image;
     const images: HTMLImageElement[] = [];
     let onloadHandler: (() => void) | null = null;
@@ -271,7 +271,7 @@ describe("loadImage", () => {
   });
 
   it("revokes blob URL and detaches handlers on error", async () => {
-    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const { loadImage } = await import("#foliplus/plugin/ExportControl/util.js");
     const origImage = globalThis.Image;
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL");
     let onerrorHandler: (() => void) | null = null;
@@ -314,7 +314,7 @@ describe("loadImage", () => {
     [undefined, undefined],
   ] as const) {
     it(`sets crossOrigin="${String(crossOrigin)}" on the image element`, async () => {
-      const { loadImage } = await import("#foliplus/ExportControl/util.js");
+      const { loadImage } = await import("#foliplus/plugin/ExportControl/util.js");
       const origImage = globalThis.Image;
       const instances: Array<{ crossOrigin?: string }> = [];
       let onloadHandler: (() => void) | null = null;
@@ -343,7 +343,7 @@ describe("loadImage", () => {
   }
 
   it("rejects without revoking a non-blob URL", async () => {
-    const { loadImage } = await import("#foliplus/ExportControl/util.js");
+    const { loadImage } = await import("#foliplus/plugin/ExportControl/util.js");
     const origImage = globalThis.Image;
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL");
     let onerrorHandler: (() => void) | null = null;

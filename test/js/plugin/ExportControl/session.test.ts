@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import { ExportManager, canvasToBlob } from "#foliplus/plugin/ExportControl/manager.js";
 import * as downloadMod from "#common/download.js";
 
 const modeMocks = vi.hoisted(() => ({

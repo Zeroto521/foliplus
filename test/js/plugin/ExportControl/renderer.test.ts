@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/ExportControl/const.js";
-import * as CANVAS from "#foliplus/ExportControl/renderer/canvas.js";
+import * as CONST from "#foliplus/plugin/ExportControl/const.js";
+import * as CANVAS from "#foliplus/plugin/ExportControl/renderer/canvas.js";
 import {
   ExportRenderer,
   isCorsBlocked,
-} from "#foliplus/ExportControl/renderer/index.js";
-import type { TileDesc } from "#foliplus/ExportControl/type.js";
-import * as UTIL from "#foliplus/ExportControl/util.js";
+} from "#foliplus/plugin/ExportControl/renderer/index.js";
+import type { TileDesc } from "#foliplus/plugin/ExportControl/type.js";
+import * as UTIL from "#foliplus/plugin/ExportControl/util.js";
 import { captureSources, pinBox } from "./renderer/fixture.js";
 
 // renderer.ts binds its logger to CONFIG.name at module-import time, so the
@@ -20,8 +20,8 @@ window.CONFIG = { ...window.CONFIG, name: "ExportControl" };
 // ever loads.  Hoisting a factory instead lets the tests control which tiles
 // resolve, which is what the drawn-count assertions measure.
 
-vi.mock("#foliplus/ExportControl/util.js", async () => {
-  const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
+vi.mock("#foliplus/plugin/ExportControl/util.js", async () => {
+  const actual = await vi.importActual<any>("#foliplus/plugin/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });

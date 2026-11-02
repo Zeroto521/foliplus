@@ -1,35 +1,35 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import { sliderOf } from "#foliplus/LayerControl/slider.js";
-import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
+import { ensureModes } from "#foliplus/core/mode.js";
+import * as CONST from "#foliplus/plugin/LayerControl/const.js";
+import type { LayerController } from "#foliplus/plugin/LayerControl/controller.js";
+import { sliderOf } from "#foliplus/plugin/LayerControl/slider.js";
+import { applyProjection } from "#foliplus/plugin/LayerControl/ui/apply.js";
+import type { LayerUI } from "#foliplus/plugin/LayerControl/ui/index.js";
 import {
   getIntent,
   seedIntentMap,
   setIntent,
-} from "#foliplus/LayerControl/ui/intent.js";
-import { renderInitialList } from "#foliplus/LayerControl/ui/listPanel/list.js";
+} from "#foliplus/plugin/LayerControl/ui/intent.js";
+import { renderInitialList } from "#foliplus/plugin/LayerControl/ui/listPanel/list.js";
 import {
   buildDelegatedBorderRow,
   renderDelegatedStylePanel,
-} from "#foliplus/LayerControl/ui/style/delegated.js";
+} from "#foliplus/plugin/LayerControl/ui/style/delegated.js";
 import {
   closeStylePanel,
   layerHasLabelFields,
   layerHasStyleDelegation,
-} from "#foliplus/LayerControl/ui/style/index.js";
-import { coerceAnnotationFields } from "#foliplus/LayerControl/ui/style/label.js";
+} from "#foliplus/plugin/LayerControl/ui/style/index.js";
+import { coerceAnnotationFields } from "#foliplus/plugin/LayerControl/ui/style/label.js";
 import {
   clampPct,
   resetLayerOpacity,
-} from "#foliplus/LayerControl/ui/style/opacity.js";
-import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
-import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { EVENTS } from "#foliplus/core/event/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+} from "#foliplus/plugin/LayerControl/ui/style/opacity.js";
+import { getDimension } from "#foliplus/plugin/LayerControl/ui/style/registry.js";
+import { resetLayerZoomRange } from "#foliplus/plugin/LayerControl/ui/style/zoomRange.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { registerPortalRoot } from "#common/portalRoot.js";

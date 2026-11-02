@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
-import * as CONST from "#foliplus/ExportControl/const.js";
-import { type CropState, ExportManager } from "#foliplus/ExportControl/manager.js";
+import * as CONST from "#foliplus/plugin/ExportControl/const.js";
+import {
+  type CropState,
+  ExportManager,
+} from "#foliplus/plugin/ExportControl/manager.js";
 import {
   removeCropBox,
   showCropBox,
   showGlobalHint,
-} from "#foliplus/ExportControl/ui.js";
+} from "#foliplus/plugin/ExportControl/ui.js";
 import { createScopedTranslator } from "#common/locale.js";
 
 // Minimal map mock satisfying ExportManager constructor + ui fn requirements.
