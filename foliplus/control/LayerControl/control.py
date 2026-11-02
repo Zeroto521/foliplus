@@ -25,6 +25,9 @@ class LayerControl(BaseControl):
     - 🎨 Solid-color replacement for base maps.
     - 🎨 Fill by value: color a layer by a numeric field with a classification
       method, class count, and scheme, or use a single fill color.
+    - 🎨 Declare an author default on the layer itself: ``foliplus={"fill": ...}``
+      paints the layer by value at load (a classify, not a flatten), with the
+      same per-layer namespace the label and zoom-range declarations use.
     - 🧰 Per-layer style drawer: opacity, zoom range, border, fill, size, and
       text labels with color, size, number format, and overlap control.
     - 🔎 Filter a layer's features live: a range on a numeric field, or a set
@@ -123,6 +126,14 @@ class LayerControl(BaseControl):
 
     >>> gdf.explore(foliplus={"label": {"field": "name", "collide": False}})
 
+    Declare a by-value fill as the layer's author default:
+
+    .. code-block:: python
+
+        >>> import geopandas as gpd
+        >>> gdf = gpd.read_file("boundaries.geojson")
+        >>> gdf.explore(foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}})
+
     Notes
     -----
     Recognised keys:
@@ -154,6 +165,23 @@ class LayerControl(BaseControl):
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
     | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+
+    How a ``fill`` declaration is resolved:
+
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+    | User panel choice (stored)  | The style panel's own solid or by-value choice wins: it is recorded as user intent and the declaration no longer paints.            |
+    +=============================+=====================================================================================================================================+
+    | Valid declaration           | The declared ramp paints each feature by ``field`` at load (classify, not flatten); Reset returns to it.                            |
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+    | No declaration              | The layer keeps its author paint: the per-feature colours from ``explore``, else the built-in solid.                                |
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+    | Ramp without a usable field | The whole declaration is dropped, never partly applied: the layer keeps its author paint and one warning reports the unusable ramp. |
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+    | Invalid declaration keys    | Each invalid key degrades on its own with a single warning; the panel default survives for the dropped key.                         |
+    +-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+
+    A declaration is a default, never a rewrite: it does not modify the
+    author's own layer data.
 
     The ``label`` declaration keys:
 
