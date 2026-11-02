@@ -219,9 +219,7 @@ def _assert_invariant(sample: dict) -> None:
     # The strip inset read from the DOM (--foliplus-scheme-picker-bar-inset-x)
     # rather than hardcoded, so the invariant tracks a consumer override too.
     inset = sample["itemInset"]
-    expected_right = min(
-        sample["paddingBoxRight"] - inset, sample["scrollportRight"]
-    )
+    expected_right = min(sample["paddingBoxRight"] - inset, sample["scrollportRight"])
     for bar in sample["itemBars"]:
         # The whole sample rides on the message: a mismatch is a geometry bug,
         # and the lane/width diagnostics are what identify its cause.
