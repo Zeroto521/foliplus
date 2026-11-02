@@ -88,9 +88,13 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
-  /* The item strip subtracts the lane from its right inset, so the lane must
-     be the same whether the list scrolls or fits — otherwise a list that
-     crosses the max-height would narrow every strip mid-session. */
+  /* The item extends under the reserved gutter via a negative right margin, so
+     its strip lands on the dropdown's content edge in both list states — no
+     subtractive inset, so a gutter wider than the inset cannot shorten the
+     strip. The gutter width is still measured (the negative margin needs the
+     exact reserved width) but no longer clamped. The negative margin must not
+     create a horizontal scrollbar. */
+  overflow-x: hidden;
   scrollbar-gutter: stable;
   /* Optional, and cheap: a scheme list of seven rows usually fits, but a
      custom long list should not get a full-width OS scrollbar. */
@@ -127,19 +131,16 @@
   display: flex;
   align-items: center;
   gap: var(--foliplus-space-md);
-  /* Same strip inset as the trigger bar. The item's reserved selection border
-     (below) sits *inside* the inset, so its strip lands on the trigger strip's
-     x on both sides — the trigger insets by the token, the item by the token
-     minus that border. */
-  padding: 0
-    max(
-      0px,
-      calc(
-        var(--foliplus-scheme-picker-bar-inset-x) -
-          var(--foliplus-scheme-picker-scrollbar-width)
-      )
-    )
-    0 var(--foliplus-scheme-picker-bar-inset-x);
+  /* Same strip inset as the trigger bar on the left. On the right the item
+     extends under the dropdown's reserved scrollbar gutter by its gutter width
+     (--foliplus-scheme-picker-scrollbar-width is now the gutter the browser
+     reserves, a geometric reference, not a value to subtract), so the strip
+     lands on the dropdown's content edge instead of short of it. A gutter
+     wider than the inset no longer clamps to 0 and shortens the strip; the
+     negative margin rides whatever width the gutter has. Hover covers the
+     gutter too. */
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
+  margin-right: calc(-1 * var(--foliplus-scheme-picker-scrollbar-width));
   height: var(--foliplus-menu-row-h);
   box-sizing: border-box;
   cursor: pointer;

@@ -322,12 +322,16 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   });
 
   it("insets the dropdown strip by the same token as the trigger", () => {
-    // The two bars line up only while both use one inset token: the trigger
-    // pads by it, the item pads by it minus its reserved selection border and
-    // the measured scrollbar lane (a layout scrollbar steals real width).
+    // The two bars line up only while both use one inset token on the left; on
+    // the right the item extends under the reserved scrollbar gutter by its
+    // lane (negative margin), so its strip lands on the dropdown's content
+    // edge instead of short of it. No subtractive inset, so a lane larger than
+    // the inset cannot shorten the strip.
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
     expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
-    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
+    expect(item).toContain(
+      "margin-right: calc(-1 * var(--foliplus-scheme-picker-scrollbar-width))",
+    );
     expect(item).not.toContain("border-left");
     // The selected row draws the same 3px bar as the shared dropdown row.
     const active = blockOf(scheme, ".foliplus-scheme-picker-item.foliplus-is-active {");
@@ -336,10 +340,37 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
 
   it("reserves the scrollbar lane in both list states", () => {
     // A stable gutter keeps the lane constant so crossing the max-height does
-    // not re-inset every strip; the item subtracts that same lane.
+    // not re-inset every strip; the item's negative margin rides that same
+    // lane. overflow-x hidden keeps the negative margin from scrolling.
     const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
     expect(dropdown).toContain("overflow-y: auto");
+    expect(dropdown).toContain("overflow-x: hidden");
     expect(dropdown).toContain("scrollbar-gutter: stable");
+  });
+
+  it("aligns the strip when the lane is 0 (overlay scrollbars)", () => {
+    // An overlay scrollbar reserves no gutter, so the lane reads 0; the
+    // negative margin collapses to 0 and the strip lands on the dropdown's
+    // content edge with no extension needed.
+    const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
+    expect(item).toContain(
+      "margin-right: calc(-1 * var(--foliplus-scheme-picker-scrollbar-width))",
+    );
+    // With lane = 0 this evaluates to margin-right: 0; the contract is that
+    // the rule stays uniform across platforms rather than special-casing 0.
+    expect(item).not.toContain("max(");
+  });
+
+  it("aligns the strip when the lane exceeds the inset", () => {
+    // A wide layout scrollbar (lane > inset) used to collapse max(0, inset -
+    // lane) to 0 and shorten the strip; the negative margin extends the item
+    // under the full gutter, so the strip still reaches the content edge.
+    const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
+    expect(item).toContain(
+      "margin-right: calc(-1 * var(--foliplus-scheme-picker-scrollbar-width))",
+    );
+    expect(item).not.toContain("max(");
+    expect(item).not.toContain("calc(var(--foliplus-scheme-picker-bar-inset-x) -");
   });
 
   it("defines the strip inset and scrollbar lane tokens in the token file", () => {

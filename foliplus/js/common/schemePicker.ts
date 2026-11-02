@@ -346,10 +346,12 @@ const getPortalHost = (state: InternalState): HTMLElement => {
  *
  *  A classic scrollbar reserves real width; an overlay one reserves none; and
  *  the dropdown's stable gutter keeps the lane the same in the scrolling and
- *  fitting states. The item strip subtracts the measured value from its right
- *  inset (scheme-picker.css), so it lands on the trigger strip's right edge in
- *  every combination. Re-measured when the dropdown is re-seated (fullscreen,
- *  resize), where the lane can change with the zoom level. */
+ *  fitting states. The item's negative right margin (scheme-picker.css) pulls
+ *  the strip under the reserved gutter by this lane, so it lands on the
+ *  dropdown's content edge in every combination — no subtractive inset, so a
+ *  lane larger than the inset no longer shortens the strip. Re-measured when
+ *  the dropdown is re-seated (fullscreen, resize), where the lane can change
+ *  with the zoom level. */
 /** A computed width as a plain number of CSS px; "" and "0px" both read as 0. */
 const borderPx = (value: string) => Number(value.replace(/[^0-9.]/g, ""));
 
@@ -503,9 +505,10 @@ const positionDropdown = (state: InternalState, dropdown: HTMLElement) => {
   // positioned dropdown states it in the offset instead, or the two would add.
   dropdown.style.marginTop = "0px";
 
-  // One flip rule for every dropdown surface (common/dropdown.ts): flip above
-  // only when the room below cannot show two rows AND the room above is
-  // larger. No per-surface special case.
+  // Flip above only when the room below cannot show the list AND the room
+  // above is larger. A per-surface flip unification across every dropdown
+  // surface (common/dropdown.ts) is a later step; this picker keeps its own
+  // rule.
   const spaceBelow = vh - rect.bottom - MENU_GAP;
   const spaceAbove = rect.top - MENU_GAP;
   const fitsBelow = spaceBelow >= dropdownRect.height;

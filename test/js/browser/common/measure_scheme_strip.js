@@ -22,8 +22,9 @@ triggerSelector => {
     parseFloat(style.borderLeftWidth) -
     parseFloat(style.borderRightWidth);
   // Diagnostics for an alignment failure: the strips can only match when the
-  // dropdown is as wide as the trigger and its item inset subtracts the lane it
-  // actually has. A stale dropdown width or an unmeasured lane shows up here.
+  // dropdown is as wide as the trigger and the item's negative right margin
+  // rides the gutter it actually has. A stale dropdown width or an unmeasured
+  // gutter shows up here.
   const content = trigger.closest(".foliplus-panel-content");
   return {
     ok: true,
