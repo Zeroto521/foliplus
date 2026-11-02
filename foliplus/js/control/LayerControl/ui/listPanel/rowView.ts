@@ -13,12 +13,12 @@
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
-import * as SVGs from "#foliplus/control/LayerControl/icon.js";
-import * as Util from "#foliplus/control/LayerControl/util.js";
 import { setLabelTitle } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
+import * as CONST from "#control/LayerControl/const.js";
+import * as SVGs from "#control/LayerControl/icon.js";
+import * as Util from "#control/LayerControl/util.js";
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";

@@ -16,10 +16,10 @@ import type {
   LayerFilter,
   LayerFilterModel,
 } from "#core/layer/index.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
-import { Slider } from "#foliplus/control/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
+import * as CONST from "#control/LayerControl/const.js";
+import { Slider } from "#control/LayerControl/slider.js";
 
 /** What a body may use from the panel: translations, the owner write bridge,
  *  the panel's number formatters and the popup surface an open control portals

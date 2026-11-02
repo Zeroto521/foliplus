@@ -5,7 +5,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { isInsideOverlay } from "#core/overlay.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
+import * as CONST from "#control/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
 import { runMenuAction } from "../overlayPanel/menu.js";

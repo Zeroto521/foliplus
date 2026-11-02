@@ -4,17 +4,17 @@ import { describe, expect, it } from "vitest";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
-// The layer order is common → core → ui → plugin: each layer may depend on
+// The layer order is common → core → ui → control: each layer may depend on
 // the layers below it, never the ones above. Concretely:
 //   - common: only #common (pure utilities; no DOM/config dependencies)
 //   - ui:     only #common + #ui (facade only today; may grow)
 //   - core:   #common + #core; core/leaflet may also use #ui
-//   - plugin: #common + #core + #ui + its OWN #control/<Name>
+//   - control: #common + #core + #ui + its OWN #control/<Name>
 //
 // The #control/* alias (added in this PR) namespaces component code. A
 // component may only import its own namespace (#control/<Name>/... or
 // #foliplus/control/<Name>/...); it must never import another component's
-// namespace, and no non-plugin layer may reach into #control/* at all.
+// namespace, and no non-control layer may reach into #control/* at all.
 //
 // Cross-boundary imports that predate this test are listed in ALLOWED (a
 // documented whitelist, same shape as the rowView/decoupling guards). Any
@@ -24,13 +24,13 @@ const REPO_ROOT = resolve(".");
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 
 // ── Layer classification ──────────────────────────────────────
-type Layer = "common" | "ui" | "core" | "plugin" | "root";
+type Layer = "common" | "ui" | "core" | "control" | "root";
 
 const layerOf = (rel: string): Layer => {
   if (rel.startsWith("foliplus/js/common/")) return "common";
   if (rel.startsWith("foliplus/js/ui/")) return "ui";
   if (rel.startsWith("foliplus/js/core/")) return "core";
-  if (rel.startsWith("foliplus/js/control/")) return "plugin";
+  if (rel.startsWith("foliplus/js/control/")) return "control";
   return "root";
 };
 
@@ -144,20 +144,20 @@ const collect = (): Array<[string, string, string]> => {
       const reason = allowed.get(spec);
       if (reason) continue;
 
-      // ── Rule 1: non-plugin layers must not reach into #control/* ──
-      if (layer !== "plugin") {
+      // ── Rule 1: non-control layers must not reach into #control/* ──
+      if (layer !== "control") {
         if (spec.startsWith("#control/") || spec.startsWith("#foliplus/control/")) {
           problems.push([
             rel.replace("foliplus/js/", ""),
             spec,
-            "non-plugin layer imports #control/*",
+            "non-control layer imports #control/*",
           ]);
           continue;
         }
       }
 
       // ── Rule 2: a component imports only its own namespace ──
-      if (layer === "plugin" && comp) {
+      if (layer === "control" && comp) {
         const target = spec.match(/^#(?:control|foliplus\/control)\/([A-Za-z0-9]+)/);
         if (target && target[1] !== comp) {
           problems.push([
@@ -201,15 +201,15 @@ describe("JS import boundaries", () => {
 
   it("every #control import stays within the component's own namespace", () => {
     const violations = collect();
-    const plugin = violations.filter(
+    const control = violations.filter(
       v => v[2].includes("cross-component") || v[2].includes("#control/*"),
     );
-    expect(plugin, plugin.map(v => v.join(" ")).join("\n")).toEqual([]);
+    expect(control, control.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
-  it("no non-plugin layer (common/ui/core/root) imports #control/*", () => {
+  it("no non-control layer (common/ui/core/root) imports #control/*", () => {
     const violations = collect().filter(
-      v => v[2] === "non-plugin layer imports #control/*",
+      v => v[2] === "non-control layer imports #control/*",
     );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });

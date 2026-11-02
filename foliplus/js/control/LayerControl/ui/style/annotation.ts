@@ -17,8 +17,6 @@
 import { dropdownSurface } from "#core/fullscreen.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
-import type { AnnotationConfig } from "#foliplus/control/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import { createDropdown } from "#common/dropdown.js";
 import {
@@ -32,6 +30,8 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import * as CONST from "#control/LayerControl/const.js";
+import type { AnnotationConfig } from "#control/LayerControl/type.js";
 import type { LayerUI } from "../surface.js";
 import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";

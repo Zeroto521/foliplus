@@ -37,11 +37,11 @@ import type {
 } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
-import * as SVGs from "#foliplus/control/LayerControl/icon.js";
-import { finishSlidersIn } from "#foliplus/control/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
+import * as CONST from "#control/LayerControl/const.js";
+import * as SVGs from "#control/LayerControl/icon.js";
+import { finishSlidersIn } from "#control/LayerControl/slider.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

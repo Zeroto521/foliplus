@@ -3,7 +3,7 @@
 // tries to focus a row the surface cannot focus.
 import { HINT_DURATION } from "#core/hint.js";
 import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
+import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "../surface.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as

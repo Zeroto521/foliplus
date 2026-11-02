@@ -32,11 +32,6 @@ import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import * as CONST from "#foliplus/control/LayerControl/const.js";
-import {
-  type DeclaredFill,
-  readDeclaredFill,
-} from "#foliplus/control/LayerControl/declaredFill.js";
 import { dom } from "#common/dom.js";
 import { dropdownOf } from "#common/dropdown.js";
 import {
@@ -49,6 +44,11 @@ import {
   numberInput,
 } from "#common/form.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import * as CONST from "#control/LayerControl/const.js";
+import {
+  type DeclaredFill,
+  readDeclaredFill,
+} from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";

@@ -61,7 +61,6 @@ def discover_js_components() -> set[str]:
         if (entry / "index.ts").is_file() or (entry / "index.js").is_file():
             names.add(entry.name)
     return names
-    return names
 
 
 def _read(path: Path) -> str:
