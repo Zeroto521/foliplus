@@ -57,7 +57,10 @@ interface PanelSpec {
   /** Live DOM, recomputed on every call (a rebuilt panel invalidates the nodes
    *  a previous press captured). */
   root(): HTMLElement | null;
-  /** Build the DOM + fill content + show. */
+  /** Build the DOM + fill content + show. Must be all-or-nothing: either it
+   *  completes (the surface is on screen) or it throws before mounting any
+   *  partial DOM. A throw detaches the entry and marks the controller
+   *  terminal (destroy), so the caller must build a fresh one. */
   open(): void;
   /** Tear down. Returning false = cannot close right now (a pending commit, a
    *  read-only notice); the controller stays open (rollback). */
@@ -74,7 +77,9 @@ interface PanelController {
   readonly dismiss: Readonly<Dismiss>;
   isOpen(): boolean;
   root(): HTMLElement | null;
-  /** Already open = no-op (idempotent). */
+  /** Already open = no-op (idempotent). A failed open (spec.open throws) is
+   *  terminal: the controller is destroyed and the registry entry detached,
+   *  so the caller must create a fresh controller. */
   open(): void;
   /** Already closed = false (no-op). Returning false means "cannot close right
    *  now" and the state rolls back to open (pending-commit semantics). */

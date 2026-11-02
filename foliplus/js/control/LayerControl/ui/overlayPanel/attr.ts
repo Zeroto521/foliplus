@@ -2,6 +2,8 @@
 import { EVENTS } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import {
+  type Dismiss,
+  type PanelController,
   attachPanel,
   createPanel,
   createRowPanel,
@@ -217,13 +219,13 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // the close-button press and closes with focus restore, swallowPress keeps
   // a mousedown off the row's drag handler. The registry entry is generated
   // by attachPanel below.
-  const controller = createPanel({
+  const controller: PanelController = createPanel({
     owner: "layer",
     localId: "attrs",
     rank: 600,
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
-    dismiss: { outsidePress: "mousedown" },
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     isOpen: () => ui.overlayPanel.activeAttrsPanel !== null,
     root: () => ui.overlayPanel.activeAttrsPanel?.panel ?? null,
     open: () => {

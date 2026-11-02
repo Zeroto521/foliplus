@@ -15,6 +15,8 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import {
+  type Dismiss,
+  type PanelController,
   attachPanel,
   createPanel,
   createRowPanel,
@@ -130,13 +132,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // controller is rebuilt per open, so it is not a persistent handle. Slices
   // 1-2 removed the inline register object (the true double bookkeeping);
   // these fields are not a second open/closed state.
-  const controller = createPanel({
+  const controller: PanelController = createPanel({
     owner: "layer",
     localId: "style",
     rank: 500,
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
-    dismiss: { outsidePress: "mousedown" },
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     isOpen: () => ui.overlayPanel.stylePanelLayerId !== null,
     root: () => ui.overlayPanel.stylePanelEl ?? null,
     open: () => {

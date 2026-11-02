@@ -36,6 +36,8 @@ import type {
   LayerInfo,
 } from "#core/layer/index.js";
 import {
+  type Dismiss,
+  type PanelController,
   attachPanel,
   createPanel,
   createRowPanel,
@@ -436,13 +438,13 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // the close-button press and closes with focus restore, swallowPress keeps
   // a mousedown off the row's drag handler. The registry entry is generated
   // by attachPanel below.
-  const controller = createPanel({
+  const controller: PanelController = createPanel({
     owner: "layer",
     localId: "filter",
     rank: 700,
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
-    dismiss: { outsidePress: "mousedown" },
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
     root: () => ui.overlayPanel.activeFilterPanel?.panel ?? null,
     open: () => {
