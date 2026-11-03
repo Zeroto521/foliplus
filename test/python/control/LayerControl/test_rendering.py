@@ -663,9 +663,27 @@ class TestLayerControlRendering:
         accent-primary (not accent-light) and the fold row cannot drift into a
         private hover style anymore."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, .foliplus-is-focused-row)" in css
-        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
+        # The recipe's :is() leads with the panel-hover carve-out. Pin the
+        # exact (whitespace-normalized) recipe shape — the old bare
+        # "is(:hover, .foliplus-is-focused-row)" now matches the base-row quiet
+        # rule (which keeps the old :is form) and would not point at the recipe.
+        flat = " ".join(css.split())
+        recipe_mark = (
+            "is( :hover:where(:not(:has(.foliplus-layer-style-panel:hover))), "
+            ".foliplus-is-focused-row )"
+        )
+        assert recipe_mark in flat, "Row-cursor recipe shape not found"
+        # The toggle-all row joins the SAME compound selector that carries this
+        # recipe (the &:is() parent), so it cannot drift into a private hover.
+        recipe_at = flat.index(recipe_mark)
+        group_start = flat.rfind(".foliplus-layer-item,", 0, recipe_at)
+        assert group_start != -1, "Row-cursor compound selector not found"
+        group_end = flat.index("{", group_start)
+        group = flat[group_start:group_end]
+        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
+            "toggle-all row must share the Row-cursor recipe's selector group"
+        )
+        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in flat
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--foliplus-accent-light)" not in css
