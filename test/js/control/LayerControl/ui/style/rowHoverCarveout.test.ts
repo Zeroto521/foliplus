@@ -94,7 +94,7 @@ describe("layer-row style-panel hover carve-out (stylesheet contract)", () => {
     // hovered basemap row shows no glow / white surface.
     const baseRule = selectorOf(row, BASE_RULE);
     expect(baseRule).toContain('[data-layer-type="base"]');
-    // Red→green evidence: the bare :not(:has()) form (the P1-A regression)
+    // Red to green evidence: the bare :not(:has()) form (the P1-A regression)
     // raises the recipe to (0,4,0) and is DETECTED; the :where() form is not.
     const broken =
       ":is(:hover, .foliplus-is-focused-row):not(:has(.foliplus-row-panel:hover))";
