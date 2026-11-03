@@ -1,4 +1,4 @@
-// The "more" menu items are native <button>s (task-12) so the input layer can
+// The "more" menu items are native <button>s so the input layer can
 // own Enter/Space. A button needs its native chrome reset — `background: none`
 // and `color: inherit` — but a plain reset ties the shared item rule's
 // specificity and, being in the component bundle (loaded after the shared one),

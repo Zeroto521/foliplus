@@ -291,7 +291,7 @@ describe("inZoomRange (author-declared range)", () => {
   });
 
   it("reports the policy degradation once; the row arm is silent", () => {
-    // task-56: the policy is the single place that warns about an unusable
+    // The policy is the single place that warns about an unusable
     // declaration. The row arm returns undefined (falls back to the map range)
     // and warns nothing — a fake [18, 18] is not a value the user could drag.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -333,7 +333,7 @@ describe("authorZoomRowRange (the row's fallback range)", () => {
     ({ id, layer: null, canvas: null, zoomRange }) as any;
 
   it("treats a declaration outside the map as undeclared (row falls back)", () => {
-    // task-56: the row must never draw a fake collapsed value. A declaration
+    // The row must never draw a fake collapsed value. A declaration
     // [20, 30] on a map capped at 18 is treated as undeclared, so the row
     // falls back to the map range — authorZoomRowRange returns undefined and
     // warns nothing (the policy owns the report).
