@@ -445,7 +445,6 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
-    isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
     root: () => ui.overlayPanel.activeFilterPanel?.panel ?? null,
     open: () => {
       item.style.position = "relative";

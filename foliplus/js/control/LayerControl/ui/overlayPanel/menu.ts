@@ -260,7 +260,6 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     rank: 800,
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
-    isOpen: () => ui.overlayPanel.activeMenu !== null,
     root: () => ui.overlayPanel.activeMenu?.menu ?? null,
     open: () => {
       item.style.position = "relative";

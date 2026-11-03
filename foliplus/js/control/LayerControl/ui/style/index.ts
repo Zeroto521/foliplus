@@ -139,7 +139,6 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
-    isOpen: () => ui.overlayPanel.stylePanelLayerId !== null,
     root: () => ui.overlayPanel.stylePanelEl ?? null,
     open: () => {
       item.style.position = "relative";

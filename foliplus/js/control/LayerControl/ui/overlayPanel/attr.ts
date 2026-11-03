@@ -226,7 +226,6 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     exclusiveGroup: "layer:rows",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
-    isOpen: () => ui.overlayPanel.activeAttrsPanel !== null,
     root: () => ui.overlayPanel.activeAttrsPanel?.panel ?? null,
     open: () => {
       item.style.position = "relative";
