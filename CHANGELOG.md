@@ -46,7 +46,7 @@
 - `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784), [#847](https://github.com/Zeroto521/foliplus/pull/847))
 - `HeatmapControl` / `LayerControl`: Escape dismisses one floating surface per press — the overlay registry closes the top-most by rank, so a portalled picker or enum takes the first press and its panel the next ([#783](https://github.com/Zeroto521/foliplus/pull/783), [#807](https://github.com/Zeroto521/foliplus/pull/807), [#809](https://github.com/Zeroto521/foliplus/pull/809))
 - Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
-- `SearchControl`: the result panel stays attached to the control when the page is scrolled — a fixed-position panel no longer adds the page scroll offset to its coordinates ([#866](https://github.com/Zeroto521/foliplus/pull/866))
+- `SearchControl`: the result panel stays attached when the page is scrolled ([#866](https://github.com/Zeroto521/foliplus/pull/866))
 
 ## [v0.4.1] (2026-10-18)
 

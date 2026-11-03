@@ -16,6 +16,11 @@ interface SearchControlState {
   cachedSuggestions: Cache<string, SuggestItem[]>;
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
+  /** True once the wheel containment listener is bound to panelWrap. Kept on
+   *  state so repeated renderResults calls (which reuse the same panel
+   *  element) do not stack a second listener; removePanel drops the element
+   *  and the listener with it. */
+  panelWheelBound?: boolean;
   selectedIdx: number;
   currentItems: ResultItem[];
   lastSuggestFetch: number;

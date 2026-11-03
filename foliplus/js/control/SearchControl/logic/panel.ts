@@ -101,7 +101,15 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
   // containment stops only a wheel that can actually scroll the panel (its own
   // overflow-y works); a wheel at a boundary or over a non-scrollable panel
   // keeps bubbling, so the map still zooms at the edges.
-  bindWheelContainment(ctrl.panelWrap);
+  //
+  // Bound once, inside the `??=` block: the panel element is created once and
+  // reused across renders (only its innerHTML is rebuilt), so binding here
+  // keeps the listener from stacking one per renderResults call. removePanel
+  // discards the element, and the listener is garbage-collected with it.
+  if (!ctrl.panelWheelBound) {
+    bindWheelContainment(ctrl.panelWrap);
+    ctrl.panelWheelBound = true;
+  }
 
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
