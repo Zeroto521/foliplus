@@ -4,13 +4,13 @@ import {
   closeButton,
   panelButton,
   sectionDivider,
-} from "#ui/panelElements.js";
+} from "#ui/panelChrome.js";
 
-// ui/panelElements builders are pure DOM structure. The class-name contract with
+// ui/panelChrome builders are pure DOM structure. The class-name contract with
 // the Python render-string tests is: a class passed to panelButton is joined
 // onto the same class attribute as the shared foliplus-panel-btn, in the same
 // order, so the rendered markup matches the long-standing reset/clear recipe.
-describe("ui/panelElements builders", () => {
+describe("ui/panelChrome builders", () => {
   it("sectionDivider emits the shared hairline", () => {
     expect(sectionDivider().outerHTML).toBe('<hr class="foliplus-section-divider">');
   });
