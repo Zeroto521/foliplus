@@ -150,6 +150,27 @@ const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
 const orderOf = (id: string): number =>
   ESC_PRIORITY[id as OverlayId] ?? Number.NEGATIVE_INFINITY;
 
+/** Ids in ESC_PRIORITY that no registered overlay can own. These surfaces are
+ *  owned by a mechanism outside the registry — an inline editor's own keydown
+ *  (rename), a Leaflet overlay on the map (focus spotlight), or a modal crop
+ *  box (export) — so the registry must never close them and they need no
+ *  registerer. The static consistency test requires every Escape table id to
+ *  be registered OR exempted here, with a reason; a bare table entry with no
+ *  registerer and no exemption is a contract break. */
+const OVERLAY_ESCAPE_EXEMPTIONS: Readonly<Partial<Record<OverlayId, string>>> = {
+  [OVERLAY_IDS.LAYER_RENAME]:
+    "inline editor in the row, not a floating surface; the rename input's own " +
+    "Escape handler cancels it (and inputOwnership lets the native editor keep " +
+    "the key), so it never registers a registry entry",
+  [OVERLAY_IDS.LAYER_FOCUS]:
+    "Leaflet map chrome (inverse-mask spotlight), not a DOM surface; " +
+    "LayerControl's container-bound handler cancels it when the panel holds focus",
+  [OVERLAY_IDS.EXPORT_CROP]:
+    "modal crop box handled by ExportControl's own document-level Escape " +
+    "handler; the crop layer lives outside the component container, so it " +
+    "never registers as a floating surface (reserved at M4 per escScope)",
+};
+
 interface OverlayRegistry {
   /** Register one surface. Returns its unregister; calling it twice is a no-op
    *  and a stale unregister cannot remove a newer entry with the same id. A
@@ -534,7 +555,13 @@ const ensureOverlayRegistry = (map: L.Map): OverlayRegistry => {
   return registry;
 };
 
-export { ESC_PRIORITY, OVERLAY_IDS, ensureOverlayRegistry, orderOf };
+export {
+  ESC_PRIORITY,
+  OVERLAY_ESCAPE_EXEMPTIONS,
+  OVERLAY_IDS,
+  ensureOverlayRegistry,
+  orderOf,
+};
 export type {
   EscapeHandled,
   OverlayEntry,
