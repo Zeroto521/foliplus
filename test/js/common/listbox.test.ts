@@ -919,3 +919,47 @@ it("open + close drains every document/window listener when ownDismiss is set", 
   listbox.destroy();
   expect(read()).toEqual(before);
 });
+
+describe("listbox engine: focusOnOpen selection (last row)", () => {
+  it("focusOnOpen last lands focus on the last enabled row", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+        { value: "c", label: "Gamma", disabled: true },
+      ],
+      selected: () => [],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "last-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "last-list",
+        row: "last-row",
+        portal: "last-portal",
+        up: "last-up",
+        open: "last-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      focusOnOpen: "last",
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    const rows = Array.from(
+      listbox.getList()?.querySelectorAll<HTMLElement>(".last-row") ?? [],
+    );
+    // last enabled row is b (c is disabled); enabledFrom walks -1 from the end.
+    expect(document.activeElement).toBe(rows[1]);
+  });
+});
