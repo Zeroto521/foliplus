@@ -177,8 +177,8 @@ class HeatmapControl(BaseControl):
     -----
     .. rubric:: Filter declaration
 
-    ``filter`` is a mapping with ``min`` and ``max`` (the enum arm, a list of
-    measurement types, belongs to ``MeasureControl``):
+    ``filter`` is a mapping with ``min`` and ``max`` (the list form, a list of
+    measurement-type names, belongs to ``MeasureControl``):
 
     +--------------------+----------------------+----------+----------------------------------------------+
     | Key                | Type                 | Required | Meaning                                      |
@@ -306,13 +306,13 @@ class HeatmapControl(BaseControl):
         # the AST the runtime reads (never the friendly shape). A 'field' key
         # inside the declaration, a range with no aggregation field to bind to
         # (no field=, or agg="count" — a count aggregates by nothing), or a
-        # list of value names (the enum arm, which belongs to MeasureControl)
+        # list of value names (the list form, which belongs to MeasureControl)
         # raises ValueError; a data-shaped problem warns and drops the
         # declaration instead of filtering to nothing.
         self.filter = normalize_declared_filter(
             filter,
             owner="HeatmapControl",
-            arm="range",
+            kind="range",
             # A count aggregation has no field to bind the range to — the
             # declaration is API misuse and raises (see range_atom).
             bound_field=self.field if agg != "count" else None,
