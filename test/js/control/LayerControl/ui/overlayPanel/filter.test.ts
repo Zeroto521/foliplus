@@ -3,7 +3,7 @@
 // the panel reads `filterProvider` (reopen echo, result readout) and writes
 // `filterSetter` through the shared Slider. The owner semantics themselves
 // (validation, clamping, per-source attribution) are pinned in
-// test/js/HeatmapControl/filter.test.ts.
+// test/js/control/HeatmapControl/manager.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
