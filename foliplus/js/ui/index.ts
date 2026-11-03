@@ -1,3 +1,4 @@
 // ui/ — panel appearance composition layer.
-// Empty export: implementations land with the panel shell and the read-only field.
+// Empty export: the affordance builders (affordance.ts) and the read-only value
+// primitive (form.ts) are the current surface; the panel shell is a later slice.
 export {};
