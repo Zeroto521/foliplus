@@ -204,7 +204,7 @@ class LayerControl(BaseControl):
     +-------------------------------+--------------------------------------------------------------+
 
     A declaration is a default, never a rewrite: it does not modify the
-    author's own layer data.
+    layer's own data.
 
     """
 
