@@ -37,7 +37,7 @@ import {
   initFixture,
   installLeafletGlobals,
   oneOverlay,
-} from "./fixture.js";
+} from "../fixture.js";
 
 // The carrier contract promises pane coverage only to migratable families
 // (Path / Marker / GridLayer / ImageOverlay). Style-row stubs for vector

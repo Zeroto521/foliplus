@@ -166,7 +166,7 @@ class MeasureControl(BaseControl):
     -----
     .. rubric:: Filter declaration
 
-    ``filter`` is a list of measurement-type names (the range arm, a
+    ``filter`` is a list of measurement-type names (the min/max mapping form, a
     ``min``/``max`` mapping, belongs to ``HeatmapControl``):
 
     +--------------+----------+----------+--------------------------------------------------+
@@ -272,7 +272,7 @@ class MeasureControl(BaseControl):
         # is the AST the runtime reads. Two values, one name only on the public
         # surface: CONF must not grow a second filter dialect.
         self.filter = normalize_declared_filter(
-            filter, owner="MeasureControl", arm="enum", enum_field=MEASURE_TYPE_FIELD
+            filter, owner="MeasureControl", kind="enum", enum_field=MEASURE_TYPE_FIELD
         )
         self.filename = filename
         self.export_format = export_format

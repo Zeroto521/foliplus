@@ -4,7 +4,7 @@ The declaration is the friendly {min, max} shape, bound to the aggregation
 field (field=); Python normalises it into the shared filter AST the runtime
 already reads, so CONF never grows a second dialect. These tests assert the
 shipped payload and the two failure modes: API misuse (a field key inside the
-filter, a range with no bound field, or a list of values — the enum arm that
+filter, a range with no bound field, or a list of values — the list form that
 belongs to MeasureControl) raises at construction, data-shaped problems warn
 and leave the filter undeclared.
 """
@@ -130,7 +130,7 @@ def test_a_between_key_is_now_unknown_and_warns():
 
 
 def test_an_enum_declaration_raises_and_points_at_measure_control():
-    # The enum arm belongs to MeasureControl; a Heatmap declaration that names
+    # The list form belongs to MeasureControl; a Heatmap declaration that names
     # values has no panel dimension to render it on. This is the wrong control,
     # not a data-shaped problem, so it raises where the author can fix it.
     with pytest.raises(ValueError, match="enum filters belong to MeasureControl"):
