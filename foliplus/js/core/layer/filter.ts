@@ -51,28 +51,20 @@ type FilterExpr =
 type LayerFilter = FilterExpr | undefined;
 
 /** One dimension a filter-capable owner exposes to the panel. The owner
- *  localizes both captions (panel chrome never translates component
- *  vocabulary) and supplies the value domain: numeric extents for `range`, a
- *  closed option list for `enum`. The panel renders one dimension today; the
- *  array keeps a multi-dimension UI a new renderer rather than a model
- *  migration.
+ *  supplies the value domain — numeric extents for `range`, a closed option
+ *  list for `enum` — while every caption stays panel chrome: every owner
+ *  reads the same shared locale keys (`filter_field` / `filter_range` /
+ *  `filter_enum`), so the wording cannot drift between components. The panel
+ *  renders one dimension today; the array keeps a multi-dimension UI a new
+ *  renderer rather than a model migration.
  *
- *  A `range` dimension renders up to two rows: the field row — `fieldLabel`
- *  ("Field") over the read-only field name — and the condition row, where
- *  `label` names the control ("Range"). The owner always passes a
- *  `fieldLabel` (the Heatmap shows the aggregation field `field=` chose as a
- *  read-only row, so the filter reads unambiguously). It must be a localized
- *  caption and never degrades to `field`: a raw field name in the caption
- *  column is the bug this contract exists to prevent (#779 review). */
+ *  A `range` dimension renders up to two rows: the field row — a shared
+ *  "Field" caption over the read-only field name — and the condition row,
+ *  whose caption is the shared "Range" wording. `field` is the value cell,
+ *  never the caption (#779 review). */
 type FilterRangeDimension = {
   readonly kind: "range";
   readonly field: string;
-  /** Owner-localized caption of the read-only field row ("Field"). */
-  readonly fieldLabel: string;
-  /** Caption of the condition row ("Range"). Empty when the panel's own
-   *  wording applies — panel chrome, not component vocabulary, so `core`
-   *  cannot supply it. */
-  readonly label: string;
   readonly range: readonly [number, number];
   readonly step: number;
   /** Formats a number for the rail and the readout; raw numbers when absent. */
@@ -89,7 +81,6 @@ type FilterEnumOption = {
 type FilterEnumDimension = {
   readonly kind: "enum";
   readonly field: string;
-  readonly label: string;
   readonly options: ReadonlyArray<FilterEnumOption>;
   /** Whether more than one option may be selected. Defaults to true. */
   readonly multi?: boolean;
@@ -382,9 +373,7 @@ const buildFilterModel = (
   snapshot: LayerSnapshot | null,
   filter: LayerFilter,
   preferredField: string,
-  fieldLabel: string,
   counts?: { kept: number; total: number },
-  label = "",
 ): LayerFilterModel | null => {
   if (!snapshot || snapshot.numericFields.length === 0) return null;
   const field = pickFilterField(snapshot, preferredField);
@@ -394,13 +383,6 @@ const buildFilterModel = (
       {
         kind: "range",
         field,
-        // The field row names the dimension's field; the condition row names
-        // the control. fieldLabel is a localized caption that never falls back
-        // to the raw field name — the panel would then print it as the caption
-        // and leave the read-only cell empty, which is the defect this shape
-        // replaces.
-        fieldLabel,
-        label,
         range,
         step: filterStep(range),
       },
