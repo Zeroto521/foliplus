@@ -23,8 +23,8 @@ type LayerData = {
     scale?: {
       kind: "continuous" | "stepped";
       column?: string;
-      vmin: number;
-      vmax: number;
+      vmin?: number;
+      vmax?: number;
       levels?: number;
       method?: "equal" | null;
     };

@@ -22,6 +22,7 @@
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
+  inferFieldKind,
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
@@ -47,13 +48,11 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
+import { createLogger } from "#common/log.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import { readOnlyValue } from "#ui/panelField.js";
 import * as CONST from "#control/LayerControl/const.js";
-import {
-  type DeclaredFill,
-  readDeclaredFill,
-} from "#control/LayerControl/declaredFill.js";
+import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -83,6 +82,8 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+
+const log = createLogger("foliplus");
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
@@ -674,6 +675,30 @@ const resolvedRamp = (
         ),
       };
 
+/** One-time inference-drop warnings, keyed by layer:field so a declaration
+ *  re-read (apply / panel / Reset) does not repeat the line. The inference
+ *  result itself is cached in core/field.ts (declaration-lifetime, not
+ *  re-inferred on contentChange); this only dedups the message. */
+const inferredKindWarned = new Set<string>();
+
+/** Warn once that a declaration was dropped because its field cannot drive a
+ *  single fill kind — the values mix number and category kinds ("mixes"), or
+ *  no usable value exists to infer the kind from (all null / no feature). */
+const warnDeclaredFillInference = (
+  layerId: string,
+  field: string,
+  inferred: "mixed" | "empty",
+): void => {
+  const scope = `${layerId}:${field}`;
+  if (inferredKindWarned.has(scope)) return;
+  inferredKindWarned.add(scope);
+  log.warn(
+    inferred === "mixed"
+      ? `declared fill: field "${field}" on layer "${layerId}" mixes number and category values; dropping the declaration`
+      : `declared fill: no usable value to infer the fill kind from field "${field}" on layer "${layerId}"; dropping the declaration`,
+  );
+};
+
 /** The author's fill declaration in force on this layer, or undefined.
  *
  *  A declaration is a read-time default, not user intent: any fill ramp or
@@ -683,25 +708,52 @@ const resolvedRamp = (
  *  field vanished is not silently re-pointed at another column; the whole
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined => {
+const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  const declared = readDeclaredFill(
-    layerInfo?.layer ?? ui.c.findLayer(layerId),
-    layerId,
-  ).declared;
-  if (!declared?.ramp) return declared;
+  const layer = layerInfo?.layer ?? ui.c.findLayer(layerId);
+  const declared = readDeclaredFill(layer, layerId).declared;
+  if (!declared) return undefined;
+  // Resolve the arm kind. An explicit kind is the author's override and is
+  // never re-inferred (the parse layer already validated it against its
+  // scheme); an absent kind is inferred from the layer's own values — a
+  // declaration is a read-time default, so the data is the truth about which
+  // arm the values can drive. A field that cannot drive one kind (mixed
+  // number/category values) or drives none (all null / no feature) drops the
+  // declaration whole rather than painting one arm over a mismatched column.
+  let config: FillRampConfig = declared;
+  if (declared.kind === undefined) {
+    const inferred = inferFieldKind(layer, declared.field);
+    if (inferred === "mixed" || inferred === "empty") {
+      warnDeclaredFillInference(layerId, declared.field, inferred);
+      return undefined;
+    }
+    config =
+      inferred === "category"
+        ? {
+            ...declared,
+            kind: "category",
+            // An inferred categorical column needs a qualitative palette. The
+            // author who named none gets the category default; a named scheme
+            // is the author's choice and is kept verbatim on either arm.
+            scheme:
+              declared.scheme === CONST.RAMP.SCHEME_DEFAULT
+                ? CONST.RAMP.CATEGORY_SCHEME_DEFAULT
+                : declared.scheme,
+          }
+        : { ...declared, kind: "numeric" };
+  }
   // The declaration kind selects the candidate set: a category ramp
   // needs its column among the categorical fields, a numeric ramp among
   // the numeric ones. A declaration whose field vanished from the matching
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
   const fields =
-    (declared.ramp.kind ?? "numeric") === "category"
+    (config.kind ?? "numeric") === "category"
       ? categoryFields(ui, layerId)
       : numericFields(ui, layerId);
-  return fields.includes(declared.ramp.field) ? declared : undefined;
+  return fields.includes(config.field) ? config : undefined;
 };
 
 /** A fill ramp the layer *declares* from Python (#789).
@@ -712,10 +764,8 @@ const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined =>
  *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
-  const declared = declaredFill(ui, layerId);
-  return declared?.mode === "ramp" ? declared.ramp : undefined;
-};
+const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined =>
+  declaredFill(ui, layerId);
 
 /** The ramp config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared ramp. */
@@ -727,8 +777,8 @@ const effectiveFillRamp = (ui: LayerUI, layerId: string): FillRampConfig | undef
 const hasDeclaredRamp = (ui: LayerUI, layerId: string): boolean => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   return (
-    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared
-      ?.mode === "ramp"
+    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared !==
+    undefined
   );
 };
 
@@ -1296,7 +1346,7 @@ const replayDeclaredFill = (ui: LayerUI, id: string): void => {
   for (const key of FILL_INTENT_KEYS) {
     if (getIntent(ui, id, key) !== undefined) return;
   }
-  if (declaredFill(ui, id)?.mode !== "ramp") return;
+  if (declaredFill(ui, id) === undefined) return;
   let painted = declaredReplayed.get(ui);
   if (painted?.has(id)) return;
   applyFillToLayer(ui, id);
@@ -1320,7 +1370,7 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   // No user intent: an author-declared ramp still has to reach the map on
   // attach — a declaration is a read-time default, not a stored override, so
   // nothing else replays it and the map would open on the per-feature paint.
-  if (declaredFill(ui, id)?.mode === "ramp") applyFillToLayer(ui, id);
+  if (declaredFill(ui, id) !== undefined) applyFillToLayer(ui, id);
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -1382,7 +1432,7 @@ const FILL_DIMENSION = registerDimension<{
     // The declaration is Reset's target too: clearing the user's intent must
     // reveal the author's declared ramp, not the per-feature paint beneath
     // it. Applying here reads the declaration from the layer (no intent left).
-    if (declaredFill(ui, layerId)?.mode === "ramp") {
+    if (declaredFill(ui, layerId) !== undefined) {
       applyFillToLayer(ui, layerId);
       return;
     }

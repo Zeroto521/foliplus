@@ -315,8 +315,8 @@ interface FillAuthorScale {
    *  optional shape keeps a hand-built record safe, and the panel then draws
    *  the strip without naming a field. */
   column?: string;
-  vmin: number;
-  vmax: number;
+  vmin?: number;
+  vmax?: number;
   /** Stepped scales only: how many classes the author drew. */
   levels?: number;
   /** The classification method the panel can *prove* from the shipped

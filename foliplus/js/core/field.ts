@@ -124,11 +124,84 @@ const categoryDomain = (
 const resolveField = (stored: string, fields: readonly string[]): string =>
   stored && fields.includes(stored) ? stored : (fields[0] ?? "");
 
+/** The kind a layer field's values can drive. "numeric" for finite numbers,
+ *  "category" for non-empty strings and booleans, "mixed" when both appear,
+ *  "empty" when no usable value exists at all (all null, or no feature). */
+type InferredFieldKind = "numeric" | "category" | "mixed" | "empty";
+
+/** How many leaves the kind inference samples before it stops walking. A
+ *  categorical column can hold thousands of rows, but the inference only needs
+ *  to see the first non-null value to type the field and one more to detect a
+ *  mix, so 64 is far more than enough and keeps the declaration read cheap. */
+const INFER_SAMPLE_CAP = 64;
+
+/** Classify one non-null value into the kind it can drive, or undefined when
+ *  the value is not a usable number or label (NaN / Infinity / an empty string
+ *  / an object — the same non-values the numeric and category predicates skip). */
+const valueKindOf = (value: unknown): "numeric" | "category" | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return "numeric";
+  if (typeof value === "boolean") return "category";
+  if (typeof value === "string" && value.length > 0) return "category";
+  return undefined;
+};
+
+/** Per-(layer, field) inference cache. The result is declaration-lifetime: a
+ *  streamed addData that introduces a new type does NOT re-infer, so a field
+ *  keeps the kind the declaration first saw — the same lifetime rule the
+ *  declaration read itself follows (contentChange never invalidates this).
+ *  Keyed by (layer, field) because one layer's columns can be different kinds. */
+const inferredKindCache = new WeakMap<object, Map<string, InferredFieldKind>>();
+
+/** Infer the fill kind a layer's field drives, from the first usable values.
+ *
+ *  A pure reader — it only walks leaves and reads `feature.properties[field]`,
+ *  and caches its result per (layer, field) so the declaration path never
+ *  re-walks. The rule: skip null / non-usable values, type the first usable
+ *  one (number → "numeric"; non-empty string / boolean → "category"), and
+ *  report "mixed" as soon as a second, different kind appears. All-null or no
+ *  features reads "empty". The caller decides what "mixed" / "empty" mean
+ *  (the fill declaration drops itself on both); this function only classifies.
+ *
+ *  @param layer the carrier to sample; a null/undefined or non-object carrier
+ *    reads "empty" (nothing to infer from).
+ *  @param field the property name to read under `feature.properties`.
+ */
+const inferFieldKind = (layer: unknown, field: string): InferredFieldKind => {
+  if (layer === null || typeof layer !== "object") return "empty";
+  const byField = inferredKindCache.get(layer as object);
+  if (byField?.has(field)) return byField.get(field)!;
+  let kind: InferredFieldKind | undefined;
+  let count = 0;
+  walkLeaf(layer as L.Layer, leaf => {
+    if (kind === "mixed" || count >= INFER_SAMPLE_CAP) return;
+    const props = leafProperties(leaf);
+    if (!props) return;
+    const valueKind = valueKindOf(props[field]);
+    if (valueKind === undefined) return;
+    count++;
+    if (kind === undefined) {
+      kind = valueKind;
+    } else if (kind !== valueKind) {
+      kind = "mixed";
+    }
+  });
+  const result = kind ?? "empty";
+  let store = byField;
+  if (!store) {
+    store = new Map();
+    inferredKindCache.set(layer as object, store);
+  }
+  store.set(field, result);
+  return result;
+};
+
 export {
   categoricalPropertiesKeys,
   categoryDomain,
+  inferFieldKind,
   isCategoryValue,
   isNumericValue,
   numericPropertiesKeys,
   resolveField,
 };
+export type { InferredFieldKind };

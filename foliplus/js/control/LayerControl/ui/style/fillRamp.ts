@@ -75,6 +75,18 @@ const leafPropertyValue = (leaf: StyleSetter, key: string): unknown => {
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+/** A value that can be a categorical label.
+ *
+ *  A non-empty string is a label as-is. A boolean is a label too — the fill
+ *  kind inference types booleans as category — but the palette is keyed by
+ *  string, so a boolean is stringified for the lookup ("true" / "false").
+ *  Anything else (a number, null, an empty string, an object) reads as "no
+ *  label", the same answer `isCategoryValue` gave before booleans joined. */
+const categoryLabel = (value: unknown): string | undefined => {
+  if (typeof value === "boolean") return String(value);
+  return isCategoryValue(value) ? value : undefined;
+};
+
 /** One collected leaf: the node plus its finite drive value, if any. */
 type CollectedLeaf = {
   leaf: StyleSetter;
@@ -174,7 +186,7 @@ const applyRampToLayer = (
   walkFillLeaves(layer, leaf => {
     const read = leafPropertyValue(leaf, ramp.field);
     if (category) {
-      const text = isCategoryValue(read) ? read : undefined;
+      const text = categoryLabel(read);
       // buildCategoryRamp maps DISTINCT labels to colors in first-seen
       // order, so a repeated label must not re-index the palette: only the
       // first sighting seeds the domain, later ones reuse the same color.
@@ -271,9 +283,12 @@ const applyRampToLayer = (
       if (!sameRampConfig(currentRamp, ramp)) return null;
       const op = readOpacity();
       const curVal = leafPropertyValue(leaf, ramp.field);
-      if (category && catScale !== null && isCategoryValue(curVal)) {
-        const color = catScale.colors.get(curVal) ?? catScale.other;
-        return styleDimPayload({ fillColor: color, fillOpacity: op }, FACE.FILL);
+      if (category && catScale !== null) {
+        const label = categoryLabel(curVal);
+        if (label !== undefined) {
+          const color = catScale.colors.get(label) ?? catScale.other;
+          return styleDimPayload({ fillColor: color, fillOpacity: op }, FACE.FILL);
+        }
       }
       if (!category && scale !== null && isFiniteNumber(curVal)) {
         // fill:true rides the replay too — folium's resetStyle would otherwise
