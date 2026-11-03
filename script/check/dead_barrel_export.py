@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import builtins
 import keyword
-import os
 import re
 import sys
 from collections import defaultdict, deque
@@ -43,6 +42,43 @@ PY_SCAN_DIR = "foliplus"
 
 # Hard-coded exemptions.
 CONFIG_SCHEMA = "foliplus/js/config-schema.ts"
+
+# ---------------------------------------------------------------------------
+# Path helpers (pure-pathlib replacements for os.path.normpath / os.path.relpath)
+# ---------------------------------------------------------------------------
+
+
+def _normpath(path: str | Path) -> Path:
+    """Lexically normalise a path (collapse ``.``/``..``) without touching disk.
+
+    Mirrors ``os.path.normpath`` for the relative/absolute paths used here:
+    leading ``..`` segments are preserved, inner ``..`` collapse a parent.
+    """
+    p = Path(path)
+    anchor = p.anchor
+    parts: list[str] = []
+    for part in p.parts:
+        if part == "..":
+            if parts and parts[-1] != ".." and parts[-1] != anchor:
+                parts.pop()
+            elif parts and parts[-1] == anchor:
+                # Clamped at the root/drive anchor: a leading ".." cannot
+                # escape it (os.path.normpath keeps the anchor).
+                continue
+            else:
+                parts.append(part)
+        else:
+            parts.append(part)
+    return Path(*parts)
+
+
+def _relpath(path: str | Path, base: str | Path) -> str:
+    """Return *path* relative to *base*, forward-slash separated.
+
+    Mirrors ``os.path.relpath(path, base).replace(os.sep, "/")``.
+    """
+    return Path(path).relative_to(Path(base)).as_posix()
+
 
 # IIFE entry detection: ``new XxxControl(...)`` at the file bottom.
 IIFE_ENTRY_RE = re.compile(r"new\s+\w+Control\s*\(")
@@ -247,7 +283,7 @@ def parse_file(filepath: str, text: str, repo_root: str) -> FileAnalysis:
 
     # Detect IIFE entry, test file, exempt file, barrel scope
     fa.is_iife_entry = bool(IIFE_ENTRY_RE.search(text))
-    rel = os.path.relpath(filepath, repo_root).replace(os.sep, "/")
+    rel = _relpath(filepath, repo_root)
     fa.is_test_file = rel.startswith("test/js/") or rel.startswith("test/python/")
     fa.is_exempt = rel == CONFIG_SCHEMA
     fa.is_barrel_scope = (
@@ -364,45 +400,45 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
     - Directory: ``./x.js`` → ``./x/index.ts`` if x is a directory
     """
     if specifier.startswith("#common/"):
-        base = os.path.join(repo_root, "foliplus/js/common")
+        base = Path(repo_root) / "foliplus" / "js" / "common"
         spec = specifier[len("#common/") :]
     elif specifier.startswith("#core/"):
-        base = os.path.join(repo_root, "foliplus/js/core")
+        base = Path(repo_root) / "foliplus" / "js" / "core"
         spec = specifier[len("#core/") :]
     elif specifier.startswith("#foliplus/"):
-        base = os.path.join(repo_root, "foliplus/js")
+        base = Path(repo_root) / "foliplus" / "js"
         spec = specifier[len("#foliplus/") :]
     elif specifier.startswith("#control/"):
         # New component namespace (foliplus/js/control/), same shape as #core:
         # the barrel/type graph must resolve it or test-file consumer edges
         # vanish and live exports go spuriously dead.
-        base = os.path.join(repo_root, "foliplus/js/control")
+        base = Path(repo_root) / "foliplus" / "js" / "control"
         spec = specifier[len("#control/") :]
     elif specifier.startswith("#script/"):
-        base = os.path.join(repo_root, "script")
+        base = Path(repo_root) / "script"
         spec = specifier[len("#script/") :]
     elif specifier.startswith("./") or specifier.startswith("../"):
-        base = os.path.dirname(from_file)
+        base = Path(from_file).parent
         spec = specifier
     else:
         return None  # External module (e.g., "leaflet", "lodash")
 
     # Resolve the path
-    full_path = os.path.normpath(os.path.join(base, spec))
+    full_path = _normpath(base / spec)
 
     # Try .ts extension (strip .js if present)
-    if full_path.endswith(".js"):
-        full_path = full_path[:-3]
+    if str(full_path).endswith(".js"):
+        full_path = full_path.with_suffix("")
 
     # Try direct .ts file
-    ts_path = full_path + ".ts"
-    if os.path.isfile(ts_path):
-        return os.path.normpath(ts_path)
+    ts_path = Path(str(full_path) + ".ts")
+    if ts_path.is_file():
+        return str(_normpath(ts_path))
 
     # Try /index.ts (directory import)
-    index_path = os.path.join(full_path, "index.ts")
-    if os.path.isfile(index_path):
-        return os.path.normpath(index_path)
+    index_path = _normpath(full_path / "index.ts")
+    if index_path.is_file():
+        return str(index_path)
 
     return None
 
@@ -416,23 +452,20 @@ def find_ts_files(repo_root: str) -> set[str]:
     """Find all .ts files in the scan directories."""
     files: set[str] = set()
     for subdir in TS_SCAN_DIRS:
-        path = os.path.join(repo_root, *subdir.split("/"))
-        if os.path.isdir(path):
-            for root, _dirs, filenames in os.walk(path):
-                for fn in filenames:
-                    if fn.endswith(".ts"):
-                        files.add(os.path.join(root, fn))
+        path = Path(repo_root) / subdir
+        if path.is_dir():
+            files.update(str(p) for p in path.rglob("*.ts"))
     return files
 
 
 def find_python_files(repo_root: str) -> set[str]:
     """Find all .py files in the foliplus/ directory."""
     files: set[str] = set()
-    path = os.path.join(repo_root, PY_SCAN_DIR)
-    if os.path.isdir(path):
-        for fn in os.listdir(path):
-            if fn.endswith(".py"):
-                files.add(os.path.join(path, fn))
+    path = Path(repo_root) / PY_SCAN_DIR
+    if path.is_dir():
+        for fn in path.iterdir():
+            if fn.name.endswith(".py"):
+                files.add(str(fn))
     return files
 
 
@@ -697,7 +730,7 @@ def main() -> int:
 
     # Report
     for filepath, lineno, sym, kind in dead:
-        rel = os.path.relpath(filepath, repo_root).replace(os.sep, "/")
+        rel = _relpath(filepath, repo_root)
         loc = f"{rel}:{lineno}" if lineno else rel
         print(
             f"{loc}: dead barrel export '{sym}' — "
