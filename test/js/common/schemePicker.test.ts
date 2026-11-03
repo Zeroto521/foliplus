@@ -1179,6 +1179,9 @@ describe("portal position clamps", () => {
       window.dispatchEvent(new Event("scroll"));
       expect(dropdown.style.left).toBe("392px");
       expect(dropdown.style.top).toBe("8px");
+      // P2-1: a fixed (portalled) mount must not stack the CSS in-flow gap
+      // on top of the offset gap — the 4px menu-gap is expressed once.
+      expect(dropdown.style.marginTop).toBe("0px");
 
       window.dispatchEvent(new Event("resize"));
       expect(dropdown.style.top).toBe("8px");
@@ -1190,6 +1193,7 @@ describe("portal position clamps", () => {
       Object.defineProperty(window, "innerHeight", { value: 500, configurable: true });
       window.dispatchEvent(new Event("scroll"));
       expect(dropdown.style.top).toBe("96px");
+      expect(dropdown.style.marginTop).toBe("0px");
     } finally {
       if (innerWidth) Object.defineProperty(window, "innerWidth", innerWidth);
       if (innerHeight) Object.defineProperty(window, "innerHeight", innerHeight);

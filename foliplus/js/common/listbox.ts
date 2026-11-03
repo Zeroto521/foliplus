@@ -145,11 +145,11 @@ interface ListboxSpec {
    *  open (single closes, multiple stays) and refreshes the row state. */
   onRowActivate: (index: number) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
-  /** Positioning strategy. "listbox" (default) is the shared dropdown rule
-   *  (max-content width, room-based clamp, flip by a two-row minimum). "picker"
-   *  is the scheme picker's historical rule: fixed trigger width, 8px viewport
-   *  edge clamp, flip by the full popup height. */
-  position?: "listbox" | "picker";
+  /** Positioning strategy. "auto" (default) is the shared dropdown rule
+   *  (max-content width, room-based clamp, flip by a two-row minimum). "fixed"
+   *  fixes the popup to the trigger width with an 8px viewport edge clamp and
+   *  flips by the full popup height (the scheme picker's historical rule). */
+  place?: "auto" | "fixed";
   /** Focus a row on open. The picker lands on the selected row (fallback row
    *  0); the dropdown focuses nothing (its rows are reached by keyboard). */
   focusOnOpen?: "first" | "last" | "selected";
@@ -162,10 +162,10 @@ interface ListboxSpec {
   inline?: boolean;
   /** Inline mount host. Default: trigger.parentElement ?? trigger. */
   inlineHost?: () => HTMLElement;
-  /** Trigger keyboard mode. "native" (dropdown): Arrow opens and focuses; no
-   *  Enter/Space handling (a <button> trigger fires its own click). "cycle"
-   *  (picker): Arrow cycles the selection without opening, Enter/Space open. */
-  triggerKeys?: "native" | "cycle";
+  /** Trigger keyboard mode. "open" (default): Arrow opens and focuses the list;
+   *  Enter/Space is left to the trigger (a <button> fires its own click).
+   *  "cycle": Arrow cycles the selection without opening, Enter/Space open. */
+  triggerKeys?: "open" | "cycle";
   /** stopPropagation on a trigger click. The picker's trigger sits inside a
    *  panel whose own handlers must not see the press. */
   stopTriggerClick?: boolean;
@@ -396,7 +396,7 @@ const positionList = (state: InternalState): void => {
   const desired = Math.min(natural, rowHeight * MAX_VISIBLE_ROWS);
   const space = spaceAround(state.trigger);
   const fitsBelow =
-    state.spec.position === "picker"
+    state.spec.place === "fixed"
       ? space.below >= natural
       : space.below >= Math.min(desired, rowHeight * MIN_ROWS_BELOW);
   const up = !fitsBelow && space.above > space.below;
@@ -421,7 +421,7 @@ const positionList = (state: InternalState): void => {
     Math.min(contentWidth, Math.max(rect.width, room)),
   );
   list.style.width = `${String(width)}px`;
-  if (state.spec.position === "picker") {
+  if (state.spec.place === "fixed") {
     // Fixed trigger width, right-edge clamp at 8px, top/bottom clamp at 8px.
     list.style.width = `${String(rect.width)}px`;
     const vw = window.innerWidth;

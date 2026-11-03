@@ -791,120 +791,131 @@ describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
   });
 });
 
-describe("listbox engine: listener hygiene (no registration before open)", () => {
-  it("createListbox + destroy without open() registers nothing on document/window", () => {
-    // Instrument EventTarget.prototype to count document/window listeners.
-    const ET = EventTarget.prototype;
-    const origAdd = ET.addEventListener;
-    const origRemove = ET.removeEventListener;
-    let docCount = 0;
-    let winCount = 0;
-    const bump = (target: EventTarget, delta: number) => {
-      if (target === document) docCount += delta;
-      else if (target === window) winCount += delta;
-    };
-    ET.addEventListener = function (type, fn, options) {
-      bump(this, 1);
-      return origAdd.call(this, type, fn, options);
-    };
-    ET.removeEventListener = function (type, fn, options) {
-      bump(this, -1);
-      return origRemove.call(this, type, fn, options);
-    };
-    try {
-      const trigger = document.createElement("button");
-      trigger.type = "button";
-      const cell = document.createElement("div");
-      cell.appendChild(trigger);
-      document.body.appendChild(cell);
-      const listbox = createListbox({
-        trigger,
-        items: () => [{ value: "a", label: "Alpha" }],
-        selected: () => [],
-        shape: {
-          rowTag: "button",
-          dataKey: "data-value",
-          selectedClass: "hyg-selected",
-          disabledAttr: "disabled",
-          activedescendant: "none",
-        },
-        classes: {
-          list: "hyg-list",
-          row: "hyg-row",
-          portal: "hyg-portal",
-          up: "hyg-up",
-          open: "hyg-open",
-        },
-        surface: { onSurfaceChange: () => () => {} },
-        dismiss: { kind: "local" },
-        onRowActivate: () => {},
-      });
-      // Never open. Construction must not bind document/window listeners.
-      const before = docCount + winCount;
-      listbox.destroy();
-      const after = docCount + winCount;
-      expect(after).toBe(before);
-    } finally {
-      ET.addEventListener = origAdd;
-      ET.removeEventListener = origRemove;
-    }
-  });
+// Patch the global listener methods once per test (jsdom's window/document
+// own their addEventListener; EventTarget.prototype is not where the engine
+// binds). The patch is restored by afterEach so a second test does not wrap
+// a wrapper.
+let restoreGlobal: (() => void) | null = null;
+const countGlobal = () => {
+  const doc = new Set<string>();
+  const win = new Set<string>();
+  const wadd = window.addEventListener.bind(window);
+  const wremove = window.removeEventListener.bind(window);
+  const dadd = document.addEventListener.bind(document);
+  const dremove = document.removeEventListener.bind(document);
+  const key = (type: string, opts?: boolean | AddEventListenerOptions) =>
+    type + (opts === true ? "|cap" : "");
+  window.addEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | AddEventListenerOptions,
+  ) {
+    win.add(key(type, opts));
+    return wadd(type, fn, opts);
+  } as typeof window.addEventListener;
+  window.removeEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | EventListenerOptions,
+  ) {
+    win.delete(key(type, opts as boolean | AddEventListenerOptions));
+    return wremove(type, fn, opts);
+  } as typeof window.removeEventListener;
+  document.addEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | AddEventListenerOptions,
+  ) {
+    doc.add(key(type, opts));
+    return dadd(type, fn, opts);
+  } as typeof document.addEventListener;
+  document.removeEventListener = function (
+    type: string,
+    fn: EventListener,
+    opts?: boolean | EventListenerOptions,
+  ) {
+    doc.delete(key(type, opts as boolean | AddEventListenerOptions));
+    return dremove(type, fn, opts);
+  } as typeof document.removeEventListener;
+  restoreGlobal = () => {
+    window.addEventListener = wadd;
+    window.removeEventListener = wremove;
+    document.addEventListener = dadd;
+    document.removeEventListener = dremove;
+  };
+  return () => ({ doc: doc.size, win: win.size, total: doc.size + win.size });
+};
+afterEach(() => {
+  restoreGlobal?.();
+  restoreGlobal = null;
+});
 
-  it("open + close drains every document/window listener (mountCleanup)", () => {
-    const ET = EventTarget.prototype;
-    const origAdd = ET.addEventListener;
-    const origRemove = ET.removeEventListener;
-    let docCount = 0;
-    let winCount = 0;
-    const bump = (target: EventTarget, delta: number) => {
-      if (target === document) docCount += delta;
-      else if (target === window) winCount += delta;
-    };
-    ET.addEventListener = function (type, fn, options) {
-      bump(this, 1);
-      return origAdd.call(this, type, fn, options);
-    };
-    ET.removeEventListener = function (type, fn, options) {
-      bump(this, -1);
-      return origRemove.call(this, type, fn, options);
-    };
-    try {
-      const trigger = document.createElement("button");
-      trigger.type = "button";
-      const cell = document.createElement("div");
-      cell.appendChild(trigger);
-      document.body.appendChild(cell);
-      const listbox = createListbox({
-        trigger,
-        items: () => [{ value: "a", label: "Alpha" }],
-        selected: () => [],
-        shape: {
-          rowTag: "button",
-          dataKey: "data-value",
-          selectedClass: "hyg-selected",
-          disabledAttr: "disabled",
-          activedescendant: "none",
-        },
-        classes: {
-          list: "hyg-list",
-          row: "hyg-row",
-          portal: "hyg-portal",
-          up: "hyg-up",
-          open: "hyg-open",
-        },
-        surface: { onSurfaceChange: () => () => {} },
-        dismiss: { kind: "local" },
-        ownDismiss: true,
-        onRowActivate: () => {},
-      });
-      listbox.open();
-      expect(docCount + winCount).toBeGreaterThan(0);
-      listbox.close();
-      expect(docCount + winCount).toBe(0);
-      listbox.destroy();
-    } finally {
-      ET.addEventListener = origAdd;
-      ET.removeEventListener = origRemove;
-    }
+it("constructing without opening binds no document/window listeners", () => {
+  const read = countGlobal();
+  const before = read();
+  const { listbox } = makePicker([
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta", disabled: true },
+  ]);
+  const afterConstruct = read();
+  expect(afterConstruct).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
+});
+
+it("open then close returns the global listener count to baseline", () => {
+  const read = countGlobal();
+  const before = read();
+  const { listbox } = makePicker([
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
+  ]);
+  listbox.open();
+  // Open binds window scroll+resize (2) for the portal placement.
+  expect(read().win).toBeGreaterThanOrEqual(before.win + 2);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
+});
+
+it("open + close drains every document/window listener when ownDismiss is set", () => {
+  const read = countGlobal();
+  const before = read();
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  const cell = document.createElement("div");
+  cell.appendChild(trigger);
+  document.body.appendChild(cell);
+  const listbox = createListbox({
+    trigger,
+    items: () => [{ value: "a", label: "Alpha" }],
+    selected: () => [],
+    shape: {
+      rowTag: "button",
+      dataKey: "data-value",
+      selectedClass: "own-selected",
+      disabledAttr: "disabled",
+      activedescendant: "none",
+    },
+    classes: {
+      list: "own-list",
+      row: "own-row",
+      portal: "own-portal",
+      up: "own-up",
+      open: "own-open",
+    },
+    surface: { onSurfaceChange: () => () => {} },
+    dismiss: { kind: "local" },
+    ownDismiss: true,
+    onRowActivate: () => {},
   });
+  listbox.open();
+  // ownDismiss binds document pointerdown + window keydown on top of the
+  // scroll/resize mount listeners, so the open count must exceed baseline.
+  expect(read().total).toBeGreaterThan(before.total);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
 });
