@@ -43,9 +43,10 @@ type FilterBody = {
 };
 
 /** One dimension row: a caption cell and a control cell. The caption is
- *  owner-localized panel vocabulary ("Field", "Range", "Type"), never a raw
- *  field name — a `range` body pairs one of these with the read-only field
- *  row, an `enum` body mounts its dropdown in the control cell. */
+ *  shared panel vocabulary ("Field", "Range", "Values"), never a raw field
+ *  name or component-specific wording — a `range` body pairs one of these
+ *  with the read-only field row, an `enum` body mounts its dropdown in the
+ *  control cell. */
 const buildDimensionRow = (
   label: string,
   ...children: HTMLElement[]
@@ -92,23 +93,24 @@ const readOnlyField = (field: string): HTMLElement =>
   );
 
 /** Shared dual-thumb range body: the field row (caption + read-only field
- *  name, from `dim.fieldLabel`) plus the condition row (caption + slider).
- *  Two different questions are being answered — which field is being
- *  filtered, and over what range. The owner always provides a `fieldLabel`
- *  (the Heatmap repeats the aggregation field `field=` chose as a read-only
- *  row). `core` refuses to print the raw field name as a caption. */
+ *  name) plus the condition row (caption + slider). Two different questions
+ *  are being answered — which field is being filtered, and over what range.
+ *  Both captions are shared panel vocabulary, so the Heatmap and Measure
+ *  arms cannot drift apart. `core` refuses to print the raw field name as a
+ *  caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  // The field row always renders: the owner provides a localized fieldLabel
-  // and the read-only cell shows the field name it labels.
-  const fieldRow = buildDimensionRow(dim.fieldLabel, readOnlyField(dim.field)).row;
-  // The condition row's caption is component vocabulary the owner may name;
-  // absent that, the panel's own wording applies. This fallback is panel
-  // chrome, never the field name.
-  const conditionLabel = dim.label || deps.T("filter_range");
+  // The field row always renders: the panel labels it and the read-only cell
+  // shows the field the owner chose.
+  const fieldRow = buildDimensionRow(
+    deps.T("filter_field"),
+    readOnlyField(dim.field),
+  ).row;
+  // The condition row uses the same shared "Range" wording on both arms.
+  const conditionLabel = deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {
     min: dim.range[0],
@@ -215,8 +217,15 @@ const renderEnumBody = (
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  const { row, control } = buildDimensionRow(dim.label);
+  // The enum arm names its condition with the same shared vocabulary the
+  // range arm uses for its control, and exposes that name on both the group
+  // and the trigger so a screen reader hears the condition, not a bare
+  // button.
+  const conditionLabel = deps.T("filter_enum");
+  const { row, control } = buildDimensionRow(conditionLabel);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
+  control.setAttribute("role", "group");
+  control.setAttribute("aria-label", conditionLabel);
 
   // Escape ownership stays with the shared dropdown while its list is open:
   // common/dropdown claims the key on window capture and stops it there, so one
@@ -234,7 +243,7 @@ const renderEnumBody = (
     })),
     values: enumValuesOf(dim, model.filter),
     placeholder: deps.T("filter_enum_any"),
-    ariaLabel: dim.label,
+    ariaLabel: conditionLabel,
     // The trigger answers "how many are picked"; the rows carry the check
     // slots and the listbox sets aria-multiselectable.
     selectedLabel: labels =>

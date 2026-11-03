@@ -1917,8 +1917,9 @@ describe("MeasureManager — type filter", () => {
       kind: "enum",
       field: CONST.FILTER.FIELD,
       multi: true,
-      label: manager.T("filter_tool"),
     });
+    // Captions belong to the panel's shared vocabulary, not the component.
+    expect(model.dimensions[0]).not.toHaveProperty("label");
     // Only the types that have a measurement are offered; the order is the
     // toolbar order.
     expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
@@ -2071,12 +2072,16 @@ describe("MeasureManager — type filter", () => {
     const record = JSON.parse(window.localStorage.getItem(key)!);
     expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
     expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    // The round-trip carries the explicit ownership flag, so a later reload
+    // cannot mistake the user's write for "never spoke" and re-seed.
+    expect(record.filtersTouched).toBe(true);
 
     // Same map container + layer id -> the reloaded manager reads it back.
     // The measurement list is cleared first so the reload does not rebuild the
     // bare test rows (they carry no geometry); the filter record must survive.
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const { manager: reloaded, map: reloadedMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
     reloaded.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
     const reloadedModel = createLayersOpts(reloadedMap).filterProvider();
     expect(reloadedModel.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
@@ -2219,10 +2224,17 @@ describe("MeasureManager — type filter", () => {
     // read as "no filter": an expired condition may never hide every row.
     window.localStorage.setItem(
       key,
-      JSON.stringify({ version: 1, filter: filter(["bogus"]) }),
+      JSON.stringify({ version: 1, filter: filter(["bogus"]), filtersTouched: true }),
     );
+    // The record still owns the slot: the declaration must not replace the
+    // invalid condition the user's own record represents.
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
 
     const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toBeUndefined();
     const model = createLayersOpts(nextMap).filterProvider();
     expect(model.filter).toBeUndefined();
@@ -2253,8 +2265,10 @@ describe("MeasureManager — type filter", () => {
   });
 
   // ── Python-declared starting filter (CONFIG.filter) ──
-  // The record's presence is the ownership signal: no record -> the
-  // declaration seeds; a record (including an explicit clear) -> it does not.
+  // The record's explicit filtersTouched flag is the ownership signal: no
+  // ownership -> the declaration seeds; a touched record (including one that
+  // says "cleared") -> it does not. A legacy record without the flag counts
+  // as touched, preserving the pre-flag presence-is-ownership behaviour.
   it("seeds the declared filter when no record exists", () => {
     window.CONFIG = {
       ...window.CONFIG,
@@ -2272,12 +2286,15 @@ describe("MeasureManager — type filter", () => {
     expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m2"]);
   });
 
-  it("keeps the declaration out when a record exists, even a cleared one", () => {
+  it("keeps the declaration out when the record says the user touched the filter", () => {
     const { manager } = makeManager();
     const key = (manager as any).filterStorageKey as string;
-    // A cleared record: the user explicitly removed the filter, so the record
-    // exists but carries no filter. That is still ownership.
-    window.localStorage.setItem(key, JSON.stringify({ version: 1 }));
+    // A cleared record: the user explicitly removed the filter. The flag —
+    // not the record's presence — is what keeps the declaration out.
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filtersTouched: true }),
+    );
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -2285,8 +2302,34 @@ describe("MeasureManager — type filter", () => {
 
     const { manager: reloaded, map } = makeManager();
 
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toBeUndefined();
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+  });
+
+  it("treats a legacy record without the flag as user-owned", () => {
+    // Records written before filtersTouched existed kept the user's filter in
+    // the record itself; an upgrade must not let the declaration overwrite it.
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: 1,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+      }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
   });
 
   it("a stored filter wins over the declaration", () => {
@@ -2303,6 +2346,7 @@ describe("MeasureManager — type filter", () => {
 
     const { manager: reloaded } = makeManager();
 
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.MARKER]),
     );
@@ -2338,7 +2382,8 @@ describe("MeasureManager — type filter", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the known values of a partially unknown declaration", () => {
+  it("rejects a partially unknown declaration whole instead of half-applying it", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
@@ -2346,9 +2391,18 @@ describe("MeasureManager — type filter", () => {
 
     const { manager } = makeManager();
 
-    expect((manager as any).measureFilter).toEqual(
-      filter([CONST.MEASURE_MODE.DISTANCE]),
-    );
+    // Keeping DISTANCE would apply a condition the author never declared; an
+    // unknown name makes the declaration invalid as a whole.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Clear re-seeds from the cached (invalid) declaration without warning
+    // again, and a reload starts undeclared as well.
+    manager.clearAll();
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const { manager: reloaded } = makeManager();
+    expect((reloaded as any).measureFilter).toBeUndefined();
   });
 
   it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
@@ -2366,6 +2420,7 @@ describe("MeasureManager — type filter", () => {
     // in this session and the record is deleted, so a reload re-applies it.
     manager.clearAll();
 
+    expect((manager as any).filtersTouched).toBe(false);
     expect((manager as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.DISTANCE]),
     );
@@ -2387,12 +2442,12 @@ describe("MeasureManager — type filter", () => {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
     };
-    const { manager } = makeManager();
+    const { manager, map } = makeManager();
 
-    // A user edit writes a record; that is ownership, so a reload keeps the
-    // user's filter, not the declaration.
-    (manager as any).measureFilter = filter([CONST.MEASURE_MODE.MARKER]);
-    (manager as any).saveMeasureFilter();
+    // A user edit through the panel capability flips ownership and writes a
+    // record; a reload keeps the user's filter, not the declaration.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),

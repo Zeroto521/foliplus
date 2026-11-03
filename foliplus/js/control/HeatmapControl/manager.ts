@@ -989,15 +989,13 @@ class HeatmapManager {
     // committed filter kept.
     const total = this.cachedBins?.bins.size ?? 0;
     const kept = this.cachedFeatures?.length ?? 0;
+    // The popup repeats the aggregation field `field=` chose as a read-only
+    // Field row (caption from the panel's shared vocabulary), so the filter
+    // reads unambiguously. The field is never re-editable here.
     return buildFilterModel(
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.effectiveField(),
-      // The popup repeats the aggregation field as a read-only Field row
-      // (caption from the locale), the same way main did: the user picked
-      // the aggregation field with field=, and the popup shows the name so
-      // the filter reads unambiguously. The field is never re-editable here.
-      this.T("filter_field"),
       { kept, total },
     );
   }

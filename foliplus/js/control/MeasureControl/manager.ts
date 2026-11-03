@@ -126,6 +126,12 @@ class MeasureManager {
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
   private measureFilter: LayerFilter = undefined;
+  /** Whether the user owns the filter slot (see the filter record's
+   *  `filtersTouched` — the same ownership signal HeatmapControl uses). The
+   *  Python declaration seeds only while this is false; an explicit Clear
+   *  deletes the record and clears it, so the declaration returns with the
+   *  factory defaults. */
+  filtersTouched = false;
   /** The Python declaration normalised once at construction — the value a
    *  Clear re-seeds from (without re-normalising, so an unusable declaration
    *  still warns exactly once). */
@@ -196,14 +202,16 @@ class MeasureManager {
     this.labelShow = env.config.label_show !== false;
     this.store = new MeasureStore(this.map, env, this.layerId);
     this.filterStorageKey = `${CONST.FILTER.STORAGE_PREFIX}_${mapInstance.getContainer().id}_${this.layerId}`;
-    // The record's presence is the ownership signal: a stored record means the
-    // user owns the filter slot — including a record that says "cleared" — so
-    // the Python declaration only seeds when no record exists at all. The
-    // declaration is normalised once here (a Clear re-seeds from it without
-    // re-normalising, so an unusable declaration warns exactly once).
+    // The record's explicit `filtersTouched` flag is the ownership signal —
+    // the same rule HeatmapControl applies to its SavedConfig. A touched
+    // record wins (including one that says "cleared"); otherwise the Python
+    // declaration is the starting condition. The declaration is normalised
+    // once here (a Clear re-seeds from it without re-normalising, so an
+    // unusable declaration warns exactly once).
     this.declaredStartFilter = this.declaredMeasureFilter();
     const filterState = this.loadFilterState();
-    this.measureFilter = filterState.stored
+    this.filtersTouched = filterState.touched;
+    this.measureFilter = this.filtersTouched
       ? filterState.filter
       : this.declaredStartFilter;
     // The config defaults were read above — snapshot them before any runtime
@@ -304,7 +312,6 @@ class MeasureManager {
     return {
       kind: "enum",
       field: CONST.FILTER.FIELD,
-      label: this.T("filter_tool"),
       multi: true,
       options,
     };
@@ -362,8 +369,11 @@ class MeasureManager {
    *  (no redraw), then re-plan labels and notify the row. */
   setFilter(filter: LayerFilter): void {
     const next = this.normalizeMeasureFilter(filter);
-    if (filtersEqual(next, this.measureFilter)) return;
+    if (filtersEqual(next, this.measureFilter) && this.filtersTouched) return;
     this.measureFilter = next;
+    // Any panel write — including the panel's Clear (undefined) — is the
+    // user taking the slot. The declaration must not resurrect itself.
+    this.filtersTouched = true;
     this.saveMeasureFilter();
     this.applyFilterVisibility();
     publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
@@ -473,33 +483,38 @@ class MeasureManager {
     }
   }
 
-  /** Load the committed filter from its own record, plus whether the record
-   *  exists at all.
+  /** Load the committed filter from its own record, plus the explicit
+   *  ownership flag.
    *
-   *  The two are distinct states: an absent record means "the user never spoke,
-   *  the declaration may seed"; a present record with no filter means "the user
-   *  explicitly cleared it", and the declaration must stay out. A corrupt or
-   *  older record carries no usable filter; values outside the current option
-   *  domain are dropped so a stale condition cannot hide every measurement. */
-  private loadFilterState(): { filter: LayerFilter; stored: boolean } {
+   *  The flag — not the record's mere existence — decides whether the Python
+   *  declaration may seed: `filtersTouched: true` means "the user owns the
+   *  slot, including a deliberate clear", `false` means "never spoke". A
+   *  corrupt record carries no usable filter and no ownership; values outside
+   *  the current option domain are dropped so a stale condition cannot hide
+   *  every measurement. Records written before the flag existed count as
+   *  touched, preserving the old presence-is-ownership behaviour for users
+   *  upgrading with a stored filter. */
+  private loadFilterState(): { filter: LayerFilter; touched: boolean } {
     const record = Storage.loadRecord<unknown>(this.filterStorageKey, this.config.name);
     if (!record || typeof record !== "object" || Array.isArray(record)) {
-      return { filter: undefined, stored: false };
+      return { filter: undefined, touched: false };
     }
+    const data = record as Record<string, unknown>;
     return {
-      filter: this.normalizeMeasureFilter(
-        parsePersistedFilter((record as Record<string, unknown>).filter),
-      ),
-      stored: true,
+      filter: this.normalizeMeasureFilter(parsePersistedFilter(data.filter)),
+      touched: typeof data.filtersTouched === "boolean" ? data.filtersTouched : true,
     };
   }
 
   /** The Python declaration as the starting filter.
    *
-   *  Normalised through the same domain rules the panel writes through, so a
-   *  declared type the runtime does not know is dropped rather than hiding
-   *  every measurement. A declaration that normalises to nothing is reported
-   *  once and ignored — "declared" must never mean "filtered to empty". */
+   *  The declaration is validated against the component's whole type domain,
+   *  not the types currently on the map: a type with no measurement yet is
+   *  still a legal declared value. Any unknown name makes the declaration
+   *  invalid as a whole — dropping just that name would apply a half-open
+   *  condition the author never wrote. An invalid declaration is reported
+   *  once and ignored; "declared" must never mean "filtered to empty" or
+   *  "filtered to a subset nobody asked for". */
   private declaredMeasureFilter(): LayerFilter {
     const raw: unknown = this.config.filter;
     if (raw == null) return undefined;
@@ -508,11 +523,19 @@ class MeasureManager {
       this.warnDeclaredFilter("unreadable declaration");
       return undefined;
     }
-    const next = this.normalizeMeasureFilter(declared);
-    if (!next) {
-      this.warnDeclaredFilter("no declared value is a measurement type");
+    if (declared.kind !== "enum" || declared.field !== CONST.FILTER.FIELD) {
+      this.warnDeclaredFilter("the panel filters measurement types only");
+      return undefined;
     }
-    return next;
+    const allowed = new Set(TYPE_LABELS.map(([value]) => value));
+    const unknown = declared.values.filter(value => !allowed.has(value));
+    if (unknown.length > 0) {
+      this.warnDeclaredFilter(
+        `unknown measurement type${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,
+      );
+      return undefined;
+    }
+    return { kind: "enum", field: CONST.FILTER.FIELD, values: [...declared.values] };
   }
 
   /** Report one declared-filter problem. No once-guard: the declaration is
@@ -523,20 +546,26 @@ class MeasureManager {
     this.log.warn("declared filter ignored:", reason);
   }
 
-  /** Persist the committed filter (undefined = explicitly cleared). */
+  /** Persist the committed filter and its ownership flag (undefined filter =
+   *  explicitly cleared, but still owned by the user). */
   private saveMeasureFilter(): void {
     Storage.saveRecord(
       this.filterStorageKey,
-      { version: CONST.FILTER.RECORD_VERSION, filter: this.measureFilter },
+      {
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: this.measureFilter,
+        filtersTouched: this.filtersTouched,
+      },
       this.config.name,
     );
   }
 
-  /** A user's explicit Clear: the filter record is deleted (factory Reset)
-   *  so the Python declaration re-seeds, and the current filter is set to the
-   *  declaration — both in this session and on reload. */
+  /** A user's explicit Clear: the filter record is deleted (factory Reset),
+   *  ownership returns to the declaration, and the current filter is set to
+   *  the declaration — both in this session and on reload. */
   private clearFilter(): void {
     Storage.removeRecord(this.filterStorageKey, this.config.name);
+    this.filtersTouched = false;
     if (this.measureFilter === this.declaredStartFilter) return;
     this.measureFilter = this.declaredStartFilter;
     publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
@@ -1072,10 +1101,10 @@ class MeasureManager {
     this.clearTransientState();
     this.store.clear();
     // A user's explicit Clear is a factory Reset for the filter: the record
-    // is deleted (not written as an empty filter), so the Python declaration
-    // re-seeds both this session and on reload — the same semantics as
-    // Heatmap's Clear. An ordinary filter edit is still a user write and
-    // sticks (the record exists).
+    // is deleted and `filtersTouched` returns to false, so the Python
+    // declaration re-seeds both this session and on reload — the same
+    // semantics as Heatmap's Clear. An ordinary filter edit writes the flag
+    // and sticks.
     this.clearFilter();
     // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
     // the next draw is new content, so the id must leave the stored order or
