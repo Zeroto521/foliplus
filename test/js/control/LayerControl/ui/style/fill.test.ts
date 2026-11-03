@@ -2887,9 +2887,9 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(row).classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(
       true,
     );
-    // The semantic class is supplied by the shared primitive (ui/form.ts) via
+    // The semantic class is supplied by the shared primitive (ui/panelField.ts) via
     // readOnlyBox; if fill.ts dropped either class, this real-panel DOM check
-    // fails — the primitive-only test in ui/form.test.ts cannot see the
+    // fails — the primitive-only test in ui/panelField.test.ts cannot see the
     // fill.ts delegation.
     expect(colorsBoxOf(row).classList.contains(PANEL_CLASS.READONLY)).toBe(true);
   });

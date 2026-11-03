@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { dom } from "#common/dom.js";
-import { readOnlyValue } from "#ui/form.js";
+import { readOnlyValue } from "#ui/panelField.js";
 
-// ui/form read-only primitive: the shared read-only value box for panel
+// ui/panelField read-only primitive: the shared read-only value box for panel
 // readouts. The class-name contract with the Python render-string tests is
 // that the shared semantic class and the caller's frame class land on the
 // same box in the same order, and aria-disabled is always true — so a
 // readout can never be mistaken for something editable.
-describe("ui/form read-only value", () => {
+describe("ui/panelField read-only value", () => {
   it("pins the class combination the style panel's read-only box relies on", () => {
     // readOnlyBox (style/fill.ts) passes PANEL_CLASS.READONLY + STYLE_FILL_READONLY
     // + a caller hook class as one className string. If the primitive dropped the

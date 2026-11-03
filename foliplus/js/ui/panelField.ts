@@ -1,4 +1,4 @@
-// ui/form — shared read-only field primitive for panel UIs.
+// ui/panelField — shared read-only field primitive for panel UIs.
 //
 // The style panel's original-colors arm and the filter panel's field row both
 // show a value the panel cannot edit: a readout box with the form-control
