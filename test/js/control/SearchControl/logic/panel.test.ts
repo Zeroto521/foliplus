@@ -104,8 +104,8 @@ describe("removePanel", () => {
   it("clears the retained results array so a stale Enter can't adopt an old item", () => {
     const ctrl = makeFixture({
       currentItems: [
-        { source: "history", primaryText: "old" },
-        { source: "history", primaryText: "older" },
+        { source: "history" as const, primaryText: "old" },
+        { source: "history" as const, primaryText: "older" },
       ],
     });
 
@@ -126,7 +126,7 @@ describe("renderResults", () => {
     const ctrl = makeFixture();
     renderResults(ctrl, [
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "Paris, France",
         coordDisplay: null,
@@ -153,7 +153,7 @@ describe("renderResults", () => {
     const ctrl = makeFixture();
     renderResults(ctrl, [
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "Paris, France",
         coordDisplay: null,
@@ -173,6 +173,86 @@ describe("renderResults", () => {
     document.removeEventListener("wheel", mapWheel);
   });
 
+  it("lets a wheel at the top boundary reach the map container", () => {
+    // At the top of a scrollable panel, an upward wheel cannot scroll it any
+    // further — it must bubble so the map zooms (not a scroll trap). This is
+    // the mirror of the bottom-boundary case.
+    const ctrl = makeFixture();
+    renderResults(ctrl, [
+      {
+        source: "suggestion" as const,
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => false,
+      },
+    ]);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    const panel = ctrl.panelWrap;
+    Object.defineProperty(panel, "scrollTop", { value: 0, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }),
+    );
+    expect(mapWheel).toHaveBeenCalled();
+    document.removeEventListener("wheel", mapWheel);
+  });
+
+  it("lets a zero-delta wheel reach the map container", () => {
+    // A wheel event with no vertical delta has no scroll intent — it must not
+    // be contained, so horizontal-only wheels / trackpad gestures still reach
+    // the map.
+    const ctrl = makeFixture();
+    renderResults(ctrl, [
+      {
+        source: "suggestion" as const,
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => false,
+      },
+    ]);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    const panel = ctrl.panelWrap;
+    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0 }),
+    );
+    expect(mapWheel).toHaveBeenCalled();
+    document.removeEventListener("wheel", mapWheel);
+  });
+
+  it("lets a wheel over a non-scrollable panel reach the map container", () => {
+    // A panel with no overflow (scrollHeight <= clientHeight) has nothing to
+    // scroll, so every wheel must bubble — the map keeps zooming, not a
+    // scroll trap over a fixed-size list.
+    const ctrl = makeFixture();
+    renderResults(ctrl, [
+      {
+        source: "suggestion" as const,
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => false,
+      },
+    ]);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    const panel = ctrl.panelWrap;
+    Object.defineProperty(panel, "scrollTop", { value: 0, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 300, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 300, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
+    );
+    expect(mapWheel).toHaveBeenCalled();
+    document.removeEventListener("wheel", mapWheel);
+  });
   it("removes panel when results are empty", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
@@ -187,7 +267,7 @@ describe("renderResults", () => {
     renderResults(ctrl, [
       // History item: carries its panel display as the re-entry value.
       {
-        source: "history",
+        source: "history" as const,
         icon: "",
         primaryText: "Shanghai, China",
         query: "121.4700, 31.2300",
@@ -197,7 +277,7 @@ describe("renderResults", () => {
       // Suggestion: no query — must NOT get the attribute, so keyboard nav
       // falls back to the display text.
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "Paris, France",
         coordDisplay: null,
@@ -216,7 +296,7 @@ describe("renderResults", () => {
     const ctrl = makeFixture();
     renderResults(ctrl, [
       {
-        source: "history",
+        source: "history" as const,
         icon: "",
         primaryText: "Chongqing",
         query: "121.47,31.23",
@@ -236,21 +316,21 @@ describe("renderResults", () => {
     const ctrl = makeFixture();
     renderResults(ctrl, [
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "One",
         coordDisplay: null,
         onClick: () => true,
       },
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "Two",
         coordDisplay: null,
         onClick: () => true,
       },
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "Three",
         coordDisplay: null,
@@ -283,7 +363,7 @@ describe("renderResults", () => {
     expect(() =>
       renderResults(ctrl, [
         {
-          source: "history",
+          source: "history" as const,
           icon: "",
           primaryText: "Shanghai, China",
           query: "121.4700, 31.2300",
@@ -301,7 +381,7 @@ describe("renderResults", () => {
 
     renderResults(ctrl, [
       {
-        source: "suggestion",
+        source: "suggestion" as const,
         icon: "",
         primaryText: "One",
         coordDisplay: null,
@@ -319,7 +399,7 @@ describe("renderResults", () => {
     // linearly and the panel behaves differently on each subsequent render.
     const ctrl = makeFixture();
     const item = {
-      source: "suggestion",
+      source: "suggestion" as const,
       icon: "",
       primaryText: "Paris, France",
       coordDisplay: null,
@@ -355,7 +435,7 @@ describe("renderResults", () => {
     // carry zero listeners and a wheel over it would zoom the map again.
     const ctrl = makeFixture();
     const item = {
-      source: "suggestion",
+      source: "suggestion" as const,
       icon: "",
       primaryText: "Paris, France",
       coordDisplay: null,
