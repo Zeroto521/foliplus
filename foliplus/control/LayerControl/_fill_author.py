@@ -11,7 +11,7 @@ from branca.colormap import LinearColormap, StepColormap
 from folium import GeoJson
 from folium.map import Layer
 
-from foliplus._declaration import _refused_captions, _should_report
+from foliplus._declaration import refused_captions, should_report
 
 FOLIUM_COLOR_PROP = "__folium_color"
 
@@ -355,8 +355,8 @@ def warn_refused_caption(
     stepped arm tests exact block membership, the continuous arm tests the
     color-match ratio against FILL_AUTHOR_AGREE.
     """
-    if not _should_report(
-        ("caption", caption, criterion, str(hits), str(total)), _refused_captions
+    if not should_report(
+        ("caption", caption, criterion, str(hits), str(total)), refused_captions
     ):
         return
     log.warning(

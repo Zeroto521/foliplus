@@ -7340,7 +7340,10 @@ class TestLayerControlBrowser:
             # The page language follows the host browser locale, so the result
             # sentence is asserted structurally (percent prefix plus the kept /
             # total digits) rather than by literal English text.
-            assert res["fieldLabel"] == "Type", res
+            # The caption is the panel's shared "Values" vocabulary, localized
+            # to the page language (the browser locale), never the component's
+            # own word for the dimension.
+            assert res["fieldLabel"] in ("Values", "值"), res
             # The shared primitive replaced the native listbox outright.
             assert res["triggerTag"] == "BUTTON", res
             assert res["triggerHaspopup"] == "listbox", res

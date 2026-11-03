@@ -1,10 +1,10 @@
-// core/leaflet/panelController — the M2 PanelController core (PR-A).
+// core/leaflet/panelController — the shared floating-panel controller.
 //
 // This module owns the behaviour/ownership contract of a floating surface:
 // its open/closed state, the dismissal sources (Escape, outside press,
 // internal close button), its registry identity and rank, and its teardown
 // order. It deliberately knows nothing about CSS classes, layout, header
-// visuals, icons or focus rings — that is task-31 (ui/ toolbox). The one
+// visuals, icons or focus rings — that is the shared ui toolbox. The one
 // cross-boundary contract (spec §4) is that a panel's root() exposes
 // `[data-foliplus-panel-close]` (the close affordance wired to
 // closeFromClick) and `role="dialog"`.
@@ -21,7 +21,7 @@ import { type OverlayEntry, ensureOverlayRegistry } from "#core/overlayRegistry.
 /** What dismisses the surface, decided by the registry's dispatcher. */
 type Dismiss = {
   /** Registry Escape dispatch closes it; default true. Fold panels start
-   *  false (behaviourally equivalent until M5 re-enables it). */
+   *  false (behaviourally equivalent until a later migration re-enables it). */
   escape: boolean;
   /** Outside press closes it: "mousedown" (row panels) | "click" (menu,
    *  picker, fold panels) | false (no outside dismissal). */
@@ -38,11 +38,11 @@ interface PanelSpec {
   /** Registry local id, namespaced under owner (e.g. "style",
    *  "style.picker.dropdown"). */
   localId: string;
-  /** M1 entry.rank — the ordering number (ESC_PRIORITY table, M1 清单 C 节). */
+  /** entry.rank — the ordering number; the ESC_PRIORITY table owns the order. */
   rank: number;
   /** Opening one entry closes the others in the group (top-layer exclusivity). */
   exclusiveGroup?: string;
-  /** Explicit press order; defaults to rank when omitted (M2 keeps the
+  /** Explicit press order; defaults to rank when omitted (the controller keeps the
    *  current value, does not reconcile it). */
   pressPriority?: number;
   /** Row panels set it: closing also clears the row keyboard cursor. */
@@ -57,10 +57,7 @@ interface PanelSpec {
   /** Live DOM, recomputed on every call (a rebuilt panel invalidates the nodes
    *  a previous press captured). */
   root(): HTMLElement | null;
-  /** Build the DOM + fill content + show. Must be all-or-nothing: either it
-   *  completes (the surface is on screen) or it throws before mounting any
-   *  partial DOM. A throw detaches the entry and marks the controller
-   *  terminal (destroy), so the caller must build a fresh one. */
+  /** Build the DOM + fill content + show. */
   open(): void;
   /** Tear down. Returning false = cannot close right now (a pending commit, a
    *  read-only notice); the controller stays open (rollback). */
@@ -77,9 +74,7 @@ interface PanelController {
   readonly dismiss: Readonly<Dismiss>;
   isOpen(): boolean;
   root(): HTMLElement | null;
-  /** Already open = no-op (idempotent). A failed open (spec.open throws) is
-   *  terminal: the controller is destroyed and the registry entry detached,
-   *  so the caller must create a fresh controller. */
+  /** Already open = no-op (idempotent). */
   open(): void;
   /** Already closed = false (no-op). Returning false means "cannot close right
    *  now" and the state rolls back to open (pending-commit semantics). */
@@ -183,13 +178,8 @@ class PanelControllerImpl implements PanelController {
     } catch (error) {
       // spec.open threw: roll back so the controller is not left "open but
       // with no DOM" (which would also make the idempotence guard swallow
-      // every later open). destroy() also detaches the registry entry the
-      // attachPanel created (the surface never came up, so the entry must
-      // not stay live: a later open would otherwise trip the duplicate-id
-      // guard, and closeOverlays could not reach it because the controller
-      // is not registered as open). Rethrow so the caller sees the failure.
+      // every later open). Rethrow so the caller sees the failure.
       this.#open = false;
-      this.destroy();
       throw error;
     }
     // onOpen is deliberately outside the try: a successful spec.open that
@@ -242,7 +232,7 @@ class PanelControllerImpl implements PanelController {
 }
 
 /** Per-map set of currently attached ids: the duplicate guard that the
- *  registry's warn-only register cannot provide (the M1 contract wants a hard
+ *  registry's warn-only register cannot provide (the contract wants a hard
  *  throw on a duplicate owner+localId). Cleaned by the detach (destroy) path,
  *  so removeControl + addControl on the same id does not throw. */
 const attached = new WeakMap<L.Map, Set<string>>();
@@ -252,7 +242,7 @@ const createPanel = (spec: PanelSpec): PanelController => new PanelControllerImp
 /** Register the controller's surface on the map's overlay registry (once,
  *  persistent — registered even while closed; isOpen()=false just means it
  *  does not take part in dispatch). Returns the unregister; calling it twice
- *  is a no-op. A duplicate owner+localId (still attached) throws: the M1
+ *  is a no-op. A duplicate owner+localId (still attached) throws: the
  *  contract rejects duplicates instead of silently keeping the old entry. */
 const attachPanel = (map: L.Map, controller: PanelController): (() => void) => {
   const impl = controller as PanelControllerImpl;

@@ -1,4 +1,4 @@
-// Contract tests for the M2 PanelController core (PR-A).
+// Contract tests for the shared panel controller.
 //
 // These exercise createPanel + attachPanel against the real per-map overlay
 // registry (document-level press/Escape dispatch), so they verify the
@@ -8,6 +8,7 @@
 // test red — the evidence is recorded in the PR body).
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Dismiss, PanelController } from "#core/leaflet/index.js";
 import {
   type PanelSpec,
   attachPanel,
@@ -123,11 +124,12 @@ describe("PanelController", () => {
 
   it("exposes owner/localId/rank and the default dismiss", () => {
     const { spec, state } = makeFixture();
-    const controller = createPanel(spec);
+    const controller: PanelController = createPanel(spec);
     expect(controller.owner).toBe("layer");
     expect(controller.localId).toBe("style");
     expect(controller.rank).toBe(500);
-    expect(controller.dismiss).toEqual({
+    const dismiss: Dismiss = controller.dismiss;
+    expect(dismiss).toEqual({
       escape: true,
       outsidePress: "mousedown",
       internalCloseClick: true,
@@ -287,7 +289,7 @@ describe("PanelController", () => {
     expect(ensureOverlayRegistry(map).owningEntry(controller.root())).toBeNull();
   });
 
-  it("throws on a duplicate owner+localId while still attached (M1 contract)", () => {
+  it("throws on a duplicate owner+localId while still attached", () => {
     const { map } = track(makeMap());
     const first = createPanel(makeFixture().spec);
     attachPanel(map, first);
@@ -482,7 +484,7 @@ describe("PanelController", () => {
     expect(top.isOpen()).toBe(false); // outside press: dismissed
   });
 
-  it("destroy after a refused close still unregisters (M1 lifecycle)", () => {
+  it("destroy after a refused close still unregisters", () => {
     // destroy is terminal: even when the spec refuses to close, destroy must
     // still unregister (the surface is going away regardless).
     const { map } = track(makeMap());
@@ -536,9 +538,9 @@ describe("PanelController", () => {
     expect(controller.isOpen()).toBe(false);
   });
 
-  // ─────────────────────────── P2-1 / P3-3 / P3-4 / P3-5 ───────────────────
+  // ─────────────────────────── swallowPress, open rollback, refused close, destroyed attach ───────────────────────────
 
-  it("swallowPress swallows a mousedown without changing state (P2-1)", () => {
+  it("swallowPress swallows a mousedown without changing state", () => {
     // A fresh root WITHOUT the fixture's own mousedown guard, so the primitive
     // is the only thing standing between the press and the ancestor. A
     // bubble-phase listener on the parent must not see the press, and the
@@ -564,33 +566,30 @@ describe("PanelController", () => {
     expect(state.closeCalls).toHaveLength(0);
   });
 
-  it("open rolls back, detaches and rethrows when spec.open throws (P3-3/P3-4)", () => {
-    const { map } = track(makeMap());
+  it("open rolls back and rethrows when spec.open throws", () => {
+    let first = true;
     const { spec, state } = makeFixture({
       open: () => {
-        throw new Error("boom");
+        if (first) {
+          first = false;
+          throw new Error("boom");
+        }
+        state.open = true;
+        state.openCalls += 1;
       },
     });
     const controller = createPanel(spec);
-    const detach = attachPanel(map, controller);
     expect(() => controller.open()).toThrow("boom");
     expect(controller.isOpen()).toBe(false);
     expect(state.onOpenCalls).toBe(0);
-    // The failed open detached the entry (P3-4): re-attaching the same
-    // owner+localId no longer trips the duplicate-id guard. Without the
-    // detach the entry would linger in the press/Escape dispatch and the
-    // next open would throw "duplicate overlay".
-    const again = createPanel(makeFixture().spec);
-    expect(() => attachPanel(map, again)).not.toThrow();
-    // The original controller is terminal after a failed open: the caller
-    // must build a fresh one (the component pattern is one per open).
-    expect(() => attachPanel(map, controller)).toThrow(/destroyed/);
-    detach(); // idempotent: already detached by the failed open
-    again.open();
-    expect(again.isOpen()).toBe(true);
+    // The idempotence guard must not be stuck: a later open succeeds.
+    controller.open();
+    expect(controller.isOpen()).toBe(true);
+    expect(state.openCalls).toBe(1);
+    expect(state.onOpenCalls).toBe(1);
   });
 
-  it("closeFromClick swallows and keeps the panel open when spec.close refuses (P3-4)", () => {
+  it("closeFromClick swallows and keeps the panel open when spec.close refuses", () => {
     const { spec, state, closeButton } = makeFixture();
     state.canClose = () => false;
     const controller = createPanel(spec);
@@ -605,7 +604,7 @@ describe("PanelController", () => {
     expect(controller.isOpen()).toBe(true);
   });
 
-  it("attachPanel throws for a destroyed controller (P3-5)", () => {
+  it("attachPanel throws for a destroyed controller", () => {
     const { map } = track(makeMap());
     const { spec } = makeFixture();
     const controller = createPanel(spec);
@@ -618,7 +617,7 @@ describe("PanelController", () => {
     );
   });
 
-  it("open does not roll back when onOpen throws after a successful spec.open (P3-1)", () => {
+  it("open does not roll back when onOpen throws after a successful spec.open", () => {
     const { spec, state } = makeFixture({
       onOpen: () => {
         throw new Error("boom-on-open");

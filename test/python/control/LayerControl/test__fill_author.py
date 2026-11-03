@@ -321,6 +321,48 @@ def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
     assert (hits, total) == (2, 2)
 
 
+def test_stepped_agreement_skips_rows_without_the_column_value():
+    scale = _stepped()
+    rows = [
+        ({"score": 10.0}, "#440154"),
+        ({"name": "no score"}, "#3b528b"),
+        ({"score": 90.0}, "#fde725"),
+    ]
+    hits, total = _layer_control_mod.stepped_agreement(scale, rows, "score")
+
+    # The feature without a numeric value contributes no sample: it neither
+    # counts in the denominator nor can it hit a block. Membership is measured
+    # on the rows that do carry the column.
+    assert (hits, total) == (2, 2)
+
+
+def test_stepped_agreement_counts_every_row_when_all_have_the_value():
+    scale = _stepped()
+    rows = [
+        ({"score": 10.0}, "#440154"),
+        ({"score": 50.0}, "#21918c"),
+        ({"score": 90.0}, "#fde725"),
+    ]
+    hits, total = _layer_control_mod.stepped_agreement(scale, rows, "score")
+
+    assert (hits, total) == (3, 3)
+
+
+def test_a_stepped_scale_missing_a_value_still_measures_the_rest():
+    scale = _stepped()
+    values = [10.0, 40.0, 90.0]
+    colors = ["#440154", "#3b528b", "#fde725"]
+    layer = _geo(colors, values=values)
+    del layer.data["features"][1]["properties"]["score"]
+
+    meta = _meta(layer, scale)
+
+    # The missing-value feature is skipped, not a veto: the two remaining
+    # features both carry the scale's own blocks.
+    assert meta["scale"]["column"] == "score"
+    assert meta["stops"] == ["#440154", "#3b528b", "#21918c", "#fde725"]
+
+
 def test_a_short_scale_strip_keeps_every_stop():
     scale = branca_cm.LinearColormap(
         ["#0d0887", "#6a00a8", "#f0f921"], vmin=0, vmax=100, caption="score"
