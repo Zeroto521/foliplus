@@ -908,8 +908,8 @@ const buildRampDetail = (
   });
   // The author palette may have more classes than the picker vocabulary
   // offers: show that count as its own option so the row states the class
-  // count the author actually used. The first user pick replaces it with a
-  // normal 2..9 value.
+  // count the author drew. The first user pick replaces it with a normal
+  // 2..9 value.
   if (!CLASS_COUNT_VALUES.includes(ramp.classes)) {
     const option = document.createElement("option");
     option.value = String(ramp.classes);

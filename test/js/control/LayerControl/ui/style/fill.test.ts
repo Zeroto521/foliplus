@@ -299,13 +299,15 @@ const initWithRampedLayer = (values: number[] = [1, 5, 9]) => {
 };
 
 /** Install a chroma stub that hands back a fixed color list, whatever count
- *  was requested. */
+ *  was requested. The stub answers both palette shapes: the numeric path
+ *  calls `scale().mode().colors(count)`, the categorical path calls
+ *  `scale().colors(count)` directly (a category palette is qualitative, no
+ *  interpolation mode). */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
     scale: () => ({
-      mode: () => ({
-        colors: () => colors,
-      }),
+      mode: () => ({ colors: (count: number) => colors.slice(0, count) }),
+      colors: (count: number) => colors.slice(0, count),
     }),
   } as never;
 };
@@ -4299,4 +4301,205 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       ).toHaveLength(3);
     });
   });
+
+
+describe("category fill — foliplus={'fill': {'ramp': {'kind': 'category', ...}}}", () => {
+  /** A categorical layer: leaves carry a string `cat` property, so the
+   *  category arm has labels to classify. */
+  const makeCategoryLayer = (labels: string[]) => {
+    const makeLeaf = (label: string) => {
+      const leaf = new L.Polygon() as L.Polygon & {
+        options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+        feature: { properties: { cat: string; count?: number } };
+        setStyle: ReturnType<typeof vi.fn>;
+        on: ReturnType<typeof vi.fn>;
+      };
+      leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+      leaf.feature = { properties: { cat: label } };
+      leaf.setStyle = vi.fn();
+      leaf.on = vi.fn();
+      return leaf;
+    };
+    const leaves = labels.map(makeLeaf);
+    const parent = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) =>
+        leaves.forEach(child => fn(child)),
+      ),
+      getBounds: vi.fn(() => ({
+        isValid: vi.fn(() => true),
+        getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+        getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+      })),
+      leaves,
+    };
+    return parent as { leaves: typeof leaves };
+  };
+
+  /** Register a category layer with the given declaration stamped on its
+   *  options, and a category field set in the runtime store. */
+  const categoryFixture = (
+    labels: string[],
+    fill: unknown,
+    chromaColors = ["#111111", "#222222", "#333333", "#444444"],
+  ) => {
+    installChroma(chromaColors);
+    installLeafletGlobals();
+    const layer = makeCategoryLayer(labels);
+    (layer as unknown as { options: Record<string, unknown> }).options.foliplus = {
+      fill,
+    };
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("overlay1", [{ name: "cat", numeric: false }]);
+    return { manager, ui, layer };
+  };
+
+  const painted = (layer: ReturnType<typeof makeCategoryLayer>): unknown[] =>
+    layer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0].fillColor);
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("paints a declared category ramp at attach, first-seen deduped", () => {
+    // forest, water, forest: the repeated label keeps its first-seen color,
+    // so the palette is not re-indexed by the second sighting.
+    const { ui, layer } = categoryFixture(
+      ["forest", "water", "forest", "urban"],
+      {
+        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+      },
+    );
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { kind: "category", field: "cat", scheme: "Set3" },
+    });
+    // Distinct labels forest/water/urban take colors 0/1/2; the repeated
+    // forest reuses color 0, never a fourth palette entry.
+    expect(painted(layer)).toEqual(["#111111", "#222222", "#111111", "#333333"]);
+  });
+
+  it("falls back to the shared other color for a label outside the declared domain", () => {
+    // The declaration names only forest/water; a mystery label is not a
+    // domain member and gets the shared other color, not a guess.
+    const { layer } = categoryFixture(["forest", "mystery"], {
+      ramp: { kind: "category", field: "cat", scheme: "Set3" },
+    });
+
+    expect(painted(layer)).toEqual(["#111111", "#999999"]);
+  });
+
+  it("a category ramp does not re-point a numeric ramp", () => {
+    // A numeric declaration stays on the numeric arm: the category resolver
+    // must not pull a numeric field over to the categorical set.
+    const { ui, layer } = categoryFixture(["forest", "water"], {
+      ramp: { field: "cat", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    // No category values classified: the author face stays.
+    expect(painted(layer)).toEqual([undefined, undefined]);
+  });
+
+  it("an empty category domain falls back to the author face without error", () => {
+    // A declared category ramp whose field has no string values: catScale is
+    // null, so the write pass paints nothing and the author face stays.
+    const { layer } = categoryFixture(
+      ["forest", "water"],
+      {
+        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+      },
+      [],
+    );
+    // Empty domain — buildCategoryRamp returns an empty map, the arm degrades
+    // to the author face instead of painting a fallback color.
+    expect(() => {
+      expect(painted(layer)).toEqual([undefined, undefined]);
+    }).not.toThrow();
+  });
+
+  it("persisted category ramp round-trips through storage and replays the colors", () => {
+    // Store a category record, reload (fresh fixture), and confirm the paint
+    // matches — the persisted writer keeps the category shape intact.
+    const { ui, layer } = categoryFixture(
+      ["forest", "water", "urban"],
+      {
+        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+      },
+    );
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      kind: "category",
+      field: "cat",
+      method: "jenks",
+      classes: 6,
+      scheme: "Set3",
+    });
+    applyFillToLayer(ui, "overlay1");
+    expect(painted(layer)).toEqual(["#111111", "#222222", "#333333"]);
+
+    // Reload: fresh fixture, no intent, storage holds the record.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: {
+          overlay1: {
+            fillMode: "ramp",
+            fillRamp: {
+              kind: "category",
+              field: "cat",
+              method: "jenks",
+              classes: 6,
+              scheme: "Set3",
+            },
+            overrides: ["fillMode", "fillRamp"],
+          },
+        },
+      }),
+    );
+    const reloaded = categoryFixture(
+      ["forest", "water", "urban"],
+      {
+        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+      },
+    );
+    // The persisted category record wins over the declaration and replays
+    // the same colors.
+    expect(reloaded.layer.leaves[0].setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ fillColor: "#111111" }),
+    );
+    expect(getIntent(reloaded.ui, "overlay1", "fillRamp")).toMatchObject({
+      kind: "category",
+      field: "cat",
+      scheme: "Set3",
+    });
+  });
+
+  it("keeps a declared category ramp on the panel as a category arm", () => {
+    const { ui } = categoryFixture(["forest", "water"], {
+      ramp: { kind: "category", field: "cat", scheme: "Set3" },
+    });
+    const row = buildFillRow(ui, "overlay1");
+    const mode = modeSelect(row);
+    expect(mode.value).toBe("ramp");
+    expect(
+      FILL_DIMENSION.value!(ui, "overlay1")?.ramp,
+    ).toMatchObject({ kind: "category", field: "cat", scheme: "Set3" });
+  });
+});
+
 });

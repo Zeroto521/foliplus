@@ -142,7 +142,10 @@ const parseRamp = (
 
   // No usable field: nothing to classify, so the ramp cannot be built. The
   // caller drops the declaration instead of painting a solid face under a
-  // "ramp" panel state.
+  // "ramp" panel state. The field is the primary key, so it is reported
+  // first: a declaration missing both field and scheme warns about the
+  // field only, which is the one that determines whether any ramp exists.
+  // (The scheme check below then covers the field-present category case.)
   if (field === undefined) return undefined;
 
   if (data.kind === "category") {
@@ -152,19 +155,10 @@ const parseRamp = (
     // meaning) and deliberately not validated, the same rule isFillRampConfig
     // applies to a persisted category record; they are kept at the type level
     // so the union stays assignable to the numeric RampConfig.
-    let scheme: string = CONST.RAMP.SCHEME_DEFAULT;
-    if (data.scheme !== undefined) {
-      if (isName(data.scheme)) scheme = data.scheme;
-      else {
-        reject(
-          invalid,
-          layerId,
-          "ramp.scheme",
-          `invalid ramp.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
-        );
-        return undefined;
-      }
-    } else {
+    if (data.scheme === undefined) {
+      // A category arm has no ordered method to fall back to: the qualitative
+      // palette is the one key it cannot build without, so a missing scheme
+      // is a hard rejection, not a silent default.
       reject(
         invalid,
         layerId,
@@ -173,6 +167,16 @@ const parseRamp = (
       );
       return undefined;
     }
+    if (!isName(data.scheme)) {
+      reject(
+        invalid,
+        layerId,
+        "ramp.scheme",
+        `invalid ramp.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+      );
+      return undefined;
+    }
+    const scheme = data.scheme;
     return {
       kind: "category",
       field,
