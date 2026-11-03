@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import { dropdownOf } from "#common/dropdown.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -2886,6 +2887,11 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(row).classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(
       true,
     );
+    // The semantic class is supplied by the shared primitive (ui/form.ts) via
+    // readOnlyBox; if fill.ts dropped either class, this real-panel DOM check
+    // fails — the primitive-only test in ui/form.test.ts cannot see the
+    // fill.ts delegation.
+    expect(colorsBoxOf(row).classList.contains(PANEL_CLASS.READONLY)).toBe(true);
   });
 
   it("states the column, the colors and the count as readouts", () => {
@@ -2948,6 +2954,7 @@ describe("fill row — original colors", () => {
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
+      expect(box.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
       expect(box.getAttribute("aria-disabled")).toBe("true");
     }
   });

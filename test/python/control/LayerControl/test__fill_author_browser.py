@@ -166,6 +166,7 @@ class TestFillAuthorBrowser:
             # "text" is not an ARIA role — it is a Safari/WebKit-ism).
             assert initial["methodRole"] == "group", initial
             assert initial["countRole"] == "group", initial
+            assert initial["colorsRole"] == "img", initial
             assert initial["methodAria"] == "Method", initial
             assert initial["countAria"] == "Classes", initial
             assert initial["caption"] == "Original · continuous", initial
