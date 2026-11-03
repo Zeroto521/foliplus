@@ -166,7 +166,7 @@ class MeasureControl(BaseControl):
     -----
     .. rubric:: Filter declaration
 
-    ``filter`` is a list of measurement-type names (the range arm, a
+    ``filter`` is a list of measurement-type names (the min/max mapping form, a
     ``min``/``max`` mapping, belongs to ``HeatmapControl``):
 
     +--------------+----------+----------+--------------------------------------------------+
@@ -182,18 +182,26 @@ class MeasureControl(BaseControl):
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
     +============================================+============================================+
-    | A name the runtime does not know           | Dropped (not a filter that hides every     |
-    |                                            | measurement).                              |
+    | An unknown type name, alone or beside      | Reported once with a warning; the          |
+    | the known ones                             | declaration is rejected whole and treated  |
+    |                                            | as undeclared — never a partial subset.    |
     +--------------------------------------------+--------------------------------------------+
-    | A declaration that keeps no type at all    | Reported once with a warning; treated as   |
+    | An empty list                              | Reported once with a warning; treated as   |
     |                                            | undeclared.                                |
     +--------------------------------------------+--------------------------------------------+
-    | User write                                 | Wins from then on; the declaration is a    |
+    | A mapping (the range arm)                  | Reported once with a warning; treated as   |
+    |                                            | undeclared — range filters belong to       |
+    |                                            | ``HeatmapControl``.                        |
+    +--------------------------------------------+--------------------------------------------+
+    | User write (the filter row)                | Wins from then on; the declaration is a    |
     |                                            | starting condition only.                   |
     +--------------------------------------------+--------------------------------------------+
-    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
-    |                                            | declaration re-seeds (this session and on  |
+    | The filter row's Clear                     | Keeps the user's clear: the declaration    |
+    |                                            | does not come back (this session or on     |
     |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
+    | Factory Reset (the toolbar's CLEAR mode)   | Deletes the saved record and re-seeds the  |
+    |                                            | declaration (this session and on reload).  |
     +--------------------------------------------+--------------------------------------------+
 
     .. rubric:: Zoom-range declaration
@@ -264,7 +272,7 @@ class MeasureControl(BaseControl):
         # is the AST the runtime reads. Two values, one name only on the public
         # surface: CONF must not grow a second filter dialect.
         self.filter = normalize_declared_filter(
-            filter, owner="MeasureControl", arm="enum", enum_field=MEASURE_TYPE_FIELD
+            filter, owner="MeasureControl", kind="enum", enum_field=MEASURE_TYPE_FIELD
         )
         self.filename = filename
         self.export_format = export_format

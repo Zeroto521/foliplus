@@ -482,8 +482,6 @@ describe("LayerUI attrs", () => {
             {
               kind: "range",
               field: "value",
-              fieldLabel: "Field",
-              label: "Range",
               range: [0, 10],
               step: 1,
             },
@@ -523,8 +521,6 @@ describe("LayerUI attrs", () => {
             {
               kind: "range",
               field: "value",
-              fieldLabel: "Field",
-              label: "Range",
               range: [0, 10],
               step: 1,
             },
@@ -885,5 +881,29 @@ describe("LayerUI attrs", () => {
     });
   });
 
+  it("reopen after close does not trip the duplicate-id guard", () => {
+    // A controller is rebuilt per open; each close detaches exactly once,
+    // so a second open re-attaches without throwing "duplicate overlay".
+    const item = findItem(ui, "overlay1");
+    ui.openAttrsPanel(item);
+    ui.closeAttrsPanel(true);
+    expect(() => ui.openAttrsPanel(item)).not.toThrow();
+    expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+    ui.closeAttrsPanel(true);
+  });
+  it("close detaches the registry entry (no live overlay after close)", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openAttrsPanel(item);
+    // While open, the registry reports the surface as topmost (it owns the
+    // outside-press/Escape dispatch).
+    const registry = ensureOverlayRegistry(map);
+    expect(registry.topmost()).not.toBeNull();
+    ui.closeAttrsPanel(true);
+    // After close the entry is detached: no overlay owns dispatch, so a fresh
+    // open re-attaches without tripping the duplicate-id guard (proved by the
+    // reopen test above).
+    expect(registry.topmost()).toBeNull();
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+  });
   // ─────────────────── more button visibility ───────────────────
 });
