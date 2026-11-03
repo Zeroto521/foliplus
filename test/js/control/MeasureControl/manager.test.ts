@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
 import { makeControlEnv } from "../../fixture.js";
+import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
@@ -31,97 +32,7 @@ vi.mock("#core/mode.js", async () => {
   };
 });
 
-// Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
-function mockLayerAPI() {
-  // The real mainLayer is a Leaflet LayerGroup; the filter's visibility path
-  // asks it which leaves are attached, so the mock tracks membership too.
-  const attached = new Set<unknown>();
-  return {
-    register: vi.fn(),
-    unregister: vi.fn(),
-    clearLayers: vi.fn(),
-    addLayer: vi.fn(l => l),
-    removeLayer: vi.fn(),
-    mainLayer: {
-      addLayer: vi.fn((leaf: unknown) => {
-        attached.add(leaf);
-        return leaf;
-      }),
-      removeLayer: vi.fn((leaf: unknown) => {
-        attached.delete(leaf);
-        return leaf;
-      }),
-      hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
-    },
-  };
-}
-
-function makeManager(opts?: { id?: string }) {
-  window.CONFIG = {
-    ...window.CONFIG,
-    name: "MeasureControl",
-    locale_code: "en",
-  };
-
-  const env = makeControlEnv();
-
-  const layers = mockLayerAPI();
-
-  // Mock L marker / circleMarker / divIcon for mode.ts side effects
-  const mkMarker = () => {
-    const m: any = {
-      bindPopup: vi.fn(() => m),
-      openPopup: vi.fn(),
-      addTo: vi.fn(() => m),
-      getPopup: () => null,
-      setPopupContent: vi.fn(),
-      closePopup: vi.fn(),
-      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
-      setLatLng: vi.fn(),
-      getElement: vi.fn(() => null),
-    };
-    m.on = vi.fn(() => m);
-    m.off = vi.fn(() => m);
-    return m;
-  };
-  window.L.marker = vi.fn(mkMarker);
-  window.L.circleMarker = vi.fn(() => ({}));
-  window.L.divIcon = vi.fn(() => ({}));
-  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.polygon = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
-
-  const container = document.createElement("div");
-  const map = {
-    getContainer: () => container,
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-    getSize: (..._args: unknown[]) => ({ x: 1000, y: 800 }),
-    latLngToContainerPoint: (..._args: unknown[]) => ({ x: 0, y: 0 }),
-    foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
-      interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn(), publish: vi.fn() },
-      LayerAPI: {
-        createLayers: vi.fn(() => layers),
-      },
-    },
-  };
-
-  const manager = new MeasureManager(map, env, opts);
-  manager.init();
-  return { manager, map, container, layers };
-}
-
-afterEach(() => {
-  document.body.innerHTML = "";
-  window.localStorage.clear();
-  // CONFIG is shared process-wide; a declared-filter test must not leak its
-  // declaration into the next manager.
-  window.CONFIG = { ...window.CONFIG, filter: null };
-});
+afterEach(resetMeasureControlState);
 
 describe("MeasureManager — persistence", () => {
   it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
@@ -2275,7 +2186,7 @@ describe("MeasureManager — type filter", () => {
 
     manager.clearAll();
 
-    // An explicit Clear is a factory Reset: the committed filter is dropped
+    // The CLEAR mode is a factory Reset: the committed filter is dropped
     // AND the record is removed, so a reload re-applies the declaration.
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
     const key = (manager as any).filterStorageKey as string;
@@ -2474,7 +2385,7 @@ describe("MeasureManager — type filter", () => {
     expect(String(warn.mock.calls[0].join(" "))).toContain("types: bogus, fake");
   });
 
-  it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
+  it("the CLEAR mode re-seeds the declared filter and deletes the record", () => {
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -2485,7 +2396,7 @@ describe("MeasureManager — type filter", () => {
       filter([CONST.MEASURE_MODE.DISTANCE]),
     );
 
-    // A user Clear is a factory Reset: the filter re-seeds to the declaration
+    // The CLEAR mode is a factory Reset: the filter re-seeds to the declaration
     // in this session and the record is deleted, so a reload re-applies it.
     manager.clearAll();
 

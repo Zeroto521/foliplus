@@ -1,30 +1,36 @@
 // Cross-arm filter contract — MEASURE (enum) arm.
 //
-// The second half of the cross-arm contract matrix. The sibling
-// filter-contract.heatmap.test.ts pins the same rows against the range arm;
-// keeping the describe/it structure identical is the point: a change that
-// moves one arm without the other fails here instead of in a user report.
+// The other half of a mirrored pair. The sibling
+// test/js/control/HeatmapControl/manager.contract.test.ts pins the same rows
+// against the range arm; the describe/it structure is identical on purpose, so
+// a change that moves one arm without the other fails here instead of in a
+// user report.
 //
 // The rows, in order:
 //   1. a declared filter is a starting condition and owns nothing;
 //   2. a user write owns the slot and wins from then on;
 //   3. a stored filter wins over the declaration;
-//   4. the filter row's Clear owns the empty slot, while the factory Reset
+//   4. the filter row's Clear keeps the empty slot, while the factory Reset
 //      drops ownership and re-seeds the declaration;
 //   5. an unusable declaration warns once and never leaves a half-open state;
 //   6. a saved filter round-trips through persistence;
 //   7. the dimension carries values only — captions are panel chrome.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
-import { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../../fixture.js";
+import { makeManager, resetMeasureControlState } from "./fixture.js";
 
-// ── Module-level mocks (hoisted before the manager import) ──
+// Label-collision lifecycle tests mock the collision module. It must be
+// hoisted + mocked before MeasureManager is imported, because manager.ts
+// imports collision.js synchronously at module load.
 const placeLabels = vi.hoisted(() => vi.fn(() => 0));
 vi.mock("#control/MeasureControl/collision.js", () => ({
   placeLabels,
   mapProjector: () => ({ box: () => ({ x: 0, y: 0, w: 64, h: 18 }) }),
 }));
+
+// Hoistable mock for guardBlocked — allows per-test override to exercise the
+// blocked-path in setMode() without affecting the real ensureModes/ModeManager
+// that the interaction-lock tests depend on.
 const modeMocks = vi.hoisted(() => ({ guardBlocked: vi.fn(() => false) }));
 vi.mock("#core/mode.js", async () => {
   const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
@@ -38,74 +44,8 @@ const filter = (values: string[]): any => ({
   values,
 });
 
-/** Build a MeasureManager on a fresh container. The layer id is derived from
- *  the container id + generateId(prefix) — no opts id keeps it stable across
- *  "reloads" (a second makeManager on a new container with the same id). */
-function makeManager(opts?: { id?: string }) {
-  window.CONFIG = { ...window.CONFIG, name: "MeasureControl", locale_code: "en" };
-  const env = makeControlEnv();
-  const attached = new Set<unknown>();
-  const layers = {
-    register: vi.fn(),
-    unregister: vi.fn(),
-    clearLayers: vi.fn(),
-    addLayer: vi.fn((l: unknown) => l),
-    removeLayer: vi.fn(),
-    mainLayer: {
-      addLayer: vi.fn((leaf: unknown) => {
-        attached.add(leaf);
-        return leaf;
-      }),
-      removeLayer: vi.fn((leaf: unknown) => {
-        attached.delete(leaf);
-        return leaf;
-      }),
-      hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
-    },
-  };
-  window.L.marker = vi.fn(() => {
-    const m: any = {
-      bindPopup: vi.fn(() => m),
-      openPopup: vi.fn(),
-      addTo: vi.fn(() => m),
-      getPopup: () => null,
-      setPopupContent: vi.fn(),
-      closePopup: vi.fn(),
-      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
-      setLatLng: vi.fn(),
-      getElement: vi.fn(() => null),
-    };
-    m.on = vi.fn(() => m);
-    m.off = vi.fn(() => m);
-    return m;
-  });
-  window.L.circleMarker = vi.fn(() => ({}));
-  window.L.divIcon = vi.fn(() => ({}));
-  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.polygon = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.latLng = vi.fn((lat: number, lng: number) => ({ lat, lng }));
-
-  const container = document.createElement("div");
-  const map = {
-    getContainer: () => container,
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-    getSize: () => ({ x: 1000, y: 800 }),
-    latLngToContainerPoint: () => ({ x: 0, y: 0 }),
-    foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
-      interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn(), publish: vi.fn() },
-      LayerAPI: { createLayers: vi.fn(() => layers) },
-    },
-  };
-  const manager = new MeasureManager(map, env, opts);
-  manager.init();
-  return { manager, map, container, layers };
-}
-
+/** Three measurements, one per type, so a declared subset has something to
+ *  keep and total against. */
 const addMeasurements = (manager: any): void => {
   manager.store.add({ id: "m1", type: CONST.MEASURE_MODE.MARKER });
   manager.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
@@ -135,18 +75,20 @@ const reload = () => {
   return makeManager();
 };
 
+/** A user write through the same setter the panel's filter row calls. */
+const userWrite = (manager: any, map: any, values = [CONST.MEASURE_MODE.MARKER]) => {
+  createLayersOpts(map).filterSetter(filter(values));
+  return manager;
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
-  document.body.innerHTML = "";
-  window.localStorage.clear();
-  // CONFIG is shared process-wide; a declared-filter test must not leak its
-  // declaration into the next manager.
-  window.CONFIG = { ...window.CONFIG, filter: null };
+  resetMeasureControlState();
 });
 
 describe("filter contract — measure (enum arm)", () => {
   describe("1. a declared filter is a starting condition", () => {
-    it("seeds the declared enum and leaves the slot unowned", () => {
+    it("seeds the declaration without taking ownership", () => {
       window.CONFIG = {
         ...window.CONFIG,
         filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -167,7 +109,7 @@ describe("filter contract — measure (enum arm)", () => {
       expect(model.total).toBe(3);
     });
 
-    it("does not seed when the stored record owns the slot", () => {
+    it("does not seed while a stored record owns the slot", () => {
       // A deliberate empty record (the user cleared the filter earlier): the
       // declaration must stay out even though no filter value is stored.
       seedRecord({
@@ -187,7 +129,7 @@ describe("filter contract — measure (enum arm)", () => {
   });
 
   describe("2. a user write owns the slot", () => {
-    it("marks the slot owned and stores the user's enum", () => {
+    it("takes ownership and persists the user's choice", () => {
       window.CONFIG = {
         ...window.CONFIG,
         filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -195,7 +137,7 @@ describe("filter contract — measure (enum arm)", () => {
       const { manager, map } = makeManager();
       addMeasurements(manager);
 
-      createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+      userWrite(manager, map);
 
       expect((manager as any).filtersTouched).toBe(true);
       expect((manager as any).measureFilter).toEqual(
@@ -209,7 +151,7 @@ describe("filter contract — measure (enum arm)", () => {
   });
 
   describe("3. a stored filter wins over the declaration", () => {
-    it("restores the stored enum instead of seeding the declaration", () => {
+    it("restores the stored filter instead of the declaration", () => {
       seedRecord({
         version: CONST.FILTER.RECORD_VERSION,
         filter: filter([CONST.MEASURE_MODE.MARKER]),
@@ -233,7 +175,7 @@ describe("filter contract — measure (enum arm)", () => {
   });
 
   describe("4. the two clear paths are not the same", () => {
-    it("the filter row's Clear owns the empty slot — no resurrection on reload", () => {
+    it("the filter row's Clear keeps the user's empty slot", () => {
       window.CONFIG = {
         ...window.CONFIG,
         filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -249,6 +191,7 @@ describe("filter contract — measure (enum arm)", () => {
       expect((manager as any).filtersTouched).toBe(true);
       expect((manager as any).measureFilter).toBeUndefined();
 
+      // The declaration must not come back on the next load either.
       const { manager: reloaded } = reload();
       expect((reloaded as any).filtersTouched).toBe(true);
       expect((reloaded as any).measureFilter).toBeUndefined();
@@ -261,9 +204,11 @@ describe("filter contract — measure (enum arm)", () => {
       };
       const { manager, map } = makeManager();
       addMeasurements(manager);
-      createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+      userWrite(manager, map);
       expect((manager as any).filtersTouched).toBe(true);
 
+      // The CLEAR mode is the factory Reset: delete the record, drop
+      // ownership, and return to the declaration.
       manager.clearAll();
 
       expect((manager as any).filtersTouched).toBe(false);
@@ -281,7 +226,7 @@ describe("filter contract — measure (enum arm)", () => {
   });
 
   describe("5. an unusable declaration warns once, never half-applies", () => {
-    it("rejects a partially unknown list whole, warning once", () => {
+    it("reports the declaration once and starts unfiltered", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       window.CONFIG = {
         ...window.CONFIG,
@@ -299,12 +244,9 @@ describe("filter contract — measure (enum arm)", () => {
       manager.clearAll();
       expect((manager as any).measureFilter).toBeUndefined();
       expect(warn).toHaveBeenCalledTimes(1);
-
-      const { manager: reloaded } = reload();
-      expect((reloaded as any).measureFilter).toBeUndefined();
     });
 
-    it("rejects a declaration from the other arm", () => {
+    it("rejects the other arm whole instead of coercing it", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       window.CONFIG = {
         ...window.CONFIG,
@@ -323,17 +265,32 @@ describe("filter contract — measure (enum arm)", () => {
       expect((manager as any).measureFilter).toBeUndefined();
       expect(warn).toHaveBeenCalledTimes(1);
     });
+
+    it("stays undeclared after the factory Reset and a reload", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+      };
+
+      const { manager } = makeManager();
+      manager.clearAll();
+      expect((manager as any).measureFilter).toBeUndefined();
+
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).measureFilter).toBeUndefined();
+    });
   });
 
   describe("6. a saved filter round-trips through persistence", () => {
-    it("save → load restores the enum and its ownership", () => {
+    it("save → load → apply restores the filter and its ownership", () => {
       window.CONFIG = {
         ...window.CONFIG,
         filter: filter([CONST.MEASURE_MODE.DISTANCE]),
       };
       const { manager, map } = makeManager();
       addMeasurements(manager);
-      createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+      userWrite(manager, map);
 
       const { manager: reloaded, map: nextMap } = reload();
 
@@ -348,7 +305,7 @@ describe("filter contract — measure (enum arm)", () => {
   });
 
   describe("7. the dimension carries values only", () => {
-    it("exposes the enum options in toolbar order, with captions left to the panel", () => {
+    it("exposes values with captions left to the panel", () => {
       const { manager, map } = makeManager();
       addMeasurements(manager);
 
@@ -364,7 +321,7 @@ describe("filter contract — measure (enum arm)", () => {
         CONST.MEASURE_MODE.DISTANCE,
         CONST.MEASURE_MODE.POLYGON,
       ]);
-      // The panel reads its shared locale keys (filter_enum); a
+      // The panel reads its shared locale key (filter_enum); a
       // component-owned caption here is the defect the contract prevents.
       expect(dim).not.toHaveProperty("label");
     });

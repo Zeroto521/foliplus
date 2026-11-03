@@ -1,15 +1,16 @@
 // Cross-arm filter contract — HEATMAP (range) arm.
 //
-// One half of the cross-arm contract matrix. The sibling
-// filter-contract.measure.test.ts pins the same rows against the enum arm;
-// keeping the describe/it structure identical is the point: a change that
-// moves one arm without the other fails here instead of in a user report.
+// One half of a mirrored pair. The sibling
+// test/js/control/MeasureControl/manager.contract.test.ts pins the same rows
+// against the enum arm; the describe/it structure is identical on purpose, so
+// a change that moves one arm without the other fails here instead of in a
+// user report.
 //
 // The rows, in order:
 //   1. a declared filter is a starting condition and owns nothing;
 //   2. a user write owns the slot and wins from then on;
 //   3. a stored filter wins over the declaration;
-//   4. the filter row's Clear owns the empty slot, while the factory Reset
+//   4. the filter row's Clear keeps the empty slot, while the factory Reset
 //      drops ownership and re-seeds the declaration;
 //   5. an unusable declaration warns once and never leaves a half-open state;
 //   6. a saved filter round-trips through persistence;
@@ -17,7 +18,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LayerFilter } from "#core/layer/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
-import { makeManager } from "../HeatmapControl/fixture.js";
+import { makeManager } from "./fixture.js";
 
 /** A valid numeric-range atom on the fixture's snapshot field. */
 const RANGE = {
@@ -66,6 +67,13 @@ const reload = (filter: unknown = RANGE) => {
   return prepare(manager);
 };
 
+/** A user write on a source with no declaration of its own. */
+const userWrite = (manager: any, filter: LayerFilter = USER_RANGE) => {
+  manager.renderHexagons = vi.fn() as any;
+  manager.setFilter(filter);
+  return manager;
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
@@ -73,7 +81,7 @@ afterEach(() => {
 
 describe("filter contract — heatmap (range arm)", () => {
   describe("1. a declared filter is a starting condition", () => {
-    it("seeds the declared range and leaves the slot unowned", () => {
+    it("seeds the declaration without taking ownership", () => {
       const manager = seedable(RANGE);
 
       manager.seedDeclaredFilter();
@@ -84,7 +92,7 @@ describe("filter contract — heatmap (range arm)", () => {
       expect(manager.filtersTouched).toBe(false);
     });
 
-    it("does not seed when the stored record owns the slot", () => {
+    it("does not seed while a stored record owns the slot", () => {
       const manager = seedable(RANGE);
       manager.filtersTouched = true; // a persisted record owns the slot
 
@@ -96,11 +104,8 @@ describe("filter contract — heatmap (range arm)", () => {
   });
 
   describe("2. a user write owns the slot", () => {
-    it("marks the slot owned and stores the user's range", () => {
-      const manager = seedable(null);
-      manager.renderHexagons = vi.fn() as any;
-
-      manager.setFilter(USER_RANGE);
+    it("takes ownership and persists the user's choice", () => {
+      const manager = userWrite(seedable(null));
 
       expect(manager.filtersTouched).toBe(true);
       expect(manager.layerFilters.get("pts")).toEqual(USER_RANGE);
@@ -108,21 +113,10 @@ describe("filter contract — heatmap (range arm)", () => {
       expect(saved?.filters?.pts).toEqual(USER_RANGE);
       expect(saved?.filtersTouched).toBe(true);
     });
-
-    it("does not re-seed the declaration over the user's own choice", () => {
-      const manager = seedable(null);
-      manager.renderHexagons = vi.fn() as any;
-      manager.setFilter(USER_RANGE);
-
-      manager.seedDeclaredFilter();
-
-      expect(manager.layerFilters.get("pts")).toEqual(USER_RANGE);
-      expect(manager.filtersTouched).toBe(true);
-    });
   });
 
   describe("3. a stored filter wins over the declaration", () => {
-    it("restores the stored range instead of seeding the declaration", () => {
+    it("restores the stored filter instead of the declaration", () => {
       // A record from an earlier session, with its ownership flag.
       window.localStorage.setItem(
         CONST.STORAGE.KEY,
@@ -144,7 +138,7 @@ describe("filter contract — heatmap (range arm)", () => {
   });
 
   describe("4. the two clear paths are not the same", () => {
-    it("the filter row's Clear owns the empty slot — the declaration stays out", () => {
+    it("the filter row's Clear keeps the user's empty slot", () => {
       const manager = seedable(RANGE);
       manager.renderHexagons = vi.fn() as any;
       manager.seedDeclaredFilter();
@@ -154,8 +148,15 @@ describe("filter contract — heatmap (range arm)", () => {
       expect(manager.filtersTouched).toBe(true);
       expect(manager.layerFilters.has("pts")).toBe(false);
 
+      // The declaration must not come back in this session...
       manager.seedDeclaredFilter();
       expect(manager.layerFilters.has("pts")).toBe(false);
+
+      // ...or on the next one: the record owns an explicitly empty slot.
+      const reloaded = reload(RANGE);
+      reloaded.seedDeclaredFilter();
+      expect(reloaded.filtersTouched).toBe(true);
+      expect(reloaded.layerFilters.has("pts")).toBe(false);
     });
 
     it("the factory Reset drops ownership and re-seeds the declaration", () => {
@@ -183,7 +184,7 @@ describe("filter contract — heatmap (range arm)", () => {
   });
 
   describe("5. an unusable declaration warns once, never half-applies", () => {
-    it("reports an unreadable declaration once and starts unfiltered", () => {
+    it("reports the declaration once and starts unfiltered", () => {
       const manager = seedable({ kind: "atom", field: "score", op: "nope" });
       const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
 
@@ -194,7 +195,7 @@ describe("filter contract — heatmap (range arm)", () => {
       expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it("rejects an enum declaration whole (the panel's dimension is a range)", () => {
+    it("rejects the other arm whole instead of coercing it", () => {
       const manager = seedable({
         kind: "enum",
         field: "score",
@@ -225,12 +226,11 @@ describe("filter contract — heatmap (range arm)", () => {
   });
 
   describe("6. a saved filter round-trips through persistence", () => {
-    it("save → load → apply restores the range and its ownership", () => {
-      const manager = seedable(null);
-      manager.renderHexagons = vi.fn() as any;
-      manager.setFilter(USER_RANGE);
+    it("save → load → apply restores the filter and its ownership", () => {
+      userWrite(seedable(null));
 
       const reloaded = reload(RANGE);
+      reloaded.seedDeclaredFilter();
 
       expect(reloaded.filtersTouched).toBe(true);
       expect(reloaded.layerFilters.get("pts")).toEqual(USER_RANGE);
@@ -238,7 +238,7 @@ describe("filter contract — heatmap (range arm)", () => {
   });
 
   describe("7. the dimension carries values only", () => {
-    it("exposes the bound field and range, with captions left to the panel", () => {
+    it("exposes values with captions left to the panel", () => {
       const manager = seedable(RANGE);
       manager.seedDeclaredFilter();
 
