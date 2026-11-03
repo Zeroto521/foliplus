@@ -30,6 +30,7 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { AnnotationConfig } from "#control/LayerControl/type.js";
 import type { LayerUI } from "../surface.js";
@@ -159,9 +160,9 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // number — comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
-    { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatDropdown.element),
+    { class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui._("foliplus.label_format")),
+    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, formatDropdown.element),
   );
   syncFormatRow(
     fields,
@@ -178,28 +179,28 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     { class: CONST.CLASSES.STYLE_BODY },
     dom.el(
       "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldDropdown.element),
+      { class: PANEL_CLASS.FORM_ROW },
+      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_label_field")),
+      dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, fieldDropdown.element),
     ),
     formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
-      { class: CONST.CLASSES.FORM_ROW },
+      { class: PANEL_CLASS.FORM_ROW },
       dom.el(
         "label",
-        { class: CONST.CLASSES.FORM_LABEL },
+        { class: PANEL_CLASS.FORM_LABEL },
         ui._("foliplus.label_collide"),
       ),
       dom.el(
         "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
+        { class: PANEL_CLASS.FORM_CONTROL },
         dom.el(
           "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
+          { class: PANEL_CLASS.TOGGLE_SWITCH },
           collideToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
         ),
       ),
     ),
@@ -211,18 +212,18 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     { class: CONST.CLASSES.STYLE_LABEL_SECTION },
     dom.el(
       "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label")),
+      { class: PANEL_CLASS.FORM_ROW },
+      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
-        { class: CONST.CLASSES.FORM_CONTROL },
+        { class: PANEL_CLASS.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
         // label should all flip the checkbox — the switch is one <label>.
         dom.el(
           "label",
-          { class: CONST.CLASSES.TOGGLE_SWITCH },
+          { class: PANEL_CLASS.TOGGLE_SWITCH },
           showToggle,
-          dom.el("span", { class: CONST.CLASSES.TOGGLE_SLIDER }),
+          dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
         ),
       ),
     ),

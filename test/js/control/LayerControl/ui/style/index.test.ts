@@ -951,6 +951,10 @@ describe("LayerUI style panel", () => {
     const btn = panelOf(item)!.querySelector(
       ".foliplus-style-reset-btn",
     ) as HTMLButtonElement;
+    // Shared panel-btn recipe + never-submit type (the builder contract, so
+    // reset and clear stay on one CSS class).
+    expect(btn.classList.contains("foliplus-panel-btn")).toBe(true);
+    expect(btn.type).toBe("button");
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     // The default config, plus the page's collide default injected by getConfig.

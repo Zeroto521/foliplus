@@ -1,6 +1,7 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { ROLE } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#common/dom.js";
+import { sectionDivider } from "#ui/panelChrome.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { finishSlidersIn } from "#control/LayerControl/slider.js";
@@ -561,7 +562,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       }),
     ),
     dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
-    dom.el("div", { class: "foliplus-section-divider" }),
+    sectionDivider("div"),
   );
 };
 
