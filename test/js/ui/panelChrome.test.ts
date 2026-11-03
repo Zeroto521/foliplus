@@ -27,7 +27,7 @@ describe("ui/panelChrome builders", () => {
   it("sectionDivider accepts div for callers whose layout needs a block", () => {
     // list.ts's toggle-all row is a CSS grid cell: an <hr> would inherit the
     // UA margin (0.5em auto) and shift the row; the caller passes "div" to
-    // keep the block element it replaced.
+    // keep the pre-S1 block element.
     const div = sectionDivider("div");
     expect(div.tagName).toBe("DIV");
     expect(div.classList.contains("foliplus-section-divider")).toBe(true);
