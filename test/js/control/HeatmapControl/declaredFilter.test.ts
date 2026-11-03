@@ -210,6 +210,39 @@ describe("declared heatmap filter — seed", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("an invalid declaration stays undeclared after Clear and reload, warning once", () => {
+    const manager = seedable({
+      ...RANGE,
+      range: [1000, 2000],
+    } as Record<string, unknown>);
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+    manager.seedDeclaredFilter();
+
+    // Warn once per manager, never a half-applied clamp.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(manager.layerFilters.has("pts")).toBe(false);
+
+    // Clear returns to the declared state; the declaration is still invalid,
+    // so the slot stays empty and the warning is not repeated.
+    manager.resetState(makeConfig());
+    manager.selectedLayerId = "pts";
+    manager.availableFields = ["score"];
+    manager.cachedSnapshot = snapshot();
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // A reload reads the same invalid declaration and starts undeclared too.
+    const reloaded = seedable({
+      ...RANGE,
+      range: [1000, 2000],
+    } as Record<string, unknown>);
+    reloaded.seedDeclaredFilter();
+    expect(reloaded.layerFilters.has("pts")).toBe(false);
+  });
+
   it("keeps the declaration out when a persisted record owns the slot", () => {
     const manager = seedable(RANGE as Record<string, unknown>);
     manager.filtersTouched = true;

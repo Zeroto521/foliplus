@@ -346,10 +346,21 @@ describe("HeatmapManager — versioned persisted config", () => {
       m1.borderColor = "#111111";
       m1.labelShow = true;
       m1.field = "value";
+      m1.filtersTouched = true;
+      m1.layerFilters.set("r1", {
+        kind: "atom",
+        field: "value",
+        op: "between",
+        range: [1, 2],
+      });
       m1.saveConfig();
 
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
       expect(stored.version).toBe(CONST.RECORD_VERSION);
+      expect(stored.filtersTouched).toBe(true);
+      expect(stored.filters).toEqual({
+        r1: { kind: "atom", field: "value", op: "between", range: [1, 2] },
+      });
 
       const m2 = makeManager();
       const loaded = m2.loadSavedConfig();
@@ -364,6 +375,15 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m2.borderColor).toBe("#111111");
       expect(m2.labelShow).toBe(true);
       expect(m2.field).toBe("value");
+      // The ownership flag and the per-source filter travel together: the
+      // reloaded manager must not let the declaration overwrite either.
+      expect(m2.filtersTouched).toBe(true);
+      expect(m2.layerFilters.get("r1")).toEqual({
+        kind: "atom",
+        field: "value",
+        op: "between",
+        range: [1, 2],
+      });
     });
 
     it("preserves falsy values (false / 0) through save → load → apply", () => {

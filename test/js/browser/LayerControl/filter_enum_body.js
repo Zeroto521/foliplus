@@ -22,9 +22,7 @@ async () => {
     const selected =
       filter && filter.kind === "enum" ? filter.values.length : OPTIONS.length;
     return {
-      dimensions: [
-        { kind: "enum", field: "type", label: "Type", multi: true, options: OPTIONS },
-      ],
+      dimensions: [{ kind: "enum", field: "type", multi: true, options: OPTIONS }],
       filter,
       kept: selected * 2,
       total: TOTAL,
