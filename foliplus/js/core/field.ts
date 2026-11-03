@@ -204,4 +204,3 @@ export {
   numericPropertiesKeys,
   resolveField,
 };
-export type { InferredFieldKind };
