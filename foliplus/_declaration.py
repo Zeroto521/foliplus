@@ -305,11 +305,11 @@ def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any]
 
     Value names are not validated here on purpose: the measurement-type
     vocabulary is the runtime's (MeasureControl/const.ts MEASURE_TYPE_*), so
-    the JS normalizer drops the names it does not know. A declaration naming
-    one unknown value among known ones therefore starts filtered on the known
-    values and drops the unknown one silently; only a declaration whose every
-    name is unknown is reported and ignored ("no declared value is a
-    measurement type", MeasureControl/manager.ts warnDeclaredFilter).
+    the JS reader validates the whole list at construction. One unknown name
+    among known ones makes the declaration invalid as a whole: it warns once
+    ("unknown measurement type(s): ...", MeasureControl/manager.ts
+    declaredMeasureFilter) and the runtime starts unfiltered - never filtered
+    on the known subset, because that would apply a condition nobody wrote.
     Duplicating the vocabulary here would be a second closed set to keep in
     step with the runtime's.
     """
