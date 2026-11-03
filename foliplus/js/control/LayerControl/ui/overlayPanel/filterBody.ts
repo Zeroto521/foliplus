@@ -95,9 +95,8 @@ const readOnlyField = (field: string): HTMLElement =>
 /** Shared dual-thumb range body: the field row (caption + read-only field
  *  name) plus the condition row (caption + slider). Two different questions
  *  are being answered — which field is being filtered, and over what range.
- *  Both captions are shared panel vocabulary, so the Heatmap and Measure
- *  arms cannot drift apart. `core` refuses to print the raw field name as a
- *  caption. */
+ *  Both captions are shared panel vocabulary, so no two owners can drift
+ *  apart. `core` refuses to print the raw field name as a caption. */
 const renderRangeBody = (
   dim: FilterRangeDimension,
   model: LayerFilterModel,

@@ -55,6 +55,11 @@ const TYPE_LABELS: ReadonlyArray<readonly [string, string]> = [
   [CONST.MEASURE_MODE.CIRCLE, "tool_circle"],
 ];
 
+/** Membership view of the same domain, shared by every filter-validation path
+ *  (session writes, persisted records, declared config) so they can never drift
+ *  apart. Built once: the table is a module constant. */
+const MEASURE_TYPES: ReadonlySet<string> = new Set(TYPE_LABELS.map(([value]) => value));
+
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([
@@ -327,8 +332,7 @@ class MeasureManager {
     // that happen to exist right now: deleting the last measurement of a
     // selected type must not silently drop it from the filter (it comes back
     // when such a measurement appears again).
-    const allowed = new Set(TYPE_LABELS.map(([value]) => value));
-    const values = filter.values.filter(value => allowed.has(value));
+    const values = filter.values.filter(value => MEASURE_TYPES.has(value));
     return values.length > 0
       ? { kind: "enum", field: CONST.FILTER.FIELD, values }
       : undefined;
@@ -527,8 +531,7 @@ class MeasureManager {
       this.warnDeclaredFilter("the panel filters measurement types only");
       return undefined;
     }
-    const allowed = new Set(TYPE_LABELS.map(([value]) => value));
-    const unknown = declared.values.filter(value => !allowed.has(value));
+    const unknown = declared.values.filter(value => !MEASURE_TYPES.has(value));
     if (unknown.length > 0) {
       this.warnDeclaredFilter(
         `unknown measurement type${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,

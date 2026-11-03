@@ -2460,6 +2460,20 @@ describe("MeasureManager — type filter", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("reports every unknown declared type, pluralized, exactly once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter(["bogus", "fake", CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0].join(" "))).toContain("types: bogus, fake");
+  });
+
   it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
     window.CONFIG = {
       ...window.CONFIG,
@@ -2522,11 +2536,23 @@ describe("MeasureManager — type filter", () => {
     const { manager, map } = makeManager();
     expect((manager as any).filtersTouched).toBe(false);
 
+    const save = vi.spyOn(manager as any, "saveMeasureFilter");
+    const replan = vi.spyOn(manager, "requestLabelPlan");
+
     // Writing the same values the declaration seeded is still a user action;
     // it must persist ownership so a later declaration change cannot replace
     // the user's choice.
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
+
+    // A repeated identical write is a no-op once the slot is owned: it must
+    // not rewrite the record or repaint for a state that did not change.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
 
     const key = (manager as any).filterStorageKey as string;
     const record = JSON.parse(window.localStorage.getItem(key)!);

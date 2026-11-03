@@ -52,8 +52,8 @@ type LayerFilter = FilterExpr | undefined;
 
 /** One dimension a filter-capable owner exposes to the panel. The owner
  *  supplies the value domain — numeric extents for `range`, a closed option
- *  list for `enum` — while every caption stays panel chrome: both arms read
- *  the same shared locale keys (`filter_field` / `filter_range` /
+ *  list for `enum` — while every caption stays panel chrome: every owner
+ *  reads the same shared locale keys (`filter_field` / `filter_range` /
  *  `filter_enum`), so the wording cannot drift between components. The panel
  *  renders one dimension today; the array keeps a multi-dimension UI a new
  *  renderer rather than a model migration.
