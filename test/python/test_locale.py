@@ -618,10 +618,10 @@ class TestPartialCustomTable:
 
 
 class TestToFile:
-    def test_to_file_roundtrip(self):
+    def test_to_file_roundtrip(self, tmp_path):
         """Export and re-import a LocaleConfig."""
         cfg = resolve_locale("zh", "HeatmapControl")
-        tmp = os.path.join(tempfile.mkdtemp(), "test_zh.json")
+        tmp = tmp_path / "test_zh.json"
         try:
             cfg.to_json(tmp)
             loaded = LocaleConfig.from_json(tmp)
@@ -629,36 +629,29 @@ class TestToFile:
             assert loaded.get("HeatmapControl.title") == "网格聚合"
             assert loaded.get("HeatmapControl.layer") == "聚合图层"
         finally:
-            os.unlink(tmp)
-            os.rmdir(os.path.dirname(tmp))
+            tmp.unlink()
 
     def test_bare_localeconfig_to_json_raises(self):
         """A stringless config has no table; writing {} would reload as English."""
         with pytest.raises(ValueError, match="has no strings to export"):
             LocaleConfig("zh").to_json("/tmp/foliplus-test-no-such-dir/x.json")
 
-    def test_to_json_always_writes_locale_code(self):
+    def test_to_json_always_writes_locale_code(self, tmp_path):
         """The written file round-trips its code — not silently 'en'."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
-        ) as f:
-            json.dump(
+        src = tmp_path / "src.json"
+        src.write_text(
+            json.dumps(
                 {"locale.code": "ja", "HeatmapControl.title": "こんにちは"},
-                f,
                 ensure_ascii=False,
-            )
-            src = f.name
-        tmp = os.path.join(tempfile.mkdtemp(), "roundtrip.json")
-        try:
-            loaded = LocaleConfig.from_json(src)
-            loaded.to_json(tmp)
-            written = json.loads(open(tmp, encoding="utf-8").read())
-            assert written["locale.code"] == "ja"
-            assert LocaleConfig.from_json(tmp).code == "ja"
-        finally:
-            os.unlink(src)
-            os.unlink(tmp)
-            os.rmdir(os.path.dirname(tmp))
+            ),
+            encoding="utf-8",
+        )
+        tmp = tmp_path / "roundtrip.json"
+        loaded = LocaleConfig.from_json(src)
+        loaded.to_json(tmp)
+        written = json.loads(tmp.read_text(encoding="utf-8"))
+        assert written["locale.code"] == "ja"
+        assert LocaleConfig.from_json(tmp).code == "ja"
 
 
 class TestResolveLocale:

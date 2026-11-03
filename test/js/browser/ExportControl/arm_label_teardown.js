@@ -2,7 +2,7 @@
 //
 // The export renders for seconds (tile pass, shadow pass), and annotation
 // rendering can be torn down inside that window — a layer unload/re-register
-// removes every label canvas. The fix freezes each layer's label
+// removes every label canvas. The frozen-snapshot fix freezes each layer's label
 // canvas pixels synchronously at render() start, so a teardown in the render
 // window cannot blank the exported labels. This snippet arms that teardown on
 // the first image the export loads (Image / createImageBitmap) so it lands in

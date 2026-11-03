@@ -40,7 +40,7 @@ const renderCanvasElement = async (
  *  live in a pane the per-layer walk never visits.
  *
  *  Returns how many canvases it actually serialized. The annotation-label
- *  report no longer uses this count — labels are drawn from the frozen
+ *  report no longer uses this count — the label pass draws labels from the frozen
  *  `renderCanvasSnapshot` instead — and the content/canvas-layer passes
  *  discard the return, so the count is exposed for tests and future callers
  *  rather than an active consumer. */
