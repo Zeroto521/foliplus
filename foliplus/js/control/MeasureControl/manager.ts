@@ -373,7 +373,13 @@ class MeasureManager {
    *  (no redraw), then re-plan labels and notify the row. */
   setFilter(filter: LayerFilter): void {
     const next = this.normalizeMeasureFilter(filter);
-    if (filtersEqual(next, this.measureFilter) && this.filtersTouched) return;
+    const unchanged = filtersEqual(next, this.measureFilter);
+    // A write that changes nothing is a no-op once the user owns the slot.
+    // Clearing a slot that already holds nothing is also not a choice to
+    // remember (the panel's Clear is disabled in that state anyway) — the
+    // declaration may still seed. Every other write is the user taking the
+    // slot, including re-affirming the filter the declaration seeded.
+    if (unchanged && (this.filtersTouched || next === undefined)) return;
     this.measureFilter = next;
     // Any panel write — including the panel's Clear (undefined) — is the
     // user taking the slot. The declaration must not resurrect itself.

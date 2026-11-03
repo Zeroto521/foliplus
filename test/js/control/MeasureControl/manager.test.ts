@@ -2559,4 +2559,19 @@ describe("MeasureManager — type filter", () => {
     expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect(record.filtersTouched).toBe(true);
   });
+
+  it("a clear with nothing to clear leaves the slot to the declaration", () => {
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    // No filter exists and the panel's Clear is disabled in that state, so an
+    // empty write is not a user choice: it must not persist ownership (nor a
+    // record), leaving a declaration free to seed.
+    createLayersOpts(map).filterSetter(undefined);
+
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
 });
