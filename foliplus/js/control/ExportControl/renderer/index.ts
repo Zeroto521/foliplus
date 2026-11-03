@@ -412,7 +412,7 @@ class ExportRenderer {
           // They are drawn right after the layer's content — before the next
           // layer up covers them — so the export's stack order matches the map's.
           // The pixels are the snapshot frozen when the export started
-          // (task-22), not the live canvas: a refresh in the async window
+          // (the frozen snapshot), not the live canvas: a refresh in the async window
           // between the snapshot and this pass would otherwise blank the labels
           // silently, and drawing the snapshot keeps the export exactly what the
           // user saw when they pressed Export.
