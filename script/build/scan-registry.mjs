@@ -176,8 +176,8 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     const names = usedExports[`ui/${name}`] || [];
     if (names.length === 0) continue;
     lines.push(`import { ${names.join(", ")} } from "#ui/${name}.js";`);
-    // ui/<name> and common/<name> share a basename (e.g. form), so the const
-    // must be namespaced or the second declaration collides.
+    // Qualify the const: a ui module can share its basename with a common
+    // module (or a later one can), and both declarations would collide.
     lines.push(`const ui${name}NS = { ${names.join(", ")} };`);
     lines.push(`window.foliplus.ui["${name}"] = ui${name}NS;`);
   }

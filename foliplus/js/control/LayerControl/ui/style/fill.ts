@@ -44,7 +44,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
-import { readOnlyValue } from "#ui/form.js";
+import { readOnlyValue } from "#ui/panelField.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   type DeclaredFill,

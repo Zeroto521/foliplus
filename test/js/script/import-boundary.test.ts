@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
-// The layer order is common → core → ui → control: each layer may depend on
+// The layer order is common → ui → core → control: each layer may depend on
 // the layers below it, never the ones above. Concretely:
 //   - common: only #common (pure utilities; no DOM/config dependencies)
 //   - ui:     only #common + #ui (facade only today; may grow)
@@ -42,6 +42,8 @@ const componentOf = (rel: string): string | null => {
 // core/leaflet is the only core module allowed to import #ui (it owns the
 // panel chrome that the UI layer builds); every other core module stays
 // pure and must not reach up.
+// No core module consumes #ui yet: the allowance is reserved for the
+// panel-shell slice, so keep it until a real consumer lands.
 const isCoreLeaflet = (rel: string): boolean =>
   rel.startsWith("foliplus/js/core/leaflet/");
 
