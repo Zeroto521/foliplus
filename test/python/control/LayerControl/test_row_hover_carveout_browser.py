@@ -91,9 +91,7 @@ class TestRowHoverCarveoutBrowser:
             page.wait_for_timeout(150)
             rest = page.evaluate(_READ)
             assert rest is not None, f"row probe failed: {rest}"
-            assert rest["hasPanel"] is True, (
-                f"style panel not on the owner row: {rest}"
-            )
+            assert rest["hasPanel"] is True, f"style panel not on the owner row: {rest}"
 
             # Hover the row itself: the recipe matches (row hover, not panel),
             # so the checked row turns white (surface), not its rest wash.
