@@ -224,12 +224,6 @@ const CLASSES = {
      class for behaviour and tests. Geometry, marks and numbers are declared
      once, inside the primitive. */
   SLIDER: "foliplus-slider",
-  /** Shared form-row layout classes (also used by HeatmapControl template). */
-  FORM_ROW: "foliplus-form-row",
-  FORM_LABEL: "foliplus-form-label",
-  FORM_CONTROL: "foliplus-form-control",
-  TOGGLE_SWITCH: "foliplus-toggle-switch",
-  TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
   /** Floating filter panel opened from the layer overflow menu. */

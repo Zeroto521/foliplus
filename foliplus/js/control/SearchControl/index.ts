@@ -8,6 +8,7 @@ import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
 import * as Icons from "#common/icon.js";
+import { closeButton } from "#ui/panelChrome.js";
 import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
@@ -115,10 +116,10 @@ class SearchControl extends defineControl({
       class: "foliplus-input",
       placeholder: this.T("coord_placeholder"),
     }) as HTMLInputElement;
-    const clearBtn = createIconButton({
-      class: "foliplus-ctrl-btn foliplus-close-btn",
+    const clearBtn = closeButton({
       title: this.T("clear_title"),
-      svg: Icons.ICON_CLOSE,
+      iconSvg: Icons.ICON_CLOSE,
+      className: "foliplus-ctrl-btn",
     });
     this.modeBtn = modeBtn;
     this.inp = inp;

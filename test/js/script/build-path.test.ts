@@ -75,7 +75,7 @@ describe("build-path.mjs", () => {
     // through esbuild's alias and must NOT be externalized. The old test
     // asserted the alias table and the shared set were equal; that
     // assumption is what externalized self-imports as empty shims.
-    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["common", "core"]);
+    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["common", "core", "ui"]);
     for (const prefix of SHARED_MODULE_PREFIXES) {
       expect(Object.keys(pathAliases(ROOT))).toContain(`#${prefix}`);
     }
