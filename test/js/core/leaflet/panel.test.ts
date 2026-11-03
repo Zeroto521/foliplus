@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ROW_PANEL_EDGE, ROW_PANEL_MIN_HEIGHT } from "#core/leaflet/panel.js";
 import {
-  ROW_PANEL_EDGE,
-  ROW_PANEL_MIN_HEIGHT,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,
