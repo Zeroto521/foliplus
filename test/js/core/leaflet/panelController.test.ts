@@ -1,4 +1,4 @@
-// Contract tests for the M2 PanelController core (PR-A).
+// Contract tests for the shared panel controller.
 //
 // These exercise createPanel + attachPanel against the real per-map overlay
 // registry (document-level press/Escape dispatch), so they verify the
@@ -289,7 +289,7 @@ describe("PanelController", () => {
     expect(ensureOverlayRegistry(map).owningEntry(controller.root())).toBeNull();
   });
 
-  it("throws on a duplicate owner+localId while still attached (M1 contract)", () => {
+  it("throws on a duplicate owner+localId while still attached", () => {
     const { map } = track(makeMap());
     const first = createPanel(makeFixture().spec);
     attachPanel(map, first);
@@ -484,7 +484,7 @@ describe("PanelController", () => {
     expect(top.isOpen()).toBe(false); // outside press: dismissed
   });
 
-  it("destroy after a refused close still unregisters (M1 lifecycle)", () => {
+  it("destroy after a refused close still unregisters", () => {
     // destroy is terminal: even when the spec refuses to close, destroy must
     // still unregister (the surface is going away regardless).
     const { map } = track(makeMap());
@@ -538,9 +538,9 @@ describe("PanelController", () => {
     expect(controller.isOpen()).toBe(false);
   });
 
-  // ─────────────────────────── P2-1 / P3-3 / P3-4 / P3-5 ───────────────────
+  // ─────────────────────────── swallowPress, open rollback, refused close, destroyed attach ───────────────────────────
 
-  it("swallowPress swallows a mousedown without changing state (P2-1)", () => {
+  it("swallowPress swallows a mousedown without changing state", () => {
     // A fresh root WITHOUT the fixture's own mousedown guard, so the primitive
     // is the only thing standing between the press and the ancestor. A
     // bubble-phase listener on the parent must not see the press, and the
@@ -566,7 +566,7 @@ describe("PanelController", () => {
     expect(state.closeCalls).toHaveLength(0);
   });
 
-  it("open rolls back and rethrows when spec.open throws (P3-3)", () => {
+  it("open rolls back and rethrows when spec.open throws", () => {
     let first = true;
     const { spec, state } = makeFixture({
       open: () => {
@@ -589,7 +589,7 @@ describe("PanelController", () => {
     expect(state.onOpenCalls).toBe(1);
   });
 
-  it("closeFromClick swallows and keeps the panel open when spec.close refuses (P3-4)", () => {
+  it("closeFromClick swallows and keeps the panel open when spec.close refuses", () => {
     const { spec, state, closeButton } = makeFixture();
     state.canClose = () => false;
     const controller = createPanel(spec);
@@ -604,7 +604,7 @@ describe("PanelController", () => {
     expect(controller.isOpen()).toBe(true);
   });
 
-  it("attachPanel throws for a destroyed controller (P3-5)", () => {
+  it("attachPanel throws for a destroyed controller", () => {
     const { map } = track(makeMap());
     const { spec } = makeFixture();
     const controller = createPanel(spec);
@@ -617,7 +617,7 @@ describe("PanelController", () => {
     );
   });
 
-  it("open does not roll back when onOpen throws after a successful spec.open (P3-1)", () => {
+  it("open does not roll back when onOpen throws after a successful spec.open", () => {
     const { spec, state } = makeFixture({
       onOpen: () => {
         throw new Error("boom-on-open");
