@@ -1,4 +1,4 @@
-// Stylesheet contract for the disabled-entry affordance (task-46).
+// Stylesheet contract for the disabled-entry affordance.
 //
 // The disabled affordance is a CSS contract, not a JS behaviour: a disabled
 // option must read as "exists but cannot be picked" through the not-allowed
@@ -47,7 +47,7 @@ describe("disabled-entry affordance stylesheet contract", () => {
   });
 
   it("gives a disabled menu item a not-allowed cursor", () => {
-    // The more-menu items are native buttons (task-12), so their disabled
+    // The more-menu items are native buttons, so their disabled
     // state is aria-disabled rather than a bare li[disabled].
     expect(menuCss).toMatch(
       /\.foliplus-layer-more-menu button\[aria-disabled="true"\]\s*\{[^}]*cursor:\s*not-allowed/,

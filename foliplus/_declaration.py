@@ -14,13 +14,14 @@ The entry points differ (a control is not a folium layer, and a filter has an
 arm the owner chooses), but the verdict rule is shared: a malformed
 declaration is reported once and then treated exactly like "not declared",
 never as a reason to hide data or take the page down. The warning family is
-process-wide (see :data:`_foliplus_reports`), so re-rendering a page does not
+process-wide (see :data:`foliplus_reports`), so re-rendering a page does not
 repeat a line.
 
-A filter declaration has one deliberate exception to "never raises": a
-``field`` key inside a range declaration, or a range with no bound field, is
-API misuse and raises ValueError in the author's cell instead of being buried
-in a warning among the page output.
+A filter declaration has deliberate exceptions to "never raises": a ``field``
+key inside a range declaration, a range with no bound field, or a list of
+value names in the range arm (the enum arm belongs to MeasureControl) is API
+misuse and raises ValueError in the author's cell instead of being buried in a
+warning among the page output.
 """
 
 from __future__ import annotations
@@ -42,25 +43,25 @@ import folium
 # repeat the same line. Each family owns its own filter: the foliplus={...}
 # declaration rejections and the refused captions (#781) do not crowd each
 # other out at the cap.
-_refused_captions: set[tuple[str, ...]] = set()
-_foliplus_reports: set[tuple[str, ...]] = set()
+refused_captions: set[tuple[str, ...]] = set()
+foliplus_reports: set[tuple[str, ...]] = set()
 
-_LOG_FILTER_CAP = 64
+LOG_FILTER_CAP = 64
 
 #: Directory of this package with a trailing separator, so a sibling whose name
 #: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
-_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
+PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
 #: Installed dependency tree. A foliplus= warning is raised while the control is
 #: being *rendered*, so between this package and the author's cell sit the Jinja
 #: template machinery, folium and branca. Pointing the warning at
 #: jinja2/environment.py would be technically accurate and useless; the walk
 #: skips the plumbing too, and stops at the first frame that is neither this
 #: package nor an installed dependency.
-_DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
-_PLUMBING_DIRS = (_PACKAGE_DIR, _DEPENDENCY_DIR)
+DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
+PLUMBING_DIRS = (PACKAGE_DIR, DEPENDENCY_DIR)
 
 
-def _is_plumbing(filename: str) -> bool:
+def is_plumbing(filename: str) -> bool:
     """True for a frame that is machinery, not the author's code.
 
     Three shapes count: this package; the installed dependency tree (a render
@@ -68,10 +69,10 @@ def _is_plumbing(filename: str) -> bool:
     Jinja compiles a template *string* to a code object whose filename is
     "<template>", and that is the frame a render-time warning is raised from.
     """
-    return filename.startswith(_PLUMBING_DIRS) or filename.startswith("<")
+    return filename.startswith(PLUMBING_DIRS) or filename.startswith("<")
 
 
-def _caller_stacklevel() -> int:
+def caller_stacklevel() -> int:
     """Frames from warnings.warn out to the first frame that is the author's.
 
     A fixed stacklevel cannot work here, and that is a fact of the call path
@@ -86,14 +87,14 @@ def _caller_stacklevel() -> int:
     frame: FrameType | None = sys._getframe(1)  # the warning helper that called us
     level = 1
     while frame is not None:
-        if not _is_plumbing(frame.f_code.co_filename):
+        if not is_plumbing(frame.f_code.co_filename):
             return level
         frame = frame.f_back
         level += 1
     return level  # pragma: no cover - only when the whole stack is library code
 
 
-def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
+def should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
     """True when this diagnostic has not been printed in this process yet.
 
     ``store`` is the family's own filter (one per diagnostic family, so the
@@ -103,26 +104,26 @@ def _should_report(note: tuple[str, ...], store: set[tuple[str, ...]]) -> bool:
     """
     if note in store:
         return False
-    if len(store) >= _LOG_FILTER_CAP:
+    if len(store) >= LOG_FILTER_CAP:
         store.clear()
     store.add(note)
     return True
 
 
-def _warn_foliplus(note: str, message: str) -> None:
+def warn_foliplus(note: str, message: str) -> None:
     """Report one unusable foliplus={...} declaration at the line that wrote it.
 
     De-duplicated through the same process-wide log-filter mechanism as the
-    refused captions, but its own family store (see :func:`_should_report` and
-    the ``_foliplus_reports`` / ``_refused_captions`` split): the note carries
+    refused captions, but its own family store (see :func:`should_report` and
+    the ``foliplus_reports`` / ``refused_captions`` split): the note carries
     the owner and the defect, so one typo on three layers prints three
     attributable warnings and re-rendering the same page stays quiet. Never
     raises: a typo in the declaration namespace is a warning, not a page
     failure.
     """
-    if not _should_report(("foliplus", note), _foliplus_reports):
+    if not should_report(("foliplus", note), foliplus_reports):
         return
-    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
+    warnings.warn(message, UserWarning, stacklevel=caller_stacklevel())
 
 
 # ── Zoom-range declaration ───────────────────────────────────────────────
@@ -130,7 +131,7 @@ def _warn_foliplus(note: str, message: str) -> None:
 ZOOM_RANGE_KEY = "zoom_range"
 
 
-def _zoom_level(raw: object) -> int | None:
+def zoom_level(raw: object) -> int | None:
     """One declared zoom end as an int, or None when it is not an integer.
 
     ``numbers.Integral`` rather than ``int`` so a numpy/pandas scalar from a
@@ -145,7 +146,7 @@ def _zoom_level(raw: object) -> int | None:
     return int(raw)
 
 
-def _normalise_zoom_range(
+def normalise_zoom_range(
     raw: object,
     *,
     owner: str,
@@ -174,7 +175,7 @@ def _normalise_zoom_range(
 
     def _reject(reason: str) -> None:
         note = f"{owner}:{subject or '-'}:zoom_range:{reason}"
-        _warn_foliplus(
+        warn_foliplus(
             note,
             f"{where} declares {declared} {reason} - ignored",
         )
@@ -190,7 +191,7 @@ def _normalise_zoom_range(
         _reject(f"with unknown key(s) {extra}; expected only min and max")
         return None
     raw_lo, raw_hi = raw.get("min"), raw.get("max")
-    lo, hi = _zoom_level(raw_lo), _zoom_level(raw_hi)
+    lo, hi = zoom_level(raw_lo), zoom_level(raw_hi)
     if lo is None:
         _reject(f"with a non-integer min={raw_lo!r}")
         return None
@@ -212,21 +213,21 @@ MEASURE_TYPE_FIELD = "type"
 FilterArm = Literal["range", "enum"]
 
 
-def _warn_filter(message: str) -> None:
+def warn_filter(message: str) -> None:
     """Report one unusable filter declaration at the line that wrote it.
 
     Never raises: a data-shaped problem (a range outside the field, a type
     name the runtime does not know) must be visible and ignored, not take the
     page down.
 
-    The frame walk in :func:`_caller_stacklevel` is shared with the zoom-range
+    The frame walk in :func:`caller_stacklevel` is shared with the zoom-range
     reader: a fixed stacklevel cannot cover both a control's ``__init__`` and a
     layer read during the Jinja render.
     """
-    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
+    warnings.warn(message, UserWarning, stacklevel=caller_stacklevel())
 
 
-def _json_number(value: numbers.Real) -> int | float:
+def json_number(value: numbers.Real) -> int | float:
     """Coerce a validated endpoint to a number ``json`` can serialise.
 
     numpy and pandas scalars pass the ``numbers.Real`` check but not
@@ -239,7 +240,7 @@ def _json_number(value: numbers.Real) -> int | float:
     return float(value)
 
 
-def _range_atom(
+def range_atom(
     raw: Mapping[Any, Any], owner: str, bound_field: str | None
 ) -> dict[str, Any] | None:
     """The numeric arm: {min: low, max: high} -> a between atom on bound_field.
@@ -249,7 +250,7 @@ def _range_atom(
     field the runtime filters is the one the heatmap aggregates by. Writing a
     ``field`` key inside ``filter`` is API misuse (the same information is the
     ``field=`` argument) and raises ValueError. Endpoints leave here as
-    JSON-native numbers (see ``_json_number``): everything downstream of the
+    JSON-native numbers (see ``json_number``): everything downstream of the
     AST is serialised, not interpreted.
     """
     if "field" in raw:
@@ -264,13 +265,13 @@ def _range_atom(
         )
     unknown = sorted(str(key) for key in raw if key not in {"min", "max"})
     if unknown:
-        _warn_filter(
+        warn_filter(
             f"{owner}: filter= has unknown key(s) {unknown}; expected only "
             f"'min' and 'max'; ignored"
         )
         return None
     if "min" not in raw or "max" not in raw:
-        _warn_filter(
+        warn_filter(
             f"{owner}: filter= needs both 'min' and 'max'; "
             f"got key(s) {sorted(str(key) for key in raw)}; ignored"
         )
@@ -282,26 +283,24 @@ def _range_atom(
             or not isinstance(value, numbers.Real)
             or not math.isfinite(value)
         ):
-            _warn_filter(
+            warn_filter(
                 f"{owner}: filter['{key}'] must be a finite number; "
                 f"got {value!r}; ignored"
             )
             return None
     low, high = raw["min"], raw["max"]
     if low > high:
-        _warn_filter(f"{owner}: filter= is inverted (min > max); ignored")
+        warn_filter(f"{owner}: filter= is inverted (min > max); ignored")
         return None
     return {
         "kind": "atom",
         "field": bound_field,
         "op": "between",
-        "range": [_json_number(low), _json_number(high)],
+        "range": [json_number(low), json_number(high)],
     }
 
 
-def _enum_atom(
-    raw: Sequence[Any], owner: str, enum_field: str
-) -> dict[str, Any] | None:
+def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any] | None:
     """The equality arm: a list of value names -> an enum atom.
 
     Value names are not validated here on purpose: the measurement-type
@@ -317,7 +316,7 @@ def _enum_atom(
     values: list[str] = []
     for item in raw:
         if not isinstance(item, str) or not item.strip():
-            _warn_filter(
+            warn_filter(
                 f"{owner}: filter= list entries must be non-empty strings; "
                 f"got {item!r}; ignored"
             )
@@ -325,7 +324,7 @@ def _enum_atom(
         if item not in values:
             values.append(item)
     if not values:
-        _warn_filter(
+        warn_filter(
             f"{owner}: filter= is an empty list, which would mean no filter; ignored"
         )
         return None
@@ -357,15 +356,24 @@ def normalize_declared_filter(
     bound field (no field=, or agg="count") also raises ValueError — the
     bound-field check runs before the ``min``/``max`` validation, so an inverted
     or malformed range with no field still raises instead of being masked by
-    a warning. It fails in the author's notebook cell, where the typo is,
+    a warning. A list of values in the range arm is the enum arm of another
+    owner (MeasureControl), so it also raises instead of being downgraded to
+    "undeclared": the author is using the wrong control, not a typo in the
+    data. All three fail in the author's notebook cell, where the mistake is,
     instead of being buried in a warning among the page output.
     """
     if raw is None:
         return None
     if arm == "range":
         if isinstance(raw, Mapping):
-            return _range_atom(raw, owner, bound_field)
-        _warn_filter(
+            return range_atom(raw, owner, bound_field)
+        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+            raise ValueError(
+                f"{owner}: filter= was given a list of value names, which is the "
+                f"enum arm; enum filters belong to MeasureControl. A range filter "
+                f"takes a mapping {{'min': ..., 'max': ...}} bound to field=."
+            )
+        warn_filter(
             f"{owner}: filter= must be a mapping with min and max; "
             f"got {type(raw).__name__}; ignored"
         )
@@ -373,8 +381,8 @@ def normalize_declared_filter(
     if not enum_field:  # pragma: no cover - both call sites pass one
         raise ValueError("arm='enum' requires enum_field")
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
-        return _enum_atom(raw, owner, enum_field)
-    _warn_filter(
+        return enum_atom(raw, owner, enum_field)
+    warn_filter(
         f"{owner}: filter= must be a list of value names; "
         f"got {type(raw).__name__}; ignored"
     )

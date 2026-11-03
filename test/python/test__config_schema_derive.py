@@ -14,9 +14,9 @@ import pytest
 
 from foliplus._config_schema import (
     FieldSpec,
-    _evaluate,
-    _resolve_tag,
     derive_schema,
+    evaluate,
+    resolve_tag,
     verify_tags,
 )
 from foliplus._validate import Bound
@@ -260,8 +260,8 @@ def test_evaluate_resolves_a_stringified_union_arm() -> None:
     normally arrives as a type. The string path keeps ``"None"`` equivalent
     to ``None``, so a nullable union resolves however it is spelled.
     """
-    assert _evaluate("None") is type(None)
-    assert _evaluate("list") is list
+    assert evaluate("None") is type(None)
+    assert evaluate("list") is list
 
 
 def test_bound_metadata_is_ignored_by_the_reflector() -> None:
@@ -382,7 +382,7 @@ def test_nullable_annotation_does_not_drop_the_field_spec() -> None:
     type's ``name``.
     """
     spec = FieldSpec(ts="ProviderConfig", name="ProviderConfig")
-    tag, values, nullable, meta = _resolve_tag(Annotated[dict, spec] | None, None)
+    tag, values, nullable, meta = resolve_tag(Annotated[dict, spec] | None, None)
     assert tag == "ProviderConfig"
     assert values is None
     assert nullable is True
