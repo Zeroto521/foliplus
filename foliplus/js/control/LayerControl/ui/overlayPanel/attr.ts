@@ -1,8 +1,15 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
-import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import {
+  type Dismiss,
+  type PanelController,
+  attachPanel,
+  createPanel,
+  createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
+} from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -200,15 +207,43 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     );
   }
 
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
+  // The PanelController owns the dismissal contract: closeFromClick swallows
+  // the close-button press and closes with focus restore, swallowPress keeps
+  // a mousedown off the row's drag handler. The registry entry is generated
+  // by attachPanel below.
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "attrs",
+    rank: 600,
+    exclusiveGroup: "layer:rows",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.activeAttrsPanel?.panel ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(panel);
+      pinRowPanel(panel, item);
+    },
+    close: ({ restoreFocus }) => {
+      closeAttrsPanel(ui, restoreFocus);
+      return true;
+    },
+  });
+
   // Header click dismisses, matching bindPanelToggle on the main panels.
   // The × sits inside the header, so one listener covers both. The press is
   // stopped here (the same guarantee as the ⋮ menu): closing the panel removes
   // it mid-dispatch, so the click would otherwise keep walking its original
   // path with no live control ancestor and land on the map.
-  header.addEventListener("click", e => {
-    e.stopPropagation();
-    closeAttrsPanel(ui, true);
-  });
+  header.addEventListener("click", e => controller.closeFromClick(e));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
@@ -216,11 +251,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // of the panel the press landed on is recorded by the overlay registry's
   // press dispatcher below — `dragstart` is dispatched on the draggable row, so
   // it cannot answer that.
-  panel.addEventListener("mousedown", e => e.stopPropagation());
-
-  item.style.position = "relative";
-  item.appendChild(panel);
-  pinRowPanel(panel, item);
+  panel.addEventListener("mousedown", e => controller.swallowPress(e));
 
   // Register the open surface with the per-map overlay registry. The
   // registry installs the document capture-phase mousedown listener for every
@@ -229,18 +260,14 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // never reaches document, and the registry's capture dispatcher is the one
   // place that answers "outside this panel".
   ui.overlayPanel.activeAttrsPanel = { item, panel, layerId };
-  ui.overlayPanel.attrsOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
-    id: OVERLAY_IDS.LAYER_ATTRS,
-    isOpen: () => ui.overlayPanel.activeAttrsPanel !== null,
-    panels: () => {
-      const active = ui.overlayPanel.activeAttrsPanel;
-      return active ? [active.panel] : [];
-    },
-    close: ({ restoreFocus }) => closeAttrsPanel(ui, restoreFocus),
-    dismissOn: "mousedown",
-    pressPriority: 600,
-    clearsCursorOnClose: true,
-  });
+  // The PanelController owns this surface's dismissal contract and registry
+  // identity; attachPanel turns it into the entry (id "layer.attrs") and
+  // returns the detach, kept as the thin mirror the close path uses. One
+  // controller per open keeps the entry's closures bound to the live panel
+  // (the old register/unregister lifecycle); detach clears the attached
+  // guard on close, so a reopen does not trip the duplicate-id throw.
+  ui.overlayPanel.attrsOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
 };
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
