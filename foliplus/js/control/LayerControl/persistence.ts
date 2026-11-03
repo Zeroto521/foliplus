@@ -107,19 +107,19 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  *  record instead of normalising it away.
  *
  *  The bounds themselves live in `isFillRampConfig`, shared with the LIVE
- *  presence rule. `kind` accepts only absence or "numeric" - the categorical
- *  arm is not implemented, so a record that asks for it is dropped whole
- *  rather than painted as a numeric ramp - and the returned object strips an
- *  explicit "numeric", which is the default, so persisting it would add no
- *  information and the stored record keeps reading "kindless = numeric". */
+ *  presence rule. `kind` accepts absence, "numeric" or "category". An
+ *  explicit "numeric" is the default and is stripped, so the stored record
+ *  keeps reading "kindless = numeric"; a category record keeps its kind so
+ *  the apply path dispatches on it after a reload. */
 const parseFillRamp = (raw: unknown): FillRampConfig | null => {
   if (!isFillRampConfig(raw)) return null;
   return {
+    kind: raw.kind === "category" ? "category" : undefined,
     field: raw.field,
     method: raw.method,
     scheme: raw.scheme,
     classes: raw.classes,
-  };
+  } as FillRampConfig;
 };
 
 /** A border width inside the shared bounds — the same constants the number
