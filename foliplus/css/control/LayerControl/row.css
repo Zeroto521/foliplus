@@ -307,15 +307,19 @@
     /* Declared after .foliplus-active so the interaction target wins over the wash
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
-    /* The :not(:has(...)) carve-out keeps the hover wake off the panel's owner
-       row: the style panel is appended INSIDE the layer row (see the style
-       panel's open), so hovering the panel would otherwise match the row's
-       :hover and light the whole cursor recipe (background, glow, grip, icon)
-       while the user edits — a panel hover is not a row interaction. :has is
-       already in use below, so there is no browser-support regression. */
-    &:is(:hover, .foliplus-is-focused-row):not(
-        :has(.foliplus-layer-style-panel:hover)
-      ) {
+    /* The hover branch carries a :where(:not(:has(...))) carve-out so the
+       hover wake stays off the panel's owner row: the style panel is appended
+       INSIDE the layer row (see the style panel's open), so hovering the panel
+       would otherwise match the row's :hover and light the whole cursor recipe
+       (background, glow, grip, icon) while the user edits — a panel hover is
+       not a row interaction. :where() keeps the carve-out's specificity at
+       zero, so the recipe does not out-rank the base-row quiet rule below and
+       the keyboard-focus branch (.foliplus-is-focused-row) is not affected by
+       the pointer. :has is already in use below, so no browser-support regression. */
+    &:is(
+      :hover:where(:not(:has(.foliplus-layer-style-panel:hover))),
+      .foliplus-is-focused-row
+    ) {
       /* Outboard box-shadow (the bottom glow) would be covered by the next
          row's opaque surface — rows are never transparent (#277). Raise the
          interaction target so both glow edges paint above its neighbors. */
@@ -483,11 +487,13 @@
     }
     /* .foliplus-active surface/border live with the Row-cursor recipe above so the
        interaction white (later, equal specificity) can out-rank the wash.
-       This block only carries the type-icon wake. */
+       The hover icon wake lives INSIDE the Row-cursor recipe — this block only
+       carries the checked-row (active) wake. The old bare :hover branch was
+       removed: on a style-panel hover the recipe is carved out, so a stray
+       :hover here would still wake the type icon to black. */
     /* Identity: gray at rest, wakes to black on hover and when the row is
        active. Accent stays reserved for actions (more) and status (border),
        so the type icon reads as focus, not as a call-to-action. */
-    &:hover .foliplus-type-icon-col,
     &.foliplus-active .foliplus-type-icon-col {
       color: var(--foliplus-text-primary);
     }

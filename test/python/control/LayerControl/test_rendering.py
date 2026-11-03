@@ -390,7 +390,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, .foliplus-is-focused-row)"
+        mark = ":hover:where(:not(:has(.foliplus-layer-style-panel:hover)))"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
