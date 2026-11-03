@@ -49,15 +49,12 @@ interface PanelSpec {
   clearsCursorOnClose?: boolean;
   /** Dismiss overrides; unset members take the defaults. */
   dismiss?: Partial<Dismiss>;
-  /** The panel's own *display* state (which layer, which result list) — NOT
-   *  the open/closed verdict. The controller owns the open state and it is the
-   *  single authority; the registry reads it through the entry that
-   *  attachPanel generates. */
-  isOpen(): boolean;
   /** Live DOM, recomputed on every call (a rebuilt panel invalidates the nodes
    *  a previous press captured). */
   root(): HTMLElement | null;
-  /** Build the DOM + fill content + show. */
+  /** Build the DOM + fill content + show. The open state is owned by the
+   *  controller (the attach/detach pair): the spec reports the surface's
+   *  display content, never the open/closed verdict. */
   open(): void;
   /** Tear down. Returning false = cannot close right now (a pending commit, a
    *  read-only notice); the controller stays open (rollback). */
