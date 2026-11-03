@@ -307,7 +307,15 @@
     /* Declared after .foliplus-active so the interaction target wins over the wash
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
-    &:is(:hover, .foliplus-is-focused-row) {
+    /* The :not(:has(...)) carve-out keeps the hover wake off the panel's owner
+       row: the style panel is appended INSIDE the layer row (see the style
+       panel's open), so hovering the panel would otherwise match the row's
+       :hover and light the whole cursor recipe (background, glow, grip, icon)
+       while the user edits — a panel hover is not a row interaction. :has is
+       already in use below, so there is no browser-support regression. */
+    &:is(:hover, .foliplus-is-focused-row):not(
+        :has(.foliplus-layer-style-panel:hover)
+      ) {
       /* Outboard box-shadow (the bottom glow) would be covered by the next
          row's opaque surface — rows are never transparent (#277). Raise the
          interaction target so both glow edges paint above its neighbors. */
