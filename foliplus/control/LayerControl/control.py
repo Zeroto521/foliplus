@@ -130,7 +130,7 @@ class LayerControl(BaseControl):
     +----------------+--------+--------------------------------------------------------------+
     | Key            | Type   | Meaning                                                      |
     +================+========+==============================================================+
-    | ``fill``       | dict   | The layer's fill by value, with a ``ramp`` arm for numeric   |
+    | ``fill``       | dict   | The layer's fill by value, with a ``ramp`` form for numeric   |
     |                |        | fields (see the fill table below).                           |
     +----------------+--------+--------------------------------------------------------------+
     | ``label``      | dict   | The layer's text labels (see the label table below).         |
@@ -144,7 +144,7 @@ class LayerControl(BaseControl):
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
     | Key              | Default                                                       | Meaning                                                                  |
     +==================+===============================================================+==========================================================================+
-    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill arm: one color (``solid``) or color by value (``ramp``)             |
+    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill mode: one color (``solid``) or color by value (``ramp``)             |
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
     | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
     +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+

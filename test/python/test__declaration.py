@@ -318,56 +318,56 @@ class TestNormalizeDeclaredFilter:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            assert normalize_declared_filter(None, owner="Owner", arm="range") is None
+            assert normalize_declared_filter(None, owner="Owner", kind="range") is None
 
         assert caught == []
 
-    def test_the_range_arm_delegates_to_the_range_atom(self) -> None:
+    def test_the_range_kind_delegates_to_the_range_atom(self) -> None:
         assert normalize_declared_filter(
             {"min": 10, "max": 50},
             owner="HeatmapControl",
-            arm="range",
+            kind="range",
             bound_field="score",
         ) == range_atom({"min": 10, "max": 50}, "HeatmapControl", "score")
 
-    def test_the_range_arm_rejects_an_enum_and_points_at_measurecontrol(self) -> None:
+    def test_the_range_kind_rejects_a_list_and_points_at_measurecontrol(self) -> None:
         with pytest.raises(ValueError, match="enum filters belong to MeasureControl"):
             normalize_declared_filter(
                 ["score"],
                 owner="HeatmapControl",
-                arm="range",
+                kind="range",
                 bound_field="score",
             )
 
-    def test_the_range_arm_warns_on_a_non_mapping_scalar(self) -> None:
+    def test_the_range_kind_warns_on_a_non_mapping_scalar(self) -> None:
         with pytest.warns(UserWarning, match="must be a mapping with min and max"):
             assert (
                 normalize_declared_filter(
                     "score",
                     owner="HeatmapControl",
-                    arm="range",
+                    kind="range",
                     bound_field="score",
                 )
                 is None
             )
 
-    def test_the_enum_arm_delegates_to_the_enum_atom(self) -> None:
+    def test_the_list_kind_delegates_to_the_enum_atom(self) -> None:
         assert normalize_declared_filter(
-            ["distance"], owner="MeasureControl", arm="enum", enum_field="type"
+            ["distance"], owner="MeasureControl", kind="enum", enum_field="type"
         ) == enum_atom(["distance"], "MeasureControl", "type")
 
-    def test_the_enum_arm_rejects_a_non_sequence(self) -> None:
+    def test_the_list_kind_rejects_a_non_sequence(self) -> None:
         with pytest.warns(UserWarning, match="must be a list of value names"):
             assert (
                 normalize_declared_filter(
                     {"field": "type"},
                     owner="MeasureControl",
-                    arm="enum",
+                    kind="enum",
                     enum_field="type",
                 )
                 is None
             )
 
-    def test_the_enum_arm_requires_an_enum_field(self) -> None:
+    def test_the_list_kind_requires_an_enum_field(self) -> None:
         with pytest.raises(ValueError, match="requires enum_field"):
-            normalize_declared_filter(["distance"], owner="MeasureControl", arm="enum")
+            normalize_declared_filter(["distance"], owner="MeasureControl", kind="enum")
