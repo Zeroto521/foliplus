@@ -1,4 +1,8 @@
-// ExportControl renderer/index — marker shadows in the export walk.
+// ExportControl renderer/index — the export walk, end to end.
+//
+// The module is one: the shadows the walk carries, the tile and marker passes
+// it routes, and the progress it reports.  Both the tile geometry and the
+// shadow placement are pinned here because they are the same `render()`.
 //
 // A marker's shadow is the leaf's own `_shadow` element (`layerShadow`).  It can
 // be mounted in the layer's per-layer shadow pane (#733), left in Leaflet's
