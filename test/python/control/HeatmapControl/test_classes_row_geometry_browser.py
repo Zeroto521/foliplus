@@ -21,9 +21,7 @@ from foliplus import HeatmapControl, LayerControl
 
 def _make_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    for i, (lat, lng) in enumerate(
-        [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]
-    ):
+    for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
         features = {
             "type": "FeatureCollection",
@@ -68,4 +66,3 @@ class TestClassesRowGeometryBrowser:
             assert data["classesAtSecondary"], data
             assert data["noOverlap"], data
             assert not errors, f"JS errors: {errors}"
-
