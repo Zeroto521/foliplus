@@ -22,9 +22,7 @@ describe("ui/form read-only value", () => {
     );
     expect(box.classList.contains("foliplus-readonly")).toBe(true);
     expect(box.classList.contains("foliplus-style-fill-readonly")).toBe(true);
-    expect(
-      box.classList.contains("foliplus-style-fill-original-column"),
-    ).toBe(true);
+    expect(box.classList.contains("foliplus-style-fill-original-column")).toBe(true);
     expect(box.getAttribute("aria-disabled")).toBe("true");
   });
 
