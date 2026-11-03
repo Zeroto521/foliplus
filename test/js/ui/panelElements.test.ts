@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buttonRow, closeButton, panelButton, sectionDivider } from "#ui/affordance.js";
+import {
+  buttonRow,
+  closeButton,
+  panelButton,
+  sectionDivider,
+} from "#ui/panelElements.js";
 
-// ui/affordance builders are pure DOM structure. The class-name contract with
+// ui/panelElements builders are pure DOM structure. The class-name contract with
 // the Python render-string tests is: a class passed to panelButton is joined
 // onto the same class attribute as the shared foliplus-panel-btn, in the same
 // order, so the rendered markup matches the long-standing reset/clear recipe.
-describe("ui/affordance builders", () => {
+describe("ui/panelElements builders", () => {
   it("sectionDivider emits the shared hairline", () => {
     expect(sectionDivider().outerHTML).toBe('<hr class="foliplus-section-divider">');
   });

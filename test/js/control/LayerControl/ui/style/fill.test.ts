@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import { dropdownOf } from "#common/dropdown.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -374,7 +375,7 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
-    const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent;
+    const labelText = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent;
     const select = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
@@ -1500,7 +1501,7 @@ describe("buildFillRow", () => {
     const modeRow = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement;
-    expect(modeRow.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
+    expect(modeRow.classList.contains(PANEL_CLASS.FORM_ROW)).toBe(true);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
     ).not.toBeNull();
@@ -1512,7 +1513,7 @@ describe("buildFillRow", () => {
 
   it("the mode row renders the locale key's translated value", () => {
     const row = buildFillRow(ui, "overlay1");
-    const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+    const label = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill_mode");
   });
@@ -1641,8 +1642,8 @@ describe("buildFillRow", () => {
       `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
     ) as HTMLSelectElement;
     const label = method
-      .closest(`.${CONST.CLASSES.FORM_ROW}`)!
-      .querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+      .closest(`.${PANEL_CLASS.FORM_ROW}`)!
+      .querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_method");
     expect(triggerOf(method).getAttribute("aria-label")).toBe(

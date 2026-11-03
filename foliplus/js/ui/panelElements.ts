@@ -1,4 +1,4 @@
-// ui/affordance — panel affordance builders.
+// ui/panelElements — panel element builders.
 //
 // Pure DOM structure for the small chrome that used to be hand-assembled at
 // each call site: the section divider, the button row, a panel button, and

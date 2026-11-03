@@ -90,7 +90,7 @@ describe("runtimeTarget", () => {
   });
 
   it("maps ui modules to ui.<mod>", () => {
-    expect(runtimeTarget("ui/affordance")).toBe("ui.affordance");
+    expect(runtimeTarget("ui/panelElements")).toBe("ui.panelElements");
   });
 
   it("returns a #-prefixed spec untouched", () => {
@@ -161,7 +161,9 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps ui modules to foliplus.ui.mod", () => {
-    expect(sharedGlobalNamespace("#ui/affordance.js")).toBe("foliplus.ui.affordance");
+    expect(sharedGlobalNamespace("#ui/panelElements.js")).toBe(
+      "foliplus.ui.panelElements",
+    );
   });
 
   it("never maps a bare core barrel to a core namespace", () => {
@@ -647,13 +649,13 @@ describe("globalNamespacePlugin", () => {
     // into a source-relative path and a foliplus.ui.<mod> global lookup.
     writeFileSync(
       join(dir, "index.ts"),
-      'import { panelButton } from "#ui/affordance.js";\n',
+      'import { panelButton } from "#ui/panelElements.js";\n',
       "utf-8",
     );
     const { onLoad } = setupPlugin([join(dir, "index.ts")]);
-    const result = onLoad({ path: "#ui/affordance.js" });
+    const result = onLoad({ path: "#ui/panelElements.js" });
     expect(result.loader).toBe("js");
-    expect(result.contents).toContain("globalThis.foliplus.ui.affordance");
+    expect(result.contents).toContain("globalThis.foliplus.ui.panelElements");
     expect(result.contents).toContain("export const panelButton =");
   });
 

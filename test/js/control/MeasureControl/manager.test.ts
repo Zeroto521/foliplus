@@ -3,6 +3,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
 import { makeControlEnv } from "../../fixture.js";
+import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
@@ -31,96 +32,29 @@ vi.mock("#core/mode.js", async () => {
   };
 });
 
-// Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
-function mockLayerAPI() {
-  // The real mainLayer is a Leaflet LayerGroup; the filter's visibility path
-  // asks it which leaves are attached, so the mock tracks membership too.
-  const attached = new Set<unknown>();
-  return {
-    register: vi.fn(),
-    unregister: vi.fn(),
-    clearLayers: vi.fn(),
-    addLayer: vi.fn(l => l),
-    removeLayer: vi.fn(),
-    mainLayer: {
-      addLayer: vi.fn((leaf: unknown) => {
-        attached.add(leaf);
-        return leaf;
-      }),
-      removeLayer: vi.fn((leaf: unknown) => {
-        attached.delete(leaf);
-        return leaf;
-      }),
-      hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
-    },
-  };
-}
+afterEach(resetMeasureControlState);
 
-function makeManager(opts?: { id?: string }) {
-  window.CONFIG = {
-    ...window.CONFIG,
-    name: "MeasureControl",
-    locale_code: "en",
-  };
+// ── Filter fixtures ───────────────────────────────────────────────────
+// Shared by the type-filter tests and the cross-arm contract below: both
+// build the same manager and read the filter through the LayerAPI option bag.
 
-  const env = makeControlEnv();
+/** The LayerAPI option bag the manager registered at construction. */
+const createLayersOpts = (map: any): any =>
+  (map.foliplus.LayerAPI.createLayers.mock.calls as unknown[][])[0][0];
 
-  const layers = mockLayerAPI();
+/** Three measurements, one per type, so a declared subset has something to
+ *  keep and total against. */
+const addMeasurements = (manager: any): void => {
+  manager.store.add({ id: "m1", type: CONST.MEASURE_MODE.MARKER });
+  manager.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
+  manager.store.add({ id: "m3", type: CONST.MEASURE_MODE.POLYGON });
+};
 
-  // Mock L marker / circleMarker / divIcon for mode.ts side effects
-  const mkMarker = () => {
-    const m: any = {
-      bindPopup: vi.fn(() => m),
-      openPopup: vi.fn(),
-      addTo: vi.fn(() => m),
-      getPopup: () => null,
-      setPopupContent: vi.fn(),
-      closePopup: vi.fn(),
-      getLatLng: vi.fn(() => ({ lat: 0, lng: 0 })),
-      setLatLng: vi.fn(),
-      getElement: vi.fn(() => null),
-    };
-    m.on = vi.fn(() => m);
-    m.off = vi.fn(() => m);
-    return m;
-  };
-  window.L.marker = vi.fn(mkMarker);
-  window.L.circleMarker = vi.fn(() => ({}));
-  window.L.divIcon = vi.fn(() => ({}));
-  window.L.polyline = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.polygon = vi.fn(() => ({ addTo: vi.fn(), on: vi.fn() }));
-  window.L.latLng = vi.fn((lat, lng) => ({ lat, lng }));
-
-  const container = document.createElement("div");
-  const map = {
-    getContainer: () => container,
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-    getSize: (..._args: unknown[]) => ({ x: 1000, y: 800 }),
-    latLngToContainerPoint: (..._args: unknown[]) => ({ x: 0, y: 0 }),
-    foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
-      interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn(), publish: vi.fn() },
-      LayerAPI: {
-        createLayers: vi.fn(() => layers),
-      },
-    },
-  };
-
-  const manager = new MeasureManager(map, env, opts);
-  manager.init();
-  return { manager, map, container, layers };
-}
-
-afterEach(() => {
-  document.body.innerHTML = "";
-  window.localStorage.clear();
-  // CONFIG is shared process-wide; a declared-filter test must not leak its
-  // declaration into the next manager.
-  window.CONFIG = { ...window.CONFIG, filter: null };
+/** The enum filter shape the Measure panel writes. */
+const filter = (values: string[]): any => ({
+  kind: "enum",
+  field: CONST.FILTER.FIELD,
+  values,
 });
 
 describe("MeasureManager — persistence", () => {
@@ -1891,21 +1825,6 @@ describe("MeasureManager — persistence guarantees", () => {
 });
 
 describe("MeasureManager — type filter", () => {
-  const createLayersOpts = (map: any): any =>
-    (map.foliplus.LayerAPI.createLayers.mock.calls as unknown[][])[0][0];
-
-  const addMeasurements = (manager: any): void => {
-    manager.store.add({ id: "m1", type: CONST.MEASURE_MODE.MARKER });
-    manager.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
-    manager.store.add({ id: "m3", type: CONST.MEASURE_MODE.POLYGON });
-  };
-
-  const filter = (values: string[]): any => ({
-    kind: "enum",
-    field: CONST.FILTER.FIELD,
-    values,
-  });
-
   it("exposes one enum dimension over the measurement types present, counting items", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
@@ -1917,8 +1836,9 @@ describe("MeasureManager — type filter", () => {
       kind: "enum",
       field: CONST.FILTER.FIELD,
       multi: true,
-      label: manager.T("filter_tool"),
     });
+    // Captions belong to the panel's shared vocabulary, not the component.
+    expect(model.dimensions[0]).not.toHaveProperty("label");
     // Only the types that have a measurement are offered; the order is the
     // toolbar order.
     expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
@@ -2071,12 +1991,16 @@ describe("MeasureManager — type filter", () => {
     const record = JSON.parse(window.localStorage.getItem(key)!);
     expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
     expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    // The round-trip carries the explicit ownership flag, so a later reload
+    // cannot mistake the user's write for "never spoke" and re-seed.
+    expect(record.filtersTouched).toBe(true);
 
     // Same map container + layer id -> the reloaded manager reads it back.
     // The measurement list is cleared first so the reload does not rebuild the
     // bare test rows (they carry no geometry); the filter record must survive.
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const { manager: reloaded, map: reloadedMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
     reloaded.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
     const reloadedModel = createLayersOpts(reloadedMap).filterProvider();
     expect(reloadedModel.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
@@ -2219,10 +2143,17 @@ describe("MeasureManager — type filter", () => {
     // read as "no filter": an expired condition may never hide every row.
     window.localStorage.setItem(
       key,
-      JSON.stringify({ version: 1, filter: filter(["bogus"]) }),
+      JSON.stringify({ version: 1, filter: filter(["bogus"]), filtersTouched: true }),
     );
+    // The record still owns the slot: the declaration must not replace the
+    // invalid condition the user's own record represents.
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
 
     const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toBeUndefined();
     const model = createLayersOpts(nextMap).filterProvider();
     expect(model.filter).toBeUndefined();
@@ -2237,6 +2168,24 @@ describe("MeasureManager — type filter", () => {
     expect(createLayersOpts(nextMap).filterProvider().filter).toBeUndefined();
   });
 
+  it("treats a non-record payload as no stored filter and no ownership", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(key, JSON.stringify([]));
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    // An array is not a record: the declaration is free to seed.
+    expect((reloaded as any).filtersTouched).toBe(false);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
   it("clearing every measurement also drops the committed filter", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
@@ -2245,7 +2194,7 @@ describe("MeasureManager — type filter", () => {
 
     manager.clearAll();
 
-    // An explicit Clear is a factory Reset: the committed filter is dropped
+    // The CLEAR mode is a factory Reset: the committed filter is dropped
     // AND the record is removed, so a reload re-applies the declaration.
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
     const key = (manager as any).filterStorageKey as string;
@@ -2253,8 +2202,10 @@ describe("MeasureManager — type filter", () => {
   });
 
   // ── Python-declared starting filter (CONFIG.filter) ──
-  // The record's presence is the ownership signal: no record -> the
-  // declaration seeds; a record (including an explicit clear) -> it does not.
+  // The record's explicit filtersTouched flag is the ownership signal: no
+  // ownership -> the declaration seeds; a touched record (including one that
+  // says "cleared") -> it does not. A legacy record without the flag counts
+  // as touched, preserving the pre-flag presence-is-ownership behaviour.
   it("seeds the declared filter when no record exists", () => {
     window.CONFIG = {
       ...window.CONFIG,
@@ -2272,12 +2223,15 @@ describe("MeasureManager — type filter", () => {
     expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m2"]);
   });
 
-  it("keeps the declaration out when a record exists, even a cleared one", () => {
+  it("keeps the declaration out when the record says the user touched the filter", () => {
     const { manager } = makeManager();
     const key = (manager as any).filterStorageKey as string;
-    // A cleared record: the user explicitly removed the filter, so the record
-    // exists but carries no filter. That is still ownership.
-    window.localStorage.setItem(key, JSON.stringify({ version: 1 }));
+    // A cleared record: the user explicitly removed the filter. The flag —
+    // not the record's presence — is what keeps the declaration out.
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filtersTouched: true }),
+    );
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -2285,8 +2239,34 @@ describe("MeasureManager — type filter", () => {
 
     const { manager: reloaded, map } = makeManager();
 
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toBeUndefined();
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+  });
+
+  it("treats a legacy record without the flag as user-owned", () => {
+    // Records written before filtersTouched existed kept the user's filter in
+    // the record itself; an upgrade must not let the declaration overwrite it.
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: 1,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+      }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
   });
 
   it("a stored filter wins over the declaration", () => {
@@ -2303,6 +2283,7 @@ describe("MeasureManager — type filter", () => {
 
     const { manager: reloaded } = makeManager();
 
+    expect((reloaded as any).filtersTouched).toBe(true);
     expect((reloaded as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.MARKER]),
     );
@@ -2338,7 +2319,8 @@ describe("MeasureManager — type filter", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the known values of a partially unknown declaration", () => {
+  it("rejects a partially unknown declaration whole instead of half-applying it", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
@@ -2346,12 +2328,72 @@ describe("MeasureManager — type filter", () => {
 
     const { manager } = makeManager();
 
-    expect((manager as any).measureFilter).toEqual(
-      filter([CONST.MEASURE_MODE.DISTANCE]),
-    );
+    // Keeping DISTANCE would apply a condition the author never declared; an
+    // unknown name makes the declaration invalid as a whole.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Clear re-seeds from the cached (invalid) declaration without warning
+    // again, and a reload starts undeclared as well.
+    manager.clearAll();
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const { manager: reloaded } = makeManager();
+    expect((reloaded as any).measureFilter).toBeUndefined();
   });
 
-  it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
+  it("rejects a declaration for another filter shape", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "atom",
+        field: CONST.FILTER.FIELD,
+        op: "between",
+        range: [1, 2],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    // Measure's only dimension is the measurement type; a numeric range is
+    // not it, so the declaration is ignored whole rather than coerced.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a declaration bound to another field", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "enum",
+        field: "other",
+        values: [CONST.MEASURE_MODE.DISTANCE],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports every unknown declared type, pluralized, exactly once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter(["bogus", "fake", CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0].join(" "))).toContain("types: bogus, fake");
+  });
+
+  it("the CLEAR mode re-seeds the declared filter and deletes the record", () => {
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -2362,10 +2404,11 @@ describe("MeasureManager — type filter", () => {
       filter([CONST.MEASURE_MODE.DISTANCE]),
     );
 
-    // A user Clear is a factory Reset: the filter re-seeds to the declaration
+    // The CLEAR mode is a factory Reset: the filter re-seeds to the declaration
     // in this session and the record is deleted, so a reload re-applies it.
     manager.clearAll();
 
+    expect((manager as any).filtersTouched).toBe(false);
     expect((manager as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.DISTANCE]),
     );
@@ -2387,12 +2430,12 @@ describe("MeasureManager — type filter", () => {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
     };
-    const { manager } = makeManager();
+    const { manager, map } = makeManager();
 
-    // A user edit writes a record; that is ownership, so a reload keeps the
-    // user's filter, not the declaration.
-    (manager as any).measureFilter = filter([CONST.MEASURE_MODE.MARKER]);
-    (manager as any).saveMeasureFilter();
+    // A user edit through the panel capability flips ownership and writes a
+    // record; a reload keeps the user's filter, not the declaration.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
     window.CONFIG = {
       ...window.CONFIG,
       filter: filter([CONST.MEASURE_MODE.DISTANCE]),
@@ -2402,5 +2445,344 @@ describe("MeasureManager — type filter", () => {
     expect((reloaded as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.MARKER]),
     );
+  });
+
+  it("a no-op panel write still takes ownership away from the declaration", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    const save = vi.spyOn(manager as any, "saveMeasureFilter");
+    const replan = vi.spyOn(manager, "requestLabelPlan");
+
+    // Writing the same values the declaration seeded is still a user action;
+    // it must persist ownership so a later declaration change cannot replace
+    // the user's choice.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
+
+    // A repeated identical write is a no-op once the slot is owned: it must
+    // not rewrite the record or repaint for a state that did not change.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
+
+    const key = (manager as any).filterStorageKey as string;
+    const record = JSON.parse(window.localStorage.getItem(key)!);
+    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(record.filtersTouched).toBe(true);
+  });
+
+  it("a clear with nothing to clear leaves the slot to the declaration", () => {
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    // No filter exists and the panel's Clear is disabled in that state, so an
+    // empty write is not a user choice: it must not persist ownership (nor a
+    // record), leaving a declaration free to seed.
+    createLayersOpts(map).filterSetter(undefined);
+
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+});
+
+// ── Cross-arm filter contract (enum arm) ──────────────────────────────
+//
+// The other half of a mirrored pair. The sibling
+// test/js/control/HeatmapControl/manager.test.ts pins the same rows against
+// the range arm; the describe/it structure is identical on purpose, so a
+// change that moves one arm without the other fails here instead of in a
+// user report.
+//
+// The rows, in order:
+//   1. a declared filter is a starting condition and owns nothing;
+//   2. a user write owns the slot and wins from then on;
+//   3. a stored filter wins over the declaration;
+//   4. the filter row's Clear keeps the empty slot, while the factory Reset
+//      drops ownership and re-seeds the declaration;
+//   5. an unusable declaration warns once and never leaves a half-open state;
+//   6. a saved filter round-trips through persistence;
+//   7. the dimension carries values only — captions are panel chrome.
+describe("MeasureManager — filter contract (enum arm)", () => {
+  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+
+  /** Write a filter record as if an earlier session had owned the slot. A
+   *  probe manager supplies the stable key (container id + layer id). */
+  const seedRecord = (record: unknown): string => {
+    const { manager } = makeManager();
+    const key = storageKey(manager);
+    window.localStorage.setItem(key, JSON.stringify(record));
+    // The measurements list must not distract the reload; the filter record is
+    // the thing under test.
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    return key;
+  };
+
+  /** A reload: the measurements list is dropped, the filter record survives. */
+  const reload = () => {
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    return makeManager();
+  };
+
+  /** A user write through the same setter the panel's filter row calls. */
+  const userWrite = (manager: any, map: any, values = [CONST.MEASURE_MODE.MARKER]) => {
+    createLayersOpts(map).filterSetter(filter(values));
+    return manager;
+  };
+
+  beforeEach(() => window.localStorage.clear());
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  describe("1. a declared filter is a starting condition", () => {
+    it("seeds the declaration without taking ownership", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+      // A declaration is not a user choice: the factory Reset can still
+      // return to it.
+      expect((manager as any).filtersTouched).toBe(false);
+
+      const model = createLayersOpts(map).filterProvider();
+      expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+      expect(model.kept).toBe(1);
+      expect(model.total).toBe(3);
+    });
+
+    it("does not seed while a stored record owns the slot", () => {
+      // A deliberate empty record (the user cleared the filter earlier): the
+      // declaration must stay out even though no filter value is stored.
+      seedRecord({
+        version: CONST.FILTER.RECORD_VERSION,
+        filtersTouched: true,
+      });
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+
+      const { manager } = makeManager();
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toBeUndefined();
+    });
+  });
+
+  describe("2. a user write owns the slot", () => {
+    it("takes ownership and persists the user's choice", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      userWrite(manager, map);
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      const record = JSON.parse(window.localStorage.getItem(storageKey(manager))!);
+      expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
+      expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+      expect(record.filtersTouched).toBe(true);
+    });
+  });
+
+  describe("3. a stored filter wins over the declaration", () => {
+    it("restores the stored filter instead of the declaration", () => {
+      seedRecord({
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+        filtersTouched: true,
+      });
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+
+      const { manager, map } = makeManager();
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      expect(createLayersOpts(map).filterProvider().filter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+    });
+  });
+
+  describe("4. the two clear paths are not the same", () => {
+    it("the filter row's Clear keeps the user's empty slot", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+
+      createLayersOpts(map).filterSetter(undefined);
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toBeUndefined();
+
+      // The declaration must not come back on the next load either.
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).filtersTouched).toBe(true);
+      expect((reloaded as any).measureFilter).toBeUndefined();
+    });
+
+    it("the factory Reset drops ownership and re-seeds the declaration", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+      userWrite(manager, map);
+      expect((manager as any).filtersTouched).toBe(true);
+
+      // The CLEAR mode is the factory Reset: delete the record, drop
+      // ownership, and return to the declaration.
+      manager.clearAll();
+
+      expect((manager as any).filtersTouched).toBe(false);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+      expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).filtersTouched).toBe(false);
+      expect((reloaded as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+    });
+  });
+
+  describe("5. an unusable declaration warns once, never half-applies", () => {
+    it("reports the declaration once and starts unfiltered", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+      };
+
+      const { manager } = makeManager();
+
+      // Keeping DISTANCE would apply a condition the author never declared.
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // The cached declaration is still invalid on the factory Reset; it is
+      // not re-normalised, so the warning is not repeated.
+      manager.clearAll();
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects the other arm whole instead of coercing it", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: {
+          kind: "atom",
+          field: CONST.FILTER.FIELD,
+          op: "between",
+          range: [1, 2],
+        },
+      };
+
+      const { manager } = makeManager();
+
+      // The panel's only dimension is the measurement type; a numeric range is
+      // not coerced into it.
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays undeclared after the factory Reset and a reload", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+      };
+
+      const { manager } = makeManager();
+      manager.clearAll();
+      expect((manager as any).measureFilter).toBeUndefined();
+
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).measureFilter).toBeUndefined();
+    });
+  });
+
+  describe("6. a saved filter round-trips through persistence", () => {
+    it("save → load → apply restores the filter and its ownership", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      userWrite(manager, map);
+
+      const { manager: reloaded, map: nextMap } = reload();
+
+      expect((reloaded as any).filtersTouched).toBe(true);
+      expect((reloaded as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      expect(createLayersOpts(nextMap).filterProvider().filter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+    });
+  });
+
+  describe("7. the dimension carries values only", () => {
+    it("exposes values with captions left to the panel", () => {
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      const dim = createLayersOpts(map).filterProvider().dimensions[0];
+
+      expect(dim).toMatchObject({
+        kind: "enum",
+        field: CONST.FILTER.FIELD,
+        multi: true,
+      });
+      expect(dim.options.map((option: any) => option.value)).toEqual([
+        CONST.MEASURE_MODE.MARKER,
+        CONST.MEASURE_MODE.DISTANCE,
+        CONST.MEASURE_MODE.POLYGON,
+      ]);
+      // The panel reads its shared locale key (filter_enum); a
+      // component-owned caption here is the defect the contract prevents.
+      expect(dim).not.toHaveProperty("label");
+    });
   });
 });

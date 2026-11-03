@@ -33,6 +33,7 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -297,8 +298,8 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
   return dom.el(
     "div",
     { class: target.rowClass },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, target.label),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, inlineControls(...parts)),
+    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, target.label),
+    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, inlineControls(...parts)),
   );
 };
 
@@ -355,7 +356,7 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
   return buildBorderRowShell({
-    rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
     color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
     weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,

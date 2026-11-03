@@ -3,11 +3,12 @@
 // the panel reads `filterProvider` (reopen echo, result readout) and writes
 // `filterSetter` through the shared Slider. The owner semantics themselves
 // (validation, clamping, per-source attribution) are pinned in
-// test/js/HeatmapControl/filter.test.ts.
+// test/js/control/HeatmapControl/manager.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -57,8 +58,6 @@ const makeOwner = (values: number[]) => {
         {
           kind: "range",
           field: "magnitude",
-          fieldLabel: "Field",
-          label: "Range",
           range,
           step: 1,
         },
@@ -98,9 +97,7 @@ const makeEnumOwner = (
           ? options.filter(option => committed.values.includes(option.value)).length
           : options.length;
       return {
-        dimensions: [
-          { kind: "enum", field: "type", label: "Type", multi: true, options },
-        ],
+        dimensions: [{ kind: "enum", field: "type", multi: true, options }],
         filter,
         kept: selected * 2,
         total: options.length * 2,
@@ -283,24 +280,24 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Row 1 is the field row: the owner's "Field" caption beside the
+      // Row 1 is the field row: the shared "Field" caption beside the
       // read-only field name — two cells answering two questions, so the field
       // name is never printed as the caption with an empty control cell.
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "Field",
+      const fieldRow = field.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      expect(fieldRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_field"),
       );
       expect(
         fieldRow.querySelector(`.${CONST.CLASSES.FILTER_FIELD_VALUE}`)!.textContent,
       ).toBe("magnitude");
-      // Row 2 is the condition row: the owner's condition caption (or the
-      // panel's own "Range") beside the slider.
+      // Row 2 is the condition row: the shared "Range" caption beside the
+      // slider — never a component's own word for the control.
       const sliderRow = fieldRow.nextElementSibling as HTMLElement;
-      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "Range",
+      expect(sliderRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_range"),
       );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
@@ -317,38 +314,20 @@ describe("LayerUI filter panel", () => {
       expect(result!.getAttribute("aria-live")).toBe("polite");
     });
 
-    it("falls back to the panel's own wording when the owner names no condition", () => {
-      // `label` is the owner's word for the condition control. An owner that
-      // has none — or a component that only names its field row — must still
-      // get a caption: the panel's own, never an empty <label> and never the
-      // field name. `core` hands over "" and the panel decides the wording.
-      const owner = makeOwner([10, 20, 30]);
-      const provider = owner.filterProvider;
-      owner.filterProvider = (): LayerFilterModel => {
-        const model = provider();
-        return {
-          ...model,
-          dimensions: model.dimensions.map(dim => ({ ...dim, label: "" })),
-        };
-      };
-      registerPoints("pnt2", owner);
-      const item = findItem(ui, "pnt2");
-
+    it("names the range group with the shared condition caption", () => {
+      // Both arms expose the condition caption as the control's accessible
+      // name: here the dual-thumb slider host is a named group, and the enum
+      // arm names its dropdown with the same panel vocabulary.
+      registerPoints();
+      const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const fieldRow = (
-        panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`) as HTMLElement
-      ).closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      // The field row keeps the owner's caption for the field itself...
-      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "Field",
-      );
-      // ...while the condition row falls back to the panel's own "Range".
-      const sliderRow = fieldRow.nextElementSibling as HTMLElement;
-      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        ui.T("filter_range"),
-      );
+      const host = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_SLIDER}`,
+      ) as HTMLElement;
+      expect(host.getAttribute("role")).toBe("group");
+      expect(host.getAttribute("aria-label")).toBe(ui.T("filter_range"));
     });
 
     it("the result readout composes the localized kept/total sentence", () => {
@@ -496,6 +475,26 @@ describe("LayerUI filter panel", () => {
     });
   });
 
+  it("reopen after close does not trip the duplicate-id guard", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    ui.closeFilterPanel(false);
+    expect(() => ui.openFilterPanel(item)).not.toThrow();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    ui.closeFilterPanel(false);
+  });
+
+  it("close detaches the registry entry (no live overlay after close)", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const registry = ensureOverlayRegistry(_map);
+    expect(registry.topmost()).not.toBeNull();
+    ui.closeFilterPanel(false);
+    expect(registry.topmost()).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
   describe("enum body", () => {
     const registerEnum = (
       owner = makeEnumOwner(),
@@ -566,7 +565,7 @@ describe("LayerUI filter panel", () => {
           })[key] ?? `LayerControl.${key}`,
       );
 
-    it("labels the condition row with the dimension's own name", () => {
+    it("labels the condition row from the shared panel vocabulary", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
@@ -575,16 +574,20 @@ describe("LayerUI filter panel", () => {
       const fieldCell = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      // One label only: the row's label cell carries the dimension label and
-      // the control cell starts straight at the shared dropdown.
+      // One label only: the row's label cell carries the shared "Values"
+      // caption (never a component word like "Type") and the control cell
+      // starts straight at the shared dropdown.
       expect(fieldCell.firstElementChild!.classList.contains("foliplus-dropdown")).toBe(
         true,
       );
       expect(fieldCell.textContent).not.toContain("Type");
-      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "Type",
+      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_enum"),
       );
+      // The control group and its trigger share that same accessible name.
+      expect(fieldCell.getAttribute("role")).toBe("group");
+      expect(fieldCell.getAttribute("aria-label")).toBe(ui.T("filter_enum"));
       spy.mockRestore();
     });
 
@@ -601,7 +604,7 @@ describe("LayerUI filter panel", () => {
       expect(trigger.tagName).toBe("BUTTON");
       expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
       expect(trigger.getAttribute("aria-expanded")).toBe("false");
-      expect(trigger.getAttribute("aria-label")).toBe("Type");
+      expect(trigger.getAttribute("aria-label")).toBe(ui.T("filter_enum"));
       spy.mockRestore();
     });
 
@@ -921,7 +924,6 @@ describe("LayerUI filter panel", () => {
             {
               kind: "enum",
               field: "type",
-              label: "Type",
               multi: true,
               options: [
                 { value: "a", label: "A" },
@@ -931,7 +933,6 @@ describe("LayerUI filter panel", () => {
             {
               kind: "enum",
               field: "other",
-              label: "Other",
               multi: true,
               options: [{ value: "x", label: "X" }],
             },
@@ -968,7 +969,7 @@ describe("LayerUI filter panel", () => {
 
     it("rebuilds the body when the dimension shape changes", () => {
       const spy = spyTranslator();
-      let label = "Type";
+      let field = "type";
       manager.registerLayer({
         id: "shape",
         name: "Shape",
@@ -978,8 +979,7 @@ describe("LayerUI filter panel", () => {
           dimensions: [
             {
               kind: "enum",
-              field: "type",
-              label,
+              field,
               multi: true,
               options: [{ value: "a", label: "A" }],
             },
@@ -993,16 +993,17 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const oldTrigger = triggerOf(item);
 
-      label = "Kind";
+      field = "other";
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
 
       expect(triggerOf(item)).not.toBe(oldTrigger);
       const fieldCell = item.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
-        "Kind",
+      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      // The caption stays panel-owned across the rebuild.
+      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+        ui.T("filter_enum"),
       );
       spy.mockRestore();
     });
@@ -1520,8 +1521,6 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
           {
             kind: "range",
             field: "magnitude",
-            fieldLabel: "Field",
-            label: "Range",
             range,
             step: 1,
           },
@@ -1590,8 +1589,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
     expect(result.textContent).toBe("67% (2 of 3) kept");
     // A standard FORM_ROW: right-aligned Result label + one control cell.
-    const row = result.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-    expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+    const row = result.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+    expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
       "LayerControl.filter_result_label",
     );
     // No second ratio / progress track anywhere in the panel.
