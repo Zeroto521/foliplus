@@ -2249,6 +2249,24 @@ describe("MeasureManager — type filter", () => {
     expect(createLayersOpts(nextMap).filterProvider().filter).toBeUndefined();
   });
 
+  it("treats a non-record payload as no stored filter and no ownership", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(key, JSON.stringify([]));
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    // An array is not a record: the declaration is free to seed.
+    expect((reloaded as any).filtersTouched).toBe(false);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
   it("clearing every measurement also drops the committed filter", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
@@ -2405,6 +2423,43 @@ describe("MeasureManager — type filter", () => {
     expect((reloaded as any).measureFilter).toBeUndefined();
   });
 
+  it("rejects a declaration for another filter shape", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "atom",
+        field: CONST.FILTER.FIELD,
+        op: "between",
+        range: [1, 2],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    // Measure's only dimension is the measurement type; a numeric range is
+    // not it, so the declaration is ignored whole rather than coerced.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a declaration bound to another field", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "enum",
+        field: "other",
+        values: [CONST.MEASURE_MODE.DISTANCE],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("an explicit Clear re-seeds the declared filter and deletes the record", () => {
     window.CONFIG = {
       ...window.CONFIG,
@@ -2457,5 +2512,25 @@ describe("MeasureManager — type filter", () => {
     expect((reloaded as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.MARKER]),
     );
+  });
+
+  it("a no-op panel write still takes ownership away from the declaration", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    // Writing the same values the declaration seeded is still a user action;
+    // it must persist ownership so a later declaration change cannot replace
+    // the user's choice.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+
+    const key = (manager as any).filterStorageKey as string;
+    const record = JSON.parse(window.localStorage.getItem(key)!);
+    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(record.filtersTouched).toBe(true);
   });
 });
