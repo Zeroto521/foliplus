@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ROW_PANEL_EDGE, ROW_PANEL_MIN_HEIGHT } from "#core/leaflet/panel.js";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -13,6 +12,7 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
+import { ROW_PANEL_EDGE, ROW_PANEL_MIN_HEIGHT } from "#core/leaflet/panel.js";
 import { computePlacement } from "#common/placement.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 
