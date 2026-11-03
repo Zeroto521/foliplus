@@ -8,7 +8,10 @@ import { describe, expect, it } from "vitest";
 // pointer over the panel also matches the row's `:hover` — which would light
 // the row-cursor recipe (white surface, glow, drag grip, icon) while the user
 // edits the panel. The row-cursor hover branch therefore carries a
-// `:where(:not(:has(.foliplus-layer-style-panel:hover)))` carve-out:
+// `:where(:not(:has(.foliplus-row-panel:hover)))` carve-out, keyed on the
+// shared row-panel shell (every row panel — style and attrs — mounts with
+// `.foliplus-row-panel`). The style panel's own class belongs to style.css,
+// so naming it here would break the merged-CSS duplicate-token guard.
 //
 //   * the carve-out returns the owner row to its resting value while the panel
 //     is hovered (a panel hover is not a row interaction);
@@ -46,8 +49,8 @@ const selectorOf = (source: string, start: string): string => {
 // The zero-specificity carve-out the row-cursor hover branch must carry, in
 // its whitespace-collapsed form (the source keeps `:where(:not(:has(...)))`
 // on one line, so there is no whitespace to collapse inside it).
-const CARVEOUT = ":where(:not(:has(.foliplus-layer-style-panel:hover)))";
-const STYLE_PANEL_CLASS = "foliplus-layer-style-panel";
+const CARVEOUT = ":where(:not(:has(.foliplus-row-panel:hover)))";
+const ROW_PANEL_CLASS = "foliplus-row-panel";
 const BASE_RULE =
   '.foliplus-layer-item[data-layer-type="base"]:is(:hover, .foliplus-is-focused-row)';
 
@@ -68,7 +71,7 @@ describe("layer-row style-panel hover carve-out (stylesheet contract)", () => {
     // The carve-out rides the hover trigger (the row-cursor wake), so a panel
     // hover cannot light the owner row.
     expect(recipe).toContain(":is(");
-    expect(recipe).toContain(`:has(.${STYLE_PANEL_CLASS}:hover)`);
+    expect(recipe).toContain(`:has(.${ROW_PANEL_CLASS}:hover)`);
   });
 
   it("negative control: dropping the :has carve-out is exactly the regression", () => {
@@ -77,7 +80,7 @@ describe("layer-row style-panel hover carve-out (stylesheet contract)", () => {
     // lights the owner row again.
     const regressed = recipe.replace(CARVEOUT, "");
     expect(regressed).toContain(":is(");
-    expect(regressed).not.toContain(`:has(.${STYLE_PANEL_CLASS}:hover)`);
+    expect(regressed).not.toContain(`:has(.${ROW_PANEL_CLASS}:hover)`);
     expect(regressed).not.toContain(":has(");
     // The detection above (which the positive case uses) reports the
     // regression: the carve-out is the only thing standing between a panel
@@ -94,7 +97,7 @@ describe("layer-row style-panel hover carve-out (stylesheet contract)", () => {
     // Red→green evidence: the bare :not(:has()) form (the P1-A regression)
     // raises the recipe to (0,4,0) and is DETECTED; the :where() form is not.
     const broken =
-      ":is(:hover, .foliplus-is-focused-row):not(:has(.foliplus-layer-style-panel:hover))";
+      ":is(:hover, .foliplus-is-focused-row):not(:has(.foliplus-row-panel:hover))";
     expect(hasZeroSpecificityCarveOut(broken)).toBe(false);
     expect(hasZeroSpecificityCarveOut(recipe)).toBe(true);
   });
@@ -103,13 +106,13 @@ describe("layer-row style-panel hover carve-out (stylesheet contract)", () => {
     // The focus branch (static class) is NOT carved out, so the recipe — the
     // white surface / glow — still matches a focused row that contains a style
     // panel. jsdom matches this branch behaviorally.
-    document.body.innerHTML = `<div id="row" class="foliplus-layer-item foliplus-is-focused-row"><div class="foliplus-layer-style-panel"></div></div>`;
+    document.body.innerHTML = `<div id="row" class="foliplus-layer-item foliplus-is-focused-row"><div class="foliplus-row-panel foliplus-layer-style-panel"></div></div>`;
     const focused = document.getElementById("row") as HTMLElement;
-    const recipeSel = `.foliplus-layer-item:is(:hover:where(:not(:has(.${STYLE_PANEL_CLASS}:hover))), .foliplus-is-focused-row)`;
+    const recipeSel = `.foliplus-layer-item:is(:hover:where(:not(:has(.${ROW_PANEL_CLASS}:hover))), .foliplus-is-focused-row)`;
     expect(focused.matches(recipeSel)).toBe(true);
     // And a non-focused row does not match without a pointer (the hover branch
     // is inert in jsdom; the point is the focus branch is the only gate left).
-    document.body.innerHTML = `<div id="plain" class="foliplus-layer-item"><div class="foliplus-layer-style-panel"></div></div>`;
+    document.body.innerHTML = `<div id="plain" class="foliplus-layer-item"><div class="foliplus-row-panel foliplus-layer-style-panel"></div></div>`;
     const plain = document.getElementById("plain") as HTMLElement;
     expect(plain.matches(recipeSel)).toBe(false);
   });

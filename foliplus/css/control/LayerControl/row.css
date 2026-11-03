@@ -308,16 +308,22 @@
        at equal specificity: a checked row turns white when hover / Tab /
        arrow arrives, and the wash returns when it leaves. */
     /* The hover branch carries a :where(:not(:has(...))) carve-out so the
-       hover wake stays off the panel's owner row: the style panel is appended
-       INSIDE the layer row (see the style panel's open), so hovering the panel
-       would otherwise match the row's :hover and light the whole cursor recipe
-       (background, glow, grip, icon) while the user edits — a panel hover is
-       not a row interaction. :where() keeps the carve-out's specificity at
-       zero, so the recipe does not out-rank the base-row quiet rule below and
-       the keyboard-focus branch (.foliplus-is-focused-row) is not affected by
-       the pointer. :has is already in use below, so no browser-support regression. */
+       hover wake stays off the panel's owner row: a row panel (style / attrs)
+       is appended INSIDE the layer row, so hovering the panel would otherwise
+       match the row's :hover and light the whole cursor recipe (background,
+       glow, grip, icon) while the user edits — a panel hover is not a row
+       interaction. The carve-out keys on the SHARED `.foliplus-row-panel`
+       shell (core/leaflet/panel.ts stamps it on every row panel) rather than
+       on a single panel's own class: the style panel's class belongs to
+       style.css, and the merged-CSS duplicate-token guard forbids this module
+       from naming another module's token (row.css already keys its press wash
+       on `.foliplus-row-panel` above). :where() keeps the carve-out's
+       specificity at zero, so the recipe does not out-rank the base-row quiet
+       rule below and the keyboard-focus branch (.foliplus-is-focused-row) is
+       not affected by the pointer. :has is already in use below, so no
+       browser-support regression. */
     &:is(
-      :hover:where(:not(:has(.foliplus-layer-style-panel:hover))),
+      :hover:where(:not(:has(.foliplus-row-panel:hover))),
       .foliplus-is-focused-row
     ) {
       /* Outboard box-shadow (the bottom glow) would be covered by the next
@@ -489,7 +495,7 @@
        interaction white (later, equal specificity) can out-rank the wash.
        The hover icon wake lives INSIDE the Row-cursor recipe — this block only
        carries the checked-row (active) wake. The old bare :hover branch was
-       removed: on a style-panel hover the recipe is carved out, so a stray
+       removed: on a row-panel hover the recipe is carved out, so a stray
        :hover here would still wake the type icon to black. */
     /* Identity: gray at rest, wakes to black on hover and when the row is
        active. Accent stays reserved for actions (more) and status (border),

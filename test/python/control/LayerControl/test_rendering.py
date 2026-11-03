@@ -390,7 +390,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = ":hover:where(:not(:has(.foliplus-layer-style-panel:hover)))"
+        mark = ":hover:where(:not(:has(.foliplus-row-panel:hover)))"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -669,7 +669,7 @@ class TestLayerControlRendering:
         # rule (which keeps the old :is form) and would not point at the recipe.
         flat = " ".join(css.split())
         recipe_mark = (
-            "is( :hover:where(:not(:has(.foliplus-layer-style-panel:hover))), "
+            "is( :hover:where(:not(:has(.foliplus-row-panel:hover))), "
             ".foliplus-is-focused-row )"
         )
         assert recipe_mark in flat, "Row-cursor recipe shape not found"
