@@ -3783,7 +3783,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // replays it: the attach sweep has to paint it or the map would open on
     // the author's flat face until the first panel edit.
     const { ui, rampLayer } = declaredRampFixture({
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
     });
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
@@ -3801,9 +3804,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     installLeafletGlobals();
     const declareRamp = (layer: ReturnType<typeof makeRampedLayer>) => {
       (layer as unknown as { options: Record<string, unknown> }).options.foliplus = {
-        fill: {
-          ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
-        },
+        fill: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
       };
       return layer;
     };
@@ -3835,7 +3836,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // Dropping that reader from the apply call is invisible to every paint
     // assertion above, so this is the test that holds the replay wiring.
     const { rampLayer } = declaredRampFixture({
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
     });
     // The pin is registered by the attach paint; folium's own mouseout handler
     // is the one it has to beat.
@@ -3856,8 +3860,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("opens the panel on the declared arm with the declared values", () => {
     const { ui } = declaredRampFixture({
-      mode: "ramp",
-      ramp: { field: "count", method: "quantile", classes: 4, scheme: "Blues" },
+      field: "count",
+      method: "quantile",
+      classes: 4,
+      scheme: "Blues",
     });
 
     const row = buildFillRow(ui, "overlay1");
@@ -3892,7 +3898,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // author palette with 12 classes takes. Only a user write has to satisfy
     // the persisted vocabulary, so the first edit collapses the count.
     const { ui } = declaredRampFixture({
-      ramp: { field: "count", method: "equal", classes: 12, scheme: "Reds" },
+      field: "count",
+      method: "equal",
+      classes: 12,
+      scheme: "Reds",
     });
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
@@ -3937,7 +3946,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("Reset returns to the declared ramp after the user took the fill over", () => {
     const { ui, rampLayer } = declaredRampFixture({
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
     });
     // The user takes the fill over with a solid color: the declaration steps
     // aside (intent > declaration).
@@ -3963,7 +3975,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("keeps the user's stored ramp over the declaration", () => {
     const { ui, rampLayer } = declaredRampFixture({
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
     });
     // A different palette so the paint proves which config won.
     installChroma(["#aaaaaa", "#bbbbbb", "#cccccc"]);
@@ -3990,7 +4005,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("ignores a declaration whose column the data does not offer", () => {
     const { ui } = declaredRampFixture({
-      ramp: { field: "missing", method: "equal", classes: 3, scheme: "Reds" },
+      field: "missing",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
     });
 
     // Not silently re-pointed at "count": the whole declaration falls back to
@@ -4023,7 +4041,8 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // equal (not the jenks default): the classification tests carry no
       // simple-statistics global, and a failed build would paint the author's
       // own colors back.
-      ramp: { field: "count", method: "equal" },
+      field: "count",
+      method: "equal",
     });
     const { ui } = initFixture({
       data: [
@@ -4086,7 +4105,8 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("corollary ②: with no intent, the declaration outranks the author's presentation", () => {
     const { ui, layer, row } = declaredOverAuthor({
-      ramp: { field: "count", method: "equal" },
+      field: "count",
+      method: "equal",
     });
 
     // Nobody has chosen yet, and the layer does paint per feature: the
@@ -4104,7 +4124,8 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   it("corollary ①: an explicit Original Colors pick beats the declaration", () => {
     const { ui, layer, row } = declaredOverAuthor({
-      ramp: { field: "count", method: "equal" },
+      field: "count",
+      method: "equal",
     });
 
     // The one exception to "the declaration outranks": the user's own pick.
@@ -4158,7 +4179,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
   });
 
   it("its content-change gate opens for a declared ramp", () => {
-    const { ui } = declaredRampFixture({ ramp: { field: "count" } });
+    const { ui } = declaredRampFixture({ field: "count" });
     const when = (
       FILL_DIMENSION.contentChange as {
         when?: (u: LayerUI, id: string) => boolean;
@@ -4184,7 +4205,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("paints the declared ramp again after the layer is re-registered", () => {
       const { manager, rampLayer } = declaredRampFixture({
-        ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+        field: "count",
+        method: "equal",
+        classes: 3,
+        scheme: "Reds",
       });
       expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
 
@@ -4207,7 +4231,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("keeps the declared panel values and writes no intent on reconnect", () => {
       const { manager, ui, rampLayer } = declaredRampFixture({
-        ramp: { field: "count", method: "equal", classes: 4, scheme: "Blues" },
+        field: "count",
+        method: "equal",
+        classes: 4,
+        scheme: "Blues",
       });
       const before = readFillRow(ui, "overlay1");
 
@@ -4384,7 +4411,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // forest, water, forest: the repeated label keeps its first-seen color,
       // so the palette is not re-indexed by the second sighting.
       const { ui, layer } = categoryFixture(["forest", "water", "forest", "urban"], {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
 
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
@@ -4403,7 +4432,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // a repeated last). This is the same out-of-bounds fallback colorFor uses.
       const labels = Array.from({ length: 13 }, (_, i) => `label${i}`);
       const { layer } = categoryFixture(labels, {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
 
       // All 13 labels map: the 13th gets the last of the stub palette (4
@@ -4414,16 +4445,22 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       expect(painted(layer)[12]).not.toBe(painted(layer)[0]);
     });
 
-    it("a category ramp does not re-point a numeric ramp", () => {
-      // A numeric declaration stays on the numeric arm: the category resolver
-      // must not pull a numeric field over to the categorical set.
+    it("infers category for a kind-absent declaration on a string column", () => {
+      // A declaration that names no kind on a string column: fill.ts infers
+      // the arm from the layer's own values, so it paints as a category ramp
+      // instead of dropping to the solid arm (the author named a field, and
+      // the data says it is categorical).
       const { ui, layer } = categoryFixture(["forest", "water"], {
-        ramp: { field: "cat", method: "equal", classes: 3, scheme: "Reds" },
+        field: "cat",
+        method: "equal",
+        classes: 3,
+        scheme: "Reds",
       });
 
-      expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
-      // No category values classified: the author face stays.
-      expect(painted(layer)).toEqual([undefined, undefined]);
+      expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("ramp");
+      // The inferred category arm paints the distinct labels, not the author
+      // face and not a dropped-to-solid fallback.
+      expect(painted(layer)).toEqual(["#111111", "#222222"]);
     });
 
     it("an empty category domain falls back to the author face without error", () => {
@@ -4474,7 +4511,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // Store a category record, reload (fresh fixture), and confirm the paint
       // matches — the persisted writer keeps the category shape intact.
       const { ui, layer } = categoryFixture(["forest", "water", "urban"], {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
       setIntent(ui, "overlay1", "fillMode", "ramp");
       setIntent(ui, "overlay1", "fillRamp", {
@@ -4507,7 +4546,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         }),
       );
       const reloaded = categoryFixture(["forest", "water", "urban"], {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
       // The persisted category record wins over the declaration and replays
       // the same colors.
@@ -4526,7 +4567,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // runtime store has no cached fields (a layer the panel never opened
       // still resolves its categorical columns for the declared ramp).
       const { ui, layer } = categoryFixture(["forest", "water"], {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
       ui.runtimeStore.setFields("overlay1", []);
       // A declared category ramp on a field the cache now misses still
@@ -4540,7 +4583,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("keeps a declared category ramp on the value arm of the panel", () => {
       const { ui } = categoryFixture(["forest", "water"], {
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        kind: "category",
+        field: "cat",
+        scheme: "Set3",
       });
       // A1 exposes the category arm on the value model; the panel ROW wiring
       // (buildFillRow/buildRampDetail still gate the ramp option on numeric

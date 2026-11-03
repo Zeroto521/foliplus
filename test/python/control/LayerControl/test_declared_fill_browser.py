@@ -56,12 +56,10 @@ def _layer() -> folium.GeoJson:
         },
         foliplus={
             "fill": {
-                "ramp": {
-                    "field": "score",
-                    "method": "equal",
-                    "classes": 3,
-                    "scheme": "Reds",
-                }
+                "field": "score",
+                "method": "equal",
+                "classes": 3,
+                "scheme": "Reds",
             }
         },
     )

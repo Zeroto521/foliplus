@@ -185,6 +185,12 @@ class TestValidateShape:
         {"a": ("string", "?")},
         {"nested": {"inner": {"deep": "string"}}},
         {"matrix": [["string"]]},
+        # The author scale (LayerData[].fillAuthor.scale): vmin/vmax are
+        # optional keys, so a scale that carries them and one that omits them
+        # are both legal shapes - the optional marker renders them as
+        # vmin?: number / vmax?: number and the missing-key case stays valid.
+        {"scale": {"kind": ("continuous", "stepped"), "vmin": ("number", "?"), "vmax": ("number", "?")}},
+        {"scale": {"kind": ("continuous", "stepped")}},
     ]
 
     @pytest.mark.parametrize("shape", VALID_SHAPES)

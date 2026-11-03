@@ -902,4 +902,53 @@ describe("applyRampToLayer", () => {
     expect(out!.fillColor).toBe("#e41a1c");
     expect(out!.fill).toBe(true);
   });
+  it("restores the author's face when a category ramp has no valid labels", () => {
+    // The paint ternary's `: undefined` arm for the category branch when the
+    // scale itself is null: no leaf offers a valid categorical label (numbers,
+    // null, an empty string), so buildCategoryRamp yields no colors, catScale
+    // stays null, and every leaf's paint is undefined — the author's face
+    // comes back, the same rule the numeric arm applies to an all-invalid
+    // field.
+    installChroma(["#e41a1c"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: 42 } },
+      { properties: { kind: null } },
+      { properties: { kind: "" } },
+    ]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "kind" }),
+    );
+
+    for (const leaf of layer.leaves) {
+      const last = (leaf.setStyle as any).mock.calls.at(-1)![0];
+      expect(last.fillColor).toBe("#3388ff");
+    }
+  });
+
+  it("paints boolean values as categorical labels", () => {
+    // The collection predicate was widened to booleans: a boolean column is
+    // a categorical field, so each distinct value stringifies to its label
+    // ("true" / "false") and paints by first-seen order like any string
+    // label — the boolean is a label, not a number.
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([
+      { properties: { ok: true } },
+      { properties: { ok: false } },
+      { properties: { ok: true } },
+    ]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "ok" }),
+    );
+
+    const colors = layer.leaves.map(
+      leaf => (leaf.setStyle as any).mock.calls[0][0].fillColor as string,
+    );
+    expect(colors[0]).toBe("#e41a1c");
+    expect(colors[1]).toBe("#377eb8");
+    expect(colors[2]).toBe("#e41a1c");
+  });
 });

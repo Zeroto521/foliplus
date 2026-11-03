@@ -741,3 +741,53 @@ def test_a_fisherjenks_caption_survives_the_bin_edges(k):
     assert payload["scale"]["column"] == "score"
     assert payload["scale"]["levels"] == k
     assert all(isinstance(edge, float) for edge in payload["scale"]["breaks"])
+
+
+def test_no_scale_many_distinct_colors_reads_as_continuous():
+    # A legend=False explore layer mounts no colormap, so no scale pairs. A
+    # per-feature layer painting more distinct colors than the panel's 9-class
+    # maximum is read as a continuous ramp: ship a bare {kind: continuous} so
+    # the panel states Equal Interval (the honest statement that a
+    # LinearColormap is an interval ramp). column / vmin / vmax / method are
+    # deliberately NOT written — a guess at the drive column and extent would
+    # be worse than none — and stops stay the sampled strip.
+    colors = ["#%06x" % (i * 0x111111) for i in range(12)]
+    meta = _meta(_geo(colors))
+
+    assert meta["perFeature"] is True
+    assert meta["distinct"] == 12
+    assert meta["scale"] == {"kind": "continuous"}
+    assert "column" not in meta["scale"]
+    assert "vmin" not in meta["scale"]
+    assert "vmax" not in meta["scale"]
+    assert "method" not in meta["scale"]
+    # The sampled strip stays the author's colors.
+    assert meta["stops"] == colors
+
+
+def test_no_scale_at_the_continuous_threshold_boundary():
+    # 9 distinct colors = the panel's class maximum (CLASS_COUNT.MAX): a
+    # small-step classification the panel can still describe from its own
+    # colors, so no continuous scale is synthesized (the method box shows a
+    # dash). 10 distinct crosses the threshold and reads as continuous.
+    nine = ["#%06x" % (i * 0x111111) for i in range(9)]
+    assert "scale" not in _meta(_geo(nine))
+    ten = ["#%06x" % (i * 0x111111) for i in range(10)]
+    assert _meta(_geo(ten))["scale"] == {"kind": "continuous"}
+
+
+def test_real_scale_high_cardinality_still_pairs():
+    # A real linear scale (legend=True) paired with a >9-distinct layer keeps
+    # the paired path: column / vmin / vmax ship, and the synthesized-scale
+    # branch does not fire (a real scale is the author's own declaration).
+    scale = _linear()
+    values = [float(i) for i in range(12)]
+    colors = [str(scale(value))[:7] for value in values]
+    meta = _meta(_geo(colors, values=values), scale)
+
+    assert meta["scale"]["kind"] == "continuous"
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["vmin"] == 0
+    assert meta["scale"]["vmax"] == 100
+    assert meta["scale"]["method"] is None
+
