@@ -118,6 +118,61 @@ describe("removePanel", () => {
 // ─── renderResults ───
 
 describe("renderResults", () => {
+  it("stops a wheel that can scroll the panel from reaching the map container", () => {
+    // The result panel is mounted on the map container, so a wheel over it
+    // bubbles to Leaflet's scrollWheelZoom and zooms the map. The shared
+    // containment must stop a wheel that can actually scroll the panel, while
+    // the panel's own overflow-y keeps working.
+    const ctrl = makeFixture();
+    renderResults(ctrl, [
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => false,
+      },
+    ]);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    const panel = ctrl.panelWrap;
+    // Panel is scrollable and mid-list: a deltaY wheel can move it.
+    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
+    );
+    expect(mapWheel).not.toHaveBeenCalled();
+    document.removeEventListener("wheel", mapWheel);
+  });
+
+  it("lets a wheel at a scroll boundary reach the map container", () => {
+    // At the bottom of a scrollable panel, a downward wheel cannot scroll the
+    // panel any further — it must bubble so the map zooms (not a scroll trap).
+    const ctrl = makeFixture();
+    renderResults(ctrl, [
+      {
+        source: "suggestion",
+        icon: "",
+        primaryText: "Paris, France",
+        coordDisplay: null,
+        onClick: () => false,
+      },
+    ]);
+    const mapWheel = vi.fn();
+    document.addEventListener("wheel", mapWheel);
+    const panel = ctrl.panelWrap;
+    Object.defineProperty(panel, "scrollTop", { value: 300, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
+    );
+    expect(mapWheel).toHaveBeenCalled();
+    document.removeEventListener("wheel", mapWheel);
+  });
+
   it("removes panel when results are empty", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);

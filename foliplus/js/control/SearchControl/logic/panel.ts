@@ -7,7 +7,7 @@
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
+import { bindWheelContainment, dom } from "#common/dom.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
@@ -94,6 +94,14 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     parent: map.getContainer(),
     onclick: (event: Event) => event.stopPropagation(),
   });
+  // A wheel over the result panel must not zoom the map. The panel is mounted
+  // on the map container (not inside the control's container), so the
+  // container's disableScrollPropagation does not cover it — a wheel bubbles
+  // to the map container and Leaflet's scrollWheelZoom would fire. The shared
+  // containment stops only a wheel that can actually scroll the panel (its own
+  // overflow-y works); a wheel at a boundary or over a non-scrollable panel
+  // keeps bubbling, so the map still zooms at the edges.
+  bindWheelContainment(ctrl.panelWrap);
 
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
