@@ -17,10 +17,11 @@ never as a reason to hide data or take the page down. The warning family is
 process-wide (see :data:`foliplus_reports`), so re-rendering a page does not
 repeat a line.
 
-A filter declaration has one deliberate exception to "never raises": a
-``field`` key inside a range declaration, or a range with no bound field, is
-API misuse and raises ValueError in the author's cell instead of being buried
-in a warning among the page output.
+A filter declaration has deliberate exceptions to "never raises": a ``field``
+key inside a range declaration, a range with no bound field, or a list of
+value names in the range arm (the enum arm belongs to MeasureControl) is API
+misuse and raises ValueError in the author's cell instead of being buried in a
+warning among the page output.
 """
 
 from __future__ import annotations
@@ -355,7 +356,10 @@ def normalize_declared_filter(
     bound field (no field=, or agg="count") also raises ValueError — the
     bound-field check runs before the ``min``/``max`` validation, so an inverted
     or malformed range with no field still raises instead of being masked by
-    a warning. It fails in the author's notebook cell, where the typo is,
+    a warning. A list of values in the range arm is the enum arm of another
+    owner (MeasureControl), so it also raises instead of being downgraded to
+    "undeclared": the author is using the wrong control, not a typo in the
+    data. All three fail in the author's notebook cell, where the mistake is,
     instead of being buried in a warning among the page output.
     """
     if raw is None:
@@ -363,6 +367,12 @@ def normalize_declared_filter(
     if arm == "range":
         if isinstance(raw, Mapping):
             return range_atom(raw, owner, bound_field)
+        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+            raise ValueError(
+                f"{owner}: filter= was given a list of value names, which is the "
+                f"enum arm; enum filters belong to MeasureControl. A range filter "
+                f"takes a mapping {{'min': ..., 'max': ...}} bound to field=."
+            )
         warn_filter(
             f"{owner}: filter= must be a mapping with min and max; "
             f"got {type(raw).__name__}; ignored"

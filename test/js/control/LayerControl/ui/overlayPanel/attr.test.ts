@@ -482,8 +482,6 @@ describe("LayerUI attrs", () => {
             {
               kind: "range",
               field: "value",
-              fieldLabel: "Field",
-              label: "Range",
               range: [0, 10],
               step: 1,
             },
@@ -523,8 +521,6 @@ describe("LayerUI attrs", () => {
             {
               kind: "range",
               field: "value",
-              fieldLabel: "Field",
-              label: "Range",
               range: [0, 10],
               step: 1,
             },
