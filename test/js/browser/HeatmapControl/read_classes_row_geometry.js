@@ -6,12 +6,14 @@
 // geometry the CSS promises.
 () => {
   const ctrl = document.querySelector(".foliplus-heatmap-ctrl");
-  const methodSelect = ctrl?.querySelector("select[data-heatmap-method]");
-  const classesSelect = ctrl?.querySelector("select[data-heatmap-class-count]");
-  // The visible control is the shared dropdown wrapper that owns each hidden
-  // native select (the :has() stylesheet rule targets this wrapper).
-  const method = methodSelect?.closest(".foliplus-dropdown-native-host");
-  const classes = classesSelect?.closest(".foliplus-dropdown-native-host");
+  // The visible flex items are the shared dropdown wrappers the heatmap
+  // stylesheet sizes (the native selects are display:none), so find the two
+  // wrappers by the hook classes bindControls adds — the same targets the
+  // CSS rules name.
+  const method = ctrl?.querySelector(".foliplus-dropdown.foliplus-heatmap-method");
+  const classes = ctrl?.querySelector(
+    ".foliplus-dropdown.foliplus-heatmap-classes-count",
+  );
   const controlCell = method?.closest(".foliplus-form-control");
   const geom = el => {
     if (!el) return null;
@@ -32,26 +34,31 @@
   const methodGeom = geom(method);
   const classesGeom = geom(classes);
   const controlGeom = geom(controlCell);
+  // Guard: a 0-width measurement means the row was never laid out (panel not
+  // open, no layer picked), which would make the left/width relationships
+  // below trivially true. Every derived flag requires a positive width, so the
+  // probe fails loudly instead of "passing" on an unmeasured panel.
+  const widthsPositive = !!(
+    methodGeom &&
+    classesGeom &&
+    controlGeom &&
+    methodGeom.width > 0 &&
+    classesGeom.width > 0 &&
+    controlGeom.width > 0
+  );
   return {
     ok: !!(method && classes && controlCell && secondaryWidth),
+    widthsPositive,
     methodGeom,
     classesGeom,
     controlGeom,
     secondaryWidth,
     // The Method dropdown starts at the control cell's left edge.
-    methodFillsControl: !!(
-      methodGeom &&
-      controlGeom &&
-      methodGeom.left === controlGeom.left
-    ),
+    methodFillsControl: !!(widthsPositive && methodGeom.left === controlGeom.left),
     // The class-count dropdown is exactly the compact secondary width.
-    classesAtSecondary: !!(
-      classesGeom &&
-      secondaryWidth &&
-      classesGeom.width === secondaryWidth
-    ),
+    classesAtSecondary: !!(widthsPositive && classesGeom.width === secondaryWidth),
     // The two controls do not overlap: the method's right edge is at or
     // before the class count's left edge.
-    noOverlap: !!(methodGeom && classesGeom && methodGeom.right <= classesGeom.left),
+    noOverlap: !!(widthsPositive && methodGeom.right <= classesGeom.left),
   };
 };

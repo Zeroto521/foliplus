@@ -24,9 +24,9 @@ const css = (rel: string): string =>
  *  brace matching so a block containing nested rules is returned whole. */
 const blockOf = (source: string, selector: string): string => {
   const start = source.indexOf(selector);
-  expect(start, selector + " is missing").toBeGreaterThanOrEqual(0);
+  expect(start, `${selector} is missing`).toBeGreaterThanOrEqual(0);
   const open = source.indexOf("{", start);
-  expect(open, selector + " has no opening brace").toBeGreaterThanOrEqual(0);
+  expect(open, `${selector} has no opening brace`).toBeGreaterThanOrEqual(0);
   let depth = 0;
   for (let i = open; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -35,7 +35,7 @@ const blockOf = (source: string, selector: string): string => {
       if (depth === 0) return source.slice(open, i + 1);
     }
   }
-  throw new Error(selector + " block never closes");
+  throw new Error(`${selector} block never closes`);
 };
 
 const heatmap = css("foliplus/css/control/HeatmapControl.css");

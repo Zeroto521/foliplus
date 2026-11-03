@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 
 import folium
-from conftest import _js, make_browser_page, use_page
+from conftest import _js, make_browser_page, snippet, use_page
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -59,9 +59,29 @@ class TestClassesRowGeometryBrowser:
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached"
             )
+            # Pick a point layer and settle the aggregation so the Method /
+            # Classes row is laid out (the rows are hidden until a layer is
+            # selected). Same setup as the dropdown-panel browser test.
+            page.evaluate(snippet("HeatmapControl/panel_ready_watch"))
             page.wait_for_timeout(400)
+            page.evaluate(snippet("HeatmapControl/panel_set_agg_sum"))
+            page.wait_for_timeout(400)
+            # The wrappers only get a non-zero box once the panel settles;
+            # wait for the method wrapper to be laid out before measuring, so
+            # the probe reads a visible element rather than a 0-width stub.
+            page.wait_for_function(
+                """() => {
+                    const method = document.querySelector(
+                        ".foliplus-heatmap-ctrl .foliplus-dropdown.foliplus-heatmap-method",
+                    );
+                    return !!method && method.offsetWidth > 0 && method.offsetHeight > 0;
+                }"""
+            )
             data = page.evaluate(_js("HeatmapControl/read_classes_row_geometry"))
             assert data["ok"], data
+            # The probe must have measured laid-out wrappers; a 0-width
+            # measurement would make the geometry relationships trivially true.
+            assert data["widthsPositive"], data
             assert data["methodFillsControl"], data
             assert data["classesAtSecondary"], data
             assert data["noOverlap"], data
