@@ -216,9 +216,9 @@ FilterArm = Literal["range", "enum"]
 def warn_filter(message: str) -> None:
     """Report one unusable filter declaration at the line that wrote it.
 
-    Never raises: a data-shaped problem (a range outside the field, a type
-    name the runtime does not know) must be visible and ignored, not take the
-    page down.
+    Never raises: a shape-level problem (a non-numeric bound, an inverted
+    range, an empty or non-string value list) must be visible and ignored,
+    not take the page down.
 
     The frame walk in :func:`caller_stacklevel` is shared with the zoom-range
     reader: a fixed stacklevel cannot cover both a control's ``__init__`` and a

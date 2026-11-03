@@ -2,7 +2,7 @@
 //
 // The declaration is a starting condition only. It seeds into the per-source
 // filter store on the first open; from then on the user's own slot wins —
-// including an explicit clear, which is what filtersTouched records. The
+// including the filter row's Clear, which is what filtersTouched records. The
 // factory Reset drops that ownership, so the declaration returns with the
 // rest of the declared defaults.
 import { afterEach, describe, expect, it, vi } from "vitest";
