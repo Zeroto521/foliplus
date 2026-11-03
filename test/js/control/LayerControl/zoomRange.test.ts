@@ -205,7 +205,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   });
 
   it("the explicit {min,max} write persists the value (no collapsed-declaration guard)", () => {
-    // task-56: the row is always editable, so the {min,max} write branch has
+    // The row is always editable, so the {min,max} write branch has
     // no collapsed-declaration guard — a user drag is a real choice even when
     // it lands on a degenerate point. A fixture with a declaration that cannot
     // meet the map still lets the write through.
@@ -462,7 +462,7 @@ it("collapses a declaration outside the layer's own rail onto the nearest bound"
   fixture.manager.debouncedEnforce?.cancel?.();
 });
 it("a declaration that cannot meet the map leaves the row on the map range, editable", () => {
-  // task-56: a declaration [20, 30] on a map capped at 18 cannot be honoured,
+  // A declaration [20, 30] on a map capped at 18 cannot be honoured,
   // so the policy treats it as undeclared. The row must NOT collapse to a
   // fake [18, 18] a drag could persist: it opens on the map's full range and
   // stays editable (no disabled/hint), so the user can drag a real choice.
@@ -509,7 +509,7 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
 });
 
 it("the policy reports the degradation once; the row arm is silent", () => {
-  // task-56: the policy (inZoomRange) is the single place that warns about an
+  // The policy (inZoomRange) is the single place that warns about an
   // unusable declaration. The row arm (value!) is silent — it falls back to
   // the map range without warning, so the row never duplicates the report.
   // A unique id keeps the "warn once per layer" dedup from suppressing this
@@ -551,7 +551,7 @@ it("the policy reports the degradation once; the row arm is silent", () => {
 });
 
 it("a stored range wins over an unusable declaration and keeps the row editable", () => {
-  // task-56 + stored precedence: the user's own range is always usable and
+  // Stored precedence: the user's own range is always usable and
   // always wins, so the row shows the stored value even when the declaration
   // is unusable.
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
