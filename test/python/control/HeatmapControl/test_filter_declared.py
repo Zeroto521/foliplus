@@ -4,8 +4,9 @@ The declaration is the friendly {min, max} shape, bound to the aggregation
 field (field=); Python normalises it into the shared filter AST the runtime
 already reads, so CONF never grows a second dialect. These tests assert the
 shipped payload and the two failure modes: API misuse (a field key inside the
-filter, or a range with no bound field) raises at construction, data-shaped
-problems warn and leave the filter undeclared.
+filter, a range with no bound field, or a list of values — the list form that
+belongs to MeasureControl) raises at construction, data-shaped problems warn
+and leave the filter undeclared.
 """
 
 from __future__ import annotations
@@ -128,16 +129,26 @@ def test_a_between_key_is_now_unknown_and_warns():
     assert conf["filter"] is None
 
 
-def test_a_list_is_not_a_heatmap_declaration():
-    # The enum arm belongs to MeasureControl; a Heatmap declaration that names
-    # values has no panel dimension to render it on.
-    with pytest.warns(UserWarning, match="must be a mapping with min and max"):
-        conf = _render(agg="sum", field="score", filter=["score"])
+def test_an_enum_declaration_raises_and_points_at_measure_control():
+    # The list form belongs to MeasureControl; a Heatmap declaration that names
+    # values has no panel dimension to render it on. This is the wrong control,
+    # not a data-shaped problem, so it raises where the author can fix it.
+    with pytest.raises(ValueError, match="enum filters belong to MeasureControl"):
+        HeatmapControl(agg="sum", field="score", filter=["score"])
 
-    assert conf["filter"] is None
+
+def test_a_range_declaration_is_still_accepted_after_the_enum_guard():
+    conf = _render(agg="sum", field="score", filter={"min": 10, "max": 50})
+
+    assert conf["filter"] == {
+        "kind": "atom",
+        "field": "score",
+        "op": "between",
+        "range": [10, 50],
+    }
 
 
-def test_a_non_mapping_non_list_warns():
+def test_a_non_mapping_scalar_warns():
     with pytest.warns(UserWarning, match="must be a mapping with min and max"):
         conf = _render(agg="sum", field="score", filter="score")
 
@@ -148,7 +159,7 @@ def test_a_non_mapping_non_list_warns():
     "declaration",
     [
         {"min": 50, "max": 10},  # warned from range_atom
-        ["score"],  # warned from normalize_declared_filter itself
+        "score",  # warned from normalize_declared_filter itself
     ],
 )
 def test_a_warning_points_at_the_calling_cell(declaration):

@@ -6,7 +6,7 @@ removes every label canvas. The export used to walk past the now-empty label
 pane, read the live canvas at pass time, and come back without the labels and
 without a word.
 
-The task-22 fix freezes each layer's label canvas pixels synchronously at
+The fix freezes each layer's label canvas pixels synchronously at
 render() start — before the first await. A teardown inside the render window
 therefore cannot blank the labels: the export draws the frozen pixels the user
 saw when they pressed Export. This test arms the same teardown hook and asserts
@@ -52,7 +52,7 @@ class TestExportLabelCanvasBrowser:
             # Tear the annotation rendering down inside the render window: the
             # layer stays on the map, its label canvas does not. The trigger is
             # the first tile image the export loads, so the teardown lands in
-            # the render no matter how fast or slow the host is. The task-22
+            # the render no matter how fast or slow the host is. The
             # snapshot ran before the teardown, so the export still draws the
             # labels the user saw — this is the assertion that used to fail
             # silently on the live-canvas read.
@@ -74,7 +74,7 @@ class TestExportLabelCanvasBrowser:
             result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
-                f"labels lost from export despite the task-22 snapshot: {result}; "
+                f"labels lost from export despite the frozen snapshot: {result}; "
                 f"warnings={warnings}"
             )
 

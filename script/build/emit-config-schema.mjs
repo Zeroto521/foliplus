@@ -82,7 +82,7 @@ if (_raw.errors.length) {
 const opts = _raw;
 
 // ── Type tag → TS type mapping ────────────────────────────────────────────
-// Kept in sync with foliplus/_config_schema.py's _TS_PRIMITIVES and _TS_OBJECTS.
+// Kept in sync with foliplus/_config_schema.py's TS_PRIMITIVES and TS_OBJECTS.
 // Adding a new tag there without adding it here is caught by the
 // `unknown_tag` error below, which fails the build loudly.
 //
@@ -99,7 +99,7 @@ const OBJECTS = new Set([
   "array_string",
   "array_unknown",
   "ControlPosition",
-  // Inline union, not a name — mirrors _TS_OBJECTS on the Python side, and is
+  // Inline union, not a name — mirrors TS_OBJECTS on the Python side, and is
   // deliberately absent from IMPORTS (there is nothing to import for it).
   "string | ProviderConfig",
 ]);
@@ -129,7 +129,7 @@ const RENDER = {
  *  the dump instead of emitting an unimported type. */
 const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Shape leaf names → their TS type. Mirrors _TS_PRIMITIVES on the Python
+/** Shape leaf names → their TS type. Mirrors TS_PRIMITIVES on the Python
  *  side minus "any", which the shape validator never accepts: the names in
  *  TS_PRIMITIVE_NAMES. Only "bool" and "array_string" need a mapping, since TS
  *  spells those types `boolean` and `string[]`. "array_string" is a leaf

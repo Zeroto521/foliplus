@@ -51,7 +51,9 @@ export function makeRenderer(crs: any = makeEPSG3857Mock()): ExportRenderer {
   const map = {
     options: { crs },
     getContainer: () => container,
-    foliplus: { LayerAPI: { layers: [], getLayerPanes: () => [] } },
+    foliplus: {
+      LayerAPI: { layers: [], getLayerPanes: () => [], intentVisible: () => true },
+    },
   };
   return new ExportRenderer(map as any);
 }
@@ -60,9 +62,11 @@ export function makeMockCtx() {
   return {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
+    fillText: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
     fillStyle: "",
+    globalAlpha: 1,
     clearRect: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
 }
@@ -91,7 +95,9 @@ export const tilesNearCenter = (n: number) =>
     size: 256,
   }));
 
-export const withPixels = (tiles: Array<{ left: number; top: number; size: number }>) =>
+export const withPixels = <T extends { left: number; top: number; size: number }>(
+  tiles: T[],
+) =>
   tiles.map(t => ({
     ...t,
     dx: t.left,

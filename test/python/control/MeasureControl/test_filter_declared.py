@@ -2,9 +2,10 @@
 
 The friendly declaration is a list of measurement-type names; Python
 normalises it into the shared enum AST. The type domain itself lives in the
-runtime (MeasureControl/const.ts), so Python checks the shape only and the
-runtime drops names it does not know - which is why an unknown name still
-reaches CONF here.
+runtime (MeasureControl/const.ts), so Python checks the shape only and an
+unknown name still reaches CONF here. The runtime then validates the whole
+list at construction: one unknown name makes the declaration invalid as a
+whole (warned once, treated as undeclared), never a filtered subset.
 """
 
 from __future__ import annotations
