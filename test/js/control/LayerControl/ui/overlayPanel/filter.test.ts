@@ -3,7 +3,7 @@
 // the panel reads `filterProvider` (reopen echo, result readout) and writes
 // `filterSetter` through the shared Slider. The owner semantics themselves
 // (validation, clamping, per-source attribution) are pinned in
-// test/js/HeatmapControl/filter.test.ts.
+// test/js/control/HeatmapControl/manager.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
@@ -474,6 +474,26 @@ describe("LayerUI filter panel", () => {
     });
   });
 
+  it("reopen after close does not trip the duplicate-id guard", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    ui.closeFilterPanel(false);
+    expect(() => ui.openFilterPanel(item)).not.toThrow();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    ui.closeFilterPanel(false);
+  });
+
+  it("close detaches the registry entry (no live overlay after close)", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const registry = ensureOverlayRegistry(_map);
+    expect(registry.topmost()).not.toBeNull();
+    ui.closeFilterPanel(false);
+    expect(registry.topmost()).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
   describe("enum body", () => {
     const registerEnum = (
       owner = makeEnumOwner(),

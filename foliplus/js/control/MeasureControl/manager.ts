@@ -133,9 +133,9 @@ class MeasureManager {
   private measureFilter: LayerFilter = undefined;
   /** Whether the user owns the filter slot (see the filter record's
    *  `filtersTouched` — the same ownership signal HeatmapControl uses). The
-   *  Python declaration seeds only while this is false; an explicit Clear
-   *  deletes the record and clears it, so the declaration returns with the
-   *  factory defaults. */
+   *  Python declaration seeds only while this is false; the CLEAR mode's
+   *  factory Reset deletes the record and clears it, so the declaration
+   *  returns with the factory defaults. */
   filtersTouched = false;
   /** The Python declaration normalised once at construction — the value a
    *  Clear re-seeds from (without re-normalising, so an unusable declaration
@@ -569,9 +569,9 @@ class MeasureManager {
     );
   }
 
-  /** A user's explicit Clear: the filter record is deleted (factory Reset),
-   *  ownership returns to the declaration, and the current filter is set to
-   *  the declaration — both in this session and on reload. */
+  /** The CLEAR mode's factory Reset: the filter record is deleted, ownership
+   *  returns to the declaration, and the current filter is set to the
+   *  declaration — both in this session and on reload. */
   private clearFilter(): void {
     Storage.removeRecord(this.filterStorageKey, this.config.name);
     this.filtersTouched = false;
@@ -1109,11 +1109,11 @@ class MeasureManager {
   clearAll() {
     this.clearTransientState();
     this.store.clear();
-    // A user's explicit Clear is a factory Reset for the filter: the record
-    // is deleted and `filtersTouched` returns to false, so the Python
-    // declaration re-seeds both this session and on reload — the same
-    // semantics as Heatmap's Clear. An ordinary filter edit writes the flag
-    // and sticks.
+    // The CLEAR mode is a factory Reset for the filter: the record is deleted
+    // and `filtersTouched` returns to false, so the Python declaration
+    // re-seeds both this session and on reload — the same semantics as
+    // Heatmap's panel Reset. An ordinary filter edit writes the flag and
+    // sticks.
     this.clearFilter();
     // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
     // the next draw is new content, so the id must leave the stored order or

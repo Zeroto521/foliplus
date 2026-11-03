@@ -177,8 +177,8 @@ class HeatmapControl(BaseControl):
     -----
     .. rubric:: Filter declaration
 
-    ``filter`` is a mapping with ``min`` and ``max`` (the enum arm, a list of
-    measurement types, belongs to ``MeasureControl``):
+    ``filter`` is a mapping with ``min`` and ``max`` (the list form, a list of
+    measurement-type names, belongs to ``MeasureControl``):
 
     +--------------------+----------------------+----------+----------------------------------------------+
     | Key                | Type                 | Required | Meaning                                      |
@@ -192,20 +192,23 @@ class HeatmapControl(BaseControl):
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
     +============================================+============================================+
-    | ``field`` key inside ``filter``, or no     | ``ValueError`` in the cell that wrote the  |
+    | ``field`` key inside ``filter``, no        | ``ValueError`` in the cell that wrote the  |
     | aggregation field (no ``field=``, or       | declaration.                               |
-    | ``agg="count"``)                           |                                            |
+    | ``agg="count"``), or a list of value names |                                            |
     +--------------------------------------------+--------------------------------------------+
     | Data-shaped problem (no numeric extent,    | Reported once with a warning; treated as   |
-    | range outside the data, non-numeric bound) | undeclared — never silently filtered to    |
-    |                                            | empty.                                     |
+    | range outside the data, non-numeric        | undeclared — never silently filtered to    |
+    | bound)                                     | empty.                                     |
     +--------------------------------------------+--------------------------------------------+
-    | User write                                 | Wins from then on; the declaration is a    |
+    | User write (the filter row)                | Wins from then on; the declaration is a    |
     |                                            | starting condition only.                   |
     +--------------------------------------------+--------------------------------------------+
-    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
-    |                                            | declaration re-seeds (this session and on  |
+    | The filter row's Clear                     | Keeps the user's clear: the declaration    |
+    |                                            | does not come back (this session or on     |
     |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
+    | Factory Reset (the panel's Clear)          | Deletes the saved record and re-seeds the  |
+    |                                            | declaration (this session and on reload).  |
     +--------------------------------------------+--------------------------------------------+
 
     .. rubric:: Zoom-range declaration
@@ -306,13 +309,13 @@ class HeatmapControl(BaseControl):
         # the AST the runtime reads (never the friendly shape). A 'field' key
         # inside the declaration, a range with no aggregation field to bind to
         # (no field=, or agg="count" — a count aggregates by nothing), or a
-        # list of value names (the enum arm, which belongs to MeasureControl)
+        # list of value names (the list form, which belongs to MeasureControl)
         # raises ValueError; a data-shaped problem warns and drops the
         # declaration instead of filtering to nothing.
         self.filter = normalize_declared_filter(
             filter,
             owner="HeatmapControl",
-            arm="range",
+            kind="range",
             # A count aggregation has no field to bind the range to — the
             # declaration is API misuse and raises (see range_atom).
             bound_field=self.field if agg != "count" else None,

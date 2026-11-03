@@ -156,7 +156,7 @@ class SearchControl(BaseControl):
         +----------------+----------+------------------------------------------------------------------+
         | ``normalize``  | no       | ``{"suggest"/"search"/"reverse": "<arrow fn source>"}`` mapping  |
         |                |          | a raw API response to foliplus' internal shape (evaluated in     |
-        |                |          | the browser; authored by the map creator, never by end users).   |
+        |                |          | the browser; set when the map is built, never by end users).     |
         +----------------+----------+------------------------------------------------------------------+
 
         The provider applies to suggestions **and** to the address search /

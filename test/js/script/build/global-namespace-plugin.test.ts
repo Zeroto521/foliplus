@@ -161,7 +161,9 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps ui modules to foliplus.ui.mod", () => {
-    expect(sharedGlobalNamespace("#ui/panelElements.js")).toBe("foliplus.ui.panelElements");
+    expect(sharedGlobalNamespace("#ui/panelElements.js")).toBe(
+      "foliplus.ui.panelElements",
+    );
   });
 
   it("never maps a bare core barrel to a core namespace", () => {

@@ -10,8 +10,8 @@ runtime computes:
   normalised into the filter AST the JS runtime already speaks
   (foliplus/js/core/layer/filter.ts), so CONF never grows a second dialect.
 
-The entry points differ (a control is not a folium layer, and a filter has an
-arm the owner chooses), but the verdict rule is shared: a malformed
+The entry points differ (a control is not a folium layer, and a filter has a
+form the owner chooses), but the verdict rule is shared: a malformed
 declaration is reported once and then treated exactly like "not declared",
 never as a reason to hide data or take the page down. The warning family is
 process-wide (see :data:`foliplus_reports`), so re-rendering a page does not
@@ -19,7 +19,7 @@ repeat a line.
 
 A filter declaration has deliberate exceptions to "never raises": a ``field``
 key inside a range declaration, a range with no bound field, or a list of
-value names in the range arm (the enum arm belongs to MeasureControl) is API
+value names in the min/max mapping form (the list form belongs to MeasureControl) is API
 misuse and raises ValueError in the author's cell instead of being buried in a
 warning among the page output.
 """
@@ -206,19 +206,19 @@ def normalise_zoom_range(
 
 # ── Filter declaration ───────────────────────────────────────────────────
 #: The field the measurement-type filter is bound to. Mirrors
-#: CONST.FILTER.FIELD in foliplus/js/MeasureControl/const.ts: the enum arm
+#: CONST.FILTER.FIELD in foliplus/js/MeasureControl/const.ts: the list form
 #: emits it so CONF carries a complete AST atom.
 MEASURE_TYPE_FIELD = "type"
 
-FilterArm = Literal["range", "enum"]
+FilterKind = Literal["range", "enum"]
 
 
 def warn_filter(message: str) -> None:
     """Report one unusable filter declaration at the line that wrote it.
 
-    Never raises: a data-shaped problem (a range outside the field, a type
-    name the runtime does not know) must be visible and ignored, not take the
-    page down.
+    Never raises: a shape-level problem (a non-numeric bound, an inverted
+    range, an empty or non-string value list) must be visible and ignored,
+    not take the page down.
 
     The frame walk in :func:`caller_stacklevel` is shared with the zoom-range
     reader: a fixed stacklevel cannot cover both a control's ``__init__`` and a
@@ -243,7 +243,7 @@ def json_number(value: numbers.Real) -> int | float:
 def range_atom(
     raw: Mapping[Any, Any], owner: str, bound_field: str | None
 ) -> dict[str, Any] | None:
-    """The numeric arm: {min: low, max: high} -> a between atom on bound_field.
+    """The min/max mapping form: {min: low, max: high} -> a between atom on bound_field.
 
     The range is bound to the control's aggregation field (``field=``), never
     written into the declaration: ``filter`` carries only the range, and the
@@ -301,15 +301,15 @@ def range_atom(
 
 
 def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any] | None:
-    """The equality arm: a list of value names -> an enum atom.
+    """The list form: a list of value names -> an enum atom.
 
     Value names are not validated here on purpose: the measurement-type
     vocabulary is the runtime's (MeasureControl/const.ts MEASURE_TYPE_*), so
-    the JS normalizer drops the names it does not know. A declaration naming
-    one unknown value among known ones therefore starts filtered on the known
-    values and drops the unknown one silently; only a declaration whose every
-    name is unknown is reported and ignored ("no declared value is a
-    measurement type", MeasureControl/manager.ts warnDeclaredFilter).
+    the JS reader validates the whole list at construction. One unknown name
+    among known ones makes the declaration invalid as a whole: it warns once
+    ("unknown measurement type(s): ...", MeasureControl/manager.ts
+    declaredMeasureFilter) and the runtime starts unfiltered - never filtered
+    on the known subset, because that would apply a condition nobody wrote.
     Duplicating the vocabulary here would be a second closed set to keep in
     step with the runtime's.
     """
@@ -335,18 +335,18 @@ def normalize_declared_filter(
     raw: object,
     *,
     owner: str,
-    arm: FilterArm,
+    kind: FilterKind,
     enum_field: str | None = None,
     bound_field: str | None = None,
 ) -> dict[str, Any] | None:
     """Normalise one control's filter= declaration into the shared AST.
 
-    Two friendly arms, one AST:
+    Two friendly forms, one AST:
 
-    - arm="range": a mapping with min and max -> a numeric range atom bound to
+    - kind="range": a mapping with min and max -> a numeric range atom bound to
       bound_field (HeatmapControl; the range is bound to the aggregation field
       field=, never written into the declaration).
-    - arm="enum": a list of value names -> an enum atom (MeasureControl; the
+    - kind="enum": a list of value names -> an enum atom (MeasureControl; the
       field is enum_field).
 
     Returns None for "not declared" and for "declared but unusable" - both
@@ -356,7 +356,7 @@ def normalize_declared_filter(
     bound field (no field=, or agg="count") also raises ValueError — the
     bound-field check runs before the ``min``/``max`` validation, so an inverted
     or malformed range with no field still raises instead of being masked by
-    a warning. A list of values in the range arm is the enum arm of another
+    a warning. A list of values in the min/max mapping form is the list form of another
     owner (MeasureControl), so it also raises instead of being downgraded to
     "undeclared": the author is using the wrong control, not a typo in the
     data. All three fail in the author's notebook cell, where the mistake is,
@@ -364,13 +364,13 @@ def normalize_declared_filter(
     """
     if raw is None:
         return None
-    if arm == "range":
+    if kind == "range":
         if isinstance(raw, Mapping):
             return range_atom(raw, owner, bound_field)
         if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
             raise ValueError(
                 f"{owner}: filter= was given a list of value names, which is the "
-                f"enum arm; enum filters belong to MeasureControl. A range filter "
+                f"list form; enum filters belong to MeasureControl. A range filter "
                 f"takes a mapping {{'min': ..., 'max': ...}} bound to field=."
             )
         warn_filter(
@@ -379,7 +379,7 @@ def normalize_declared_filter(
         )
         return None
     if not enum_field:  # pragma: no cover - both call sites pass one
-        raise ValueError("arm='enum' requires enum_field")
+        raise ValueError("kind='enum' requires enum_field")
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
         return enum_atom(raw, owner, enum_field)
     warn_filter(

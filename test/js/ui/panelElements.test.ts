@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buttonRow, closeButton, panelButton, sectionDivider } from "#ui/panelElements.js";
+import {
+  buttonRow,
+  closeButton,
+  panelButton,
+  sectionDivider,
+} from "#ui/panelElements.js";
 
 // ui/panelElements builders are pure DOM structure. The class-name contract with
 // the Python render-string tests is: a class passed to panelButton is joined
