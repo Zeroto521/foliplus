@@ -9,6 +9,7 @@
 // LayerControl-owned, gated by surface capability.
 import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { Slider, sliderOf } from "#control/LayerControl/slider.js";
 import {
@@ -185,10 +186,10 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const row = dom.el(
     "div",
     {
-      class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+      class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_zoom_range")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
+    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_zoom_range")),
+    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
   );
 
   new Slider(host, {

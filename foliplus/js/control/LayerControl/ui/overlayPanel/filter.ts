@@ -46,6 +46,8 @@ import {
 } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
+import { buttonRow, panelButton, sectionDivider } from "#ui/panelChrome.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { finishSlidersIn } from "#control/LayerControl/slider.js";
@@ -194,9 +196,9 @@ const buildResultRow = (ui: LayerUI): { row: HTMLElement; result: HTMLElement } 
   });
   const row = dom.el(
     "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("span", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_result_label")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, result),
+    { class: PANEL_CLASS.FORM_ROW },
+    dom.el("span", { class: PANEL_CLASS.FORM_LABEL }, ui.T("filter_result_label")),
+    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, result),
   );
   return { row, result };
 };
@@ -208,21 +210,12 @@ const buildFooter = (
   ui: LayerUI,
   hooks: FilterViewHooks,
 ): { footer: HTMLElement; clear: HTMLButtonElement } => {
-  const clear = dom.el(
-    "button",
-    {
-      type: "button",
-      class: `foliplus-panel-btn ${CONST.CLASSES.FILTER_CLEAR}`,
-    },
-    ui.T("filter_clear"),
-  ) as HTMLButtonElement;
+  const clear = panelButton({
+    label: ui.T("filter_clear"),
+    className: CONST.CLASSES.FILTER_CLEAR,
+  });
   clear.addEventListener("click", () => hooks.write(undefined));
-  const footer = dom.el(
-    "div",
-    {},
-    dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el("div", { class: "foliplus-btn-row" }, clear),
-  );
+  const footer = dom.el("div", {}, sectionDivider(), buttonRow(clear));
   return { footer, clear };
 };
 

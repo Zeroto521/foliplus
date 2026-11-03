@@ -48,6 +48,7 @@ import {
   numberInput,
 } from "#common/form.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import { readOnlyValue } from "#ui/panelField.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   type DeclaredFill,
@@ -440,13 +441,16 @@ const originalCount = (author: AuthorFill | null): string => {
  *  with no chevron, no focus and no pointer affordance. The detail states the
  *  author's presentation, so every control in it is a readout the panel cannot
  *  open, toggle or edit. */
-const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement =>
-  dom.el(
-    "div",
-    {
-      class: `${CONST.CLASSES.STYLE_FILL_READONLY} ${className}`,
-      "aria-disabled": "true",
-    },
+const readOnlyBox = (
+  className: string,
+  opts: { role?: string } = {},
+  ...children: HTMLElement[]
+): HTMLElement =>
+  // The shared primitive supplies the semantic READONLY class, aria-disabled
+  // and the role; the caller keeps both its frame class (the read-only frame
+  // is component-styled) and its specific hook class.
+  readOnlyValue(
+    { className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${className}`, ...opts },
     ...children,
   );
 
@@ -474,6 +478,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
         ui.T("style_fill_field"),
         readOnlyBox(
           CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN,
+          {},
           dom.el(
             "span",
             { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
@@ -488,6 +493,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const caption = originalCaption(ui, author);
   const colorsBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS,
+    { role: "img" },
     dom.el("div", {
       class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
       style: `background:${
@@ -502,7 +508,6 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // The bar carries the caption as its accessible name; `img` is what makes
   // that name apply (a bare div is a generic role, where aria-label is
   // ignored). The colors are information, not a control.
-  colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
 
   // Row order matches the by-value arm: Field, Method, Scheme. The method and
@@ -532,6 +537,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // Interval" only when the record carries method: "equal", else the dash.
   const methodBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
+    { role: "group" },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
@@ -545,17 +551,16 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // role at all — it is a Safari/WebKit-ism). A standard namable role makes
   // the name stable, so these readout groups take role="group" the way the
   // colors box takes role="img".
-  methodBox.setAttribute("role", "group");
   methodBox.setAttribute("aria-label", ui.T("style_method"));
   const countBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
+    { role: "group" },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
       originalCount(author),
     ),
   );
-  countBox.setAttribute("role", "group");
   countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
     formRow(
