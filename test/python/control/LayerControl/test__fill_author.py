@@ -790,4 +790,3 @@ def test_real_scale_high_cardinality_still_pairs():
     assert meta["scale"]["vmin"] == 0
     assert meta["scale"]["vmax"] == 100
     assert meta["scale"]["method"] is None
-

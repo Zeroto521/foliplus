@@ -189,7 +189,13 @@ class TestValidateShape:
         # optional keys, so a scale that carries them and one that omits them
         # are both legal shapes - the optional marker renders them as
         # vmin?: number / vmax?: number and the missing-key case stays valid.
-        {"scale": {"kind": ("continuous", "stepped"), "vmin": ("number", "?"), "vmax": ("number", "?")}},
+        {
+            "scale": {
+                "kind": ("continuous", "stepped"),
+                "vmin": ("number", "?"),
+                "vmax": ("number", "?"),
+            }
+        },
         {"scale": {"kind": ("continuous", "stepped")}},
     ]
 
