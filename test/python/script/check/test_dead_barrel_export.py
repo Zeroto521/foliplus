@@ -10,7 +10,6 @@ Exemptions: 8 IIFE component entry ``index.ts`` files and ``config-schema.ts``.
 
 from __future__ import annotations
 
-import os
 import runpy
 import sys
 from pathlib import Path
@@ -115,7 +114,7 @@ class TestResolveImport:
         fp = str(tmp_path / "a" / "index.ts")
         out = mod._resolve_import(fp, "./util.js", str(tmp_path))
         assert out is not None
-        assert out.endswith(os.path.join("a", "util.ts"))
+        assert Path(out).as_posix().endswith("a/util.ts")
 
     def test_alias_common(self, tmp_path):
         _make(tmp_path, "foliplus/js/common/log.ts")
@@ -135,7 +134,7 @@ class TestResolveImport:
         out = mod._resolve_import(fp, "#control/LayerControl/const.js", str(tmp_path))
         assert out is not None
         assert out.endswith(
-            os.path.join("foliplus", "js", "control", "LayerControl", "const.ts")
+            str(Path("foliplus") / "js" / "control" / "LayerControl" / "const.ts")
         )
 
     def test_external_module_returns_none(self, tmp_path):
@@ -629,3 +628,129 @@ class TestCoverageGaps:
         assert len(dead) == 1
         assert dead[0][0] == str(b)
         assert dead[0][2] == "z"
+
+
+class TestPathlibHelpers:
+    """Direct unit tests for the pathlib helper functions."""
+
+    @pytest.mark.parametrize(
+        "spec,expected",
+        [
+            ("./x.js", "x.js"),
+            ("../y.js", "../y.js"),
+            ("./a/../b/c.js", "b/c.js"),
+            ("x/../../d.ts", "../d.ts"),
+            ("a/./b", "a/b"),
+            (".", "."),
+            ("", "."),
+        ],
+    )
+    def test_normpath_lexical(self, spec, expected):
+        """_normpath collapses . and resolves inner ..; leading .. preserved."""
+        result = mod._normpath(spec)
+        assert result.as_posix() == expected
+
+    def test_normpath_absolute_climbs_clamp_to_anchor(self):
+        """_normpath clamps absolute-path '..' at the root/drive anchor.
+
+        A leading '..' must not pop the anchor (os.path.normpath keeps it):
+        ``/a/../..`` -> ``/`` and ``C:/a/../../b`` -> ``C:/b``. Drive forms
+        only exist under Windows drive semantics; skip them elsewhere.
+        """
+        import os
+
+        specs = ["/..", "/a/../..", "/a/../../b", "/a/../../.."]
+        if Path("C:/").anchor:  # Windows drive semantics
+            specs += ["C:/a/../..", "C:/a/../../b", "C:/a/../b", "C:/a/../../.."]
+        for spec in specs:
+            mine = mod._normpath(spec).as_posix()
+            expected = os.path.normpath(spec).replace(os.sep, "/")
+            assert mine == expected, f"{spec!r}: {mine!r} != {expected!r}"
+
+    def test_normpath_unc_pins_observed_behavior(self):
+        """'//a/../b' collapses to '//b' on both platforms.
+
+        On Windows '//a/..' is a UNC server root: Path.parts keeps the whole
+        '\\\\a\\..\\' as one anchor part, so no '..' segment is seen and the
+        path is returned unchanged ('//a/../b'), matching os.path.normpath.
+        On POSIX the leading '//' is a prefix but '..' is a real segment; the
+        anchor clamp then pops 'a' (leaving '//'), so the '..' is clamped and
+        the path collapses to '//b'. Verified equal to posixpath.normpath,
+        which also gives '//b'. The unified assertion holds on both platforms.
+        """
+        import os
+
+        mine = mod._normpath("//a/../b").as_posix()
+        expected = os.path.normpath("//a/../b").replace(os.sep, "/")
+        assert mine == expected
+
+    def test_normpath_matches_os_path(self, tmp_path):
+        """_normpath agrees with os.path.normpath on realistic repo paths."""
+        import os
+
+        base = tmp_path / "foliplus" / "js" / "common"
+        for spec in ["./log.js", "../core/x.js", "x/../y/z.js", "./a/../../b.ts"]:
+            mine = mod._normpath(str(base / spec)).as_posix()
+            expected = os.path.normpath(os.path.join(str(base), spec)).replace(
+                os.sep, "/"
+            )
+            assert mine == expected
+
+    def test_relpath_subpath(self, tmp_path):
+        """_relpath yields forward-slash relative path for a descendant."""
+        base = tmp_path / "repo"
+        target = base / "a" / "b" / "c.ts"
+        result = mod._relpath(str(target), str(base))
+        assert result == "a/b/c.ts"
+
+    def test_relpath_matches_os_relpath(self, tmp_path):
+        """_relpath agrees with os.path.relpath(...).replace(os.sep, '/')."""
+        import os
+
+        base = tmp_path / "repo"
+        target = base / "foliplus" / "js" / "control" / "x.ts"
+        mine = mod._relpath(str(target), str(base))
+        expected = os.path.relpath(str(target), str(base)).replace(os.sep, "/")
+        assert mine == expected
+
+    def test_relpath_raises_on_unrelated(self, tmp_path):
+        """_relpath raises ValueError when path is not under base (no fallback)."""
+        base = tmp_path / "repo"
+        other = tmp_path / "elsewhere" / "x.ts"
+        with pytest.raises(ValueError):
+            mod._relpath(str(other), str(base))
+
+    def test_alias_foliplus(self, tmp_path):
+        _make(tmp_path, "foliplus/js/foo.ts")
+        fp = str(tmp_path / "a" / "index.ts")
+        out = mod._resolve_import(fp, "#foliplus/foo.js", str(tmp_path))
+        assert out is not None
+
+    def test_alias_script(self, tmp_path):
+        _make(tmp_path, "script/check/x.ts")
+        fp = str(tmp_path / "a" / "index.ts")
+        out = mod._resolve_import(fp, "#script/check/x.js", str(tmp_path))
+        assert out is not None
+
+    def test_find_ts_files_collects_only_ts(self, tmp_path):
+        """find_ts_files collects .ts recursively, ignores .js and hidden dirs."""
+        _make(tmp_path, "foliplus/js/a/one.ts")
+        _make(tmp_path, "foliplus/js/a/two.js")
+        _make(tmp_path, "foliplus/js/.hidden/three.ts")
+        _make(tmp_path, "test/js/b/four.ts")
+        found = mod.find_ts_files(str(tmp_path))
+        names = {Path(p).as_posix() for p in found}
+        assert any(p.endswith("foliplus/js/a/one.ts") for p in names)
+        assert any(p.endswith("test/js/b/four.ts") for p in names)
+        assert not any(p.endswith("two.js") for p in names)
+        # os.walk (old) descended into .hidden too; rglob keeps that behavior.
+        assert any(p.endswith(".hidden/three.ts") for p in names)
+
+    def test_find_python_files_collects_only_py(self, tmp_path):
+        """find_python_files collects .py directly under foliplus/, ignores others."""
+        _make(tmp_path, "foliplus/one.py")
+        _make(tmp_path, "foliplus/two.txt")
+        _make(tmp_path, "foliplus/three.py")
+        found = mod.find_python_files(str(tmp_path))
+        names = {Path(p).name for p in found}
+        assert names == {"one.py", "three.py"}
