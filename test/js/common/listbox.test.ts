@@ -1283,8 +1283,9 @@ describe("listbox engine: followTrigger re-pins on a trigger resize", () => {
       expect(onPosition.mock.calls.length).toBe(afterRepin);
     } finally {
       vi.unstubAllGlobals();
-      if (original === undefined)
+      if (original === undefined) {
         delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+      }
     }
   });
 });
