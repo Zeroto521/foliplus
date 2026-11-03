@@ -229,6 +229,9 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       const menuBtn = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu button",
       ) ?? null) as HTMLElement | null;
+      // The menu controller is rebuilt per open, so the keyboard path cannot
+      // hold a persistent reference; the display state on the component is the
+      // one stable handle (the controller owns dismissal, the field owns state).
       if (menuBtn && ui.overlayPanel.activeMenu) {
         // Arrow-only: Enter/Space are the button’s own activation keys and
         // must not be claimed by a manual dispatch here.
