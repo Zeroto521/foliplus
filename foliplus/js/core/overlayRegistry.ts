@@ -159,9 +159,9 @@ const orderOf = (id: string): number =>
  *  registerer and no exemption is a contract break. */
 const OVERLAY_ESCAPE_EXEMPTIONS: Readonly<Partial<Record<OverlayId, string>>> = {
   [OVERLAY_IDS.LAYER_RENAME]:
-    "inline editor in the row; the input's own Escape handler cancels it and " +
-    "the registry passes the key through (escPassthroughOnEditable), so it is " +
-    "not a registered surface",
+    "inline editor in the row, not a floating surface; the rename input's own " +
+    "Escape handler cancels it (and inputOwnership lets the native editor keep " +
+    "the key), so it never registers a registry entry",
   [OVERLAY_IDS.LAYER_FOCUS]:
     "Leaflet map chrome (inverse-mask spotlight), not a DOM surface; " +
     "LayerControl's container-bound handler cancels it when the panel holds focus",

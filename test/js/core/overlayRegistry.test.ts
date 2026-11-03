@@ -16,11 +16,24 @@ import {
 } from "#core/overlayRegistry.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 
-/** Every `id: OVERLAY_IDS.<NAME>` register call site across the source tree.
- *  The Escape table itself uses computed keys (`[OVERLAY_IDS.X]:`), so this
- *  pattern cannot match the priority table — it names real registerers only. */
+/** The id value every register call site produces, across the source tree.
+ *  Two shapes exist:
+ *
+ *  1. `id: OVERLAY_IDS.<NAME>` — the literal M1 registerer (still used by the
+ *     pickers and the heatmap dropdown).
+ *  2. `createPanel({ owner, localId })` + `attachPanel` — the M2 PanelController
+ *     form (#867); the registry id is `${owner}.${localId}` (e.g. `layer.attrs`),
+ *     see panelController.ts `attachPanel`.
+ *
+ *  Returns id VALUES (not constant names), so the result compares directly
+ *  against `ESC_PRIORITY` keys and the exemption table. The Escape table itself
+ *  uses computed keys (`[OVERLAY_IDS.X]:`), so neither pattern can match it.
+ */
 const registeredEscapeIds = (): Set<string> => {
-  const root = resolve("foliplus/js");
+  // Anchor at the repo root via the test file, not cwd: vitest runs from the
+  // repo root today, but a caller that changes cwd (or a packaged run) must not
+  // silently scan nothing and report "all registered".
+  const root = resolve(import.meta.dirname, "../../../foliplus/js");
   const files: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -32,8 +45,37 @@ const registeredEscapeIds = (): Set<string> => {
   walk(root);
   const source = files.map(file => readFileSync(file, "utf8")).join("\n");
   const registered = new Set<string>();
-  const pattern = /id:\s*OVERLAY_IDS\.([A-Z_]+)/g;
-  for (const match of source.matchAll(pattern)) registered.add(match[1]);
+
+  // Shape 1: `id: OVERLAY_IDS.<NAME>`.
+  const literal = /id:\s*OVERLAY_IDS\.([A-Z_]+)/g;
+  for (const match of source.matchAll(literal)) {
+    const name = match[1] as keyof typeof OVERLAY_IDS;
+    registered.add(OVERLAY_IDS[name]);
+  }
+
+  // Shape 2: `createPanel({ owner: "<owner>", localId: "<localId>" ... })`.
+  // The object literal spans multiple lines, so find the call, then read to
+  // the matching close paren tracking brace/paren depth (well-formed TS keeps
+  // them balanced; a nested method body still returns to the outer scope).
+  const panelCall = /createPanel\s*\(/g;
+  for (const match of source.matchAll(panelCall)) {
+    const start = (match.index ?? 0) + match[0].length;
+    let depth = 0;
+    let end = start;
+    for (; end < source.length; end++) {
+      const ch = source[end];
+      if (ch === "(" || ch === "{") depth++;
+      else if (ch === ")" || ch === "}") {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    const block = source.slice(start, end);
+    const owner = /owner:\s*"([^"]+)"/.exec(block)?.[1];
+    const localId = /localId:\s*"([^"]+)"/.exec(block)?.[1];
+    if (owner && localId) registered.add(`${owner}.${localId}`);
+  }
+
   return registered;
 };
 
@@ -771,35 +813,40 @@ describe("OverlayRegistry", () => {
       // non-registry mechanism (inline rename, focus spotlight, crop modal).
       // The exemption table is the only sanctioned absence of a registerer;
       // a bare id with no registerer and no exemption is a contract break.
+      // `registeredEscapeIds` returns id VALUES, matching both `ESC_PRIORITY`
+      // keys and the exemption table (keyed by value).
       const registered = registeredEscapeIds();
       const missing: string[] = [];
       for (const id of Object.values(OVERLAY_IDS)) {
-        // `registeredEscapeIds` returns constant names (e.g. "LAYER_RENAME");
-        // the exemption table is keyed by the id value (e.g. "layer.rename").
-        const key = (Object.keys(OVERLAY_IDS) as (keyof typeof OVERLAY_IDS)[]).find(
-          k => OVERLAY_IDS[k] === id,
-        );
-        if (!key) continue;
-        if (!registered.has(key) && !(id in OVERLAY_ESCAPE_EXEMPTIONS)) {
-          missing.push(key);
+        if (!registered.has(id) && !(id in OVERLAY_ESCAPE_EXEMPTIONS)) {
+          missing.push(id);
         }
       }
       expect(missing).toEqual([]);
     });
 
+    it("an exempted id is never also registered", () => {
+      // A surface cannot be both sanctioned-as-exempt and produced by a real
+      // registerer: the two sources would silently cancel and hide a dead
+      // exemption or a missing registerer. Cross-PR guard: #867 moves the four
+      // layer panels to createPanel/attachPanel, which the scanner reads.
+      const registered = registeredEscapeIds();
+      for (const id of Object.keys(OVERLAY_ESCAPE_EXEMPTIONS)) {
+        expect(registered.has(id)).toBe(false);
+      }
+    });
+
     it("exemptions are only for ids the table knows and carry a reason", () => {
-      const known = new Set(Object.values(OVERLAY_IDS));
+      const known = new Set<string>(Object.values(OVERLAY_IDS));
       for (const id of Object.keys(OVERLAY_ESCAPE_EXEMPTIONS)) {
         expect(known.has(id)).toBe(true);
-        expect(
-          typeof OVERLAY_ESCAPE_EXEMPTIONS[
-            id as keyof typeof OVERLAY_ESCAPE_EXEMPTIONS
-          ],
-        ).toBe("string");
-        expect(
-          OVERLAY_ESCAPE_EXEMPTIONS[id as keyof typeof OVERLAY_ESCAPE_EXEMPTIONS]
-            .length,
-        ).toBeGreaterThan(20);
+        const reason =
+          OVERLAY_ESCAPE_EXEMPTIONS[id as keyof typeof OVERLAY_ESCAPE_EXEMPTIONS];
+        expect(typeof reason).toBe("string");
+        // Partial record: reason is string | undefined; the typeof gate
+        // above is the real assertion, the optional chain just narrows.
+        // runtime gate above guarantees string; non-null assertion narrows for TS.
+        expect(reason!.length).toBeGreaterThan(20);
       }
     });
   });
