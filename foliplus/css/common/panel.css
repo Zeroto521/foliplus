@@ -192,6 +192,12 @@
     flex: 1;
     overflow-x: hidden;
     overflow-y: auto;
+    /* A flex item's default min-height is auto, which lets the content's
+       intrinsic height size the item and push the card past the
+       --foliplus-panel-max-height cap. The content is the one scroll
+       container of a pinned card, so it must be allowed to shrink to the
+       available height — min-height: 0 opts out of the auto minimum. */
+    min-height: 0;
     /* Breathing room under the header, set equal to the divider's own
        top margin (--foliplus-space-md) so the panel reads the same at both ends:
        first row to header == last row to the divider. */
