@@ -8,7 +8,7 @@ import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
 import * as Icons from "#common/icon.js";
-import { closeButton } from "#ui/panelChrome.js";
+import { closeButton } from "#ui/index.js";
 import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
