@@ -311,6 +311,78 @@ describe("renderResults", () => {
 
     expect(refresh).toHaveBeenCalledOnce();
   });
+
+  it("binds exactly one wheel listener per panel element across repeated renders", () => {
+    // The panel element is created once and reused across renderResults calls
+    // (only its innerHTML is rebuilt), so the wheel containment must be bound
+    // once per element lifecycle — not once per render, or the listeners stack
+    // linearly and the panel behaves differently on each subsequent render.
+    const ctrl = makeFixture();
+    const item = {
+      source: "suggestion",
+      icon: "",
+      primaryText: "Paris, France",
+      coordDisplay: null,
+      onClick: () => false,
+    };
+    renderResults(ctrl, [item]);
+    renderResults(ctrl, [item, { ...item, primaryText: "London, UK" }]);
+
+    const panel = ctrl.panelWrap as HTMLElement;
+    // Count wheel listeners by dispatching one wheel and counting how many
+    // stopPropagation calls the containment made: exactly one listener on a
+    // scrollable mid-list panel means exactly one stop per dispatch.
+    let stops = 0;
+    const onWheel = (e: Event) => {
+      e.stopPropagation();
+      stops += 1;
+    };
+    panel.addEventListener("wheel", onWheel);
+    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
+    );
+    panel.removeEventListener("wheel", onWheel);
+    expect(stops).toBe(1);
+  });
+
+  it("binds one wheel listener on a fresh panel after removePanel", () => {
+    // removePanel drops the element and nulls panelWrap; the next render must
+    // build a NEW element and bind a NEW listener. If a stale "already bound"
+    // flag survived (the panelWheelBound regression), the new element would
+    // carry zero listeners and a wheel over it would zoom the map again.
+    const ctrl = makeFixture();
+    const item = {
+      source: "suggestion",
+      icon: "",
+      primaryText: "Paris, France",
+      coordDisplay: null,
+      onClick: () => false,
+    };
+    renderResults(ctrl, [item]);
+    const firstPanel = ctrl.panelWrap as HTMLElement;
+    removePanel(ctrl);
+    renderResults(ctrl, [item]);
+
+    const newPanel = ctrl.panelWrap as HTMLElement;
+    expect(newPanel).not.toBe(firstPanel);
+    let stops = 0;
+    const onWheel = (e: Event) => {
+      e.stopPropagation();
+      stops += 1;
+    };
+    newPanel.addEventListener("wheel", onWheel);
+    Object.defineProperty(newPanel, "scrollTop", { value: 100, configurable: true });
+    Object.defineProperty(newPanel, "clientHeight", { value: 200, configurable: true });
+    Object.defineProperty(newPanel, "scrollHeight", { value: 500, configurable: true });
+    newPanel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
+    );
+    newPanel.removeEventListener("wheel", onWheel);
+    expect(stops).toBe(1);
+  });
 });
 
 // ─── positionPanel ───

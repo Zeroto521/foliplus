@@ -89,26 +89,26 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     return;
   }
 
-  ctrl.panelWrap ??= dom.el("div", {
-    class: CLASSES.RESULT_PANEL,
-    parent: map.getContainer(),
-    onclick: (event: Event) => event.stopPropagation(),
-  });
-  // A wheel over the result panel must not zoom the map. The panel is mounted
-  // on the map container (not inside the control's container), so the
-  // container's disableScrollPropagation does not cover it — a wheel bubbles
-  // to the map container and Leaflet's scrollWheelZoom would fire. The shared
-  // containment stops only a wheel that can actually scroll the panel (its own
-  // overflow-y works); a wheel at a boundary or over a non-scrollable panel
-  // keeps bubbling, so the map still zooms at the edges.
-  //
-  // Bound once, inside the `??=` block: the panel element is created once and
-  // reused across renders (only its innerHTML is rebuilt), so binding here
-  // keeps the listener from stacking one per renderResults call. removePanel
-  // discards the element, and the listener is garbage-collected with it.
-  if (!ctrl.panelWheelBound) {
+  if (!ctrl.panelWrap) {
+    ctrl.panelWrap = dom.el("div", {
+      class: CLASSES.RESULT_PANEL,
+      parent: map.getContainer(),
+      onclick: (event: Event) => event.stopPropagation(),
+    });
+    // A wheel over the result panel must not zoom the map. The panel is
+    // mounted on the map container (not inside the control's container), so
+    // the container's disableScrollPropagation does not cover it — a wheel
+    // bubbles to the map container and Leaflet's scrollWheelZoom would fire.
+    // The shared containment stops only a wheel that can actually scroll the
+    // panel (its own overflow-y works); a wheel at a boundary or over a
+    // non-scrollable panel keeps bubbling, so the map still zooms at the
+    // edges.
+    //
+    // Bound once, right here in the creation block: the element exists only
+    // once (subsequent renders reuse it, removePanel drops it), so binding
+    // here means one listener per element lifecycle — no stacking per
+    // renderResults, and no stale flag to reset when a new element is made.
     bindWheelContainment(ctrl.panelWrap);
-    ctrl.panelWheelBound = true;
   }
 
   ctrl.panelWrap.innerHTML = "";
