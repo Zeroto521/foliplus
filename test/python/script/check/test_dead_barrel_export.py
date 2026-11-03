@@ -145,9 +145,7 @@ class TestResolveImport:
         fp = str(tmp_path / "foliplus" / "js" / "a" / "index.ts")
         out = mod._resolve_import(fp, "#ui/panelChrome.js", str(tmp_path))
         assert out is not None
-        assert out.endswith(
-            str(Path("foliplus") / "js" / "ui" / "panelChrome.ts")
-        )
+        assert out.endswith(str(Path("foliplus") / "js" / "ui" / "panelChrome.ts"))
 
     def test_external_module_returns_none(self, tmp_path):
         fp = str(tmp_path / "index.ts")
