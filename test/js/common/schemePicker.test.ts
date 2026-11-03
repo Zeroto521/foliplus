@@ -2,6 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+// ── Shared listbox fixture matrix ───────────────────────────────────
+// The contract matrix (listboxFixture.ts) runs the same cases against every
+// self-built dropdown surface. These two fixtures are the createSchemePicker
+// surfaces: inline (panel-owned dismiss) and portal (engine-owned).
+import {
+  LISTBOX_ITEMS,
+  type ListboxFixture,
+  describeListboxFixture,
+} from "./listboxFixture.js";
 
 // ── color-scale helper ────────────────────────────────────────────────
 
@@ -822,6 +831,39 @@ describe("portal mode", () => {
     picker.destroy();
   });
 
+  it("subtracts measured border widths when publishing the scrollbar lane", () => {
+    // The lane math subtracts borderLeftWidth + borderRightWidth. jsdom
+    // getComputedStyle returns empty for borders by default, so the branches
+    // that parse a real width were uncovered; spy on it for the dropdown.
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    const spy = vi
+      .spyOn(window, "getComputedStyle")
+      .mockImplementation((el: Element): CSSStyleDeclaration => {
+        if (el === dropdown) {
+          // jsdom's computed style is read-only; return a plain object with the
+          // border widths the lane math parses (the real 0px boxes are pinned by
+          // the browser geometry test).
+          return {
+            borderLeftWidth: "1px",
+            borderRightWidth: "2px",
+          } as CSSStyleDeclaration;
+        }
+        return window.getComputedStyle(el);
+      });
+    try {
+      window.dispatchEvent(new Event("resize"));
+      expect(
+        dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
+      ).toBe("0px");
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+      picker.destroy();
+    }
+  });
+
   it("follows the trigger when it resizes while open", async () => {
     // The trigger is the dropdown's width source, and it can change without a
     // window resize: a panel that gains or loses a layout scrollbar lane moves
@@ -1453,3 +1495,163 @@ it("keeps a wheel over the open picker list from reaching the map container", ()
   document.removeEventListener("wheel", mapWheel);
   picker.destroy();
 });
+
+// ── 3. picker inline ───────────────────────────────────────────────────
+
+const pickerInlineFixture: ListboxFixture = {
+  name: "contract: scheme picker inline",
+  create() {
+    const cell = document.createElement("div");
+    cell.className = "foliplus-form-control";
+    const trigger = document.createElement("div");
+    trigger.className = "foliplus-heatmap-scheme-bar";
+    trigger.setAttribute("role", "combobox");
+    trigger.setAttribute("tabindex", "0");
+    const inner = document.createElement("div");
+    inner.setAttribute("data-scheme-bar-inner", "");
+    trigger.appendChild(inner);
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+
+    let current = "Reds";
+    const picker = createSchemePicker({
+      trigger,
+      schemes: LISTBOX_ITEMS.map(i => i.value),
+      value: "a",
+      numClasses: 6,
+      portal: false,
+      colorScale: () => ["#f00", "#0f0", "#00f"],
+      onChange: name => {
+        current = name;
+      },
+      label: "Color scheme",
+    });
+
+    const list = () => picker.getDropdown();
+    const rowEls = () =>
+      Array.from(list()?.querySelectorAll<HTMLElement>("[role=option]") ?? []);
+    const rows = () =>
+      rowEls().map(el => ({
+        element: el,
+        value: el.getAttribute("data-scheme-name") ?? "",
+        label: el.querySelector("div")?.textContent ?? "",
+        disabled: el.getAttribute("aria-disabled") === "true",
+      }));
+
+    return {
+      surface: {
+        trigger: () => trigger,
+        rows,
+        list,
+        isOpen: () => picker.getDropdown() !== null,
+        open: () => picker.toggle(),
+        close: o => picker.close(o),
+        destroy: () => picker.destroy(),
+        pressRow: index => {
+          const el = rowEls()[index];
+          el.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+          el.click();
+        },
+        pressOutside: () => {
+          document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        },
+        openViaKeyboard: () => {
+          trigger.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        },
+        multiple: false,
+        ownsDismiss: false,
+        value: () => current,
+        expanded: () => trigger.getAttribute("aria-expanded"),
+      },
+      wheelProbe: () => document.body,
+      cleanup: () => picker.destroy(),
+    };
+  },
+};
+
+// ── 4. picker portal ───────────────────────────────────────────────────
+
+const pickerPortalFixture: ListboxFixture = {
+  name: "contract: scheme picker portal",
+  create() {
+    const cell = document.createElement("div");
+    cell.className = "foliplus-form-control";
+    const trigger = document.createElement("div");
+    trigger.className = "foliplus-heatmap-scheme-bar";
+    trigger.setAttribute("role", "combobox");
+    trigger.setAttribute("tabindex", "0");
+    const inner = document.createElement("div");
+    inner.setAttribute("data-scheme-bar-inner", "");
+    trigger.appendChild(inner);
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+
+    let current = "a";
+    const picker = createSchemePicker({
+      trigger,
+      schemes: LISTBOX_ITEMS.map(i => i.value),
+      value: "a",
+      numClasses: 6,
+      portal: true,
+      colorScale: () => ["#f00", "#0f0", "#00f"],
+      onChange: name => {
+        current = name;
+      },
+      label: "Color scheme",
+    });
+
+    const list = () => picker.getDropdown();
+    const rowEls = () =>
+      Array.from(list()?.querySelectorAll<HTMLElement>("[role=option]") ?? []);
+    const rows = () =>
+      rowEls().map(el => ({
+        element: el,
+        value: el.getAttribute("data-scheme-name") ?? "",
+        label: el.querySelector("div")?.textContent ?? "",
+        disabled: el.getAttribute("aria-disabled") === "true",
+      }));
+
+    return {
+      surface: {
+        trigger: () => trigger,
+        rows,
+        list,
+        isOpen: () => picker.getDropdown() !== null,
+        open: () => picker.toggle(),
+        close: o => picker.close(o),
+        destroy: () => picker.destroy(),
+        pressRow: index => {
+          const el = rowEls()[index];
+          el.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+          el.click();
+        },
+        pressOutside: () => {
+          document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+        },
+        openViaKeyboard: () => {
+          trigger.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        },
+        multiple: false,
+        ownsDismiss: false,
+        value: () => current,
+        expanded: () => trigger.getAttribute("aria-expanded"),
+      },
+      wheelProbe: () => document.body,
+      cleanup: () => picker.destroy(),
+    };
+  },
+};
+
+describeListboxFixture([pickerInlineFixture, pickerPortalFixture]);

@@ -962,4 +962,130 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
     // last enabled row is b (c is disabled); enabledFrom walks -1 from the end.
     expect(document.activeElement).toBe(rows[1]);
   });
+  it("focusOnOpen selected falls back to the first row when the selection is gone", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      selected: () => ["gone"],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "last-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "last-list",
+        row: "last-row",
+        portal: "last-portal",
+        up: "last-up",
+        open: "last-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      focusOnOpen: "selected",
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    const rows = Array.from(
+      listbox.getList()?.querySelectorAll<HTMLElement>(".last-row") ?? [],
+    );
+    // selected() no longer matches any row; index stays 0 (the fallback).
+    expect(document.activeElement).toBe(rows[0]);
+  });
+
+  it("focusOnOpen first keeps the default first row", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      selected: () => ["b"],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "last-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "last-list",
+        row: "last-row",
+        portal: "last-portal",
+        up: "last-up",
+        open: "last-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      focusOnOpen: "first",
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    const rows = Array.from(
+      listbox.getList()?.querySelectorAll<HTMLElement>(".last-row") ?? [],
+    );
+    // focusOnOpen="first": neither "selected" nor "last" branch; index stays 0.
+    expect(document.activeElement).toBe(rows[0]);
+  });
+
+  it("cycle ArrowDown skips a disabled neighbour when the next scheme is disabled", () => {
+    const activated: number[] = [];
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta", disabled: true },
+        { value: "c", label: "Gamma" },
+      ],
+      selected: () => ["a"],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "last-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "last-list",
+        row: "last-row",
+        portal: "last-portal",
+        up: "last-up",
+        open: "last-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      triggerKeys: "cycle",
+      onRowActivate: index => {
+        activated.push(index);
+      },
+    });
+    cleanup.push(() => listbox.destroy());
+    // Closed state: ArrowDown cycles the selection. b is disabled, so the
+    // engine walks past it to c (index 2), not activating b.
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(activated).toEqual([2]);
+  });
 });

@@ -1,5 +1,5 @@
-// test/js/common/listboxContract.ts
-// The shared listbox contract matrix (§6 of .foliplus/zeta/dropdown-consolidation-design.md).
+// test/js/common/listboxFixture.ts
+// The shared listbox fixture matrix (§6 of .foliplus/zeta/dropdown-consolidation-design.md).
 //
 // One helper, run against every self-built dropdown surface. The historical
 // builders each had their own test file covering the same behaviours twice
@@ -7,7 +7,8 @@
 // the single place a bug fix lands so both layers inherit the same contract.
 //
 // It is an exported helper, NOT a *.test.ts, so vitest does not run it as a
-// suite by itself — the fixtures in listbox.contract.test.ts drive it.
+// suite by itself — the fixtures in dropdown.test.ts and schemePicker.test.ts
+// drive it (one shared contract so a bug fix lands in exactly one place).
 //
 // The fixture contract abstracts the surface behind the minimal operations the
 // 12 matrix cases need. Each fixture maps one real surface:
@@ -17,19 +18,33 @@
 //   - picker portal   : createSchemePicker({ portal:true })
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Shared option list for the fixture matrix. */
+export const LISTBOX_ITEMS = [
+  { value: "a", label: "Alpha" },
+  { value: "b", label: "Bee" },
+  { value: "c", label: "Cee" },
+  { value: "d", label: "De" },
+  { value: "e", label: "Ef" },
+  { value: "f", label: "Ff" },
+  { value: "g", label: "Gg" },
+  { value: "h", label: "Hh" },
+  { value: "i", label: "Ii" },
+  { value: "j", label: "Jj" },
+];
+
 /** A row in the surface's listbox, as exposed by the fixture. */
-export interface ContractRow {
+export interface ListboxRow {
   element: HTMLElement;
   value: string;
   label: string;
   disabled: boolean;
 }
 
-export interface ContractSurface {
+export interface ListboxSurface {
   /** The consumer's trigger (button or combobox div). */
   trigger(): HTMLElement;
   /** Current option rows, in DOM order. */
-  rows(): ContractRow[];
+  rows(): ListboxRow[];
   /** The list element (null after destroy). */
   list(): HTMLElement | null;
   isOpen(): boolean;
@@ -57,12 +72,12 @@ export interface ContractSurface {
   expanded(): string | null;
 }
 
-export interface ContractFixture {
+export interface ListboxFixture {
   name: string;
   /** Create a fresh surface + a wheel-probe container (the map container the
    *  wheel must not reach). Returns cleanup the runner wires to afterEach. */
   create(): {
-    surface: ContractSurface;
+    surface: ListboxSurface;
     /** The node the wheel must not reach. Portal fixtures return document.body
      *  (the portalled list's parent); inline fixtures return a map container
      *  div that wraps the control. */
@@ -95,10 +110,10 @@ const wheel = (target: EventTarget): void => {
   );
 };
 
-export const describeListboxContract = (fixtures: ContractFixture[]): void => {
+export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
   for (const fixture of fixtures) {
     describe(fixture.name, () => {
-      let surface: ContractSurface;
+      let surface: ListboxSurface;
       let wheelProbe: () => HTMLElement;
       let cleanup: () => void;
 
@@ -148,7 +163,7 @@ export const describeListboxContract = (fixtures: ContractFixture[]): void => {
           const row = surface.rows()[0];
           if (row) row.element.focus();
           // Dispatch on an in-document element so the event actually travels
-          // the window→document capture path (a synthetic event on window
+          // the window-to-document capture path (a synthetic event on window
           // never descends to document).
           document.body.dispatchEvent(
             new KeyboardEvent("keydown", {
