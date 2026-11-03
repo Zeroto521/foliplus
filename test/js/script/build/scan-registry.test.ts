@@ -340,24 +340,24 @@ describe("generateRegistry", () => {
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
     expect(output).toContain("window.foliplus.ui = {};");
-    expect(output).not.toContain("ui/affordance");
+    expect(output).not.toContain("ui/panelElements");
   });
 
   it("publishes ui modules a component actually imports", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
-      "ui/affordance.ts": `export const panelButton = () => {};`,
+      "ui/panelElements.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
-        import { panelButton } from "#ui/affordance.js";
+        import { panelButton } from "#ui/panelElements.js";
         import { dom } from "#common/dom.js";
       `,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
-    expect(output).toContain('window.foliplus.ui["affordance"]');
-    expect(output).toContain('from "#ui/affordance.js"');
+    expect(output).toContain('window.foliplus.ui["panelElements"]');
+    expect(output).toContain('from "#ui/panelElements.js"');
     expect(output).toContain("panelButton");
   });
 
@@ -366,15 +366,15 @@ describe("generateRegistry", () => {
     // component imports must emit nothing (no empty namespace object).
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
-      "ui/affordance.ts": `export const panelButton = () => {};`,
+      "ui/panelElements.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
-    expect(output).not.toContain('window.foliplus.ui["affordance"]');
-    expect(output).not.toContain("#ui/affordance.js");
+    expect(output).not.toContain('window.foliplus.ui["panelElements"]');
+    expect(output).not.toContain("#ui/panelElements.js");
   });
   it("writes valid output for empty component set", () => {
     const [jsDir, buildDir] = buildFakeTree({
