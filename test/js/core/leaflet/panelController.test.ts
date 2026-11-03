@@ -8,6 +8,7 @@
 // test red — the evidence is recorded in the PR body).
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Dismiss, PanelController } from "#core/leaflet/index.js";
 import {
   type PanelSpec,
   attachPanel,
@@ -123,11 +124,12 @@ describe("PanelController", () => {
 
   it("exposes owner/localId/rank and the default dismiss", () => {
     const { spec, state } = makeFixture();
-    const controller = createPanel(spec);
+    const controller: PanelController = createPanel(spec);
     expect(controller.owner).toBe("layer");
     expect(controller.localId).toBe("style");
     expect(controller.rank).toBe(500);
-    expect(controller.dismiss).toEqual({
+    const dismiss: Dismiss = controller.dismiss;
+    expect(dismiss).toEqual({
       escape: true,
       outsidePress: "mousedown",
       internalCloseClick: true,
