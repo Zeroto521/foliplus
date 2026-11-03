@@ -4019,7 +4019,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     expect(mode.value).toBe("ramp");
     // The three arms survive a declaration: the author's paint is still under
-    // the ramp, so "Original colors" stays selectable beside it.
+    // the ramp, so "Original Colors" stays selectable beside it.
     expect(mode.querySelector('option[value="original"]')).not.toBeNull();
     // The note explains that arm, which is still on offer, so it does not
     // contradict the declared ramp beside it.
@@ -4077,7 +4077,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ).toBe(true);
   });
 
-  it("corollary ①: an explicit Original colors pick beats the declaration", () => {
+  it("corollary ①: an explicit Original Colors pick beats the declaration", () => {
     const { ui, layer, row } = declaredOverAuthor({
       ramp: { field: "count", method: "equal" },
     });
@@ -4089,7 +4089,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(FILL_DIMENSION.value!(ui, "feature1")?.mode).toBe("original");
     const block = row();
     expect(modeSelect(block).value).toBe("original");
-    // The Original colors arm is read-only: the author's presentation, with no
+    // The Original Colors arm is read-only: the author's presentation, with no
     // control to edit it.
     expect(details(block).querySelector("select")).toBeNull();
     // The map follows the author's presentation again, not the ramp.
