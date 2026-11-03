@@ -192,20 +192,23 @@ class HeatmapControl(BaseControl):
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
     +============================================+============================================+
-    | ``field`` key inside ``filter``, or no     | ``ValueError`` in the cell that wrote the  |
+    | ``field`` key inside ``filter``, no        | ``ValueError`` in the cell that wrote the  |
     | aggregation field (no ``field=``, or       | declaration.                               |
-    | ``agg="count"``)                           |                                            |
+    | ``agg="count"``), or a list of value names |                                            |
     +--------------------------------------------+--------------------------------------------+
     | Data-shaped problem (no numeric extent,    | Reported once with a warning; treated as   |
-    | range outside the data, non-numeric bound) | undeclared — never silently filtered to    |
-    |                                            | empty.                                     |
+    | range outside the data, non-numeric        | undeclared — never silently filtered to    |
+    | bound)                                     | empty.                                     |
     +--------------------------------------------+--------------------------------------------+
-    | User write                                 | Wins from then on; the declaration is a    |
+    | User write (the filter row)                | Wins from then on; the declaration is a    |
     |                                            | starting condition only.                   |
     +--------------------------------------------+--------------------------------------------+
-    | User explicit Clear (= factory Reset)      | Deletes the saved record, so the           |
-    |                                            | declaration re-seeds (this session and on  |
+    | The filter row's Clear                     | Keeps the user's clear: the declaration    |
+    |                                            | does not come back (this session or on     |
     |                                            | reload).                                   |
+    +--------------------------------------------+--------------------------------------------+
+    | Factory Reset (the panel's Clear)          | Deletes the saved record and re-seeds the  |
+    |                                            | declaration (this session and on reload).  |
     +--------------------------------------------+--------------------------------------------+
 
     .. rubric:: Zoom-range declaration

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
 import { EVENTS, SettledOperation, ensureEvents } from "#core/event/index.js";
+import type { LayerFilter } from "#core/layer/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import { BORDER_WEIGHT } from "#foliplus/common/form.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
@@ -2759,5 +2760,555 @@ describe("effective aggregation field - the auto default never becomes a record"
     // declaration is the starting state again - no record, no stale guess.
     expect(m.field).toBe("");
     expect(m.effectiveField()).toBe("score");
+  });
+});
+
+// ── Declared-filter fixtures ──────────────────────────────────────────
+// Shared by the guard tests below and the cross-arm matrix at the end.
+
+/** A valid numeric-range atom on the fixture's snapshot field. */
+const RANGE = {
+  kind: "atom",
+  field: "score",
+  op: "between",
+  range: [10, 50],
+} as LayerFilter;
+
+/** A different range the user picks themselves. */
+const USER_RANGE = {
+  kind: "atom",
+  field: "score",
+  op: "between",
+  range: [20, 30],
+} as LayerFilter;
+
+/** A populated snapshot so the timing guard (empty = not painted) does not
+ *  swallow the seed. */
+const snapshot = (ranges: Record<string, [number, number]> = { score: [0, 100] }) =>
+  ({
+    points: [{ value: ranges.score?.[0] ?? 0 }],
+    numericFields: Object.keys(ranges),
+    ranges,
+  }) as any;
+
+/** Give a manager the inputs seedDeclaredFilter needs without a LayerAPI
+ *  scan. */
+const prepare = (manager: any) => {
+  manager.selectedLayerId = "pts";
+  manager.availableFields = ["score"];
+  manager.field = "";
+  manager.cachedSnapshot = snapshot();
+  manager.getSelectedPoints = vi.fn(() => []) as any;
+  return manager;
+};
+
+/** A manager whose source is selected and whose snapshot is already built. */
+const seedable = (filter: unknown = RANGE) =>
+  prepare(makeManager({ filter } as Partial<ComponentConfig>));
+
+/** The reload path: read the saved record and apply it to a fresh manager. */
+const reload = (filter: unknown = RANGE) => {
+  const manager = makeManager({ filter } as Partial<ComponentConfig>);
+  const saved = manager.loadSavedConfig();
+  if (saved) manager.applySavedConfig(saved);
+  return prepare(manager);
+};
+
+/** A user write on a source with no declaration of its own. */
+const userWrite = (manager: any, filter: LayerFilter = USER_RANGE) => {
+  manager.renderHexagons = vi.fn() as any;
+  manager.setFilter(filter);
+  return manager;
+};
+
+// ── Declared filter guards (HeatmapManager) ───────────────────────────
+//
+// The matrix below pins the cross-arm rows; these are the Heatmap-only
+// guards the range arm needs: clamping to the snapshot extent, timing versus
+// data defects, and the field/aggregation coupling.
+describe("HeatmapManager — declared filter guards", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("clamps the declared range to the snapshot extent", () => {
+    const manager = seedable({ ...RANGE, range: [10, 500] });
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.get("pts")).toEqual({
+      kind: "atom",
+      field: "score",
+      op: "between",
+      range: [10, 100],
+    });
+  });
+
+  it("a declared range covering the whole extent is not a filter", () => {
+    const manager = seedable({ ...RANGE, range: [0, 100] });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    // Covering the whole extent is the same state as "no filter", so it is a
+    // legal no-op — reporting it would call a valid declaration a data problem.
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reports a field with no numeric extent and starts unfiltered", () => {
+    const manager = seedable(RANGE);
+    // The source has points but the field carries no value on any of them, so
+    // the panel has no range to render the declaration on.
+    manager.cachedSnapshot = {
+      points: [{ value: 0 }],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a snapshot that is not populated yet is not a data problem", () => {
+    // The seed runs from the panel build, which can precede the source's first
+    // paint. An empty snapshot then is timing, not a declaration defect:
+    // reporting it would blame the author's declaration for an empty read —
+    // and the report would be remembered in declarationWarned, silencing the
+    // real problem once the data arrives.
+    const manager = seedable(RANGE);
+    manager.cachedSnapshot = {
+      points: [],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const debug = vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+    expect(debug).toHaveBeenCalledTimes(1);
+    expect(String(debug.mock.calls[0][0])).toContain("not populated");
+    expect(manager.declarationWarned.size).toBe(0);
+  });
+
+  it("a snapshot that was never built is not a data problem either", () => {
+    // The other arm of the same timing check: no snapshot object at all (the
+    // cache is cleared on a source or content change and the seed can run
+    // before getSelectedPoints rebuilds it). Still not a declaration defect.
+    const manager = seedable(RANGE);
+    manager.cachedSnapshot = null;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const debug = vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+    expect(debug).toHaveBeenCalledTimes(1);
+  });
+
+  it("still reports the real missing extent once the frame arrives", () => {
+    // Same manager, two phases: quiet while the snapshot is empty, then the
+    // genuine report is not swallowed by a flag the empty read would have set.
+    const manager = seedable(RANGE);
+    manager.cachedSnapshot = {
+      points: [],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn((manager as any).log, "debug").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+    manager.cachedSnapshot = {
+      points: [{ value: 0 }],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    manager.seedDeclaredFilter();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][1])).toContain("no usable extent");
+  });
+
+  it("an unrelated save persists the seeded declaration", () => {
+    // F5, pinned: the seeded filter lives in the same per-source store a panel
+    // write uses, so a save triggered by anything else (a color change) makes
+    // it durable. Consequence documented on seedDeclaredFilter: after the
+    // author changes the declaration, a user who ever saved another setting
+    // keeps hitting the restored per-source filter first.
+    const manager = seedable(RANGE);
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+
+    manager.saveConfig();
+    const saved = manager.loadSavedConfig();
+
+    expect(saved?.filters?.pts).toEqual(RANGE);
+    manager.clearSavedConfig();
+  });
+
+  it("seeds a hand-edited atom that carries no range to check", () => {
+    // F15: CONF can be hand-edited into an equality atom, which has no range
+    // for the extent-intersection guard to test. The guard is range-only on
+    // purpose; the atom passes through to the runtime's normalizer instead of
+    // being rejected as "outside the extent".
+    const manager = seedable({ kind: "atom", field: "score", op: "eq", value: 42 });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.get("pts")).toEqual({
+      kind: "atom",
+      field: "score",
+      op: "eq",
+      value: 42,
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reports a declaration outside the extent and starts unfiltered", () => {
+    const manager = seedable({ ...RANGE, range: [1000, 2000] });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    // Clamping would collapse it onto one bound and hide the data; the seed
+    // reports it and keeps the layer unfiltered instead.
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("an invalid declaration stays undeclared after Clear and reload, warning once", () => {
+    const manager = seedable({ ...RANGE, range: [1000, 2000] });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+    manager.seedDeclaredFilter();
+
+    // Warn once per manager, never a half-applied clamp.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(manager.layerFilters.has("pts")).toBe(false);
+
+    // Clear returns to the declared state; the declaration is still invalid,
+    // so the slot stays empty and the warning is not repeated.
+    manager.resetState(makeConfig());
+    manager.selectedLayerId = "pts";
+    manager.availableFields = ["score"];
+    manager.cachedSnapshot = snapshot();
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // A reload reads the same invalid declaration and starts undeclared too.
+    const reloaded = seedable({ ...RANGE, range: [1000, 2000] });
+    reloaded.seedDeclaredFilter();
+    expect(reloaded.layerFilters.has("pts")).toBe(false);
+  });
+
+  it("keeps the declaration out when a restored per-source filter exists", () => {
+    const manager = seedable(RANGE);
+    const restored = USER_RANGE;
+    manager.layerFilters.set("pts", restored);
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.get("pts")).toEqual(restored);
+  });
+
+  it("ignores a declaration bound to a field the panel does not filter", () => {
+    const manager = seedable({
+      kind: "atom",
+      field: "ghost",
+      op: "between",
+      range: [10, 50],
+    });
+    // The fixture's env log is a stub; the report goes through it, not console.
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    // The seed runs on every rebuild of the first open; one report is enough.
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("seeds before the frame is drawn when the user picks a source", async () => {
+    const { initScan } = await import("#control/HeatmapControl/ui.js");
+    const declared = {
+      kind: "atom",
+      field: "val",
+      op: "between",
+      range: [1, 2],
+    } as LayerFilter;
+    const manager = makeManager({ filter: declared as Record<string, unknown> });
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "first", name: "First", layer: {} },
+      { id: "second", name: "Second", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 1, marker: { feature: { properties: { val: 1 } } } },
+      { lat: 2, lng: 2, marker: { feature: { properties: { val: 3 } } } },
+    ]);
+    const ctrl = makeCtrl(manager);
+    initScan(ctrl);
+    // Two point layers: nothing is auto-selected, so the dropdown is the only
+    // way in and the declaration has to cover it too.
+    expect(manager.selectedLayerId).toBeNull();
+
+    let filterAtRender: LayerFilter | undefined;
+    const render = vi.spyOn(manager, "renderHexagons").mockImplementation(() => {
+      filterAtRender = manager.layerFilters.get("second");
+    });
+    ctrl.layerSelect.value = "second";
+    ctrl.layerSelect.onchange?.(new Event("change"));
+
+    // The frame is drawn with the declaration already in the slot; seeding
+    // after the draw would paint unfiltered and leave the panel ahead of it.
+    expect(filterAtRender).toEqual(declared);
+    expect(manager.layerFilters.get("second")).toEqual(declared);
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("the factory Reset drops the ownership so the declaration returns", () => {
+    const manager = seedable(RANGE);
+    manager.filtersTouched = true;
+
+    manager.resetState(makeConfig());
+
+    expect(manager.filtersTouched).toBe(false);
+    expect(manager.hasScanned).toBe(false);
+  });
+
+  it("a data change that drops the field re-seeds the declaration on rebuild", () => {
+    const manager = seedable(RANGE);
+    // Seed on first open: the declaration owns the slot.
+    manager.seedDeclaredFilter();
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+    expect(manager.filtersTouched).toBe(false);
+
+    // Data change drops the field: the source's rebuilt snapshot no longer
+    // carries "score". A public render of the selected source revalidates the
+    // stored filter against it, normalising to undefined and deleting the
+    // slot (it is a statement about data that no longer exists).
+    manager.cachedSnapshot = snapshot({});
+    manager.renderHexagons();
+    expect(manager.layerFilters.has("pts")).toBe(false);
+
+    // Rebuild: the snapshot is rebuilt with the field back and the manager
+    // re-runs the one-shot declaration guard (seedDeclaredFilter, the panel
+    // build entry), so the declaration re-seeds.
+    manager.cachedSnapshot = snapshot();
+    manager.seedDeclaredFilter();
+    expect(manager.filtersTouched).toBe(false);
+    expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+  });
+});
+
+// ── Cross-arm filter contract (range arm) ─────────────────────────────
+//
+// One half of a mirrored pair. The sibling
+// test/js/control/MeasureControl/manager.test.ts pins the same rows against
+// the enum arm; the describe/it structure is identical on purpose, so a
+// change that moves one arm without the other fails here instead of in a
+// user report.
+//
+// The rows, in order:
+//   1. a declared filter is a starting condition and owns nothing;
+//   2. a user write owns the slot and wins from then on;
+//   3. a stored filter wins over the declaration;
+//   4. the filter row's Clear keeps the empty slot, while the factory Reset
+//      drops ownership and re-seeds the declaration;
+//   5. an unusable declaration warns once and never leaves a half-open state;
+//   6. a saved filter round-trips through persistence;
+//   7. the dimension carries values only — captions are panel chrome.
+describe("HeatmapManager — filter contract (range arm)", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  describe("1. a declared filter is a starting condition", () => {
+    it("seeds the declaration without taking ownership", () => {
+      const manager = seedable(RANGE);
+
+      manager.seedDeclaredFilter();
+
+      expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+      // A declaration is not a user choice: the factory Reset can still
+      // return to it.
+      expect(manager.filtersTouched).toBe(false);
+    });
+
+    it("does not seed while a stored record owns the slot", () => {
+      const manager = seedable(RANGE);
+      manager.filtersTouched = true; // a persisted record owns the slot
+
+      manager.seedDeclaredFilter();
+
+      expect(manager.layerFilters.has("pts")).toBe(false);
+      expect(manager.filtersTouched).toBe(true);
+    });
+  });
+
+  describe("2. a user write owns the slot", () => {
+    it("takes ownership and persists the user's choice", () => {
+      const manager = userWrite(seedable(null));
+
+      expect(manager.filtersTouched).toBe(true);
+      expect(manager.layerFilters.get("pts")).toEqual(USER_RANGE);
+      const saved = manager.loadSavedConfig();
+      expect(saved?.filters?.pts).toEqual(USER_RANGE);
+      expect(saved?.filtersTouched).toBe(true);
+    });
+  });
+
+  describe("3. a stored filter wins over the declaration", () => {
+    it("restores the stored filter instead of the declaration", () => {
+      // A record from an earlier session, with its ownership flag.
+      window.localStorage.setItem(
+        CONST.STORAGE.KEY,
+        JSON.stringify({
+          version: CONST.RECORD_VERSION,
+          layerId: "pts",
+          filters: { pts: USER_RANGE },
+          filtersTouched: true,
+        }),
+      );
+
+      const manager = makeManager({ filter: RANGE } as Partial<ComponentConfig>);
+      manager.applySavedConfig(manager.loadSavedConfig()!);
+      prepare(manager).seedDeclaredFilter();
+
+      expect(manager.layerFilters.get("pts")).toEqual(USER_RANGE);
+      expect(manager.filtersTouched).toBe(true);
+    });
+  });
+
+  describe("4. the two clear paths are not the same", () => {
+    it("the filter row's Clear keeps the user's empty slot", () => {
+      const manager = seedable(RANGE);
+      manager.renderHexagons = vi.fn() as any;
+      manager.seedDeclaredFilter();
+      expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+
+      manager.setFilter(undefined);
+      expect(manager.filtersTouched).toBe(true);
+      expect(manager.layerFilters.has("pts")).toBe(false);
+
+      // The declaration must not come back in this session...
+      manager.seedDeclaredFilter();
+      expect(manager.layerFilters.has("pts")).toBe(false);
+
+      // ...or on the next one: the record owns an explicitly empty slot.
+      const reloaded = reload(RANGE);
+      reloaded.seedDeclaredFilter();
+      expect(reloaded.filtersTouched).toBe(true);
+      expect(reloaded.layerFilters.has("pts")).toBe(false);
+    });
+
+    it("the factory Reset drops ownership and re-seeds the declaration", () => {
+      const manager = seedable(RANGE);
+      manager.filtersTouched = true; // a user wrote earlier
+      manager.layerFilters.set("pts", USER_RANGE);
+
+      // The panel's Clear is a factory Reset: resetState + clearSavedConfig,
+      // exactly what the real button runs.
+      manager.resetState(window.CONFIG);
+      manager.clearSavedConfig();
+      expect(manager.filtersTouched).toBe(false);
+      expect(manager.layerFilters.size).toBe(0);
+
+      prepare(manager).seedDeclaredFilter();
+      expect(manager.layerFilters.get("pts")).toEqual(RANGE);
+      expect(manager.filtersTouched).toBe(false);
+
+      // The record is gone, so a reload starts from the declaration again.
+      const reloaded = reload(RANGE);
+      reloaded.seedDeclaredFilter();
+      expect(reloaded.layerFilters.get("pts")).toEqual(RANGE);
+      expect(reloaded.filtersTouched).toBe(false);
+    });
+  });
+
+  describe("5. an unusable declaration warns once, never half-applies", () => {
+    it("reports the declaration once and starts unfiltered", () => {
+      const manager = seedable({ kind: "atom", field: "score", op: "nope" });
+      const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+      manager.seedDeclaredFilter();
+      manager.seedDeclaredFilter();
+
+      expect(manager.layerFilters.has("pts")).toBe(false);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects the other arm whole instead of coercing it", () => {
+      const manager = seedable({
+        kind: "enum",
+        field: "score",
+        values: ["a", "b"],
+      });
+      const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+      manager.seedDeclaredFilter();
+
+      // No partial range and no enum leaking into the numeric slot: the wrong
+      // arm is undeclared, not coerced.
+      expect(manager.layerFilters.has("pts")).toBe(false);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays undeclared after the factory Reset and a reload", () => {
+      const manager = seedable({ kind: "atom", field: "score", op: "nope" });
+      manager.resetState(window.CONFIG);
+      manager.clearSavedConfig();
+
+      prepare(manager).seedDeclaredFilter();
+      expect(manager.layerFilters.has("pts")).toBe(false);
+
+      const reloaded = reload({ kind: "atom", field: "score", op: "nope" });
+      reloaded.seedDeclaredFilter();
+      expect(reloaded.layerFilters.has("pts")).toBe(false);
+    });
+  });
+
+  describe("6. a saved filter round-trips through persistence", () => {
+    it("save → load → apply restores the filter and its ownership", () => {
+      userWrite(seedable(null));
+
+      const reloaded = reload(RANGE);
+      reloaded.seedDeclaredFilter();
+
+      expect(reloaded.filtersTouched).toBe(true);
+      expect(reloaded.layerFilters.get("pts")).toEqual(USER_RANGE);
+    });
+  });
+
+  describe("7. the dimension carries values only", () => {
+    it("exposes values with captions left to the panel", () => {
+      const manager = seedable(RANGE);
+      manager.seedDeclaredFilter();
+
+      const dim = manager.getFilterModel()!.dimensions[0];
+
+      expect(dim).toMatchObject({ kind: "range", field: "score" });
+      // The panel reads its shared locale keys (filter_field / filter_range);
+      // a component-owned caption here is the defect the contract prevents.
+      expect(dim).not.toHaveProperty("fieldLabel");
+      expect(dim).not.toHaveProperty("label");
+    });
   });
 });
