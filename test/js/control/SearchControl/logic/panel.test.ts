@@ -60,6 +60,22 @@ const makeMarkerWithEl = () => {
   return { marker, span };
 };
 
+// Wheel-bind counter over an addEventListener spy: keyed by the element the
+// listener was registered on, counting only plain wheel registrations (no
+// capture flag) — the shape bindWheelContainment uses.
+const wheelBindTargets = (spy: ReturnType<typeof vi.spyOn>) => {
+  const counts = new Map<EventTarget, number>();
+  const contexts = (spy as unknown as { mock: { contexts: unknown[] } }).mock.contexts;
+  for (let i = 0; i < spy.mock.calls.length; i++) {
+    const [type, , options] = spy.mock.calls[i] as [string, unknown, unknown];
+    if (type !== "wheel") continue;
+    if (options !== undefined && (options as unknown) !== false) continue;
+    const target = contexts[i] as EventTarget;
+    counts.set(target, (counts.get(target) ?? 0) + 1);
+  }
+  return counts;
+};
+
 // ─── removePanel ───
 
 describe("removePanel", () => {
@@ -397,6 +413,11 @@ describe("renderResults", () => {
     // (only its innerHTML is rebuilt), so the wheel containment must be bound
     // once per element lifecycle — not once per render, or the listeners stack
     // linearly and the panel behaves differently on each subsequent render.
+    //
+    // Spy the registration itself and key it on the receiving element:
+    // counting stopPropagation from a test-owned wheel listener only ever sees
+    // that one listener, so a stacking bind stays invisible to it.
+    const addSpy = vi.spyOn(EventTarget.prototype, "addEventListener");
     const ctrl = makeFixture();
     const item = {
       source: "suggestion" as const,
@@ -407,25 +428,9 @@ describe("renderResults", () => {
     };
     renderResults(ctrl, [item]);
     renderResults(ctrl, [item, { ...item, primaryText: "London, UK" }]);
-
     const panel = ctrl.panelWrap as HTMLElement;
-    // Count wheel listeners by dispatching one wheel and counting how many
-    // stopPropagation calls the containment made: exactly one listener on a
-    // scrollable mid-list panel means exactly one stop per dispatch.
-    let stops = 0;
-    const onWheel = (e: Event) => {
-      e.stopPropagation();
-      stops += 1;
-    };
-    panel.addEventListener("wheel", onWheel);
-    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
-    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
-    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
-    panel.dispatchEvent(
-      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
-    );
-    panel.removeEventListener("wheel", onWheel);
-    expect(stops).toBe(1);
+    expect(wheelBindTargets(addSpy).get(panel)).toBe(1);
+    addSpy.mockRestore();
   });
 
   it("binds one wheel listener on a fresh panel after removePanel", () => {
@@ -433,6 +438,7 @@ describe("renderResults", () => {
     // build a NEW element and bind a NEW listener. If a stale "already bound"
     // flag survived (the panelWheelBound regression), the new element would
     // carry zero listeners and a wheel over it would zoom the map again.
+    const addSpy = vi.spyOn(EventTarget.prototype, "addEventListener");
     const ctrl = makeFixture();
     const item = {
       source: "suggestion" as const,
@@ -448,20 +454,10 @@ describe("renderResults", () => {
 
     const newPanel = ctrl.panelWrap as HTMLElement;
     expect(newPanel).not.toBe(firstPanel);
-    let stops = 0;
-    const onWheel = (e: Event) => {
-      e.stopPropagation();
-      stops += 1;
-    };
-    newPanel.addEventListener("wheel", onWheel);
-    Object.defineProperty(newPanel, "scrollTop", { value: 100, configurable: true });
-    Object.defineProperty(newPanel, "clientHeight", { value: 200, configurable: true });
-    Object.defineProperty(newPanel, "scrollHeight", { value: 500, configurable: true });
-    newPanel.dispatchEvent(
-      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
-    );
-    newPanel.removeEventListener("wheel", onWheel);
-    expect(stops).toBe(1);
+    // The fresh element carries its own containment listener; the stale-flag
+    // regression would leave it with none.
+    expect(wheelBindTargets(addSpy).get(newPanel)).toBe(1);
+    addSpy.mockRestore();
   });
 });
 
