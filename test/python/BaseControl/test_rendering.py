@@ -225,10 +225,11 @@ class TestBaseControlRendering:
         html = render_control(HeatmapControl())
         assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
 
-        frame = Path("foliplus/js/control/LayerControl/ui/style/frame.ts").read_text(
-            encoding="utf-8"
-        )
-        assert 'class: "foliplus-panel-btn foliplus-style-reset-btn"' in frame
+        # The DOM contract (panel-btn + caller class on the same button) is
+        # asserted in the jsdom style tests and ui/affordance.test.ts; the
+        # Python layer only pins the CSS recipe that both buttons share.
+        button_css = Path("foliplus/css/common/button.css").read_text(encoding="utf-8")
+        assert ".foliplus-panel-btn" in button_css
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""

@@ -79,11 +79,18 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
   const buildDir = buildJsParam;
   const commonDir = resolve(sourceDir, "common");
+  const uiDir = resolve(sourceDir, "ui");
   const coreDir = resolve(sourceDir, "core");
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
     .sort();
+  const uiModules = existsSync(uiDir)
+    ? readdirSync(uiDir)
+        .filter(f => f.endsWith(".ts") && f !== "index.ts")
+        .map(f => f.replace(/\.ts$/, ""))
+        .sort()
+    : [];
   const coreSubs = readdirSync(coreDir, { withFileTypes: true })
     .filter(d => d.isDirectory())
     .map(d => d.name)
@@ -118,6 +125,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     "window.foliplus = window.foliplus || {};",
     "window.foliplus.core = {};",
     "window.foliplus.common = {};",
+    "window.foliplus.ui = {};",
   ];
 
   for (const sub of coreSubs) {
@@ -162,6 +170,16 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
     lines.push(`const ${name}NS = { ${names.join(", ")} };`);
     lines.push(`window.foliplus.common["${name}"] = ${name}NS;`);
+  }
+
+  for (const name of uiModules) {
+    const names = usedExports[`ui/${name}`] || [];
+    if (names.length === 0) continue;
+    lines.push(`import { ${names.join(", ")} } from "#ui/${name}.js";`);
+    // Qualify the const: a ui module can share its basename with a common
+    // module (or a later one can), and both declarations would collide.
+    lines.push(`const ui${name}NS = { ${names.join(", ")} };`);
+    lines.push(`window.foliplus.ui["${name}"] = ui${name}NS;`);
   }
 
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];

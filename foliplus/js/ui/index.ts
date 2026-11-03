@@ -1,3 +1,5 @@
 // ui/ — panel appearance composition layer.
-// Empty export: implementations land with the panel shell and the read-only field.
+// The ui modules (panelChrome.ts, panelField.ts) are imported directly by
+// their consumers; this barrel stays empty on purpose so the directory is a
+// module boundary and the namespace name is reserved for the panel shell.
 export {};

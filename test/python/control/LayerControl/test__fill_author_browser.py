@@ -2,7 +2,7 @@
 
 A geopandas explore layer writes one color per feature (the feature's
 __folium_color) and mounts a branca colormap on the map. CONFIG carries both as
-fillAuthor, and the fill row opens on a read-only "Original colors" arm — the
+fillAuthor, and the fill row opens on a read-only "Original Colors" arm — the
 author's column, their colors as one ordered gradient and their count, no
 Method/Classes/Scheme controls — while offering that arm as a real choice the
 user can leave and come back to. The fixture builds the same shape with folium
@@ -82,7 +82,7 @@ _NOTE = (
     "Colors set per feature by geopandas.GeoDataFrame.explore. "
     "Editing the fill overrides them; Reset restores them."
 )
-_ORIGINAL = "Original colors"
+_ORIGINAL = "Original Colors"
 
 
 def _open_style_panel(page):
@@ -166,6 +166,7 @@ class TestFillAuthorBrowser:
             # "text" is not an ARIA role — it is a Safari/WebKit-ism).
             assert initial["methodRole"] == "group", initial
             assert initial["countRole"] == "group", initial
+            assert initial["colorsRole"] == "img", initial
             assert initial["methodAria"] == "Method", initial
             assert initial["countAria"] == "Classes", initial
             assert initial["caption"] == "Original · continuous", initial
