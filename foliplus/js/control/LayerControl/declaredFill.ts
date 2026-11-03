@@ -172,12 +172,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     }
   }
   if (field === undefined) {
-    reject(
-      invalid,
-      layerId,
-      "field",
-      "a fill declaration without a fill.field",
-    );
+    reject(invalid, layerId, "field", "a fill declaration without a fill.field");
     return { invalid };
   }
 
@@ -186,11 +181,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   // an unrecognized kind drops the declaration whole — the persistence reader
   // applies the same rule, so a kind this client cannot build is never
   // misapplied as a numeric ramp.
-  if (
-    data.kind !== undefined &&
-    data.kind !== "numeric" &&
-    data.kind !== "category"
-  ) {
+  if (data.kind !== undefined && data.kind !== "numeric" && data.kind !== "category") {
     reject(
       invalid,
       layerId,
