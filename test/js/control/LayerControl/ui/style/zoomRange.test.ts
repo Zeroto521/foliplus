@@ -19,7 +19,7 @@ import {
   oneOverlay,
   polygonLayer,
   trackMembership,
-} from "./ui/fixture.js";
+} from "../fixture.js";
 
 const mockMap = {
   getMinZoom: () => 0,

@@ -14,8 +14,15 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
-import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import {
+  type Dismiss,
+  type PanelController,
+  attachPanel,
+  createPanel,
+  createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
+} from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import {
   LABEL_SIZE,
@@ -117,7 +124,34 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
   ui.overlayPanel.stylePanelEl = panel;
-  panel.addEventListener("mousedown", e => e.stopPropagation());
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "style",
+    rank: 500,
+    exclusiveGroup: "layer:rows",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.stylePanelEl ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(panel);
+      pinRowPanel(panel, item);
+    },
+    close: ({ restoreFocus }) => {
+      closeStylePanel(ui, restoreFocus);
+      return true;
+    },
+  });
+
+  panel.addEventListener("mousedown", e => controller.swallowPress(e));
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
   // its live binders attach to the row instead of going through the panel's
@@ -235,6 +269,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     } else {
       return;
     }
+    // Only the label panel's change reaches here (delegated label controls
+    // stop the shared root). Stop the change from bubbling to the map: a
+    // change is not a click, so it would not dismiss the panel on its own,
+    // but letting it escape would leak a stray change event onto the map.
     event.stopPropagation();
   });
 
@@ -247,7 +285,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     // walking its original path with no live control ancestor — swallow it here
     // (the same guarantee as the ⋮ menu and the other row panels).
     if (t.closest(".foliplus-style-reset-btn")) {
-      event.stopPropagation();
+      controller.swallowClick(event as MouseEvent);
       // The whole Reset is one operation: every dimension restores first, then
       // the delegated defaults (or the label config drop), then the panel
       // closes, and only then does the single notify go out. A notify fired by
@@ -305,14 +343,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       return;
     }
     if (t.closest(".foliplus-panel-header")) {
-      event.stopPropagation();
-      closeStylePanel(ui, true);
+      controller.closeFromClick(event as MouseEvent);
     }
   });
-
-  item.style.position = "relative";
-  item.appendChild(panel);
-  pinRowPanel(panel, item);
 
   // Register the open surface with the per-map overlay registry. The
   // registry owns the document capture-phase mousedown dispatcher, so this
@@ -353,21 +386,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   }
 
   ui.overlayPanel.stylePanelLayerId = layerId;
-  ui.overlayPanel.styleOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
-    id: OVERLAY_IDS.LAYER_STYLE,
-    isOpen: () => ui.overlayPanel.stylePanelLayerId !== null,
-    panels: () => {
-      const container = ui.uiContainer;
-      const currentPanel = container?.querySelector(
-        `.${CONST.CLASSES.STYLE_PANEL}`,
-      ) as HTMLElement | null;
-      return currentPanel ? [currentPanel] : [];
-    },
-    close: ({ restoreFocus }) => closeStylePanel(ui, restoreFocus),
-    dismissOn: "mousedown",
-    pressPriority: 500,
-    clearsCursorOnClose: true,
-  });
+  // Same PanelController wiring: the dismissal contract and registry identity
+  // live on the controller (dismiss outsidePress "mousedown"); attachPanel
+  // generates the entry (id "layer.style") and returns the detach.
+  ui.overlayPanel.styleOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
 };
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */

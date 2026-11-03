@@ -58,7 +58,6 @@ const makeFixture = (over: Partial<PanelSpec> = {}) => {
     owner: "layer",
     localId: "style",
     rank: 500,
-    isOpen: () => state.open,
     root: () => root,
     open: () => {
       state.open = true;

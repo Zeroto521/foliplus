@@ -271,7 +271,7 @@ class HeatmapManager {
     this.effectiveFieldCache = null;
     // Python declarations: starting selections only. `applySavedConfig`
     // consumes the hasScanned guard when a persisted record exists, so the
-    // user's earlier choice (or explicit clear) always wins over these.
+    // user's earlier choice (or the filter row's Clear) always wins over these.
     this.declaredLayer =
       typeof CONFIG.layer === "string" && CONFIG.layer ? CONFIG.layer : null;
     this.declaredField =
@@ -333,10 +333,10 @@ class HeatmapManager {
             // change), so it is restored as a per-source filter even after the
             // author changes or drops the declaration: a user who once saved
             // another setting keeps hitting the restored filter first. Accepted
-            // (see seedDeclaredFilter): the record is visible in
-            // the panel (the slider sits on the range) and Clear or Reset
-            // removes it, while a seeded-vs-user marker on disk would be a
-            // second ownership signal beside filtersTouched.
+            // (see seedDeclaredFilter): the record is visible in the panel (the
+            // slider sits on the range), and the filter row's Clear or the
+            // panel's Reset removes it — a seeded-vs-user marker on disk would
+            // be a second ownership signal beside filtersTouched.
             filters: serializedFilters(this.layerFilters),
             filtersTouched: this.filtersTouched,
           } satisfies SavedConfig,
@@ -1073,9 +1073,10 @@ class HeatmapManager {
    *  rest of the record. If the author then changes the declaration, a user
    *  who has ever saved another setting still hits the restored per-source
    *  filter first — the seed is skipped by layerFilters.has(sourceId) — until
-   *  Clear or Reset. That is the cost of "the declaration is a starting
-   *  condition and the user owns the slot from the first write"; a second,
-   *  declaration-only store would make Reset and the filter panel disagree. */
+   *  the filter row's Clear or the panel's Reset. That is the cost of "the
+   *  declaration is a starting condition and the user owns the slot from the
+   *  first write"; a second, declaration-only store would make Reset and the
+   *  filter panel disagree. */
   seedDeclaredFilter(): void {
     if (this.filtersTouched) return;
     const sourceId = this.selectedLayerId;
