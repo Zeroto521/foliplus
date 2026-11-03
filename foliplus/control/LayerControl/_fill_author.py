@@ -53,6 +53,18 @@ FILL_AUTHOR_RGB_SLACK = 2
 # 8/12 = 0.67, five drop it to 7/12 = 0.58.
 FILL_AUTHOR_AGREE = 0.6
 
+# Distinct-color count above which a per-feature layer with no pair-able scale
+# is read as a continuous ramp. Matches CLASS_COUNT.MAX in
+# foliplus/js/core/classify.ts (9): the panel offers at most 9 classes, so a
+# layer painting more distinct colors than any classification the user could
+# have chosen is more likely a continuous colormap than a small-step scheme.
+# A legend=False explore layer (which mounts no colormap at all) cannot be
+# told apart from a real continuous one, so this is an accepted approximation
+# (10+ class bands read as Equal Interval, <= 9 stays a dash). Kept a literal
+# because Python cannot import the TS constant; the comment is the cross-stack
+# pointer.
+FILL_AUTHOR_CONTINUOUS_THRESHOLD = 9
+
 
 def fill_author_color(props: dict[str, Any]) -> str | None:
     """The feature's declarative color, when explore wrote one."""
@@ -557,6 +569,22 @@ def fill_author(
         return payload
     paired = pair_scale(colormaps, features, claimed)
     if paired is None:
+        # No colormap paired: a legend=False explore layer mounts none, so no
+        # scale can be proven and the record ships without one. A per-feature
+        # layer painting more distinct colors than any classification the panel
+        # offers (a 10+ color ramp, or a scan that capped at FILL_AUTHOR_STOPS)
+        # is almost certainly a continuous ramp the author did not label — the
+        # panel reads a bare {"kind": "continuous"} as Equal Interval, the
+        # honest statement that a LinearColormap is an interval ramp, not a
+        # claim about the author's scheme. column / vmin / vmax / method are
+        # deliberately NOT written (a guess at the drive column and extent
+        # would be worse than none), and stops stay the sampled strip. A
+        # low-cardinality layer (<= FILL_AUTHOR_CONTINUOUS_THRESHOLD distinct
+        # colors) keeps no scale: it may be a small-step classification the
+        # panel can still describe from its own colors, and reading it as
+        # continuous would be the approximation this threshold exists to avoid.
+        if per_feature and (capped or len(colors) > FILL_AUTHOR_CONTINUOUS_THRESHOLD):
+            payload["scale"] = {"kind": "continuous"}
         return payload
     colormap, column = paired
     scale, stops = scale_payload(colormap, column)
