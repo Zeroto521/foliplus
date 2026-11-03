@@ -1089,3 +1089,296 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
     expect(activated).toEqual([2]);
   });
 });
+
+describe("listbox engine: inline mount returns the list to its host", () => {
+  // The scheme picker is the only inline consumer (portal:false) and it sets
+  // detachOnClose:true, so the engine's close-back-to-wrapper branch (the
+  // inline ternary in close()) is never reached by the picker tests. These
+  // exercise it directly so the inline mount/close contract is covered.
+  const makeInline = (
+    opts: {
+      inlineHost?: () => HTMLElement;
+      detachOnClose?: boolean;
+      triggerDetached?: boolean;
+    } = {},
+  ) => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    // The trigger lives in a mount cell; the inline host is a DISTINCT element
+    // so the close-back wrapper branch (inlineHost vs parentElement) is
+    // observably different — a broken ternary parks the list in the wrong place.
+    const cell = document.createElement("div");
+    cell.className = "inline-cell";
+    document.body.appendChild(cell);
+    const host = document.createElement("div");
+    host.className = "inline-host";
+    document.body.appendChild(host);
+    if (!opts.triggerDetached) cell.appendChild(trigger);
+    const listbox = createListbox({
+      trigger,
+      items: () => [{ value: "a", label: "Alpha" }],
+      selected: () => [],
+      inline: true,
+      inlineHost: opts.inlineHost,
+      detachOnClose: opts.detachOnClose ?? false,
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "inline-is-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "inline-list",
+        row: "inline-row",
+        portal: "inline-portal",
+        up: "inline-up",
+        open: "inline-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    return { trigger, cell, host, listbox };
+  };
+
+  it("inline open mounts into the inline host and close returns it there", () => {
+    const { host, listbox } = makeInline({ inlineHost: () => host });
+    listbox.open();
+    expect(listbox.getList()?.parentElement).toBe(host);
+    expect(listbox.getList()?.classList.contains("inline-portal")).toBe(false);
+    expect(listbox.isOpen()).toBe(true);
+    listbox.close();
+    expect(listbox.getList()?.parentElement).toBe(host);
+    expect(listbox.isOpen()).toBe(false);
+  });
+
+  it("inline host falls back to the trigger parent when inlineHost is omitted", () => {
+    const { cell, listbox } = makeInline();
+    listbox.open();
+    // inlineHost is undefined → the engine falls back to trigger.parentElement.
+    expect(listbox.getList()?.parentElement).toBe(cell);
+    listbox.close();
+    expect(listbox.getList()?.parentElement).toBe(cell);
+  });
+
+  it("inline host falls back to the trigger itself when it has no parent", () => {
+    const { trigger, listbox } = makeInline({ triggerDetached: true });
+    listbox.open();
+    // inlineHost omitted + trigger detached → the engine falls back to the trigger.
+    expect(listbox.getList()?.parentElement).toBe(trigger);
+    listbox.close();
+    expect(listbox.getList()?.parentElement).toBe(trigger);
+  });
+});
+
+describe("listbox engine: ownDismiss outside press with a null target", () => {
+  // The bare-shape test for the null-target guard uses a listbox WITHOUT
+  // ownDismiss, so the document pointerdown handler (which owns the guard) is
+  // never registered. ownDismiss:true is what puts the guard on the event path.
+  it("ignores a pointerdown whose target is null (defensive guard)", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [{ value: "a", label: "Alpha" }],
+      selected: () => [],
+      ownDismiss: true,
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "own-null-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "own-null-list",
+        row: "own-null-row",
+        portal: "own-null-portal",
+        up: "own-null-up",
+        open: "own-null-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    expect(listbox.isOpen()).toBe(true);
+    const evt = new Event("pointerdown", { bubbles: true });
+    Object.defineProperty(evt, "target", { value: null });
+    expect(() => document.dispatchEvent(evt)).not.toThrow();
+    expect(listbox.isOpen()).toBe(true);
+  });
+});
+
+describe("listbox engine: followTrigger re-pins on a trigger resize", () => {
+  // jsdom has no ResizeObserver, so the engine never installs the followTrigger
+  // callback and the re-pin-on-trigger-resize branch is uncovered. Stub a
+  // minimal ResizeObserver so the observer callback (the throttleRaf wrapper)
+  // is invoked and coalesced to a frame.
+  it("re-pins the open portalled list when the trigger resizes, and no-ops when closed", async () => {
+    const original = globalThis.ResizeObserver;
+    let observed: (() => void) | null = null;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          observed = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    try {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      const cell = document.createElement("div");
+      cell.appendChild(trigger);
+      document.body.appendChild(cell);
+      const onPosition = vi.fn();
+      const listbox = createListbox({
+        trigger,
+        items: () => [{ value: "a", label: "Alpha" }],
+        selected: () => [],
+        shape: {
+          rowTag: "button",
+          dataKey: "data-value",
+          selectedClass: "ro-selected",
+          disabledAttr: "disabled",
+          activedescendant: "none",
+        },
+        classes: {
+          list: "ro-list",
+          row: "ro-row",
+          portal: "ro-portal",
+          up: "ro-up",
+          open: "ro-open",
+        },
+        surface: { onSurfaceChange: () => () => {} },
+        dismiss: { kind: "local" },
+        onPosition,
+        onRowActivate: () => {},
+      });
+      cleanup.push(() => listbox.destroy());
+      listbox.open();
+      expect(observed).not.toBeNull();
+      // open() (portal mode) already ran positionList → onPosition once.
+      const afterOpen = onPosition.mock.calls.length;
+      expect(afterOpen).toBeGreaterThan(0);
+      // A trigger resize fires the observer callback; followTrigger coalesces
+      // and re-pins on the next frame.
+      observed!();
+      await new Promise<void>(res => requestAnimationFrame(() => res()));
+      expect(onPosition.mock.calls.length).toBeGreaterThan(afterOpen);
+      // After close the same callback is a no-op (isOpen is false).
+      const afterRepin = onPosition.mock.calls.length;
+      listbox.close();
+      observed!();
+      await new Promise<void>(res => requestAnimationFrame(() => res()));
+      expect(onPosition.mock.calls.length).toBe(afterRepin);
+    } finally {
+      vi.unstubAllGlobals();
+      if (original === undefined)
+        delete (globalThis as { ResizeObserver?: unknown }).ResizeObserver;
+    }
+  });
+});
+
+describe("listbox engine: focusOnOpen with a row that has no value", () => {
+  // The selected-match fallback maps an undefined value to "" before testing
+  // membership, so a malformed row (no value) is still addressable by the
+  // empty-string selection. Exercise the ?? "" fallback directly.
+  it("focusOnOpen selected matches the undefined-value row via the empty fallback", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: undefined as unknown as string, label: "No value" },
+      ],
+      selected: () => [""],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "fv-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "fv-list",
+        row: "fv-row",
+        portal: "fv-portal",
+        up: "fv-up",
+        open: "fv-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      focusOnOpen: "selected",
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    const rows = Array.from(
+      listbox.getList()?.querySelectorAll<HTMLElement>(".fv-row") ?? [],
+    );
+    // index 0 is 'a' (no match), index 1 is undefined → "" → matches [""].
+    expect(document.activeElement).toBe(rows[1]);
+  });
+});
+
+describe("listbox engine: focusOnOpen with every row disabled", () => {
+  // enabledFrom returns -1 when no row is enabled, so the guard skips
+  // focusOption and focus stays on the trigger (the cursor never parks on a
+  // disabled row). The existing focusOnOpen tests all use enabled rows.
+  it("focusOnOpen first focuses nothing when all rows are disabled", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha", disabled: true },
+        { value: "b", label: "Beta", disabled: true },
+      ],
+      selected: () => [],
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "fd-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "fd-list",
+        row: "fd-row",
+        portal: "fd-portal",
+        up: "fd-up",
+        open: "fd-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      focusOnOpen: "first",
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    const rows = Array.from(
+      listbox.getList()?.querySelectorAll<HTMLElement>(".fd-row") ?? [],
+    );
+    expect(rows).toHaveLength(2);
+    // No row may hold focus; the trigger keeps it.
+    expect(rows.some(row => row === document.activeElement)).toBe(false);
+    expect(listbox.isOpen()).toBe(true);
+  });
+});

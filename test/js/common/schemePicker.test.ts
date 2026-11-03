@@ -1655,3 +1655,43 @@ const pickerPortalFixture: ListboxFixture = {
 };
 
 describeListboxFixture([pickerInlineFixture, pickerPortalFixture]);
+
+// ── scrollbar lane publishing ──────────────────────────────────────────
+
+describe("scheme picker: scrollbar lane fallback", () => {
+  // syncScrollbarWidth reads borderLeftWidth/borderRightWidth from
+  // getComputedStyle and falls back to 0 when the dropdown reports no border
+  // ("|| '0'"). jsdom reports a fixed 16px default border, so the fallback
+  // arm is only reached when the computed style is forced to empty.
+  it("publishes a zero border lane when the dropdown reports no border widths", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown() as HTMLElement;
+    expect(dropdown).not.toBeNull();
+    const real = window.getComputedStyle;
+    const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(el => {
+      const base = real(el);
+      if (el === dropdown) {
+        return {
+          ...base,
+          borderLeftWidth: "",
+          borderRightWidth: "",
+        } as CSSStyleDeclaration;
+      }
+      return base;
+    });
+    try {
+      // Re-open so onPosition -> syncScrollbarWidth runs with the forced style.
+      picker.close();
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const lane = dropdown.style.getPropertyValue(
+        "--foliplus-scheme-picker-scrollbar-width",
+      );
+      // offsetWidth/clientWidth are 0 in jsdom and the border is 0 via the
+      // fallback, so the published lane is exactly 0px.
+      expect(lane).toBe("0px");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
