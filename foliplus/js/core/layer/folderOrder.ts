@@ -88,6 +88,7 @@ const groupByFolder = (
       map.set(key, block);
     }
     block.members.push(entry);
+    /* v8 ignore next -- forward pass keeps globalIndex >= block.anchor; defensive */
     if (globalIndex < block.anchor) block.anchor = globalIndex;
   });
   return map;
