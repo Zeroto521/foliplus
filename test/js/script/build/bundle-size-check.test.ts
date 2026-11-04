@@ -25,6 +25,11 @@ import {
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
 import { runCli, trapExit } from "../../fixture.js";
 
+// The "defaults --root to the checkout" case runs the tool without --root, so
+// it reads the checkout's own foliplus/dist. Without a prior build there is no
+// dist/, so the case skips cleanly instead of crashing on the missing dir.
+const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
+
 type BundleArgs = {
   help: boolean;
   errors: string[];
@@ -1483,18 +1488,22 @@ describe("cli entry point", () => {
     expect(error.mock.calls.join("\n")).toContain("must be a number");
   });
 
-  it("defaults --root to the checkout and lists sizes when nothing to diff", () => {
-    // `node script/bundle-size-check.mjs` without --root reads the checkout's
-    // own dist; without a --baseline that is a bare size listing, which exits
-    // 0 regardless of what the dist holds. Same shape as the Makefile target.
-    const exit = vi
-      .spyOn(process, "exit")
-      .mockImplementation((code?: string | number | null | undefined) => {
-        throw new Error(`exit:${code}`);
-      });
-    expect(() => main([])).toThrow("exit:0");
-    expect(exit).toHaveBeenCalledWith(0);
-  }, 30000);
+  it.skipIf(!distReady)(
+    "defaults --root to the checkout and lists sizes when nothing to diff",
+    () => {
+      // `node script/bundle-size-check.mjs` without --root reads the checkout's
+      // own dist; without a --baseline that is a bare size listing, which exits
+      // 0 regardless of what the dist holds. Same shape as the Makefile target.
+      const exit = vi
+        .spyOn(process, "exit")
+        .mockImplementation((code?: string | number | null | undefined) => {
+          throw new Error(`exit:${code}`);
+        });
+      expect(() => main([])).toThrow("exit:0");
+      expect(exit).toHaveBeenCalledWith(0);
+    },
+    30000,
+  );
 
   it("--emit captures sizes to the target file via main()", () => {
     const root = mkTmp();

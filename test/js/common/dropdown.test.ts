@@ -131,6 +131,17 @@ describe("dropdown: bridged single select", () => {
     expect(dropdown.trigger.getAttribute("aria-label")).toBe("Pick a thing");
   });
 
+  it("applies an opts.className to the wrapper (regression: the ramp classes-count width contract)", () => {
+    const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }], {
+      className: "foliplus-classes-select",
+    });
+    // The wrapper replaces the native select in the flex row, so a consumer
+    // class that sizes the row must land on the wrapper, not the trigger.
+    expect(dropdown.element.classList.contains("foliplus-dropdown")).toBe(true);
+    expect(dropdown.element.classList.contains("foliplus-classes-select")).toBe(true);
+    expect(dropdown.trigger.classList.contains("foliplus-classes-select")).toBe(false);
+  });
+
   it("opens a listbox listing every option, then closes on a second click", () => {
     const { dropdown } = bridged("a", [
       { value: "a", label: "Alpha" },

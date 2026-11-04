@@ -193,6 +193,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
   const multiple = opts.multiple ?? false;
   const wrapper = dom.el("div", { class: DROPDOWN_CLASSES.wrapper });
+  if (opts.className) {
+    // A consumer can size or theme the wrapper with a bespoke class (e.g. the
+    // compact classes-count width contract in form.css). The native select is
+    // replaced by this wrapper in the flex row, so the class lands here.
+    wrapper.classList.add(...opts.className.split(/\s+/).filter(Boolean));
+  }
   const trigger = dom.el("button", {
     type: "button",
     class: `foliplus-form-select ${DROPDOWN_CLASSES.trigger}`,
@@ -265,6 +271,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       resolveHost: opts.resolveHost ?? null,
       onSurfaceChange: opts.onSurfaceChange ?? null,
     },
+    ownDismiss: true,
     dismiss: { kind: "local" },
     onBeforeOpen: () => {
       // A bridged select's options/value may have been rebuilt since the last
