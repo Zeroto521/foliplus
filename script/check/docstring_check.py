@@ -14,6 +14,11 @@ bullet list (Sphinx renders those fine), and its severity is docutils-
 version-dependent (SEVERE/4 in 0.21, ERROR/3 in 0.22+), so it cannot be a
 reliable failure signal.
 
+docutils also silently accepts a table header separator that mixes ``=`` and
+``-`` border characters (e.g. ``+===+---+`` in a grid table, ``=== ---`` in a simple
+table) without reporting ERROR/3, so the gate additionally scans the separator
+rows for inconsistent border chars (``find_table_border_issues``).
+
 Usage (called by pre-commit with the changed files, or directly):
     python script/check/docstring_check.py [FILE ...]
 
@@ -168,20 +173,115 @@ def find_errors(messages: list[tuple[int, int, str]]) -> list[tuple[int, int, st
     ]
 
 
+def find_table_border_issues(docstring: str) -> list[tuple[int, str]]:
+    """Return (docstring-line, description) for table separators mixing border chars.
+
+    docutils silently accepts a table header separator that mixes ``=`` and ``-``
+    border characters (e.g. ``+===+---+`` in a grid table, ``=== ---`` in a simple
+    table) instead of reporting ERROR/3, so the docutils parse in
+    ``_docutils_messages`` cannot catch it. This is an independent structural scan
+    of the separator rows.
+
+    A single ``=`` or ``-`` run is a section underline, not a table separator, so
+    it is left alone. Indented lines inside a ``::`` literal block and ``>>>`` doctest
+    blocks are skipped: a code example may legally show a ``+---+---+``-looking
+    line, which is not a table in the rendered docstring.
+    """
+    issues: list[tuple[int, str]] = []
+    in_doctest = False
+    in_literal = False
+    for idx, line in enumerate(docstring.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            # A blank line ends a doctest block; it may sit inside a literal
+            # block (blank lines are allowed between indented code lines), so
+            # in_literal is kept.
+            in_doctest = False
+            continue
+        if stripped.startswith(">>>"):
+            in_doctest = True
+            continue
+        if in_doctest:
+            # Doctest output follows the prompt at the same indent; skip it.
+            continue
+        if stripped.endswith("::"):
+            # A line ending with '::' introduces a literal block; the following
+            # indented lines are a code example, not docstring markup.
+            in_literal = True
+            continue
+        if in_literal:
+            # Indented lines after '::' stay in the literal block; a non-indented
+            # line (or the blank line above) ends it.
+            if line != stripped:
+                continue
+            in_literal = False
+        # A separator row may keep its source indent (extract_class_docstring
+        # returns the docstring undedented when its first line is not indented),
+        # so the checks below use the stripped line.
+        if stripped.startswith("+"):
+            # Grid-table border row: border characters between '+' markers must be
+            # consistent (all '-' or all '='), e.g. "+===+---+" is malformed.
+            segments = [seg for seg in stripped.split("+") if seg]
+            chars = {seg[0] for seg in segments if seg}
+            if len(chars) > 1:
+                issues.append(
+                    (idx, f"grid table separator mixes border chars ({''.join(sorted(chars))})")
+                )
+            continue
+        if re.fullmatch(r"(?:[=\-]+\s+)+[=\-]+", stripped):
+            # Simple-table separator row: >= 2 runs of '=' or '-' separated by
+            # whitespace (a single run is a section underline). The runs must be
+            # consistent, e.g. "=== ---" mixes chars and is malformed.
+            runs = re.findall(r"[=\-]+", stripped)
+            chars = {run[0] for run in runs}
+            if len(chars) > 1:
+                issues.append(
+                    (idx, f"simple table separator mixes border chars ({''.join(sorted(chars))})")
+                )
+    return issues
+
+
+def scan_table_border_issues(
+    repo_root: Path, only_files: list[Path] | None = None
+) -> dict[str, list[tuple[int, str]]]:
+    """Scan each selected control docstring for mixed-border table separators.
+
+    Returns ``{control: [(docstring-line, description), ...]}``. Selection and
+    file-reading mirror ``scan_control_docstrings`` so both checks see the same
+    set of controls.
+    """
+    result: dict[str, list[tuple[int, str]]] = {}
+    for class_name, rel_path in _controls_to_check(only_files).items():
+        source_path = repo_root / rel_path
+        try:
+            source = source_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue  # already reported as an ERROR/3 by scan_control_docstrings
+        docstring = extract_class_docstring(source, class_name)
+        issues = find_table_border_issues(docstring)
+        if issues:
+            result[class_name] = issues
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[2]
     args = list(sys.argv[1:] if argv is None else argv)
     only_files = [Path(a) for a in args if not a.startswith("-")] or None
     results = scan_control_docstrings(repo_root, only_files)
-    if not results:
+    table_issues = scan_table_border_issues(repo_root, only_files)
+    if not results and not table_issues:
         print("docstring_check: no control files to check")
         return 0
     failures = []
     for class_name, messages in results.items():
         for _level, line, msg in find_errors(messages):
             failures.append(f"  {class_name}: docstring line {line}: {msg}")
+    for class_name, issues in table_issues.items():
+        for line, desc in issues:
+            failures.append(f"  {class_name}: docstring line {line}: {desc}")
     if failures:
-        print("docstring_check: ERROR/3 found in control docstrings:")
+        print("docstring_check: found docstring markup problems:")
         print("\n".join(failures))
         return 1
     print(f"docstring_check: {len(results)} control docstrings clean (no ERROR/3)")
