@@ -1,5 +1,11 @@
 // ui/ — panel appearance composition layer.
-// The ui modules (panelChrome.ts, panelField.ts) are imported directly by
-// their consumers; this barrel stays empty on purpose so the directory is a
-// module boundary and the namespace name is reserved for the panel shell.
-export {};
+//
+// Single export surface for the panel UI primitives. Consumers and tests
+// import from "#ui/index.js" — never from a specific ui module directly —
+// so the panel shell owns the namespace shape and a module rename here does
+// not ripple through call sites. (JS convention: the directory's index.ts is
+// its one export point. The earlier ui-layer-boundary.md §3.2 "no secondary
+// re-export" ruling prohibited an alias/re-export layer *beyond* this index,
+// not the index itself — see that note for the boundary the barrel keeps.)
+export { buttonRow, closeButton, panelButton, sectionDivider } from "./panelChrome.js";
+export { readOnlyValue } from "./panelField.js";
