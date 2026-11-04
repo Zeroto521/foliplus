@@ -54,7 +54,10 @@ const hostFor = (opts: FloatingOptions): HTMLElement =>
  *  Attached once for the root's lifetime — it must be in place whether the
  *  layer mounts inline (CSS-anchored) or portalled, so the caller binds it at
  *  element creation, not per mount. */
-const bindFloatingWheel = (root: HTMLElement, mode: "always" | "contain" = "always"): void => {
+const bindFloatingWheel = (
+  root: HTMLElement,
+  mode: "always" | "contain" = "always",
+): void => {
   if (mode === "contain") {
     bindWheelContainment(root);
     return;
