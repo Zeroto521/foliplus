@@ -116,3 +116,17 @@ repos:
         language: python
         files: ^foliplus/js/.*\.ts$
         pass_filenames: false
+
+      # Gate: control class docstrings must parse as clean reST (no ERROR/3).
+      # The docs were silently dropping Notes-section grid tables when a single
+      # misaligned row made docutils report ``Malformed table`` (ERROR/3); RTD
+      # drops the table without surfacing the error. This gate parses each
+      # shipped control docstring with docutils and fails on any ERROR/3, so
+      # that markup regression cannot land silently again. Check-only.
+      - id: docstring-check
+        name: docstring-check
+        entry: python script/check/docstring_check.py
+        language: python
+        additional_dependencies: [docutils]
+        files: ^foliplus/.*\.py$
+        pass_filenames: true
