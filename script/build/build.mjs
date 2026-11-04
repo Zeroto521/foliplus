@@ -364,83 +364,95 @@ const main = async () => {
     verifyDist();
     return;
   }
-  console.time("build");
-  // ── Step 1: Create output dirs (no source mirror needed)
-  // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
-  mkdirSync(buildJs, { recursive: true });
-  // CSS scratch is wiped before every build so a stale merged stylesheet from
-  // a prior run can never be the one esbuild reads.
-  rmSync(buildCss, { recursive: true, force: true });
-  mkdirSync(buildCss, { recursive: true });
-
-  // ── Step 2: Generate shared registry ───────────────────────────
-  // Auto-registers every common/core module on window.foliplus (P5).
-  generateSharedRegistry();
-
-  // ── Step 3: Discover components & build entries ───────────────
-  const components = findComponents();
-  const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda) {
-    console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
-  }
-  const artifacts = buildEntries(components, CFG.sonda);
-  console.log(
-    `Building ${artifacts.length} artifacts for ${components.length} components...`,
-  );
-
-  // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
-  const failed = results.filter(r => r.status === "rejected").length;
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.status === "fulfilled") {
-      console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
-    } else {
-      console.error(`  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`);
-    }
-  }
-
-  // ── Step 4.5: Combined sonda report (--sonda) ──
-  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
-  if (sonda) {
-    const metafiles = results
-      .filter(r => r.status === "fulfilled")
-      .map(r => r.value?.metafile)
-      .filter(Boolean);
-    const merged = mergeMetafiles(metafiles);
-    // Side product for Codecov Bundle Analysis: the same merged metafile
-    // sonda consumes, dumped so the upload adapter never re-runs esbuild.
-    // Additive only — packaging behavior is unchanged.
-    writeFileSync(
-      resolve(CFG.root, "bundle-metafile.json"),
-      `${JSON.stringify(merged, null, 2)}\n`,
-    );
-    const reportFile = resolve(CFG.root, "bundle-treemap.html");
-    rmSync(reportFile, { force: true });
-    const config = new sonda.Config(
-      {
-        format: "html",
-        outputDir: CFG.root,
-        filename: "bundle-treemap.html",
-        open: false,
-        include: [/\.(js|css)$/],
-      },
-      { integration: "esbuild" },
-    );
-    await sonda.processEsbuildMetafile(merged, config);
-  }
-
-  writeArtifactManifest(components.map(c => c.name));
-
   // Dist-mode marker for the dist-dependent tests (bundle-fuse, bundle-size-check,
-  // browser-probe): build:dev emits unminified output that is larger than the
-  // minified absolute ceilings those tests assert, so they skip their absolute-cap
-  // assertions when a dev build wrote this marker. `npm run build` (minified)
-  // removes it. The absolute gate stays in the minified/CI path (bundle.yaml).
+  // browser-probe): build:dev emits unminified output larger than the minified
+  // ceilings those tests assert, so the absolute-cap cases skip only on a successful
+  // dev build. Decided at the START: a minified build clears the marker before
+  // building (a mid-build failure cannot leave a stale dev marker that would silently
+  // skip the cap cases), and a dev build writes it up front and removes it again in
+  // the finally below if the build fails (its dist is partial unminified output; the
+  // cap cases must run and fail loudly, not skip).
   const devMarker = resolve(distDir, ".dev-build");
   if (CFG.dev) writeFileSync(devMarker, "dev", "utf-8");
   else rmSync(devMarker, { force: true });
+  let buildOk = false;
+  try {
+    console.time("build");
+    // ── Step 1: Create output dirs (no source mirror needed)
+    // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
+    mkdirSync(buildJs, { recursive: true });
+    // CSS scratch is wiped before every build so a stale merged stylesheet from
+    // a prior run can never be the one esbuild reads.
+    rmSync(buildCss, { recursive: true, force: true });
+    mkdirSync(buildCss, { recursive: true });
 
+    // ── Step 2: Generate shared registry ───────────────────────────
+    // Auto-registers every common/core module on window.foliplus (P5).
+    generateSharedRegistry();
+
+    // ── Step 3: Discover components & build entries ───────────────
+    const components = findComponents();
+    const sonda = CFG.sonda ? await loadSonda() : null;
+    if (sonda) {
+      console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
+    }
+    const artifacts = buildEntries(components, CFG.sonda);
+    console.log(
+      `Building ${artifacts.length} artifacts for ${components.length} components...`,
+    );
+
+    // ── Step 4: esbuild bundle (parallel) ─────────────────────────
+    const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
+    const failed = results.filter(r => r.status === "rejected").length;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
+      } else {
+        console.error(
+          `  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`,
+        );
+      }
+    }
+
+    // ── Step 4.5: Combined sonda report (--sonda) ──
+    // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
+    if (sonda) {
+      const metafiles = results
+        .filter(r => r.status === "fulfilled")
+        .map(r => r.value?.metafile)
+        .filter(Boolean);
+      const merged = mergeMetafiles(metafiles);
+      // Side product for Codecov Bundle Analysis: the same merged metafile
+      // sonda consumes, dumped so the upload adapter never re-runs esbuild.
+      // Additive only — packaging behavior is unchanged.
+      writeFileSync(
+        resolve(CFG.root, "bundle-metafile.json"),
+        `${JSON.stringify(merged, null, 2)}\n`,
+      );
+      const reportFile = resolve(CFG.root, "bundle-treemap.html");
+      rmSync(reportFile, { force: true });
+      const config = new sonda.Config(
+        {
+          format: "html",
+          outputDir: CFG.root,
+          filename: "bundle-treemap.html",
+          open: false,
+          include: [/\.(js|css)$/],
+        },
+        { integration: "esbuild" },
+      );
+      await sonda.processEsbuildMetafile(merged, config);
+    }
+
+    writeArtifactManifest(components.map(c => c.name));
+    buildOk = !failed;
+  } finally {
+    if (!(CFG.dev && buildOk)) rmSync(devMarker, { force: true });
+  }
+  if (!CFG.dev && existsSync(devMarker)) {
+    throw new Error(".dev-build marker survived a minified build");
+  }
   if (failed) process.exit(1);
   console.timeEnd("build");
 };
