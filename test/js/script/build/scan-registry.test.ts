@@ -234,6 +234,35 @@ describe("generateRegistry", () => {
     expect(() => generateRegistry(jsDir, buildDir)).toThrow(/common\/ name collision/);
   });
 
+  it("skips dot-entries when collecting common/ modules", () => {
+    // A dot-file in common/ must be skipped, not collected as a module.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/.hidden.ts": `export const hidden = {};`,
+      "common/dom.ts": `export const dom = {};`,
+      "core/event/index.ts": `export const EventBus = {};`,
+      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.common["dom"]');
+    expect(output).not.toContain("hidden");
+  });
+
+  it("skips index.ts barrels when collecting common/ modules", () => {
+    // A subdir barrel must not be collected as a flat module (the registry
+    // keys on the leaf module, and the barrel is not a module).
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/engine/index.ts": `export const barrel = {};`,
+      "common/engine/dropdown.ts": `export const dropdown = {};`,
+      "core/event/index.ts": `export const EventBus = {};`,
+      "control/MyComponent/index.ts": `import { dropdown } from "#common/engine/dropdown.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.common["dropdown"]');
+    expect(output).not.toContain("engine/index");
+  });
+
   it("folds a non-barrel #core/<sub>/<file> import into the sub's namespace", () => {
     // canonicalSpec keys `#core/layer/const.js` as `core/layer/const`, a key
     // the namespace loop never reads — yet the runtime shim resolves that
