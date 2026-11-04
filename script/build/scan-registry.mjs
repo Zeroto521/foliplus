@@ -229,7 +229,9 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     const flat = rel.split("/").pop();
     const prev = seenCommon.get(flat);
     if (prev !== undefined && prev !== rel) {
-      throw new Error(`common/ name collision: "${prev}" and "${rel}" both map to common.${flat}`);
+      throw new Error(
+        `common/ name collision: "${prev}" and "${rel}" both map to common.${flat}`,
+      );
     }
     seenCommon.set(flat, rel);
   }

@@ -9,7 +9,11 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createDropdown, dropdownOf } from "#common/engine/dropdown.js";
+import {
+  type DropdownSurface,
+  createDropdown,
+  dropdownOf,
+} from "#common/engine/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,

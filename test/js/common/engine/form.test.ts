@@ -457,7 +457,10 @@ describe("common/form.ts emits the shared chrome classes", () => {
     resolve(ROOT, "foliplus/js/common/panelClassName.ts"),
     "utf-8",
   );
-  const source = readFileSync(resolve(ROOT, "foliplus/js/common/engine/form.ts"), "utf-8");
+  const source = readFileSync(
+    resolve(ROOT, "foliplus/js/common/engine/form.ts"),
+    "utf-8",
+  );
   const form = css("foliplus/css/common/form.css");
 
   it("names the row, label and control classes the CSS styles", () => {

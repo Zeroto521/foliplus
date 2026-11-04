@@ -20,8 +20,8 @@ import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js"
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
-import { finalize } from "#common/finalize.js";
 import { clampLabelSize, normalizeHexColor } from "#common/engine/form.js";
+import { finalize } from "#common/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import type { CanvasLabelStyle } from "#common/type.js";
