@@ -573,6 +573,25 @@ describe("collectExportedNames", () => {
     const names = collectExportedNames(PATH.join(d, "ui/missing.ts"));
     expect(names.size).toBe(0);
   });
+
+  it("resolves an export * target that lives behind a directory index", () => {
+    // `./panel.js` matches no file, so the guard falls back to
+    // `panel/index.ts` — the layout the ui sub-modules use.
+    const d = dir({
+      "ui/index.ts": `export * from "./panel.js";`,
+      "ui/panel/index.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+  });
+
+  it("ignores an export * target that resolves to no file", () => {
+    // A misspelled target cannot be read here; the guard leaves it to esbuild
+    // instead of failing the scan on it.
+    const d = dir({ "ui/index.ts": `export * from "./absent.js";` });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.size).toBe(0);
+  });
 });
 
 describe("CLI entry", () => {
