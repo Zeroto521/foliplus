@@ -32,7 +32,9 @@ from __future__ import annotations
 import math
 import numbers
 import os
+import re
 import sys
+import unicodedata
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -432,7 +434,7 @@ def normalise_folder(
     if not isinstance(raw, str):
         _reject(f"as {type(raw).__name__}; expected a non-empty string")
         return None
-    name = raw.strip()
+    name = re.sub(r"\s+", " ", unicodedata.normalize("NFC", raw.strip()))
     if not name:
         _reject("as an empty or whitespace-only string; expected a non-empty string")
         return None
