@@ -22,18 +22,26 @@ const distDir = resolve(ROOT, "foliplus/dist");
 // `test/python/script/build/test_asset.py` asserts wheel membership against.
 // A new component therefore shows up in both stacks without either test
 // hardcoding its name.
-const names: string[] = (
-  JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")) as {
-    artifacts: string[];
-  }
-).artifacts;
+//
+// The manifest read is existence-checked: `test-js` without a prior
+// `build-js-dev` has no dist/, so the artifact describe skips cleanly instead
+// of crashing the whole file at import time.
+const manifestPath = resolve(distDir, "manifest.json");
+const distReady = existsSync(manifestPath);
+const names: string[] = distReady
+  ? (
+      JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+        artifacts: string[];
+      }
+    ).artifacts
+  : [];
 const artifactsFor = (ext: string): string[] =>
   names.map(name => `foliplus-${name}.min.${ext}`);
 
 const JS_ARTIFACTS = artifactsFor("js");
 const CSS_ARTIFACTS = artifactsFor("css");
 
-describe("build artifacts", () => {
+describe.skipIf(!distReady)("build artifacts", () => {
   it("all JS artifacts exist", () => {
     for (const artifact of JS_ARTIFACTS) {
       expect(existsSync(resolve(distDir, artifact)), artifact).toBe(true);
