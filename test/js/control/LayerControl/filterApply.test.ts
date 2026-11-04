@@ -6,20 +6,21 @@ import { type LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { initFixture } from "./ui/fixture.js";
 
-/** A geometry leaf stub with a real `_path` element the class toggle writes. */
-const leafWithPath = (): L.Layer => {
+/** A geometry leaf stub with a real element the class toggle writes, exposed
+ *  through the public getElement() the apply pass enumerates. */
+const leafWithElement = (): L.Layer => {
   const el = document.createElement("path");
-  return { _path: el } as unknown as L.Layer;
+  return { getElement: () => el } as unknown as L.Layer;
 };
 
-/** A hand-built §9 snapshot: 3 geometry leaves with a numeric `value` field.
+/** A hand-built snapshot: 3 geometry leaves with a numeric `value` field.
  *  Filtering `value` to [2, 5] hides the first leaf (1) and keeps the last
  *  two (2, 5). */
 const makeFeatures = (): LayerFilterFeatures => ({
   features: [
-    { leaf: leafWithPath(), fields: { value: 1 } },
-    { leaf: leafWithPath(), fields: { value: 2 } },
-    { leaf: leafWithPath(), fields: { value: 5 } },
+    { leaf: leafWithElement(), fields: { value: 1 } },
+    { leaf: leafWithElement(), fields: { value: 2 } },
+    { leaf: leafWithElement(), fields: { value: 5 } },
   ],
   total: 3,
   numericFields: ["value"],
@@ -38,6 +39,13 @@ const between = (field: string, range: readonly [number, number]) => ({
 describe("generic data-layer filter (controller wiring)", () => {
   let manager: LayerController;
   let ui: LayerUI;
+
+  it("uses the design contract class name foliplus-feature-filtered", () => {
+    // The apply mechanism's DOM class is part of the design contract. Assert
+    // the literal so a wrong const cannot silently pass alongside a wrong
+    // class: renaming the class must change this test too.
+    expect(CONST.CLASSES.FILTER_HIDDEN).toBe("foliplus-feature-filtered");
+  });
 
   beforeEach(() => {
     const fixture = initFixture();
@@ -91,7 +99,7 @@ describe("generic data-layer filter (controller wiring)", () => {
 
       const [a, b, c] = features.features;
       const path = (leaf: L.Layer) =>
-        (leaf as { _path: HTMLElement })._path.classList.contains(
+        (leaf as { getElement: () => HTMLElement }).getElement().classList.contains(
           CONST.CLASSES.FILTER_HIDDEN,
         );
       expect(path(a.leaf)).toBe(true);
@@ -106,7 +114,7 @@ describe("generic data-layer filter (controller wiring)", () => {
       manager.setLayerFilter("flt1", between("value", [2, 5]));
       manager.setLayerFilter("flt1", undefined);
       const path = (leaf: L.Layer) =>
-        (leaf as { _path: HTMLElement })._path.classList.contains(
+        (leaf as { getElement: () => HTMLElement }).getElement().classList.contains(
           CONST.CLASSES.FILTER_HIDDEN,
         );
       for (const feature of features.features) {

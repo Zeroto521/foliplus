@@ -28,16 +28,16 @@ import {
   ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
-  buildFilterFeatures,
   countFeatureGeometry,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
   findLayer,
+  visibleDomOf,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import { hasAttachedPath, isGroupLike, layerShadow } from "#core/leafletAdapter.js";
+import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
@@ -69,7 +69,7 @@ const NO_OP_ENV: LayerControllerEnv = {
 // ==================== BringToFront Guard (monkey-patch) ====================
 // Guard Leaflet's bringToFront against null parentNode during enforceOrder
 // layer migration (enforceOrder briefly removes layers from the map, and a
-// concurrent mousemove event may call bringToFront on a detached _path).
+// concurrent mousemove event may call bringToFront on a detached path element).
 const origBringToFront = L.Path.prototype.bringToFront;
 // Reference count: multiple LayerControl instances (multi-map pages) may patch
 // the prototype; only the last unpatch restores the original implementation.
@@ -218,7 +218,7 @@ class LayerController implements LayerAPI {
    *  is settled. Absent = no filter. Heatmap/Measure own their own filters. */
   declare layerFilters: Map<string, LayerFilter>;
   /** The generic filter's hidden-leaf set per layer id, kept so the annotation
-   *  label walk can skip hidden leaves (§9) without recomputing the filter. */
+   *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare onLayerRemove: (event: L.LeafletEvent) => void;
@@ -412,7 +412,6 @@ class LayerController implements LayerAPI {
       // wrote. Guarded by "any filter active" so the common no-filter case pays
       // O(1) instead of an O(layers) scan.
       if (this.layerFilters.size > 0) {
-        const stamp = L.stamp(event.layer);
         for (const layerInfo of this.layers) {
           const resolved = findLayer(this.map, layerInfo.id);
           if (resolved && L.stamp(resolved) === stamp) {
@@ -988,7 +987,7 @@ class LayerController implements LayerAPI {
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
       // Re-apply a committed filter's hidden class onto the refreshed layer's
-      // fresh DOM elements (R2 replay).
+      // fresh DOM elements (recreated when the layer is re-attached).
       this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
@@ -1596,7 +1595,7 @@ class LayerController implements LayerAPI {
 
   /** Thin forwarder only — gathers the args and hands the z arithmetic to
    *  `core/layer/z.zFor`. There is no second z-semantics here: the z-space
-   *  is defined in `z.ts`, not in this file. Since R9 production code calls
+   *  is defined in `z.ts`, not in this file. Since production code calls
    *  `zFor` directly, but this wrapper stays because LayerController is the
    *  LayerAPI entry point — removing it would break the contract. Tests and
    *  probes may still call it. Do not grow this into real logic. */
@@ -1685,10 +1684,10 @@ class LayerController implements LayerAPI {
 
   /** The generic filter's write-through: store the filter, compute the hidden
    *  set, toggle the hidden class on every geometry leaf's element (path /
-   *  icon / shadow — §9 D1, one class write instead of a per-leaf style loop),
+   *  icon / shadow — one class write instead of a per-leaf style loop),
    *  and announce LAYER_FILTER_CHANGE. The annotation label walk reads the
    *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
-   *  (D9: the ramp/legend domain must not follow the filter). */
+   *  (the ramp/legend domain must not follow the filter). */
   setLayerFilter(id: string, filter: LayerFilter | undefined): void {
     this.layerFilters.set(id, filter);
     this.applyFilterClass(id, filter);
@@ -1696,10 +1695,10 @@ class LayerController implements LayerAPI {
   }
 
   /** Compute the filter's hidden set and toggle the hidden class on every
-   *  geometry leaf's element (path / icon / shadow — §9 D1, one class write
+   *  geometry leaf's element (path / icon / shadow — one class write
    *  instead of a per-leaf style loop). The annotation label walk reads the
    *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
-   *  (D9: the ramp/legend domain must not follow the filter). No event is
+   *  (the ramp/legend domain must not follow the filter). No event is
    *  published: a caller that also announces the change publishes separately. */
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
@@ -1710,13 +1709,9 @@ class LayerController implements LayerAPI {
     const hidden = filterLeafSet(features.features, filter);
     this.hiddenSets.set(id, hidden);
     for (const feature of features.features) {
-      const leaf = feature.leaf as L.Layer & {
-        _path?: HTMLElement | null;
-        _icon?: HTMLElement | null;
-      };
       const hide = hidden.has(feature.leaf);
-      for (const el of [leaf._path, leaf._icon, layerShadow(leaf)]) {
-        if (el) el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
+      for (const el of visibleDomOf(feature.leaf)) {
+        el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
       }
     }
   }

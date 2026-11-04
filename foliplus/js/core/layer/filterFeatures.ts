@@ -9,7 +9,7 @@
 // exact `countFeatureGeometry` rule) for `total`, and collecting each one's
 // feature.properties into a normalised attribute bag.
 //
-// §9 contract (reviewer-2 task-106, lead 2026-11-04):
+// The filter contract (per the generic-layer-filter design):
 //  ① Field domain: finite number → numeric; non-empty string → enum; boolean
 //     → enum ("true"/"false" labels, but the bag holds the RAW boolean so it
 //     stays distinguishable from a real string "true"); null / object / array
@@ -32,7 +32,7 @@ import type { LabelAwareLayer } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";
 
 /** One feature leaf's normalised attribute bag. number + string + boolean
- *  (boolean is stored raw — §9 ①, never stringified, so bool true and string
+ *  (boolean is stored raw — never stringified, so bool true and string
  *  "true" stay distinct). */
 type FilterFieldValue = number | string | boolean;
 
@@ -59,7 +59,7 @@ type LayerFilterFeatures = {
   /** Enum field names (string + boolean), first-seen order. */
   readonly enumFields: ReadonlyArray<string>;
   /** Field name → distinct option labels. A boolean field yields the two
-   *  labels "true"/"false"; the bag still holds the raw boolean (S4c). */
+   *  labels "true"/"false"; the bag still holds the raw boolean. */
   readonly enumValues: Readonly<Record<string, readonly string[]>>;
 };
 
@@ -172,7 +172,7 @@ const buildFilterFeatures = (layer: L.Layer): LayerFilterFeatures => {
  *  the funnel readout — one source of truth, not three walks. An absent
  *  filter hides nothing. A leaf with an empty bag (no filterable field) does
  *  not match any non-empty filter, so it is hidden while a filter is active
- *  and visible when no filter is set (§9 ②). */
+ *  and visible when no filter is set. */
 const filterLeafSet = (
   features: ReadonlyArray<FilterFeature>,
   filter: LayerFilter,

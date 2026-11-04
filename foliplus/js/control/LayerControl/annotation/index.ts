@@ -175,8 +175,8 @@ class AnnotationManager {
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
   /** Per-layer hidden-leaf check, wired by the LayerController from the generic
-   *  data-layer filter's hidden set (§9). Only the label walk consults it — the
-   *  ramp/legend domain must not follow the filter (D9), so walkLeaf and
+   *  data-layer filter's hidden set. Only the label walk consults it — the
+   *  ramp/legend domain must not follow the filter, so walkLeaf and
    *  walkFillLeaves never read it. Null = no filter active (draw everything). */
   private hiddenCheck: ((id: string, leaf: L.Layer) => boolean) | null = null;
   /** Map-event wiring shared with the other canvas overlays (see

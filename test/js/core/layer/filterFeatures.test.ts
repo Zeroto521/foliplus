@@ -1,7 +1,7 @@
 // Unit tests for core/layer/filterFeatures — the generic data-layer filter
 // snapshot builder + hidden-set computation.
 //
-// §9 contract (reviewer-2 task-106, lead 2026-11-04):
+// The filter contract (per the generic-layer-filter design):
 //  ① Field domain: finite number → numeric; non-empty string → enum; boolean
 //     → enum ("true"/"false" labels, bag holds the RAW boolean); null / object
 //     / array / NaN / ±Infinity / undefined → key omitted from the bag, the
@@ -16,8 +16,11 @@ import { buildFilterFeatures, filterLeafSet } from "#core/layer/filterFeatures.j
 // Minimal Leaflet classes for the `instanceof` checks in the builder. The
 // base setup does not install these, so this file brings its own stubs.
 class Polygon {}
+
 class Polyline {}
+
 class CircleMarker {}
+
 class Marker {}
 
 beforeEach(() => {
@@ -95,7 +98,7 @@ describe("buildFilterFeatures — walk, geometry types, total", () => {
   });
 });
 
-describe("buildFilterFeatures — field domain (§9 ①)", () => {
+describe("buildFilterFeatures — field domain", () => {
   it("collects finite numbers into numericFields/ranges", () => {
     const a = makeLeaf("marker", { score: 10 });
     const b = makeLeaf("marker", { score: 30 });
@@ -159,7 +162,7 @@ describe("buildFilterFeatures — field domain (§9 ①)", () => {
   });
 });
 
-describe("buildFilterFeatures — total vs filterable (§9 ②/③)", () => {
+describe("buildFilterFeatures — total vs filterable", () => {
   it("a leaf with only non-filterable values is in total but not filterable", () => {
     const a = makeLeaf("marker", { score: null });
     const feat = buildFilterFeatures(group(a));
