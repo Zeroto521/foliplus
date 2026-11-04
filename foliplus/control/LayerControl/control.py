@@ -24,7 +24,8 @@ class LayerControl(BaseControl):
       layers in a section.
     - 🎨 Solid-color replacement for base maps.
     - 🎨 Fill by value: color a layer by a numeric field with a classification
-      method, class count, and scheme, or use a single fill color.
+      method, class count, and scheme, use a single fill color, or keep the
+      layer's own per-feature paint as the read-only original.
     - 🧰 Per-layer style drawer: opacity, zoom range, border, fill, size, and
       text labels with color, size, number format, and overlap control.
     - 🔎 Filter a layer's features live: a range on a numeric field, or a set
@@ -123,6 +124,10 @@ class LayerControl(BaseControl):
 
     >>> gdf.explore(foliplus={"label": {"field": "name", "collide": False}})
 
+    Declare a value-based fill that classifies each feature at load:
+
+    >>> gdf.explore(foliplus={"fill": {"field": "score", "scheme": "Reds"}})
+
     Notes
     -----
     Recognised keys:
@@ -152,6 +157,25 @@ class LayerControl(BaseControl):
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``scheme``  | ``Viridis`` (``Set3`` for a category arm)       | palette name (the style panel's own candidates)                                                                                                                    |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+    How a ``fill`` declaration is resolved:
+
+    +-------------------------------+--------------------------------------------------------------+
+    | Condition                     | Behaviour                                                    |
+    +===============================+==============================================================+
+    | User stored mode              | The row shows the stored mode; it always wins.               |
+    +-------------------------------+--------------------------------------------------------------+
+    | Valid declaration             | The declared ramp classifies each feature by field at load   |
+    |                               | (it does not flatten the layer to a single color); the row   |
+    |                               | opens on it and Reset returns to it.                         |
+    +-------------------------------+--------------------------------------------------------------+
+    | No declaration                | The row shows the detected per-feature state, else the       |
+    |                               | built-in fallback.                                           |
+    +-------------------------------+--------------------------------------------------------------+
+    | Invalid declaration           | Degrades key by key (each rejected key warns once, the rest  |
+    |                               | survives); a declaration without a usable field drops whole  |
+    |                               | and falls back to the per-feature paint / built-in.          |
+    +-------------------------------+--------------------------------------------------------------+
 
     The ``label`` declaration keys:
 
