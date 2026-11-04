@@ -181,6 +181,7 @@ class TestHeatmapControlPanelBrowser:
             assert canvas_visible, "Canvas should be visible after layer selection"
             assert not errors, f"JS errors: {errors}"
 
+
 def _make_geometry_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
