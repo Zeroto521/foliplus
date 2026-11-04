@@ -22,7 +22,11 @@ import folium
 import pytest
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._layer_declaration import declared_zoom_range
+from foliplus.control.LayerControl._layer_declaration import (
+    FOLIPLUS_KEYS,
+    declared_folder,
+    declared_zoom_range,
+)
 
 _EMPTY = json.dumps({"type": "FeatureCollection", "features": []})
 
@@ -221,4 +225,80 @@ def test_label_key_reaches_the_layer_options() -> None:
     assert options.get("foliplus") == {"label": {"field": "name"}}
 
     data = ctrl._extra_config()["data"]  # type: ignore[attr-defined]
-    assert data[0]["name"] == "declared"
+
+
+# --- Folder declaration (D1) -------------------------------------------------
+
+
+def test_declared_folder_reaches_conf():
+    entry = _conf(_render(_geo(foliplus={"folder": "North"})))["data"][0]
+    assert entry["folder"] == "North"
+
+
+def test_undeclared_layer_has_no_folder_key():
+    entry = _conf(_render(_geo()))["data"][0]
+    assert "folder" not in entry
+
+
+def test_blank_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected a non-empty string"):
+        html = _render(_geo(foliplus={"folder": "   "}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+    assert entry["name"] == "Declared"
+
+
+def test_non_string_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected a non-empty string"):
+        html = _render(_geo(foliplus={"folder": {"name": "x"}}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+
+
+def test_duplicate_folder_warns_once_per_declaring_layer():
+    # Two layers declaring the same folder is an ambiguous grouping: neither
+    # may adopt the folder, and each declaring layer is warned so the defect
+    # is attributable (one warning per layer, not one per defect).
+    layers = [
+        _geo(name=f"L{i}", foliplus={"folder": "Shared"}) for i in range(2)
+    ]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(*layers)
+
+    dup = [w for w in caught if "ambiguous" in str(w.message)]
+    assert len(dup) == 2
+    for index, warning in enumerate(dup):
+        assert f"layer 'L{index}'" in str(warning.message)
+    # The ambiguous folder is not adopted by either layer.
+    data = _conf(html)["data"]
+    assert all("folder" not in entry for entry in data)
+
+
+def test_foliplus_keys_contains_folder():
+    # The folder key is accepted by the declaration namespace: a regression
+    # here would turn a valid folder declaration into an "unknown key" warning.
+    assert "folder" in FOLIPLUS_KEYS
+
+
+# --- Direct unit tests for declared_folder() --------------------------------
+
+
+def test_declared_folder_returns_normalised_name():
+    layer = _geo(foliplus={"folder": "  North  "})
+    assert declared_folder(layer, "Declared") == "North"
+
+
+def test_declared_folder_undeclared_layer_is_none():
+    layer = _geo()
+    assert declared_folder(layer, "Declared") is None
+
+
+def test_declared_folder_blank_is_none():
+    layer = _geo(foliplus={"folder": "   "})
+    assert declared_folder(layer, "Declared") is None
+
+
+def test_declared_folder_non_string_is_none():
+    layer = _geo(foliplus={"folder": 5})
+    assert declared_folder(layer, "Declared") is None
