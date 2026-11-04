@@ -265,6 +265,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       resolveHost: opts.resolveHost ?? null,
       onSurfaceChange: opts.onSurfaceChange ?? null,
     },
+    ownDismiss: true,
     dismiss: { kind: "local" },
     onBeforeOpen: () => {
       // A bridged select's options/value may have been rebuilt since the last
