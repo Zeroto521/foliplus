@@ -406,7 +406,7 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
         base = Path(repo_root) / "foliplus/js/core"
         spec = specifier[len("#core/") :]
     elif specifier.startswith("#foliplus/"):
-        base = Path(repo_root) / "foliplus" / "js"
+        base = Path(repo_root) / "foliplus/js"
         spec = specifier[len("#foliplus/") :]
     elif specifier.startswith("#control/"):
         # New component namespace (foliplus/js/control/), same shape as #core:
@@ -418,7 +418,7 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
         # The ui layer (foliplus/js/ui/), same shape as #common: the barrel
         # (#ui/index.js) re-exports the ui modules, so the graph must resolve
         # it or the barrel's re-exports are judged dead.
-        base = Path(repo_root) / "foliplus" / "js" / "ui"
+        base = Path(repo_root) / "foliplus/js/ui"
         spec = specifier[len("#ui/") :]
     elif specifier.startswith("#script/"):
         base = Path(repo_root) / "script"
