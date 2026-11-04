@@ -1496,9 +1496,12 @@ describe("cli entry point", () => {
   it("defaults --root to the checkout and lists sizes when nothing to diff", ({
     skip,
   }) => {
-    if (!distReady) skip("no foliplus/dist build present");
-    if (distDev)
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
       skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
     // `node script/bundle-size-check.mjs` without --root reads the checkout's
     // own dist; without a --baseline that is a bare size listing, which exits
     // 0 regardless of what the dist holds. Same shape as the Makefile target.

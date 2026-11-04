@@ -223,9 +223,12 @@ describe("CLI entry", () => {
   });
 
   it("defaults --root to the checkout and fuses it", async ({ skip }) => {
-    if (!distReady) skip("no foliplus/dist build present");
-    if (distDev)
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
       skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
     // `node script/bundle-fuse.mjs` without --root reads the checkout's own
     // dist — the Makefile and CI call it exactly this way. The dist dir is
     // shared build output that build.test.ts asserts on, so the size read is

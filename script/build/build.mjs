@@ -373,8 +373,14 @@ const main = async () => {
   // the finally below if the build fails (its dist is partial unminified output; the
   // cap cases must run and fail loudly, not skip).
   const devMarker = resolve(distDir, ".dev-build");
-  if (CFG.dev) writeFileSync(devMarker, "dev", "utf-8");
-  else rmSync(devMarker, { force: true });
+  if (CFG.dev) {
+    // A clean checkout has no dist/ yet; create it before writing the marker or
+    // writeFileSync throws ENOENT and the whole dev build dies on first run.
+    mkdirSync(distDir, { recursive: true });
+    writeFileSync(devMarker, "dev", "utf-8");
+  } else {
+    rmSync(devMarker, { force: true });
+  }
   let failed = 0;
   let buildOk = false;
   try {
