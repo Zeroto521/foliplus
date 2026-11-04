@@ -146,10 +146,8 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     }
     const sorted = [...names].sort();
     if (sorted.length === 0) continue;
-    const alias = `core${sub}`;
     lines.push(`import { ${sorted.join(", ")} } from "#core/${sub}/index.js";`);
-    lines.push(`const ${alias} = { ${sorted.join(", ")} };`);
-    lines.push(`window.foliplus.core["${sub}"] = ${alias};`);
+    lines.push(`window.foliplus.core["${sub}"] = { ${sorted.join(", ")} };`);
   }
 
   // Skip core/{component,hint,mode} — registered in runtime/index.ts.
@@ -158,28 +156,22 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     if (SKIPPED_CORE_FILES.has(name)) continue;
     const names = usedExports[`core/${name}`] || [];
     if (names.length === 0) continue;
-    const alias = `core${name}`;
     lines.push(`import { ${names.join(", ")} } from "#core/${name}.js";`);
-    lines.push(`const ${alias} = { ${names.join(", ")} };`);
-    lines.push(`window.foliplus.core["${name}"] = ${alias};`);
+    lines.push(`window.foliplus.core["${name}"] = { ${names.join(", ")} };`);
   }
 
   for (const name of commonModules) {
     const names = usedExports[`common/${name}`] || [];
     if (names.length === 0) continue;
     lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
-    lines.push(`const ${name}NS = { ${names.join(", ")} };`);
-    lines.push(`window.foliplus.common["${name}"] = ${name}NS;`);
+    lines.push(`window.foliplus.common["${name}"] = { ${names.join(", ")} };`);
   }
 
   for (const name of uiModules) {
     const names = usedExports[`ui/${name}`] || [];
     if (names.length === 0) continue;
     lines.push(`import { ${names.join(", ")} } from "#ui/${name}.js";`);
-    // Qualify the const: a ui module can share its basename with a common
-    // module (or a later one can), and both declarations would collide.
-    lines.push(`const ui${name}NS = { ${names.join(", ")} };`);
-    lines.push(`window.foliplus.ui["${name}"] = ui${name}NS;`);
+    lines.push(`window.foliplus.ui["${name}"] = { ${names.join(", ")} };`);
   }
 
   // The ui barrel (#ui/index.js): a component importing from it is scanned
@@ -192,15 +184,13 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const barrelNames = usedExports["ui"] || [];
   if (barrelNames.length > 0) {
     lines.push(`import { ${barrelNames.join(", ")} } from "#ui/index.js";`);
-    lines.push(`const uiIndexNS = { ${barrelNames.join(", ")} };`);
-    lines.push(`window.foliplus.ui["index"] = uiIndexNS;`);
+    lines.push(`window.foliplus.ui["index"] = { ${barrelNames.join(", ")} };`);
   }
 
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
   if (baseNames.length > 0) {
     lines.push(`import { ${baseNames.join(", ")} } from "#foliplus/BaseControl.js";`);
-    lines.push(`const BaseControlNS = { ${baseNames.join(", ")} };`);
-    lines.push("window.foliplus.BaseControl = BaseControlNS;");
+    lines.push(`window.foliplus.BaseControl = { ${baseNames.join(", ")} };`);
   }
 
   writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");

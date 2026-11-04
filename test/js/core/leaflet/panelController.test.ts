@@ -3,9 +3,9 @@
 // These exercise createPanel + attachPanel against the real per-map overlay
 // registry (document-level press/Escape dispatch), so they verify the
 // controller's behaviour through the mechanism a component actually drives.
-// They cover the §3 matrix A–F plus the idempotency / rollback / destroy
-// contracts, and the negative controls listed in §3 (each mutation turns a
-// test red — the evidence is recorded in the PR body).
+// They cover the behaviour matrix below plus the idempotency / rollback /
+// destroy contracts, and one negative control per behaviour (each mutation
+// turns a test red; the matrix below names the mutation).
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dismiss, PanelController } from "#core/leaflet/index.js";
@@ -428,7 +428,7 @@ describe("PanelController", () => {
     expect(state.closeCalls).toHaveLength(0);
   });
 
-  // ─────────────────────── §3 negative-control matrix ───────────────────────
+  // ─────────────────────── Negative-control matrix ─────────────────────────
   //
   // Each of the six mutations below is applied to the SOURCE in a throwaway
   // edit (never committed) and the corresponding test is observed to go red.
@@ -445,7 +445,7 @@ describe("PanelController", () => {
   //  6. destroy skips unregister → "destroy unregisters, second round ok" red
 
   it("an internal plain click does not self-close and does not bubble to the map", () => {
-    // §3-D: the panel's own content must not dismiss it, and a click inside
+    // Negative control D: the panel's own content must not dismiss it, and a click inside
     // the panel must not reach the map either (the panel swallows the press).
     const { map } = track(makeMap());
     const { spec, state, inside } = makeFixture({ localId: "attrs", rank: 600 });
@@ -463,7 +463,7 @@ describe("PanelController", () => {
   });
 
   it("outside press on a lower layer does not close an unrelated higher layer (B precise)", () => {
-    // §3-B precise (per-entry ownership, not "topmost wins"): with BOTH layers
+    // Negative control B, precise (per-entry ownership, not "topmost wins"): with BOTH layers
     // open in *different* groups, a press inside the lower layer's DOM is an
     // INSIDE press for it (it stays) and an OUTSIDE press for the higher layer
     // (it closes). One press dismisses at most one surface, and it is the one

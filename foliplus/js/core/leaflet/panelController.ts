@@ -5,7 +5,7 @@
 // internal close button), its registry identity and rank, and its teardown
 // order. It deliberately knows nothing about CSS classes, layout, header
 // visuals, icons or focus rings — that is the shared ui toolbox. The one
-// cross-boundary contract (spec §4) is that a panel's root() exposes
+// cross-boundary contract is that a panel's root() exposes
 // `[data-foliplus-panel-close]` (the close affordance wired to
 // closeFromClick) and `role="dialog"`.
 //
