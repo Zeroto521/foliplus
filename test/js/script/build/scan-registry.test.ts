@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
+import {
+  collectExportedNames,
+  generateRegistry,
+  registryUsedExports,
+} from "#script/build/scan-registry.mjs";
 import { runCli, trapExit } from "../../fixture.js";
 
 const FS = require("fs");
@@ -371,6 +375,7 @@ describe("generateRegistry", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "ui/index.ts": `export { panelButton } from "./panelChrome.js";`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
@@ -426,6 +431,237 @@ describe("generateRegistry", () => {
     for (const sub of ["geo", "geocode", "layer", "event"]) {
       expect(existsSync(join(coreDir, sub, "index.ts"))).toBe(true);
     }
+  });
+
+  it("throws when a component imports a name the ui barrel does not re-export", () => {
+    // The guard's core case: `ui/index.ts` re-exports `panelButton` but the
+    // component asks the barrel for `missingName`. Without the guard the
+    // registry would publish `window.foliplus.ui["index"] = { missingName }`
+    // and the shimmed import would resolve to `undefined` at runtime.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "ui/index.ts": `export { panelButton } from "./panelChrome.js";`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { missingName } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(
+      /does not re-export: missingName/,
+    );
+  });
+
+  it("throws when the ui barrel is emptied but a component imports from it", () => {
+    // A barrel whose re-exports were deleted while the component kept the
+    // import is the silent-drift case: the build would stay green and the
+    // component would read `undefined`. The guard must fail the build.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "ui/index.ts": `// emptied — no re-exports`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelButton } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(
+      /does not re-export: panelButton/,
+    );
+  });
+
+  it("throws when the ui barrel file is missing but a component imports from it", () => {
+    // A barrel with no `index.ts` at all is the same failure one step
+    // earlier: the component shim reads a namespace that is never published.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelButton } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(/index\.ts is missing/);
+  });
+
+  it("resolves export * from the ui barrel for validation", () => {
+    // `export * from` re-exports the target module's whole surface, so the
+    // guard must follow the star clause to collect `panelButton`.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "ui/index.ts": `export * from "./panelChrome.js";`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelButton } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.ui["index"]');
+    expect(output).toContain("panelButton");
+  });
+
+  it("lists every missing name in plural wording", () => {
+    // Two dropped re-exports must both be reported, and the message chooses the
+    // plural phrasing instead of naming a single export.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "ui/index.ts": `// emptied — no re-exports`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { missingOne, missingTwo } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(
+      /does not re-export: missingOne, missingTwo\. Add these names/,
+    );
+  });
+});
+
+describe("collectExportedNames", () => {
+  const dir = (files: Record<string, string>): string => mkDir("test", files);
+
+  it("collects named re-exports from a module clause", () => {
+    const d = dir({
+      "ui/index.ts": `export { panelButton, closeButton } from "./panelChrome.js";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {}; export const closeButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+    expect(names.has("closeButton")).toBe(true);
+  });
+
+  it("publishes the alias name for a re-export clause", () => {
+    const d = dir({
+      "ui/index.ts": `export { panelButton as primaryButton } from "./panelChrome.js";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("primaryButton")).toBe(true);
+    expect(names.has("panelButton")).toBe(false);
+  });
+
+  it("follows export * from a relative module", () => {
+    const d = dir({
+      "ui/index.ts": `export * from "./panelChrome.js";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {}; export const closeButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+    expect(names.has("closeButton")).toBe(true);
+  });
+
+  it("collects local re-exports and direct declarations", () => {
+    const d = dir({
+      "ui/index.ts": `
+        export const made = () => {};
+        export function built() {}
+        const local = () => {};
+        export { local as exportedLocal };
+      `,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("made")).toBe(true);
+    expect(names.has("built")).toBe(true);
+    expect(names.has("exportedLocal")).toBe(true);
+  });
+
+  it("does not count a default alias as a named export", () => {
+    const d = dir({
+      "ui/index.ts": `export { panelButton as default } from "./panelChrome.js";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("default")).toBe(false);
+  });
+
+  it("returns an empty set when the file does not exist", () => {
+    const d = dir({ "ui/index.ts": `// nothing` });
+    const names = collectExportedNames(PATH.join(d, "ui/missing.ts"));
+    expect(names.size).toBe(0);
+  });
+
+  it("resolves an export * target that lives behind a directory index", () => {
+    // `./panel.js` matches no file, so the guard falls back to
+    // `panel/index.ts` — the layout the ui sub-modules use.
+    const d = dir({
+      "ui/index.ts": `export * from "./panel.js";`,
+      "ui/panel/index.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+  });
+
+  it("ignores an export * target that resolves to no file", () => {
+    // A misspelled target cannot be read here; the guard leaves it to esbuild
+    // instead of failing the scan on it.
+    const d = dir({ "ui/index.ts": `export * from "./absent.js";` });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.size).toBe(0);
+  });
+
+  it("ignores an empty entry in a re-export clause", () => {
+    // A trailing comma leaves an empty part; it must not publish an empty name.
+    const d = dir({
+      "ui/index.ts": `export { panelButton, } from "./panelChrome.js";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+    expect(names.size).toBe(1);
+  });
+
+  it("leaves an aliased export * target to esbuild", () => {
+    // A bare alias specifier cannot be read by this scan; skipping it keeps the
+    // guard from reporting a phantom missing export.
+    const d = dir({ "ui/index.ts": `export * from "#common/dom.js";` });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.size).toBe(0);
+  });
+
+  it("resolves a relative export * target without an extension", () => {
+    const d = dir({
+      "ui/index.ts": `export * from "./panelChrome";`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("panelButton")).toBe(true);
+  });
+
+  it("stops on a cycle instead of recursing forever", () => {
+    const d = dir({
+      "ui/a.ts": `export * from "./b.js"; export const fromA = 1;`,
+      "ui/b.ts": `export * from "./a.js"; export const fromB = 1;`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/a.ts"));
+    expect(names.has("fromA")).toBe(true);
+    expect(names.has("fromB")).toBe(true);
+  });
+
+  it("stops following star chains past the depth bound", () => {
+    const files: Record<string, string> = {
+      "ui/index.ts": `export * from "./m0.js";`,
+    };
+    for (let i = 0; i < 18; i++) {
+      files[`ui/m${i}.ts`] = `export * from "./m${i + 1}.js"; export const n${i} = 1;`;
+    }
+    files["ui/m18.ts"] = `export const leaf = 1;`;
+    const d = dir(files);
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.has("n0")).toBe(true);
+    expect(names.has("leaf")).toBe(false);
   });
 });
 

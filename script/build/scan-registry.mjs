@@ -22,8 +22,8 @@
  *
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { repoRoot, resolveJsRoot } from "../build-path.mjs";
@@ -73,6 +73,127 @@ const registryUsedExports = dir => {
     usedExports[key] = [...merged.get(key)].sort();
   }
   return usedExports;
+};
+
+/** Bound on `export * from` chains before collectExportedNames stops recursing. */
+const MAX_EXPORT_DEPTH = 16;
+
+// `export { A, B as C } from "./mod.js"` — a named re-export clause.
+const RE_EXPORT_NAMED_FROM = /export\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+// `export * from "./mod.js"` — a star re-export clause.
+const RE_EXPORT_STAR_FROM = /export\s*\*\s*from\s*["']([^"']+)["']/g;
+// `export { A, B as C }` — a local re-export clause (no `from`).
+const RE_EXPORT_NAMED_LOCAL = /export\s*\{([^}]*)\}/g;
+// `export const X` / `export function X` / `export class X` — a direct export.
+const RE_EXPORT_DECL =
+  /export\s+(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g;
+
+/** Names an `export { ... }` clause makes importable: `A, B as C` → `A, C`
+ *  (the `as` alias is the published name). A `default` alias publishes no
+ *  named export, so it is dropped. */
+const parseExportNames = list =>
+  list
+    .split(",")
+    .map(part => {
+      const trimmed = part.trim();
+      if (!trimmed) return null;
+      const asMatch = trimmed.match(/\s+as\s+([A-Za-z_$][\w$]*)$/);
+      const name = asMatch ? asMatch[1] : trimmed;
+      return name === "default" ? null : name;
+    })
+    .filter(Boolean);
+
+/** Resolve a relative specifier in an `export * from` clause to an existing
+ *  source file. `./mod.js` may live on disk as `mod.ts`; a bare specifier
+ *  (an alias such as `#common/dom.js`) is left to esbuild and returns null. */
+const resolveModuleSpecifier = (dir, spec) => {
+  if (!spec.startsWith(".")) return null;
+  const base = resolve(dir, spec);
+  const candidates = spec.endsWith(".js")
+    ? [
+        base,
+        base.replace(/\.js$/, ".ts"),
+        base.replace(/\.js$/, ".tsx"),
+        base.replace(/\.js$/, ".mts"),
+      ]
+    : [base, `${base}.ts`, `${base}.js`, `${base}.tsx`];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  const idxBase = spec.endsWith(".js") ? base.replace(/\.js$/, "") : base;
+  for (const idx of [resolve(idxBase, "index.ts"), resolve(idxBase, "index.js")]) {
+    if (existsSync(idx)) return idx;
+  }
+  return null;
+};
+
+/** Collect the named-export surface of a module file — every name importable
+ *  via `import { X } from ...`. Reads the file, walks its `export` clauses
+ *  (named-from, star-from, local named, and direct `const`/`function`/`class`),
+ *  and resolves `export * from` targets recursively. `seen` guards cycles and
+ *  `depth` bounds star chains, so a self-referential or unresolvable barrel
+ *  reports the missing names rather than recursing forever. */
+const collectExportedNames = (filePath, seen = new Set(), depth = 0) => {
+  if (depth > MAX_EXPORT_DEPTH) return new Set();
+  const abs = resolve(filePath);
+  if (seen.has(abs)) return new Set();
+  seen.add(abs);
+  let source;
+  try {
+    source = readFileSync(abs, "utf-8");
+  } catch {
+    return new Set();
+  }
+  const names = new Set();
+  const dir = dirname(abs);
+  for (const m of source.matchAll(RE_EXPORT_NAMED_FROM)) {
+    for (const n of parseExportNames(m[1])) names.add(n);
+  }
+  for (const m of source.matchAll(RE_EXPORT_STAR_FROM)) {
+    const target = resolveModuleSpecifier(dir, m[1]);
+    if (target) {
+      for (const n of collectExportedNames(target, seen, depth + 1)) names.add(n);
+    }
+  }
+  // Local `export { ... }` clauses (no `from`) after the `from` forms are
+  // removed, so a clause that ends in `from "..."` is not counted twice.
+  const withoutFrom = source.replace(RE_EXPORT_NAMED_FROM, "");
+  for (const m of withoutFrom.matchAll(RE_EXPORT_NAMED_LOCAL)) {
+    for (const n of parseExportNames(m[1])) names.add(n);
+  }
+  for (const m of source.matchAll(RE_EXPORT_DECL)) names.add(m[1]);
+  return names;
+};
+
+/** Fail the build when a component imports a name the ui barrel does not
+ *  re-export. The barrel namespace is generated from the same scan, so an
+ *  import and its published name normally stay in lockstep; the only way they
+ *  drift is editing `ui/index.ts` (deleting a re-export, or emptying the file)
+ *  without touching the components. esbuild externalizes the barrel import to
+ *  a shim that reads `window.foliplus.ui["index"]`, so the drift would
+ *  otherwise resolve to `undefined` at runtime while the build stays green. */
+const assertBarrelExports = (sourceDir, barrelName, names) => {
+  const indexPath = resolve(sourceDir, barrelName, "index.ts");
+  if (!existsSync(indexPath)) {
+    throw new Error(
+      [
+        `${barrelName}/index.ts is missing but a component imports from`,
+        `"#${barrelName}/index.js" (${names.join(", ")}). The barrel must`,
+        "exist and re-export every name the components use.",
+      ].join(" "),
+    );
+  }
+  const exported = collectExportedNames(indexPath);
+  const missing = names.filter(n => !exported.has(n));
+  if (missing.length) {
+    throw new Error(
+      [
+        `"#${barrelName}/index.js" does not re-export: ${missing.join(", ")}.`,
+        `Add ${missing.length > 1 ? "these names" : "this name"} to`,
+        `${barrelName}/index.ts or remove the import from the component.`,
+      ].join(" "),
+    );
+  }
 };
 
 const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
@@ -183,6 +304,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   // ui/<name>.js imports (a few build-script tests import those directly).
   const barrelNames = usedExports["ui"] || [];
   if (barrelNames.length > 0) {
+    assertBarrelExports(sourceDir, "ui", barrelNames);
     lines.push(`import { ${barrelNames.join(", ")} } from "#ui/index.js";`);
     lines.push(`window.foliplus.ui["index"] = { ${barrelNames.join(", ")} };`);
   }
@@ -207,7 +329,13 @@ const main = () => {
   generateRegistry();
 };
 
-export { generateRegistry, main, registryUsedExports };
+export {
+  assertBarrelExports,
+  collectExportedNames,
+  generateRegistry,
+  main,
+  registryUsedExports,
+};
 
 // CLI entry point: `node script/build/scan-registry.mjs [--root <path>] [--silent]`.
 // Guarded so importing this module (e.g. for tests) has no side effects.
