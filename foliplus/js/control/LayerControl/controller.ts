@@ -217,6 +217,9 @@ class LayerController implements LayerAPI {
    *  filterSetter, and LAYER_FILTER_CHANGE is published after the state here
    *  is settled. Absent = no filter. Heatmap/Measure own their own filters. */
   declare layerFilters: Map<string, LayerFilter>;
+  /** The generic filter's hidden-leaf set per layer id, kept so the annotation
+   *  label walk can skip hidden leaves (§9) without recomputing the filter. */
+  declare hiddenSets: Map<string, WeakSet<L.Layer>>;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
@@ -308,6 +311,8 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(this.map);
     this.surfaceIndex = new SurfaceIndex();
     this.intentStore = new LayerIntentStore();
+    this.layerFilters = new Map();
+    this.hiddenSets = new Map();
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -402,6 +407,20 @@ class LayerController implements LayerAPI {
           break;
         }
       }
+      // Replay the generic filter's hidden class onto a re-attached layer: a
+      // re-add recreates the leaves' DOM elements, dropping the class a filter
+      // wrote. Guarded by "any filter active" so the common no-filter case pays
+      // O(1) instead of an O(layers) scan.
+      if (this.layerFilters.size > 0) {
+        const stamp = L.stamp(event.layer);
+        for (const layerInfo of this.layers) {
+          const resolved = findLayer(this.map, layerInfo.id);
+          if (resolved && L.stamp(resolved) === stamp) {
+            this.replayFilter(layerInfo.id);
+            break;
+          }
+        }
+      }
     };
     this.map.on("layeradd", this.onLayerAdd);
     // Content removals are the counterpart that makes a capability degrade
@@ -433,6 +452,9 @@ class LayerController implements LayerAPI {
       map: this.map,
       layerFind: this.findLayer,
     });
+    this.annotation.setHiddenCheck(
+      (id, leaf) => this.hiddenSets.get(id)?.has(leaf) ?? false,
+    );
     this.domain = new LayerOrchestration({
       map: this.map,
       layerRegistry: this.layerRegistry,
@@ -904,6 +926,7 @@ class LayerController implements LayerAPI {
       !opts.filterProvider &&
       !opts.filterSetter &&
       !opts.canvas &&
+      !opts.styleSetters &&
       opts.role !== ROLE.BASE
     ) {
       const id = opts.id;
@@ -964,6 +987,9 @@ class LayerController implements LayerAPI {
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
+      // Re-apply a committed filter's hidden class onto the refreshed layer's
+      // fresh DOM elements (R2 replay).
+      this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
       });
@@ -1665,9 +1691,24 @@ class LayerController implements LayerAPI {
    *  (D9: the ramp/legend domain must not follow the filter). */
   setLayerFilter(id: string, filter: LayerFilter | undefined): void {
     this.layerFilters.set(id, filter);
+    this.applyFilterClass(id, filter);
+    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id });
+  }
+
+  /** Compute the filter's hidden set and toggle the hidden class on every
+   *  geometry leaf's element (path / icon / shadow — §9 D1, one class write
+   *  instead of a per-leaf style loop). The annotation label walk reads the
+   *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
+   *  (D9: the ramp/legend domain must not follow the filter). No event is
+   *  published: a caller that also announces the change publishes separately. */
+  private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
-    if (!features) return;
+    if (!features) {
+      this.hiddenSets.set(id, new WeakSet());
+      return;
+    }
     const hidden = filterLeafSet(features.features, filter);
+    this.hiddenSets.set(id, hidden);
     for (const feature of features.features) {
       const leaf = feature.leaf as L.Layer & {
         _path?: HTMLElement | null;
@@ -1678,7 +1719,14 @@ class LayerController implements LayerAPI {
         if (el) el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
       }
     }
-    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id });
+  }
+
+  /** Re-apply a committed filter's hidden class after a layer's DOM elements
+   *  were recreated (layeradd late-binding, LAYER_ITEM_REFRESHED). A layer that
+   *  was never filtered is skipped; a cleared filter re-applies no-hidden. */
+  private replayFilter(id: string): void {
+    if (!this.layerFilters.has(id)) return;
+    this.applyFilterClass(id, this.layerFilters.get(id));
   }
 
   private notifyCapabilityChanges(): void {
