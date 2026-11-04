@@ -22,6 +22,7 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { dom } from "#common/dom.js";
+import { bindFloatingWheel, mountFloating, type Floating } from "#common/floating.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
@@ -210,7 +211,8 @@ interface InternalState {
   isOpen: boolean;
   destroyed: boolean;
   mountCleanup: (() => void)[];
-  releasePortalRoot: (() => void) | null;
+  /** The mounted floating layer (portal mount/re-pin/re-seat/wheel). */
+  floating: Floating | null;
 }
 
 /** Open popups, newest last. One at a time: two portalled lists on <body>
@@ -225,15 +227,6 @@ const spaceAround = (trigger: HTMLElement): { below: number; above: number } => 
     above: rect.top - POPUP_EDGE_GAP,
   };
 };
-
-/** Where an open popup is mounted. The panel's own clip box is short, so the
- *  list leaves the panel: it mounts on the surface covering the trigger —
- *  native fullscreen, the control's pseudo-fullscreen container, or <body> —
- *  with fixed coordinates and re-pins on scroll/resize. */
-const popupHost = (state: InternalState): HTMLElement =>
-  state.spec.surface?.resolveHost?.() ??
-  (document.fullscreenElement as HTMLElement | null) ??
-  document.body;
 
 const itemDisabled = (item: ListboxItem | undefined): boolean => !!item?.disabled;
 
@@ -463,10 +456,10 @@ const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void =>
   state.trigger.classList.remove(state.spec.classes.open);
   state.trigger.setAttribute("aria-expanded", "false");
   state.trigger.removeAttribute("aria-activedescendant");
+  state.floating?.release();
+  state.floating = null;
   state.mountCleanup.forEach(fn => fn());
   state.mountCleanup = [];
-  state.releasePortalRoot?.();
-  state.releasePortalRoot = null;
   // The popup goes back into the wrapper when it is closed: the open state is
   // the only one that has to escape the panel's clip box.
   if (state.spec.detachOnClose) {
@@ -505,10 +498,14 @@ const open = (state: InternalState): void => {
     state.trigger.setAttribute("aria-expanded", "true");
     state.spec.onPosition?.();
   } else {
-    const host = popupHost(state);
-    if (state.list.parentElement !== host) host.appendChild(state.list);
+    state.floating = mountFloating({
+      root: state.list,
+      anchor: state.trigger,
+      position: () => positionList(state),
+      surface: state.spec.surface,
+      registerPortalRoot,
+    });
     state.list.hidden = false;
-    state.releasePortalRoot = registerPortalRoot(state.list, state.trigger);
     state.isOpen = true;
     state.trigger.classList.add(state.spec.classes.open);
     state.trigger.setAttribute("aria-expanded", "true");
@@ -531,34 +528,6 @@ const open = (state: InternalState): void => {
         document.removeEventListener("pointerdown", onOutsidePress, true),
       );
     }
-
-    // Re-pin on scroll/resize instead of dismissing.
-    const reposition = (event: Event): void => {
-      const target = event.target;
-      if (target instanceof Node) {
-        if (state.list === target || state.list.contains(target)) return;
-      }
-      positionList(state);
-    };
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition, { passive: true });
-    const reseat = (): void => {
-      if (!state.isOpen) return;
-      const nextHost = popupHost(state);
-      if (state.list.parentElement !== nextHost) nextHost.appendChild(state.list);
-      positionList(state);
-    };
-    const unsubscribeSurface = state.spec.surface?.onSurfaceChange
-      ? state.spec.surface.onSurfaceChange(reseat)
-      : (() => {
-          document.addEventListener("fullscreenchange", reseat);
-          return () => document.removeEventListener("fullscreenchange", reseat);
-        })();
-    state.mountCleanup.push(() => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-      unsubscribeSurface();
-    });
 
     // The trigger is the popup's width source and can resize without a window
     // resize (a panel gaining/losing a layout scrollbar lane moves every control
@@ -727,8 +696,8 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   // A wheel over the open popup must not zoom the map. The popup is portalled
   // out of the control container, so the container's disableScrollPropagation
   // does not cover it. Stop propagation only: the list's own overflow-y scroll
-  // still works.
-  list.addEventListener("wheel", event => event.stopPropagation());
+  // still works. Bound once (not per mount) so inline mode is covered too.
+  bindFloatingWheel(list);
   spec.trigger.setAttribute("aria-haspopup", "listbox");
   spec.trigger.setAttribute("aria-expanded", "false");
   spec.trigger.setAttribute("aria-controls", listId);
@@ -742,7 +711,7 @@ const createListbox = (spec: ListboxSpec): Listbox => {
     isOpen: false,
     destroyed: false,
     mountCleanup: [],
-    releasePortalRoot: null,
+    floating: null,
   };
 
   const onTriggerClick = (event: MouseEvent): void => {
