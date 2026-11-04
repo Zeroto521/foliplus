@@ -18,6 +18,11 @@ import { runCli, trapExit } from "../../fixture.js";
 // dist/, so the case skips cleanly instead of crashing on the missing dir.
 const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
 
+// A dev build (build:dev) emits unminified output larger than the minified
+// ceilings these dist-dependent cases assert, so they also skip when build.mjs
+// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
+const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
 // become a no-op. `payload` is incompressible — its brotli size tracks its
@@ -217,7 +222,7 @@ describe("CLI entry", () => {
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 
-  it.skipIf(!distReady)(
+  it.skipIf(!distReady || distDev)(
     "defaults --root to the checkout and fuses it",
     async () => {
       // `node script/bundle-fuse.mjs` without --root reads the checkout's own

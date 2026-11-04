@@ -322,6 +322,7 @@ on a checkout that may not have `dist/` at all, and it must not touch it.
 */
 const writeArtifactManifest = filenames => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
+
   writeFileSync(
     resolve(distDir, "manifest.json"),
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
@@ -430,6 +431,15 @@ const main = async () => {
   }
 
   writeArtifactManifest(components.map(c => c.name));
+
+  // Dist-mode marker for the dist-dependent tests (bundle-fuse, bundle-size-check,
+  // browser-probe): build:dev emits unminified output that is larger than the
+  // minified absolute ceilings those tests assert, so they skip their absolute-cap
+  // assertions when a dev build wrote this marker. `npm run build` (minified)
+  // removes it. The absolute gate stays in the minified/CI path (bundle.yaml).
+  const devMarker = resolve(distDir, ".dev-build");
+  if (CFG.dev) writeFileSync(devMarker, "dev", "utf-8");
+  else rmSync(devMarker, { force: true });
 
   if (failed) process.exit(1);
   console.timeEnd("build");
