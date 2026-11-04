@@ -5,9 +5,9 @@
   Floating menus in SearchControl (result panel) and LayerControl (layer
   overflow menu, and the row panels a layer row opens) share one visual
   recipe. Position, width, max-height and item layout stay per-component;
-  this block owns the shell + hover/active states. The scheme picker has
-  its own recipe in common/scheme-picker.css (items carry color bars and
-  a persistent selection border).
+  this block owns the shell + hover/active states. The scheme picker joins
+  the same shell; common/scheme-picker.css owns only its geometry (color
+  bars, persistent selection border, max-height).
 
   Row panels join by their shared `foliplus-row-panel` class rather than by
   name, so a new one inherits the shell without editing the lists below.
@@ -18,9 +18,21 @@
    it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
    shadow and z-index, so restating those here was two sources for one decision
    with the panel's copy silently winning. `.foliplus-dropdown-list` (the shared
-   select replacement) joins the plain dropdowns: common/dropdown.css owns its
-   anchor and rows, never this box. */
-:is(.foliplus-search-result-panel, .foliplus-layer-more-menu, .foliplus-dropdown-list) {
+   select replacement) and `.foliplus-scheme-picker-dropdown` (the color scheme
+   picker) join the plain dropdowns: common/dropdown.css and
+   common/scheme-picker.css own only their anchor/geometry, never this box.
+
+   Gap single-ownership (§F2): `margin-top` here is the *in-flow* case — the
+   trigger is the anchoring context and the menu hangs directly under it. A
+   JS-positioned / portalled menu (dropdown.css, scheme-picker.css portal state)
+   computes its own gap in the placement engine and zeroes the CSS margin, so
+   this rule never fights it. */
+:is(
+  .foliplus-search-result-panel,
+  .foliplus-layer-more-menu,
+  .foliplus-dropdown-list,
+  .foliplus-scheme-picker-dropdown
+) {
   box-sizing: border-box;
   margin-top: var(--foliplus-menu-gap);
   background: var(--foliplus-input-bg);
@@ -29,8 +41,11 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
-  /* Entrance: subtle fade + slide-down, plays once when the menu mounts. */
-  animation: foliplus-dropdown-in 0.15s ease-out;
+  /* Entrance: subtle fade + slide-down, plays once when the menu mounts.
+     The two former 0.15s entrances (dropdown + scheme picker) were identical;
+     the tokens are the single duration/easing both use now. */
+  animation: foliplus-dropdown-in var(--foliplus-menu-in-duration)
+    var(--foliplus-menu-in-easing);
 }
 
 /* Row panels keep a real border, not an outline: an inset outline would be
@@ -45,7 +60,8 @@
   background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   overflow-y: auto;
-  animation: foliplus-dropdown-in 0.15s ease-out;
+  animation: foliplus-dropdown-in var(--foliplus-menu-in-duration)
+    var(--foliplus-menu-in-easing);
 }
 
 @keyframes foliplus-dropdown-in {
@@ -65,7 +81,8 @@
     .foliplus-search-result-panel,
     .foliplus-layer-more-menu,
     .foliplus-row-panel,
-    .foliplus-dropdown-list
+    .foliplus-dropdown-list,
+    .foliplus-scheme-picker-dropdown
   ) {
     animation: none;
   }
