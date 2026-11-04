@@ -59,3 +59,26 @@ describe("more-menu button styles", () => {
     expect(disabled).toContain("color: var(--foliplus-text-muted)");
   });
 });
+
+describe("disabled menu entries", () => {
+  it("gives a disabled menu item a not-allowed cursor", () => {
+    // The more-menu entries are native buttons, so their disabled state is
+    // aria-disabled rather than a bare li[disabled].
+    expect(sharedMenuCss).toMatch(
+      /\.foliplus-layer-more-menu button\[aria-disabled="true"\]\s*\{[^}]*cursor:\s*not-allowed/,
+    );
+  });
+
+  it("excludes disabled menu items from the shared hover", () => {
+    expect(sharedMenuCss).toMatch(
+      /\.foliplus-layer-more-menu button:not\(\[aria-disabled="true"\]\):hover/,
+    );
+  });
+
+  it("rejects the pre-fix hover and disabled shape (negative control)", () => {
+    expect(sharedMenuCss).not.toMatch(
+      /:is\(\.foliplus-search-result-item, \.foliplus-layer-more-menu button\):hover/,
+    );
+    expect(sharedMenuCss).not.toMatch(/\.foliplus-layer-more-menu li\[disabled\]/);
+  });
+});
