@@ -316,6 +316,7 @@ def test_declared_folder_non_string_is_none():
     layer = _geo(foliplus={"folder": 5})
     assert declared_folder(layer, "Declared") is None
 
+
 def test_folder_display_name_preserves_case_and_folds_whitespace():
     # The Python side emits the author's display name: case is preserved (the
     # group key's casefold is the JS side's job) and only NFC + whitespace
@@ -378,4 +379,3 @@ def test_third_party_and_own_layer_share_folder_zero_warning():
     declared = [entry for entry in data if "folder" in entry]
     assert len(declared) == 2
     assert all(entry["folder"] == "Shared" for entry in declared)
-
