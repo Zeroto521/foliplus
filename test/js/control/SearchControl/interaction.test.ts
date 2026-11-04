@@ -572,6 +572,25 @@ describe("bindEvents", () => {
     container.remove();
   });
 
+  it("repositions the wrap on a page scroll after it was opened", () => {
+    // interaction.ts binds ctrl.repositionHandler to window scroll (capture)
+    // and resize. A scroll after the panel opened must re-run positionPanel,
+    // so the fixed wrap stays attached to the control (the panel is fixed and
+    // the control moves with the viewport — see the positionPanel test for the
+    // no-scroll-offset rule). This pins the interaction.ts:198-204 wiring.
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = document.createElement("div");
+    ctrl.ctrl.getBoundingClientRect = () =>
+      ({ left: 10, top: 20, bottom: 100, width: 200 }) as DOMRect;
+    bindEvents(ctrl);
+    // Open the panel (renderResults sets panelWrap); force a re-layout by
+    // dispatching a window scroll. The handler re-reads the control rect and
+    // writes the same fixed coordinates.
+    window.dispatchEvent(new Event("scroll"));
+    expect(ctrl.panelWrap.style.left).toBe("10px");
+    expect(ctrl.panelWrap.style.top).toBe("100px");
+  });
+
   it("uses window-only scroll targets when no leaflet-container exists", () => {
     const ctrl = makeCtrl();
     ctrl.mode = "addr";
