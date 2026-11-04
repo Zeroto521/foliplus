@@ -109,6 +109,14 @@ describe("buildFilterFeatures — field domain", () => {
     expect(feat.features[1].fields.score).toBe(30);
   });
 
+  it("shrinks the range when a later value is below the running minimum", () => {
+    // A value below the running minimum rewrites the range low edge.
+    const a = makeLeaf("marker", { score: 30 });
+    const b = makeLeaf("marker", { score: 10 });
+    const feat = buildFilterFeatures(group(a, b));
+    expect(feat.ranges.score).toEqual([10, 30]);
+  });
+
   it("excludes NaN / ±Infinity from numeric fields; a numeric-looking string is enum", () => {
     const a = makeLeaf("marker", { ok: 5, bad: Number.NaN, inf: Infinity, str: "5" });
     const feat = buildFilterFeatures(group(a));

@@ -86,6 +86,19 @@ describe("generic data-layer filter (controller wiring)", () => {
       const info = manager.layerRegistry.get("explicit");
       expect(info?.filterProvider).toBe(provider);
     });
+
+    it("filterSetter writes through to setLayerFilter", () => {
+      manager.registerLayer({ id: "flt1", name: "Flt", role: "overlay" });
+      const info = manager.layerRegistry.get("flt1");
+      const filter = between("value", [2, 5]);
+      // Calling the injected setter runs the write-through closure and, with
+      // no feature snapshot yet, the empty-features branch of applyFilterClass.
+      info?.filterSetter?.(filter);
+      expect(manager.layerRegistry.get("flt1")?.filter).toEqual(filter);
+      // With no feature snapshot the empty-features branch installs an empty
+      // hidden set; a WeakSet has no .size here, so assert by identity.
+      expect(manager.hiddenSets.get("flt1")).toBeInstanceOf(WeakSet);
+    });
   });
 
   describe("setLayerFilter", () => {
@@ -153,6 +166,36 @@ describe("generic data-layer filter (controller wiring)", () => {
       );
       manager.setLayerFilter("flt1", undefined);
       expect(manager.layerRegistry.get("flt1")?.filter).toBeUndefined();
+    });
+
+    it("replayFilter is a no-op for a layer with no committed filter", () => {
+      // The layeradd late-binding replay must skip a layer that was never
+      // filtered — the early return must not touch the hidden set.
+      (manager as unknown as { replayFilter(id: string): void }).replayFilter("flt1");
+      expect(manager.hiddenSets.get("flt1")).toBeUndefined();
+    });
+
+    it("replayFilter re-applies the committed filter (late-binding layeradd)", () => {
+      const features = makeFeatures();
+      ui.runtimeStore.setFilterFeatures("flt1", features);
+      manager.setLayerFilter("flt1", between("value", [2, 5]));
+      const [a] = features.features;
+      const path = (leaf: L.Layer) =>
+        (leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
+      expect(path(a.leaf)).toBe(true);
+      // A layeradd that arrives after the filter is committed replays it.
+      (manager as unknown as { replayFilter(id: string): void }).replayFilter("flt1");
+      expect(path(a.leaf)).toBe(true);
+    });
+
+    it("deleteFilterFeatures drops the snapshot and prunes the row", () => {
+      const features = makeFeatures();
+      ui.runtimeStore.setFilterFeatures("flt1", features);
+      expect(ui.runtimeStore.getFilterFeatures("flt1")).toBe(features);
+      ui.runtimeStore.deleteFilterFeatures("flt1");
+      expect(ui.runtimeStore.getFilterFeatures("flt1")).toBeUndefined();
     });
   });
 
