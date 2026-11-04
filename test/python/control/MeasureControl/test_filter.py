@@ -35,6 +35,15 @@ from foliplus import MeasureControl
 
 from .helper import _TURF_STUB, _make_page, _stub_cdn
 
+
+def _class_doc() -> str:
+    """The class docstring is the single contract surface for the declaration."""
+    doc = inspect.getdoc(MeasureControl)
+    assert doc is not None, "MeasureControl must carry a class docstring"
+    return doc
+
+
+# ── live filter ──
 CLEAR = _js("MeasureControl/clear_filter")
 
 READ_STATE = _js("MeasureControl/read_state")
@@ -48,6 +57,28 @@ DRAW_MARKER = _js("MeasureControl/draw_marker")
 TYPES = ["distance", "polygon", "circle", "marker"]
 
 COUNT_KEYS = ("paths", "labels", "dots")
+
+# ── declared filter ──
+_DRAW_ALL = _js("MeasureControl/draw_all")
+
+_READ_STATE = _js("MeasureControl/read_state")
+
+_DECLARED = {
+    "kind": "enum",
+    "field": "type",
+    "values": ["distance", "polygon"],
+}
+
+# ── docstring contract ──
+_DOC = _class_doc()
+
+# The Notes section (the last major section) holds the declaration tables
+# and the resolution rules; anchor on the exact section header.
+_NOTES = _DOC.split("Notes\n-----", 1)[1]
+
+# Grid-table rows wrap mid-sentence and carry cell borders. Collapse both so a
+# rule can be asserted as one phrase regardless of where the column broke.
+_FLAT = " ".join(_NOTES.replace("|", " ").split())
 
 
 def _count(state):
@@ -448,16 +479,6 @@ def test_a_mapping_is_not_a_measure_declaration():
     assert conf["filter"] is None
 
 
-_DRAW_ALL = _js("MeasureControl/draw_all")
-_READ_STATE = _js("MeasureControl/read_state")
-
-_DECLARED = {
-    "kind": "enum",
-    "field": "type",
-    "values": ["distance", "polygon"],
-}
-
-
 def _declared_make_page(browser, tmp_path, **ctrl_kwargs):
     """A MeasureControl page with the test hooks the snippets read back.
 
@@ -547,19 +568,6 @@ class TestDeclaredMeasureFilterBrowser:
             assert state["filter"] is None, state
             assert len(state["visible"]) == 4, state
             assert not errors, f"JS errors: {errors}"
-
-
-# The class docstring is the single contract surface for the declaration.
-_DOC = inspect.getdoc(MeasureControl)
-assert _DOC is not None, "MeasureControl must carry a class docstring"
-
-# The Notes section (the last major section) holds the declaration tables
-# and the resolution rules; anchor on the exact section header.
-_NOTES = _DOC.split("Notes\n-----", 1)[1]
-
-# Grid-table rows wrap mid-sentence and carry cell borders. Collapse both so a
-# rule can be asserted as one phrase regardless of where the column broke.
-_FLAT = " ".join(_NOTES.replace("|", " ").split())
 
 
 def test_docstring_documents_the_type_name_list_form() -> None:
