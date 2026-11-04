@@ -1,9 +1,9 @@
 Reference
 =========
 
-Index of the read-only design and audit reference documents that guide the
-internal architecture slices. Each design is complete; the implementation
-lives on the task card named in the entry.
+Selected design and audit references that guide the internal architecture
+slices. Each design is complete; the implementation lives on the task card
+named in the entry.
 
 .. note::
 
@@ -22,7 +22,7 @@ Extract ``foliplus/js/ui/`` — the shared panel "appearance-composition layer
 - Design reference: ``.foliplus/zeta/task-31-ui-toolbox-design.md``
 - Working notes: ``.foliplus/zeta/task-31-working-notes.md``
 - Source: ``foliplus/js/ui/``
-- Implements: task-23
+- Implements: task-31
 
 PanelController
 ---------------
@@ -34,7 +34,7 @@ three-state ``dismiss`` (``escape`` / ``outsidePress`` /
 
 - Design reference: ``.foliplus/task-47-m2-panel-controller.md``
 - Source: ``foliplus/js/core/leaflet/panel.ts``
-- Implements: task-19
+- Implements: task-47
 
 Dropdown consolidation
 ----------------------
@@ -45,7 +45,7 @@ migrates onto the engine.
 
 - Design reference: ``.foliplus/zeta/dropdown-consolidation-design.md``
 - Source: ``foliplus/js/common/listbox.ts``
-- Implements: task-30
+- Implements: task-77
 
 Docstring consistency audit
 ---------------------------
@@ -57,4 +57,4 @@ bare-quote convention.
 - Audit reference: ``.foliplus/zeta/docstring-consistency-audit.md``
 - Template: :doc:`api/foliplus.LayerControl`
 - Source: ``foliplus/control/LayerControl/``
-- Implements: task-10
+- Implements: task-85
