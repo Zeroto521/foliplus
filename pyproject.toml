@@ -35,7 +35,7 @@ Source = "https://github.com/Zeroto521/foliplus"
 Issues = "https://github.com/Zeroto521/foliplus/issues"
 
 [dependency-groups]
-test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov", "docutils"]
+test = ["pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov", "docutils<0.23"]
 doc = [
   "sphinx",
   "pydata-sphinx-theme",
