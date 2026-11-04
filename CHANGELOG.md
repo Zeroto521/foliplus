@@ -25,6 +25,7 @@
 - `LayerControl`: the layer declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
 - Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793), [#810](https://github.com/Zeroto521/foliplus/pull/810), [#824](https://github.com/Zeroto521/foliplus/pull/824), [#837](https://github.com/Zeroto521/foliplus/pull/837))
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
+- CHANGELOG: release notes standardize the layer/declaration framing over the layer-writer framing ([#896](https://github.com/Zeroto521/foliplus/pull/896))
 
 ### Removed
 
