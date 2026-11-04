@@ -151,6 +151,14 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
     surface,
   });
+  // The visible flex items are the shared dropdown wrappers (the hidden native
+  // selects are display:none), so the heatmap stylesheet sizes them through
+  // these wrapper hook classes: the method flexes to fill the control column
+  // and the class count sits at the compact secondary width — the
+  // LayerControl by-value row's shape. The classes-select hook class on the
+  // native select and the data-* seams stay untouched.
+  classesRow.methodDropdown.element.classList.add("foliplus-heatmap-method");
+  classesRow.classesDropdown.element.classList.add("foliplus-heatmap-classes-count");
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),
     triggerClass: "foliplus-heatmap-scheme-bar",

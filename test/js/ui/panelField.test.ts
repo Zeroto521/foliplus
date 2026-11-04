@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dom } from "#common/dom.js";
-import { readOnlyValue } from "#ui/panelField.js";
+import { readOnlyValue } from "#ui/index.js";
 
 // ui/panelField read-only primitive: the shared read-only value box for panel
 // readouts. The class-name contract with the Python render-string tests is

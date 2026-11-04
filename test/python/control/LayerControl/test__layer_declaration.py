@@ -1,10 +1,15 @@
-"""Rendering tests for the declared zoom range (CONFIG data[].zoomRange).
+"""The layer-side declaration namespace: ``foliplus={...}`` on a layer.
 
-The declaration is the layer's own foliplus={"zoom_range": {...}} namespace - a
-folium passthrough onto layer.options - which Python normalises into CONF so
-the visibility policy reads one fact. These tests assert the shipped payload
-and the warnings a misspelled or malformed declaration produces; the policy
-itself is covered by the JS projection tests.
+A layer declares its own defaults rather than the control: the dict is a folium
+passthrough onto layer.options, and each key is read by whichever side owns it.
+``zoom_range`` is normalised by Python into CONF so the visibility policy reads
+one fact; ``label`` stays a JS-side namespace that the annotation manager reads
+off the layer. These tests assert the shipped payload, the layer channel that
+carries it, and the warnings a misspelled or malformed declaration produces; the
+policy itself is covered by the JS projection tests.
+
+That documented channel is also what pins the supported floor — folium only
+forwards those kwargs onto a layer's options from 0.15 on.
 """
 
 from __future__ import annotations
@@ -18,6 +23,8 @@ import pytest
 
 from foliplus import LayerControl
 from foliplus.control.LayerControl._layer_declaration import declared_zoom_range
+
+_EMPTY = json.dumps({"type": "FeatureCollection", "features": []})
 
 
 def _render(*layers: folium.Layer) -> str:
@@ -194,3 +201,24 @@ def test_declared_zoom_range_undeclared_layer_is_none():
 def test_declared_zoom_range_invalid_is_dropped():
     layer = _geo(foliplus={"zoom_range": {"min": "eight"}})
     assert declared_zoom_range(layer, "Declared") is None
+
+
+# --- The layer is its own declaration channel ------------------------------
+
+
+def test_label_key_reaches_the_layer_options() -> None:
+    """The documented author channel lands the declaration on the layer."""
+    m = folium.Map()
+    ctrl = LayerControl().add_to(m)
+    layer = folium.GeoJson(
+        _EMPTY, name="declared", foliplus={"label": {"field": "name"}}
+    )
+    layer.add_to(ctrl)
+
+    # folium's typing does not declare `options` on a Layer, hence the
+    # defensive read; the constructor above is what pins the supported floor.
+    options = getattr(layer, "options", {})
+    assert options.get("foliplus") == {"label": {"field": "name"}}
+
+    data = ctrl._extra_config()["data"]  # type: ignore[attr-defined]
+    assert data[0]["name"] == "declared"

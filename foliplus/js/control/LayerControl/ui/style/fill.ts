@@ -50,7 +50,7 @@ import {
 } from "#common/form.js";
 import { createLogger } from "#common/log.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
-import { readOnlyValue } from "#ui/panelField.js";
+import { readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
