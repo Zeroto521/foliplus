@@ -415,6 +415,22 @@ class TestNormaliseFolder:
         message = str(record[0].message)
         assert "layer 'roads' declares foliplus['folder'] as int" in message
 
+    def test_the_message_names_the_layer_via_subject(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="LayerControl", subject="layer 'roads'")
+
+        message = str(record[0].message)
+        assert (
+            "LayerControl: layer 'roads' declares foliplus['folder'] as int" in message
+        )
+
+    def test_the_message_uses_the_source_it_was_written_with(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="LayerControl", source="foliplus['layerFolder']")
+
+        message = str(record[0].message)
+        assert "LayerControl declares foliplus['layerFolder'] as int" in message
+
     def test_the_same_defect_is_reported_once(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
