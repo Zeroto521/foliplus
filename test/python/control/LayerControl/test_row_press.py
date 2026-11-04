@@ -4,7 +4,12 @@ The row panel (style/attrs) and the ⋮ menu are appended inside the row DOM, so
 CSS matching on the row would reach controls that are not the row itself. Two
 rules keep that honest: :active must not wash the owner row when a panel or menu
 control is pressed (though a real row press still washes), and :hover on the
-style panel must return the owner row to its resting background.
+shared row-panel shell must return the owner row to its resting background.
+
+The carve-out is keyed on `.foliplus-row-panel` — the shell every row panel
+(style and attrs) mounts with — not on the style panel's own
+`.foliplus-layer-style-panel` class, which belongs to style.css and is never
+named by a row.css rule (the merged-CSS duplicate-token guard would reject it).
 
 The panel also has to stay inside the map while floating over the control: it is
 fixed, capped by a per-panel CSS variable measured from the space above and
@@ -238,7 +243,12 @@ def _open_style_panel(page) -> None:
 
 
 class TestRowHoverCarveoutBrowser:
-    """Style-panel hover must not light the owner layer row (computed style)."""
+    """Hovering the shared row-panel shell must not light the owner layer row.
+
+    The carve-out is keyed on the `.foliplus-row-panel` shell that every row
+    panel (style and attrs) mounts with, so this probe runs the style panel and
+    the same carve-out applies to the attrs panel (computed style).
+    """
 
     def test_style_panel_hover_keeps_owner_row_at_rest(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
@@ -264,8 +274,9 @@ class TestRowHoverCarveoutBrowser:
                 + str(row_hover)
             )
 
-            # Hover the style panel: the :where(:not(:has(...))) carve-out
-            # returns the owner row to its resting wash (no white / glow).
+            # Hover the shared row-panel shell (the style panel mounts with
+            # it): the :where(:not(:has(...))) carve-out returns the owner row
+            # to its resting wash (no white / glow).
             page.hover(_PANEL)
             page.wait_for_timeout(150)
             panel_hover = page.evaluate(_READ)
