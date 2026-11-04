@@ -90,3 +90,9 @@ Features
    :caption: Changelog
 
    changelog
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
+   reference
