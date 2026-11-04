@@ -5,7 +5,7 @@ Method dropdown flexes to fill the shared control column and the class-count
 dropdown takes the compact secondary width, so the two panels read alike.
 The geometry needs a real browser (jsdom has no layout, no stacking order);
 the stylesheet contract is asserted in vitest
-(test/js/control/HeatmapControl/classesRowWidth.test.ts) and the rendered
+(test/js/control/HeatmapControl/ui.classesRowWidth.test.ts) and the rendered
 pixels are recorded here.
 """
 
