@@ -464,55 +464,102 @@ describe("renderResults", () => {
 // ─── positionPanel ───
 
 describe("positionPanel", () => {
-  it("places wrap below the control", () => {
-    const ctrl: any = {
-      ...ctx(),
-      panelWrap: { style: {} },
-      ctrl: {
-        getBoundingClientRect: () => ({
-          left: 10,
-          top: 20,
-          bottom: 100,
-          width: 200,
-        }),
-      },
-    };
-    positionPanel(ctrl);
-    expect(ctrl.panelWrap.style.left).toBe("10px");
-    expect(ctrl.panelWrap.style.top).toBe("100px");
-  });
-
-  it("keeps the wrap fixed to the control when the page is scrolled", () => {
-    // The result panel is position: fixed (viewport-relative), so the scroll
-    // offset must NOT be added to the control's rect — otherwise the panel
-    // drifts by scrollX/scrollY once the page scrolls (real bug, #846 step 3).
-    const originalScrollX = window.scrollX;
-    const originalScrollY = window.scrollY;
+  // The engine owns the gap (--foliplus-menu-gap, jsdom fallback 4px) and the
+  // height cap is the menu-max-height token (jsdom fallback 240px); the kernel
+  // flips above / clamps / caps, and the map container is the final boundary.
+  const MAP_BOUNDS = {
+    left: 0,
+    top: 0,
+    right: 800,
+    bottom: 600,
+    width: 800,
+    height: 600,
+  };
+  const makePanelEl = (width = 200, height = 80) => {
+    const el = document.createElement("div");
+    Object.defineProperty(el, "offsetWidth", { value: width, configurable: true });
+    Object.defineProperty(el, "scrollHeight", { value: height, configurable: true });
+    return el;
+  };
+  const withMapBounds = (
+    rect: {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+      width: number;
+      height: number;
+    },
+    fn: () => void,
+  ) => {
+    const container = document.createElement("div");
+    container.getBoundingClientRect = () => rect as DOMRect;
+    const orig = map.getContainer;
+    map.getContainer = () => container;
     try {
-      Object.defineProperty(window, "scrollX", {
-        value: 120,
-        configurable: true,
-      });
-      Object.defineProperty(window, "scrollY", {
-        value: 80,
-        configurable: true,
-      });
+      fn();
+    } finally {
+      map.getContainer = orig;
+    }
+  };
+
+  it("places the wrap below the control with the engine gap", () => {
+    withMapBounds(MAP_BOUNDS, () => {
+      const panel = makePanelEl(200, 80);
       const ctrl: any = {
         ...ctx(),
-        panelWrap: { style: {} },
+        panelWrap: panel,
         ctrl: {
           getBoundingClientRect: () => ({
             left: 10,
             top: 20,
+            right: 210,
             bottom: 100,
             width: 200,
+            height: 80,
           }),
         },
       };
       positionPanel(ctrl);
-      // Same as the scroll=0 case: rect.left and rect.bottom, no +scroll.
       expect(ctrl.panelWrap.style.left).toBe("10px");
-      expect(ctrl.panelWrap.style.top).toBe("100px");
+      expect(ctrl.panelWrap.style.top).toBe("104px");
+      expect(ctrl.panelWrap.style.maxWidth).toBe("200px");
+      expect(ctrl.panelWrap.style.maxHeight).toBe("80px");
+      expect(ctrl.panelWrap.classList.contains("foliplus-search-result-panel-up")).toBe(
+        false,
+      );
+    });
+  });
+
+  it("keeps the wrap viewport-fixed when the page is scrolled", () => {
+    // The panel is position: fixed (viewport-relative), so the scroll offset
+    // must NOT be added to the control rect (#846 step 3); the kernel reads
+    // only the rects, never window.scrollX/scrollY.
+    const originalScrollX = window.scrollX;
+    const originalScrollY = window.scrollY;
+    try {
+      Object.defineProperty(window, "scrollX", { value: 120, configurable: true });
+      Object.defineProperty(window, "scrollY", { value: 80, configurable: true });
+      withMapBounds(MAP_BOUNDS, () => {
+        const panel = makePanelEl(200, 80);
+        const ctrl: any = {
+          ...ctx(),
+          panelWrap: panel,
+          ctrl: {
+            getBoundingClientRect: () => ({
+              left: 10,
+              top: 20,
+              right: 210,
+              bottom: 100,
+              width: 200,
+              height: 80,
+            }),
+          },
+        };
+        positionPanel(ctrl);
+        expect(ctrl.panelWrap.style.left).toBe("10px");
+        expect(ctrl.panelWrap.style.top).toBe("104px");
+      });
     } finally {
       Object.defineProperty(window, "scrollX", {
         value: originalScrollX,
@@ -525,36 +572,121 @@ describe("positionPanel", () => {
     }
   });
 
-  it("clips suggestions wrap to the right edge when it would overflow", () => {
-    const originalWidth = window.innerWidth;
-    try {
-      // Narrow viewport so left + rect.width exceeds innerWidth
-      Object.defineProperty(window, "innerWidth", {
-        value: 300,
-        configurable: true,
-      });
+  it("flips above when the strip below the control cannot hold the panel", () => {
+    const shortBounds = {
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 100,
+      width: 800,
+      height: 100,
+    };
+    withMapBounds(shortBounds, () => {
+      const panel = makePanelEl(200, 80);
       const ctrl: any = {
         ...ctx(),
-        panelWrap: { style: {} },
+        panelWrap: panel,
         ctrl: {
           getBoundingClientRect: () => ({
-            left: 250,
+            left: 10,
             top: 20,
-            bottom: 100,
+            right: 210,
+            bottom: 90,
             width: 200,
+            height: 70,
           }),
         },
       };
       positionPanel(ctrl);
-      // Would normally be left=250, but clipped to 300-200=100
+      expect(ctrl.panelWrap.style.top).toBe("0px");
+      expect(ctrl.panelWrap.classList.contains("foliplus-search-result-panel-up")).toBe(
+        true,
+      );
+    });
+  });
+
+  it("clamps the wrap to the map container right edge", () => {
+    const narrowBounds = {
+      left: 0,
+      top: 0,
+      right: 300,
+      bottom: 600,
+      width: 300,
+      height: 600,
+    };
+    withMapBounds(narrowBounds, () => {
+      const panel = makePanelEl(200, 80);
+      const ctrl: any = {
+        ...ctx(),
+        panelWrap: panel,
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 250,
+            top: 20,
+            right: 450,
+            bottom: 100,
+            width: 200,
+            height: 80,
+          }),
+        },
+      };
+      positionPanel(ctrl);
       expect(ctrl.panelWrap.style.left).toBe("100px");
-      expect(ctrl.panelWrap.style.top).toBe("100px");
-    } finally {
-      Object.defineProperty(window, "innerWidth", {
-        value: originalWidth,
-        configurable: true,
-      });
-    }
+      expect(ctrl.panelWrap.style.top).toBe("104px");
+    });
+  });
+
+  it("caps the panel height at the menu-max-height token", () => {
+    withMapBounds(MAP_BOUNDS, () => {
+      const panel = makePanelEl(200, 400); // scrollHeight 400 > token 240
+      const ctrl: any = {
+        ...ctx(),
+        panelWrap: panel,
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 10,
+            top: 20,
+            right: 210,
+            bottom: 100,
+            width: 200,
+            height: 80,
+          }),
+        },
+      };
+      positionPanel(ctrl);
+      expect(ctrl.panelWrap.style.maxHeight).toBe("240px");
+    });
+  });
+
+  it("shrinks the wrap to the map container when the map is smaller than the panel", () => {
+    const smallBounds = {
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 200,
+      width: 200,
+      height: 200,
+    };
+    withMapBounds(smallBounds, () => {
+      const panel = makePanelEl(280, 80);
+      const ctrl: any = {
+        ...ctx(),
+        panelWrap: panel,
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 10,
+            top: 20,
+            right: 110,
+            bottom: 100,
+            width: 100,
+            height: 80,
+          }),
+        },
+      };
+      positionPanel(ctrl);
+      expect(ctrl.panelWrap.style.maxWidth).toBe("200px");
+      expect(ctrl.panelWrap.style.left).toBe("0px");
+    });
   });
 
   it("returns early without touching style when panelWrap is null", () => {
@@ -562,7 +694,6 @@ describe("positionPanel", () => {
       ...ctx(),
       panelWrap: null,
       ctrl: {
-        // If this were called, the assertion below would fail.
         getBoundingClientRect: () => {
           throw new Error(
             "panelWrap is null; getBoundingClientRect must not be called",
