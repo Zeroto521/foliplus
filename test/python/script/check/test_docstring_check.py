@@ -294,7 +294,9 @@ class TestMain:
 
     def test_main_reports_table_issues(self, monkeypatch, capsys):
         # main() must surface a mixed-border table issue and fail the gate.
-        monkeypatch.setattr(mod, "scan_control_docstrings", lambda repo, only_files=None: {})
+        monkeypatch.setattr(
+            mod, "scan_control_docstrings", lambda repo, only_files=None: {}
+        )
         monkeypatch.setattr(
             mod,
             "scan_table_border_issues",
