@@ -20,8 +20,8 @@
 //
 // This module is DOM-free and dependency-light (LayerInfo is a type only), so
 // it is unit-testable in isolation — the invariant tests drive it directly.
-import type { LayerInfo } from "./type.js";
 import type { LayerRole } from "./role.js";
+import type { LayerInfo } from "./type.js";
 
 /** The folder dimension: a folder is scoped to one section (role). Base and
  *  overlay folders with the same name are two different folders. */

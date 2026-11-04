@@ -6,6 +6,11 @@ import {
   publish,
 } from "#core/event/index.js";
 import {
+  type FolderOrder,
+  freezeSectionOrder,
+  normalizeFolderName,
+} from "#core/layer/folderOrder.js";
+import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateColorAPI,
@@ -33,11 +38,6 @@ import {
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import {
-  freezeSectionOrder,
-  normalizeFolderName,
-  type FolderOrder,
-} from "#core/layer/folderOrder.js";
 import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";

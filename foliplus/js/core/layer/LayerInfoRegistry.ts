@@ -3,7 +3,7 @@
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
 import { ROLE } from "./const.js";
-import { fullDisplayOrder, type FolderOrder } from "./folderOrder.js";
+import { type FolderOrder, fullDisplayOrder } from "./folderOrder.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 

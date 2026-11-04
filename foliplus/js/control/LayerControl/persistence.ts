@@ -1,5 +1,5 @@
-import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
 import type { FolderOrder } from "#core/layer/folderOrder.js";
+import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";

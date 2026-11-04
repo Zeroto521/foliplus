@@ -3,13 +3,13 @@
 // All 11 invariants (1,2,3,4,5a,5b,5c,6,7,8,9) are driven against the PURE
 // functions — no registry, no controller, no DOM. The registry integration is
 // tested separately (where the registry is the anchor axis owner).
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  deleteFolderFromOrder,
+  freezeSectionOrder,
+  fullDisplayOrder,
   normalizeFolderName,
   sectionOrder,
-  fullDisplayOrder,
-  freezeSectionOrder,
-  deleteFolderFromOrder,
 } from "#core/layer/folderOrder.js";
 import type { LayerInfo } from "#core/layer/type.js";
 
@@ -86,8 +86,14 @@ describe("invariant 3 — author predictable (anchor = min member index)", () =>
     const out = sectionOrder("overlay", reg, EMPTY);
     // folders first (rail anchor 1, Roads anchor 3) then root layers in registry order
     expect(out.map(e => e.id)).toEqual([
-      "rail", "roads1", "roads2",
-      "x0", "x2", "x4", "x5", "x6",
+      "rail",
+      "roads1",
+      "roads2",
+      "x0",
+      "x2",
+      "x4",
+      "x5",
+      "x6",
     ]);
   });
 });
@@ -121,8 +127,8 @@ describe("invariant 5b — mid-inserted folder lands at its first-member positio
   it("new folder first member index 2 (between 1 and 3) → between those blocks", () => {
     const reg = [
       li("x0", "overlay"),
-      li("rail", "overlay", "Rail"),   // anchor 1
-      li("mid", "overlay", "Mid"),     // anchor 2
+      li("rail", "overlay", "Rail"), // anchor 1
+      li("mid", "overlay", "Mid"), // anchor 2
       li("roads", "overlay", "Roads"), // anchor 3
     ];
     const out = sectionOrder("overlay", reg, EMPTY);
@@ -173,10 +179,7 @@ describe("invariant 7 — empty folder preserves position + persists + freeze ma
   });
 
   it("a folder with no live members (author-declared) freezes at the block tail, not mid", () => {
-    const reg = [
-      li("a", "overlay", "A"),
-      li("c", "overlay", "C"),
-    ];
+    const reg = [li("a", "overlay", "A"), li("c", "overlay", "C")];
     const frozen = freezeSectionOrder("overlay", reg, EMPTY, "b");
     expect(frozen.sections.overlay).toEqual(["a", "c", "b"]);
   });
