@@ -493,6 +493,17 @@ class TestSearchControlBrowser:
             assert state["dataQuery"] == "121.4700, 31.2300"
             assert not errors, f"JS errors: {errors}"
 
+def _panel_up(geom: dict) -> bool:
+    """True when the panel carries the up class (the class-list form).
+
+    The null assertion matters: `panelUp == panelUp` would false-pass when the
+    panel is fully dropped (None == None), so reading the class name forces the
+    empty-panel case to fail loudly instead."""
+    cls = geom["panelClass"]
+    assert cls is not None, "placement panel missing: panelClass is None"
+    return "foliplus-search-result-panel-up" in cls.split()
+
+
 class TestSearchControlPlacementBrowser:
     """B-probes: floating panel placement geometry (S2b acceptance).
 
@@ -547,7 +558,7 @@ class TestSearchControlPlacementBrowser:
             assert p["bottom"] <= c["top"] + 1, (
                 f"panel did not flip above the trigger: bottom {p['bottom']} > top {c['top']}"
             )
-            assert "foliplus-search-result-panel-up" in g["panelClass"]
+            assert _panel_up(g), f"panel did not flip above: class={g['panelClass']!r}"
             assert not errors, errors
 
     def test_b2_below_at_top(self, browser, tmp_path):
@@ -564,7 +575,7 @@ class TestSearchControlPlacementBrowser:
             assert p["top"] >= c["bottom"] - 1, (
                 f"panel is not below the trigger: top {p['top']} < bottom {c['bottom']}"
             )
-            assert "foliplus-search-result-panel-up" not in g["panelClass"]
+            assert not _panel_up(g), f"panel has an up class but should stay below: class={g['panelClass']!r}"
             assert not errors, errors
 
     def test_b3_horizontal_clamp_small_screen(self, browser, tmp_path):
@@ -682,8 +693,8 @@ class TestSearchControlPlacementBrowser:
             assert abs(l1 - l2) < 3, f"left gap changed on resize: {l1} -> {l2}"
             # Death-shape: a flip to the other side would keep |Δgap| small, so
             # also assert the side is stable across the resize.
-            assert g1["panelUp"] == g2["panelUp"], (
-                f"panel flipped on resize: before up={g1["panelUp"]}, after up={g2["panelUp"]}"
+            assert _panel_up(g1) == _panel_up(g2), (
+                f"panel flipped on resize: before class={g1['panelClass']!r}, after class={g2['panelClass']!r}"
             )
             p2, v2 = g2["panel"], g2["viewport"]
             assert p2["top"] >= -1 and p2["bottom"] <= v2["innerHeight"] + 1, (
