@@ -4974,12 +4974,18 @@ describe("style panel live capability refresh", () => {
 //     where the pointer is.
 //
 // jsdom cannot simulate `:hover` (the dynamic pseudo-class never matches, so
-// `:has(...:hover)` is inert here), so the hover-specific outcomes are pinned
-// at the source level while the computed background for the hover cases is
-// recorded by the browser probe in CI. The focused-branch outcome IS testable
-// in jsdom (the focus class is static), so it is asserted behaviorally. The
-// negative control rebuilds the selector WITHOUT the carve-out and proves the
-// same detection fails on it: dropping the `:has` rule is the regression.
+// `:has(...:hover)` is inert here), so the hover-specific outcomes below are
+// SOURCE GUARDS, not behavior evidence: they assert the selector text (the
+// carve-out shape and the base-row specificity race) and prove the detection
+// would catch the regression — they do NOT prove any hover behavior. The
+// behavioral evidence — the owner row's computed background/glow while the
+// panel is hovered — comes from the browser probe
+// (test/js/browser/LayerControl/read_row_hover_carveout.js), which drives a
+// real pointer; jsdom cannot reach that. The focused-branch outcome IS
+// testable in jsdom (the focus class is static), so it is asserted
+// behaviorally. The negative control rebuilds the selector WITHOUT the
+// carve-out and proves the same source detection fails on it: dropping the
+// `:has` rule is the regression a future edit would leave behind.
 
 const ROOT = resolve(__dirname, "../../../../../..");
 
