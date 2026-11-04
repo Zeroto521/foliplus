@@ -22,7 +22,11 @@ import folium
 import pytest
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._layer_declaration import declared_zoom_range
+from foliplus.control.LayerControl._layer_declaration import (
+    FOLIPLUS_KEYS,
+    declared_folder,
+    declared_zoom_range,
+)
 
 _EMPTY = json.dumps({"type": "FeatureCollection", "features": []})
 
@@ -221,4 +225,157 @@ def test_label_key_reaches_the_layer_options() -> None:
     assert options.get("foliplus") == {"label": {"field": "name"}}
 
     data = ctrl._extra_config()["data"]  # type: ignore[attr-defined]
-    assert data[0]["name"] == "declared"
+
+
+# --- Folder declaration (D1) -------------------------------------------------
+
+
+def test_declared_folder_reaches_conf():
+    entry = _conf(_render(_geo(foliplus={"folder": "North"})))["data"][0]
+    assert entry["folder"] == "North"
+
+
+def test_undeclared_layer_has_no_folder_key():
+    entry = _conf(_render(_geo()))["data"][0]
+    assert "folder" not in entry
+
+
+def test_blank_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected a non-empty string"):
+        html = _render(_geo(foliplus={"folder": "   "}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+    assert entry["name"] == "Declared"
+
+
+def test_non_string_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected a non-empty string"):
+        html = _render(_geo(foliplus={"folder": {"name": "x"}}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+
+
+def test_shared_folder_adopted_by_all_declaring_layers():
+    # Two layers sharing a folder name are one group, not a conflict: each
+    # declaring layer adopts the folder (no discard, no ambiguity warning) -
+    # grouping is the declared intent and one folder may hold many member rows.
+    layers = [_geo(name=f"L{i}", foliplus={"folder": "Shared"}) for i in range(2)]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(*layers)
+
+    assert not [w for w in caught if "ambiguous" in str(w.message)]
+    data = _conf(html)["data"]
+    declared = [entry for entry in data if "folder" in entry]
+    assert [entry["folder"] for entry in declared] == ["Shared", "Shared"]
+
+
+def test_same_name_different_role_not_merged():
+    # authorFolderId is a pure (role, name) function: the same name under a
+    # different role is a different folder, so the JS side does not merge them.
+    # The Python side hands over the role and never discards on name alone.
+    base = _geo(name="Base", foliplus={"folder": "Shared"})
+    base.overlay = False
+    overlay = _geo(name="Overlay", foliplus={"folder": "Shared"})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(base, overlay)
+
+    assert not [w for w in caught if "ambiguous" in str(w.message)]
+    data = _conf(html)["data"]
+    declared = [entry for entry in data if "folder" in entry]
+    assert all(entry["folder"] == "Shared" for entry in declared)
+    assert sorted(entry["role"] for entry in declared) == ["base", "overlay"]
+
+
+def test_foliplus_keys_contains_folder():
+    # The folder key is accepted by the declaration namespace: a regression
+    # here would turn a valid folder declaration into an "unknown key" warning.
+    assert "folder" in FOLIPLUS_KEYS
+
+
+# --- Direct unit tests for declared_folder() --------------------------------
+
+
+def test_declared_folder_returns_normalised_name():
+    layer = _geo(foliplus={"folder": "  North  "})
+    assert declared_folder(layer, "Declared") == "North"
+
+
+def test_declared_folder_undeclared_layer_is_none():
+    layer = _geo()
+    assert declared_folder(layer, "Declared") is None
+
+
+def test_declared_folder_blank_is_none():
+    layer = _geo(foliplus={"folder": "   "})
+    assert declared_folder(layer, "Declared") is None
+
+
+def test_declared_folder_non_string_is_none():
+    layer = _geo(foliplus={"folder": 5})
+    assert declared_folder(layer, "Declared") is None
+
+
+def test_folder_display_name_preserves_case_and_folds_whitespace():
+    # The Python side emits the author's display name: case is preserved (the
+    # group key's casefold is the JS side's job) and only NFC + whitespace
+    # folding normalise it (NFC composes accents, runs of whitespace collapse).
+    cases = [
+        ("Basemap", "Basemap"),
+        ("basemap", "basemap"),
+        ("  basemap ", "basemap"),
+        ("底 图", "底 图"),
+        ("底图", "底图"),
+        ("底  图", "底 图"),
+    ]
+    for raw, expected in cases:
+        layer = _geo(foliplus={"folder": raw})
+        assert declared_folder(layer, "Declared") == expected
+
+
+def test_third_party_layer_kwargs_reads_folder():
+    # A non-foliplus folium layer (GeoJson here) forwards foliplus= into its
+    # options; the options channel reads it like any other layer.
+    layer = _geo(foliplus={"folder": "North"})
+    assert declared_folder(layer, "Declared") == "North"
+
+
+def test_layer_attribute_channel_reads_folder():
+    # folium's base Layer.__init__ never consumes **kwargs: a custom/extension
+    # layer sets layer.foliplus = {...} directly. The attribute channel wins
+    # over the options channel.
+    layer = _geo(name="Attr")
+    layer.foliplus = {"folder": "North"}
+    assert declared_folder(layer, "Attr") == "North"
+
+
+def test_malformed_options_treated_as_undeclared():
+    # A layer whose options container is absent or not a mapping reads as
+    # undeclared and never raises: a third-party layer written wrong must not
+    # break the whole map. Any object with the shape is read defensively (no
+    # isinstance whitelist).
+    class _FakeLayer:
+        pass
+
+    for options in (None, ["not", "a", "mapping"]):
+        layer = _FakeLayer()
+        layer.options = options
+        assert declared_folder(layer, "Fake") is None
+
+
+def test_third_party_and_own_layer_share_folder_zero_warning():
+    # The same folder name through two channels (own layer via options,
+    # third-party layer via attribute) is one group: both adopt the folder and
+    # nothing warns - grouping is the declared intent, not a conflict.
+    own = _geo(name="Own", foliplus={"folder": "Shared"})
+    third = _geo(name="Third")
+    third.foliplus = {"folder": "Shared"}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(own, third)
+    assert not [w for w in caught if "ambiguous" in str(w.message)]
+    data = _conf(html)["data"]
+    declared = [entry for entry in data if "folder" in entry]
+    assert len(declared) == 2
+    assert all(entry["folder"] == "Shared" for entry in declared)
