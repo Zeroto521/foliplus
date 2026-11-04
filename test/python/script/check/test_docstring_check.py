@@ -220,6 +220,14 @@ class TestFindTableBorderIssues:
         doc = "Summary.\n\n::\n\n    +===+---+\n\n>>> foo\n+===+---+\n"
         assert mod.find_table_border_issues(doc) == []
 
+    def test_table_after_literal_block_is_checked(self):
+        # A non-indented line after a '::' literal block ends the block; a table
+        # separator that follows is a real table (not a literal code line) and
+        # must still be checked.
+        doc = "Summary.\n\n::\n\n    code line\n\n+===+---+\n"
+        issues = mod.find_table_border_issues(doc)
+        assert any("mixes border chars" in desc for _line, desc in issues)
+
     def test_scan_reports_only_offending_controls(self, tmp_path, monkeypatch):
         monkeypatch.setattr(mod, "CONTROL_CLASSES", {"Bad": "foliplus/control/Bad.py"})
         (tmp_path / "foliplus" / "control").mkdir(parents=True)
@@ -229,6 +237,16 @@ class TestFindTableBorderIssues:
         )
         results = mod.scan_table_border_issues(tmp_path)
         assert "Bad" in results and results["Bad"]
+
+    def test_scan_skips_missing_source(self, monkeypatch):
+        # A control registered in CONTROL_CLASSES whose source file is absent is
+        # already reported by scan_control_docstrings; the border scan skips it.
+        monkeypatch.setattr(
+            mod,
+            "_controls_to_check",
+            lambda only_files=None: {"Missing": Path("foliplus/control/Missing.py")},
+        )
+        assert mod.scan_table_border_issues(REPO_ROOT) == {}
 
 
 class TestControlClassesComplete:
@@ -273,3 +291,15 @@ class TestMain:
         assert mod.main([]) == 1
         out = capsys.readouterr().out
         assert "Foo: docstring line 5: Malformed table." in out
+
+    def test_main_reports_table_issues(self, monkeypatch, capsys):
+        # main() must surface a mixed-border table issue and fail the gate.
+        monkeypatch.setattr(mod, "scan_control_docstrings", lambda repo, only_files=None: {})
+        monkeypatch.setattr(
+            mod,
+            "scan_table_border_issues",
+            lambda repo, only_files=None: {"Foo": [(5, "mixes border chars (=-)")]},
+        )
+        assert mod.main([]) == 1
+        out = capsys.readouterr().out
+        assert "Foo: docstring line 5: mixes border chars (=-)" in out
