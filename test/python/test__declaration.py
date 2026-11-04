@@ -1,8 +1,9 @@
 """Unit tests for the shared declaration readers (``foliplus._declaration``).
 
-``_declaration.py`` owns both author-facing declaration payloads — the zoom
+``_declaration.py`` owns the author-facing declaration payloads — the zoom
 range (layer ``foliplus={"zoom_range": ...}`` and the control ``zoom_range=``
-kwarg) and the filter (Heatmap/Measure ``filter=``) — plus the warning family
+kwarg), the filter (Heatmap/Measure ``filter=``) and the layer folder
+(``foliplus={"folder": ...}``) — plus the warning family
 they share. The per-control suites pin the rendered CONFIG; this module pins
 the reader contract itself: accepted shapes, the exact verdict (``None`` means
 "treat as undeclared"), the de-duplication rule, and the one API-misuse case
@@ -23,6 +24,7 @@ from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
     enum_atom,
     json_number,
+    normalise_folder,
     normalise_zoom_range,
     normalize_declared_filter,
     range_atom,
@@ -371,3 +373,69 @@ class TestNormalizeDeclaredFilter:
     def test_the_list_kind_requires_an_enum_field(self) -> None:
         with pytest.raises(ValueError, match="requires enum_field"):
             normalize_declared_filter(["distance"], owner="MeasureControl", kind="enum")
+
+
+# ── Folder declaration ───────────────────────────────────────────────────
+class TestNormaliseFolder:
+    def test_absent_is_none_without_a_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert normalise_folder(None, owner="Owner") is None
+
+        assert caught == []
+
+    def test_a_valid_name_is_stripped_and_returned(self) -> None:
+        assert normalise_folder("roads", owner="Owner") == "roads"
+
+    def test_surrounding_whitespace_is_stripped(self) -> None:
+        assert normalise_folder("  roads  ", owner="Owner") == "roads"
+
+    @pytest.mark.parametrize(
+        ("raw", "reason"),
+        [
+            ("", "empty or whitespace-only string"),
+            ("   ", "empty or whitespace-only string"),
+            (42, "as int; expected a non-empty string"),
+            ({"name": "roads"}, "as dict; expected a non-empty string"),
+            (["roads"], "as list; expected a non-empty string"),
+        ],
+    )
+    def test_unusable_declarations_warn_and_degrade(
+        self, raw: object, reason: str
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_folder(raw, owner="Owner") is None
+
+        assert reason in str(record[0].message)
+
+    def test_the_message_names_the_layer(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="layer 'roads'")
+
+        message = str(record[0].message)
+        assert "layer 'roads' declares foliplus['folder'] as int" in message
+
+    def test_the_same_defect_is_reported_once(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            for _ in range(3):
+                assert normalise_folder("", owner="Owner") is None
+
+        assert len(caught) == 1
+
+    def test_different_layers_are_reported_separately(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            normalise_folder("", owner="layer 'a'")
+            normalise_folder("", owner="layer 'b'")
+
+        assert len(caught) == 2
+
+    def test_never_raises_on_any_input(self) -> None:
+        # The verdict rule shared with zoom_range: a malformed folder
+        # declaration is a warning, never an exception.
+        for raw in [None, "", "  ", "roads", 42, {}, {"name": "x"}, [], object()]:
+            try:
+                normalise_folder(raw, owner="Owner")
+            except Exception as exc:  # pragma: no cover - must never raise
+                pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")

@@ -1,7 +1,7 @@
 """Normalisation for the author-facing declarations.
 
-Two payloads reach Python, and both are *declarations* rather than values the
-runtime computes:
+Three payloads reach Python, and all are *declarations* rather than values
+the runtime computes:
 
 * the zoom range: a layer writes ``foliplus={"zoom_range": {...}}`` and the
   two declarative controls take ``zoom_range={...}`` directly; it gates
@@ -9,6 +9,9 @@ runtime computes:
 * the filter: HeatmapControl / MeasureControl take ``filter=...``; it is
   normalised into the filter AST the JS runtime already speaks
   (foliplus/js/core/layer/filter.ts), so CONF never grows a second dialect.
+* the folder: a LayerControl layer carries ``foliplus={"folder": "..."}``; it is
+  read and stripped into the layer attribute the runtime groups on, and a
+  malformed name is reported once and treated as "not filed".
 
 The entry points differ (a control is not a folium layer, and a filter has a
 form the owner chooses), but the verdict rule is shared: a malformed
@@ -387,3 +390,43 @@ def normalize_declared_filter(
         f"got {type(raw).__name__}; ignored"
     )
     return None
+
+
+# ── Folder declaration ───────────────────────────────────────────────────
+#: The declaration key that asks for a layer folder. D0 reads and normalises
+#: the name only; role matching, the stable author-folder id and the folder
+#: registry belong to D1/D2.
+FOLDER_KEY = "folder"
+
+
+def normalise_folder(raw: object, *, owner: str) -> str | None:
+    """Normalise one declared layer folder name.
+
+    ``raw`` is the value the author wrote for ``foliplus['folder']``. Returns
+    the stripped name when the declaration is a non-empty string, else ``None``:
+    "not declared" and "declared but invalid" are the same state downstream -
+    the layer stays at the section root rather than disappearing into a folder
+    the author never saw validated.
+
+    ``owner`` names the layer, so every message and de-duplication note is
+    attributable. D0 reads and strips the name only; role matching, the stable
+    ``author-folder:`` id and the folder registry are D1/D2 work.
+    """
+    if raw is None:
+        return None
+
+    def _reject(reason: str) -> None:
+        note = f"{owner}:folder:{reason}"
+        warn_foliplus(
+            note,
+            f"{owner} declares foliplus[{FOLDER_KEY!r}] {reason} - ignored",
+        )
+
+    if not isinstance(raw, str):
+        _reject(f"as {type(raw).__name__}; expected a non-empty string")
+        return None
+    name = raw.strip()
+    if not name:
+        _reject("as an empty or whitespace-only string; expected a non-empty string")
+        return None
+    return name
