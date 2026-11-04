@@ -22,8 +22,22 @@ from conftest import _js, make_browser_page, panel_ready, use_page
 
 from foliplus import LayerControl
 
+
+def _class_doc() -> str:
+    """The class docstring is the single contract surface for the declaration."""
+    doc = inspect.getdoc(LayerControl)
+    assert doc is not None, "LayerControl must carry a class docstring"
+    return doc
+
+
 _READ_STATE = _js("LayerControl/zoom_declared_state")
 _READ_ROW = _js("LayerControl/zoom_declared_row")
+
+# The class docstring is the single contract surface for the declaration; the
+# Notes section (the last major section) holds the declaration tables and the
+# resolution rules, so the probes anchor on the exact section header.
+_DOC = _class_doc()
+_NOTES = _DOC.split("Notes\n-----", 1)[1]
 
 
 def _polygon(name: str, **kwargs: object) -> folium.GeoJson:
@@ -118,15 +132,6 @@ class TestDeclaredZoomBrowser:
             assert back["painted"] == 2, back
 
             assert not errors, f"JS errors: {errors}"
-
-
-# The class docstring is the single contract surface for the declaration.
-_DOC = inspect.getdoc(LayerControl)
-assert _DOC is not None, "LayerControl must carry a class docstring"
-
-# The Notes section (the last major section) holds the declaration tables
-# and the resolution rules; anchor on the exact section header.
-_NOTES = _DOC.split("Notes\n-----", 1)[1]
 
 
 def test_docstring_documents_zoom_mapping_form() -> None:
