@@ -1,4 +1,7 @@
 // Tests for the shared scheme picker (common/schemePicker.ts).
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
@@ -1448,4 +1451,45 @@ it("keeps a wheel over the open picker list from reaching the map container", ()
   expect(mapWheel).not.toHaveBeenCalled();
   document.removeEventListener("wheel", mapWheel);
   picker.destroy();
+});
+
+// ── disabled entry affordance (stylesheet contract) ──────────────────
+//
+// A disabled scheme item must read as "exists but cannot be picked": the
+// not-allowed cursor and muted ink, with the hover/press wash excluded. The
+// negative control keeps the pre-fix single-selector hover from coming back.
+
+const schemePickerCss = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../foliplus/css/common/scheme-picker.css",
+  ),
+  "utf8",
+);
+
+describe("disabled scheme-picker affordance", () => {
+  it("gives a disabled item a not-allowed cursor and muted ink", () => {
+    expect(schemePickerCss).toMatch(
+      /\.foliplus-scheme-picker-item\[aria-disabled="true"\]\s*\{[^}]*cursor:\s*not-allowed/,
+    );
+    expect(schemePickerCss).toMatch(
+      /\.foliplus-scheme-picker-item\[aria-disabled="true"\]\s*\{[^}]*color:\s*var\(--foliplus-text-muted\)/,
+    );
+  });
+
+  it("excludes disabled items from hover and press", () => {
+    expect(schemePickerCss).toMatch(
+      /\.foliplus-scheme-picker-item:not\(\[aria-disabled="true"\]\):hover/,
+    );
+    expect(schemePickerCss).toMatch(
+      /\.foliplus-scheme-picker-item:not\(\[aria-disabled="true"\]\):active/,
+    );
+  });
+
+  it("rejects the pre-fix single-selector hover (negative control)", () => {
+    expect(schemePickerCss).not.toMatch(/\.foliplus-scheme-picker-item:hover\s*\{/);
+    expect(schemePickerCss).not.toMatch(
+      /\.foliplus-scheme-picker-item:not\(\[disabled\]\):active/,
+    );
+  });
 });

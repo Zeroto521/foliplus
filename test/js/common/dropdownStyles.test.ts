@@ -41,3 +41,13 @@ describe("dropdown placeholder ink", () => {
     expect(rule![0]).toContain("var(--foliplus-text-muted)");
   });
 });
+
+describe("disabled option affordance", () => {
+  it("gives a disabled option a not-allowed cursor", () => {
+    // The disabled affordance is a stylesheet contract, not a JS behaviour: a
+    // disabled option must read as "exists but cannot be picked".
+    expect(css).toMatch(
+      /\.foliplus-dropdown-option\[disabled\]\s*\{[^}]*cursor:\s*not-allowed/,
+    );
+  });
+});
