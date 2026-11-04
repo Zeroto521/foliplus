@@ -136,12 +136,12 @@ class LayerControl(BaseControl):
     +----------------+------+------------------------------------------------------------------+
     | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
     +----------------+------+------------------------------------------------------------------+
-    | ``folder``     | str  | the layer's folder (section group) name; see the note below.     |
+    | ``folder``     | str  | The layer's folder (section group) name; see the note below.     |
     +----------------+------+------------------------------------------------------------------+
 
-    Two layers declaring the same ``folder`` name (for example
-    ``foliplus={"folder": "底图"}``) are grouped into one folder — a
-    grouping intent, not a conflict, and it never warns.
+    Two layers declaring the same ``folder`` name in the same section and
+    role (for example ``foliplus={"folder": "底图"}``) are grouped into one
+    folder — a grouping intent, not a conflict, and it never warns.
 
     The ``fill`` declaration keys:
 
