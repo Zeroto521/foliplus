@@ -823,6 +823,8 @@ def test_real_scale_high_cardinality_still_pairs():
     assert meta["scale"]["vmin"] == 0
     assert meta["scale"]["vmax"] == 100
     assert meta["scale"]["method"] is None
+
+
 def _scale() -> branca_cm.LinearColormap:
     """A continuous scale with the 256-point resolution explore produces."""
     base = branca_cm.LinearColormap(["#0d0887", "#f0f921"], vmin=10, vmax=15)
