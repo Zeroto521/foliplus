@@ -5,6 +5,20 @@
 // annotation declaration uses. This module turns that raw declaration into a
 // validated, cached {@link DeclaredFill}: the fill arm's author default.
 //
+// The declaration is FLAT: `fill` accepts only `field` (required) plus the
+// optional `method` / `classes` / `scheme` / `kind`. The old nested
+// `fill.ramp` shell and the `fill.mode` switch are cancelled — those keys
+// are now unknown, ignored one by one with a one-time warning, never re-read
+// as a compat shape (no compat read, no version bump). A declaration that
+// names a usable `field` turns the "color by value" arm on; one without is
+// dropped whole rather than painted as a misleading solid face.
+//
+// `kind` selects the internal arm — `"numeric"` or `"category"` — and is an
+// optional override. Absent, it reads as `"numeric"` here, but the parse
+// layer deliberately leaves it out of the returned record so `fill.ts` can
+// infer it from the layer's own values first (`inferFieldKind`, slice ②): the
+// parse layer does not sample, it only validates what the author wrote.
+//
 // It is NOT user intent: nothing here touches the intent store. `fill.ts`
 // merges the declaration under the user's stored choice (intent > declaration
 // > the per-feature author paint > built-in default), so a later panel edit
@@ -31,17 +45,16 @@ type FoliplusOptions = {
   foliplus?: { fill?: unknown } & Record<string, unknown>;
 };
 
-/** A validated fill declaration for one layer. */
-type DeclaredFill = {
-  /** The fill arm the author asked for. Declaring a ramp field without a mode
-   *  reads as "ramp" — naming the field turns the arm on, the same rule the
-   *  annotation declaration follows for its field. */
-  mode: "solid" | "ramp";
-  /** The complete ramp config, present only when a usable field was declared.
-   *  Undeclared keys took the panel defaults, so a declaration and a later
-   *  panel edit compare on the same shape. */
-  ramp?: FillRampConfig;
-};
+/** A validated fill declaration for one layer.
+ *
+ *  The declaration is FLAT — there is no `mode`/ramp` shell. A present
+ *  declaration always names a usable `field`, which is what turns the
+ *  "color by value" arm on; `kind` is the optional override `fill.ts`
+ *  resolves against the layer's own values when absent (the inference happens
+ *  there, never in the parse layer). `method` / `classes` / `scheme` took
+ *  the panel defaults where the author stayed silent, so a declaration and a
+ *  later panel edit compare on the same shape. */
+type DeclaredFill = FillRampConfig;
 
 type DeclaredFillRead = {
   declared?: DeclaredFill;
@@ -50,6 +63,17 @@ type DeclaredFillRead = {
 };
 
 const EMPTY: DeclaredFillRead = { invalid: [] };
+
+/** The flat keys the declaration recognizes. Anything else — including the
+ *  cancelled nested `ramp` shell and the `mode` switch — is an unknown key,
+ *  ignored one by one with a one-time warning. */
+const KNOWN_KEYS: ReadonlySet<string> = new Set([
+  "field",
+  "method",
+  "classes",
+  "scheme",
+  "kind",
+]);
 
 /** Per-layer-object cache. A layer object's options are final once it exists
  *  (folium builds them at construction), so both "declared" and "not declared"
@@ -92,98 +116,17 @@ const reject = (
 const rawFillOf = (layer: object): unknown =>
   (layer as { options?: FoliplusOptions }).options?.foliplus?.fill;
 
-/** Validate one raw ramp object. A declared key that fails its own check is
- *  dropped with a warning while the remaining keys survive. Classes is kept
- *  exactly as declared, never clamped: "declared 12, painted 6" is the silent
- *  deviation this reader exists to prevent, so the editable 2..9 vocabulary is
- *  a panel constraint, not an author one. */
-const parseRamp = (
-  invalid: string[],
-  raw: unknown,
-  layerId: string | undefined,
-): FillRampConfig | undefined => {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    reject(
-      invalid,
-      layerId,
-      "ramp",
-      `a non-object ramp declaration ${JSON.stringify(raw)}`,
-    );
-    return undefined;
-  }
-  const data = raw as Record<string, unknown>;
-
-  let field: string | undefined;
-  if (data.field !== undefined) {
-    if (isName(data.field)) field = data.field;
-    else {
-      reject(
-        invalid,
-        layerId,
-        "ramp.field",
-        `invalid ramp.field ${JSON.stringify(data.field)} (expected a property name)`,
-      );
-    }
-  }
-
-  let method: FillRampConfig["method"] = CONST.RAMP.METHOD_DEFAULT;
-  if (data.method !== undefined) {
-    if (isClassifyMethod(data.method)) method = data.method;
-    else {
-      reject(
-        invalid,
-        layerId,
-        "ramp.method",
-        `invalid ramp.method ${JSON.stringify(data.method)} (expected jenks/quantile/equal/heads)`,
-      );
-    }
-  }
-
-  // The declared count is the author's, not the panel's: anything an
-  // integer classifier can build is kept as-is (a declared 12 paints 12 and
-  // the panel shows 12 as its own option). Only an unbuildable count is
-  // rejected — non-integer, or below MIN where the classes stop meaning
-  // anything. The write path clamps to the persisted 2..9 range, so the
-  // first user edit converges; the declaration itself is never rewritten.
-  let classes: number = CLASS_COUNT.DEFAULT;
-  if (data.classes !== undefined) {
-    if (
-      typeof data.classes === "number" &&
-      Number.isInteger(data.classes) &&
-      data.classes >= CLASS_COUNT.MIN
-    ) {
-      classes = data.classes;
-    } else {
-      reject(
-        invalid,
-        layerId,
-        "ramp.classes",
-        `invalid ramp.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
-      );
-    }
-  }
-
-  let scheme: string = CONST.RAMP.SCHEME_DEFAULT;
-  if (data.scheme !== undefined) {
-    if (isName(data.scheme)) scheme = data.scheme;
-    else {
-      reject(
-        invalid,
-        layerId,
-        "ramp.scheme",
-        `invalid ramp.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
-      );
-    }
-  }
-
-  // No usable field: nothing to classify, so the ramp cannot be built. The
-  // caller drops the declaration instead of painting a solid face under a
-  // "ramp" panel state.
-  return field === undefined
-    ? undefined
-    : { kind: "numeric", field, method, classes, scheme };
-};
-
+/** Parse the flat `fill` declaration into a validated {@link DeclaredFill}.
+ *
+ *  One declaration, one "color by value" instruction: naming a usable `field`
+ *  turns the arm on, and the remaining keys configure it. Invalid keys degrade
+ *  one by one (each rejected key is warned once and the rest survives), except
+ *  where a missing piece makes the declaration unbuildable — no `field`, an
+ *  unknown `kind`, or an explicit category without a `scheme` — in which case
+ *  the whole declaration is dropped rather than painted as a misleading solid
+ *  face. `classes` is kept exactly as declared, never clamped: "declared 12,
+ *  painted 6" is the silent deviation this reader exists to prevent, so the
+ *  editable 2..9 vocabulary is a panel constraint, not an author one. */
 const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
@@ -199,35 +142,152 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   const data = raw as Record<string, unknown>;
   const invalid: string[] = [];
 
-  let mode: "solid" | "ramp" | undefined;
-  if (data.mode !== undefined) {
-    if (data.mode === "solid" || data.mode === "ramp") mode = data.mode;
-    else {
+  // Unknown keys (the cancelled `ramp` shell, the `mode` switch, a typo) are
+  // ignored one by one; the rest of the declaration survives.
+  for (const key of Object.keys(data)) {
+    if (!KNOWN_KEYS.has(key)) {
       reject(
         invalid,
         layerId,
-        "mode",
-        `invalid mode ${JSON.stringify(data.mode)} (expected "solid" or "ramp")`,
+        key,
+        `an unknown fill key ${JSON.stringify(key)} (expected field/method/classes/scheme/kind)`,
       );
     }
   }
 
-  const ramp =
-    data.ramp === undefined ? undefined : parseRamp(invalid, data.ramp, layerId);
-
-  if (mode === "ramp" && ramp === undefined) {
-    // An explicit "ramp" with no usable field: the whole declaration is
-    // dropped rather than silently painted as solid.
-    reject(invalid, layerId, "ramp", "a ramp declaration without a usable ramp.field");
+  // field is the one required key: without it nothing can be classified, so
+  // the declaration is dropped whole (reported as fill.field, the primary
+  // key — a declaration missing both field and scheme warns about the field
+  // only, which is the one that determines whether any ramp exists).
+  let field: string | undefined;
+  if (data.field !== undefined) {
+    if (isName(data.field)) field = data.field;
+    else {
+      reject(
+        invalid,
+        layerId,
+        "field",
+        `invalid fill.field ${JSON.stringify(data.field)} (expected a property name)`,
+      );
+    }
+  }
+  if (field === undefined) {
+    reject(invalid, layerId, "field", "a fill declaration without a fill.field");
     return { invalid };
   }
-  if (mode === undefined) {
-    if (ramp === undefined) return { invalid };
-    // Naming the field is the instruction: the arm turns on.
-    mode = "ramp";
+
+  // kind is the optional override that picks the arm. Absent reads as
+  // "numeric" (the pre-kind record shape, resolved by inference in fill.ts);
+  // an unrecognized kind drops the declaration whole — the persistence reader
+  // applies the same rule, so a kind this client cannot build is never
+  // misapplied as a numeric ramp.
+  if (data.kind !== undefined && data.kind !== "numeric" && data.kind !== "category") {
+    reject(
+      invalid,
+      layerId,
+      "kind",
+      `invalid fill.kind ${JSON.stringify(data.kind)} (expected "numeric" or "category")`,
+    );
+    return { invalid };
   }
 
-  return { declared: { mode, ...(ramp ? { ramp } : {}) }, invalid };
+  if (data.kind === "category") {
+    // A categorical arm needs its qualitative palette — the one key beyond the
+    // field a category ramp cannot build without. A missing scheme is a hard
+    // rejection for an *explicit* category: the author chose the arm, so there
+    // is no ordered method to fall back to. Only an *inferred* category fills a
+    // default (CATEGORY_SCHEME_DEFAULT in fill.ts, slice ②), where the author
+    // did not pick a kind at all. method/classes are irrelevant (a category is
+    // not ordered, so "classify" has no meaning) and deliberately not
+    // validated, the same rule isFillRampConfig applies to a persisted
+    // category record; they are kept at the type level so the union stays
+    // assignable to the numeric RampConfig.
+    if (data.scheme === undefined) {
+      reject(
+        invalid,
+        layerId,
+        "scheme",
+        "a category fill declaration without a fill.scheme",
+      );
+      return { invalid };
+    }
+    if (!isName(data.scheme)) {
+      reject(
+        invalid,
+        layerId,
+        "scheme",
+        `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+      );
+      return { invalid };
+    }
+    return {
+      declared: {
+        kind: "category",
+        field,
+        method: CONST.RAMP.METHOD_DEFAULT,
+        classes: CLASS_COUNT.DEFAULT,
+        scheme: data.scheme,
+      },
+      invalid,
+    };
+  }
+
+  // numeric (kind absent or "numeric"): validate the classifier inputs, each
+  // key degrading on its own with defaults where the author stayed silent.
+  let method: FillRampConfig["method"] = CONST.RAMP.METHOD_DEFAULT;
+  if (data.method !== undefined) {
+    if (isClassifyMethod(data.method)) method = data.method;
+    else {
+      reject(
+        invalid,
+        layerId,
+        "method",
+        `invalid fill.method ${JSON.stringify(data.method)} (expected jenks/quantile/equal/heads)`,
+      );
+    }
+  }
+
+  // The declared count is the author's, not the panel's: anything an integer
+  // classifier can build is kept as-is (a declared 12 paints 12 and the panel
+  // shows 12 as its own option). Only an unbuildable count is rejected —
+  // non-integer, or below MIN where the classes stop meaning anything. The
+  // write path clamps to the persisted 2..9 range, so the first user edit
+  // converges; the declaration itself is never rewritten.
+  let classes: number = CLASS_COUNT.DEFAULT;
+  if (data.classes !== undefined) {
+    if (
+      typeof data.classes === "number" &&
+      Number.isInteger(data.classes) &&
+      data.classes >= CLASS_COUNT.MIN
+    ) {
+      classes = data.classes;
+    } else {
+      reject(
+        invalid,
+        layerId,
+        "classes",
+        `invalid fill.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
+      );
+    }
+  }
+
+  let scheme: string = CONST.RAMP.SCHEME_DEFAULT;
+  if (data.scheme !== undefined) {
+    if (isName(data.scheme)) scheme = data.scheme;
+    else {
+      reject(
+        invalid,
+        layerId,
+        "scheme",
+        `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+      );
+    }
+  }
+
+  // kind is deliberately omitted (absent = numeric): fill.ts infers it from
+  // the layer's values and fills the category scheme default only when the
+  // inference lands on category.
+  return { declared: { field, method, classes, scheme }, invalid };
 };
 
 /** Read (and cache) the fill declaration on one layer.
@@ -257,4 +317,3 @@ const readDeclaredFill = (layer: unknown, layerId?: string): DeclaredFillRead =>
 };
 
 export { readDeclaredFill };
-export type { DeclaredFill };

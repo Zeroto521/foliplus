@@ -160,8 +160,12 @@ UNSET = object()
 # * ``tuple`` of ≥2 primitive names — a primitive union, rendered unquoted
 #   (``("string", "number")`` → ``string | number``). Any other tuple is a
 #   *literal* union, its members quoted (``("base", "overlay")`` →
-#   ``"base" | "overlay"``). A one-element tuple is always a literal, so
-#   ``("string",)`` stays ``"string"`` rather than becoming a bare ``string``.
+#   ``"base" | "overlay"``). The exception is ``"null"``: a literal union
+#   may mix one literal with ``null`` (``("equal", "null")`` →
+#   ``"equal" | null``), because ``null`` is a primitive name and renders
+#   unquoted in the same union. A one-element tuple is always a literal,
+#   so ``("string",)`` stays ``"string"`` rather than becoming a bare
+#   ``string``.
 # * ``list`` — array of the item's type (``[X]`` is ``X[]``).
 # * ``dict`` — either an object with named identifier keys, or
 #   ``Record<string, V>`` when the sole key is ``"*"``. Mixing ``"*"`` with

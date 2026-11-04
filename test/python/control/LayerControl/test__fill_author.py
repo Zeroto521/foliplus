@@ -8,7 +8,7 @@ asserts the shipped payload rather than the internals that produce it.
 
 The browser half drives the row those facts feed: an explore layer opens on a
 read-only "Original Colors" arm that the user can leave and return to, and a
-``foliplus={"fill": {"ramp": ...}}`` declaration paints at load, survives Reset
+``foliplus={"fill": {"field": ...}}`` declaration paints at load, survives Reset
 and yields to a later panel edit. Both use the shared fill-row probes and build
 their fixtures with folium + branca directly, so explore and geopandas stay out
 of CI.
@@ -172,11 +172,19 @@ def test_continuous_scale_is_read_from_the_map():
     meta = _meta(_geo(colors, values=values), scale)
 
     assert meta["scale"]["kind"] == "continuous"
+    # A paired scale's stops are domain order, so the record carries no
+    # ordered flag: the bar trusts the shipped order.
+    assert "ordered" not in meta["scale"]
     assert meta["scale"]["column"] == "score"
     assert meta["scale"]["vmin"] == 0
     assert meta["scale"]["vmax"] == 100
     assert len(meta["stops"]) == 64
     assert all(len(stop) == 7 and stop.startswith("#") for stop in meta["stops"])
+    # A continuous LinearColormap is not a classified scheme, so Python
+    # records no provable method: the JS panel states Equal Interval for it
+    # as the honest statement that a LinearColormap *is* an interval ramp,
+    # not a claim about the author's scheme argument.
+    assert meta["scale"]["method"] is None
 
 
 def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
@@ -192,6 +200,42 @@ def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
     assert meta["stops"] == ["#440154", "#3b528b", "#21918c", "#fde725"]
     # JSON-serialisable, not numpy scalars: the CONF block is json.dumps'ed.
     assert all(isinstance(edge, float) for edge in meta["scale"]["breaks"])
+    # The four blocks span equal widths (0-25-50-75-100), so equal-interval
+    # is provable from the shipped breaks alone.
+    assert meta["scale"]["method"] == "equal"
+
+
+def test_stepped_scale_with_uneven_breaks_has_no_provable_method():
+    # A quantiles/jenks classification produces unequal class widths; the
+    # panel must not guess a method for it, so Python records None. The
+    # breaks themselves still ship so the panel can state the author's edges.
+    index = [0.0, 10.0, 30.0, 60.0, 100.0]
+    colormap = branca_cm.StepColormap(
+        ["#440154", "#3b528b", "#21918c", "#fde725"], index=index
+    )
+    scale_payload, _ = _layer_control_mod.scale_payload(colormap, "score")
+
+    assert scale_payload["kind"] == "stepped"
+    assert scale_payload["breaks"] == index
+    assert scale_payload["method"] is None
+
+
+def test_provable_equal_interval_is_math_only():
+    provable = _layer_control_mod.provable_equal_interval
+    # The helper is private; call it through the module so the rename rule
+    # (module-internal names carry no underscore) keeps working.
+    # Too few edges to have two intervals: no method either way.
+    assert provable([]) is False
+    assert provable([0.0]) is False
+    assert provable([0.0, 50.0]) is False
+    # Degenerate / descending edges are not a classification.
+    assert provable([0.0, 25.0, 25.0, 100.0]) is False
+    assert provable([100.0, 75.0, 50.0, 25.0, 0.0]) is False
+    # Equally spaced: provable, including a non-integer step (float division
+    # leaves a rounding hair, so the comparison tolerates it).
+    assert provable([0.0, 33.333333333, 66.666666666, 100.0]) is True
+    # Uneven: never provable.
+    assert provable([0.0, 10.0, 30.0, 60.0, 100.0]) is False
 
 
 def test_a_scale_is_claimed_only_through_its_caption():
@@ -735,6 +779,61 @@ def test_a_fisherjenks_caption_survives_the_bin_edges(k):
     assert all(isinstance(edge, float) for edge in payload["scale"]["breaks"])
 
 
+def test_no_scale_many_distinct_colors_reads_as_continuous():
+    # A legend=False explore layer mounts no colormap, so no scale pairs. A
+    # per-feature layer painting more distinct colors than the panel's 9-class
+    # maximum is read as a continuous ramp: ship a {kind: continuous} so the
+    # panel states Equal Interval (the honest statement that a LinearColormap
+    # is an interval ramp). stops stay the sampled strip in feature-discovery
+    # order, so the record marks it "ordered": False — only a paired scale's
+    # stops are domain order, and the bar must sort a discovery-order strip
+    # (by lightness) instead of trusting it. column / vmin / vmax / method are
+    # deliberately NOT written — a guess at the drive column and extent would
+    # be worse than none.
+    colors = ["#%06x" % (i * 0x111111) for i in range(12)]
+    meta = _meta(_geo(colors))
+
+    assert meta["perFeature"] is True
+    assert meta["distinct"] == 12
+    assert meta["scale"] == {"kind": "continuous", "ordered": False}
+    assert "column" not in meta["scale"]
+    assert "vmin" not in meta["scale"]
+    assert "vmax" not in meta["scale"]
+    assert "method" not in meta["scale"]
+    # The sampled strip stays the author's colors.
+    assert meta["stops"] == colors
+
+
+def test_no_scale_at_the_continuous_threshold_boundary():
+    # 9 distinct colors = the panel's class maximum (CLASS_COUNT.MAX): a
+    # small-step classification the panel can still describe from its own
+    # colors, so no continuous scale is synthesized (the method box shows a
+    # dash). 10 distinct crosses the threshold and reads as continuous.
+    nine = ["#%06x" % (i * 0x111111) for i in range(9)]
+    assert "scale" not in _meta(_geo(nine))
+    ten = ["#%06x" % (i * 0x111111) for i in range(10)]
+    assert _meta(_geo(ten))["scale"] == {"kind": "continuous", "ordered": False}
+
+
+def test_real_scale_high_cardinality_still_pairs():
+    # A real linear scale (legend=True) paired with a >9-distinct layer keeps
+    # the paired path: column / vmin / vmax ship, and the synthesized-scale
+    # branch does not fire (a real scale is the author's own declaration).
+    scale = _linear()
+    values = [float(i) for i in range(12)]
+    colors = [str(scale(value))[:7] for value in values]
+    meta = _meta(_geo(colors, values=values), scale)
+
+    assert meta["scale"]["kind"] == "continuous"
+    # Paired path: a real scale is the author's own declaration, its stops are
+    # domain order, so no ordered flag is written.
+    assert "ordered" not in meta["scale"]
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["vmin"] == 0
+    assert meta["scale"]["vmax"] == 100
+    assert meta["scale"]["method"] is None
+
+
 def _scale() -> branca_cm.LinearColormap:
     """A continuous scale with the 256-point resolution explore produces."""
     base = branca_cm.LinearColormap(["#0d0887", "#f0f921"], vmin=10, vmax=15)
@@ -998,12 +1097,10 @@ def _declared_layer() -> folium.GeoJson:
         },
         foliplus={
             "fill": {
-                "ramp": {
-                    "field": "score",
-                    "method": "equal",
-                    "classes": 3,
-                    "scheme": "Reds",
-                }
+                "field": "score",
+                "method": "equal",
+                "classes": 3,
+                "scheme": "Reds",
             }
         },
     )
