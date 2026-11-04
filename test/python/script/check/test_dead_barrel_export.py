@@ -137,6 +137,16 @@ class TestResolveImport:
             str(Path("foliplus") / "js" / "control" / "LayerControl" / "const.ts")
         )
 
+    def test_alias_ui(self, tmp_path):
+        # The #ui/ mapping (same shape as #common/#core): the barrel
+        # (#ui/index.js) re-exports the ui modules, so the graph must
+        # resolve it or the barrel's re-exports are judged dead.
+        _make(tmp_path, "foliplus/js/ui/panelChrome.ts")
+        fp = str(tmp_path / "foliplus" / "js" / "a" / "index.ts")
+        out = mod._resolve_import(fp, "#ui/panelChrome.js", str(tmp_path))
+        assert out is not None
+        assert out.endswith(str(Path("foliplus") / "js" / "ui" / "panelChrome.ts"))
+
     def test_external_module_returns_none(self, tmp_path):
         fp = str(tmp_path / "index.ts")
         assert mod._resolve_import(fp, "leaflet", str(tmp_path)) is None
