@@ -382,7 +382,10 @@ describe("generateRegistry", () => {
     const output = readRegistry(buildDir);
     expect(output).toContain('window.foliplus.ui["index"]');
     expect(output).toContain('from "#ui/index.js"');
-    expect(output).toContain("uiIndexNS");
+    // Published as an inline object literal: the generated file carries no
+    // per-namespace variable names, so there is nothing to keep consistent.
+    expect(output).toContain('window.foliplus.ui["index"] = {');
+    expect(output).not.toContain("uiIndexNS");
     expect(output).toContain("panelButton");
   });
 
