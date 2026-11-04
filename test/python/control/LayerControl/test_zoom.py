@@ -1,15 +1,19 @@
-"""Browser test: a declared zoom range is the view the page opens on.
+"""Zoom-range declaration: browser behaviour and the documented contract.
 
-The unit tests pin the predicate; this drives a real Leaflet map, so the
-claim under test is the user-visible one: declare
-foliplus={"zoom_range": {"min": 8, "max": 12}}, open the page, and the layer is
-painted inside the range, gone outside it, and back when the map returns -
-while an undeclared sibling is painted throughout and the style row opens
-on the declared 8/12.
+The browser half drives a real Leaflet map: declare
+``foliplus={"zoom_range": {"min": 8, "max": 12}}`` and the layer is painted
+inside the range, gone outside it, and back when the map returns, while an
+undeclared sibling is painted throughout and the style row opens on 8/12.
+
+The render half pins the class docstring's promises (the mapping form, the
+``gdf.explore`` writing form, warn-once and treated-as-undeclared) so a
+docstring edit cannot silently drop a promise the behaviour tests rely on.
+Assertions are semantic invariants, never the exact prose.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 
@@ -18,8 +22,22 @@ from conftest import _js, make_browser_page, panel_ready, use_page
 
 from foliplus import LayerControl
 
+
+def _class_doc() -> str:
+    """The class docstring is the single contract surface for the declaration."""
+    doc = inspect.getdoc(LayerControl)
+    assert doc is not None, "LayerControl must carry a class docstring"
+    return doc
+
+
 _READ_STATE = _js("LayerControl/zoom_declared_state")
 _READ_ROW = _js("LayerControl/zoom_declared_row")
+
+# The class docstring is the single contract surface for the declaration; the
+# Notes section (the last major section) holds the declaration tables and the
+# resolution rules, so the probes anchor on the exact section header.
+_DOC = _class_doc()
+_NOTES = _DOC.split("Notes\n-----", 1)[1]
 
 
 def _polygon(name: str, **kwargs: object) -> folium.GeoJson:
@@ -114,3 +132,33 @@ class TestDeclaredZoomBrowser:
             assert back["painted"] == 2, back
 
             assert not errors, f"JS errors: {errors}"
+
+
+def test_docstring_documents_zoom_mapping_form() -> None:
+    """The zoom declaration is documented as a mapping with min and max."""
+    # The Recognised-keys table names the ``zoom_range`` key.
+    assert "``zoom_range``" in _DOC
+    # The declaration-keys table names both mapping keys as the only shape.
+    assert "``min``" in _DOC
+    assert "``max``" in _DOC
+    # The mapping form appears in the table (Type column = dict).
+    assert "dict" in _NOTES
+
+
+def test_docstring_documents_explore_writing_form() -> None:
+    """The example writes the declaration through ``gdf.explore(foliplus=...)``."""
+    assert "gdf.explore(foliplus=" in _DOC
+    assert "zoom_range" in _DOC
+
+
+def test_docstring_declares_malformed_warns_once_and_is_ignored() -> None:
+    """Notes says a malformed declaration warns once and is never fatal."""
+    assert "Warns once" in _NOTES
+    assert "treated as undeclared" in _NOTES.lower()
+    assert "never hides" in _NOTES
+
+
+def test_docstring_declares_unusable_treated_as_undeclared() -> None:
+    """Notes says an unusable range is treated as undeclared and stays visible."""
+    assert "Treated as undeclared" in _NOTES
+    assert "stays visible" in _NOTES

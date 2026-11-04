@@ -390,7 +390,7 @@ class TestLayerControlRendering:
         # opening brace of the :is() rule (NOT the parent's — the nearest
         # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
-        mark = "is(:hover, .foliplus-is-focused-row)"
+        mark = ":hover:where(:not(:has(.foliplus-row-panel:hover)))"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
@@ -663,9 +663,31 @@ class TestLayerControlRendering:
         accent-primary (not accent-light) and the fold row cannot drift into a
         private hover style anymore."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
-        assert "is(:hover, .foliplus-is-focused-row)" in css
-        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
+        # The recipe's :is() leads with the panel-hover carve-out. Pin the
+        # exact (whitespace-stripped) recipe shape — the old bare
+        # "is(:hover, .foliplus-is-focused-row)" now matches the base-row quiet
+        # rule (which keeps the old :is form) and would not point at the recipe.
+        # Whitespace-stripped: a Prettier/PostCSS reflow of the compound
+        # selector (newlines, or a space after `is(` / before `)`) must
+        # not break the shape match below. The spacey form (e.g. `is( :hover`) is a
+        # whitespace artifact and not part of the selector's meaning.
+        flat = re.sub(r"\s+", "", css)
+        recipe_mark = (
+            "is(:hover:where(:not(:has(.foliplus-row-panel:hover))),"
+            ".foliplus-is-focused-row)"
+        )
+        assert recipe_mark in flat, "Row-cursor recipe shape not found"
+        # The toggle-all row joins the SAME compound selector that carries this
+        # recipe (the &:is() parent), so it cannot drift into a private hover.
+        recipe_at = flat.index(recipe_mark)
+        group_start = flat.rfind(".foliplus-layer-item,", 0, recipe_at)
+        assert group_start != -1, "Row-cursor compound selector not found"
+        group_end = flat.index("{", group_start)
+        group = flat[group_start:group_end]
+        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
+            "toggle-all row must share the Row-cursor recipe's selector group"
+        )
+        assert "is(:hover,:focus-visible,.foliplus-is-focused-row)" not in flat
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--foliplus-accent-light)" not in css
