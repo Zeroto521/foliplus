@@ -137,34 +137,28 @@ class MeasureControl(BaseControl):
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import MeasureControl
-        >>> m = folium.Map()
-        >>> MeasureControl().add_to(m)
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl().add_to(m)
 
     With a declared starting filter on the measurement types:
 
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import MeasureControl
-        >>> m = folium.Map()
-        >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl(filter=["distance", "polygon"]).add_to(m)
 
     Only show the toolbar while the map is between zoom levels 8 and 12:
 
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import MeasureControl
-        >>> m = folium.Map()
-        >>> MeasureControl(zoom_range={"min": 8, "max": 12}).add_to(m)
+    >>> import folium
+    >>> from foliplus import MeasureControl
+    >>> m = folium.Map()
+    >>> MeasureControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
-    .. rubric:: Filter declaration
+    **Filter declaration**
 
     ``filter`` is a list of measurement-type names (the min/max mapping form, a
     ``min``/``max`` mapping, belongs to ``HeatmapControl``):
@@ -177,7 +171,7 @@ class MeasureControl(BaseControl):
     |              |          |          | ``marker``.                                      |
     +--------------+----------+----------+--------------------------------------------------+
 
-    .. rubric:: Situation → behavior
+    **Situation → behavior**
 
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
@@ -204,7 +198,7 @@ class MeasureControl(BaseControl):
     |                                            | declaration (this session and on reload).  |
     +--------------------------------------------+--------------------------------------------+
 
-    .. rubric:: Zoom-range declaration
+    **Zoom-range declaration**
 
     ``zoom_range={"min": 8, "max": 12}`` takes the same shape the per-layer
     ``foliplus`` declaration uses:
