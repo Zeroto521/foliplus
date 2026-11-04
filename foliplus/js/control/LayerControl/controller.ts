@@ -1690,6 +1690,10 @@ class LayerController implements LayerAPI {
    *  (the ramp/legend domain must not follow the filter). */
   setLayerFilter(id: string, filter: LayerFilter | undefined): void {
     this.layerFilters.set(id, filter);
+    // Keep the per-layer slot (S4b reads layers[id].filter directly) in sync
+    // with the write-through so the panel never re-derives the committed state.
+    const li = this.layerRegistry.get(id);
+    if (li) li.filter = filter;
     this.applyFilterClass(id, filter);
     publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id });
   }

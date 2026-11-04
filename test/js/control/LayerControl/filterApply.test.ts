@@ -99,13 +99,32 @@ describe("generic data-layer filter (controller wiring)", () => {
 
       const [a, b, c] = features.features;
       const path = (leaf: L.Layer) =>
-        (leaf as { getElement: () => HTMLElement }).getElement().classList.contains(
-          CONST.CLASSES.FILTER_HIDDEN,
-        );
+        (leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
       expect(path(a.leaf)).toBe(true);
       expect(path(b.leaf)).toBe(false);
       expect(path(c.leaf)).toBe(false);
       expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("removes the class from a leaf that stops matching (re-filter)", () => {
+      const features = makeFeatures();
+      ui.runtimeStore.setFilterFeatures("flt1", features);
+      manager.setLayerFilter("flt1", between("value", [2, 5]));
+      const [a] = features.features;
+      const path = (leaf: L.Layer) =>
+        (leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
+      expect(path(a.leaf)).toBe(true);
+      // Widen the range so the once-hidden leaf now matches again: the
+      // re-apply must remove the class (a hidden-only add would leave it
+      // hidden forever).
+      manager.setLayerFilter("flt1", between("value", [1, 5]));
+      for (const feature of features.features) {
+        expect(path(feature.leaf)).toBe(false);
+      }
     });
 
     it("clears the class for every leaf when the filter is removed", () => {
@@ -114,9 +133,9 @@ describe("generic data-layer filter (controller wiring)", () => {
       manager.setLayerFilter("flt1", between("value", [2, 5]));
       manager.setLayerFilter("flt1", undefined);
       const path = (leaf: L.Layer) =>
-        (leaf as { getElement: () => HTMLElement }).getElement().classList.contains(
-          CONST.CLASSES.FILTER_HIDDEN,
-        );
+        (leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
       for (const feature of features.features) {
         expect(path(feature.leaf)).toBe(false);
       }

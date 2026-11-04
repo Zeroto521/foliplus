@@ -7,7 +7,7 @@
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
 import type { LabelField } from "#core/label/index.js";
-import type { LayerFilterFeatures } from "./filterFeatures.js";
+import type { LayerFilterFeatures } from "./filterFeature.js";
 import type { LayerSnapshot, Projection } from "./type.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
@@ -35,7 +35,7 @@ interface LayerRuntime {
   snapshot?: LayerSnapshot;
   /** Per-layer generic feature snapshot — every geometry leaf + its
    *  attribute bag, built once on first read for the generic data-layer
-   *  filter (filterFeatures.ts), invalidated at the same points as
+   *  filter (filterFeature.ts), invalidated at the same points as
    *  `fields` / `snapshot`. */
   filterFeatures?: LayerFilterFeatures;
   /** The author's declared default per layer id, seeded from CONFIG

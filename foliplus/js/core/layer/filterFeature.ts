@@ -1,4 +1,4 @@
-// core/layer/filterFeatures — generic per-feature attribute snapshot + filter set.
+// core/layer/filterFeature — generic per-feature attribute snapshot + filter set.
 //
 // The generic filter for ordinary data layers (GeoJSON polygons / lines /
 // circles / markers) needs a per-feature field view that the point snapshot
