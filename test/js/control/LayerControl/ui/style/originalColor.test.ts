@@ -7,7 +7,10 @@
 // "ordered": false}`) sorts lightness → hue, because its stops are discovery
 // order, not domain order — a sequential ramp is lightness-monotonic.
 import { describe, expect, it } from "vitest";
-import { MAX_STOPS, originalGradient } from "#control/LayerControl/ui/style/originalColor.js";
+import {
+  MAX_STOPS,
+  originalGradient,
+} from "#control/LayerControl/ui/style/originalColor.js";
 
 /** The viridis extremes, deliberately handed in a bad order. Lightness rises
  *  dark purple (#440154, ~0.17) → teal (#21918c, ~0.35) → yellow (#fde725,
@@ -53,14 +56,14 @@ describe("originalGradient", () => {
 
   it("is independent of input order for a discovery-order continuous arm", () => {
     const first = originalGradient(BAD_ORDER, { kind: "continuous", ordered: false });
-    const second = originalGradient(
-      [...BAD_ORDER].reverse(),
-      { kind: "continuous", ordered: false },
-    );
-    const third = originalGradient(
-      ["#21918c", "#fde725", "#440154"],
-      { kind: "continuous", ordered: false },
-    );
+    const second = originalGradient([...BAD_ORDER].reverse(), {
+      kind: "continuous",
+      ordered: false,
+    });
+    const third = originalGradient(["#21918c", "#fde725", "#440154"], {
+      kind: "continuous",
+      ordered: false,
+    });
     expect(first).toBe(second);
     expect(first).toBe(third);
   });
