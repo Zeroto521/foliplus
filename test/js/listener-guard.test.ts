@@ -185,14 +185,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
   {
-    f: "common/dropdown.ts",
+    f: "common/engine/dropdown.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "shared select-replacement ADAPTER over common/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into common/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
   },
   {
-    f: "common/listbox.ts",
+    f: "common/engine/listbox.ts",
     n: 11,
     pairedOff: 0,
     reason:
