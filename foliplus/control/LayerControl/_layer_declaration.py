@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from folium.map import Layer
 
 from foliplus._declaration import (
@@ -28,16 +30,31 @@ def _foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | Non
     ``fill``/``label`` values are warned here so every reader reports the same
     shape errors; the caller then normalises the key it owns.
     """
-    # folium's base Layer (map.py) never assigns self.options: only the
-    # concrete subclasses do (Marker, GeoJson, FeatureGroup, TileLayer, ...).
-    # A bare Layer or a custom subclass is therefore a real runtime shape, not
-    # just a type hole, and it simply carries no declaration.
-    raw = getattr(item, "options", {}).get("foliplus")
+    # Two declaration channels are accepted so third-party/custom layers
+    # declare a folder the same way foliplus layers do:
+    #   * attribute: layer.foliplus = {...} - folium's base Layer.__init__
+    #     never consumes **kwargs (only attribute assignment), so custom and
+    #     extension layers commonly set the attribute directly;
+    #   * options: layer.options["foliplus"] - folium forwards the unknown
+    #     keyword into the layer options (GeoJson, TileLayer, ...).
+    # The attribute channel wins when present; the options channel is the
+    # fallback. Malformed containers never raise - a third-party layer written
+    # wrong must not break the whole map - and read as "undeclared". A
+    # declared-but-not-a-mapping namespace warns once (dedup key omits the
+    # layer name so many layers with the same shape error do not spam).
+    attr_raw = getattr(item, "foliplus", None)
+    if attr_raw is not None:
+        raw = attr_raw
+    else:
+        options = getattr(item, "options", None)
+        if not isinstance(options, Mapping):
+            return None
+        raw = options.get("foliplus")
     if raw is None:
         return None
     if not isinstance(raw, dict):
         warn_foliplus(
-            f"{layer_name}:shape:{type(raw).__name__}",
+            f"shape:{type(raw).__name__}",
             f"LayerControl: layer {layer_name!r} declares foliplus= as "
             f"{type(raw).__name__}; expected a mapping - ignored",
         )

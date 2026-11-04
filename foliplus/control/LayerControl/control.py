@@ -6,7 +6,6 @@ from branca.element import Element
 from folium.map import Layer
 
 from foliplus._config_schema import FieldSpec
-from foliplus._declaration import warn_foliplus
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
@@ -329,24 +328,10 @@ class LayerControl(BaseControl):
                 entry["folder"] = folder
             data.append(entry)
 
-        # A folder name shared by more than one layer is ambiguous: no layer
-        # may adopt it, and each declaring layer is warned so the defect is
-        # attributable (one warning per layer, not one per defect).
-        folder_counts: dict[str, int] = {}
-        for entry in data:
-            declared = entry.get("folder")
-            if isinstance(declared, str):
-                folder_counts[declared] = folder_counts.get(declared, 0) + 1
-        for entry in data:
-            declared = entry.get("folder")
-            if isinstance(declared, str) and folder_counts[declared] > 1:
-                warn_foliplus(
-                    f"{entry['name']}:folder:duplicate",
-                    f"LayerControl: layer {entry['name']!r} declares folder "
-                    f"{declared!r} also declared by another layer; ambiguous - "
-                    "ignored",
-                )
-                entry.pop("folder", None)
+        # A folder name shared by several layers is a grouping intent, not a
+        # conflict: the JS side merges same-name declarations of the same role
+        # into one authorFolderId (folder = section group name, one group may
+        # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")
