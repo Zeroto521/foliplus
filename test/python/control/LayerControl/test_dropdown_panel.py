@@ -24,11 +24,25 @@ from foliplus import HeatmapControl, LayerControl
 
 STATE = snippet("LayerControl/dropdown_state")
 
-
 FIRST_TRIGGER = snippet("LayerControl/dropdown_first_trigger")
 
-
 FIRST_OPTION = snippet("LayerControl/dropdown_first_option")
+
+# ── value-fill row geometry ──
+#
+# The shared dropdown replaced the panels' native selects, and two layouts only
+# a real browser resolves: the closed row (a flex min-width trap — the wrapper's
+# automatic minimum is the nowrap label) and the open popup (it has to spell out
+# a label the fixed-width row ellipsizes, without leaving the panel). Measured
+# here rather than asserted in jsdom, which computes neither flex nor text.
+_GEOMETRY = _js("LayerControl/read_fill_row_geometry")
+
+_TO_RAMP = snippet("LayerControl/dropdown_to_ramp")
+
+# The English method name is what breaks the row: 93px of nowrap text in a
+# 104px control, next to the fixed 52px class count. Chinese is the geometry
+# the row was designed against, so it doubles as the "nothing moved" control.
+_METHOD_TEXT = {"en": "Natural Breaks", "zh": "自然断点"}
 
 
 def _make_page(browser, tmp_path):
@@ -191,22 +205,6 @@ class TestStyleDrawerDropdownBrowser:
 
 
 # ─────────────────── value-fill row geometry ───────────────────
-#
-# The shared dropdown replaced the panels' native selects, and two layouts only
-# a real browser resolves: the closed row (a flex min-width trap — the wrapper's
-# automatic minimum is the nowrap label) and the open popup (it has to spell out
-# a label the fixed-width row ellipsizes, without leaving the panel). Measured
-# here rather than asserted in jsdom, which computes neither flex nor text.
-
-_GEOMETRY = _js("LayerControl/read_fill_row_geometry")
-
-_TO_RAMP = snippet("LayerControl/dropdown_to_ramp")
-
-
-# The English method name is what breaks the row: 93px of nowrap text in a
-# 104px control, next to the fixed 52px class count. Chinese is the geometry
-# the row was designed against, so it doubles as the "nothing moved" control.
-_METHOD_TEXT = {"en": "Natural Breaks", "zh": "自然断点"}
 
 
 def _make_geometry_page(browser, tmp_path, locale):
