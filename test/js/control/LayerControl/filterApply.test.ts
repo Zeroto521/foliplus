@@ -140,6 +140,20 @@ describe("generic data-layer filter (controller wiring)", () => {
         expect(path(feature.leaf)).toBe(false);
       }
     });
+
+    it("mirrors the committed filter into the layer entry slot (layers[id].filter)", () => {
+      const features = makeFeatures();
+      manager.registerLayer({ id: "flt1", name: "Flt", role: "overlay" });
+      ui.runtimeStore.setFilterFeatures("flt1", features);
+      // No filter yet: the slot starts empty.
+      expect(manager.layerRegistry.get("flt1")?.filter).toBeUndefined();
+      manager.setLayerFilter("flt1", between("value", [2, 5]));
+      expect(manager.layerRegistry.get("flt1")?.filter).toEqual(
+        between("value", [2, 5]),
+      );
+      manager.setLayerFilter("flt1", undefined);
+      expect(manager.layerRegistry.get("flt1")?.filter).toBeUndefined();
+    });
   });
 
   describe("genericFilterModel", () => {
