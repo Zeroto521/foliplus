@@ -31,6 +31,12 @@
         ),
       )
     : null;
+  // The shared compact-width token must resolve to a real positive number: a
+  // missing (or zero) token would let the class-count wrapper fall back to the
+  // dropdown's full-width default and drift off the by-value row's shape, so
+  // the probe fails loudly on that regression instead of "passing" a bad
+  // measurement (the same guard as widthsPositive, applied to the token).
+  const secondaryWidthPositive = Number.isFinite(secondaryWidth) && secondaryWidth > 0;
   const methodGeom = geom(method);
   const classesGeom = geom(classes);
   const controlGeom = geom(controlCell);
@@ -47,12 +53,13 @@
     controlGeom.width > 0
   );
   return {
-    ok: !!(method && classes && controlCell && secondaryWidth),
+    ok: !!(method && classes && controlCell && secondaryWidthPositive),
     widthsPositive,
     methodGeom,
     classesGeom,
     controlGeom,
     secondaryWidth,
+    secondaryWidthPositive,
     // The Method dropdown starts at the control cell's left edge.
     methodFillsControl: !!(widthsPositive && methodGeom.left === controlGeom.left),
     // The class-count dropdown is exactly the compact secondary width.
