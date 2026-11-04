@@ -116,7 +116,7 @@ const resolveModuleSpecifier = (dir, spec) => {
         base.replace(/\.js$/, ".tsx"),
         base.replace(/\.js$/, ".mts"),
       ]
-    : [base, base + ".ts", base + ".js", base + ".tsx"];
+    : [`${base}.ts`, `${base}.js`, `${base}.tsx`];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
@@ -176,30 +176,22 @@ const assertBarrelExports = (sourceDir, barrelName, names) => {
   const indexPath = resolve(sourceDir, barrelName, "index.ts");
   if (!existsSync(indexPath)) {
     throw new Error(
-      barrelName +
-        "/index.ts is missing but a component imports from " +
-        '"#' +
-        barrelName +
-        '/index.js" (' +
-        names.join(", ") +
-        "). The barrel must exist " +
-        "and re-export every name the components use.",
+      [
+        `${barrelName}/index.ts is missing but a component imports from`,
+        `"#${barrelName}/index.js" (${names.join(", ")}). The barrel must`,
+        "exist and re-export every name the components use.",
+      ].join(" "),
     );
   }
   const exported = collectExportedNames(indexPath);
   const missing = names.filter(n => !exported.has(n));
   if (missing.length) {
     throw new Error(
-      '"#' +
-        barrelName +
-        '/index.js" does not re-export: ' +
-        missing.join(", ") +
-        ". " +
-        "Add " +
-        (missing.length > 1 ? "these names" : "this name") +
-        " to " +
-        barrelName +
-        "/index.ts or remove the import from the component.",
+      [
+        `"#${barrelName}/index.js" does not re-export: ${missing.join(", ")}.`,
+        `Add ${missing.length > 1 ? "these names" : "this name"} to`,
+        `${barrelName}/index.ts or remove the import from the component.`,
+      ].join(" "),
     );
   }
 };
