@@ -29,10 +29,11 @@
    Shell + item hover/active live in common.css (Unified Dropdown / Menu). */
 .foliplus-search-result-panel {
   position: fixed;
-  /* Above other floating controls: the panel is mounted on the map container. */
-  z-index: calc(var(--foliplus-z-index-floating) + 9);
+  /* Above other floating controls, including an expanded layer panel's
+     +9 segment: the panel is mounted on the map container. */
+  z-index: var(--foliplus-z-index-overlay);
   width: var(--foliplus-panel-width);
-  max-height: 240px;
+  max-height: var(--foliplus-menu-max-height);
 }
 .foliplus-search-result-item {
   display: flex;

@@ -5,17 +5,6 @@
    `foliplus-scheme-picker-` prefix so consumers can override with
    their own names via the `classes` option.                    */
 
-@keyframes foliplus-scheme-picker-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(-1 * var(--foliplus-space-sm)));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Hidden select: visually collapsed but stays in layout (Bootstrap also
    defines a global .hidden, so this uses a component-scoped name).        */
 .foliplus-scheme-picker-hidden {
@@ -69,9 +58,12 @@
 }
 
 /* ── Dropdown shell ──
-   Position, width, max-height, padding, background, border, shadow,
-   entrance animation.  The :focus-visible / :hover / :active / :is-active
-   states for items live below (one block, no split across files).        */
+   The box recipe (background, border, radius, shadow, entrance animation,
+   gap, overflow-y) is the shared shell in common/menu.css; this rule keeps
+   only what the picker does not share — its anchor geometry, the 200px
+   max-height, the padding, and the scrollbar lane the item strip subtracts.
+   The :focus-visible / :hover / :active / :is-active states for items live
+   below (one block, no split across files). */
 .foliplus-scheme-picker-dropdown {
   position: absolute;
   top: 100%;
@@ -80,14 +72,6 @@
   max-width: var(--foliplus-menu-max-width);
   max-height: 200px;
   padding: var(--foliplus-space-sm) 0;
-  box-sizing: border-box;
-  margin-top: var(--foliplus-menu-gap);
-  background: var(--foliplus-input-bg);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
-  box-shadow: var(--foliplus-shadow-md);
-  z-index: var(--foliplus-z-index-floating);
-  overflow-y: auto;
   /* The item strip subtracts the measured lane from its right inset, so a
      list that crosses the max-height keeps the strip on the same edge (a
      stable gutter keeps the lane constant between the scrolling and fitting
@@ -104,7 +88,6 @@
      leak into the dropdown. */
   list-style: none;
   margin-bottom: 0;
-  animation: foliplus-scheme-picker-in 0.15s ease-out;
 }
 
 /* A portaled dropdown is appended to <body> (or the fullscreen element), not to
@@ -116,12 +99,6 @@
    dropdowns (HeatmapControl) stay where they are; their panel is their context. */
 .foliplus-scheme-picker-dropdown.foliplus-scheme-picker-portal {
   z-index: var(--foliplus-z-index-hint);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .foliplus-scheme-picker-dropdown {
-    animation: none;
-  }
 }
 
 /* ── Dropdown item ──
