@@ -576,15 +576,18 @@ def fill_author(
         # is almost certainly a continuous ramp the author did not label — the
         # panel reads a bare {"kind": "continuous"} as Equal Interval, the
         # honest statement that a LinearColormap is an interval ramp, not a
-        # claim about the author's scheme. column / vmin / vmax / method are
-        # deliberately NOT written (a guess at the drive column and extent
-        # would be worse than none), and stops stay the sampled strip. A
+        # claim about the author's scheme. stops stay the sampled strip in
+        # feature-discovery order, so the record marks it "ordered": False:
+        # only a paired scale's stops are domain order, and the bar must sort
+        # a discovery-order strip (by lightness) instead of trusting it.
+        # column / vmin / vmax / method are deliberately NOT written (a guess
+        # at the drive column and extent would be worse than none). A
         # low-cardinality layer (<= FILL_AUTHOR_CONTINUOUS_THRESHOLD distinct
         # colors) keeps no scale: it may be a small-step classification the
         # panel can still describe from its own colors, and reading it as
         # continuous would be the approximation this threshold exists to avoid.
         if per_feature and (capped or len(colors) > FILL_AUTHOR_CONTINUOUS_THRESHOLD):
-            payload["scale"] = {"kind": "continuous"}
+            payload["scale"] = {"kind": "continuous", "ordered": False}
         return payload
     colormap, column = paired
     scale, stops = scale_payload(colormap, column)

@@ -172,6 +172,9 @@ def test_continuous_scale_is_read_from_the_map():
     meta = _meta(_geo(colors, values=values), scale)
 
     assert meta["scale"]["kind"] == "continuous"
+    # A paired scale's stops are domain order, so the record carries no
+    # ordered flag: the bar trusts the shipped order.
+    assert "ordered" not in meta["scale"]
     assert meta["scale"]["column"] == "score"
     assert meta["scale"]["vmin"] == 0
     assert meta["scale"]["vmax"] == 100
@@ -779,17 +782,20 @@ def test_a_fisherjenks_caption_survives_the_bin_edges(k):
 def test_no_scale_many_distinct_colors_reads_as_continuous():
     # A legend=False explore layer mounts no colormap, so no scale pairs. A
     # per-feature layer painting more distinct colors than the panel's 9-class
-    # maximum is read as a continuous ramp: ship a bare {kind: continuous} so
-    # the panel states Equal Interval (the honest statement that a
-    # LinearColormap is an interval ramp). column / vmin / vmax / method are
+    # maximum is read as a continuous ramp: ship a {kind: continuous} so the
+    # panel states Equal Interval (the honest statement that a LinearColormap
+    # is an interval ramp). stops stay the sampled strip in feature-discovery
+    # order, so the record marks it "ordered": False — only a paired scale's
+    # stops are domain order, and the bar must sort a discovery-order strip
+    # (by lightness) instead of trusting it. column / vmin / vmax / method are
     # deliberately NOT written — a guess at the drive column and extent would
-    # be worse than none — and stops stay the sampled strip.
+    # be worse than none.
     colors = ["#%06x" % (i * 0x111111) for i in range(12)]
     meta = _meta(_geo(colors))
 
     assert meta["perFeature"] is True
     assert meta["distinct"] == 12
-    assert meta["scale"] == {"kind": "continuous"}
+    assert meta["scale"] == {"kind": "continuous", "ordered": False}
     assert "column" not in meta["scale"]
     assert "vmin" not in meta["scale"]
     assert "vmax" not in meta["scale"]
@@ -806,7 +812,7 @@ def test_no_scale_at_the_continuous_threshold_boundary():
     nine = ["#%06x" % (i * 0x111111) for i in range(9)]
     assert "scale" not in _meta(_geo(nine))
     ten = ["#%06x" % (i * 0x111111) for i in range(10)]
-    assert _meta(_geo(ten))["scale"] == {"kind": "continuous"}
+    assert _meta(_geo(ten))["scale"] == {"kind": "continuous", "ordered": False}
 
 
 def test_real_scale_high_cardinality_still_pairs():
@@ -819,6 +825,9 @@ def test_real_scale_high_cardinality_still_pairs():
     meta = _meta(_geo(colors, values=values), scale)
 
     assert meta["scale"]["kind"] == "continuous"
+    # Paired path: a real scale is the author's own declaration, its stops are
+    # domain order, so no ordered flag is written.
+    assert "ordered" not in meta["scale"]
     assert meta["scale"]["column"] == "score"
     assert meta["scale"]["vmin"] == 0
     assert meta["scale"]["vmax"] == 100
