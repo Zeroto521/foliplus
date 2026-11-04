@@ -257,13 +257,20 @@ describe("JS import boundaries", () => {
         const src = readFileSync(f, "utf-8");
         return src.includes("#core/") || src.includes("#foliplus/core/");
       })
-      .map(f => f.split("\\").join("/").replace(REPO_ROOT.split("\\").join("/") + "/", ""));
+      .map(f =>
+        f
+          .split("\\")
+          .join("/")
+          .replace(REPO_ROOT.split("\\").join("/") + "/", ""),
+      );
     expect(offenders).toEqual([]);
   });
 
   it("every tier directory exists (a half-done rename fails here)", () => {
     for (const dir of Object.values(TIER)) {
-      expect(existsSync(join(JS_ROOT, dir)), "tier directory missing: " + dir).toBe(true);
+      expect(existsSync(join(JS_ROOT, dir)), "tier directory missing: " + dir).toBe(
+        true,
+      );
     }
   });
 

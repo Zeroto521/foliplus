@@ -18,9 +18,8 @@ import type {
 } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
-import { type DropdownSurface, createDropdown, Slider } from "#ui/index.js";
+import { type DropdownSurface, Slider, createDropdown } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-
 
 /** What a body may use from the panel: translations, the owner write bridge,
  *  the panel's number formatters and the popup surface an open control portals

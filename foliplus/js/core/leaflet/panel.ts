@@ -6,9 +6,9 @@
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import * as SVGs from "#common/icon.js";
+import { isPortalOf } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 import { computePlacement } from "#ui/index.js";
-import { isPortalOf } from "#common/portalRoot.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {

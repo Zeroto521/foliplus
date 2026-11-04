@@ -1,11 +1,11 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { type FinalizeStep, finalize } from "#common/finalize.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
 import { ICON_LOADING } from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setPseudoFullscreen } from "#common/fullscreen.js";
 import {
   HINT_DURATION,
   HintManager,
   ensureHint,
   registerHintIcon,
 } from "#core/hint.js";
+import { setPseudoFullscreen } from "#common/fullscreen.js";
 
 beforeEach(() => {
   document.body.innerHTML = "";
