@@ -225,7 +225,10 @@ def find_table_border_issues(docstring: str) -> list[tuple[int, str]]:
             chars = {seg[0] for seg in segments if seg}
             if len(chars) > 1:
                 issues.append(
-                    (idx, f"grid table separator mixes border chars ({''.join(sorted(chars))})")
+                    (
+                        idx,
+                        f"grid table separator mixes border chars ({''.join(sorted(chars))})",
+                    )
                 )
             continue
         if re.fullmatch(r"(?:[=\-]+\s+)+[=\-]+", stripped):
@@ -236,7 +239,10 @@ def find_table_border_issues(docstring: str) -> list[tuple[int, str]]:
             chars = {run[0] for run in runs}
             if len(chars) > 1:
                 issues.append(
-                    (idx, f"simple table separator mixes border chars ({''.join(sorted(chars))})")
+                    (
+                        idx,
+                        f"simple table separator mixes border chars ({''.join(sorted(chars))})",
+                    )
                 )
     return issues
 
