@@ -42,6 +42,12 @@ const SIZE = {
 const RAMP = {
   METHOD_DEFAULT: "jenks",
   SCHEME_DEFAULT: "Viridis",
+  /** The qualitative palette an *inferred* categorical fill falls back to when
+   *  the author named no scheme. Only the inference path uses it: an explicit
+   *  `kind: "category"` still hard-rejects without a scheme, and a declared
+   *  scheme (on either arm) is the author's choice and is kept verbatim. Set3
+   *  is the qualitative default CATEGORY_SCHEMES offers. */
+  CATEGORY_SCHEME_DEFAULT: "Set3",
 } as const;
 
 /** Focus-on-layer behavior. */

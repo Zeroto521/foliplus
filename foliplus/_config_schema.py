@@ -160,8 +160,12 @@ UNSET = object()
 # * ``tuple`` of ≥2 primitive names — a primitive union, rendered unquoted
 #   (``("string", "number")`` → ``string | number``). Any other tuple is a
 #   *literal* union, its members quoted (``("base", "overlay")`` →
-#   ``"base" | "overlay"``). A one-element tuple is always a literal, so
-#   ``("string",)`` stays ``"string"`` rather than becoming a bare ``string``.
+#   ``"base" | "overlay"``). The exception is ``"null"``: a literal union
+#   may mix one literal with ``null`` (``("equal", "null")`` →
+#   ``"equal" | null``), because ``null`` is a primitive name and renders
+#   unquoted in the same union. A one-element tuple is always a literal,
+#   so ``("string",)`` stays ``"string"`` rather than becoming a bare
+#   ``string``.
 # * ``list`` — array of the item's type (``[X]`` is ``X[]``).
 # * ``dict`` — either an object with named identifier keys, or
 #   ``Record<string, V>`` when the sole key is ``"*"``. Mixing ``"*"`` with
@@ -301,7 +305,7 @@ class FieldSpec:
 
     config_key
         CONFIG key to emit this constructor parameter under, when it differs
-        from the parameter name. The constructor keeps its author-facing name
+        from the parameter name. The constructor keeps its caller-facing name
         (``zoom_range``) while CONF carries the normalised contract name
         (``zoomRange``), matching the layer payload's spelling. ``None`` uses
         the parameter name. The `_config_fields` tuple and the generated schema
@@ -561,14 +565,14 @@ def resolve_tag(
 ) -> tuple[str, tuple[str, ...] | None, bool, FieldSpec | None]:
     """Resolve one annotation to ``(tag, values, nullable, spec)``.
 
-    ``spec`` is the author's ``FieldSpec`` metadata (or ``None``):
+    ``spec`` is the caller's ``FieldSpec`` metadata (or ``None``):
     :func:`derive_schema` reads ``optional`` and ``note`` from it. ``ts``,
     ``values`` and ``nullable`` are the reflector's own decision, reported
     separately so the caller can see what was decided and from where.
 
     Layers, in order of authority:
 
-    1. An explicit ``FieldSpec(ts=...)`` — an override the author wrote
+    1. An explicit ``FieldSpec(ts=...)`` — an override the caller wrote
        because the automatic mapping cannot decide (a ``Literal`` that is
        really ``NumberStyle``, a ``str | dict`` union that is really
        ``ProviderConfig``, …).
@@ -594,7 +598,7 @@ def resolve_tag(
     peeled = meta is not None
 
     if meta is not None and meta.ts:
-        # The author named the type; nullability still comes from the
+        # The caller named the type; nullability still comes from the
         # annotation, not from the override.
         return meta.ts, meta.values, is_nullable(hint) or meta.nullable, meta
 
@@ -614,12 +618,12 @@ def resolve_tag(
             # A FieldSpec may sit on the non-null arm rather than outside the
             # union (`Annotated[dict, FieldSpec(...)] | None`, and the spelled
             # `Optional[Annotated[...]]` form alike). Resolving the arm takes
-            # the spec back out so the author's ts/name/note survive the null
+            # the spec back out so the caller's ts/name/note survive the null
             # arm — a spec already carried in `meta` by an outer Annotated
             # layer wins.
             tag, values, inner_nullable, inner_meta = resolve_tag(non_null[0], meta)
             return tag, values, nullable or inner_nullable, meta or inner_meta
-        # A union of two unrelated arms is not a JSON shape: the author must
+        # A union of two unrelated arms is not a JSON shape: the caller must
         # name it. ProviderConfig's `str | dict` reaches here as
         # `str | TypedDict` and carries FieldSpec(ts=...) for exactly this.
         raise ValueError(
@@ -632,7 +636,7 @@ def resolve_tag(
             return "union", tuple(str(v) for v in get_args(hint)), False, meta
         # A peeled Literal (wrapped in Annotated with a FieldSpec) is an
         # alias: the reflected tag is "union" with the Literal's values, and
-        # the author's FieldSpec names the alias via ``name`` so the
+        # the caller's FieldSpec names the alias via ``name`` so the
         # generator emits it. A ``ts`` override on a Literal returns at the
         # meta.ts check above, because ts names the type outright.
         values = tuple(str(v) for v in get_args(hint))
@@ -687,7 +691,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
     skipped: they are the base's job, already covered by :data:`SHARED`.
 
     Defaults must be JSON-serializable — the fixture is generated from them.
-    A parameter whose default is a runtime decision (nothing the author can
+    A parameter whose default is a runtime decision (nothing the caller can
     write in a signature) raises; such a field is either dynamic
     (:attr:`BaseControl._dynamic_fields`) or should not be a CONFIG field at
     all.
@@ -705,7 +709,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
 
         # Order matters: a missing default is a declaration error (the field
         # cannot be a CONFIG field at all), so it is reported before the
-        # annotation is mapped — otherwise an author sees a tag error for a
+        # annotation is mapped — otherwise a caller sees a tag error for a
         # parameter they did not intend to export.
         if not has_default:
             raise ValueError(
@@ -717,7 +721,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
         tag, values, nullable, meta = resolve_tag(hint, None)
         # A named non-union type renders as the alias ``name``; the alias
         # definition comes from ``shape`` on the same FieldSpec, which the
-        # author writes inside the Annotated type. A shape-less named
+        # caller writes inside the Annotated type. A shape-less named
         # non-union type cannot be rendered, so it fails here rather than at
         # dump time.
         shape: Any = None
@@ -739,7 +743,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                 "serializable — the vitest fixture is generated from it"
             )
 
-        # Reflection decides the tag; the author's FieldSpec decides the
+        # Reflection decides the tag; the caller's FieldSpec decides the
         # render-time attributes. `optional` defaults to False: Python emits
         # every non-runtime, non-dynamic field, so the per-control TS interface
         # declares it required — runtime_only and dynamic carry optionality.

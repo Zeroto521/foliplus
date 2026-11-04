@@ -193,10 +193,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/listbox.ts",
-    n: 11,
+    n: 7,
     pairedOff: 0,
     reason:
       "the ONE listbox engine (shared by common/dropdown and common/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+  },
+  {
+    f: "common/floating.ts",
+    n: 4,
+    pairedOff: 0,
+    reason:
+      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, always mode), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
   },
 ];
 

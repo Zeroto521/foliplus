@@ -315,10 +315,24 @@ interface FillAuthorScale {
    *  optional shape keeps a hand-built record safe, and the panel then draws
    *  the strip without naming a field. */
   column?: string;
-  vmin: number;
-  vmax: number;
+  vmin?: number;
+  vmax?: number;
   /** Stepped scales only: how many classes the author drew. */
   levels?: number;
+  /** The classification method the panel can *prove* from the shipped
+   *  breaks (see ``_fill_author.provable_equal_interval``): ``"equal"``
+   *  when a stepped scale's class edges are equally spaced, ``null`` or
+   *  absent otherwise. Never a guess — geopandas.explore does not retain the
+   *  ``scheme`` argument it passed to mapclassify, so quantiles/jenks/heads
+   *  cannot be inferred from the breaks alone and read as a dash. This is a
+   *  *consistency* proof, not a claim about the author's scheme: a uniform
+   *  distribution under quantiles, or hand-set equal-width breaks, would also
+   *  produce equal gaps, so the record states "provably equal-interval
+   *  spacing" rather than naming the scheme argument. A continuous scale
+   *  carries ``null`` here; the panel's "Equal Interval" for it is the
+   *  honest statement that a LinearColormap is an interval ramp, not a claim
+   *  about the author's scheme. */
+  method?: "equal" | null;
 }
 
 /** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
