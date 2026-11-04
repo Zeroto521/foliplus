@@ -17,7 +17,7 @@ import type {
   LayerFilterModel,
 } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
+import { type DropdownSurface, createDropdown } from "#common/engine/dropdown.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { Slider } from "#control/LayerControl/slider.js";

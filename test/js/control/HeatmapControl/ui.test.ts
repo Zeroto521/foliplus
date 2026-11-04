@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { dropdownOf } from "#common/dropdown.js";
+import { dropdownOf } from "#common/engine/dropdown.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {

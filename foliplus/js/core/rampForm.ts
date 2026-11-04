@@ -20,7 +20,7 @@ import {
   type Dropdown,
   type DropdownSurface,
   createDropdown,
-} from "#common/dropdown.js";
+} from "#common/engine/dropdown.js";
 import { formRow, inlineControls, selectInput } from "#common/form.js";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's

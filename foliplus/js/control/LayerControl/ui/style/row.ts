@@ -15,7 +15,7 @@ import {
   type Dropdown,
   type DropdownSurface,
   createDropdown,
-} from "#common/dropdown.js";
+} from "#common/engine/dropdown.js";
 import { selectInput } from "#common/form.js";
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer

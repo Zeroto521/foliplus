@@ -7,9 +7,9 @@
 // shared contract matrix below, which drives every surface the engine owns.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildFieldRow } from "#core/rampForm.js";
-import { type Dropdown, createDropdown } from "#common/dropdown.js";
-import { type DropdownSurface, createListbox } from "#common/listbox.js";
-import { createSchemePicker } from "#common/schemePicker.js";
+import { type Dropdown, createDropdown } from "#common/engine/dropdown.js";
+import { type DropdownSurface, createListbox } from "#common/engine/listbox.js";
+import { createSchemePicker } from "#common/engine/schemePicker.js";
 
 const cleanup: (() => void)[] = [];
 

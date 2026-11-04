@@ -9,7 +9,7 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
-import { createListbox } from "#common/listbox.js";
+import { createListbox } from "#common/engine/listbox.js";
 import { createLogger } from "#common/log.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other

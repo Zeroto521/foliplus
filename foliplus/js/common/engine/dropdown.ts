@@ -28,7 +28,7 @@ import {
   type DropdownSurface,
   applyOptionA11y,
   createListbox,
-} from "#common/listbox.js";
+} from "#common/engine/listbox.js";
 import { createLogger } from "#common/log.js";
 
 const log = createLogger("dropdown");

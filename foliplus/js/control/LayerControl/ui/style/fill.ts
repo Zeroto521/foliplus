@@ -33,7 +33,7 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
-import { dropdownOf } from "#common/dropdown.js";
+import { dropdownOf } from "#common/engine/dropdown.js";
 import {
   bindLiveColor,
   bindLiveNumber,
@@ -43,7 +43,7 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import { type SchemePicker, createSchemePicker } from "#common/engine/schemePicker.js";
 import { readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {

@@ -5,7 +5,7 @@ import {
   applyOptionA11y,
   createDropdown,
   dropdownOf,
-} from "#common/dropdown.js";
+} from "#common/engine/dropdown.js";
 
 // The class names are the module's DOM contract (its table stays private), so
 // the tests pin them by literal name, exactly like the stylesheet does.

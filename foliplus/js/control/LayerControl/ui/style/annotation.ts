@@ -18,7 +18,7 @@ import { dropdownSurface } from "#core/fullscreen.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { createDropdown } from "#common/dropdown.js";
+import { createDropdown } from "#common/engine/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
