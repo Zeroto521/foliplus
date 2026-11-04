@@ -183,6 +183,75 @@ class TestScan:
         assert any("source file not found" in msg for _l, _line, msg in errors)
 
 
+class TestFindTableBorderIssues:
+    """P2-a: a table header separator that mixes ``=`` and ``-`` border chars.
+
+    docutils silently accepts it (no ERROR/3), so the docutils parse alone cannot
+    catch it; ``find_table_border_issues`` scans the separator rows structurally.
+    """
+
+    def test_clean_grid_table_has_no_issue(self):
+        assert mod.find_table_border_issues(_CLEAN_TABLE) == []
+
+    def test_mixed_grid_header_separator_is_flagged(self):
+        doc = "Summary.\n\n+===+---+\n| A | B |\n+---+---+\n"
+        issues = mod.find_table_border_issues(doc)
+        assert any("mixes border chars" in desc for _line, desc in issues)
+
+    def test_mixed_simple_header_separator_is_flagged(self):
+        doc = "Summary.\n\n=== ---\nA    B\n--- ---\n"
+        issues = mod.find_table_border_issues(doc)
+        assert any("mixes border chars" in desc for _line, desc in issues)
+
+    def test_valid_simple_table_has_no_issue(self):
+        doc = "Summary.\n\n=== ===\nA    B\n--- ---\n"
+        assert mod.find_table_border_issues(doc) == []
+
+    def test_section_underline_is_not_a_separator(self):
+        # A single '=' or '-' run under a title is a section underline, not a
+        # table separator, so it is never a border-consistency failure.
+        assert mod.find_table_border_issues("Title\n=====\n") == []
+        assert mod.find_table_border_issues("Title\n-----\n") == []
+
+    def test_literal_block_and_doctest_lines_are_skipped(self):
+        # A '::' literal block or a '>>>' doctest may legally show a +---+---+
+        # line; neither is a table in the rendered docstring, so it must not be
+        # reported as a mixed-border table.
+        doc = "Summary.\n\n::\n\n    +===+---+\n\n>>> foo\n+===+---+\n"
+        assert mod.find_table_border_issues(doc) == []
+
+    def test_scan_reports_only_offending_controls(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(mod, "CONTROL_CLASSES", {"Bad": "foliplus/control/Bad.py"})
+        (tmp_path / "foliplus" / "control").mkdir(parents=True)
+        (tmp_path / "foliplus" / "control" / "Bad.py").write_text(
+            'class Bad:\n    """S.\n\n    +===+---+\n    | A | B |\n    +---+---+\n    """\n',
+            encoding="utf-8",
+        )
+        results = mod.scan_table_border_issues(tmp_path)
+        assert "Bad" in results and results["Bad"]
+
+
+class TestControlClassesComplete:
+    def test_control_classes_cover_every_shipped_control(self):
+        """A newly added control source must be registered in CONTROL_CLASSES.
+
+        A control grows into a directory package once it passes ~300 lines
+        (``foliplus/control/<Name>/`` with ``__init__.py`` + ``control.py``), and a new
+        small control lands as ``foliplus/control/<Name>.py``. The gate would silently skip
+        any of these if CONTROL_CLASSES were not kept in sync, so this pins the
+        actual shipped set to the registered set.
+        """
+        control_dir = REPO_ROOT / "foliplus" / "control"
+        actual = {"foliplus/BaseControl.py"}
+        for py in sorted(control_dir.glob("*.py")):
+            if py.name != "__init__.py":
+                actual.add(f"foliplus/control/{py.name}")
+        for pkg in sorted(control_dir.iterdir()):
+            if pkg.is_dir() and (pkg / "control.py").exists():
+                actual.add(f"foliplus/control/{pkg.name}/control.py")
+        assert actual == set(mod.CONTROL_CLASSES.values())
+
+
 class TestMain:
     def test_clean_returns_zero(self):
         assert mod.main([]) == 0
