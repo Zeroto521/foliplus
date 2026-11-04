@@ -164,17 +164,17 @@ def main(argv: list[str] | None = None) -> int:
     only_files = [Path(a) for a in args if not a.startswith("-")] or None
     results = scan_control_docstrings(repo_root, only_files)
     if not results:
-        print("docstring_check: no control files to check");
+        print("docstring_check: no control files to check")
         return 0
     failures = []
     for class_name, messages in results.items():
         for _level, line, msg in find_errors(messages):
             failures.append(f"  {class_name}: docstring line {line}: {msg}")
     if failures:
-        print("docstring_check: ERROR/3 found in control docstrings:");
-        print("\n".join(failures));
+        print("docstring_check: ERROR/3 found in control docstrings:")
+        print("\n".join(failures))
         return 1
-    print(f"docstring_check: {len(results)} control docstrings clean (no ERROR/3)");
+    print(f"docstring_check: {len(results)} control docstrings clean (no ERROR/3)")
     return 0
 
 
