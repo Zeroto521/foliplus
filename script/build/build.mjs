@@ -32,14 +32,14 @@ import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
 import { resolveVersion } from "../version.mjs";
-import { esbuildCfgFor } from "./esbuild-config.mjs";
-import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
-import { expandEntry, mergeCss } from "./merge-css.mjs";
 import {
   assertNoSurvivorMarker,
   planDistMarker,
   settleDistMarker,
 } from "./distMarker.mjs";
+import { esbuildCfgFor } from "./esbuild-config.mjs";
+import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+import { expandEntry, mergeCss } from "./merge-css.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
