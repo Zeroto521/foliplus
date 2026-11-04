@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
 import { dropdownOf } from "#common/dropdown.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -373,7 +374,7 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
-    const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent;
+    const labelText = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent;
     const select = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
@@ -1499,7 +1500,7 @@ describe("buildFillRow", () => {
     const modeRow = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement;
-    expect(modeRow.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
+    expect(modeRow.classList.contains(PANEL_CLASS.FORM_ROW)).toBe(true);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
     ).not.toBeNull();
@@ -1511,7 +1512,7 @@ describe("buildFillRow", () => {
 
   it("the mode row renders the locale key's translated value", () => {
     const row = buildFillRow(ui, "overlay1");
-    const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+    const label = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill_mode");
   });
@@ -1640,8 +1641,8 @@ describe("buildFillRow", () => {
       `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
     ) as HTMLSelectElement;
     const label = method
-      .closest(`.${CONST.CLASSES.FORM_ROW}`)!
-      .querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+      .closest(`.${PANEL_CLASS.FORM_ROW}`)!
+      .querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_method");
     expect(triggerOf(method).getAttribute("aria-label")).toBe(
@@ -2886,6 +2887,11 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(row).classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(
       true,
     );
+    // The semantic class is supplied by the shared primitive (ui/panelField.ts) via
+    // readOnlyBox; if fill.ts dropped either class, this real-panel DOM check
+    // fails — the primitive-only test in ui/panelField.test.ts cannot see the
+    // fill.ts delegation.
+    expect(colorsBoxOf(row).classList.contains(PANEL_CLASS.READONLY)).toBe(true);
   });
 
   it("states the column, the colors and the count as readouts", () => {
@@ -2948,6 +2954,7 @@ describe("fill row — original colors", () => {
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
+      expect(box.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
       expect(box.getAttribute("aria-disabled")).toBe("true");
     }
   });
@@ -4018,7 +4025,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     expect(mode.value).toBe("ramp");
     // The three arms survive a declaration: the author's paint is still under
-    // the ramp, so "Original colors" stays selectable beside it.
+    // the ramp, so "Original Colors" stays selectable beside it.
     expect(mode.querySelector('option[value="original"]')).not.toBeNull();
     // The note explains that arm, which is still on offer, so it does not
     // contradict the declared ramp beside it.
@@ -4076,7 +4083,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ).toBe(true);
   });
 
-  it("corollary ①: an explicit Original colors pick beats the declaration", () => {
+  it("corollary ①: an explicit Original Colors pick beats the declaration", () => {
     const { ui, layer, row } = declaredOverAuthor({
       ramp: { field: "count", method: "equal" },
     });
@@ -4088,7 +4095,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(FILL_DIMENSION.value!(ui, "feature1")?.mode).toBe("original");
     const block = row();
     expect(modeSelect(block).value).toBe("original");
-    // The Original colors arm is read-only: the author's presentation, with no
+    // The Original Colors arm is read-only: the author's presentation, with no
     // control to edit it.
     expect(details(block).querySelector("select")).toBeNull();
     // The map follows the author's presentation again, not the ramp.

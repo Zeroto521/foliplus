@@ -84,6 +84,25 @@
      panel's footer are inset and spaced identically. Nothing to add here. */
 }
 
+/* ── Method + Classes row geometry ──
+   The Method + Classes row (core/rampForm buildClassesRow) puts two shared
+   dropdowns in one .foliplus-form-inline cell. The Method dropdown flexes to
+   fill the control column and the class-count dropdown takes the compact
+   secondary width — the LayerControl by-value row's shape — so the two panels
+   read alike. The rules name the visible shared dropdown wrappers through the
+   wrapper hook classes bindControls adds (foliplus-heatmap-method /
+   foliplus-heatmap-classes-count); the shared classes-select hook class on the
+   hidden native select is left alone. The hook classes are heatmap-only, so
+   these rules cannot reach LayerControl's by-value row. */
+.foliplus-dropdown.foliplus-heatmap-method {
+  flex: 1;
+  min-width: 0;
+}
+.foliplus-dropdown.foliplus-heatmap-classes-count {
+  width: var(--foliplus-form-secondary-width);
+  flex-shrink: 0;
+}
+
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
    (display: none !important) class, toggled by CONST.CLASSES.HIDDEN. */
 /* Placeholder select styling */

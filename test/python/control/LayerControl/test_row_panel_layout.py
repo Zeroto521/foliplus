@@ -9,7 +9,7 @@ scenarios that motivated the fix.
 
 Each test opens the LayerControl, clicks ⋮ → Style on a layer row, and
 asserts the panel's rendered rect against the map's visible area.
-Screenshots are written to `.foliplus/` for visual confirmation.
+Screenshots are written to the gitignored scratch directory for visual confirmation.
 """
 
 from __future__ import annotations

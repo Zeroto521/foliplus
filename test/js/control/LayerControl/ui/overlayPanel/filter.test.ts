@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -285,8 +286,8 @@ describe("LayerUI filter panel", () => {
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const fieldRow = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(fieldRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+      const fieldRow = field.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      expect(fieldRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_field"),
       );
       expect(
@@ -295,7 +296,7 @@ describe("LayerUI filter panel", () => {
       // Row 2 is the condition row: the shared "Range" caption beside the
       // slider — never a component's own word for the control.
       const sliderRow = fieldRow.nextElementSibling as HTMLElement;
-      expect(sliderRow.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+      expect(sliderRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_range"),
       );
       // Range row: the shared Slider — two real thumbs, not stacked range
@@ -580,8 +581,8 @@ describe("LayerUI filter panel", () => {
         true,
       );
       expect(fieldCell.textContent).not.toContain("Type");
-      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_enum"),
       );
       // The control group and its trigger share that same accessible name.
@@ -999,9 +1000,9 @@ describe("LayerUI filter panel", () => {
       const fieldCell = item.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
       // The caption stays panel-owned across the rebuild.
-      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_enum"),
       );
       spy.mockRestore();
@@ -1588,8 +1589,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
     expect(result.textContent).toBe("67% (2 of 3) kept");
     // A standard FORM_ROW: right-aligned Result label + one control cell.
-    const row = result.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
-    expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+    const row = result.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+    expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
       "LayerControl.filter_result_label",
     );
     // No second ratio / progress track anywhere in the panel.

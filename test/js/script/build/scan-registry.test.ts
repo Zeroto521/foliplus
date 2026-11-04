@@ -328,6 +328,82 @@ describe("generateRegistry", () => {
     expect(output).not.toContain("BaseControlNS");
   });
 
+  it("uses an empty ui list when no ui/ directory exists", () => {
+    // The existsSync(uiDir) ? ... : [] false branch: a source tree without a
+    // ui/ layer must not throw and must not emit a ui namespace line.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain("window.foliplus.ui = {};");
+    expect(output).not.toContain("ui/panelChrome");
+  });
+
+  it("publishes ui modules a component actually imports", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelButton } from "#ui/panelChrome.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.ui["panelChrome"]');
+    expect(output).toContain('from "#ui/panelChrome.js"');
+    expect(output).toContain("panelButton");
+  });
+
+  it("publishes the ui barrel at window.foliplus.ui.index", () => {
+    // A component importing from "#ui/index.js" is scanned under canonical
+    // key "ui" (canonicalSpec strips /index), separate from the per-module
+    // ui/<name> keys. The registry must publish the barrel's re-exports at
+    // window.foliplus.ui["index"] — exactly the namespace the component shim
+    // reads (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui.index") —
+    // and not flattened onto the ui root.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelButton } from "#ui/index.js";
+        import { dom } from "#common/dom.js";
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.ui["index"]');
+    expect(output).toContain('from "#ui/index.js"');
+    // Published as an inline object literal: the generated file carries no
+    // per-namespace variable names, so there is nothing to keep consistent.
+    expect(output).toContain('window.foliplus.ui["index"] = {');
+    expect(output).not.toContain("uiIndexNS");
+    expect(output).toContain("panelButton");
+  });
+
+  it("skips a ui module nothing imports from", () => {
+    // if (names.length === 0) continue — a ui module on disk that no
+    // component imports must emit nothing (no empty namespace object).
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelButton = () => {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).not.toContain('window.foliplus.ui["panelChrome"]');
+    expect(output).not.toContain("#ui/panelChrome.js");
+  });
   it("writes valid output for empty component set", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,

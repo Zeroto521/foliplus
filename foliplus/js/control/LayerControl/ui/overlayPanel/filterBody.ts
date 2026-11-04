@@ -18,6 +18,7 @@ import type {
 } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { Slider } from "#control/LayerControl/slider.js";
 
@@ -56,13 +57,13 @@ const buildDimensionRow = (
 } => {
   const control = dom.el(
     "div",
-    { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
+    { class: `${PANEL_CLASS.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
     ...children,
   );
   const row = dom.el(
     "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, label),
+    { class: PANEL_CLASS.FORM_ROW },
+    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, label),
     control,
   );
   return { row, control };
@@ -135,9 +136,9 @@ const renderRangeBody = (
   });
   const rangeRow = dom.el(
     "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, conditionLabel),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
+    { class: PANEL_CLASS.FORM_ROW },
+    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, conditionLabel),
+    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
   );
   const root = dom.el("div", {}, ...(fieldRow ? [fieldRow] : []), rangeRow);
 

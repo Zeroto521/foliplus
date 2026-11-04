@@ -3,7 +3,7 @@
 // states, and the colors actually painted on the map.
 //
 // Separate from `fill_author_read` on purpose: that probe describes the
-// read-only "Original colors" arm (#781), this one the declared by-value arm
+// read-only "Original Colors" arm (#781), this one the declared by-value arm
 // (#789). A declaration is not user intent, so the readouts here are the same
 // control values the panel renders — no stored record is touched.
 () => {
@@ -26,7 +26,7 @@
     classes: classesSelect ? classesSelect.value : null,
     schemeTitle: schemeTrigger ? schemeTrigger.title : null,
     // The declared ramp is the by-value arm: no solid swatch, and no
-    // "Original colors" option on a layer the author did not paint per feature.
+    // "Original Colors" option on a layer the author did not paint per feature.
     hasSwatch: !!panel?.querySelector(".foliplus-style-fill-color-input"),
     originalAvailable: !!modeSelect?.querySelector('option[value="original"]'),
     fills,

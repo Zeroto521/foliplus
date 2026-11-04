@@ -63,6 +63,7 @@
     method: readout(methodBox),
     methodRole: methodBox ? methodBox.getAttribute("role") : null,
     countRole: countBox ? countBox.getAttribute("role") : null,
+    colorsRole: colors ? colors.getAttribute("role") : null,
     methodAria: methodBox ? methodBox.getAttribute("aria-label") : null,
     countAria: countBox ? countBox.getAttribute("aria-label") : null,
     caption: colors ? colors.title : null,

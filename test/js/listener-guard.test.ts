@@ -67,10 +67,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/dom.ts",
-    n: 2,
+    n: 3,
     pairedOff: 0,
     reason:
-      "free-standing input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature",
+      "free-standing helpers with no control instance in scope: the input-commit helper and the wheel containment; the caller owns teardown, and BaseControl can't be reached from either helper's signature",
   },
   {
     f: "core/leaflet/panel.ts",

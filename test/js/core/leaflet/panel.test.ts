@@ -12,6 +12,8 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
+import { ROW_PANEL_EDGE, ROW_PANEL_MIN_HEIGHT } from "#core/leaflet/panel.js";
+import { computePlacement } from "#common/placement.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -1295,5 +1297,92 @@ describe("pinRowPanel", () => {
     );
     expect(parseFloat(panel.style.top)).toBeGreaterThanOrEqual(808);
     expect(parseFloat(panel.style.top)).toBeLessThanOrEqual(900);
+  });
+
+  it("keeps its own floor and horizontal policy instead of the kernel outputs", () => {
+    // The row panel is a partial adapter: it consumes only placement.side
+    // and placement.maxHeight, and deliberately keeps its own ROW_PANEL_EDGE
+    // insets + comfort floor. This pins the #853 P3-3 / P3-5 decision: no
+    // minRows/rowHeight is passed (no kernel row-floor), and the kernel's
+    // left/top/maxWidth are not written to the card.
+    //
+    // Fixture: map box 100..500 x 100..500 (bounds 400 tall), row at top 300
+    // bottom 330, natural card 280x400. The kernel picks above (the larger
+    // strip, 198 vs 168) and caps the height to 198. The adapter's own floor
+    // (ROW_PANEL_MIN_HEIGHT=120) is smaller than that cap, so it does not
+    // override the strip cap — the cap stays the kernel's.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 400 });
+    stubBox(row, { top: 300, left: 120, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 400 });
+
+    const bounds = { top: 100, right: 500, bottom: 500, left: 100 };
+    const anchor = { top: 300, right: 320, bottom: 330, left: 120 };
+    const kernel = computePlacement(anchor, { width: 280, height: 400 }, bounds, {
+      gap: 2,
+    });
+    expect(kernel.side).toBe("above");
+    expect(kernel.maxHeight).toBe(198);
+    expect(kernel.maxWidth).toBe(280);
+    // The kernel has no edge inset: top and left are the raw computed values.
+    expect(kernel.top).toBe(100);
+    expect(kernel.left).toBe(100);
+
+    pinRowPanel(panel, row);
+
+    // Adapter consumes side + maxHeight; it does NOT consume left/top/maxWidth.
+    // Its own ROW_PANEL_EDGE inset wins on both axes (bounds edge + 8), and no
+    // max-width is written (the 280 card fits the usable 384 strip).
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(
+      kernel.side === "above",
+    );
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      `${kernel.maxHeight}px`,
+    );
+    expect(panel.style.maxWidth).toBe("");
+    expect(panel.style.left).toBe(`${bounds.left + ROW_PANEL_EDGE}px`);
+    expect(panel.style.top).toBe(`${bounds.top + ROW_PANEL_EDGE}px`);
+  });
+
+  it("applies its own comfort floor after the kernel on a short strip", () => {
+    // The kernel caps to the chosen strip (88px below a low row). That cap is
+    // BELOW the adapter's ROW_PANEL_MIN_HEIGHT (120), so the adapter's own
+    // comfort floor kicks in after the kernel and raises the cap to 120 — the
+    // kernel's maxHeight is not the final word on a short strip.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 400, height: 200 });
+    stubBox(row, { top: 180, left: 120, width: 200, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 400 });
+
+    const bounds = { top: 100, right: 500, bottom: 300, left: 100 };
+    const anchor = { top: 180, right: 320, bottom: 210, left: 120 };
+    const kernel = computePlacement(anchor, { width: 280, height: 400 }, bounds, {
+      gap: 2,
+    });
+    expect(kernel.side).toBe("below");
+    expect(kernel.maxHeight).toBe(88);
+
+    pinRowPanel(panel, row);
+
+    // The kernel would cap to 88; the adapter's floor (120, below the usable
+    // 184) wins, so the written cap is 120 — floor applied AFTER the kernel.
+    expect(panel.classList.contains("foliplus-row-panel-up")).toBe(false);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      `${ROW_PANEL_MIN_HEIGHT}px`,
+    );
+    expect(panel.style.left).toBe(`${bounds.left + ROW_PANEL_EDGE}px`);
+    expect(panel.style.top).toBe("180px");
   });
 });
