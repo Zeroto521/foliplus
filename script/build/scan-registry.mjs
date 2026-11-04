@@ -116,7 +116,7 @@ const resolveModuleSpecifier = (dir, spec) => {
         base.replace(/\.js$/, ".tsx"),
         base.replace(/\.js$/, ".mts"),
       ]
-    : [`${base}.ts`, `${base}.js`, `${base}.tsx`];
+    : [base, `${base}.ts`, `${base}.js`, `${base}.tsx`];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
