@@ -43,9 +43,9 @@ Usage (called by pre-commit, filenames as arguments):
 
 from __future__ import annotations
 
-import os
 import re
 import sys
+from pathlib import Path
 
 # Rule 1: export blocks. `export { ... }` (value) vs `export type { ... }` (type).
 BLOCK_EXPORT_RE = re.compile(r"^\s*export\s+(type\s+)?\{")
@@ -238,7 +238,7 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
     """Rule 1: report files with >1 value export block, inline type in a
     value export, or re-exports in non-barrel files."""
     violations: list[tuple[int, str]] = []
-    basename = os.path.basename(filepath)
+    basename = Path(filepath).name
     if BARREL_RE.search(basename) or TYPE_FILE_RE.search(basename):
         return violations  # barrel / type-collection — exempt
 
@@ -326,7 +326,7 @@ NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js")
 def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     """Rule 2: report plural-looking file names (basename only)."""
     violations: list[tuple[int, str]] = []
-    basename = os.path.basename(filepath)
+    basename = Path(filepath).name
     base = basename
     for ext in NAME_CHECK_EXTS:
         if basename.lower().endswith(ext):
@@ -373,19 +373,22 @@ def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
     guards them, which is the whole point (the ``focus.ts`` → ``focus/``
     refactor is exactly the reverse direction).
     """
-    directory, basename = os.path.split(filepath)
-    base, _ = os.path.splitext(basename)
+    path = Path(filepath)
+    directory = path.parent
+    base = path.stem
+    has_dir = str(directory) not in ("", ".")
 
-    sibling_dir = os.path.join(directory, base) if directory else base
-    if os.path.isdir(sibling_dir):
+    sibling_dir = directory / base if has_dir else Path(base)
+    if sibling_dir.is_dir():
         return [(0, _btype_message(base, f"sibling dir `{base}/`"))]
 
-    if directory:
-        parent, dir_name = os.path.split(directory)
-        if dir_name and parent:
+    if has_dir:
+        parent = directory.parent
+        dir_name = directory.name
+        if dir_name and str(parent) not in ("", "."):
             for ext in (".ts", ".js"):
-                sibling_file = os.path.join(parent, dir_name + ext)
-                if os.path.isfile(sibling_file):
+                sibling_file = parent / f"{dir_name}{ext}"
+                if sibling_file.is_file():
                     return [(0, _btype_message(dir_name, f"dir `{dir_name}/`"))]
 
     return []
@@ -393,8 +396,7 @@ def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
 
 def check_file(filepath: str) -> list[tuple[int, str]]:
     try:
-        with open(filepath, encoding="utf-8") as f:
-            lines = f.readlines()
+        lines = Path(filepath).read_text(encoding="utf-8").splitlines(keepends=True)
     except (OSError, UnicodeDecodeError):
         return []
 
