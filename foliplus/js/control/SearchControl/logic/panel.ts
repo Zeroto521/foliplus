@@ -7,7 +7,8 @@
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { bindWheelContainment, dom } from "#common/dom.js";
+import { dom } from "#common/dom.js";
+import { bindFloatingWheel } from "#common/floating.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
@@ -108,7 +109,7 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     // once (subsequent renders reuse it, removePanel drops it), so binding
     // here means one listener per element lifecycle — no stacking per
     // renderResults, and no stale flag to reset when a new element is made.
-    bindWheelContainment(ctrl.panelWrap);
+    bindFloatingWheel(ctrl.panelWrap, "contain");
   }
 
   ctrl.panelWrap.innerHTML = "";
