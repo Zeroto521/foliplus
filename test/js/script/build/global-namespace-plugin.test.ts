@@ -89,14 +89,6 @@ describe("runtimeTarget", () => {
     expect(runtimeTarget("common/log")).toBe("common.log");
   });
 
-  it("maps nested common subdirectories to the last path segment", () => {
-    // Slice B: common/<sub>/<name> publishes under the flat key, so a module
-    // three or more segments deep maps to the last segment, not the first.
-    expect(runtimeTarget("common/engine/dropdown")).toBe("common.dropdown");
-    expect(runtimeTarget("common/engine/form")).toBe("common.form");
-    expect(runtimeTarget("common/x/y/z")).toBe("common.z");
-  });
-
   it("maps ui modules to ui.<mod>", () => {
     expect(runtimeTarget("ui/panelChrome")).toBe("ui.panelChrome");
   });

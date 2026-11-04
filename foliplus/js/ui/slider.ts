@@ -122,7 +122,7 @@ const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
   // Native fullscreen and pseudo enter/exit both announce through
-  // core/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
+  // common/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
   // so a `fullscreenchange` listener alone would leave the bubble on <body>
   // under the opaque map.
   // Page-lifetime singleton: the bubble and this subscription are

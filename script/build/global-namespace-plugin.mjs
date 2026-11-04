@@ -90,10 +90,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("common/")) {
-    const parts = spec.split("/");
-    return `common.${parts[parts.length - 1]}`;
-  }
+  if (spec.startsWith("common/")) return `common.${spec.split("/")[1]}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/")[1]}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];

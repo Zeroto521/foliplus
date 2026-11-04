@@ -112,7 +112,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason common/fullscreen.ts is on this list for",
   },
   {
     f: "control/ExportControl/session.ts",
@@ -168,7 +168,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 10,
     pairedOff: 0,
     reason:
-      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through core/fullscreen's shared subscription",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
   },
   {
     f: "control/MeasureControl/mode/circle.ts",

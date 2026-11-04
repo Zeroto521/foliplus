@@ -196,45 +196,19 @@ const assertBarrelExports = (sourceDir, barrelName, names) => {
   }
 };
 
-/** Recursively collect common/ module paths (relative to commonDir), excluding
- *  dot-dirs and index.ts barrels. A flat module yields `dom`; a subdir module
- *  yields `engine/dropdown`. */
-const collectCommonModules = dir => {
-  const out = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith(".")) continue;
-    const full = resolve(dir, entry.name);
-    if (entry.isDirectory()) {
-      for (const sub of collectCommonModules(full)) out.push(`${entry.name}/${sub}`);
-    } else if (entry.name.endsWith(".ts") && entry.name !== "index.ts") {
-      out.push(entry.name.replace(/\.ts$/, ""));
-    }
-  }
-  return out;
-};
-
 const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
   const buildDir = buildJsParam;
   const commonDir = resolve(sourceDir, "common");
   const uiDir = resolve(sourceDir, "ui");
   const coreDir = resolve(sourceDir, "core");
-  const commonModules = collectCommonModules(commonDir).sort();
+  // common/ is flat (the engines moved to ui/), so a plain readdir (like ui/ and
+  // the core single-file list) collects the modules. No subdir recursion.
+  const commonModules = readdirSync(commonDir)
+    .filter(f => f.endsWith(".ts") && f !== "index.ts")
+    .map(f => f.replace(/\.ts$/, ""))
+    .sort();
 
-  // Same-name modules in different common/ subdirs would both publish under
-  // the flat window.foliplus.common["<name>"] key. Fail loudly instead of
-  // silently clobbering one namespace with the other.
-  const seenCommon = new Map();
-  for (const rel of commonModules) {
-    const flat = rel.split("/").pop();
-    const prev = seenCommon.get(flat);
-    if (prev !== undefined && prev !== rel) {
-      throw new Error(
-        `common/ name collision: "${prev}" and "${rel}" both map to common.${flat}`,
-      );
-    }
-    seenCommon.set(flat, rel);
-  }
   const uiModules = existsSync(uiDir)
     ? readdirSync(uiDir)
         .filter(f => f.endsWith(".ts") && f !== "index.ts")
@@ -310,12 +284,11 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     lines.push(`window.foliplus.core["${name}"] = { ${names.join(", ")} };`);
   }
 
-  for (const rel of commonModules) {
-    const names = usedExports[`common/${rel}`] || [];
+  for (const name of commonModules) {
+    const names = usedExports[`common/${name}`] || [];
     if (names.length === 0) continue;
-    const flat = rel.split("/").pop();
-    lines.push(`import { ${names.join(", ")} } from "#common/${rel}.js";`);
-    lines.push(`window.foliplus.common["${flat}"] = { ${names.join(", ")} };`);
+    lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
+    lines.push(`window.foliplus.common["${name}"] = { ${names.join(", ")} };`);
   }
 
   for (const name of uiModules) {

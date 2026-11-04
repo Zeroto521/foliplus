@@ -61,7 +61,7 @@ interface SchemePickerOptions {
    *  pseudo-fullscreen fallback's own transitions, which emit no
    *  fullscreenchange). The picker re-seats its dropdown into the new host
    *  whenever the callback fires; the returned function unsubscribes on
-   *  close/destroy. Consumers wire this to the shared core/fullscreen
+   *  close/destroy. Consumers wire this to the shared common/fullscreen
    *  contract — common/** must not import core/**. */
   onSurfaceChange?: (cb: () => void) => () => void;
   /** Called when the dropdown opens or closes, with the dropdown element
