@@ -47,7 +47,7 @@ import {
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
-import { buttonRow, panelButton, sectionDivider } from "#ui/panelChrome.js";
+import { buttonRow, panelButton, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { finishSlidersIn } from "#control/LayerControl/slider.js";

@@ -7,7 +7,7 @@
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
+import { bindWheelContainment, dom } from "#common/dom.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
@@ -70,13 +70,17 @@ const removePanel = (ctrl: SearchControlCtx) => {
 
 const positionPanel = (ctrl: SearchControlCtx) => {
   if (!ctrl.panelWrap) return;
+  // The result panel is position: fixed, so rect is already viewport-relative
+  // and the scroll offset must NOT be added. Adding window.scrollX/scrollY
+  // made the panel drift by the scroll amount once the page scrolled (a fixed
+  // element is positioned against the viewport, not the document).
   const rect = ctrl.ctrl.getBoundingClientRect();
-  let left = rect.left + window.scrollX;
+  let left = rect.left;
   if (left + rect.width > window.innerWidth) {
-    left = window.innerWidth - rect.width + window.scrollX;
+    left = window.innerWidth - rect.width;
   }
   ctrl.panelWrap.style.left = `${left}px`;
-  ctrl.panelWrap.style.top = `${rect.bottom + window.scrollY}px`;
+  ctrl.panelWrap.style.top = `${rect.bottom}px`;
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
@@ -85,11 +89,27 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     return;
   }
 
-  ctrl.panelWrap ??= dom.el("div", {
-    class: CLASSES.RESULT_PANEL,
-    parent: map.getContainer(),
-    onclick: (event: Event) => event.stopPropagation(),
-  });
+  if (!ctrl.panelWrap) {
+    ctrl.panelWrap = dom.el("div", {
+      class: CLASSES.RESULT_PANEL,
+      parent: map.getContainer(),
+      onclick: (event: Event) => event.stopPropagation(),
+    });
+    // A wheel over the result panel must not zoom the map. The panel is
+    // mounted on the map container (not inside the control's container), so
+    // the container's disableScrollPropagation does not cover it — a wheel
+    // bubbles to the map container and Leaflet's scrollWheelZoom would fire.
+    // The shared containment stops only a wheel that can actually scroll the
+    // panel (its own overflow-y works); a wheel at a boundary or over a
+    // non-scrollable panel keeps bubbling, so the map still zooms at the
+    // edges.
+    //
+    // Bound once, right here in the creation block: the element exists only
+    // once (subsequent renders reuse it, removePanel drops it), so binding
+    // here means one listener per element lifecycle — no stacking per
+    // renderResults, and no stale flag to reset when a new element is made.
+    bindWheelContainment(ctrl.panelWrap);
+  }
 
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;

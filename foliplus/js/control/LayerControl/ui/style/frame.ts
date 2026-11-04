@@ -2,7 +2,7 @@
 // No state, no events, no manager calls. The rail positioning math that used
 // to live here moved into the slider primitive (LayerControl/slider.ts), which owns
 // the track's coordinate space.
-import { buttonRow, panelButton, sectionDivider } from "#ui/panelChrome.js";
+import { buttonRow, panelButton, sectionDivider } from "#ui/index.js";
 import type { LayerUI } from "../surface.js";
 
 /** Reset footer — divider + button, same vocabulary for the annotation

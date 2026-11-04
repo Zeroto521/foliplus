@@ -400,10 +400,10 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
     - Directory: ``./x.js`` → ``./x/index.ts`` if x is a directory
     """
     if specifier.startswith("#common/"):
-        base = Path(repo_root) / "foliplus" / "js" / "common"
+        base = Path(repo_root) / "foliplus/js/common"
         spec = specifier[len("#common/") :]
     elif specifier.startswith("#core/"):
-        base = Path(repo_root) / "foliplus" / "js" / "core"
+        base = Path(repo_root) / "foliplus/js/core"
         spec = specifier[len("#core/") :]
     elif specifier.startswith("#foliplus/"):
         base = Path(repo_root) / "foliplus" / "js"
@@ -412,8 +412,14 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
         # New component namespace (foliplus/js/control/), same shape as #core:
         # the barrel/type graph must resolve it or test-file consumer edges
         # vanish and live exports go spuriously dead.
-        base = Path(repo_root) / "foliplus" / "js" / "control"
+        base = Path(repo_root) / "foliplus/js/control"
         spec = specifier[len("#control/") :]
+    elif specifier.startswith("#ui/"):
+        # The ui layer (foliplus/js/ui/), same shape as #common: the barrel
+        # (#ui/index.js) re-exports the ui modules, so the graph must resolve
+        # it or the barrel's re-exports are judged dead.
+        base = Path(repo_root) / "foliplus" / "js" / "ui"
+        spec = specifier[len("#ui/") :]
     elif specifier.startswith("#script/"):
         base = Path(repo_root) / "script"
         spec = specifier[len("#script/") :]
