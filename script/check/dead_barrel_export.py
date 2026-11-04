@@ -414,6 +414,12 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
         # vanish and live exports go spuriously dead.
         base = Path(repo_root) / "foliplus/js/control"
         spec = specifier[len("#control/") :]
+    elif specifier.startswith("#ui/"):
+        # The ui layer (foliplus/js/ui/), same shape as #common: the barrel
+        # (#ui/index.js) re-exports the ui modules, so the graph must resolve
+        # it or the barrel's re-exports are judged dead.
+        base = Path(repo_root) / "foliplus" / "js" / "ui"
+        spec = specifier[len("#ui/") :]
     elif specifier.startswith("#script/"):
         base = Path(repo_root) / "script"
         spec = specifier[len("#script/") :]

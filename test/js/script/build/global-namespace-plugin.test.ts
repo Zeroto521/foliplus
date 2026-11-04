@@ -657,6 +657,25 @@ describe("globalNamespacePlugin", () => {
     expect(result.contents).toContain("export const panelButton =");
   });
 
+  it("shims the ui barrel import to foliplus.ui.index, not flat foliplus.ui", () => {
+    // #ui/index.js is a shared spec (the ui prefix branch): the strip chain
+    // maps it to the source-relative path, and runtimeTarget resolves
+    // "ui/index" → "ui.index" (second path segment). The shim must read
+    // foliplus.ui.index — the namespace the generated registry publishes the
+    // barrel's re-exports under — and must NOT flatten onto foliplus.ui.
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { panelButton } from "#ui/index.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
+    const result = onLoad({ path: "#ui/index.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("globalThis.foliplus.ui.index");
+    expect(result.contents).not.toContain("globalThis.foliplus.ui.panelButton");
+    expect(result.contents).toContain("export const panelButton =");
+  });
+
   it("shims star-imported property usage via starUsed", () => {
     writeFileSync(
       join(dir, "index.ts"),

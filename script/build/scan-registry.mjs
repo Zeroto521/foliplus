@@ -182,6 +182,20 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     lines.push(`window.foliplus.ui["${name}"] = ui${name}NS;`);
   }
 
+  // The ui barrel (#ui/index.js): a component importing from it is scanned
+  // under the canonical key "ui" (canonicalSpec strips /index), so the
+  // per-module loop above never sees it. Publish the barrel's re-exports at
+  // window.foliplus.ui["index"] — exactly the namespace the component shim
+  // reads (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui.index").
+  // This is separate from the per-module loop, which still handles direct
+  // ui/<name>.js imports (a few build-script tests import those directly).
+  const barrelNames = usedExports["ui"] || [];
+  if (barrelNames.length > 0) {
+    lines.push(`import { ${barrelNames.join(", ")} } from "#ui/index.js";`);
+    lines.push(`const uiIndexNS = { ${barrelNames.join(", ")} };`);
+    lines.push(`window.foliplus.ui["index"] = uiIndexNS;`);
+  }
+
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
   if (baseNames.length > 0) {
     lines.push(`import { ${baseNames.join(", ")} } from "#foliplus/BaseControl.js";`);
