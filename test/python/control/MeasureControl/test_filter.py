@@ -1,18 +1,39 @@
-"""Browser tests for the MeasureControl type filter.
+"""The MeasureControl type filter: declared seed, live view, and its docs.
 
 The filter is a view filter: the map DOM, the row count, the result line and
 the export must all describe the same kept set. Counts are asserted exactly as
 a partition of the per-type counts (each type's leaves are disjoint), so a leaf
 that is not registered with the filter cannot slip through unnoticed.
+
+The author-facing half is a list of measurement-type names; Python normalises
+it into the shared enum AST. The type domain itself lives in the runtime
+(MeasureControl/const.ts), so Python checks the shape only and an unknown name
+still reaches CONF here. The runtime then validates the whole list at
+construction: one unknown name makes the declaration invalid as a whole
+(warned once, treated as undeclared), never a filtered subset.
+
+The class docstring is the author-facing contract for ``filter=[...]``. Its
+tests pin the *documented promises* — the list-of-type-names shape, the
+whole-declaration rejection of an unknown name, and the difference between the
+filter row's Clear and the factory Reset — so a later docstring edit cannot
+silently drop a promise the behaviour tests already rely on. Assertions are
+semantic invariants (section presence, key names, rule wording), never the
+exact prose.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
+import re
 
-from conftest import _js, use_page
+import folium
+import pytest
+from conftest import _js, make_browser_page, use_page
 
-from .helper import _make_page
+from foliplus import MeasureControl
+
+from .helper import _TURF_STUB, _make_page, _stub_cdn
 
 CLEAR = _js("MeasureControl/clear_filter")
 
@@ -365,3 +386,219 @@ class TestMeasureTypeFilterBrowser:
                 baseline,
             )
             assert not errors, f"JS errors: {errors}"
+
+
+def _conf(html: str) -> dict:
+    marker = "CONFIG = "
+    start = html.index(marker) + len(marker)
+    end = html.index(";", start)
+    return json.loads(html[start:end])
+
+
+def _render(**kwargs: object) -> dict:
+    m = folium.Map()
+    MeasureControl(**kwargs).add_to(m)
+    return _conf(m.get_root().render())
+
+
+def test_declared_types_reach_conf_as_an_enum_ast_atom():
+    conf = _render(filter=["distance", "polygon"])
+
+    assert conf["filter"] == {
+        "kind": "enum",
+        "field": "type",
+        "values": ["distance", "polygon"],
+    }
+
+
+def test_duplicates_are_dropped_in_first_seen_order():
+    conf = _render(filter=["polygon", "distance", "polygon"])
+
+    assert conf["filter"]["values"] == ["polygon", "distance"]
+
+
+def test_undeclared_filter_is_null():
+    assert _render()["filter"] is None
+
+
+def test_empty_list_warns_and_leaves_the_filter_undeclared():
+    # An empty selection means "no filter", so an empty declaration is a
+    # statement that means nothing: report it rather than emitting a filter
+    # that would read as a user choice.
+    with pytest.warns(UserWarning, match="empty list"):
+        conf = _render(filter=[])
+
+    assert conf["filter"] is None
+
+
+@pytest.mark.parametrize("declaration", [["distance", 3], ["distance", ""], [None]])
+def test_non_string_values_warn_and_leave_the_filter_undeclared(declaration):
+    with pytest.warns(UserWarning, match="non-empty strings"):
+        conf = _render(filter=declaration)
+
+    assert conf["filter"] is None
+
+
+def test_a_mapping_is_not_a_measure_declaration():
+    # The range arm belongs to HeatmapControl; Measure's panel dimension is the
+    # measurement type, so a field/min-max mapping has no row to render it on.
+    with pytest.warns(UserWarning, match="must be a list of value names"):
+        conf = _render(filter={"field": "type", "min": 1, "max": 2})
+
+    assert conf["filter"] is None
+
+
+_DRAW_ALL = _js("MeasureControl/draw_all")
+_READ_STATE = _js("MeasureControl/read_state")
+
+_DECLARED = {
+    "kind": "enum",
+    "field": "type",
+    "values": ["distance", "polygon"],
+}
+
+
+def _declared_make_page(browser, tmp_path, **ctrl_kwargs):
+    """A MeasureControl page with the test hooks the snippets read back.
+
+    Mirrors ``helper._make_page`` (the manager is created lazily during
+    addTo, so the hooks are injected into the rendered script) but forwards
+    control kwargs, which the shared helper does not.
+    """
+    from foliplus import LayerControl, MeasureControl
+
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    LayerControl().add_to(m)
+    MeasureControl(**ctrl_kwargs).add_to(m)
+
+    html = m.get_root().render()
+    html, n = re.subn(
+        r"(new MeasureControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
+        r"window.__measureCtrl = \1 "
+        r"window.__measureManager = window.__measureCtrl.mgr; "
+        r"window.__map = map; "
+        r"window.__measureStorageKey = STORAGE.KEY;",
+        html,
+        count=1,
+    )
+    assert n == 1, "MeasureControl instantiation not found in rendered HTML"
+    html = _stub_cdn(html, {"turf": _TURF_STUB})
+    page, errors = make_browser_page(browser, tmp_path, html, "measure_filter")
+    page.wait_for_selector(".foliplus-measure-ctrl", state="attached", timeout=10000)
+    return page, errors
+
+
+def _draw_and_read(page):
+    page.evaluate(_DRAW_ALL)
+    page.wait_for_timeout(600)
+    return page.evaluate(_READ_STATE)
+
+
+class TestDeclaredMeasureFilterBrowser:
+    def test_declared_types_are_the_first_render(self, browser, tmp_path):
+        with use_page(
+            _declared_make_page,
+            browser,
+            tmp_path,
+            filter=["distance", "polygon"],
+        ) as (page, errors):
+            state = _draw_and_read(page)
+
+            assert sorted(state["stored"]) == [
+                "circle",
+                "distance",
+                "marker",
+                "polygon",
+            ], state
+            assert state["filter"] == _DECLARED, state
+            assert state["visible"] == ["distance", "polygon"], state
+            # The row count and the rendered leaves describe the same kept set.
+            assert state["count"] == "2", state
+            assert state["paths"] == 2, state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_without_a_declaration_every_measurement_is_visible(
+        self, browser, tmp_path
+    ):
+        with use_page(_declared_make_page, browser, tmp_path) as (page, errors):
+            state = _draw_and_read(page)
+
+            assert state["filter"] is None, state
+            assert sorted(state["visible"]) == [
+                "circle",
+                "distance",
+                "marker",
+                "polygon",
+            ], state
+            assert state["count"] == "4", state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_an_unknown_declared_type_does_not_hide_everything(self, browser, tmp_path):
+        # The runtime owns the type domain: a name it does not know is dropped,
+        # and a declaration that keeps nothing reads as "no filter".
+        with use_page(
+            _declared_make_page,
+            browser,
+            tmp_path,
+            filter=["bogus"],
+        ) as (page, errors):
+            state = _draw_and_read(page)
+
+            assert state["filter"] is None, state
+            assert len(state["visible"]) == 4, state
+            assert not errors, f"JS errors: {errors}"
+
+
+# The class docstring is the single contract surface for the declaration.
+_DOC = inspect.getdoc(MeasureControl)
+assert _DOC is not None, "MeasureControl must carry a class docstring"
+
+# The Notes section (the last major section) holds the declaration tables
+# and the resolution rules; anchor on the exact section header.
+_NOTES = _DOC.split("Notes\n-----", 1)[1]
+
+# Grid-table rows wrap mid-sentence and carry cell borders. Collapse both so a
+# rule can be asserted as one phrase regardless of where the column broke.
+_FLAT = " ".join(_NOTES.replace("|", " ").split())
+
+
+def test_docstring_documents_the_type_name_list_form() -> None:
+    """The enum declaration is documented as a list of measurement-type names."""
+    assert "``filter`` is a list of measurement-type names" in _DOC
+    # Each entry is a string naming a type the filter row offers.
+    assert "``str``" in _FLAT
+    for name in ("distance", "polygon", "circle", "marker"):
+        assert name in _FLAT
+
+
+def test_docstring_declares_an_unknown_name_rejects_the_whole_list() -> None:
+    """One unknown name invalidates the declaration whole, not just itself."""
+    assert "unknown type name" in _FLAT.lower()
+    assert "alone or beside" in _FLAT
+    assert "rejected whole" in _FLAT
+    assert "never a partial subset" in _FLAT
+    assert "reported once" in _FLAT.lower()
+
+
+def test_docstring_declares_the_range_arm_as_warned_and_ignored() -> None:
+    """A mapping is the other arm: warned once and treated as undeclared."""
+    assert "a mapping (the range arm)" in _FLAT.lower()
+    assert "``HeatmapControl``" in _FLAT
+    assert "treated as" in _FLAT.lower()
+    assert "undeclared" in _FLAT.lower()
+
+
+def test_docstring_separates_filter_row_clear_from_factory_reset() -> None:
+    """The filter row's Clear keeps the clear; the factory Reset re-seeds."""
+    assert "The filter row's Clear" in _FLAT
+    assert "does not come back" in _FLAT
+    assert "Factory Reset" in _FLAT
+    assert "re-seeds the declaration" in _FLAT
+    # The Reset is the toolbar's CLEAR mode, not the filter row.
+    assert "CLEAR mode" in _FLAT
+
+
+def test_docstring_calls_the_declaration_a_starting_condition() -> None:
+    """User writes win; the declaration only seeds the first open."""
+    assert "starting condition only" in _FLAT
+    assert "Wins from then on" in _FLAT
