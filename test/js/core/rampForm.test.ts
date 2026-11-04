@@ -340,10 +340,22 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     // A stable gutter keeps the lane constant so crossing the max-height does
     // not re-inset every strip; the item subtracts that same lane. overflow-x
     // hidden is harmless and keeps any overhang from scrolling horizontally.
+    // overflow-y belongs to the shared shell (common/menu.css), whose :is()
+    // list now includes .foliplus-scheme-picker-dropdown — single ownership.
     const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
-    expect(dropdown).toContain("overflow-y: auto");
+    expect(dropdown).not.toContain("overflow-y");
     expect(dropdown).toContain("overflow-x: hidden");
     expect(dropdown).toContain("scrollbar-gutter: stable");
+    const menu = css("foliplus/css/common/menu.css");
+    const shell = blockOf(menu, ":is(");
+    expect(shell).toContain("overflow-y: auto");
+    // blockOf returns only the declaration block; the selector list precedes
+    // the opening brace, and the picker must be in it (one shell owns the box).
+    const shellSelector = menu.slice(
+      menu.indexOf(":is("),
+      menu.indexOf("{", menu.indexOf(":is(")),
+    );
+    expect(shellSelector).toContain(".foliplus-scheme-picker-dropdown");
   });
 
   it("keeps the strip on the scrollport right edge when the lane exceeds the inset", () => {
