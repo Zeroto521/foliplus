@@ -1389,3 +1389,24 @@ describe("method/classes row geometry (stylesheet contract)", () => {
     expect(layer).not.toContain("foliplus-heatmap-classes-count");
   });
 });
+
+describe("classes row width: shared contract with LayerControl", () => {
+  const layer = css("foliplus/css/control/LayerControl/style.css");
+
+  it("pins the same geometry on both panels (by-value row symmetry)", () => {
+    // Both class-count controls take the shared compact secondary width...
+    expect(blockOf(layer, ".foliplus-style-fill-original-count {")).toContain(
+      "var(--foliplus-form-secondary-width)",
+    );
+    expect(
+      blockOf(heatmap, ".foliplus-dropdown.foliplus-heatmap-classes-count {"),
+    ).toContain("var(--foliplus-form-secondary-width)");
+    // ...and both method controls flex to fill the control column.
+    expect(blockOf(layer, ".foliplus-style-fill-original-method {")).toContain(
+      "flex: 1",
+    );
+    expect(blockOf(heatmap, ".foliplus-dropdown.foliplus-heatmap-method {")).toContain(
+      "flex: 1",
+    );
+  });
+});

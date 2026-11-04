@@ -664,13 +664,17 @@ class TestLayerControlRendering:
         private hover style anymore."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         # The recipe's :is() leads with the panel-hover carve-out. Pin the
-        # exact (whitespace-normalized) recipe shape — the old bare
+        # exact (whitespace-stripped) recipe shape — the old bare
         # "is(:hover, .foliplus-is-focused-row)" now matches the base-row quiet
         # rule (which keeps the old :is form) and would not point at the recipe.
-        flat = " ".join(css.split())
+        # Whitespace-stripped: a Prettier/PostCSS reflow of the compound
+        # selector (newlines, or a space after `is(` / before `)`) must
+        # not break the shape match below. The spacey form (e.g. `is( :hover`) is a
+        # whitespace artifact and not part of the selector's meaning.
+        flat = re.sub(r"\s+", "", css)
         recipe_mark = (
-            "is( :hover:where(:not(:has(.foliplus-row-panel:hover))), "
-            ".foliplus-is-focused-row )"
+            "is(:hover:where(:not(:has(.foliplus-row-panel:hover))),"
+            ".foliplus-is-focused-row)"
         )
         assert recipe_mark in flat, "Row-cursor recipe shape not found"
         # The toggle-all row joins the SAME compound selector that carries this
@@ -683,7 +687,7 @@ class TestLayerControlRendering:
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
             "toggle-all row must share the Row-cursor recipe's selector group"
         )
-        assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in flat
+        assert "is(:hover,:focus-visible,.foliplus-is-focused-row)" not in flat
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--foliplus-accent-light)" not in css

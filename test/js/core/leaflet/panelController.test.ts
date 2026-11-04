@@ -445,7 +445,7 @@ describe("PanelController", () => {
   //  6. destroy skips unregister → "destroy unregisters, second round ok" red
 
   it("an internal plain click does not self-close and does not bubble to the map", () => {
-    // Negative control D: the panel's own content must not dismiss it, and a click inside
+    // Negative control 5: the panel's own content must not dismiss it, and a click inside
     // the panel must not reach the map either (the panel swallows the press).
     const { map } = track(makeMap());
     const { spec, state, inside } = makeFixture({ localId: "attrs", rank: 600 });
@@ -462,8 +462,8 @@ describe("PanelController", () => {
     expect(bubblesToDocument).not.toHaveBeenCalled();
   });
 
-  it("outside press on a lower layer does not close an unrelated higher layer (B precise)", () => {
-    // Negative control B, precise (per-entry ownership, not "topmost wins"): with BOTH layers
+  it("outside press on a lower layer does not close an unrelated higher layer (control 4, precise)", () => {
+    // Negative control 4, precise (per-entry ownership, not "topmost wins"): with BOTH layers
     // open in *different* groups, a press inside the lower layer's DOM is an
     // INSIDE press for it (it stays) and an OUTSIDE press for the higher layer
     // (it closes). One press dismisses at most one surface, and it is the one
