@@ -12,6 +12,7 @@ that raises instead of warning.
 
 from __future__ import annotations
 
+import ast
 import warnings
 from fractions import Fraction
 from pathlib import Path
@@ -455,3 +456,46 @@ class TestNormaliseFolder:
                 normalise_folder(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
+
+
+# ── Module-constants placement guard ─────────────────────────────────────
+# A regression guard for the top-of-file "Module constants" block: every
+# module-level assignment must sit above the first function/class definition,
+# so a new constant cannot be dropped mid-module and escape the single block
+# the module docstring promises. Parametrised over the reader and its own test
+# module (the test module currently declares no module-level constant).
+@pytest.mark.parametrize(
+    "module_path",
+    ["foliplus/_declaration.py", "test/python/test__declaration.py"],
+)
+def test_module_constants_precede_the_first_definition(module_path: str) -> None:
+    module = Path(__file__).resolve().parents[2] / module_path
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    first_def = next(
+        (
+            node.lineno
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        ),
+        None,
+    )
+    assert first_def is not None, f"{module_path}: no function or class definition"
+
+    def _names(node: ast.AST) -> list[str]:
+        if isinstance(node, ast.AnnAssign):
+            return [node.target.id] if isinstance(node.target, ast.Name) else []
+        if isinstance(node, ast.Assign):
+            return [
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            ]
+        return []
+
+    late = [
+        (name, node.lineno)
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.lineno > first_def
+        for name in _names(node)
+    ]
+    assert not late, (
+        f"{module_path}: module assignments after the first definition: {late}"
+    )

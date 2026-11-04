@@ -71,6 +71,8 @@ ZOOM_RANGE_KEY = "zoom_range"
 MEASURE_TYPE_FIELD = "type"
 #: The declaration key that asks for a layer folder.
 FOLDER_KEY = "folder"
+#: The filter's kind discriminator (a declared filter is a range or an enum).
+FilterKind = Literal["range", "enum"]
 
 
 def is_plumbing(filename: str) -> bool:
@@ -213,7 +215,6 @@ def normalise_zoom_range(
 
 
 # ── Filter declaration ───────────────────────────────────────────────────
-FilterKind = Literal["range", "enum"]
 
 
 def warn_filter(message: str) -> None:
