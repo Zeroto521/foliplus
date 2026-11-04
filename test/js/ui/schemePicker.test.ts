@@ -603,7 +603,7 @@ describe("selectScheme", () => {
     picker.destroy();
   });
 
-  it("closes the dropdown if open", () => {
+  it("selectScheme closes the dropdown if open", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     picker.selectScheme("Blues");
@@ -938,7 +938,7 @@ describe("onToggle callback", () => {
 // ── destroy ────────────────────────────────────────────────────────────
 
 describe("destroy", () => {
-  it("closes the dropdown if open", () => {
+  it("destroy closes the dropdown if open", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     picker.destroy();

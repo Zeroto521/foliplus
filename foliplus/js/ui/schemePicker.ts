@@ -259,10 +259,10 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   };
 
   // A scheme row: the label bar the engine paints plus the row's disabled
-  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard;
-  // the adapter owns the color bar and the title (which needs the disabled
-  // hint, a picker-only concept).
-  const renderRow = (item: { value: string; disabled?: boolean; title?: string }) => {
+  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard and
+  // renders the title from `item.title` (provided by itemsOf, where the
+  // disabled hint lives); the adapter owns only the color bar.
+  const renderRow = (item: { value: string; disabled?: boolean }) => {
     const bar = dom.el("div", { class: classes.bar });
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
     return bar;
