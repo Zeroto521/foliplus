@@ -1,4 +1,4 @@
-"""Normalisation for the author-facing declarations.
+"""Normalisation for the caller-facing declarations.
 
 Three payloads reach Python, and all are *declarations* rather than values
 the runtime computes:
@@ -23,7 +23,7 @@ repeat a line.
 A filter declaration has deliberate exceptions to "never raises": a ``field``
 key inside a range declaration, a range with no bound field, or a list of
 value names in the min/max mapping form (the list form belongs to MeasureControl) is API
-misuse and raises ValueError in the author's cell instead of being buried in a
+misuse and raises ValueError in the caller's cell instead of being buried in a
 warning among the page output.
 """
 
@@ -55,7 +55,7 @@ LOG_FILTER_CAP = 64
 #: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
 PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
 #: Installed dependency tree. A foliplus= warning is raised while the control is
-#: being *rendered*, so between this package and the author's cell sit the Jinja
+#: being *rendered*, so between this package and the caller's cell sit the Jinja
 #: template machinery, folium and branca. Pointing the warning at
 #: jinja2/environment.py would be technically accurate and useless; the walk
 #: skips the plumbing too, and stops at the first frame that is neither this
@@ -76,7 +76,7 @@ FilterKind = Literal["range", "enum"]
 
 
 def is_plumbing(filename: str) -> bool:
-    """True for a frame that is machinery, not the author's code.
+    """True for a frame that is machinery, not the caller's code.
 
     Three shapes count: this package; the installed dependency tree (a render
     passes through jinja2, folium and branca); and a synthetic source name -
@@ -87,13 +87,13 @@ def is_plumbing(filename: str) -> bool:
 
 
 def caller_stacklevel() -> int:
-    """Frames from warnings.warn out to the first frame that is the author's.
+    """Frames from warnings.warn out to the first frame that is the caller's.
 
     A fixed stacklevel cannot work here, and that is a fact of the call path
     rather than a guess: a layer declaration is read during the Jinja render,
     which compiles the control template to a "<template>" frame and calls
     through its own interpreter frames, so between this package and the
-    author's cell sit the template frame, jinja2 and folium. The depth also
+    caller's cell sit the template frame, jinja2 and folium. The depth also
     differs between call paths (a control declaration is read at construction,
     one frame lower). Walking out to the first frame that is not plumbing is
     therefore the only stable rule.
@@ -168,11 +168,11 @@ def normalise_zoom_range(
     Returns ``{"min": int, "max": int}`` when the declaration is usable, else
     ``None``: "not declared" and "declared but invalid" are the same state
     downstream - the visibility policy stays unconstrained rather than hiding
-    the layer/control on a payload the author never saw validated.
+    the layer/control on a payload the caller never saw validated.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable. ``source``
-    is how the author wrote it (the layer's ``foliplus['zoom_range']`` or a
+    is how the caller wrote it (the layer's ``foliplus['zoom_range']`` or a
     control's ``zoom_range=``), so the warning points at the entry point they
     used. Both keys are required, must be integers, and must be ordered;
     anything else warns once and is ignored.
@@ -362,8 +362,8 @@ def normalize_declared_filter(
     or malformed range with no field still raises instead of being masked by
     a warning. A list of values in the min/max mapping form is the list form of another
     owner (MeasureControl), so it also raises instead of being downgraded to
-    "undeclared": the author is using the wrong control, not a typo in the
-    data. All three fail in the author's notebook cell, where the mistake is,
+    "undeclared": the caller is using the wrong control, not a typo in the
+    data. All three fail in the caller's notebook cell, where the mistake is,
     instead of being buried in a warning among the page output.
     """
     if raw is None:
@@ -406,14 +406,14 @@ def normalise_folder(
     Returns the stripped name when the declaration is a non-empty string, else
     ``None``: "not declared" and "declared but invalid" are the same state
     downstream - the layer stays at the section root rather than disappearing
-    into a folder the author never saw validated.
+    into a folder the caller never saw validated.
 
     ``owner`` names the layer and ``subject`` the specific subject, so every
     message and de-duplication note is attributable. ``source`` is how the
-    author wrote it (the layer's ``foliplus['folder']``), so the warning
+    caller wrote it (the layer's ``foliplus['folder']``), so the warning
     points at the entry point they used. A non-string or blank value warns
     once and is ignored. This reader only reads and strips the name; role
-    matching, the stable author-folder id and the folder registry live with
+    matching, the stable caller-folder id and the folder registry live with
     the grouping work, not here.
     """
     if raw is None:
