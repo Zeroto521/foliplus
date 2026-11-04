@@ -52,7 +52,7 @@ const TIER_DEPS: Record<Tier, readonly string[]> = {
 // "#foliplus/<layer>/x.js" and "#<layer>/x.js" name the same module; fold the
 // longer spelling onto the short one before matching a rule.
 const canonical = (spec: string): string =>
-  spec.startsWith("#foliplus/") ? "#" + spec.slice("#foliplus/".length) : spec;
+  spec.startsWith("#foliplus/") ? `#${spec.slice("#foliplus/".length)}` : spec;
 
 const layerOf = (rel: string): Layer => {
   if (rel.startsWith(`foliplus/js/${TIER.platform}/`)) return "platform";
@@ -206,7 +206,7 @@ const collect = (): Array<[string, string, string]> => {
           problems.push([
             rel.replace("foliplus/js/", ""),
             spec,
-            layer + " imports outside " + deps.join(" | "),
+            `${layer} imports outside ${deps.join(" | ")}`,
           ]);
         }
       }
@@ -261,14 +261,14 @@ describe("JS import boundaries", () => {
         f
           .split("\\")
           .join("/")
-          .replace(REPO_ROOT.split("\\").join("/") + "/", ""),
+          .replace(`${REPO_ROOT.split("\\").join("/")}/`, ""),
       );
     expect(offenders).toEqual([]);
   });
 
   it("every tier directory exists (a half-done rename fails here)", () => {
     for (const dir of Object.values(TIER)) {
-      expect(existsSync(join(JS_ROOT, dir)), "tier directory missing: " + dir).toBe(
+      expect(existsSync(join(JS_ROOT, dir)), `tier directory missing: ${dir}`).toBe(
         true,
       );
     }
