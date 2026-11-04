@@ -1,7 +1,7 @@
-"""Normalisation for the author-facing declarations.
+"""Normalisation for the caller-facing declarations.
 
-Two payloads reach Python, and both are *declarations* rather than values the
-runtime computes:
+Three payloads reach Python, and all are *declarations* rather than values
+the runtime computes:
 
 * the zoom range: a layer writes ``foliplus={"zoom_range": {...}}`` and the
   two declarative controls take ``zoom_range={...}`` directly; it gates
@@ -9,6 +9,9 @@ runtime computes:
 * the filter: HeatmapControl / MeasureControl take ``filter=...``; it is
   normalised into the filter AST the JS runtime already speaks
   (foliplus/js/core/layer/filter.ts), so CONF never grows a second dialect.
+* the folder: a LayerControl layer carries ``foliplus={"folder": "..."}``; it is
+  read and stripped into the layer attribute the runtime groups on, and a
+  malformed name is reported once and treated as "not filed".
 
 The entry points differ (a control is not a folium layer, and a filter has a
 form the owner chooses), but the verdict rule is shared: a malformed
@@ -20,7 +23,7 @@ repeat a line.
 A filter declaration has deliberate exceptions to "never raises": a ``field``
 key inside a range declaration, a range with no bound field, or a list of
 value names in the min/max mapping form (the list form belongs to MeasureControl) is API
-misuse and raises ValueError in the author's cell instead of being buried in a
+misuse and raises ValueError in the caller's cell instead of being buried in a
 warning among the page output.
 """
 
@@ -38,11 +41,11 @@ from typing import Any, Literal
 
 import folium
 
-# ── Shared diagnostics ───────────────────────────────────────────────────
+# ── Module constants ─────────────────────────────────────────────────────
 # Diagnostics already reported in this process, so re-rendering a page does not
 # repeat the same line. Each family owns its own filter: the foliplus={...}
-# declaration rejections and the refused captions (#781) do not crowd each
-# other out at the cap.
+# declaration rejections and the refused captions do not crowd each other out
+# at the cap.
 refused_captions: set[tuple[str, ...]] = set()
 foliplus_reports: set[tuple[str, ...]] = set()
 
@@ -52,7 +55,7 @@ LOG_FILTER_CAP = 64
 #: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
 PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
 #: Installed dependency tree. A foliplus= warning is raised while the control is
-#: being *rendered*, so between this package and the author's cell sit the Jinja
+#: being *rendered*, so between this package and the caller's cell sit the Jinja
 #: template machinery, folium and branca. Pointing the warning at
 #: jinja2/environment.py would be technically accurate and useless; the walk
 #: skips the plumbing too, and stops at the first frame that is neither this
@@ -60,9 +63,20 @@ PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
 DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
 PLUMBING_DIRS = (PACKAGE_DIR, DEPENDENCY_DIR)
 
+#: The declaration key that asks for a visibility window over map zoom levels.
+ZOOM_RANGE_KEY = "zoom_range"
+#: The field the measurement-type filter is bound to. Mirrors
+#: CONST.FILTER.FIELD in foliplus/js/MeasureControl/const.ts: the list form
+#: emits it so CONF carries a complete AST atom.
+MEASURE_TYPE_FIELD = "type"
+#: The declaration key that asks for a layer folder.
+FOLDER_KEY = "folder"
+#: The filter's kind discriminator (a declared filter is a range or an enum).
+FilterKind = Literal["range", "enum"]
+
 
 def is_plumbing(filename: str) -> bool:
-    """True for a frame that is machinery, not the author's code.
+    """True for a frame that is machinery, not the caller's code.
 
     Three shapes count: this package; the installed dependency tree (a render
     passes through jinja2, folium and branca); and a synthetic source name -
@@ -73,13 +87,13 @@ def is_plumbing(filename: str) -> bool:
 
 
 def caller_stacklevel() -> int:
-    """Frames from warnings.warn out to the first frame that is the author's.
+    """Frames from warnings.warn out to the first frame that is the caller's.
 
     A fixed stacklevel cannot work here, and that is a fact of the call path
     rather than a guess: a layer declaration is read during the Jinja render,
     which compiles the control template to a "<template>" frame and calls
     through its own interpreter frames, so between this package and the
-    author's cell sit the template frame, jinja2 and folium. The depth also
+    caller's cell sit the template frame, jinja2 and folium. The depth also
     differs between call paths (a control declaration is read at construction,
     one frame lower). Walking out to the first frame that is not plumbing is
     therefore the only stable rule.
@@ -127,10 +141,6 @@ def warn_foliplus(note: str, message: str) -> None:
 
 
 # ── Zoom-range declaration ───────────────────────────────────────────────
-#: The declaration key that asks for a visibility window over map zoom levels.
-ZOOM_RANGE_KEY = "zoom_range"
-
-
 def zoom_level(raw: object) -> int | None:
     """One declared zoom end as an int, or None when it is not an integer.
 
@@ -158,11 +168,11 @@ def normalise_zoom_range(
     Returns ``{"min": int, "max": int}`` when the declaration is usable, else
     ``None``: "not declared" and "declared but invalid" are the same state
     downstream - the visibility policy stays unconstrained rather than hiding
-    the layer/control on a payload the author never saw validated.
+    the layer/control on a payload the caller never saw validated.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable. ``source``
-    is how the author wrote it (the layer's ``foliplus['zoom_range']`` or a
+    is how the caller wrote it (the layer's ``foliplus['zoom_range']`` or a
     control's ``zoom_range=``), so the warning points at the entry point they
     used. Both keys are required, must be integers, and must be ordered;
     anything else warns once and is ignored.
@@ -205,12 +215,6 @@ def normalise_zoom_range(
 
 
 # ── Filter declaration ───────────────────────────────────────────────────
-#: The field the measurement-type filter is bound to. Mirrors
-#: CONST.FILTER.FIELD in foliplus/js/MeasureControl/const.ts: the list form
-#: emits it so CONF carries a complete AST atom.
-MEASURE_TYPE_FIELD = "type"
-
-FilterKind = Literal["range", "enum"]
 
 
 def warn_filter(message: str) -> None:
@@ -358,8 +362,8 @@ def normalize_declared_filter(
     or malformed range with no field still raises instead of being masked by
     a warning. A list of values in the min/max mapping form is the list form of another
     owner (MeasureControl), so it also raises instead of being downgraded to
-    "undeclared": the author is using the wrong control, not a typo in the
-    data. All three fail in the author's notebook cell, where the mistake is,
+    "undeclared": the caller is using the wrong control, not a typo in the
+    data. All three fail in the caller's notebook cell, where the mistake is,
     instead of being buried in a warning among the page output.
     """
     if raw is None:
@@ -387,3 +391,49 @@ def normalize_declared_filter(
         f"got {type(raw).__name__}; ignored"
     )
     return None
+
+
+# ── Folder declaration ───────────────────────────────────────────────────
+def normalise_folder(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> str | None:
+    """Normalise one declared layer folder name.
+
+    Returns the stripped name when the declaration is a non-empty string, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the layer stays at the section root rather than disappearing
+    into a folder the caller never saw validated.
+
+    ``owner`` names the layer and ``subject`` the specific subject, so every
+    message and de-duplication note is attributable. ``source`` is how the
+    caller wrote it (the layer's ``foliplus['folder']``), so the warning
+    points at the entry point they used. A non-string or blank value warns
+    once and is ignored. This reader only reads and strips the name; role
+    matching, the stable caller-folder id and the folder registry live with
+    the grouping work, not here.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or f"foliplus[{FOLDER_KEY!r}]"
+
+    def _reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:folder:{reason}"
+        warn_foliplus(
+            note,
+            f"{where} declares {declared} {reason} - ignored",
+        )
+
+    if not isinstance(raw, str):
+        _reject(f"as {type(raw).__name__}; expected a non-empty string")
+        return None
+    name = raw.strip()
+    if not name:
+        _reject("as an empty or whitespace-only string; expected a non-empty string")
+        return None
+    return name
