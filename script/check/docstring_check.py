@@ -96,7 +96,9 @@ def scan_control_docstrings(repo_root: Path) -> dict[str, list[tuple[int, str]]]
     result = {}
     for class_name, rel_path in CONTROL_CLASSES.items():
         source_path = repo_root / rel_path
-        docstring = extract_class_docstring(source_path.read_text(encoding="utf-8"), class_name)
+        docstring = extract_class_docstring(
+            source_path.read_text(encoding="utf-8"), class_name
+        )
         result[class_name] = _docutils_messages(docstring)
     return result
 
@@ -130,10 +132,10 @@ def main(argv: list[str] | None = None) -> int:
         for level, msg in find_errors(messages):
             failures.append(f"  {class_name}: {msg}")
     if failures:
-        print("docstring_check: ERROR/3 found in control docstrings:");
-        print("\n".join(failures));
+        print("docstring_check: ERROR/3 found in control docstrings:")
+        print("\n".join(failures))
         return 1
-    print(f"docstring_check: {len(results)} control docstrings clean (no ERROR/3)");
+    print(f"docstring_check: {len(results)} control docstrings clean (no ERROR/3)")
     return 0
 
 

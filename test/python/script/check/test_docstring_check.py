@@ -40,9 +40,7 @@ Summary line.
 | fill  | red    |
 | label | layer  |
 +-------+--------+
-""";
-
-
+"""
 _MALFORMED_TABLE = """\
 Summary line.
 
@@ -52,19 +50,19 @@ Summary line.
 | fill  | red    |
 | label | layer |
 +-------+--------+
-""";
+"""
 
 
 class TestExtractClassDocstring:
     def test_extracts_class_docstring(self):
-        source = "class Foo:\n    \"\"\"Doc body.\"\"\"\n"
+        source = 'class Foo:\n    """Doc body."""\n'
         assert mod.extract_class_docstring(source, "Foo") == "Doc body."
 
     def test_absent_docstring_returns_empty(self):
         assert mod.extract_class_docstring("class Foo:\n    pass\n", "Foo") == ""
 
     def test_wrong_class_returns_empty(self):
-        source = "class Foo:\n    \"\"\"Doc body.\"\"\"\n"
+        source = 'class Foo:\n    """Doc body."""\n'
         assert mod.extract_class_docstring(source, "Bar") == ""
 
 
