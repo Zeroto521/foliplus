@@ -32,7 +32,7 @@ import {
   inlineControls,
   normalizeHexColor,
   numberInput,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";

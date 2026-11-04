@@ -42,7 +42,7 @@ import {
   inlineControls,
   normalizeHexColor,
   numberInput,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import { type SchemePicker, createSchemePicker } from "#common/engine/schemePicker.js";
 import { readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

@@ -14,7 +14,7 @@ import {
   normalizeHexColor,
   numberInput,
   selectInput,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 
 describe("LABEL_SIZE / clampLabelSize", () => {
   it("exposes one shared bound set and clamps into it", () => {
@@ -286,7 +286,7 @@ describe("selectInput", () => {
 // the *relationships* between the stylesheet sources — which token feeds which
 // rule — rather than pixel values, which the browser probe records.
 
-const ROOT = resolve(__dirname, "../../..");
+const ROOT = resolve(__dirname, "../../../..");
 
 /** Read a stylesheet with normalized line endings.
  *
@@ -457,7 +457,7 @@ describe("common/form.ts emits the shared chrome classes", () => {
     resolve(ROOT, "foliplus/js/common/panelClassName.ts"),
     "utf-8",
   );
-  const source = readFileSync(resolve(ROOT, "foliplus/js/common/form.ts"), "utf-8");
+  const source = readFileSync(resolve(ROOT, "foliplus/js/common/engine/form.ts"), "utf-8");
   const form = css("foliplus/css/common/form.css");
 
   it("names the row, label and control classes the CSS styles", () => {

@@ -29,7 +29,7 @@ import {
   bindLiveColor,
   bindLiveNumber,
   normalizeHexColor,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { finishSlidersIn } from "#control/LayerControl/slider.js";

@@ -1,6 +1,6 @@
 import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
+import { BORDER_WEIGHT, normalizeHexColor } from "#common/engine/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
 import type {

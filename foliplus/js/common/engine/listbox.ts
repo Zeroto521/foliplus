@@ -22,7 +22,7 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { dom } from "#common/dom.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+import { registerPortalRoot } from "#common/engine/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
 /** The three ARIA attributes shared by every option row. The engine paints

@@ -41,7 +41,7 @@ import {
   clampBorderWeight,
   clampLabelSize,
   normalizeHexColor,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";

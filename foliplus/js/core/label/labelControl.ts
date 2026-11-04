@@ -18,7 +18,7 @@ import {
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 

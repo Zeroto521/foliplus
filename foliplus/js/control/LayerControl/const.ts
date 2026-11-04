@@ -1,5 +1,5 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
-import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/engine/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */

@@ -16,7 +16,7 @@ import {
   type DropdownSurface,
   createDropdown,
 } from "#common/engine/dropdown.js";
-import { selectInput } from "#common/form.js";
+import { selectInput } from "#common/engine/form.js";
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer
  *  (icon / size by value) show a mode it cannot offer yet with the reason on

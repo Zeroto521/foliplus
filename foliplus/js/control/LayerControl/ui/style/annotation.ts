@@ -28,7 +28,7 @@ import {
   formRow,
   inlineControls,
   normalizeHexColor,
-} from "#common/form.js";
+} from "#common/engine/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
