@@ -1,24 +1,20 @@
-// Shared color-scheme picker — a trigger bar + dropdown listbox with
-// keyboard navigation, outside-click dismissal, focus management, and
-// color-bar preview.
+// Shared color-scheme picker — a thin adapter over the one listbox engine.
 //
-// Consumers pass a trigger element (the bar they already render) and the
-// picker owns the dropdown lifecycle, keyboard handlers, outside-click,
-// focus return, hidden-select sync, and color-bar drawing.
+// The engine (common/listbox.ts) owns the dropdown lifecycle, keyboard
+// navigation, outside-click dismissal, focus return, portal/inline mounting
+// and aria-activedescendant tracking. This adapter only supplies the value
+// model (scheme + hidden select), the color-bar drawing, the trigger label,
+// and the engine's shape/config knobs that reproduce the picker's historical
+// behavior.
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
-import { applyOptionA11y } from "#common/dropdown.js";
+import { createListbox } from "#common/listbox.js";
 import { createLogger } from "#common/log.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
-import { throttleRaf } from "#common/throttle.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
 const log = createLogger("schemePicker");
-
-/** Gap between the trigger and the dropdown, matching --foliplus-menu-gap. */
-const MENU_GAP = 4;
 
 // ── Class-name defaults ────────────────────────────────────────────────
 
@@ -35,7 +31,7 @@ const DEFAULT_CLASSES = {
 // the panel that opened it, so it has to paint above that panel — while an
 // inline dropdown stays inside the trigger's own stacking context and needs no
 // lift. The class is what the stylesheet keys the z band off, so the JS keeps
-// its distance from z numbers.
+// its distance from z numbers. The engine's `classes.portal` slot carries it.
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
 interface SchemePickerClasses {
@@ -58,8 +54,7 @@ interface SchemePickerOptions {
   portal: boolean;
   /** Resolve the host the portalled dropdown mounts into. Consumers inject
    *  this so the list follows the surface that actually covers the trigger —
-   *  native fullscreen, or a control's pseudo-fullscreen fallback that the
-   *  native API never reports. Absent, the picker falls back to
+   *  a control in pseudo-fullscreen. Absent, the picker falls back to
    *  document.fullscreenElement ?? <body>. */
   resolveHost?: () => HTMLElement;
   /** Subscribe to host-surface changes (native fullscreen enter/exit and the
@@ -74,7 +69,7 @@ interface SchemePickerOptions {
    *  dropdown reference (e.g. for test assertions). */
   onToggle?: (open: boolean, dropdown: HTMLElement | null) => void;
   /** color-scale resolver: returns an array of `n` hex colors for a
-   *  scheme name.  Injected by the consumer so the picker stays free of
+   *  scheme name. Injected by the consumer so the picker stays free of
    *  core/ imports. */
   colorScale: (name: string, n: number) => string[];
   /** Accessible name for the trigger. Consumers pass their localized text
@@ -106,7 +101,7 @@ interface SchemePicker {
   refresh(): void;
   /** Toggle the dropdown open/close. */
   toggle(): void;
-  /** Close the dropdown.  Set restoreFocus to false when the close was
+  /** Close the dropdown. Set restoreFocus to false when the close was
    *  triggered by outside-click, data-clear, or destroy — those should
    *  not yank the user's focus back to the trigger. */
   close(opts?: { restoreFocus?: boolean }): void;
@@ -116,47 +111,10 @@ interface SchemePicker {
   destroy(): void;
 }
 
-// Module-level counter for stable dropdown/item ids (avoids Math.random()
-// churn that makes aria-activedescendant values jump between snapshots).
-let idCounter = 0;
-const nextId = (prefix: string): string => `${prefix}-${++idCounter}`;
-
 // Owner map: prevents two pickers from binding the same trigger (which
-// would cause double-dropdowns on a single click).  A consumer that
+// would cause double-dropdowns on a single click). A consumer that
 // needs to re-create the picker must destroy the old one first.
 const ownerMap = new WeakMap<HTMLElement, SchemePicker>();
-
-// ── Internal state ─────────────────────────────────────────────────────
-
-interface InternalState {
-  classes: SchemePickerClasses;
-  trigger: HTMLElement;
-  hiddenSelect: HTMLSelectElement | null;
-  schemes: readonly string[];
-  numClasses: number;
-  onChange: (name: string) => void;
-  onToggle: ((open: boolean, dropdown: HTMLElement | null) => void) | null;
-  portal: boolean;
-  /** Injected host resolver; null keeps the native-fullscreen fallback. */
-  resolveHost: (() => HTMLElement) | null;
-  /** Injected surface subscription; null falls back to fullscreenchange. */
-  onSurfaceChange: ((cb: () => void) => () => void) | null;
-  value: string;
-  dropdown: HTMLElement | null;
-  items: HTMLElement[];
-  isOpen: boolean;
-  /** True after destroy() — all public methods become no-ops. */
-  destroyed: boolean;
-  colorScale: (name: string, n: number) => string[];
-  schemeLabel: (name: string) => string;
-  disabledSchemes: readonly string[];
-  disabledHint: string;
-  /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
-  cleanupFns: (() => void)[];
-  /** Mount-scope listeners (outside-click, scroll, fullscreen, item focus) —
-   *  drained on every closeDropdown() so repeated open/close cycles don't leak. */
-  mountCleanupFns: (() => void)[];
-}
 
 // ── Inner-element lookup ──────────────────────────────────────────────
 
@@ -193,466 +151,22 @@ const renderColorBar = (
   }
 };
 
-// ── Dropdown builder ───────────────────────────────────────────────────
+// ── scrollbar lane publishing ─────────────────────────────────────────
 
-// Deliberate divergence from common/dropdown's renderOptions row builder.
-// The two builders share exactly one genuinely-identical piece — the ARIA
-// contract that applyOptionA11y paints (role/tabindex/aria-selected) — and
-// the keyboard contract (Home/End/arrow skip aria-disabled rows, Escape,
-// Tab close; see focusables() below). Everything else diverges by design
-// and is deliberately NOT folded into a shared helper:
-//
-//  - element: <div> vs <button type=button> (dropdown)
-//  - disabled: aria-disabled=true (still focusable, activate is a no-op)
-//    vs native disabled attr (skips tab order, cannot fire click)
-//  - data key: data-scheme-name vs data-value
-//  - selected class: foliplus-is-active vs foliplus-is-selected
-//  - click wiring: stopPropagation + disabled guard + selectScheme
-//    vs activate(index) with no guard
-//  - trigger: a consumer-drawn color bar (div role=combobox) vs a
-//    module-owned label button — no shared trigger shape, so the picker
-//    keeps its own trigger Enter/Space mount and open-focus handling.
-//
-// If you change the row shape here, mirror the intent in dropdown's
-// renderOptions — not a shared abstraction.
-const buildDropdown = (state: InternalState): HTMLElement => {
-  const { classes, schemes, numClasses, value } = state;
-
-  const dropdown = dom.el("div", {
-    class: classes.dropdown,
-    role: "listbox",
-  });
-  // A wheel over the open picker list must not zoom the map. The list is
-  // portalled out of the control container (portal mode), so the container's
-  // own disableScrollPropagation does not cover it — without this a wheel
-  // bubbles to the map container and Leaflet's scrollWheelZoom fires. Stop
-  // propagation only: the list's own overflow-y scroll still works.
-  dropdown.addEventListener("wheel", event => event.stopPropagation());
-
-  const items: HTMLElement[] = [];
-
-  schemes.forEach(name => {
-    const item = dom.el("div", {
-      class: classes.item,
-      "data-scheme-name": name,
-      parent: dropdown,
-    });
-
-    applyOptionA11y(item, { selected: name === value });
-    if (name === value) {
-      item.classList.add(classes.active);
-    }
-    // A consumer-owned current state (the author palette) is shown but not
-    // selectable: activating it must not be read as choosing that scheme.
-    const disabled = state.disabledSchemes.includes(name);
-    if (disabled) item.setAttribute("aria-disabled", "true");
-
-    const bar = dom.el("div", {
-      class: classes.bar,
-      parent: item,
-    });
-    renderColorBar(bar, name, numClasses, classes.block, state.colorScale);
-    // A disabled entry shows the disabled hint when the consumer provides one;
-    // otherwise it falls back to the scheme label (the previous title), so an
-    // empty hint never blanks the tooltip a disabled entry already had.
-    item.title = disabled
-      ? state.disabledHint || state.schemeLabel(name)
-      : state.schemeLabel(name);
-
-    item.addEventListener("click", (event: MouseEvent) => {
-      event.stopPropagation();
-      if (disabled) return;
-      selectScheme(state, name);
-    });
-
-    items.push(item);
-  });
-
-  state.items = items;
-
-  // ── Dropdown keyboard handler ──
-
-  // Same keyboard contract as common/dropdown.ts: Home/End/↑↓ walk the rows
-  // that can be picked (a consumer-owned current entry is skipped), Esc closes
-  // back to the trigger, and Tab closes without swallowing the default move.
-  const focusables = () =>
-    state.items.filter(item => item.getAttribute("aria-disabled") !== "true");
-
-  const onKeydown = (event: KeyboardEvent) => {
-    const key = event.key;
-    const rows = focusables();
-    const idx = rows.indexOf(document.activeElement as HTMLElement);
-
-    if (key === "ArrowDown" || key === "Down") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (rows.length > 0) {
-        const next = idx < 0 ? 0 : (idx + 1) % rows.length;
-        rows[next]?.focus();
-      }
-    } else if (key === "ArrowUp" || key === "Up") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (rows.length > 0) {
-        const prev = idx < 0 ? rows.length - 1 : (idx - 1 + rows.length) % rows.length;
-        rows[prev]?.focus();
-      }
-    } else if (key === "Home") {
-      event.preventDefault();
-      event.stopPropagation();
-      rows[0]?.focus();
-    } else if (key === "End") {
-      event.preventDefault();
-      event.stopPropagation();
-      rows[rows.length - 1]?.focus();
-    } else if (key === "Tab") {
-      // No preventDefault: closing first makes the browser continue Tab from
-      // the trigger instead of from the row that is about to be hidden.
-      closeDropdown(state, { restoreFocus: true });
-    } else if (key === "Enter" || key === " ") {
-      event.preventDefault();
-      event.stopPropagation();
-      const active = document.activeElement as HTMLElement;
-      const activeIdx = state.items.indexOf(active);
-      if (activeIdx >= 0) {
-        const name = active.getAttribute("data-scheme-name");
-        // Keyboard activation follows the same rule as the click: the
-        // current consumer-owned entry is not a choice.
-        if (name && !state.disabledSchemes.includes(name)) selectScheme(state, name);
-      }
-    }
-  };
-
-  dropdown.addEventListener("keydown", onKeydown);
-  state.mountCleanupFns.push(() => dropdown.removeEventListener("keydown", onKeydown));
-
-  return dropdown;
-};
-
-// ── Mount / unmount dropdown ───────────────────────────────────────────
-
-/** The host the portalled dropdown mounts into.
- *
- *  An injected resolver is the only source that knows about a surface the
- *  native API does not report (a control's pseudo-fullscreen fallback); the
- *  native element stays the fallback for consumers that wire none. */
-const getPortalHost = (state: InternalState): HTMLElement => {
-  const injected = state.resolveHost?.();
-  if (injected) return injected;
-  return (document.fullscreenElement as HTMLElement) ?? document.body;
-};
-
-/** Publish the lane a layout scrollbar takes from the dropdown's content.
- *
- *  A classic scrollbar reserves real width; an overlay one reserves none; and
- *  the dropdown's stable gutter keeps the lane the same in the scrolling and
- *  fitting states. The item strip subtracts this lane from its right inset
- *  (scheme-picker.css), so it lands on the trigger strip's right edge whenever
- *  the lane fits inside the inset. Re-measured when the dropdown is re-seated
- *  (fullscreen, resize), where the lane can change with the zoom level. */
-/** A computed width as a plain number of CSS px; "" and "0px" both read as 0. */
-const borderPx = (value: string) => Number(value.replace(/[^0-9.]/g, ""));
-
-const syncScrollbarWidth = (dropdown: HTMLElement) => {
-  const style = window.getComputedStyle(dropdown);
-  const borders = borderPx(style.borderLeftWidth) + borderPx(style.borderRightWidth);
+// The item's right inset subtracts this lane, so the property has to be
+// published on every mount and re-measured on resize. The value is the lane
+// the list's own overflow-y scrollbar occupies; a platform with overlay
+// scrollbars reports 0, and the strip then reaches the item's right inset.
+const syncScrollbarWidth = (dropdown: HTMLElement): void => {
+  const style = getComputedStyle(dropdown);
+  const borderPx =
+    parseFloat(style.borderLeftWidth || "0") +
+    parseFloat(style.borderRightWidth || "0");
   const lane = Math.max(
     0,
-    Math.round(dropdown.offsetWidth - dropdown.clientWidth - borders),
+    Math.round(dropdown.offsetWidth - dropdown.clientWidth - borderPx),
   );
   dropdown.style.setProperty("--foliplus-scheme-picker-scrollbar-width", `${lane}px`);
-};
-
-const mountDropdown = (state: InternalState) => {
-  const dropdown = buildDropdown(state);
-  state.dropdown = dropdown;
-
-  if (state.portal) {
-    dropdown.style.position = "fixed";
-    dropdown.style.visibility = "hidden";
-    dropdown.classList.add(PORTAL_CLASS);
-    const host = getPortalHost(state);
-    host.appendChild(dropdown);
-    // Ownership travels with the node: while this list is live, the panel that
-    // owns the trigger counts a press on it as its own (common/portalRoot).
-    state.mountCleanupFns.push(registerPortalRoot(dropdown, state.trigger));
-    // Measure after append — detached elements report 0×0.
-    positionDropdown(state, dropdown);
-    dropdown.style.visibility = "";
-    // Keep the dropdown pinned when the host element changes. Every listener
-    // below is mount-scoped (drained on close), so the dropdown is open
-    // whenever it runs — no "still open" guard needed.
-    const reseat = () => {
-      const target = getPortalHost(state);
-      if (dropdown.parentElement !== target) {
-        target.appendChild(dropdown);
-      }
-      positionDropdown(state, dropdown);
-      syncScrollbarWidth(dropdown);
-    };
-    if (state.onSurfaceChange) {
-      // The injected subscription covers native fullscreen and the pseudo
-      // fallback, whose transitions emit no fullscreenchange.
-      state.mountCleanupFns.push(state.onSurfaceChange(reseat));
-    } else {
-      document.addEventListener("fullscreenchange", reseat);
-      state.mountCleanupFns.push(() =>
-        document.removeEventListener("fullscreenchange", reseat),
-      );
-    }
-    // Re-pin on a trigger scroll or a window resize. Portal-only: inline mode
-    // is anchored by CSS, so it needs neither listener.
-    const reposition = () => {
-      positionDropdown(state, dropdown);
-      syncScrollbarWidth(dropdown);
-    };
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    state.mountCleanupFns.push(() => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    });
-    // The trigger is the dropdown's width source, and it can resize without a
-    // window resize: a panel that gains or loses a layout scrollbar lane moves
-    // every control inside it by that lane. Following the trigger keeps the
-    // item strip on the trigger strip's right edge after the lane disappears
-    // (the stale mount-time width is what the style-drawer strip test caught).
-    // Coalesced per frame: the callback writes the dropdown's box, and a
-    // ResizeObserver that re-triggers itself would report an undelivered loop.
-    const followTrigger = throttleRaf(reposition);
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(followTrigger);
-      observer.observe(state.trigger);
-      state.mountCleanupFns.push(() => {
-        observer.disconnect();
-        followTrigger.cancel();
-      });
-    }
-  } else {
-    // Inline mode: mount into the trigger's parent (schemeControlWrap)
-    const parent =
-      state.trigger.closest(".foliplus-form-control") ??
-      state.trigger.parentElement ??
-      state.trigger;
-    parent.appendChild(dropdown);
-  }
-
-  state.isOpen = true;
-  state.trigger.classList.add(state.classes.open);
-  state.trigger.setAttribute("aria-expanded", "true");
-
-  // Stable id for aria-controls (counter, not Math.random).
-  const id = nextId("foliplus-scheme-dropdown");
-  dropdown.id = id;
-  state.trigger.setAttribute("aria-controls", id);
-
-  // Update aria-activedescendant to the currently focused item
-  const updateActiveDescendant = () => {
-    const active = document.activeElement as HTMLElement;
-    if (state.items.includes(active)) {
-      // Items always carry a generated id (assigned below).
-      state.trigger.setAttribute("aria-activedescendant", active.id);
-    }
-  };
-  state.items.forEach(item => {
-    item.id = nextId("foliplus-scheme-item");
-    item.addEventListener("focus", updateActiveDescendant);
-    state.mountCleanupFns.push(() =>
-      item.removeEventListener("focus", updateActiveDescendant),
-    );
-  });
-
-  // Outside-click dismissal is owned by the consumer's per-map overlay
-  // registry entry (core/overlayRegistry), not by this shared factory: common
-  // modules must not import core. The consumer registers the trigger as the
-  // panel and the dropdown as the portal, then calls `close({restoreFocus:false})`
-  // from the entry's close callback.
-
-  // Focus the selected item now that the dropdown is in the DOM and all
-  // listeners are installed. Doing this before append leaves the focus on the
-  // trigger, which breaks keyboard navigation. `findIndex` is -1 only if a
-  // future consumer supplies items without the active class; `Math.max` folds
-  // that into the first row without a second condition.
-  if (state.items.length > 0) {
-    const activeIdx = Math.max(
-      0,
-      state.items.findIndex(item => item.classList.contains(state.classes.active)),
-    );
-    state.items[activeIdx].focus();
-  }
-
-  // The dropdown is in the DOM now (both mount modes), so the lane is real
-  // unless the platform draws overlay scrollbars.
-  syncScrollbarWidth(dropdown);
-
-  state.onToggle?.(true, dropdown);
-};
-
-/** Pin a portal dropdown under its trigger. Portal-only: inline mode is
- *  anchored by the trigger's own CSS, so it never calls this. */
-const positionDropdown = (state: InternalState, dropdown: HTMLElement) => {
-  const rect = state.trigger.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  // Set an explicit width (trigger width) so the dropdown does not inherit the
-  // portal host's width (e.g. document.body = 100%).
-  dropdown.style.width = `${rect.width}px`;
-  const dropdownRect = dropdown.getBoundingClientRect();
-  // The CSS shell carries the gap as a margin for the in-flow mount; a
-  // positioned dropdown states it in the offset instead, or the two would add.
-  dropdown.style.marginTop = "0px";
-
-  // Flip above only when the room below cannot show the list AND the room
-  // above is larger. A per-surface flip unification across every dropdown
-  // surface (common/dropdown.ts) is a later step; this picker keeps its own
-  // rule.
-  const spaceBelow = vh - rect.bottom - MENU_GAP;
-  const spaceAbove = rect.top - MENU_GAP;
-  const fitsBelow = spaceBelow >= dropdownRect.height;
-  const up = !fitsBelow && spaceAbove > spaceBelow;
-
-  let left = rect.left;
-  if (left + dropdownRect.width > vw - 8) {
-    left = Math.max(8, vw - dropdownRect.width - 8);
-  }
-  let top = up ? rect.top - dropdownRect.height - MENU_GAP : rect.bottom + MENU_GAP;
-  // Clamp both edges: a trigger near the bottom of a short viewport keeps the
-  // list on screen instead of running off it.
-  top = Math.max(8, Math.min(top, vh - 8 - dropdownRect.height));
-
-  dropdown.style.top = `${top}px`;
-  dropdown.style.left = `${left}px`;
-};
-
-const closeDropdown = (state: InternalState, opts?: { restoreFocus?: boolean }) => {
-  const wasOpen = state.isOpen;
-  if (state.dropdown) {
-    state.dropdown.remove();
-    state.dropdown = null;
-  }
-  state.items = [];
-  state.isOpen = false;
-  state.trigger.classList.remove(state.classes.open);
-  state.trigger.setAttribute("aria-expanded", "false");
-  state.trigger.removeAttribute("aria-activedescendant");
-  // Only restore focus if the dropdown was actually open (close() on an
-  // already-closed picker must not steal focus from the user's current
-  // target).  Keyboard-initiated closes (Escape, Enter, select) pass
-  // restoreFocus: true; outside-click and data-clear pass false.
-  if (wasOpen && opts?.restoreFocus !== false) {
-    state.trigger.focus();
-  }
-  // Drain mount-scope listeners (outside-click, scroll, fullscreen, item focus).
-  // Lifecycle listeners (trigger click/keydown) stay until destroy().
-  state.mountCleanupFns.forEach(fn => fn());
-  state.mountCleanupFns = [];
-  if (wasOpen) {
-    state.onToggle?.(false, null);
-  }
-};
-
-// ── Scheme selection ───────────────────────────────────────────────────
-
-const selectScheme = (state: InternalState, name: string) => {
-  state.value = name;
-
-  // Sync hidden select
-  if (state.hiddenSelect) {
-    state.hiddenSelect.value = name;
-  }
-
-  // Update trigger's title
-  state.trigger.title = state.schemeLabel(name);
-
-  // Redraw the trigger's color bar (the trigger's inner element)
-  const barInner = getInner(state.trigger);
-  if (barInner) {
-    renderColorBar(
-      barInner,
-      name,
-      state.numClasses,
-      state.classes.block,
-      state.colorScale,
-    );
-  }
-
-  // Update dropdown items: move active class
-  state.items.forEach(item => {
-    const isSelected = item.getAttribute("data-scheme-name") === name;
-    item.classList.toggle(state.classes.active, isSelected);
-    item.setAttribute("aria-selected", String(isSelected));
-  });
-
-  // Close dropdown
-  closeDropdown(state);
-
-  // Notify consumer
-  state.onChange(name);
-};
-
-// ── Trigger keyboard handler ───────────────────────────────────────────
-
-const setupTriggerKeydown = (state: InternalState) => {
-  const onKeydown = (event: KeyboardEvent) => {
-    const key = event.key;
-    if (state.isOpen) return; // dropdown handles keys when open
-
-    if (key === "ArrowUp" || key === "ArrowDown") {
-      event.preventDefault();
-      event.stopPropagation();
-      const schemes = state.schemes;
-      const idx = schemes.indexOf(state.value);
-      if (key === "ArrowUp" && idx > 0) {
-        selectScheme(state, schemes[idx - 1]);
-      } else if (key === "ArrowDown" && idx < schemes.length - 1) {
-        selectScheme(state, schemes[idx + 1]);
-      }
-    } else if (key === "Enter" || key === " ") {
-      event.preventDefault();
-      event.stopPropagation();
-      mountDropdown(state);
-    }
-  };
-
-  state.trigger.addEventListener("keydown", onKeydown);
-  state.cleanupFns.push(() => state.trigger.removeEventListener("keydown", onKeydown));
-};
-
-// ── Open / toggle ──────────────────────────────────────────────────────
-
-const toggleDropdown = (state: InternalState) => {
-  if (state.isOpen) {
-    closeDropdown(state);
-  } else {
-    mountDropdown(state);
-  }
-};
-
-// ── Refresh ────────────────────────────────────────────────────────────
-
-const refreshDropdown = (state: InternalState) => {
-  if (!state.dropdown) return;
-  // Items can change height (classes count) and cross the max-height
-  // threshold; a platform without a stable gutter only then grows one.
-  syncScrollbarWidth(state.dropdown);
-  state.items.forEach(item => {
-    const name = item.getAttribute("data-scheme-name");
-    if (!name) return;
-    // The bar class may be a concatenation of default + consumer classes,
-    // so use [class~='default'] to match any element with the default class.
-    const barClass = DEFAULT_CLASSES.bar;
-    const bar = item.querySelector(`[class~='${barClass}']`) as HTMLElement | null;
-    if (bar) {
-      renderColorBar(
-        bar,
-        name,
-        state.numClasses,
-        state.classes.block,
-        state.colorScale,
-      );
-    }
-  });
 };
 
 // ── Factory ────────────────────────────────────────────────────────────
@@ -675,13 +189,12 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   }
 
   // Clamp numClasses to a valid positive integer (1–100).
-  const numClasses = Math.max(1, Math.min(100, Math.round(options.numClasses) || 1));
+  let numClasses = Math.max(1, Math.min(100, Math.round(options.numClasses) || 1));
 
   // Base structure classes are never replaced — consumer classes are additive
   // modifiers only. This prevents the CSS/DOM contract break that caused the
   // "custom color bar + native select both visible" screenshot bug.
   const consumerClasses = options.classes ?? {};
-  // The base class is never replaced, so a consumer can only add a modifier.
   const withModifier = (base: string, extra: string | undefined): string =>
     extra ? `${base} ${extra}` : base;
   const classes: SchemePickerClasses = {
@@ -692,179 +205,237 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     active: withModifier(DEFAULT_CLASSES.active, consumerClasses.active),
     open: consumerClasses.open ?? DEFAULT_CLASSES.open,
   };
-  const state: InternalState = {
-    classes,
-    trigger: options.trigger,
-    hiddenSelect: options.hiddenSelect ?? null,
-    schemes: options.schemes,
-    numClasses,
-    onChange: options.onChange,
-    onToggle: options.onToggle ?? null,
-    portal: options.portal,
-    resolveHost: options.resolveHost ?? null,
-    onSurfaceChange: options.onSurfaceChange ?? null,
-    colorScale: options.colorScale,
-    schemeLabel: options.schemeLabel ?? (name => name),
-    disabledSchemes: options.disabledSchemes ?? [],
-    disabledHint: options.disabledHint ?? "",
-    value: options.value,
-    dropdown: null,
-    items: [],
-    isOpen: false,
-    destroyed: false,
-    cleanupFns: [],
-    mountCleanupFns: [],
-  };
+
+  const trigger = options.trigger;
+  const hiddenSelect = options.hiddenSelect ?? null;
+  const schemes = options.schemes;
+  const colorScale = options.colorScale;
+  const schemeLabel = options.schemeLabel ?? ((name: string) => name);
+  const disabledSchemes = options.disabledSchemes ?? [];
+  const disabledHint = options.disabledHint ?? "";
+  let value = options.value;
+  let destroyed = false;
 
   // Populate hidden select — make it non-interactive (tabindex=-1, aria-hidden)
   // so it does not appear as an invisible Tab stop. It is a state mirror only.
-  if (state.hiddenSelect) {
-    state.hiddenSelect.innerHTML = "";
-    options.schemes.forEach(name => {
-      dom.el("option", { value: name, parent: state.hiddenSelect }, name);
+  if (hiddenSelect) {
+    hiddenSelect.innerHTML = "";
+    schemes.forEach(name => {
+      dom.el("option", { value: name, parent: hiddenSelect }, name);
     });
-    state.hiddenSelect.value = options.value;
-    state.hiddenSelect.setAttribute("tabindex", "-1");
-    state.hiddenSelect.setAttribute("aria-hidden", "true");
+    hiddenSelect.value = options.value;
+    hiddenSelect.setAttribute("tabindex", "-1");
+    hiddenSelect.setAttribute("aria-hidden", "true");
   }
 
   // Set combobox a11y attributes on the trigger.
   // aria-label is required because the adjacent <label> cannot name a
   // <div role="combobox"> automatically (no `for` attribute). The consumer
   // injects the localized name; the factory carries no locale table.
-  state.trigger.setAttribute("aria-haspopup", "listbox");
-  state.trigger.setAttribute("aria-expanded", "false");
-  if (
-    !state.trigger.hasAttribute("aria-label") &&
-    !state.trigger.hasAttribute("aria-labelledby")
-  ) {
-    state.trigger.setAttribute("aria-label", options.label ?? "Color scheme");
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  if (!trigger.hasAttribute("aria-label") && !trigger.hasAttribute("aria-labelledby")) {
+    trigger.setAttribute("aria-label", options.label ?? "Color scheme");
   }
 
   // Set initial trigger title and draw the color bar
-  state.trigger.title = state.schemeLabel(options.value);
-  const initialBarInner = getInner(state.trigger);
+  trigger.title = schemeLabel(options.value);
+  const initialBarInner = getInner(trigger);
   if (initialBarInner) {
-    // The clamped count, not the raw option: the first paint must match every
-    // later setNumClasses redraw (and the dropdown rows built with it).
     renderColorBar(
       initialBarInner,
       options.value,
       numClasses,
       classes.block,
-      options.colorScale,
+      colorScale,
     );
   }
 
-  // Trigger click handler
-  const onClick = (event: MouseEvent) => {
-    event.stopPropagation();
-    toggleDropdown(state);
+  const syncBar = () => {
+    const barInner = getInner(trigger);
+    if (barInner) {
+      renderColorBar(barInner, value, numClasses, classes.block, colorScale);
+    }
   };
-  state.trigger.addEventListener("click", onClick);
-  state.cleanupFns.push(() => state.trigger.removeEventListener("click", onClick));
 
-  // Trigger keyboard
-  setupTriggerKeydown(state);
-  // Register as the owner of this trigger
+  // A scheme row: the label bar the engine paints plus the row's disabled
+  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard;
+  // the adapter owns the color bar and the title (which needs the disabled
+  // hint, a picker-only concept).
+  const renderRow = (item: { value: string; disabled?: boolean; title?: string }) => {
+    const bar = dom.el("div", { class: classes.bar });
+    renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
+    return bar;
+  };
+
+  // Apply a selection: update the value model + all picker-owned DOM, close
+  // the dropdown, and notify. The engine calls this for a row activation
+  // (click/Enter/Space) and the adapter calls it for trigger-key cycling.
+  const applyScheme = (name: string): void => {
+    value = name;
+    if (hiddenSelect) hiddenSelect.value = name;
+    trigger.title = schemeLabel(name);
+    syncBar();
+    listbox.close({ restoreFocus: true });
+    options.onChange(name);
+  };
+
+  // The engine's selected() read — the value lives here, in the adapter.
+  const selectedOf = () => [value];
+  const itemsOf = (): {
+    value: string;
+    label: string;
+    disabled?: boolean;
+    title?: string;
+  }[] =>
+    schemes.map(name => {
+      const disabled = disabledSchemes.includes(name);
+      return {
+        value: name,
+        label: schemeLabel(name),
+        disabled,
+        title: disabled ? disabledHint || schemeLabel(name) : schemeLabel(name),
+      };
+    });
+
+  const listbox = createListbox({
+    trigger,
+    items: itemsOf,
+    selected: selectedOf,
+    shape: {
+      rowTag: "div",
+      dataKey: "data-scheme-name",
+      selectedClass: classes.active,
+      disabledAttr: "aria-disabled",
+      activedescendant: "trigger",
+      renderRow,
+    },
+    classes: {
+      list: classes.dropdown,
+      row: classes.item,
+      portal: PORTAL_CLASS,
+      up: "",
+      open: classes.open,
+    },
+    place: "fixed",
+    focusOnOpen: "selected",
+    // Publish the lane after every position pass (the engine calls onPosition
+    // after positionList in portal mode and after the inline mount).
+    onPosition: () => {
+      const dropdown = listbox.getList();
+      // Every position pass happens while the list is mounted, so the null arm
+      // is a defensive guard, not a reachable state.
+      /* v8 ignore next -- defensive: onPosition only runs with a mounted list */
+      if (dropdown) syncScrollbarWidth(dropdown);
+    },
+    inline: !options.portal,
+    inlineHost: options.portal
+      ? undefined
+      : () =>
+          trigger.closest(".foliplus-form-control") ?? trigger.parentElement ?? trigger,
+    triggerKeys: "cycle",
+    stopTriggerClick: true,
+    detachOnClose: true,
+    surface: {
+      resolveHost: options.resolveHost,
+      onSurfaceChange: options.onSurfaceChange,
+    },
+    dismiss: { kind: "local" },
+    onRowActivate: index => {
+      // Closed: the trigger's cycle key activates the value model directly
+      // (the list is not rendered). Open: the list row is the source of truth
+      // — a malformed row without a data-scheme-name must be skipped rather
+      // than activating by index.
+      if (!listbox.isOpen()) {
+        applyScheme(itemsOf()[index].value);
+        return;
+      }
+      const name = listbox
+        .getList()
+        ?.querySelectorAll("[role=option]")
+        [index]?.getAttribute("data-scheme-name");
+      if (name) applyScheme(name);
+    },
+    onToggle: options.onToggle ?? undefined,
+  });
+
+  const listOf = (): HTMLElement | null =>
+    destroyed || !listbox.isOpen() ? null : listbox.getList();
+
   const picker: SchemePicker = {
     setValue(name: string) {
-      if (state.destroyed) return;
+      if (destroyed) return;
       // Validate that the new value is in schemes.
-      if (state.schemes.length > 0 && !state.schemes.includes(name)) {
+      if (schemes.length > 0 && !schemes.includes(name)) {
         throw new RangeError(
           log.msg(
             `value "${name}" is not in schemes — add it to schemes or use a value from the list`,
           ),
         );
       }
-      state.value = name;
-      if (state.hiddenSelect) state.hiddenSelect.value = name;
-      state.trigger.title = state.schemeLabel(name);
-      // Redraw trigger color bar
-      const barInner = getInner(state.trigger);
-      if (barInner) {
-        renderColorBar(
-          barInner,
-          name,
-          state.numClasses,
-          classes.block,
-          state.colorScale,
-        );
-      }
-      // Update dropdown items if open
-      state.items.forEach(item => {
-        const isSelected = item.getAttribute("data-scheme-name") === name;
-        item.classList.toggle(classes.active, isSelected);
-        item.setAttribute("aria-selected", String(isSelected));
-      });
+      value = name;
+      if (hiddenSelect) hiddenSelect.value = name;
+      trigger.title = schemeLabel(name);
+      syncBar();
+      if (listbox.isOpen()) listbox.refresh();
     },
 
     selectScheme(name: string) {
-      if (state.destroyed) return;
+      if (destroyed) return;
       // Skip onChange for same-value selection — just close and return focus.
-      if (name === state.value) {
-        closeDropdown(state, { restoreFocus: true });
+      if (name === value) {
+        listbox.close({ restoreFocus: true });
         return;
       }
-      selectScheme(state, name);
+      applyScheme(name);
     },
 
     setNumClasses(n: number) {
-      if (state.destroyed) return;
+      if (destroyed) return;
       const clamped = Math.max(1, Math.min(100, Math.round(n) || 1));
-      if (clamped === state.numClasses) return;
-      state.numClasses = clamped;
-      // Redraw trigger bar
-      const barInner = getInner(state.trigger);
-      if (barInner) {
-        renderColorBar(barInner, state.value, clamped, classes.block, state.colorScale);
-      }
-      // Redraw dropdown items
-      refreshDropdown(state);
+      if (clamped === numClasses) return;
+      // The engine re-renders rows on refresh; setNumClasses redraws the
+      // trigger bar and every visible bar in the open list.
+      numClasses = clamped;
+      syncBar();
+      listbox.refresh();
     },
 
     refresh() {
-      if (state.destroyed) return;
-      refreshDropdown(state);
+      if (destroyed) return;
+      listbox.refresh();
     },
 
     toggle() {
-      if (state.destroyed) return;
-      toggleDropdown(state);
+      if (destroyed) return;
+      listbox.toggle();
     },
 
     close(opts?: { restoreFocus?: boolean }) {
-      if (state.destroyed) return;
-      closeDropdown(state, opts);
+      if (destroyed) return;
+      listbox.close(opts);
     },
 
     getDropdown() {
-      return state.destroyed ? null : state.dropdown;
+      return listOf();
     },
 
     destroy() {
-      if (state.destroyed) return;
-      state.destroyed = true;
-      closeDropdown(state, { restoreFocus: false });
-      state.cleanupFns.forEach(fn => fn());
-      state.cleanupFns = [];
-      state.items = [];
-      state.dropdown = null;
+      if (destroyed) return;
+      destroyed = true;
+      listbox.destroy();
       // A destroyed picker holds no consumer callbacks.
-      state.resolveHost = null;
-      state.onSurfaceChange = null;
-      // Remove from owner map so a new picker can be created on this trigger.
-      // This picker is the registered owner by construction (the factory
-      // refuses a second one), so the delete needs no identity re-check.
-      ownerMap.delete(state.trigger);
       // Fully clean up ARIA attributes so the trigger is indistinguishable
-      // from its initial state (destroy, not just close).
-      state.trigger.removeAttribute("aria-expanded");
-      state.trigger.removeAttribute("aria-controls");
+      // from its initial state (destroy, not just close). The engine's close
+      // only sets aria-expanded=false and keeps aria-controls/aria-owns.
+      trigger.removeAttribute("aria-expanded");
+      trigger.removeAttribute("aria-controls");
+      trigger.removeAttribute("aria-owns");
+      // Remove from owner map so a new picker can be created on this trigger.
+      ownerMap.delete(trigger);
     },
   };
-  ownerMap.set(options.trigger, picker);
+  ownerMap.set(trigger, picker);
   return picker;
 };
 
