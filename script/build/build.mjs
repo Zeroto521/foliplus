@@ -375,6 +375,7 @@ const main = async () => {
   const devMarker = resolve(distDir, ".dev-build");
   if (CFG.dev) writeFileSync(devMarker, "dev", "utf-8");
   else rmSync(devMarker, { force: true });
+  let failed = 0;
   let buildOk = false;
   try {
     console.time("build");
@@ -403,7 +404,7 @@ const main = async () => {
 
     // ── Step 4: esbuild bundle (parallel) ─────────────────────────
     const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
-    const failed = results.filter(r => r.status === "rejected").length;
+    failed = results.filter(r => r.status === "rejected").length;
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       if (r.status === "fulfilled") {
