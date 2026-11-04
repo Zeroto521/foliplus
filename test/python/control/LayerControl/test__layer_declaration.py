@@ -259,9 +259,7 @@ def test_duplicate_folder_warns_once_per_declaring_layer():
     # Two layers declaring the same folder is an ambiguous grouping: neither
     # may adopt the folder, and each declaring layer is warned so the defect
     # is attributable (one warning per layer, not one per defect).
-    layers = [
-        _geo(name=f"L{i}", foliplus={"folder": "Shared"}) for i in range(2)
-    ]
+    layers = [_geo(name=f"L{i}", foliplus={"folder": "Shared"}) for i in range(2)]
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         html = _render(*layers)
