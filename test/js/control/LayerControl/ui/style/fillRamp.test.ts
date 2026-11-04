@@ -30,13 +30,15 @@ vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
 }));
 
 /** Install a chroma stub that hands back a fixed color list, whatever
- *  count was requested — used to force the out-of-bounds fallback. */
+ *  count was requested — used to force the out-of-bounds fallback. The
+ *  stub answers both palette shapes: the numeric path calls
+ *  `scale().mode().colors(count)`, the categorical path calls
+ *  `scale().colors(count)` directly. */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
     scale: () => ({
-      mode: () => ({
-        colors: () => colors,
-      }),
+      mode: () => ({ colors: (count: number) => colors.slice(0, count) }),
+      colors: (count: number) => colors.slice(0, count),
     }),
   } as never;
 };
@@ -817,5 +819,156 @@ describe("applyRampToLayer", () => {
     expect((layer.leaves[0].setStyle as any).mock.calls[0][0].fillColor).toBe(
       "#ff0000",
     );
+  });
+
+  it("paints categorical values by their label under a qualitative scheme", () => {
+    // The category arm: a string column is classified by distinct label, not
+    // by numeric breaks. First-seen order maps each label to the scheme's
+    // next discrete color (Set3 here, via the chroma stub's fixed list).
+    installChroma(["#e41a1c", "#377eb8", "#4daf4a"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: "forest" } },
+      { properties: { kind: "water" } },
+      { properties: { kind: "forest" } },
+      { properties: { kind: "urban" } },
+    ]);
+    const ramp = makeRamp({ kind: "category", field: "kind" });
+
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    const colors = layer.leaves.map(
+      leaf => (leaf.setStyle as any).mock.calls[0][0].fillColor as string,
+    );
+    // forest is first-seen, water second, urban third — the duplicate
+    // forest leaf shares its label's color.
+    expect(colors[0]).toBe("#e41a1c");
+    expect(colors[1]).toBe("#377eb8");
+    expect(colors[2]).toBe("#e41a1c");
+    expect(colors[3]).toBe("#4daf4a");
+  });
+
+  it("falls back to the shared other color for a category outside the domain", () => {
+    // buildCategoryRamp's `other` is the fallback grey; a label never seen
+    // during the collect walk (e.g. added after the first apply) paints it.
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([{ properties: { kind: "forest" } }]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "kind" }),
+    );
+
+    layer.leaves[0].feature.properties.kind = "mystery";
+    intentValues = { fillRamp: makeRamp({ kind: "category", field: "kind" }) };
+    const out = pinGetterOf()();
+    expect(out).not.toBeNull();
+    expect(out!.fillColor).toBe("#999");
+  });
+
+  it("leaves a category leaf with a non-string value out of the ramp's reach", () => {
+    // isCategoryValue accepts only a non-empty string, so a numeric or null
+    // property is not painted: the author's face comes back, the same rule
+    // the numeric arm applies to a non-finite value.
+    installChroma(["#e41a1c"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: "forest" } },
+      { properties: { kind: 42 } },
+      { properties: { kind: null } },
+    ]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "kind" }),
+    );
+
+    const last = (leaf: (typeof layer.leaves)[number]) =>
+      (leaf.setStyle as any).mock.calls.at(-1)![0];
+    expect(last(layer.leaves[0]).fillColor).toBe("#e41a1c");
+    for (const leaf of layer.leaves.slice(1)) {
+      expect(last(leaf).fillColor).toBe("#3388ff");
+    }
+  });
+
+  it("replays a categorical color from the pin for a label in the domain", () => {
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([{ properties: { kind: "water" } }]);
+    const ramp = makeRamp({ kind: "category", field: "kind" });
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    intentValues = { fillRamp: ramp };
+    const out = pinGetterOf()();
+    expect(out).not.toBeNull();
+    // One distinct label takes palette[0] (first-seen order).
+    expect(out!.fillColor).toBe("#e41a1c");
+    expect(out!.fill).toBe(true);
+  });
+  it("restores the author's face when a category ramp has no valid labels", () => {
+    // The paint ternary's `: undefined` arm for the category branch when the
+    // scale itself is null: no leaf offers a valid categorical label (numbers,
+    // null, an empty string), so buildCategoryRamp yields no colors, catScale
+    // stays null, and every leaf's paint is undefined — the author's face
+    // comes back, the same rule the numeric arm applies to an all-invalid
+    // field.
+    installChroma(["#e41a1c"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: 42 } },
+      { properties: { kind: null } },
+      { properties: { kind: "" } },
+    ]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "kind" }),
+    );
+
+    for (const leaf of layer.leaves) {
+      const last = (leaf.setStyle as any).mock.calls.at(-1)![0];
+      expect(last.fillColor).toBe("#3388ff");
+    }
+  });
+
+  it("paints boolean values as categorical labels", () => {
+    // The collection predicate was widened to booleans: a boolean column is
+    // a categorical field, so each distinct value stringifies to its label
+    // ("true" / "false") and paints by first-seen order like any string
+    // label — the boolean is a label, not a number.
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([
+      { properties: { ok: true } },
+      { properties: { ok: false } },
+      { properties: { ok: true } },
+    ]);
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ kind: "category", field: "ok" }),
+    );
+
+    const colors = layer.leaves.map(
+      leaf => (leaf.setStyle as any).mock.calls[0][0].fillColor as string,
+    );
+    expect(colors[0]).toBe("#e41a1c");
+    expect(colors[1]).toBe("#377eb8");
+    expect(colors[2]).toBe("#e41a1c");
+  });
+
+  it("replays nothing for a category leaf whose value is not a string label", () => {
+    // The pin reads the live leaf value: a category leaf carrying a number
+    // (or null / empty string) has no label, so the getter yields null and
+    // the author's face stays — the same rule the paint pass applies, so a
+    // mouseout cannot invent a color for a valueless sibling of an otherwise
+    // valid category column.
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: "forest" } },
+      { properties: { kind: 42 } },
+    ]);
+    const ramp = makeRamp({ kind: "category", field: "kind" });
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    intentValues = { fillRamp: ramp };
+    // Leaf 0 is an in-domain label; leaf 1 is a number — categoryLabel reads
+    // "no label", so its pin getter yields null rather than a fallback color.
+    expect(pinGetterOf(1)()).toBeNull();
   });
 });

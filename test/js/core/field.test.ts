@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   categoricalPropertiesKeys,
   categoryDomain,
+  inferFieldKind,
   isCategoryValue,
   isNumericValue,
   numericPropertiesKeys,
@@ -211,5 +212,86 @@ describe("categoryDomain", () => {
     const { values, overflow } = categoryDomain(layer, "kind");
     expect(values).toEqual([]);
     expect(overflow).toBe(false);
+  });
+});
+describe("inferFieldKind", () => {
+  it("types a number sample as numeric", () => {
+    const layer = makeGroup([makeLeaf({ score: 10 }), makeLeaf({ score: 3.5 })]);
+    expect(inferFieldKind(layer, "score")).toBe("numeric");
+  });
+
+  it("types a non-empty string sample as category", () => {
+    const layer = makeGroup([makeLeaf({ kind: "forest" })]);
+    expect(inferFieldKind(layer, "kind")).toBe("category");
+  });
+
+  it("types a boolean sample as category", () => {
+    // A boolean column is a label, not a number: the fill arm's category
+    // predicate accepts it so a boolean declaration can actually paint.
+    const layer = makeGroup([makeLeaf({ active: true }), makeLeaf({ active: false })]);
+    expect(inferFieldKind(layer, "active")).toBe("category");
+  });
+
+  it("reports mixed when number and category values coexist", () => {
+    const layer = makeGroup([makeLeaf({ score: 10 }), makeLeaf({ score: "high" })]);
+    expect(inferFieldKind(layer, "score")).toBe("mixed");
+  });
+
+  it("reports mixed when number and boolean values coexist", () => {
+    const layer = makeGroup([makeLeaf({ v: 1 }), makeLeaf({ v: true })]);
+    expect(inferFieldKind(layer, "v")).toBe("mixed");
+  });
+
+  it("reports empty for all-null / no-usable values", () => {
+    const layer = makeGroup([
+      makeLeaf({ score: null }),
+      makeLeaf({ score: undefined }),
+    ]);
+    expect(inferFieldKind(layer, "score")).toBe("empty");
+  });
+
+  it("reports empty for a layer with no features", () => {
+    expect(inferFieldKind(makeGroup([]), "score")).toBe("empty");
+    expect(inferFieldKind(makeLeaf(undefined), "score")).toBe("empty");
+  });
+
+  it("reports empty for a null / non-object layer", () => {
+    expect(inferFieldKind(null, "score")).toBe("empty");
+    expect(inferFieldKind(undefined, "score")).toBe("empty");
+    expect(inferFieldKind(42, "score")).toBe("empty");
+  });
+
+  it("skips null values between usable ones", () => {
+    const layer = makeGroup([
+      makeLeaf({ v: null }),
+      makeLeaf({ v: 5 }),
+      makeLeaf({ v: null }),
+    ]);
+    expect(inferFieldKind(layer, "v")).toBe("numeric");
+  });
+
+  it("skips leaves without a feature envelope", () => {
+    const layer = makeGroup([makeLeaf(undefined), makeLeaf({ v: "a" })]);
+    expect(inferFieldKind(layer, "v")).toBe("category");
+  });
+
+  it("caps the sample at 64 leaves (a later different kind is not seen)", () => {
+    // 64 numeric leaves then a string: the sample cap stops before the
+    // string, so the field stays numeric instead of flipping to mixed.
+    const numeric = Array.from({ length: 64 }, () => makeLeaf({ v: 1 }));
+    const layer = makeGroup([...numeric, makeLeaf({ v: "x" })]);
+    expect(inferFieldKind(layer, "v")).toBe("numeric");
+  });
+
+  it("caches the result per (layer, field) — a changed value is not re-inferred", () => {
+    const leaf = makeLeaf({ v: 1 });
+    const layer = makeGroup([leaf]);
+    expect(inferFieldKind(layer, "v")).toBe("numeric");
+    // The declaration-lifetime cache means a later streamed value of another
+    // type is not re-walked; the first result stands.
+    (
+      leaf as unknown as { feature: { properties: Record<string, unknown> } }
+    ).feature.properties.v = "x";
+    expect(inferFieldKind(layer, "v")).toBe("numeric");
   });
 });

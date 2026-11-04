@@ -185,6 +185,18 @@ class TestValidateShape:
         {"a": ("string", "?")},
         {"nested": {"inner": {"deep": "string"}}},
         {"matrix": [["string"]]},
+        # The author scale (LayerData[].fillAuthor.scale): vmin/vmax are
+        # optional keys, so a scale that carries them and one that omits them
+        # are both legal shapes - the optional marker renders them as
+        # vmin?: number / vmax?: number and the missing-key case stays valid.
+        {
+            "scale": {
+                "kind": ("continuous", "stepped"),
+                "vmin": ("number", "?"),
+                "vmax": ("number", "?"),
+            }
+        },
+        {"scale": {"kind": ("continuous", "stepped")}},
     ]
 
     @pytest.mark.parametrize("shape", VALID_SHAPES)
@@ -232,6 +244,16 @@ class TestValidateShape:
             "params": {"*": ["string", "number"]}
         }
         assert json.loads(json.dumps(literal)) == {"role": ["base", "overlay"]}
+
+    def test_mixed_literal_null_union_round_trips(self) -> None:
+        # A literal union may mix one literal with null (the method field of
+        # the author scale: "equal" or null). null is a primitive name, so the
+        # generator renders it unquoted beside the quoted literal — the
+        # validator must accept the descriptor and the round trip must not
+        # coerce the null into a string.
+        mixed = {"method": ("equal", "null")}
+        validate_shape(mixed, "T")
+        assert json.loads(json.dumps(mixed)) == {"method": ["equal", "null"]}
 
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):

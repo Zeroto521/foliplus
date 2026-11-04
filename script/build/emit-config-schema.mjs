@@ -213,6 +213,17 @@ const renderShape = (x, path = "") => {
       if (isPrimitiveUnion(x)) {
         return x.map(v => SHAPE_PRIMITIVES[v]).join(" | ");
       }
+      // A union mixing a literal with null (e.g. ["equal", "null"]): null
+      // is a primitive name and must render unquoted (`"equal" | null`),
+      // while the literals stay quoted. `isPrimitiveUnion` above already
+      // handles the all-primitive case (["bool", "null"] → boolean | null);
+      // this branch handles the mixed one, where a literal such as "equal"
+      // sits beside null and cannot take the primitive path.
+      if (x.includes("null")) {
+        return x
+          .map(v => (v === "null" ? SHAPE_PRIMITIVES.null : `"${v}"`))
+          .join(" | ");
+      }
       return x.map(v => `"${v}"`).join(" | ");
     }
     return `${parenthesize(renderShape(x[0], `${path}[0]`))}[]`;

@@ -24,9 +24,10 @@
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
+import { isCategoryValue } from "#core/field.js";
 import { DIM } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig } from "#core/layer/intent.js";
-import { buildRamp, colorFor } from "#core/ramp.js";
+import { buildCategoryRamp, buildRamp, colorFor } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -74,8 +75,26 @@ const leafPropertyValue = (leaf: StyleSetter, key: string): unknown => {
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+/** A value that can be a categorical label.
+ *
+ *  A non-empty string is a label as-is. A boolean is a label too — the fill
+ *  kind inference types booleans as category — but the palette is keyed by
+ *  string, so a boolean is stringified for the lookup ("true" / "false").
+ *  Anything else (a number, null, an empty string, an object) reads as "no
+ *  label", the same answer `isCategoryValue` gave before booleans joined. */
+const categoryLabel = (value: unknown): string | undefined => {
+  if (typeof value === "boolean") return String(value);
+  return isCategoryValue(value) ? value : undefined;
+};
+
 /** One collected leaf: the node plus its finite drive value, if any. */
-type CollectedLeaf = { leaf: StyleSetter; value: number | undefined };
+type CollectedLeaf = {
+  leaf: StyleSetter;
+  /** The numeric drive value, when the arm is numeric. */
+  value: number | undefined;
+  /** The categorical drive label, when the arm is category. */
+  category: string | undefined;
+};
 
 /** Whether two ramp configs differ in a way that invalidates a cached
  *  breaks/scale pair. Every field counts: `field` because the collected
@@ -160,12 +179,27 @@ const applyRampToLayer = (
   // surviving leaves would be repainted with the author's color - and it
   // would keep every leaf of the last painted layer alive between applies.
   const values: number[] = [];
+  const categories: string[] = [];
   const collected: CollectedLeaf[] = [];
+  const category = ramp.kind === "category";
+  const seenCategories = new Set<string>();
   walkFillLeaves(layer, leaf => {
     const read = leafPropertyValue(leaf, ramp.field);
-    const value = isFiniteNumber(read) ? read : undefined;
-    if (value !== undefined) values.push(value);
-    collected.push({ leaf, value });
+    if (category) {
+      const text = categoryLabel(read);
+      // buildCategoryRamp maps DISTINCT labels to colors in first-seen
+      // order, so a repeated label must not re-index the palette: only the
+      // first sighting seeds the domain, later ones reuse the same color.
+      if (text !== undefined && !seenCategories.has(text)) {
+        seenCategories.add(text);
+        categories.push(text);
+      }
+      collected.push({ leaf, value: undefined, category: text });
+    } else {
+      const value = isFiniteNumber(read) ? read : undefined;
+      if (value !== undefined) values.push(value);
+      collected.push({ leaf, value, category: undefined });
+    }
   });
 
   // ── Build the ramp once, before the write pass ──
@@ -182,32 +216,46 @@ const applyRampToLayer = (
   // matters because the alternative is the map silently keeping its author
   // color while the panel still claims the chosen method.
   let built: ReturnType<typeof buildRamp> | null = null;
+  let categoryScale: ReturnType<typeof buildCategoryRamp> | null = null;
   try {
-    built = buildRamp(values, ramp);
+    if (category) {
+      categoryScale = buildCategoryRamp(categories, ramp.scheme);
+    } else {
+      built = buildRamp(values, ramp);
+    }
   } catch (err) {
     log.warn("value-based fill:", err);
   }
 
-  // `buildRamp` returns no colors when the sample cannot be split at all —
-  // an empty ramp, or breaks with no span — which is the honest "nothing to
-  // classify" answer. Read once, so the write pass and the pins share one
-  // answer instead of each re-testing it.
+  // `buildRamp` / `buildCategoryRamp` return no colors when the sample
+  // cannot be split at all — an empty ramp, or breaks with no span — which
+  // is the honest "nothing to classify" answer. Read once, so the write
+  // pass and the pins share one answer instead of each re-testing it.
   const scale: ReturnType<typeof buildRamp> | null =
     built !== null && built.colors.length > 0 ? built : null;
+  const catScale: ReturnType<typeof buildCategoryRamp> | null =
+    categoryScale !== null && categoryScale.colors.size > 0 ? categoryScale : null;
 
   // ── Pass 2: write per-leaf + pin ──
   // Iterating the collection instead of re-walking the tree: the two passes
   // then share one leaf order and no shared state.
-  for (const { leaf, value } of collected) {
+  for (const { leaf, value, category: leafCategory } of collected) {
     const opacity = readOpacity();
     const write: Record<string, unknown> = {};
     if (opacity !== undefined) write.fillOpacity = opacity;
-    if (scale !== null && value !== undefined) {
+    const paint = category
+      ? catScale !== null && leafCategory !== undefined
+        ? (catScale.colors.get(leafCategory) ?? catScale.other)
+        : undefined
+      : scale !== null && value !== undefined
+        ? colorFor(scale, value)
+        : undefined;
+    if (paint !== undefined) {
       // The ramp owns this leaf's color, so `fill` is lit and the author's
       // color is replaced. The payload stays minimal: a named color replaces
       // whatever the previous arm left in that slot, and the opacity is named
       // only when the user chose one, so the author's stays in force.
-      write.fillColor = colorFor(scale, value);
+      write.fillColor = paint;
       commitStyleDim(leaf, write, FACE.FILL);
     } else {
       // Outside the ramp's reach: the author's color and `fill` flag —
@@ -235,7 +283,14 @@ const applyRampToLayer = (
       if (!sameRampConfig(currentRamp, ramp)) return null;
       const op = readOpacity();
       const curVal = leafPropertyValue(leaf, ramp.field);
-      if (scale !== null && isFiniteNumber(curVal)) {
+      if (category && catScale !== null) {
+        const label = categoryLabel(curVal);
+        if (label !== undefined) {
+          const color = catScale.colors.get(label) ?? catScale.other;
+          return styleDimPayload({ fillColor: color, fillOpacity: op }, FACE.FILL);
+        }
+      }
+      if (!category && scale !== null && isFiniteNumber(curVal)) {
         // fill:true rides the replay too — folium's resetStyle would otherwise
         // re-apply the author's fill:false on mouseout and hide the fill.
         // fillOpacity replays alongside it so the hover restore does not drop

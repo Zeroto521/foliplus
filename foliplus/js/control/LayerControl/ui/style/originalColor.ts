@@ -9,7 +9,12 @@
 //   its distinct colors in feature-discovery order, which is arbitrary: the
 //   same layer painted a different confetti order on every render. Those are
 //   sorted hue → lightness, so the gradient is a stable function of the color
-//   set rather than of the feature order.
+//   set rather than of the feature order. A continuous fallback arm (a
+//   legend=False numeric layer, `{"kind": "continuous", "ordered": false}`)
+//   is discovery-ordered too, but the intent is a sequential ramp, so those
+//   are sorted lightness → hue instead: a sequential palette is
+//   lightness-monotonic, and pure hue would leave a hue-wrapping palette
+//   (plasma) broken.
 //
 //   Shape. Sixty-four `flex: none` blocks in a row were both the overflow and
 //   the "no order" complaint; one `linear-gradient` cannot overflow and reads
@@ -26,7 +31,7 @@
 const MAX_STOPS = 12;
 
 /** The slice of an author scale the bar's shape depends on. */
-type OriginalScale = { kind?: string } | null | undefined;
+type OriginalScale = { kind?: string; ordered?: boolean } | null | undefined;
 
 type Rgb = [number, number, number];
 
@@ -117,6 +122,28 @@ const categorical = (colors: readonly string[]): string[] => {
   });
 };
 
+/** Lightness → hue, then the color string: the continuous fallback arm's
+ *  order. A sequential/continuous palette (viridis, plasma, a YlOrRd ramp) is
+ *  lightness-monotonic, so ranking a discovery-order strip by lightness keeps
+ *  it one contiguous ramp; hue is only the tie-break, because a hue-wrapping
+ *  palette must not be re-broken by pure hue. A color that does not parse (a
+ *  CSS keyword) ranks after every parsed one, by name. */
+const byLightness = (colors: readonly string[]): string[] => {
+  const rank = (color: string): [number, number, string] => {
+    const rgb = toRgb(color);
+    if (rgb === null) return [Number.POSITIVE_INFINITY, 0, color];
+    const { hue, lightness } = toHueLightness(rgb);
+    return [lightness, hue, color];
+  };
+  return [...colors].sort((a, b) => {
+    const left = rank(a);
+    const right = rank(b);
+    if (left[0] !== right[0]) return left[0] - right[0];
+    if (left[1] !== right[1]) return left[1] - right[1];
+    return left[2] < right[2] ? -1 : left[2] > right[2] ? 1 : 0;
+  });
+};
+
 /** Evenly spaced picks, both ends included and never the same index twice. */
 const sample = (colors: readonly string[], limit: number): string[] => {
   if (colors.length <= limit) return [...colors];
@@ -149,15 +176,23 @@ const ramp = (colors: readonly string[]): string => {
 /** The bar's `background` value for an author record.
  *
  *  With a scale: the author's own order, shaped by its kind (a stepped scale
- *  keeps its bands, a continuous one stays smooth). Without one: the colors
- *  ranked hue → lightness and sampled down, so a 64-color categorical layer
- *  paints one ordered gradient instead of a confetti strip. Fewer than two
- *  colors cannot make a gradient, so that case paints the single color. */
+ *  keeps its bands, a continuous one stays smooth) — except a
+ *  `{"kind": "continuous", "ordered": false}` fallback arm, whose stops are
+ *  discovery order and are ranked lightness → hue before ramping. Without a
+ *  scale: the colors ranked hue → lightness and sampled down, so a 64-color
+ *  categorical layer paints one ordered gradient instead of a confetti strip.
+ *  Fewer than two colors cannot make a gradient, so that case paints the
+ *  single color. */
 const originalGradient = (stops: readonly string[], scale?: OriginalScale): string => {
   const colors = dedupe(stops);
   if (colors.length === 0) return "";
   if (colors.length === 1) return colors[0];
   if (scale != null) {
+    if (scale.ordered === false) {
+      // Discovery order, not domain order: a legend=False continuous arm. Sort
+      // lightness → hue so the ramp is one contiguous sequential gradient.
+      return ramp(sample(byLightness(colors), MAX_STOPS));
+    }
     const sampled = sample(colors, MAX_STOPS);
     return scale.kind === "stepped" ? bands(sampled) : ramp(sampled);
   }
