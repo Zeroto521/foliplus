@@ -951,4 +951,24 @@ describe("applyRampToLayer", () => {
     expect(colors[1]).toBe("#377eb8");
     expect(colors[2]).toBe("#e41a1c");
   });
+
+  it("replays nothing for a category leaf whose value is not a string label", () => {
+    // The pin reads the live leaf value: a category leaf carrying a number
+    // (or null / empty string) has no label, so the getter yields null and
+    // the author's face stays — the same rule the paint pass applies, so a
+    // mouseout cannot invent a color for a valueless sibling of an otherwise
+    // valid category column.
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([
+      { properties: { kind: "forest" } },
+      { properties: { kind: 42 } },
+    ]);
+    const ramp = makeRamp({ kind: "category", field: "kind" });
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    intentValues = { fillRamp: ramp };
+    // Leaf 0 is an in-domain label; leaf 1 is a number — categoryLabel reads
+    // "no label", so its pin getter yields null rather than a fallback color.
+    expect(pinGetterOf(1)()).toBeNull();
+  });
 });

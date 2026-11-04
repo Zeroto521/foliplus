@@ -2166,6 +2166,18 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(paintedColors()).toEqual(COLORS);
   });
 
+  it("a category ramp with no findable carrier yields no field candidates", () => {
+    // The category arm resolves the candidate list through the registry and
+    // findLayer; when the carrier cannot be re-resolved at all (a stale entry
+    // mid-teardown) the list is empty and the stored name resolves to the
+    // empty field rather than throwing.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", { ...RAMP, kind: "category" });
+    (ui.c.layerRegistry.get("overlay1") as { layer: unknown }).layer = null;
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("ramp");
+  });
+
   it("fillMode=solid never reads the ramp config", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillMode", "solid");
@@ -3973,6 +3985,98 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
   });
 
+  it("drops a kind-absent declaration whose field mixes number and category values", () => {
+    // The author named a field that drives no single arm (numbers and strings
+    // in one column): the declaration is dropped whole rather than painted
+    // over a mismatched column, the same "no usable kind" rule an all-null
+    // field gets — with its own one-time inference warning.
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const makeLeaf = (mix: number | string) => {
+      const leaf = new L.Polygon() as L.Polygon & {
+        options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+        feature: { properties: { mix: number | string } };
+        setStyle: ReturnType<typeof vi.fn>;
+        on: ReturnType<typeof vi.fn>;
+      };
+      leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+      leaf.feature = { properties: { mix } };
+      leaf.setStyle = vi.fn();
+      leaf.on = vi.fn();
+      return leaf;
+    };
+    const leaves = [1, "a", 3].map(makeLeaf);
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(c => fn(c))),
+      getBounds: vi.fn(() => ({
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 0, lng: 0 }),
+        getNorthEast: () => ({ lat: 1, lng: 1 }),
+      })),
+      leaves,
+    } as never;
+    declare(layer, { field: "mix", method: "equal", classes: 3, scheme: "Reds" });
+    const { ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    // The declaration is dropped whole: no by-value ramp takes over, the
+    // authored solid face stays.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+  });
+
+  it("drops a declaration whose field vanished from the matching field set", () => {
+    // The declaration names a numeric field the layer does not carry: it is
+    // not re-pointed at another column, so the whole declaration steps aside
+    // (the same rule a vanished declaration column gets) — the authored solid
+    // face stays instead of a ramp over a mismatched column.
+    const { ui } = declaredRampFixture({
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+    // The panel's authoritative field set (the annotation cache) lists only a
+    // different numeric column, so "count" is no longer offered even though
+    // the layer still carries its values — a stale cache after the layer's
+    // schema changed. The declaration is not re-pointed at another column: it
+    // steps aside whole, so the authored solid face stays.
+    ui.runtimeStore.setFields("overlay1", [{ name: "value", numeric: true }]);
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+  });
+
+  it("content-change gate resolves the declaration through findLayer while unlinked", () => {
+    // The registry entry is populated but its layer reference is still null
+    // (a transient pre-link state): the declaration gate re-resolves the
+    // layer through findLayer rather than reading a null carrier, so a
+    // content-change sweep still sees the author's declaration.
+    const { ui, rampLayer } = declaredRampFixture({
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+    (ui.c.layerRegistry.get("overlay1") as { layer: unknown }).layer = null;
+    // findLayer re-resolves the carrier from the map: the declaration gate
+    // reads through it rather than the null registry reference.
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(rampLayer as never);
+    const when = (
+      FILL_DIMENSION.contentChange as {
+        when: (ui: LayerUI, layerId: string) => boolean;
+      }
+    ).when;
+    expect(when(ui, "overlay1")).toBe(true);
+  });
+
   it("keeps the user's stored ramp over the declaration", () => {
     const { ui, rampLayer } = declaredRampFixture({
       field: "count",
@@ -4463,6 +4567,62 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       expect(painted(layer)).toEqual(["#111111", "#222222"]);
     });
 
+    it("a kind-absent declaration with the default scheme takes the category default palette", () => {
+      // The author named no scheme on a string column that infers category:
+      // the categorical arm needs a discrete palette, so the numeric DEFAULT
+      // (Viridis) is replaced by the category default (Set3) — a named scheme
+      // is kept verbatim, but the default is not carried across the arm.
+      const { ui, layer } = categoryFixture(["forest", "water"], {
+        field: "cat",
+        method: "equal",
+        classes: 3,
+        scheme: CONST.RAMP.SCHEME_DEFAULT,
+      });
+
+      expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+        mode: "ramp",
+        ramp: {
+          kind: "category",
+          field: "cat",
+          scheme: CONST.RAMP.CATEGORY_SCHEME_DEFAULT,
+        },
+      });
+      expect(painted(layer)).toEqual(["#111111", "#222222"]);
+    });
+
+    it("category field resolution re-resolves through findLayer while the registry layer is unlinked", () => {
+      // No field cache has been populated (the annotation panel has not run),
+      // so the category arm falls to the tree walk — which re-resolves the
+      // carrier through findLayer when the registry reference is still null,
+      // the same late-binding defense the numeric arm uses.
+      installChroma(["#111111", "#222222"]);
+      installLeafletGlobals();
+      const layer = makeCategoryLayer(["forest", "water"]);
+      (layer as unknown as { options: Record<string, unknown> }).options.foliplus = {
+        fill: { field: "cat", method: "equal", classes: 3, scheme: "Reds" },
+      };
+      const { ui } = initFixture({
+        data: [
+          { id: "overlay1", name: "Polygons", role: "overlay", layer },
+          {
+            id: "base1",
+            name: "OSM",
+            role: "base",
+            layer: { options: {}, setZIndex: vi.fn() } as never,
+            paneName: "tilePane",
+          },
+        ],
+      });
+      (ui.c.layerRegistry.get("overlay1") as { layer: unknown }).layer = null;
+      // The field cache lists only a numeric column, so the category arm's
+      // candidate list is empty there and falls to the tree walk — which
+      // re-resolves the carrier through findLayer while the registry
+      // reference is null, the same late-binding defense the numeric arm uses.
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
+      vi.spyOn(ui.c, "findLayer").mockReturnValue(layer as never);
+      expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("ramp");
+    });
+
     it("an empty category domain falls back to the author face without error", () => {
       // A declared category ramp whose field resolves no string value on any
       // leaf: the collection yields no labels, buildCategoryRamp returns an
@@ -4595,5 +4755,58 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         ramp: { kind: "category", field: "cat", scheme: "Set3" },
       });
     });
+  });
+});
+
+/** The fill dimension's valueSource: the provenance (none / author / user)
+ *  the registry and the row read to tell where the current fill comes from.
+ *  The three states are driven directly against the descriptor — the same
+ *  contract the per-dimension registry tests assert for the other
+ *  dimensions, exercised here so the fill arm's own provenance is pinned. */
+describe("FILL_DIMENSION.valueSource — provenance", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("is none when the layer cannot carry a fill (gate rejects)", () => {
+    expect(FILL_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+  });
+
+  it("is author when the user has not set a fill slot", () => {
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("is user once provenance marks a fill slot", () => {
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: { fill: "native" },
+    } as never);
+    ui.intentStore.set("overlay1", "fillColor", "#ff0000");
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 });
