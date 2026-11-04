@@ -226,4 +226,13 @@ describe("deleteFolderFromOrder", () => {
     const next = deleteFolderFromOrder("overlay", "B", fo);
     expect(next.sections.overlay).toEqual(["a", "c"]);
   });
+
+  it("is a no-op when the section has no order yet", () => {
+    // The `?? []` read side: a section that never entered folderOrder must not
+    // invent a key — the result stays an empty overlay list, not undefined.
+    const fo = { version: 1 as const, sections: {} };
+    const next = deleteFolderFromOrder("overlay", "Roads", fo);
+    expect(next.sections.overlay).toEqual([]);
+    expect(next.sections.base).toBeUndefined();
+  });
 });
