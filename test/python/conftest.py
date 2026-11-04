@@ -295,8 +295,8 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 # ── Health probe (flaky-95 investigation) ──
 #
 # Inert observer for browser tests under `-n 24` xdist load. Samples worker
-# process + Chromium resource usage to a per-worker JSONL log under
-# ``.foliplus/flaky95/`` so a future 95-anomaly-round can be attributed
+# process + Chromium resource usage to a per-worker JSONL log in the gitignored
+# scratch directory so a future 95-anomaly-round can be attributed
 # (context accumulation? worker resource exhaustion? Chromium spawn burst?)
 # rather than filed as an unsolved flake.
 #
@@ -313,7 +313,7 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #                                 only — see the storage-isolation
 #                                 caveat under ``file://`` origins.
 #
-# ``.foliplus/`` is gitignored; the probe leaves no tracked artifacts.
+# The log directory is gitignored; the probe leaves no tracked artifacts.
 #
 # Findings (2026-09-25):
 #   Windows local (15 baseline rounds of -n 24):
