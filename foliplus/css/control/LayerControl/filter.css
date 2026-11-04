@@ -77,3 +77,11 @@
     min-width: 0;
   }
 }
+
+/* A leaf hidden by the generic data-layer filter (path element / marker icon
+   + shadow). display:none removes it from paint AND hit-testing; ExportControl
+   excludes it via computed display. !important beats Leaflet's own marker/path
+   display rules regardless of bundle order. */
+.foliplus-filter-hidden {
+  display: none !important;
+}
