@@ -12,11 +12,14 @@ import {
   type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
+  type FilterRangeDimension,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
   type LayerCapabilities,
   LayerFactory,
+  type LayerFilter,
+  type LayerFilterModel,
   LayerInfoRegistry,
   type LayerKind,
   LayerOrder,
@@ -25,13 +28,16 @@ import {
   ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
+  buildFilterFeatures,
   countFeatureGeometry,
   ensureLayerAPI,
+  filterLeafSet,
+  filterStep,
   findLayer,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
+import { hasAttachedPath, isGroupLike, layerShadow } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
@@ -205,6 +211,12 @@ class LayerController implements LayerAPI {
    *  LayerUI as a read-only getter. Read via `this.intentStore` internally
    *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
   declare intentStore: LayerIntentStore;
+  /** The generic data-layer filter's committed filter per layer id. This
+   *  controller is the filter's single owner for ordinary data layers; the
+   *  LayerControl panel reads/writes through the injected filterProvider /
+   *  filterSetter, and LAYER_FILTER_CHANGE is published after the state here
+   *  is settled. Absent = no filter. Heatmap/Measure own their own filters. */
+  declare layerFilters: Map<string, LayerFilter>;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
@@ -880,6 +892,24 @@ class LayerController implements LayerAPI {
           `registerLayer: "${opts.id}" is registered as ${existingRole.role}; re-registering with role "${opts.role}" is a role change. Unregister the layer first, or register it under a new id.`,
         ),
       );
+    }
+
+    // Inject the generic filter capability for ordinary data layers. A layer
+    // that already declares filterProvider/filterSetter (Heatmap/Measure) keeps
+    // its own — registerLayer's semantics is caller-explicit wins. Canvas layers
+    // (own rendering/count model) and base layers are excluded. The closures
+    // reference `this` (and the runtime store through `this.ui`), never a
+    // captured ui instance, so a registration before attach still resolves.
+    if (
+      !opts.filterProvider &&
+      !opts.filterSetter &&
+      !opts.canvas &&
+      opts.role !== ROLE.BASE
+    ) {
+      const id = opts.id;
+      opts.filterProvider = () => this.genericFilterModel(id);
+      opts.filterSetter = (filter: LayerFilter | undefined) =>
+        this.setLayerFilter(id, filter);
     }
 
     const { layerInfo, hidden, mutation } = this.domain.registerEntry(
@@ -1603,6 +1633,54 @@ class LayerController implements LayerAPI {
    *  event is notification-policy (see EVENT_POLICY), so a broken subscriber
    *  cannot take an ordering pass down.
    */
+  /** Build the filter panel's model for an ordinary data layer: one range
+   *  dimension per numeric field, the committed filter, and the kept/total
+   *  readout over the geometry-leaf count. Returns null when the layer has no
+   *  filterable numeric field (the ⋮ Filter entry opens to an empty state).
+   *  Reads the runtime store through `this.ui` — the provider is injected
+   *  lazily so a registration before attach still resolves. */
+  genericFilterModel(id: string): LayerFilterModel | null {
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    if (!features || features.numericFields.length === 0) return null;
+    const filter = this.layerFilters.get(id);
+    const hidden = filterLeafSet(features.features, filter);
+    let kept = features.total;
+    for (const feature of features.features) {
+      if (hidden.has(feature.leaf)) kept--;
+    }
+    const dimensions: FilterRangeDimension[] = features.numericFields.map(field => ({
+      kind: "range",
+      field,
+      range: features.ranges[field],
+      step: filterStep(features.ranges[field]),
+    }));
+    return { dimensions, filter, kept, total: features.total };
+  }
+
+  /** The generic filter's write-through: store the filter, compute the hidden
+   *  set, toggle the hidden class on every geometry leaf's element (path /
+   *  icon / shadow — §9 D1, one class write instead of a per-leaf style loop),
+   *  and announce LAYER_FILTER_CHANGE. The annotation label walk reads the
+   *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
+   *  (D9: the ramp/legend domain must not follow the filter). */
+  setLayerFilter(id: string, filter: LayerFilter | undefined): void {
+    this.layerFilters.set(id, filter);
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    if (!features) return;
+    const hidden = filterLeafSet(features.features, filter);
+    for (const feature of features.features) {
+      const leaf = feature.leaf as L.Layer & {
+        _path?: HTMLElement | null;
+        _icon?: HTMLElement | null;
+      };
+      const hide = hidden.has(feature.leaf);
+      for (const el of [leaf._path, leaf._icon, layerShadow(leaf)]) {
+        if (el) el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
+      }
+    }
+    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id });
+  }
+
   private notifyCapabilityChanges(): void {
     const next = new Map<string, string>();
     const changed: string[] = [];

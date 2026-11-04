@@ -98,6 +98,12 @@ export type {
   LayerFilter,
   LayerFilterModel,
 } from "./filter.js";
+export { buildFilterFeatures, filterLeafSet } from "./filterFeatures.js";
+export type {
+  FilterFeature,
+  FilterFieldValue,
+  LayerFilterFeatures,
+} from "./filterFeatures.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
