@@ -208,6 +208,32 @@ describe("generateRegistry", () => {
     expect(output).toContain("window.foliplus.common");
   });
 
+  it("discovers common/ subdir modules and publishes them on the flat key", () => {
+    // Slice B: collectCommonModules recurses into common/ subdirs; a module in
+    // common/engine/ registers under the flat window.foliplus.common["<name>"]
+    // key (the same last-segment rule as the runtime shim), not a nested one.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/engine/dropdown.ts": `export const dropdown = {};`,
+      "core/event/index.ts": `export const EventBus = {};`,
+      "control/MyComponent/index.ts": `import { dropdown } from "#common/engine/dropdown.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.common["dropdown"]');
+    expect(output).toContain('import { dropdown } from "#common/engine/dropdown.js"');
+  });
+
+  it("throws when two common/ subdirs share a module name (flat-key collision)", () => {
+    // common/a/dup and common/b/dup would both publish under the flat
+    // window.foliplus.common["dup"] key; the guard must fail loudly.
+    const [jsDir, buildDir] = buildFakeTree({
+      "common/a/dup.ts": `export const dup = {};`,
+      "common/b/dup.ts": `export const dup = {};`,
+      "control/MyComponent/index.ts": `import { dup } from "#common/a/dup.js";`,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(/common\/ name collision/);
+  });
+
   it("folds a non-barrel #core/<sub>/<file> import into the sub's namespace", () => {
     // canonicalSpec keys `#core/layer/const.js` as `core/layer/const`, a key
     // the namespace loop never reads — yet the runtime shim resolves that
