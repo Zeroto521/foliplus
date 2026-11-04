@@ -9,8 +9,8 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
-import { createListbox } from "#common/engine/listbox.js";
 import { createLogger } from "#common/log.js";
+import { createListbox } from "./listbox.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).

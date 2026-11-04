@@ -37,12 +37,7 @@
 // keystroke, and a bulk add of leaves to one layer coalesces the same way.
 import { CAP_TIER, DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
 import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
-import {
-  bindLiveNumber,
-  formRow,
-  inlineControls,
-  numberInput,
-} from "#common/engine/form.js";
+import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";

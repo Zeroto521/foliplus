@@ -2,7 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
-import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/engine/form.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,

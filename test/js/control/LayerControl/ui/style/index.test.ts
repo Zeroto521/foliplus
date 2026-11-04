@@ -6,11 +6,12 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { registerPortalRoot } from "#common/engine/portalRoot.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { sliderOf } from "#ui/index.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
-import { sliderOf } from "#control/LayerControl/slider.js";
+
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import {

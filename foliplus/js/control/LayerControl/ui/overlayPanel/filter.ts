@@ -28,7 +28,8 @@
 // live panels answer "is this press mine" — no per-panel outside handler and no
 // panel-level keydown live here.
 import { EVENTS } from "#core/event/index.js";
-import { dropdownSurface } from "#core/fullscreen.js";
+import { buttonRow, panelButton, sectionDivider, finishSlidersIn } from "#ui/index.js";
+import { dropdownSurface } from "#common/fullscreen.js";
 import type {
   FilterDimension,
   LayerFilter,
@@ -47,10 +48,10 @@ import {
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
-import { buttonRow, panelButton, sectionDivider } from "#ui/index.js";
+
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { finishSlidersIn } from "#control/LayerControl/slider.js";
+
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

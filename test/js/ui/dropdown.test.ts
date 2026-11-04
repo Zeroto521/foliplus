@@ -5,7 +5,7 @@ import {
   applyOptionA11y,
   createDropdown,
   dropdownOf,
-} from "#common/engine/dropdown.js";
+} from "#ui/index.js";
 
 // The class names are the module's DOM contract (its table stays private), so
 // the tests pin them by literal name, exactly like the stylesheet does.
@@ -223,7 +223,7 @@ describe("dropdown: bridged single select", () => {
   });
 
   it("mounts the open popup on the injected covering surface", () => {
-    // The panels pass core/fullscreen's dropdownSurface: in pseudo/fullscreen
+    // The panels pass common/fullscreen's dropdownSurface: in pseudo/fullscreen
     // mode the list must mount into the covering container, not <body>, or the
     // opaque map paints over it.
     const host = document.createElement("div");

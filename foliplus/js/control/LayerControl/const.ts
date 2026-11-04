@@ -1,6 +1,6 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
-import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/engine/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;

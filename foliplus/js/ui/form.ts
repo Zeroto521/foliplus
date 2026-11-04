@@ -2,8 +2,8 @@
 // HeatmapControl's template and LayerControl's style drawer both need the
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
-import { dom } from "../dom.js";
-import { PANEL_CLASS } from "../panelClassName.js";
+import { dom } from "#common/dom.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */

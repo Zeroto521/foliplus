@@ -20,8 +20,10 @@ import {
   type Dropdown,
   type DropdownSurface,
   createDropdown,
-} from "#common/engine/dropdown.js";
-import { formRow, inlineControls, selectInput } from "#common/engine/form.js";
+  formRow,
+  inlineControls,
+  selectInput,
+} from "#ui/index.js";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
  *  data-* seams that Python rendering tests pin. */

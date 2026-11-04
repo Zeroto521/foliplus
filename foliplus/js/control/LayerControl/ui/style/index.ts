@@ -24,15 +24,10 @@ import {
   unpinRowPanel,
 } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import {
-  LABEL_SIZE,
-  bindLiveColor,
-  bindLiveNumber,
-  normalizeHexColor,
-} from "#common/engine/form.js";
+import { LABEL_SIZE, bindLiveColor, bindLiveNumber, normalizeHexColor, finishSlidersIn } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { finishSlidersIn } from "#control/LayerControl/slider.js";
+
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

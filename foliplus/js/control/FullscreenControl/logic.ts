@@ -1,7 +1,7 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONFIG / T are no longer module-level: defineControl hands them off to the
 // control instance, and the entry passes an env slice into these functions.
-import { setPseudoFullscreen } from "#core/fullscreen.js";
+import { setPseudoFullscreen } from "#common/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isEnabled, ownsFullscreen } from "./api.js";
 import { CLASSES, containerId } from "./const.js";

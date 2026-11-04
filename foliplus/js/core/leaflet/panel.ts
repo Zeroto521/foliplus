@@ -5,10 +5,10 @@
 // (cssvar.js) directly instead of reading them from the runtime global.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { computePlacement } from "#common/engine/placement.js";
-import { isPortalOf } from "#common/engine/portalRoot.js";
 import * as SVGs from "#common/icon.js";
 import { throttleRaf } from "#common/throttle.js";
+import { computePlacement } from "#ui/index.js";
+import { isPortalOf } from "#common/portalRoot.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {

@@ -9,8 +9,8 @@ import {
   restoreFilters,
 } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { clampBorderWeight, clampLabelSize } from "#common/engine/form.js";
 import * as Storage from "#common/storage.js";
+import { clampBorderWeight, clampLabelSize } from "#ui/index.js";
 import { AGG } from "./const.js";
 import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";

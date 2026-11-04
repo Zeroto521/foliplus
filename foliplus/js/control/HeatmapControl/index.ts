@@ -16,7 +16,7 @@ class HeatmapControl extends defineControl({
   /** Backing store for the lazy `mgr` accessor. */
   private manager: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
-  schemePicker: import("#common/engine/schemePicker.js").SchemePicker | null;
+  schemePicker: import("#ui/index.js").SchemePicker | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
   declare observer: MutationObserver | null;

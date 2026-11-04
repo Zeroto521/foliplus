@@ -12,7 +12,7 @@ import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { Slider, sliderOf } from "#control/LayerControl/slider.js";
+import { Slider, sliderOf } from "#ui/index.js";
 import {
   NO_DELTA,
   type ProjectionDelta,

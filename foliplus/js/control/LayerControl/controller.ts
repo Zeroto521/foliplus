@@ -40,7 +40,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
-import { finishSlidersIn } from "./slider.js";
+import { finishSlidersIn } from "#ui/index.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 import {
