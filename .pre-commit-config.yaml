@@ -128,4 +128,4 @@ repos:
         language: python
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
-        pass_filenames: false
+        pass_filenames: true
