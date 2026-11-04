@@ -36,8 +36,8 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  change whose replay has not run yet). */
 const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
-  // The point snapshot invalidates at the same points as `fields` (design
-  // §4.1): both are caches over the layer's feature set. A layer whose
+  // The point snapshot invalidates at the same points as `fields`: both are
+  // caches over the layer's feature set. A layer whose
   // features can change (runtime createLayers) or whose row was just
   // dropped must lose both caches in one move.
   ui.runtimeStore.deleteSnapshot(layerId);
