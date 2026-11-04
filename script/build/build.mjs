@@ -35,6 +35,11 @@ import { resolveVersion } from "../version.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
+import {
+  assertNoSurvivorMarker,
+  planDistMarker,
+  settleDistMarker,
+} from "./distMarker.mjs";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
@@ -364,23 +369,10 @@ const main = async () => {
     verifyDist();
     return;
   }
-  // Dist-mode marker for the dist-dependent tests (bundle-fuse, bundle-size-check,
-  // browser-probe): build:dev emits unminified output larger than the minified
-  // ceilings those tests assert, so the absolute-cap cases skip only on a successful
-  // dev build. Decided at the START: a minified build clears the marker before
-  // building (a mid-build failure cannot leave a stale dev marker that would silently
-  // skip the cap cases), and a dev build writes it up front and removes it again in
-  // the finally below if the build fails (its dist is partial unminified output; the
-  // cap cases must run and fail loudly, not skip).
-  const devMarker = resolve(distDir, ".dev-build");
-  if (CFG.dev) {
-    // A clean checkout has no dist/ yet; create it before writing the marker or
-    // writeFileSync throws ENOENT and the whole dev build dies on first run.
-    mkdirSync(distDir, { recursive: true });
-    writeFileSync(devMarker, "dev", "utf-8");
-  } else {
-    rmSync(devMarker, { force: true });
-  }
+  // Dist-mode marker lifecycle — plan/settle/assert are isolated in
+  // distMarker.mjs (see there for the full rationale); this entry only
+  // threads CFG.dev + distDir into them.
+  const devMarker = planDistMarker({ dev: CFG.dev, distDir });
   let failed = 0;
   let buildOk = false;
   try {
@@ -455,11 +447,9 @@ const main = async () => {
     writeArtifactManifest(components.map(c => c.name));
     buildOk = !failed;
   } finally {
-    if (!(CFG.dev && buildOk)) rmSync(devMarker, { force: true });
+    settleDistMarker({ dev: CFG.dev, buildOk, marker: devMarker });
   }
-  if (!CFG.dev && existsSync(devMarker)) {
-    throw new Error(".dev-build marker survived a minified build");
-  }
+  assertNoSurvivorMarker({ dev: CFG.dev, marker: devMarker });
   if (failed) process.exit(1);
   console.timeEnd("build");
 };
