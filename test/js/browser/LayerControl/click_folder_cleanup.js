@@ -8,7 +8,9 @@
   const afterBtn = after ? after.querySelector(".foliplus-layer-clean-folders") : null;
   return {
     clicked: Boolean(btn),
-    remainingCount: afterBtn ? Number(afterBtn.getAttribute("data-empty-count")) : 0,
+    remainingCount: afterBtn
+      ? Number((afterBtn.textContent || "").match(/[（(](\d+)[)）]/)?.[1])
+      : 0,
     buttonGone: !afterBtn,
   };
 };

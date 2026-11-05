@@ -7699,22 +7699,35 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_folder_delete_clean_entries(self, browser, tmp_path):
-        """The section header's clean-empty-folders button and the inline
-        delete-folder menu entry reach the DOM (folder-delete wiring).
+        """The section header's clean-empty-folders button is the real end-to-end
+        coverage of the empty-folder cleanup path.
 
-        References the three task-75 probes so the browser-probe inventory
+        A folder layer is registered and then deleted, so #911's empty-folder
+        freeze leaves a key with no live member; the header renders with a clean
+        button. Clicking it removes the stale key and the button itself. The
+        three task-75 probes are referenced here so the browser-probe inventory
         sees them as reachable, not orphaned.
         """
-        page, errors = self._make_page(browser, tmp_path)
-        panel_ready(page)
+        layer = folium.GeoJson(_geo_mixed, name="Roads")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            panel_ready(page)
 
-        header = page.evaluate(_js("LayerControl/read_folder_header"))
-        assert header and header.get("exists"), header
+            seeded = page.evaluate(_js("LayerControl/seed_empty_folder"))
+            assert seeded and seeded.get("deleted") is True, seeded
+            assert seeded.get("header") is True, seeded
 
-        counted = page.evaluate(_js("LayerControl/count_panel_rows"))
-        assert counted and counted.get("headerCount", 0) >= 1, counted
+            header = page.evaluate(_js("LayerControl/read_folder_header"))
+            assert header and header.get("exists") is True, header
+            cleanup = header.get("cleanup")
+            assert cleanup and cleanup.get("count", 0) >= 1, header
+            assert cleanup.get("ariaLabel"), header
 
-        clicked = page.evaluate(_js("LayerControl/click_folder_cleanup"))
-        assert clicked and clicked.get("clicked") is True, clicked
+            counted = page.evaluate(_js("LayerControl/count_panel_rows"))
+            assert counted and counted.get("headerCount", 0) >= 1, counted
 
-        assert not errors, f"JS errors: {errors}"
+            clicked = page.evaluate(_js("LayerControl/click_folder_cleanup"))
+            assert clicked and clicked.get("clicked") is True, clicked
+            assert clicked.get("remainingCount") == 0, clicked
+            assert clicked.get("buttonGone") is True, clicked
+
+            assert not errors, f"JS errors: {errors}"

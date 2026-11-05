@@ -8,7 +8,7 @@
       ? {
           text: btn.textContent,
           ariaLabel: btn.getAttribute("aria-label"),
-          count: btn.getAttribute("data-empty-count"),
+          count: Number((btn.textContent || "").match(/[（(](\d+)[)）]/)?.[1]),
         }
       : null,
   };
