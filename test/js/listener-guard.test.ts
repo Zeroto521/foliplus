@@ -67,10 +67,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/dom.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
     reason:
-      "free-standing helpers with no control instance in scope: the input-commit helper and the wheel containment; the caller owns teardown, and BaseControl can't be reached from either helper's signature",
+      "free-standing helpers with no control instance in scope: the input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature (the wheel containment was removed with the unconditional bindFloatingWheel rule)",
   },
   {
     f: "core/leaflet/panel.ts",
@@ -203,7 +203,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 4,
     pairedOff: 0,
     reason:
-      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, always mode), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
+      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
   },
 ];
 
