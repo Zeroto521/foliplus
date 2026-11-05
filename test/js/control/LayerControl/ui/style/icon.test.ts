@@ -399,7 +399,14 @@ describe("icon dimension defensive branches", () => {
     const noType = makeMarker({});
     const authorValue = makeMarker({ type: "park" });
     const poly = makePoly();
-    const layer = makeMarkerGroup(school, noProps, nullValue, noType, authorValue, poly);
+    const layer = makeMarkerGroup(
+      school,
+      noProps,
+      nullValue,
+      noType,
+      authorValue,
+      poly,
+    );
     const { manager: m2, ui: u2 } = initFixture({
       data: [{ id: "mix1", name: "M", role: "overlay", layer }, BASE_LAYER],
     });
@@ -430,14 +437,21 @@ describe("icon dimension defensive branches", () => {
   });
 
   it("bails on a layer outside the registry for apply and commit", () => {
-    // L184 (applyIconToLayer no layer), L211 (commitIconField no layer).
+    // L184 (applyIconToLayer no layer — reach it with a stored intent so the
+    // apply clears the intent gate first), L211 (commitIconField no layer).
+    writeIntentKeys(ui, "nope", [[DIM.ICON, { field: "type", mapping: {} }]]);
     expect(() => applyIconToLayer(ui, "nope")).not.toThrow();
     expect(() => commitIconField(ui, "nope", "type")).not.toThrow();
   });
 
   it("cycles from the fallback config and wraps a non-symbol entry", () => {
-    // L226 (getIntent ?? fallback), L229 (non-symbol current -> -1 -> wraps
-    // to the first shape).
+    // L226 (getIntent ?? fallback): no stored intent -> the fallback config
+    // is used, and the absent current maps to -1 -> wraps to shape 0.
+    cycleIconSymbol(ui, "overlay1", "type", "school");
+    let intent = getIntent(ui, "overlay1", DIM.ICON);
+    expect(intent?.mapping?.school?.value).toBe("circle");
+    // L229 (non-symbol current -> -1 -> wraps): an author-kind entry is not
+    // a symbol, so the cycle wraps to the first shape too.
     writeIntentKeys(ui, "overlay1", [
       [
         DIM.ICON,
@@ -448,8 +462,7 @@ describe("icon dimension defensive branches", () => {
       ],
     ]);
     cycleIconSymbol(ui, "overlay1", "type", "school");
-    const intent = getIntent(ui, "overlay1", DIM.ICON);
-    // author -> not symbol -> currentIndex -1 -> next = shapes[0] (circle).
+    intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent?.mapping?.school?.value).toBe("circle");
   });
 
@@ -475,6 +488,44 @@ describe("icon dimension defensive branches", () => {
     resetLayerIcon(u2, "overlay1");
     flushIcon("overlay1");
     expect(school.options.icon).toBe(authorIcon);
+    m2?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("renders the symbol SVG as the legend preview", () => {
+    // L279 (html string arm): the L.divIcon test mock returns {} by default,
+    // so the other legend tests exercise the defensive `: ""` fallback arm.
+    // Override the mock to return a string html to pin the real arm.
+    const leaflet = (globalThis as any).L;
+    const savedDivIcon = leaflet.divIcon;
+    leaflet.divIcon = vi.fn(() => ({ options: { html: "<svg>sym</svg>" } }));
+    try {
+      const row = buildIconRow(ui, "overlay1");
+      expect(row).not.toBeNull();
+      expect(row!.innerHTML).toContain("<svg>sym</svg>");
+    } finally {
+      leaflet.divIcon = savedDivIcon;
+    }
+  });
+
+  it("falls back to an empty config for a stale layer id", () => {
+    // L143 (registry miss -> findLayer fallback), L144 (no layer -> []),
+    // L169 (empty field -> ?? "") and L170 (!layer arm -> fallback). A stale
+    // id is an ordinary state (a removed layer), not a malformed one.
+    const config = ICON_DIMENSION.value!(ui, "stale-id");
+    expect(config).toEqual({ field: "", mapping: {} });
+  });
+
+  it("falls back to an empty config for a layer with no categorical field", () => {
+    // L169 (empty field -> ?? "") and L170 (!field arm -> fallback): a
+    // registered layer whose leaves carry no classifiable property.
+    const layer = makeMarkerGroup(makeMarker({}), makeMarker({}));
+    const { manager: m2, ui: u2 } = initFixture({
+      data: [{ id: "empty1", name: "E", role: "overlay", layer }, BASE_LAYER],
+    });
+    const config = ICON_DIMENSION.value!(u2, "empty1");
+    expect(config).toEqual({ field: "", mapping: {} });
     m2?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();

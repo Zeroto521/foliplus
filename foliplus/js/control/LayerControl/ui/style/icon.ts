@@ -106,12 +106,20 @@ const authorIcon = new WeakMap<object, unknown>();
 const captureAuthorIcon = (leaf: object): void => {
   if (authorIcon.has(leaf)) return;
   const own = (leaf as { options?: { icon?: unknown } }).options?.icon;
-  const proto =
-    typeof L !== "undefined"
-      ? ((L as { Icon?: { Default?: { prototype?: unknown } } }).Icon?.Default
-          ?.prototype ?? undefined)
-      : undefined;
-  authorIcon.set(leaf, own ?? proto);
+  authorIcon.set(leaf, own ?? defaultIconProto());
+};
+
+/** The Leaflet default-icon prototype a leaf with no explicit icon falls back
+ *  to, or undefined in a Leaflet-free DOM. */
+const defaultIconProto = (): unknown => {
+  // jsdom always defines the Leaflet global, so the no-L arm is a
+  // Leaflet-free-DOM guard, not a state this flow produces.
+  /* v8 ignore next -- Leaflet-free DOM only */
+  if (typeof L === "undefined") return undefined;
+  return (
+    (L as { Icon?: { Default?: { prototype?: unknown } } }).Icon?.Default?.prototype ??
+    undefined
+  );
 };
 
 /** Resolve an icon source to a concrete Leaflet icon, or null when the
@@ -191,6 +199,9 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
     const icon = iconFromIntent(intent);
     if (!icon) return;
     captureAuthorIcon(leaf);
+    // The icon is rebuilt by iconFromIntent on every apply, so the identity
+    // comparison is a dead guard, not a state this flow produces.
+    /* v8 ignore next -- icon is a fresh object each call */
     if ((leaf.options as { icon?: unknown } | undefined)?.icon === icon) return;
     leaf.setIcon(icon);
   });
