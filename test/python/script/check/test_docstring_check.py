@@ -151,11 +151,13 @@ class TestScan:
             assert not mod.find_errors(messages), f"{name} has ERROR/3"
 
     def test_layercontrol_has_expected_tables(self):
-        """LayerControl's docstring has 6 grid tables and 0 non-artifact ERROR/3.
+        """LayerControl's docstring has 7 grid tables and 0 non-artifact ERROR/3.
 
         #869 (merged into main) restored the two Notes-section tables that the
         docs were silently dropping; this pins that state. A regression that
         drops a table again surfaces as a table-count mismatch or an ERROR/3.
+        A later docs change added the fill-resolution table that follows the
+        fill declaration keys.
         """
         source = (
             REPO_ROOT / "foliplus" / "control" / "LayerControl" / "control.py"
@@ -165,7 +167,7 @@ class TestScan:
 
         tree = publish_doctree(docstring)
         table_count = sum(1 for n in tree.findall() if n.tagname == "table")
-        assert table_count == 6, f"expected 6 tables, got {table_count}"
+        assert table_count == 7, f"expected 7 tables, got {table_count}"
         assert mod.find_errors(mod._docutils_messages(docstring)) == []
 
     def test_restricts_to_only_files(self):
@@ -220,6 +222,14 @@ class TestFindTableBorderIssues:
         doc = "Summary.\n\n::\n\n    +===+---+\n\n>>> foo\n+===+---+\n"
         assert mod.find_table_border_issues(doc) == []
 
+    def test_table_after_literal_block_is_checked(self):
+        # A non-indented line after a '::' literal block ends the block; a table
+        # separator that follows is a real table (not a literal code line) and
+        # must still be checked.
+        doc = "Summary.\n\n::\n\n    code line\n\n+===+---+\n"
+        issues = mod.find_table_border_issues(doc)
+        assert any("mixes border chars" in desc for _line, desc in issues)
+
     def test_scan_reports_only_offending_controls(self, tmp_path, monkeypatch):
         monkeypatch.setattr(mod, "CONTROL_CLASSES", {"Bad": "foliplus/control/Bad.py"})
         (tmp_path / "foliplus" / "control").mkdir(parents=True)
@@ -229,6 +239,16 @@ class TestFindTableBorderIssues:
         )
         results = mod.scan_table_border_issues(tmp_path)
         assert "Bad" in results and results["Bad"]
+
+    def test_scan_skips_missing_source(self, monkeypatch):
+        # A control registered in CONTROL_CLASSES whose source file is absent is
+        # already reported by scan_control_docstrings; the border scan skips it.
+        monkeypatch.setattr(
+            mod,
+            "_controls_to_check",
+            lambda only_files=None: {"Missing": Path("foliplus/control/Missing.py")},
+        )
+        assert mod.scan_table_border_issues(REPO_ROOT) == {}
 
 
 class TestControlClassesComplete:
@@ -273,3 +293,17 @@ class TestMain:
         assert mod.main([]) == 1
         out = capsys.readouterr().out
         assert "Foo: docstring line 5: Malformed table." in out
+
+    def test_main_reports_table_issues(self, monkeypatch, capsys):
+        # main() must surface a mixed-border table issue and fail the gate.
+        monkeypatch.setattr(
+            mod, "scan_control_docstrings", lambda repo, only_files=None: {}
+        )
+        monkeypatch.setattr(
+            mod,
+            "scan_table_border_issues",
+            lambda repo, only_files=None: {"Foo": [(5, "mixes border chars (=-)")]},
+        )
+        assert mod.main([]) == 1
+        out = capsys.readouterr().out
+        assert "Foo: docstring line 5: mixes border chars (=-)" in out
