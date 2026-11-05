@@ -1,10 +1,9 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { ROLE } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import { sectionDivider } from "#ui/index.js";
+import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { finishSlidersIn } from "#control/LayerControl/slider.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";

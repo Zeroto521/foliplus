@@ -1,6 +1,6 @@
 // FullscreenControl constants — CSS class names.
 import { generateId } from "#core/component.js";
-import { PSEUDO_FULLSCREEN_CLASS } from "#core/fullscreen.js";
+import { PSEUDO_FULLSCREEN_CLASS } from "#common/fullscreen.js";
 
 const CLASSES = {
   PSEUDO_FULLSCREEN: PSEUDO_FULLSCREEN_CLASS,

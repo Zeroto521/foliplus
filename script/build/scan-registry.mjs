@@ -202,10 +202,13 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const commonDir = resolve(sourceDir, "common");
   const uiDir = resolve(sourceDir, "ui");
   const coreDir = resolve(sourceDir, "core");
+  // common/ is flat (the engines moved to ui/), so a plain readdir (like ui/ and
+  // the core single-file list) collects the modules. No subdir recursion.
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
     .map(f => f.replace(/\.ts$/, ""))
     .sort();
+
   const uiModules = existsSync(uiDir)
     ? readdirSync(uiDir)
         .filter(f => f.endsWith(".ts") && f !== "index.ts")
