@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -31,6 +32,18 @@ import {
   vitestRelated,
   vitestRun,
 } from "#script/check/local-check.mjs";
+
+vi.mock("node:child_process", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    spawnSync: vi.fn((_command: string, args: readonly string[]) => ({
+      status: args.includes("grep") ? 1 : 0,
+      stdout: "",
+      stderr: "",
+    })),
+  };
+});
 
 /** The loose result shape a stub runner returns. */
 type SpawnLike = {
@@ -741,6 +754,126 @@ describe("main", () => {
       preCommit: "/venv/pre-commit",
     });
     expect(venv.calls.some(c => c[0] === "which")).toBe(false);
+  });
+});
+
+describe("default dependency-injection sides", () => {
+  it("runCmd falls back to the real spawnSync when none is injected", () => {
+    const r = runCmd({ argv: ["git", "status"] });
+    expect(spawnSync).toHaveBeenCalled();
+    expect(r.status).toBe(0);
+  });
+
+  it("findPreCommit uses the real root and existsSync when none are injected", () => {
+    expect(findPreCommit()).toBe("pre-commit");
+  });
+
+  it("preCommitOnPath uses the real runCmd and platform when none are injected", () => {
+    expect(preCommitOnPath()).toBe(true);
+  });
+
+  it("shimArgs uses the real existsSync and platform when none are injected", () => {
+    expect(Array.isArray(shimArgs())).toBe(true);
+    expect(Array.isArray(shimArgs({ platform: "win32" }))).toBe(true);
+  });
+
+  it("collectChangedFiles uses the real runCmd and io when none are injected", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(collectChangedFiles()).toEqual([]);
+  });
+
+  it("collectChangedFiles tolerates a diff result with no stdout", () => {
+    expect(collectChangedFiles({ run: () => ({ status: 0 }) })).toEqual([]);
+  });
+
+  it("fetchOriginMain uses the real runCmd when none is injected", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    fetchOriginMain();
+    expect(logSpy).toHaveBeenCalled();
+  });
+
+  it("runGates uses the real runCmd and io when none are injected", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const failed = runGates([{ name: "x", cmds: [{ argv: ["echo", "hi"] }] }]);
+    expect(failed).toEqual([]);
+  });
+
+  it("runGates stops at the first unavailable gate with failFast", () => {
+    const { io } = makeIo();
+    const failed = runGates(
+      [
+        { name: "a", error: "boom", cmds: [] },
+        { name: "b", cmds: [{ argv: ["x"] }] },
+      ],
+      { failFast: true, run: makeRunner().run, io },
+    );
+    expect(failed.map(g => g.name)).toEqual(["a"]);
+  });
+
+  it("runGates reports a string spawn error", () => {
+    const { io, errs } = makeIo();
+    runGates([{ name: "x", cmds: [{ argv: ["x"] }] }], {
+      run: () => ({ status: 1, error: "boom" }),
+      io,
+    });
+    expect(errs.join("\n")).toContain("boom");
+  });
+
+  it("main falls back to the real io, run, argv, preCommit and hasPython", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const savedArgv = process.argv;
+    process.argv = ["node", "script/check/local-check.mjs", "--no-fetch"];
+    try {
+      expect(main({})).toBe(0);
+    } finally {
+      process.argv = savedArgv;
+    }
+  });
+
+  it("main previews the changed files when there are any", () => {
+    const { run } = makeRunner({
+      "git grep": { status: 1, stdout: "", stderr: "" },
+      "git diff": { status: 0, stdout: "foliplus/js/x.ts\u0000", stderr: "" },
+    });
+    const { io, logs } = makeIo();
+    main({
+      argv: ["--no-fetch"],
+      io,
+      run,
+      preCommit: "/venv/pre-commit",
+      hasPython: true,
+      exists: () => false,
+      platform: "linux",
+    });
+    expect(logs.join("\n")).toContain("foliplus/js/x.ts");
+  });
+
+  it("runs main when the module is invoked as the CLI entry", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const savedArgv = process.argv;
+    process.argv = ["node", "script/check/local-check.mjs", "--no-fetch"];
+    vi.resetModules();
+    try {
+      await import("#script/check/local-check.mjs");
+    } finally {
+      process.argv = savedArgv;
+      vi.resetModules();
+    }
+  });
+
+  it("runs the CLI entry when invoked directly", () => {
+    const out = execFileSync(
+      process.execPath,
+      [resolve(process.cwd(), "script/check/local-check.mjs"), "--help"],
+      { encoding: "utf8" },
+    );
+    expect(out).toContain("--fail-fast");
   });
 });
 
