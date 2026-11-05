@@ -563,7 +563,7 @@ describe("icon dimension descriptor", () => {
   });
   it("reset restores the authored icon and drops the intent", () => {
     ICON_DIMENSION.write!(ui, "overlay1", { kind: "glyph", value: "star" });
-    flushStyleDimApply();
+    flushIcon("overlay1");
     ICON_DIMENSION.reset!(ui, "overlay1");
     expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
