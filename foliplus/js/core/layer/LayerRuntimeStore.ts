@@ -7,6 +7,7 @@
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
 import type { LabelField } from "#core/label/index.js";
+import type { LayerFilterFeatures } from "./filterFeature.js";
 import type { LayerSnapshot, Projection } from "./type.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
@@ -32,6 +33,11 @@ interface LayerRuntime {
   /** Per-layer point snapshot — geometry + normalised numeric fields, built
    *  once on first read, invalidated at the same points as `fields`. */
   snapshot?: LayerSnapshot;
+  /** Per-layer generic feature snapshot — every geometry leaf + its
+   *  attribute bag, built once on first read for the generic data-layer
+   *  filter (filterFeature.ts), invalidated at the same points as
+   *  `fields` / `snapshot`. */
+  filterFeatures?: LayerFilterFeatures;
   /** The author's declared default per layer id, seeded from CONFIG
    *  `data[].show` at attach time for initial layers, or to `true` for
    *  late-registered layers (folium's convention). Python carries the fact
@@ -113,6 +119,23 @@ class LayerRuntimeStore {
     const row = this.rows.get(id);
     if (!row) return;
     delete row.snapshot;
+    this.prune(id);
+  }
+
+  // ── filterFeatures (generic feature snapshot cache) ────────────────
+
+  getFilterFeatures(id: string): LayerFilterFeatures | undefined {
+    return this.rows.get(id)?.filterFeatures;
+  }
+
+  setFilterFeatures(id: string, features: LayerFilterFeatures): void {
+    this.ensure(id).filterFeatures = features;
+  }
+
+  deleteFilterFeatures(id: string): void {
+    const row = this.rows.get(id);
+    if (!row) return;
+    delete row.filterFeatures;
     this.prune(id);
   }
 
