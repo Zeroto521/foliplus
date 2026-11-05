@@ -87,10 +87,12 @@ describe("runtimeTarget", () => {
   it("maps common subdirectories to common.<sub>", () => {
     expect(runtimeTarget("common/dom")).toBe("common.dom");
     expect(runtimeTarget("common/log")).toBe("common.log");
+    expect(runtimeTarget("common/engine/foo")).toBe("common.foo");
   });
 
   it("maps ui modules to ui.<mod>", () => {
     expect(runtimeTarget("ui/panelChrome")).toBe("ui.panelChrome");
+    expect(runtimeTarget("ui/style/icon")).toBe("ui.icon");
   });
 
   it("returns a #-prefixed spec untouched", () => {

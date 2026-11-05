@@ -1,4 +1,4 @@
-// core/fullscreen — the "covering surface" contract for body-level overlays.
+// common/fullscreen — the "covering surface" contract for body-level overlays.
 //
 // Native fullscreen renders only the fullscreen element's subtree, and
 // foliplus's pseudo-fullscreen (FullscreenControl.css) covers the viewport

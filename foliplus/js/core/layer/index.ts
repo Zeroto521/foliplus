@@ -20,13 +20,26 @@ export {
   Z_INDEX,
 } from "./const.js";
 export { readFeatureFillColors } from "./authorFill.js";
-export { labelPaneNameOf, carrierTargetOf, contentPanesOf } from "./carrier.js";
+export {
+  labelPaneNameOf,
+  carrierTargetOf,
+  contentPanesOf,
+  visibleDomOf,
+} from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
 export { sectionOf } from "./role.js";
 export type { LayerRole, LayerSection } from "./role.js";
 export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
+export {
+  normalizeFolderName,
+  sectionOrder,
+  fullDisplayOrder,
+  freezeSectionOrder,
+  deleteFolderFromOrder,
+} from "./folderOrder.js";
+export type { FolderOrder } from "./folderOrder.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -98,6 +111,12 @@ export type {
   LayerFilter,
   LayerFilterModel,
 } from "./filter.js";
+export { buildFilterFeatures, filterLeafSet } from "./filterFeature.js";
+export type {
+  FilterFeature,
+  FilterFieldValue,
+  LayerFilterFeatures,
+} from "./filterFeature.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

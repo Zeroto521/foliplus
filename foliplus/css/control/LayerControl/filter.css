@@ -77,3 +77,15 @@
     min-width: 0;
   }
 }
+
+/* Hide a filtered leaf. Plain display:none (no !important) is enough: this
+   rule loads after Leaflet's CSS and wins the equal-specificity cascade, so a
+   path (inline) and a marker icon (block) both resolve to none — verified in a
+   real map (path + marker hidden, visible siblings in the same pane keep
+   their display). */
+/* Deliberately NOT .foliplus-hidden (display:none !important, transient control
+   hiding): a filter is a persistent layer state, and plain display:none already
+   wins the cascade without masking why. */
+.foliplus-feature-filtered {
+  display: none;
+}

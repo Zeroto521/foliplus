@@ -10,8 +10,8 @@
 import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
+import { Slider, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { Slider, sliderOf } from "#control/LayerControl/slider.js";
 import {
   NO_DELTA,
   type ProjectionDelta,

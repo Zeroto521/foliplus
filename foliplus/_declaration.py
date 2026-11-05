@@ -32,7 +32,9 @@ from __future__ import annotations
 import math
 import numbers
 import os
+import re
 import sys
+import unicodedata
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -183,7 +185,7 @@ def normalise_zoom_range(
     where = f"{owner}: {subject}" if subject else owner
     declared = source or f"foliplus[{ZOOM_RANGE_KEY!r}]"
 
-    def _reject(reason: str) -> None:
+    def reject(reason: str) -> None:
         note = f"{owner}:{subject or '-'}:zoom_range:{reason}"
         warn_foliplus(
             note,
@@ -191,25 +193,25 @@ def normalise_zoom_range(
         )
 
     if not isinstance(raw, Mapping):
-        _reject(f"as {type(raw).__name__}; expected a mapping")
+        reject(f"as {type(raw).__name__}; expected a mapping")
         return None
     # ``key=repr`` keeps a mixed-type payload (``{1: ..., "min": ...}``) from
     # raising inside ``sorted``: a malformed declaration warns, it never takes
     # the page down.
     extra = sorted((key for key in raw if key not in {"min", "max"}), key=repr)
     if extra:
-        _reject(f"with unknown key(s) {extra}; expected only min and max")
+        reject(f"with unknown key(s) {extra}; expected only min and max")
         return None
     raw_lo, raw_hi = raw.get("min"), raw.get("max")
     lo, hi = zoom_level(raw_lo), zoom_level(raw_hi)
     if lo is None:
-        _reject(f"with a non-integer min={raw_lo!r}")
+        reject(f"with a non-integer min={raw_lo!r}")
         return None
     if hi is None:
-        _reject(f"with a non-integer max={raw_hi!r}")
+        reject(f"with a non-integer max={raw_hi!r}")
         return None
     if lo > hi:
-        _reject(f"with min={lo} > max={hi}")
+        reject(f"with min={lo} > max={hi}")
         return None
     return {"min": lo, "max": hi}
 
@@ -422,7 +424,7 @@ def normalise_folder(
     where = f"{owner}: {subject}" if subject else owner
     declared = source or f"foliplus[{FOLDER_KEY!r}]"
 
-    def _reject(reason: str) -> None:
+    def reject(reason: str) -> None:
         note = f"{owner}:{subject or '-'}:folder:{reason}"
         warn_foliplus(
             note,
@@ -430,10 +432,10 @@ def normalise_folder(
         )
 
     if not isinstance(raw, str):
-        _reject(f"as {type(raw).__name__}; expected a non-empty string")
+        reject(f"as {type(raw).__name__}; expected a non-empty string")
         return None
-    name = raw.strip()
+    name = re.sub(r"\s+", " ", unicodedata.normalize("NFC", raw.strip()))
     if not name:
-        _reject("as an empty or whitespace-only string; expected a non-empty string")
+        reject("as an empty or whitespace-only string; expected a non-empty string")
         return None
     return name

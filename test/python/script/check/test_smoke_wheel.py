@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import types
 from pathlib import Path
 
@@ -294,6 +295,96 @@ def test_render_control_rejects_html_without_any_banner(tmp_path, smoke):
     bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
     with pytest.raises(AssertionError, match="shared bundle banner absent"):
         smoke.render_control(folium_stub, _cls("ScaleControl"), bundle)
+
+
+# ── main ──────────────────────────────────────────────────────────
+
+
+def _install_stub(package_dir: Path) -> types.ModuleType:
+    """A `foliplus` stub as `main()` sees an installed wheel.
+
+    `locate_controls()` requires each export to be a class, and
+    `render_control()` calls `cls().add_to(m)`, so the classes carry the
+    same surface `_cls()` gives the render tests.
+    """
+    stub = types.ModuleType("foliplus")
+    stub.__file__ = str(package_dir / "__init__.py")
+    for name in _CONTROL_NAMES:
+        setattr(stub, name, _cls(name))
+    return stub
+
+
+def _installed_tree(tmp_path: Path, controls: list[str]) -> Path:
+    """A fake installed `foliplus/` with a valid `dist/` and no repo markers.
+
+    `main()` anchors everything on `foliplus.__file__`, so the package lives
+    at the top of `tmp_path`, where `pyproject.toml`/`test/` (the source-tree
+    markers) are absent.
+    """
+    pkg = tmp_path / "foliplus"
+    pkg.mkdir()
+    dist = pkg / "dist"
+    dist.mkdir()
+    (dist / "manifest.json").write_text(
+        json.dumps({"artifacts": controls}), encoding="utf-8"
+    )
+    for name in controls:
+        (dist / f"foliplus-{name}.min.js").write_text(_bundle(name), encoding="utf-8")
+        (dist / f"foliplus-{name}.min.css").write_text("x", encoding="utf-8")
+    return pkg
+
+
+def _render_html(names: list[str]) -> str:
+    """One document carrying every component banner plus the runtime ref."""
+    banners = "".join(f"/*! foliplus@v0.1.0 · {n} */\n" for n in names)
+    return banners + "foliplus.core.defineControl;"
+
+
+def _stub_sys_modules(monkeypatch, smoke, pkg: Path, controls: list[str]) -> None:
+    """Point `main()`'s inner imports at stubs and pin the metadata version."""
+    foliplus_stub = _install_stub(pkg)
+    folium_stub = _render_stub(_render_html(controls))
+    monkeypatch.setitem(sys.modules, "foliplus", foliplus_stub)
+    monkeypatch.setitem(sys.modules, "folium", folium_stub)
+    monkeypatch.setattr(smoke.importlib.metadata, "version", lambda n: "0.1.0")
+    # `main()` rebinds `sys.path`; give it a fresh list so restore is clean.
+    monkeypatch.setattr(sys, "path", list(sys.path))
+
+
+def test_main_renders_every_control(tmp_path, monkeypatch, capsys, smoke):
+    """`main()` runs the install-certificate path without a real install.
+
+    The real `main()` imports `folium`/`foliplus` inside the function, so the
+    stubs go into `sys.modules` for the call only — no pip install, no network.
+    """
+    controls = list(_CONTROL_NAMES)
+    pkg = _installed_tree(tmp_path, controls)
+    _stub_sys_modules(monkeypatch, smoke, pkg, controls)
+    # Spy on `render_control` so a mutant that skips a control in the loop
+    # (`classes[:1]`) cannot hide behind a `len(classes)` print.
+    rendered: list[str] = []
+    real_render = smoke.render_control
+
+    def spy(folium_mod, cls, bundle_path):
+        rendered.append(cls.__name__)
+        return real_render(folium_mod, cls, bundle_path)
+
+    monkeypatch.setattr(smoke, "render_control", spy)
+    smoke.main()
+    out = capsys.readouterr().out
+    assert sorted(rendered) == sorted(controls), rendered
+    assert "rendered 3 controls" in out, out
+    assert all(n in out for n in controls), out
+
+
+def test_main_refuses_a_missing_bundle(tmp_path, monkeypatch, smoke):
+    """A wheel whose dist/ lost an artifact fails the render certificate."""
+    controls = list(_CONTROL_NAMES)
+    pkg = _installed_tree(tmp_path, controls)
+    (pkg / "dist" / "foliplus-ScaleControl.min.js").unlink()
+    _stub_sys_modules(monkeypatch, smoke, pkg, controls)
+    with pytest.raises(smoke.SmokeFailure, match="missing from dist"):
+        smoke.main()
 
 
 # ── assert_not_source_checkout ──────────────────────────────────────

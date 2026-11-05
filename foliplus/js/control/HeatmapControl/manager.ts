@@ -36,16 +36,16 @@ import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+import { createLogger } from "#common/log.js";
+import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
+import type { CanvasLabelStyle, Logger } from "#common/type.js";
 import {
   BORDER_WEIGHT,
   clampBorderWeight,
   clampLabelSize,
   normalizeHexColor,
-} from "#common/form.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { createLogger } from "#common/log.js";
-import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
-import type { CanvasLabelStyle, Logger } from "#common/type.js";
+} from "#ui/index.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,

@@ -30,6 +30,11 @@ import { runCli, trapExit } from "../../fixture.js";
 // dist/, so the case skips cleanly instead of crashing on the missing dir.
 const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
 
+// A dev build (build:dev) emits unminified output larger than the minified
+// ceilings these dist-dependent cases assert, so they also skip when build.mjs
+// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
+const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+
 type BundleArgs = {
   help: boolean;
   errors: string[];
@@ -1488,22 +1493,26 @@ describe("cli entry point", () => {
     expect(error.mock.calls.join("\n")).toContain("must be a number");
   });
 
-  it.skipIf(!distReady)(
-    "defaults --root to the checkout and lists sizes when nothing to diff",
-    () => {
-      // `node script/bundle-size-check.mjs` without --root reads the checkout's
-      // own dist; without a --baseline that is a bare size listing, which exits
-      // 0 regardless of what the dist holds. Same shape as the Makefile target.
-      const exit = vi
-        .spyOn(process, "exit")
-        .mockImplementation((code?: string | number | null | undefined) => {
-          throw new Error(`exit:${code}`);
-        });
-      expect(() => main([])).toThrow("exit:0");
-      expect(exit).toHaveBeenCalledWith(0);
-    },
-    30000,
-  );
+  it("defaults --root to the checkout and lists sizes when nothing to diff", ({
+    skip,
+  }) => {
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
+      skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
+    // `node script/bundle-size-check.mjs` without --root reads the checkout's
+    // own dist; without a --baseline that is a bare size listing, which exits
+    // 0 regardless of what the dist holds. Same shape as the Makefile target.
+    const exit = vi
+      .spyOn(process, "exit")
+      .mockImplementation((code?: string | number | null | undefined) => {
+        throw new Error(`exit:${code}`);
+      });
+    expect(() => main([])).toThrow("exit:0");
+    expect(exit).toHaveBeenCalledWith(0);
+  }, 30000);
 
   it("--emit captures sizes to the target file via main()", () => {
     const root = mkTmp();

@@ -9,6 +9,7 @@
 // barrel below re-exports them so every existing `LayerControl/type` import
 // keeps working unchanged. `PersistedLayerState` is also imported locally
 // because `PersistedRecord.layers` names it directly.
+import type { FolderOrder } from "#core/layer/folderOrder.js";
 import type { PersistedLayerState } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
 import type { ProjectionDelta } from "./ui/apply.js";
@@ -41,6 +42,10 @@ type PersistedRecord = {
   version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
+  /** The user's folder block order, per section (see core/layer/folderOrder).
+   *  Absent/null means no section has ever been frozen: the display runs on
+   *  the anchor-derived order (folders by first-member registry index). */
+  folderOrder?: FolderOrder | null;
   /** Layer ids the user deleted, in the order they were deleted.
    *
    *  One-way: nothing removes an entry and `deleteLayer` is the only writer.

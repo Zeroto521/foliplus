@@ -4,8 +4,8 @@
 // the plan needs.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { LABEL_SIZE } from "#ui/index.js";
 import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
@@ -406,6 +406,37 @@ describe("AnnotationManager — config", () => {
     mgr.setConfig("a", { ...CONFIG, size: 12 });
     mgr.renderLabels("a");
     // No throw + one label painted is enough — the short-circuit path ran.
+    expect(painted(0)).toHaveLength(1);
+  });
+
+  it("applies the generic filter's hidden-leaf check during renderLabels", () => {
+    const { map } = makeMap();
+    const leaf = mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } });
+    const group = mkGroup([leaf]);
+    const mgr = new AnnotationManager({ map, layerFind: () => group });
+    mgr.setConfig("a", { ...CONFIG, size: 12 });
+    // Wire the generic data-layer filter's hidden-leaf check (the controller
+    // calls setHiddenCheck once after construction); a not-hidden leaf is
+    // still painted — this exercises the check's call arm.
+    // The controller wires the hidden-leaf check from the generic filter's
+    // hidden set; a hidden leaf is skipped by the label walk (no label).
+    const check = vi.fn(() => true);
+    mgr.setHiddenCheck(check);
+    const labels = mgr.renderLabels("a");
+    expect(check).toHaveBeenCalled();
+    expect(labels).toHaveLength(0);
+  });
+
+  it("draws every leaf when the generic filter check is absent (null)", () => {
+    const { map } = makeMap();
+    const leaf = mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } });
+    const group = mkGroup([leaf]);
+    const mgr = new AnnotationManager({ map, layerFind: () => group });
+    // Size != 12 keeps the layerSpec short-circuit out of the way, so the
+    // label walk reaches the check with hiddenCheck still null — the
+    // optional-chain skip arm (no filter wired = draw everything).
+    mgr.setConfig("a", { ...CONFIG, size: 11 });
+    mgr.renderLabels("a");
     expect(painted(0)).toHaveLength(1);
   });
 
