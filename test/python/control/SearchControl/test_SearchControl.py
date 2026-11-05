@@ -492,3 +492,279 @@ class TestSearchControlBrowser:
             )
             assert state["dataQuery"] == "121.4700, 31.2300"
             assert not errors, f"JS errors: {errors}"
+
+    def test_panel_wheel_scrolls_panel_not_map(self, browser, tmp_path):
+        """Wheel over the open history panel scrolls the panel, not the map.
+
+        The result panel is mounted on the map container, so without the wheel
+        stop-propagation a wheel bubbles to Leaflet's scrollWheelZoom and zooms
+        the map while the panel's own overflow-y also scrolls. The shared
+        containment swallows every wheel unconditionally, so the map zoom must
+        stay fixed while the panel scroll position advances.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("SearchControl/seed_scrollable_history"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+
+            before = page.evaluate(
+                _js("SearchControl/read_panel_wheel_state"), {"inject": 40}
+            )
+            assert before and before.get("ok"), before
+            assert before["itemCount"] >= 40, before
+            assert before["scrollable"] is True, before
+            zoom_before = before["zoom"]
+
+            # Wheel down over the panel centre: it must scroll the panel and
+            # leave the map zoom untouched.
+            page.mouse.move(before["wheelX"], before["wheelY"])
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(200)
+            after_scroll = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_SCROLL:", after_scroll)
+            assert after_scroll and after_scroll.get("ok"), after_scroll
+            assert after_scroll["scrollTop"] > before["scrollTop"], (
+                before["scrollTop"],
+                after_scroll["scrollTop"],
+            )
+            assert after_scroll["zoom"] == zoom_before, (zoom_before, after_scroll)
+
+            # Scroll past the bottom boundary: the map must still not zoom.
+            page.mouse.wheel(0, 1000)
+            page.mouse.wheel(0, 1000)
+            page.wait_for_timeout(200)
+            after_bottom = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_BOTTOM:", after_bottom)
+            assert after_bottom and after_bottom.get("ok"), after_bottom
+            assert after_bottom["zoom"] == zoom_before, (zoom_before, after_bottom)
+
+            # Scroll back to the top boundary and keep wheeling up: no zoom.
+            page.evaluate(
+                "() => { const p = document.querySelector('.foliplus-search-result-panel'); p.scrollTop = 0; }"
+            )
+            page.mouse.move(after_bottom["wheelX"], after_bottom["wheelY"])
+            page.mouse.wheel(0, -240)
+            page.wait_for_timeout(200)
+            after_top = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_TOP:", after_top)
+            assert after_top and after_top.get("ok"), after_top
+            assert after_top["zoom"] == zoom_before, (zoom_before, after_top)
+
+            assert not errors, f"JS errors: {errors}"
+
+
+def _panel_up(geom: dict) -> bool:
+    """True when the panel carries the up class (the class-list form).
+
+    The null assertion matters: `panelUp == panelUp` would false-pass when the
+    panel is fully dropped (None == None), so reading the class name forces the
+    empty-panel case to fail loudly instead."""
+    cls = geom["panelClass"]
+    assert cls is not None, "placement panel missing: panelClass is None"
+    return "foliplus-search-result-panel-up" in cls.split()
+
+
+class TestSearchControlPlacementBrowser:
+    """B-probes: floating panel placement geometry (S2b acceptance).
+
+    Exercises the kernel-driven placement: side flip (B1/B2), horizontal clamp
+    on a small viewport (B3), max-height scroll cap (B4), the map-container
+    boundary (B5), and the re-pin flush after a resize (B6).
+    """
+
+    def _make_page(self, browser, tmp_path, **kwargs):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        SearchControl(**kwargs).add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "placement")
+        page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+        return page, errors
+
+    def _open_history_panel(self, page, count=1):
+        """Seed history and expand the control to mount the floating panel."""
+        page.evaluate(_js("SearchControl/seed_many_history"), count)
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+        page.evaluate(_js("SearchControl/click_toggle_btn"))
+        page.wait_for_selector(
+            ".foliplus-search-result-item", state="attached", timeout=5000
+        )
+
+    def _wait_panel_settled(self, page):
+        """Wait for the shared menu entrance animation to finish so the rect
+        reflects the final (post-fade) position."""
+        page.wait_for_function(
+            _js("SearchControl/read_result_panel_settled"), timeout=8000
+        )
+
+    def _geometry(self, page):
+        return page.evaluate(_js("SearchControl/read_placement_geometry"))
+
+    def test_b1_flip_above_at_bottom(self, browser, tmp_path):
+        """B1: control at the viewport bottom -> panel flips above the trigger."""
+        with use_page(self._make_page, browser, tmp_path, position="bottomleft") as (
+            page,
+            errors,
+        ):
+            self._open_history_panel(page)
+            g = self._geometry(page)
+            p, c, v = g["panel"], g["control"], g["viewport"]
+            assert p is not None, "panel not mounted"
+            assert p["bottom"] <= v["innerHeight"] + 1, (
+                f"panel bottom {p['bottom']} exceeds viewport {v['innerHeight']}"
+            )
+            assert p["bottom"] <= c["top"] + 1, (
+                f"panel did not flip above the trigger: bottom {p['bottom']} > top {c['top']}"
+            )
+            assert _panel_up(g), f"panel did not flip above: class={g['panelClass']!r}"
+            assert not errors, errors
+
+    def test_b2_below_at_top(self, browser, tmp_path):
+        """B2: control at the viewport top -> panel stays below the trigger."""
+        with use_page(self._make_page, browser, tmp_path, position="topleft") as (
+            page,
+            errors,
+        ):
+            self._open_history_panel(page)
+            g = self._geometry(page)
+            p, c = g["panel"], g["control"]
+            assert p is not None, "panel not mounted"
+            assert p["top"] >= -1, f"panel top {p['top']} spills above the viewport"
+            assert p["top"] >= c["bottom"] - 1, (
+                f"panel is not below the trigger: top {p['top']} < bottom {c['bottom']}"
+            )
+            assert not _panel_up(g), (
+                f"panel has an up class but should stay below: class={g['panelClass']!r}"
+            )
+            assert not errors, errors
+
+    def test_b3_horizontal_clamp_small_screen(self, browser, tmp_path):
+        """B3: 360px viewport -> the panel stays inside the viewport horizontally."""
+        with use_page(self._make_page, browser, tmp_path, position="topright") as (
+            page,
+            errors,
+        ):
+            page.set_viewport_size({"width": 360, "height": 640})
+            page.wait_for_timeout(300)
+            self._open_history_panel(page)
+            g = self._geometry(page)
+            p, v = g["panel"], g["viewport"]
+            assert p is not None, "panel not mounted"
+            assert p["left"] >= -1, f"panel left {p['left']} spills left"
+            assert p["right"] <= v["innerWidth"] + 1, (
+                f"panel right {p['right']} exceeds viewport width {v['innerWidth']}"
+            )
+            assert not errors, errors
+
+    def test_b4_max_height_scroll_cap(self, browser, tmp_path):
+        """B4: tall history -> panel caps its height and scrolls, staying in view."""
+        with use_page(self._make_page, browser, tmp_path, position="topleft") as (
+            page,
+            errors,
+        ):
+            self._open_history_panel(page, count=30)
+            g = self._geometry(page)
+            p, v = g["panel"], g["viewport"]
+            assert p is not None, "panel not mounted"
+            max_h = float(g["panelComputed"]["maxHeight"].replace("px", ""))
+            assert max_h <= v["innerHeight"] + 1, (
+                f"max-height {max_h} exceeds viewport {v['innerHeight']}"
+            )
+            # Death-shape: the max-height must not collapse (a "max-height: 0"
+            # or absent floor would pass the <= viewport check alone). The panel
+            # keeps at least 2 result rows visible.
+            assert max_h >= 2 * g["itemHeight"], (
+                f"max-height {max_h} below 2 rows ({g['itemHeight']} px each)"
+            )
+            assert (
+                g["panelScroll"]["scrollHeight"] > g["panelScroll"]["clientHeight"]
+            ), "tall panel must scroll (scrollHeight > clientHeight)"
+            assert p["top"] >= -1 and p["bottom"] <= v["innerHeight"] + 1, (
+                "panel spills outside the viewport vertically"
+            )
+            assert not errors, errors
+
+    def test_b5_map_container_boundary(self, browser, tmp_path):
+        """B5: the panel stays inside the map container (the placement bounds).
+
+        The map is shrunk to a 600x400 box (smaller than the viewport) BEFORE the
+        panel opens, so the kernel clamps to the smaller map bounds rather than the
+        full viewport. The shrink must happen after the reload — the reload resets
+        the CSS width/height override.
+        """
+        with use_page(self._make_page, browser, tmp_path, position="topleft") as (
+            page,
+            errors,
+        ):
+            # Seed + reload WITHOUT the toggle (the reload would reset the size).
+            page.evaluate(_js("SearchControl/seed_many_history"), 1)
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            # Shrink the map to a 600x400 box (smaller than the viewport).
+            page.evaluate(
+                _js("SearchControl/set_map_box"), {"width": 600, "height": 400}
+            )
+            page.wait_for_timeout(300)
+            page.evaluate(_js("SearchControl/click_toggle_btn"))
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            g = self._geometry(page)
+            p, m, v = g["panel"], g["mapRect"], g["viewport"]
+            assert p is not None, "panel not mounted"
+            assert m["width"] < v["innerWidth"], (
+                f"map not shrunk: {m['width']} vs viewport {v['innerWidth']}"
+            )
+            assert m["height"] < v["innerHeight"], (
+                f"map not shrunk: {m['height']} vs viewport {v['innerHeight']}"
+            )
+            assert p["left"] >= m["left"] - 1, (
+                f"panel left {p['left']} < map left {m['left']}"
+            )
+            assert p["right"] <= m["right"] + 1, (
+                f"panel right {p['right']} > map right {m['right']}"
+            )
+            assert p["top"] >= m["top"] - 1, (
+                f"panel top {p['top']} < map top {m['top']}"
+            )
+            assert p["bottom"] <= m["bottom"] + 1, (
+                f"panel bottom {p['bottom']} > map bottom {m['bottom']}"
+            )
+            assert not errors, errors
+
+    def test_b6_repin_stays_flush(self, browser, tmp_path):
+        """B6: resizing keeps the panel flush with the trigger and inside bounds."""
+        with use_page(self._make_page, browser, tmp_path, position="topleft") as (
+            page,
+            errors,
+        ):
+            self._open_history_panel(page)
+            self._wait_panel_settled(page)
+            g1 = self._geometry(page)
+            page.set_viewport_size({"width": 1000, "height": 600})
+            self._wait_panel_settled(page)
+            g2 = self._geometry(page)
+            assert g1["panel"] is not None and g2["panel"] is not None, (
+                "panel not mounted"
+            )
+            # The gap between the panel and the trigger must be preserved (flush).
+            d1 = g1["panel"]["top"] - g1["control"]["bottom"]
+            d2 = g2["panel"]["top"] - g2["control"]["bottom"]
+            assert abs(d1 - d2) < 3, f"top gap changed on resize: {d1} -> {d2}"
+            l1 = g1["panel"]["left"] - g1["control"]["left"]
+            l2 = g2["panel"]["left"] - g2["control"]["left"]
+            assert abs(l1 - l2) < 3, f"left gap changed on resize: {l1} -> {l2}"
+            # Death-shape: a flip to the other side would keep |Δgap| small, so
+            # also assert the side is stable across the resize.
+            assert _panel_up(g1) == _panel_up(g2), (
+                f"panel flipped on resize: before class={g1['panelClass']!r}, after class={g2['panelClass']!r}"
+            )
+            p2, v2 = g2["panel"], g2["viewport"]
+            assert p2["top"] >= -1 and p2["bottom"] <= v2["innerHeight"] + 1, (
+                "panel spills outside the viewport after resize"
+            )
+            assert not errors, errors

@@ -562,16 +562,6 @@ describe("bindEvents", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it("includes the leaflet-container in scroll targets when present", () => {
-    const container = document.createElement("div");
-    container.className = "leaflet-container";
-    document.body.appendChild(container);
-    const ctrl = makeCtrl();
-    bindEvents(ctrl);
-    expect(ctrl.scrollTargets).toContain(container);
-    container.remove();
-  });
-
   it("repositions the wrap on a page scroll after it was opened", () => {
     // interaction.ts binds ctrl.repositionHandler to window scroll (capture)
     // and resize. A scroll after the panel opened must re-run positionPanel,
@@ -579,16 +569,44 @@ describe("bindEvents", () => {
     // the control moves with the viewport — see the positionPanel test for the
     // no-scroll-offset rule). This pins the interaction.ts:198-204 wiring.
     const ctrl = makeCtrl();
-    ctrl.panelWrap = document.createElement("div");
+    const panel = document.createElement("div");
+    // The kernel reads offsetWidth/scrollHeight for the surface size.
+    Object.defineProperty(panel, "offsetWidth", { value: 200, configurable: true });
+    Object.defineProperty(panel, "scrollHeight", { value: 80, configurable: true });
+    ctrl.panelWrap = panel;
     ctrl.ctrl.getBoundingClientRect = () =>
-      ({ left: 10, top: 20, bottom: 100, width: 200 }) as DOMRect;
-    bindEvents(ctrl);
-    // Open the panel (renderResults sets panelWrap); force a re-layout by
-    // dispatching a window scroll. The handler re-reads the control rect and
-    // writes the same fixed coordinates.
-    window.dispatchEvent(new Event("scroll"));
-    expect(ctrl.panelWrap.style.left).toBe("10px");
-    expect(ctrl.panelWrap.style.top).toBe("100px");
+      ({
+        left: 10,
+        top: 20,
+        right: 210,
+        bottom: 100,
+        width: 200,
+        height: 80,
+      }) as DOMRect;
+    // The map container is the placement bounds (the kernel clamps to it).
+    const container = document.createElement("div");
+    container.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        right: 800,
+        bottom: 600,
+        width: 800,
+        height: 600,
+      }) as DOMRect;
+    const origGetContainer = map.getContainer;
+    map.getContainer = () => container;
+    try {
+      bindEvents(ctrl);
+      // Open the panel (renderResults sets panelWrap); force a re-layout by
+      // dispatching a window scroll. The handler re-reads the control rect and
+      // writes the same fixed coordinates (top = bottom(100) + engine gap(4)).
+      window.dispatchEvent(new Event("scroll"));
+      expect(ctrl.panelWrap.style.left).toBe("10px");
+      expect(ctrl.panelWrap.style.top).toBe("104px");
+    } finally {
+      map.getContainer = origGetContainer;
+    }
   });
 
   it("uses window-only scroll targets when no leaflet-container exists", () => {
