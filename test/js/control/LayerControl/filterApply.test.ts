@@ -39,8 +39,8 @@ const between = (field: string, range: readonly [number, number]) => ({
 // The shared L.stamp stub (vi.fn(() => ++id)) re-issues a new id on every
 // call, so two `L.stamp(sameLayer)` calls disagree and the layeradd handler's
 // stamp match fails. Memoize one id per object like controller.test.ts does.
-const stableStamp = vi.fn((obj: unknown) =>
-  ((obj as { __id?: number }).__id ??= ++stableStampId),
+const stableStamp = vi.fn(
+  (obj: unknown) => ((obj as { __id?: number }).__id ??= ++stableStampId),
 );
 let stableStampId = 1000;
 
