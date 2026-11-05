@@ -48,6 +48,7 @@ _DECLARED_SCORES = [10, 20, 30, 40, 50, 60]
 _ARM = _js("LayerControl/fill_author_arm")
 _READ_FILL = _js("LayerControl/fill_author_read")
 _PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
+_READ_FILL_METHOD = _js("LayerControl/read_fill_method")
 _DECLARED_READ = _js("LayerControl/fill_declared_read")
 
 _layer_control_mod = importlib.import_module(
@@ -1225,10 +1226,7 @@ class TestDeclaredFillBrowser:
             assert initial["fills"] == before_panel["fills"], initial
             # The method key is the fifth declared control: the by-value arm
             # states the declared classification, not a guess.
-            method = page.evaluate(
-                "(() => { const s = document.querySelector('.foliplus-style-fill-method-select');"
-                " return s ? { value: s.value, label: s.selectedOptions[0]?.text ?? null } : null; })()"
-            )
+            method = page.evaluate(_READ_FILL_METHOD)
             assert method == {"value": "equal", "label": "Equal Interval"}, method
 
             # A panel edit is the user's intent: it repaints the map and the
@@ -1258,10 +1256,11 @@ class TestDeclaredFillBrowser:
             )
             # Reset restores the declared method too — the read-only by-value
             # arm comes back to the author's classification, not a guess.
-            restored_method = page.evaluate(
-                "document.querySelector('.foliplus-style-fill-method-select')?.value ?? null"
-            )
-            assert restored_method == "equal", restored_method
+            restored_method = page.evaluate(_READ_FILL_METHOD)
+            # Reset may drop the drawer (the element can be absent), so do not
+            # assume the probe always returns an object.
+            assert restored_method is not None, restored_method
+            assert restored_method["value"] == "equal", restored_method
 
             # The user's choice wins across a reload; the declaration is still
             # what Reset would return to.
