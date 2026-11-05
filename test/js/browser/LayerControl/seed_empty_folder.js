@@ -10,7 +10,6 @@
     layer: L.featureGroup(),
   });
   const deleted = api.deleteLayer(id);
-  if (api.ui) api.ui.reindexAfterMove();
   const header = document.querySelector(
     '.foliplus-layer-toggle-all[data-role="overlay"]',
   );

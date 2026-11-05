@@ -39,6 +39,7 @@ import {
   insertLayerItem,
   markSettled,
   renderInitialList,
+  syncCleanButton,
   syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -403,6 +404,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     }),
     subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
       syncToggleAll(ui, payload.role);
+      syncCleanButton(ui, payload.role);
     }),
     subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The reorder signal only moves rows: the emitters (moveLayerUp/Down,

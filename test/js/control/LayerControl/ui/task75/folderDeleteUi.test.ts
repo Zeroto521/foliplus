@@ -148,4 +148,58 @@ describe("task-75 folder delete UI wiring", () => {
     ) as HTMLElement | null;
     expect(cleanBtn).not.toBeNull();
   });
+
+  it("shows the clean button incrementally after the folder's last member is deleted (no rebuild)", () => {
+    // Register a folder layer, then delete it. The delete freezes the folder
+    // key, and LAYER_ROLE_COUNT_CHANGED → syncCleanButton must render the
+    // clean button WITHOUT a full rebuild (reindexAfterMove is not called).
+    registerLayer("folder1", "Roads", "overlay", "My Folder");
+    expect(manager.deleteLayer("folder1")).toBe(true);
+    const cleanBtn = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+    ) as HTMLElement | null;
+    expect(cleanBtn).not.toBeNull();
+  });
+
+  it("removes the clean button when a layer rejoins the emptied folder (incremental)", () => {
+    // Freeze an empty folder key, then re-register a member under the same
+    // folder. LAYER_ROLE_COUNT_CHANGED → syncCleanButton must hide the button
+    // without a full rebuild.
+    manager.folderOrder = { version: 1, sections: { overlay: ["my folder"] } };
+    manager.ui?.reindexAfterMove?.();
+    expect(
+      attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+      ),
+    ).not.toBeNull();
+    registerLayer("folder1", "Roads", "overlay", "My Folder");
+    expect(
+      attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+      ),
+    ).toBeNull();
+  });
+
+  it("updates the clean button count in place without stacking a second button (incremental)", () => {
+    // Seed two empty folder keys directly (no live members) and rebuild.
+    manager.folderOrder = {
+      version: 1,
+      sections: { overlay: ["folder a", "folder b"] },
+    };
+    manager.ui?.reindexAfterMove?.();
+    const before = attachedPanel(ui).querySelectorAll(
+      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+    );
+    expect(before.length).toBe(1);
+    expect((before[0] as HTMLElement).dataset.emptyCount).toBe("2");
+    // Re-register a member into the first folder: its key stops being empty,
+    // the event fires, and syncCleanButton must refresh the ONE existing
+    // button's label/count to 1 — never appending a second button.
+    registerLayer("folder1", "Roads", "overlay", "Folder A");
+    const after = attachedPanel(ui).querySelectorAll(
+      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+    );
+    expect(after.length).toBe(1);
+    expect((after[0] as HTMLElement).dataset.emptyCount).toBe("1");
+  });
 });

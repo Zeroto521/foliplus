@@ -778,6 +778,32 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
+
+    describe("delete-folder menu item", () => {
+      it("dispatches deleteFolder(role, folder) from the folder entry", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        manager.registerLayer({
+          id: "folder1",
+          name: "Roads",
+          role: "overlay",
+          folder: "My Folder",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        const item = attachedPanel(ui).querySelector(
+          `[data-layer-id="folder1"]`,
+        ) as HTMLElement;
+        ui.openMoreMenu(item);
+        const folderLi = item.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        handleMenuClick(ui, event);
+        expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
+      });
+    });
   });
 
   describe("focus-layer menu item when the surface has no bounds carrier", () => {
