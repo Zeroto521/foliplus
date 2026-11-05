@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay.js";
-import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import { type SchemePicker, createSchemePicker } from "#ui/index.js";
 
 // ── color-scale helper ────────────────────────────────────────────────
 
@@ -603,7 +603,7 @@ describe("selectScheme", () => {
     picker.destroy();
   });
 
-  it("closes the dropdown if open", () => {
+  it("selectScheme closes the dropdown if open", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     picker.selectScheme("Blues");
@@ -938,7 +938,7 @@ describe("onToggle callback", () => {
 // ── destroy ────────────────────────────────────────────────────────────
 
 describe("destroy", () => {
-  it("closes the dropdown if open", () => {
+  it("destroy closes the dropdown if open", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     picker.destroy();

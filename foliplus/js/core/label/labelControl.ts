@@ -9,18 +9,20 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createDropdown, dropdownOf } from "#common/dropdown.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
+  type DropdownSurface,
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
+  createDropdown,
+  dropdownOf,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
-} from "#common/form.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+} from "#ui/index.js";
 
 /** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)
@@ -61,7 +63,7 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
-  /** Popup host contract for the format dropdown (core/fullscreen's
+  /** Popup host contract for the format dropdown (common/fullscreen's
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
 }

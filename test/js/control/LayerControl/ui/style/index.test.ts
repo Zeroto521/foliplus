@@ -8,9 +8,9 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
+import { sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
-import { sliderOf } from "#control/LayerControl/slider.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import {

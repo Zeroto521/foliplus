@@ -1,7 +1,7 @@
 @import "token.css";
 
 /* ══════════════════════════════════════════════════════════════════════
-  Shared select replacement (common/dropdown.ts)
+  Shared select replacement (ui/dropdown.ts)
 
   The trigger keeps the native select skin — `.foliplus-form-select` in
   common/form.css — so the closed state is the select the panels already
@@ -105,7 +105,7 @@
 }
 
 /* ── Portalled popup ──
-   An *open* popup leaves the panel (see common/dropdown.ts): a panel that is
+   An *open* popup leaves the panel (see ui/dropdown.ts): a panel that is
    only one row tall, or one that scrolls, would otherwise clip it to a single
    option row. The module pins it in viewport coordinates with inline styles,
    so this block only drops the shell's in-flow gap — that gap is now part of

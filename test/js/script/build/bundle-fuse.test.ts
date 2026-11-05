@@ -18,6 +18,11 @@ import { runCli, trapExit } from "../../fixture.js";
 // dist/, so the case skips cleanly instead of crashing on the missing dir.
 const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
 
+// A dev build (build:dev) emits unminified output larger than the minified
+// ceilings these dist-dependent cases assert, so they also skip when build.mjs
+// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
+const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
 // become a no-op. `payload` is incompressible — its brotli size tracks its
@@ -217,35 +222,37 @@ describe("CLI entry", () => {
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 
-  it.skipIf(!distReady)(
-    "defaults --root to the checkout and fuses it",
-    async () => {
-      // `node script/bundle-fuse.mjs` without --root reads the checkout's own
-      // dist — the Makefile and CI call it exactly this way. The dist dir is
-      // shared build output that build.test.ts asserts on, so the size read is
-      // mocked at the lib seam instead: the reimported module's readSizes
-      // reports one under-cap artifact, and main() fuses that (exit:0) without
-      // touching the real dist tree.
-      vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
-        const actual = (await importOriginal()) as Record<string, unknown>;
-        return {
-          ...actual,
-          readSizes: () => ({ "foliplus-ScaleControl.min.js": 1 }),
-        };
-      });
+  it("defaults --root to the checkout and fuses it", async ({ skip }) => {
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
+      skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
+    // `node script/bundle-fuse.mjs` without --root reads the checkout's own
+    // dist — the Makefile and CI call it exactly this way. The dist dir is
+    // shared build output that build.test.ts asserts on, so the size read is
+    // mocked at the lib seam instead: the reimported module's readSizes
+    // reports one under-cap artifact, and main() fuses that (exit:0) without
+    // touching the real dist tree.
+    vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
+      const actual = (await importOriginal()) as Record<string, unknown>;
+      return {
+        ...actual,
+        readSizes: () => ({ "foliplus-ScaleControl.min.js": 1 }),
+      };
+    });
+    vi.resetModules();
+    try {
+      const mod = await import("#script/build/bundle-fuse.mjs");
+      const exit = trapExit();
+      expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
+      expect(exit).toHaveBeenCalledWith(EXIT_OK);
+    } finally {
+      vi.doUnmock("#script/bundle-size-lib.mjs");
       vi.resetModules();
-      try {
-        const mod = await import("#script/build/bundle-fuse.mjs");
-        const exit = trapExit();
-        expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
-        expect(exit).toHaveBeenCalledWith(EXIT_OK);
-      } finally {
-        vi.doUnmock("#script/bundle-size-lib.mjs");
-        vi.resetModules();
-      }
-    },
-    30000,
-  );
+    }
+  }, 30000);
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();
