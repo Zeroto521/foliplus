@@ -493,6 +493,69 @@ class TestSearchControlBrowser:
             assert state["dataQuery"] == "121.4700, 31.2300"
             assert not errors, f"JS errors: {errors}"
 
+    def test_panel_wheel_scrolls_panel_not_map(self, browser, tmp_path):
+        """Wheel over the open history panel scrolls the panel, not the map.
+
+        The result panel is mounted on the map container, so without the wheel
+        stop-propagation a wheel bubbles to Leaflet's scrollWheelZoom and zooms
+        the map while the panel's own overflow-y also scrolls. The shared
+        containment swallows every wheel unconditionally, so the map zoom must
+        stay fixed while the panel scroll position advances.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("SearchControl/seed_scrollable_history"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+
+            before = page.evaluate(
+                _js("SearchControl/read_panel_wheel_state"), {"inject": 40}
+            )
+            assert before and before.get("ok"), before
+            assert before["itemCount"] >= 40, before
+            assert before["scrollable"] is True, before
+            zoom_before = before["zoom"]
+
+            # Wheel down over the panel centre: it must scroll the panel and
+            # leave the map zoom untouched.
+            page.mouse.move(before["wheelX"], before["wheelY"])
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(200)
+            after_scroll = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_SCROLL:", after_scroll)
+            assert after_scroll and after_scroll.get("ok"), after_scroll
+            assert after_scroll["scrollTop"] > before["scrollTop"], (
+                before["scrollTop"],
+                after_scroll["scrollTop"],
+            )
+            assert after_scroll["zoom"] == zoom_before, (zoom_before, after_scroll)
+
+            # Scroll past the bottom boundary: the map must still not zoom.
+            page.mouse.wheel(0, 1000)
+            page.mouse.wheel(0, 1000)
+            page.wait_for_timeout(200)
+            after_bottom = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_BOTTOM:", after_bottom)
+            assert after_bottom and after_bottom.get("ok"), after_bottom
+            assert after_bottom["zoom"] == zoom_before, (zoom_before, after_bottom)
+
+            # Scroll back to the top boundary and keep wheeling up: no zoom.
+            page.evaluate(
+                "() => { const p = document.querySelector('.foliplus-search-result-panel'); p.scrollTop = 0; }"
+            )
+            page.mouse.move(after_bottom["wheelX"], after_bottom["wheelY"])
+            page.mouse.wheel(0, -240)
+            page.wait_for_timeout(200)
+            after_top = page.evaluate(_js("SearchControl/read_panel_wheel_state"))
+            print("AFTER_TOP:", after_top)
+            assert after_top and after_top.get("ok"), after_top
+            assert after_top["zoom"] == zoom_before, (zoom_before, after_top)
+
+            assert not errors, f"JS errors: {errors}"
+
 
 def _panel_up(geom: dict) -> bool:
     """True when the panel carries the up class (the class-list form).

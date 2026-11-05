@@ -155,32 +155,6 @@ const stopEvent = (event: Event | { originalEvent?: Event }): void => {
 };
 
 /**
- * Contain a wheel over a scrollable surface so it never reaches the map
- * container, where Leaflet's scrollWheelZoom would zoom the map.
- *
- * Only the wheel's own scroll axis is contained: a wheel that would actually
- * move this container (deltaY up with scrollTop > 0, deltaY down with more
- * content below) stops propagation, so the container's native overflow-y
- * scroll keeps working. A wheel at a boundary (top scrolling up, bottom
- * scrolling down) or over a container with no overflow (scrollHeight <=
- * clientHeight) is left to bubble, so the map keeps zooming — the panel is
- * not a scroll trap.
- *
- * Stops propagation only, never preventDefault.
- */
-const bindWheelContainment = (el: HTMLElement): void => {
-  el.addEventListener("wheel", (event: WheelEvent) => {
-    const { deltaY } = event;
-    if (deltaY === 0) return;
-    const atTop = el.scrollTop <= 0;
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight;
-    const canScroll = deltaY < 0 ? !atTop : !atBottom;
-    if (!canScroll) return;
-    event.stopPropagation();
-  });
-};
-
-/**
  * Build the popup body for a location marker. Coordinates are pinned to the
  * shared readout precision, so a popup never echoes the raw stored value — a
  * history entry saved from "121.47" used to render "121.47,31.23" instead of
@@ -361,7 +335,6 @@ const createInlineEditInput = (opts: {
 };
 
 export {
-  bindWheelContainment,
   buildPopupEl,
   createIconButton,
   createInlineEditInput,

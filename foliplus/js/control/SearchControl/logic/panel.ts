@@ -116,16 +116,15 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     // mounted on the map container (not inside the control's container), so
     // the container's disableScrollPropagation does not cover it — a wheel
     // bubbles to the map container and Leaflet's scrollWheelZoom would fire.
-    // The shared containment stops only a wheel that can actually scroll the
-    // panel (its own overflow-y works); a wheel at a boundary or over a
-    // non-scrollable panel keeps bubbling, so the map still zooms at the
-    // edges.
+    // The shared containment swallows every wheel unconditionally (the
+    // boundary-aware variant that let boundary / zero-delta wheels bubble was
+    // removed: those bubbled to the map and zoomed it).
     //
     // Bound once, right here in the creation block: the element exists only
     // once (subsequent renders reuse it, removePanel drops it), so binding
     // here means one listener per element lifecycle — no stacking per
     // renderResults, and no stale flag to reset when a new element is made.
-    bindFloatingWheel(ctrl.panelWrap, "contain");
+    bindFloatingWheel(ctrl.panelWrap);
   }
 
   ctrl.panelWrap.innerHTML = "";

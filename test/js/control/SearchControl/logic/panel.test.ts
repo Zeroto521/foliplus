@@ -62,7 +62,7 @@ const makeMarkerWithEl = () => {
 
 // Wheel-bind counter over an addEventListener spy: keyed by the element the
 // listener was registered on, counting only plain wheel registrations (no
-// capture flag) — the shape bindWheelContainment uses.
+// capture flag) — the shape bindFloatingWheel uses.
 const wheelBindTargets = (spy: ReturnType<typeof vi.spyOn>) => {
   const counts = new Map<EventTarget, number>();
   const contexts = (spy as unknown as { mock: { contexts: unknown[] } }).mock.contexts;
@@ -134,11 +134,12 @@ describe("removePanel", () => {
 // ─── renderResults ───
 
 describe("renderResults", () => {
-  it("stops a wheel that can scroll the panel from reaching the map container", () => {
+  it("unconditionally swallows every wheel over the panel", () => {
     // The result panel is mounted on the map container, so a wheel over it
-    // bubbles to Leaflet's scrollWheelZoom and zooms the map. The shared
-    // containment must stop a wheel that can actually scroll the panel, while
-    // the panel's own overflow-y keeps working.
+    // bubbles to Leaflet's scrollWheelZoom and would zoom the map. The shared
+    // containment rule swallows it unconditionally — at a boundary, over a
+    // non-scrollable panel, and with a zero delta — so the map never zooms
+    // while the panel's own native overflow-y scroll keeps working.
     const ctrl = makeFixture();
     renderResults(ctrl, [
       {
@@ -152,7 +153,7 @@ describe("renderResults", () => {
     const mapWheel = vi.fn();
     document.addEventListener("wheel", mapWheel);
     const panel = ctrl.panelWrap;
-    // Panel is scrollable and mid-list: a deltaY wheel can move it.
+    // Mid-list, scrollable: swallowed.
     Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
     Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
     Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
@@ -160,113 +161,32 @@ describe("renderResults", () => {
       new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
     );
     expect(mapWheel).not.toHaveBeenCalled();
-    document.removeEventListener("wheel", mapWheel);
-  });
-
-  it("lets a wheel at a scroll boundary reach the map container", () => {
-    // At the bottom of a scrollable panel, a downward wheel cannot scroll the
-    // panel any further — it must bubble so the map zooms (not a scroll trap).
-    const ctrl = makeFixture();
-    renderResults(ctrl, [
-      {
-        source: "suggestion" as const,
-        icon: "",
-        primaryText: "Paris, France",
-        coordDisplay: null,
-        onClick: () => false,
-      },
-    ]);
-    const mapWheel = vi.fn();
-    document.addEventListener("wheel", mapWheel);
-    const panel = ctrl.panelWrap;
+    // At the bottom boundary: still swallowed.
     Object.defineProperty(panel, "scrollTop", { value: 300, configurable: true });
-    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
-    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
     panel.dispatchEvent(
       new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
     );
-    expect(mapWheel).toHaveBeenCalled();
-    document.removeEventListener("wheel", mapWheel);
-  });
-
-  it("lets a wheel at the top boundary reach the map container", () => {
-    // At the top of a scrollable panel, an upward wheel cannot scroll it any
-    // further — it must bubble so the map zooms (not a scroll trap). This is
-    // the mirror of the bottom-boundary case.
-    const ctrl = makeFixture();
-    renderResults(ctrl, [
-      {
-        source: "suggestion" as const,
-        icon: "",
-        primaryText: "Paris, France",
-        coordDisplay: null,
-        onClick: () => false,
-      },
-    ]);
-    const mapWheel = vi.fn();
-    document.addEventListener("wheel", mapWheel);
-    const panel = ctrl.panelWrap;
+    expect(mapWheel).not.toHaveBeenCalled();
+    // At the top boundary: still swallowed.
     Object.defineProperty(panel, "scrollTop", { value: 0, configurable: true });
-    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
-    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
     panel.dispatchEvent(
       new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }),
     );
-    expect(mapWheel).toHaveBeenCalled();
-    document.removeEventListener("wheel", mapWheel);
-  });
-
-  it("lets a zero-delta wheel reach the map container", () => {
-    // A wheel event with no vertical delta has no scroll intent — it must not
-    // be contained, so horizontal-only wheels / trackpad gestures still reach
-    // the map.
-    const ctrl = makeFixture();
-    renderResults(ctrl, [
-      {
-        source: "suggestion" as const,
-        icon: "",
-        primaryText: "Paris, France",
-        coordDisplay: null,
-        onClick: () => false,
-      },
-    ]);
-    const mapWheel = vi.fn();
-    document.addEventListener("wheel", mapWheel);
-    const panel = ctrl.panelWrap;
-    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
-    Object.defineProperty(panel, "clientHeight", { value: 200, configurable: true });
-    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
-    panel.dispatchEvent(
-      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0 }),
-    );
-    expect(mapWheel).toHaveBeenCalled();
-    document.removeEventListener("wheel", mapWheel);
-  });
-
-  it("lets a wheel over a non-scrollable panel reach the map container", () => {
-    // A panel with no overflow (scrollHeight <= clientHeight) has nothing to
-    // scroll, so every wheel must bubble — the map keeps zooming, not a
-    // scroll trap over a fixed-size list.
-    const ctrl = makeFixture();
-    renderResults(ctrl, [
-      {
-        source: "suggestion" as const,
-        icon: "",
-        primaryText: "Paris, France",
-        coordDisplay: null,
-        onClick: () => false,
-      },
-    ]);
-    const mapWheel = vi.fn();
-    document.addEventListener("wheel", mapWheel);
-    const panel = ctrl.panelWrap;
-    Object.defineProperty(panel, "scrollTop", { value: 0, configurable: true });
-    Object.defineProperty(panel, "clientHeight", { value: 300, configurable: true });
+    expect(mapWheel).not.toHaveBeenCalled();
+    // Non-scrollable (scrollHeight === clientHeight): still swallowed.
     Object.defineProperty(panel, "scrollHeight", { value: 300, configurable: true });
+    Object.defineProperty(panel, "clientHeight", { value: 300, configurable: true });
     panel.dispatchEvent(
       new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 120 }),
     );
-    expect(mapWheel).toHaveBeenCalled();
+    expect(mapWheel).not.toHaveBeenCalled();
+    // Zero delta: still swallowed.
+    Object.defineProperty(panel, "scrollHeight", { value: 500, configurable: true });
+    Object.defineProperty(panel, "scrollTop", { value: 100, configurable: true });
+    panel.dispatchEvent(
+      new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0 }),
+    );
+    expect(mapWheel).not.toHaveBeenCalled();
     document.removeEventListener("wheel", mapWheel);
   });
   it("removes panel when results are empty", () => {
