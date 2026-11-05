@@ -26,11 +26,6 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
-import {
-  dropdownSurface,
-  fullscreenSurface,
-  onFullscreenSurfaceChange,
-} from "#core/fullscreen.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
@@ -38,19 +33,25 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
-import { dropdownOf } from "#common/dropdown.js";
 import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#common/fullscreen.js";
+import { createLogger } from "#common/log.js";
+import {
+  type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
+  createSchemePicker,
+  dropdownOf,
   colorInput as formColorInput,
   formRow,
   inlineControls,
   normalizeHexColor,
   numberInput,
-} from "#common/form.js";
-import { createLogger } from "#common/log.js";
-import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
-import { readOnlyValue } from "#ui/index.js";
+  readOnlyValue,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";

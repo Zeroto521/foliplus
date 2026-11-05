@@ -11,7 +11,7 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._layer_declaration import declared_zoom_range
+from ._layer_declaration import declared_folder, declared_zoom_range
 
 
 class LayerControl(BaseControl):
@@ -323,7 +323,15 @@ class LayerControl(BaseControl):
             zoom_range = declared_zoom_range(item, item.layer_name)
             if zoom_range is not None:
                 entry["zoomRange"] = zoom_range
+            folder = declared_folder(item, item.layer_name)
+            if folder is not None:
+                entry["folder"] = folder
             data.append(entry)
+
+        # A folder name shared by several layers is a grouping intent, not a
+        # conflict: the JS side merges same-name declarations of the same role
+        # into one authorFolderId (folder = section group name, one group may
+        # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")
