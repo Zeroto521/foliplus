@@ -174,6 +174,11 @@ class AnnotationManager {
   private readonly layerAlphas = new Map<string, number>();
   /** The layer the focus mode is spotlighting, or null when not focusing. */
   private focusFilter: string | null = null;
+  /** Per-layer hidden-leaf check, wired by the LayerController from the generic
+   *  data-layer filter's hidden set. Only the label walk consults it — the
+   *  ramp/legend domain must not follow the filter, so walkLeaf and
+   *  walkFillLeaves never read it. Null = no filter active (draw everything). */
+  private hiddenCheck: ((id: string, leaf: L.Layer) => boolean) | null = null;
   /** Map-event wiring shared with the other canvas overlays (see
    *  bindMapSync): zoom hide/show, pan translate, full plan on zoom/resize. */
   private readonly mapCleanup: () => void;
@@ -466,6 +471,12 @@ class AnnotationManager {
    *  no other layer's plan changes when this one rebuilds — and M layers
    *  replaying in the same frame cost M repaints, not M². Zoom / pan /
    *  resize / export still go through the full `refresh()`. */
+  /** Wire the generic data-layer filter's hidden-leaf check. The controller
+   *  calls this once after construction; only renderLabels consults it. */
+  setHiddenCheck(fn: (id: string, leaf: L.Layer) => boolean): void {
+    this.hiddenCheck = fn;
+  }
+
   renderLabels(id: string): LayerLabel[] {
     // Unconditional and idempotent: a stale plan left behind by an earlier
     // clear (or a canvas whose labels map already dropped) must not survive
@@ -484,6 +495,7 @@ class AnnotationManager {
     const labels: LayerLabel[] = [];
 
     walkLeaf(layer, (leaf: L.Layer) => {
+      if (this.hiddenCheck?.(id, leaf)) return;
       const raw = this.readFieldValue(leaf, field);
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
