@@ -853,7 +853,7 @@ describe("default dependency-injection sides", () => {
   });
 
   it("runs main when the module is invoked as the CLI entry", async () => {
-    vi.spyOn(console, "log").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const savedArgv = process.argv;
@@ -861,6 +861,9 @@ describe("default dependency-injection sides", () => {
     vi.resetModules();
     try {
       await import("#script/check/local-check.mjs");
+      // The module-level CLI guard must have run main() — it logs progress,
+      // so the import path is exercised AND its effect is asserted.
+      expect(logSpy).toHaveBeenCalled();
     } finally {
       process.argv = savedArgv;
       vi.resetModules();
