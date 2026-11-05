@@ -73,7 +73,7 @@ type ListboxRowShape = {
 };
 
 /** The popup-host contract: where an open popup mounts and how it hears that
- *  the covering surface changed. Consumers pass core/fullscreen's
+ *  the covering surface changed. Consumers pass common/fullscreen's
  *  dropdownSurface(scope); builders that create listboxes on a consumer's
  *  behalf (core/rampForm, core/label) forward it untouched. */
 interface DropdownSurface {
