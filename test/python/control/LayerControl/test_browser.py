@@ -967,6 +967,113 @@ class TestLayerControlBrowser:
                     )
             assert not errors, f"JS errors: {errors}"
 
+    def test_fill_two_layers_keep_their_own_color_across_reload(
+        self, browser, tmp_path
+    ):
+        """A persisted solid fill survives a page reload, per layer, with no decay.
+
+        The write is persisted to localStorage and re-applied by the attach
+        sweep on the next load. The failure this guards is not "the color came
+        back wrong" (a wrong color is loud) but "the color silently decayed to
+        the author default" — a reload can drop a layer back to its original
+        fill while the row still reads the user's color, which is the quiet
+        regression. Two layers are set to distinct solid fills, then the page
+        reloads and every pane's path fill/stroke must be byte-identical to its
+        pre-reload snapshot (and no pane may decay to the default blue).
+        """
+
+        def poly(name: str) -> folium.GeoJson:
+            """One polygon layer with a numeric field so the fill row exists."""
+            return folium.GeoJson(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"value": i},
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [119.28 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.06],
+                                        ]
+                                    ],
+                                },
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                ),
+                name=name,
+            )
+
+        first = poly("IsoLayerA")
+        second = poly("IsoLayerB")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="fill_reload_iso"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Set A red, B blue through the real user write path.
+            a_red = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#ff0000"},
+            )
+            assert a_red.get("ok"), f"write A failed: {a_red}"
+            b_blue = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerB", "color": "#0000ff"},
+            )
+            assert b_blue.get("ok"), f"write B failed: {b_blue}"
+            panes_before = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in b_blue["panes"]
+            }
+            assert len(panes_before) >= 2, f"pane groups before reload: {b_blue}"
+
+            # Reload; the attach sweep must re-apply the persisted fill.
+            # Let the 100ms persistence debounce flush before the reload.
+            page.wait_for_timeout(300)
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            panel_ready(page)
+            # No write path is driven here: this snapshot is read-only, so any
+            # restored color came from the attach sweep, not from us.
+            after = page.evaluate(_js("LayerControl/fill_reload_read"))
+            assert after.get("ok"), f"read after reload failed: {after}"
+            panes_after = {p["cls"]: (p["fills"], p["strokes"]) for p in after["panes"]}
+            assert len(panes_after) >= 2, f"pane groups after reload: {after}"
+
+            # Every pane must be byte-identical to its pre-reload snapshot.
+            for cls in panes_before:
+                assert cls in panes_after, (
+                    f"pane {cls} missing after reload: {sorted(panes_after)}"
+                )
+                assert panes_after[cls] == panes_before[cls], (
+                    f"pane {cls} changed across reload: {panes_before[cls]} != {panes_after[cls]}",
+                )
+
+            # The anti-decay guard: no pane may carry the default blue fill
+            # unless it did so before the reload.
+            for cls, (fills, _) in panes_after.items():
+                assert (
+                    "#3388ff" not in fills
+                    or "#3388ff" in panes_before.get(cls, ([], []))[0]
+                ), (f"pane {cls} decayed to default blue after reload: {fills}",)
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
