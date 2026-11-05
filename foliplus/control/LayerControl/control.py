@@ -148,6 +148,14 @@ class LayerControl(BaseControl):
     role (for example ``foliplus={"folder": "底图"}``) are grouped into one
     folder — a grouping intent, not a conflict, and it never warns.
 
+    Folder names group case-insensitively after whitespace folding, so
+    ``"Basemap"``, ``"basemap"`` and ``"BASE MAP"`` land in one folder.
+    The folder keeps the first spelling it saw (trimmed) as its display
+    name.
+
+    A folder keeps its group row after its last layer is removed, so you
+    can still drag more layers into it.
+
     The ``fill`` declaration keys:
 
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
