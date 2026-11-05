@@ -7,8 +7,10 @@
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
+import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import { bindFloatingWheel } from "#common/floating.js";
+import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
@@ -71,17 +73,31 @@ const removePanel = (ctrl: SearchControlCtx) => {
 
 const positionPanel = (ctrl: SearchControlCtx) => {
   if (!ctrl.panelWrap) return;
-  // The result panel is position: fixed, so rect is already viewport-relative
-  // and the scroll offset must NOT be added. Adding window.scrollX/scrollY
-  // made the panel drift by the scroll amount once the page scrolled (a fixed
-  // element is positioned against the viewport, not the document).
-  const rect = ctrl.ctrl.getBoundingClientRect();
-  let left = rect.left;
-  if (left + rect.width > window.innerWidth) {
-    left = window.innerWidth - rect.width;
-  }
-  ctrl.panelWrap.style.left = `${left}px`;
-  ctrl.panelWrap.style.top = `${rect.bottom}px`;
+  const panel = ctrl.panelWrap;
+  // The result panel is position: fixed, so rects are already viewport-relative
+  // and the scroll offset must NOT be added (a fixed element is positioned
+  // against the viewport, not the document).
+  const anchor = ctrl.ctrl.getBoundingClientRect();
+  // The map container is the final boundary: when the map is smaller than the
+  // viewport the panel must not spill past the map edge (the kernel's viewport
+  // clamp is only its intermediate result).
+  const bounds = map.getContainer().getBoundingClientRect();
+  // The engine owns the gap (--foliplus-menu-gap) and the height cap is the
+  // menu-max-height token, so the kernel can flip above / clamp / cap.
+  const gap = parseFloat(cssVar(panel, "--foliplus-menu-gap", "4px")) || 0;
+  const maxToken =
+    parseFloat(cssVar(panel, "--foliplus-menu-max-height", "240px")) || 240;
+  const placement = computePlacement(
+    anchor,
+    { width: panel.offsetWidth, height: Math.min(panel.scrollHeight, maxToken) },
+    bounds,
+    { gap },
+  );
+  panel.style.left = `${placement.left}px`;
+  panel.style.top = `${placement.top}px`;
+  panel.style.maxWidth = `${placement.maxWidth}px`;
+  panel.style.maxHeight = `${placement.maxHeight}px`;
+  panel.classList.toggle("foliplus-search-result-panel-up", placement.side === "above");
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
@@ -113,7 +129,6 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
 
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
-  positionPanel(ctrl);
 
   // Retained so Enter reuses the keyboard selection instead of re-geocoding.
   ctrl.currentItems = results;
@@ -149,6 +164,11 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
       ),
     );
   });
+  // Position after the items are in the DOM: the kernel's max-height is the
+  // min of the surface height and the available strip, and the surface height
+  // reads scrollHeight — positioning before the items land would collapse the
+  // panel to max-height 0.
+  positionPanel(ctrl);
 
   // Post-render sanity: DOM RESULT_ITEM count must equal the retained array
   // so keyboard navigation (DOM-indexed) and Enter adoption (array-indexed)
