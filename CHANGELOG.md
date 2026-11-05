@@ -14,6 +14,7 @@
 - `HeatmapControl` / `MeasureControl`: a declared `filter=` seeds the first render; the user's own filter wins from then on ([#805](https://github.com/Zeroto521/foliplus/pull/805))
 - `HeatmapControl` / `MeasureControl`: `zoom_range={"min": 8, "max": 12}` shows the control only while the map's zoom is inside the range; an unusable declaration warns once and is treated as undeclared ([#842](https://github.com/Zeroto521/foliplus/pull/842))
 - `LayerControl`: a layer can be grouped into a folder with `foliplus={"folder": ...}` — declarations sharing a name land in the same folder, and the panel groups rows by folder with that order kept across reloads ([#898](https://github.com/Zeroto521/foliplus/pull/898), [#905](https://github.com/Zeroto521/foliplus/pull/905), [#911](https://github.com/Zeroto521/foliplus/pull/911))
+- `LayerControl`: a folder can be deleted from its row menu — its layers move back to the root instead of disappearing — and a section whose last layer left an empty folder shows a clean button on its header ([#930](https://github.com/Zeroto521/foliplus/pull/930))
 
 ### Changed
 
