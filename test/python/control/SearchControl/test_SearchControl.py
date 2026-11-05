@@ -493,6 +493,7 @@ class TestSearchControlBrowser:
             assert state["dataQuery"] == "121.4700, 31.2300"
             assert not errors, f"JS errors: {errors}"
 
+
 def _panel_up(geom: dict) -> bool:
     """True when the panel carries the up class (the class-list form).
 
@@ -575,7 +576,9 @@ class TestSearchControlPlacementBrowser:
             assert p["top"] >= c["bottom"] - 1, (
                 f"panel is not below the trigger: top {p['top']} < bottom {c['bottom']}"
             )
-            assert not _panel_up(g), f"panel has an up class but should stay below: class={g['panelClass']!r}"
+            assert not _panel_up(g), (
+                f"panel has an up class but should stay below: class={g['panelClass']!r}"
+            )
             assert not errors, errors
 
     def test_b3_horizontal_clamp_small_screen(self, browser, tmp_path):
@@ -614,11 +617,11 @@ class TestSearchControlPlacementBrowser:
             # or absent floor would pass the <= viewport check alone). The panel
             # keeps at least 2 result rows visible.
             assert max_h >= 2 * g["itemHeight"], (
-                f"max-height {max_h} below 2 rows ({g["itemHeight"]} px each)"
+                f"max-height {max_h} below 2 rows ({g['itemHeight']} px each)"
             )
-            assert g["panelScroll"]["scrollHeight"] > g["panelScroll"]["clientHeight"], (
-                "tall panel must scroll (scrollHeight > clientHeight)"
-            )
+            assert (
+                g["panelScroll"]["scrollHeight"] > g["panelScroll"]["clientHeight"]
+            ), "tall panel must scroll (scrollHeight > clientHeight)"
             assert p["top"] >= -1 and p["bottom"] <= v["innerHeight"] + 1, (
                 "panel spills outside the viewport vertically"
             )
@@ -663,9 +666,15 @@ class TestSearchControlPlacementBrowser:
             assert m["height"] < v["innerHeight"], (
                 f"map not shrunk: {m['height']} vs viewport {v['innerHeight']}"
             )
-            assert p["left"] >= m["left"] - 1, f"panel left {p['left']} < map left {m['left']}"
-            assert p["right"] <= m["right"] + 1, f"panel right {p['right']} > map right {m['right']}"
-            assert p["top"] >= m["top"] - 1, f"panel top {p['top']} < map top {m['top']}"
+            assert p["left"] >= m["left"] - 1, (
+                f"panel left {p['left']} < map left {m['left']}"
+            )
+            assert p["right"] <= m["right"] + 1, (
+                f"panel right {p['right']} > map right {m['right']}"
+            )
+            assert p["top"] >= m["top"] - 1, (
+                f"panel top {p['top']} < map top {m['top']}"
+            )
             assert p["bottom"] <= m["bottom"] + 1, (
                 f"panel bottom {p['bottom']} > map bottom {m['bottom']}"
             )
@@ -683,7 +692,9 @@ class TestSearchControlPlacementBrowser:
             page.set_viewport_size({"width": 1000, "height": 600})
             self._wait_panel_settled(page)
             g2 = self._geometry(page)
-            assert g1["panel"] is not None and g2["panel"] is not None, "panel not mounted"
+            assert g1["panel"] is not None and g2["panel"] is not None, (
+                "panel not mounted"
+            )
             # The gap between the panel and the trigger must be preserved (flush).
             d1 = g1["panel"]["top"] - g1["control"]["bottom"]
             d2 = g2["panel"]["top"] - g2["control"]["bottom"]
