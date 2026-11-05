@@ -1,4 +1,4 @@
-// common/sliderVocabulary — the class names the slider primitive owns.
+// ui/sliderVocabulary — the class names the slider primitive owns.
 //
 // Kept free of any foliplus runtime import: the primitive is usable without a
 // map, so its vocabulary cannot live in LayerControl/const.ts (that module

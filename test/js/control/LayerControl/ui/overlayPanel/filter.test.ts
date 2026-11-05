@@ -9,7 +9,7 @@ import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
-import { SLIDER } from "#common/sliderVocabulary.js";
+import { SLIDER } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
