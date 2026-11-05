@@ -440,6 +440,10 @@ interface LayerInfo {
   /** See {@link RegisterLayerOpts.filterProvider}. */
   filterProvider?: (() => LayerFilterModel | null) | null;
   filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** The committed generic feature filter for this layer (null when none).
+   *  The controller keeps this in sync with the write-through (filterSetter /
+   *  setLayerFilter); the panel reads it directly for the current state. */
+  filter?: LayerFilter | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.

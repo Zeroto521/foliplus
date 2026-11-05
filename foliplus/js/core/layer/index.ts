@@ -20,7 +20,12 @@ export {
   Z_INDEX,
 } from "./const.js";
 export { readFeatureFillColors } from "./authorFill.js";
-export { labelPaneNameOf, carrierTargetOf, contentPanesOf } from "./carrier.js";
+export {
+  labelPaneNameOf,
+  carrierTargetOf,
+  contentPanesOf,
+  visibleDomOf,
+} from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
 export { sectionOf } from "./role.js";
 export type { LayerRole, LayerSection } from "./role.js";
@@ -106,6 +111,12 @@ export type {
   LayerFilter,
   LayerFilterModel,
 } from "./filter.js";
+export { buildFilterFeatures, filterLeafSet } from "./filterFeature.js";
+export type {
+  FilterFeature,
+  FilterFieldValue,
+  LayerFilterFeatures,
+} from "./filterFeature.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

@@ -107,6 +107,11 @@ const CLASSES = {
   COUNT_FILTERED: "foliplus-layer-count-filtered",
   /** The 12px neutral (text-primary) funnel glyph before a filtered count. */
   COUNT_FUNNEL: "foliplus-layer-count-funnel",
+  /** Set on a leaf hidden by the generic data-layer filter (path element /
+   *  marker icon + shadow). CSS `display:none` removes it from paint AND from
+   *  hit-testing, and ExportControl's SVG/marker channels skip it via computed
+   *  display — one class write instead of a per-leaf style loop. */
+  FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
