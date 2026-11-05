@@ -1,9 +1,10 @@
 // Toggles foliplus's pseudo-fullscreen on the map container, the way
 // FullscreenControl does when the native API is unavailable, and reports where
 // the scheme list is hosted afterwards.
+// #900 moved fullscreen from core/ to common/ (now foliplus.common.fullscreen).
 active => {
-  const core = window.foliplus && window.foliplus.core;
-  const fullscreen = core && core.fullscreen;
+  const common = window.foliplus && window.foliplus.common;
+  const fullscreen = common && common.fullscreen;
   if (!fullscreen || !fullscreen.setPseudoFullscreen) {
     return { ok: false, reason: "no-setPseudoFullscreen" };
   }

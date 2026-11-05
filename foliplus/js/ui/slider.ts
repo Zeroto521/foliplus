@@ -13,11 +13,11 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
 import { createLogger } from "#common/log.js";
-import { SLIDER } from "#common/sliderVocabulary.js";
+import { SLIDER } from "#ui/sliderVocabulary.js";
 
 const log = createLogger("LayerControl");
 
@@ -122,7 +122,7 @@ const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
   // Native fullscreen and pseudo enter/exit both announce through
-  // core/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
+  // common/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
   // so a `fullscreenchange` listener alone would leave the bubble on <body>
   // under the opaque map.
   // Page-lifetime singleton: the bubble and this subscription are

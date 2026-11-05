@@ -80,7 +80,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "two calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The other two are the row-panel placement singleton (window scroll capture + resize): one pair for the whole page, bound on the first pinned card and shared by every card since, re-placing the open cards from live rects. The factory is free-standing (no mounting signal), and the singleton has no per-instance teardown to pair the removal with — a per-card pair would re-register the same two document listeners for every open panel",
   },
   {
-    f: "core/fullscreen.ts",
+    f: "common/fullscreen.ts",
     n: 1,
     pairedOff: 0,
     reason:
@@ -112,7 +112,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason common/fullscreen.ts is on this list for",
   },
   {
     f: "control/ExportControl/session.ts",
@@ -164,11 +164,11 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "control/LayerControl/slider.ts",
+    f: "ui/slider.ts",
     n: 10,
     pairedOff: 0,
     reason:
-      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through core/fullscreen's shared subscription",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
   },
   {
     f: "control/MeasureControl/mode/circle.ts",
@@ -185,18 +185,18 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
   {
-    f: "common/dropdown.ts",
+    f: "ui/dropdown.ts",
     n: 1,
     pairedOff: 0,
     reason:
-      "shared select-replacement ADAPTER over common/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into common/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
+      "shared select-replacement ADAPTER over ui/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into ui/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
   },
   {
-    f: "common/listbox.ts",
+    f: "ui/listbox.ts",
     n: 7,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by common/dropdown and common/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press and window keydown (capture, Escape ownership ahead of the panel dispatcher), both gated on `spec.ownDismiss` (a select-replacement adapter owning its own dismissal leaves them off), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
   },
   {
     f: "common/floating.ts",
