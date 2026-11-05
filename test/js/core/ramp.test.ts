@@ -3,7 +3,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { buildCategoryRamp, buildRamp, colorFor } from "#core/ramp.js";
+import {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+} from "#core/ramp.js";
 
 // `computeBreaks` is spied rather than called through so one test can feed
 // buildRamp the single-boundary answer the real classifier never gives: a
@@ -238,5 +245,77 @@ describe("buildCategoryRamp", () => {
     expect(ramp.colors.get("h")).toBe("#7");
     expect(ramp.colors.get("i")).toBe("#7");
     expect(ramp.colors.get("j")).toBe("#7");
+  });
+});
+
+describe("leafPropertyValue", () => {
+  it("reads feature.properties[key] for a GeoJSON envelope", () => {
+    const leaf = { feature: { properties: { category: "A" } } };
+    expect(leafPropertyValue(leaf, "category")).toBe("A");
+  });
+
+  it("returns undefined when the leaf has no feature envelope", () => {
+    expect(leafPropertyValue({}, "category")).toBeUndefined();
+  });
+
+  it("returns undefined when the feature has no properties", () => {
+    expect(leafPropertyValue({ feature: {} }, "category")).toBeUndefined();
+  });
+
+  it("returns undefined when the field is absent", () => {
+    expect(
+      leafPropertyValue({ feature: { properties: {} } }, "missing"),
+    ).toBeUndefined();
+  });
+
+  it("swallows a throwing getter instead of aborting the walk", () => {
+    const leaf = {
+      get feature(): { properties: Record<string, unknown> } {
+        throw new Error("getter");
+      },
+    };
+    expect(leafPropertyValue(leaf, "category")).toBeUndefined();
+  });
+
+  it("accepts a plain Leaflet-style path without a feature", () => {
+    expect(leafPropertyValue({ options: {} }, "category")).toBeUndefined();
+  });
+});
+
+describe("isFiniteNumber", () => {
+  it("accepts a finite number", () => {
+    expect(isFiniteNumber(3.14)).toBe(true);
+    expect(isFiniteNumber(0)).toBe(true);
+  });
+
+  it("rejects NaN and Infinity", () => {
+    expect(isFiniteNumber(Number.NaN)).toBe(false);
+    expect(isFiniteNumber(Number.POSITIVE_INFINITY)).toBe(false);
+    expect(isFiniteNumber(Number.NEGATIVE_INFINITY)).toBe(false);
+  });
+
+  it("rejects non-numbers", () => {
+    expect(isFiniteNumber("3")).toBe(false);
+    expect(isFiniteNumber(null)).toBe(false);
+    expect(isFiniteNumber(undefined)).toBe(false);
+    expect(isFiniteNumber({})).toBe(false);
+  });
+});
+
+describe("categoryLabel", () => {
+  it("returns a non-empty string as-is", () => {
+    expect(categoryLabel("residential")).toBe("residential");
+  });
+
+  it("stringifies a boolean for the palette lookup", () => {
+    expect(categoryLabel(true)).toBe("true");
+    expect(categoryLabel(false)).toBe("false");
+  });
+
+  it("returns undefined for a number, null, empty string or object", () => {
+    expect(categoryLabel(3)).toBeUndefined();
+    expect(categoryLabel(null)).toBeUndefined();
+    expect(categoryLabel("")).toBeUndefined();
+    expect(categoryLabel({})).toBeUndefined();
   });
 });
