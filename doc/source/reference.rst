@@ -21,8 +21,8 @@ Extract ``foliplus/js/ui/`` — the shared panel "appearance-composition layer
 
 - Design reference: ``.foliplus/zeta/task-31-ui-toolbox-design.md``
 - Working notes: ``.foliplus/zeta/task-31-working-notes.md``
-- Source: ``foliplus/js/ui/``
-- Implements: task-31
+- Source: ``foliplus/js/ui/`` (the shared overlay engines, ``dropdown``/``form``/``listbox``/``placement``/``schemePicker``/``slider`` after the #900 move)
+- Implements: task-31 (completed)
 
 PanelController
 ---------------
@@ -39,12 +39,12 @@ three-state ``dismiss`` (``escape`` / ``outsidePress`` /
 Dropdown consolidation
 ----------------------
 
-One self-built dropdown engine (``common/listbox.ts``) with six shape slots;
+One self-built dropdown engine (``ui/listbox.ts``) with six shape slots;
 the native dropdown becomes a downgrade adapter and the scheme picker
 migrates onto the engine.
 
 - Design reference: ``.foliplus/zeta/dropdown-consolidation-design.md``
-- Source: ``foliplus/js/common/listbox.ts``
+- Source: ``foliplus/js/ui/listbox.ts``
 - Implements: task-77
 
 Docstring consistency audit
@@ -57,4 +57,4 @@ bare-quote convention.
 - Audit reference: ``.foliplus/zeta/docstring-consistency-audit.md``
 - Template: :doc:`api/foliplus.LayerControl`
 - Source: ``foliplus/control/LayerControl/``
-- Implements: task-85
+- Status: historical audit — the docstring gate now lives in ``script/check/docstring_check.py`` (verified in CI)
