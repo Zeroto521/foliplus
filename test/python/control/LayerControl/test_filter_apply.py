@@ -44,7 +44,9 @@ class TestFilterApplyBrowser:
         with use_page(self._probe, browser, tmp_path) as (page, errors):
             r = page.evaluate(_js("LayerControl/apply_filter_hides_classes"))
             assert r is not None, "LayerAPI/manager or runtimeStore missing"
-            assert r["hasVisibleDomOf"], "visibleDomOf not on window.foliplus.core.layer"
+            assert r["hasVisibleDomOf"], (
+                "visibleDomOf not on window.foliplus.core.layer"
+            )
             # The carrier must enumerate the shadow and the group leaf through
             # the real visibleDomOf, so the probe set covers both branches.
             by_id = {p["id"]: p for p in r["out"]}
@@ -62,15 +64,21 @@ class TestFilterApplyBrowser:
                 for el in probe["elements"]:
                     assert el["displays"], f"{ctx}/{el['type']}: no display read"
                     for d in el["displays"]:
-                        assert d == "none", f"{ctx}/{el['type']}: display={d!r} not none"
+                        assert d == "none", (
+                            f"{ctx}/{el['type']}: display={d!r} not none"
+                        )
                     for c in el["classed"]:
                         assert c is True, f"{ctx}/{el['type']}: class not applied"
             # The layeradd replay (controller layeradd -> findLayer ->
             # replayFilter) must re-apply the class after the layer is re-added.
             for probe in r["out"]:
                 replay = probe.get("replay")
-                assert isinstance(replay, list), f"{probe['id']}: replay error: {replay}"
+                assert isinstance(replay, list), (
+                    f"{probe['id']}: replay error: {replay}"
+                )
                 for displays in replay:
                     for d in displays:
-                        assert d == "none", f"{probe['id']}: replay display={d!r} not none"
+                        assert d == "none", (
+                            f"{probe['id']}: replay display={d!r} not none"
+                        )
             assert not errors, f"JS errors: {errors}"
