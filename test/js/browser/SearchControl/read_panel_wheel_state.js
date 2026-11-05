@@ -21,13 +21,15 @@
   // the panel's stopPropagation actually stopped it).
   if (!window.__wheelLog) {
     window.__wheelLog = [];
-    const rec = (tag) => (e) => window.__wheelLog.push({
-      tag,
-      target: (e.target && (e.target.className || e.target.tagName)) || String(e.target),
-      deltaY: e.deltaY,
-      zoom: map.getZoom(),
-      t: Date.now(),
-    });
+    const rec = tag => e =>
+      window.__wheelLog.push({
+        tag,
+        target:
+          (e.target && (e.target.className || e.target.tagName)) || String(e.target),
+        deltaY: e.deltaY,
+        zoom: map.getZoom(),
+        t: Date.now(),
+      });
     document.body.addEventListener("wheel", rec("body"));
     const container = map.getContainer();
     container.addEventListener("wheel", rec("container"));
@@ -49,7 +51,7 @@
     open: !panel.hidden,
     rectTop: rect.top,
     rectHeight: rect.height,
-    hitClass: hit ? (hit.className || hit.tagName) : "none",
+    hitClass: hit ? hit.className || hit.tagName : "none",
     hitIsPanel: hit ? panel.contains(hit) : false,
     injected: panel.dataset.injected === "1",
     wheelLog: window.__wheelLog.splice(0),
