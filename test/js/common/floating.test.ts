@@ -7,24 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bindFloatingWheel, mountFloating } from "#common/floating.js";
 
 describe("bindFloatingWheel", () => {
-  it("always mode: a wheel over the root does not reach the document", () => {
-    const root = document.createElement("div");
-    document.body.appendChild(root);
-    const onWheel = vi.fn();
-    document.addEventListener("wheel", onWheel);
-    try {
-      bindFloatingWheel(root, "always");
-      root.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
-      expect(onWheel).not.toHaveBeenCalled();
-    } finally {
-      document.removeEventListener("wheel", onWheel);
-      root.remove();
-    }
-  });
-
-  it("contain mode: a wheel at the boundary bubbles (map keeps zooming)", () => {
-    // A non-scrollable container (scrollHeight === clientHeight) leaves the
-    // wheel to bubble — the panel is not a scroll trap.
+  it("unconditionally swallows a wheel over the root", () => {
+    // The shared rule: a wheel must never reach the map container, where
+    // Leaflet's scrollWheelZoom would zoom the map. It holds even at a
+    // boundary or with deltaY === 0 (some devices fire zero-increment events),
+    // which the former boundary-aware "contain" mode let bubble.
     const root = document.createElement("div");
     Object.defineProperty(root, "scrollHeight", { value: 100, configurable: true });
     Object.defineProperty(root, "clientHeight", { value: 100, configurable: true });
@@ -33,9 +20,13 @@ describe("bindFloatingWheel", () => {
     const onWheel = vi.fn();
     document.addEventListener("wheel", onWheel);
     try {
-      bindFloatingWheel(root, "contain");
+      bindFloatingWheel(root);
+      // A wheel at the top boundary / non-scrollable root must still be swallowed.
       root.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 50 }));
-      expect(onWheel).toHaveBeenCalledTimes(1);
+      expect(onWheel).not.toHaveBeenCalled();
+      // deltaY === 0 (horizontal / zero-increment device) is swallowed too.
+      root.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
+      expect(onWheel).not.toHaveBeenCalled();
     } finally {
       document.removeEventListener("wheel", onWheel);
       root.remove();
