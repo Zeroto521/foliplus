@@ -1,0 +1,24 @@
+
+> build:dev
+> node script/build/build.mjs --dev
+
+Building 18 artifacts for 9 components...
+  ✓ foliplus-common.min.js
+  ✓ foliplus-ExportControl.min.js
+  ✓ foliplus-ExportControl.min.css
+  ✓ foliplus-FullscreenControl.min.js
+  ✓ foliplus-FullscreenControl.min.css
+  ✓ foliplus-HeatmapControl.min.js
+  ✓ foliplus-HeatmapControl.min.css
+  ✓ foliplus-LayerControl.min.js
+  ✓ foliplus-LocateControl.min.js
+  ✓ foliplus-LocateControl.min.css
+  ✓ foliplus-MeasureControl.min.js
+  ✓ foliplus-MeasureControl.min.css
+  ✓ foliplus-ScaleControl.min.js
+  ✓ foliplus-ScaleControl.min.css
+  ✓ foliplus-SearchControl.min.js
+  ✓ foliplus-SearchControl.min.css
+  ✓ foliplus-common.min.css
+  ✓ foliplus-LayerControl.min.css
+build: 1.343s

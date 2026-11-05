@@ -1,0 +1,11 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.2.0, pluggy-1.7.0
+rootdir: C:\Users\Zero\Documents\GitHub\foliplus\.agents\worktrees\search-placement-s2b
+configfile: pyproject.toml
+plugins: platformdirs-4.14.5, cov-7.1.0, playwright-0.10.0, xdist-3.8.0
+collected 26 items
+
+test\python\script\check\test_smoke_wheel.py .....................foliplus 0.1.0 at C:\Users\Zero\Documents\GitHub\foliplus\.agents\worktrees\search-placement-s2b\pytest-of-zero\pytest-1\test_main_refuses_a_missing_bu0\foliplus
+.....
+
+============================= 26 passed in 0.19s ==============================
