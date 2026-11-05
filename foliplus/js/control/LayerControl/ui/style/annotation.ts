@@ -14,23 +14,23 @@
 // `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
-import { dropdownSurface } from "#core/fullscreen.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { createDropdown } from "#common/dropdown.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+import { dropdownSurface } from "#common/fullscreen.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
   clampLabelSize,
+  createDropdown,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   formRow,
   inlineControls,
   normalizeHexColor,
-} from "#common/form.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { AnnotationConfig } from "#control/LayerControl/type.js";
 import type { LayerUI } from "../surface.js";

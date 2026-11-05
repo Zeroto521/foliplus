@@ -28,11 +28,11 @@ import {
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
+  finishSlidersIn,
   normalizeHexColor,
-} from "#common/form.js";
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { finishSlidersIn } from "#control/LayerControl/slider.js";
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

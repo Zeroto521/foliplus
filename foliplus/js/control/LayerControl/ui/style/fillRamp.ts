@@ -24,10 +24,16 @@
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
-import { isCategoryValue } from "#core/field.js";
 import { DIM } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig } from "#core/layer/intent.js";
-import { buildCategoryRamp, buildRamp, colorFor } from "#core/ramp.js";
+import {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+} from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -44,48 +50,6 @@ import {
 } from "./styleBag.js";
 
 const log = createLogger("foliplus");
-
-/** A leaf that may carry a `feature` envelope (GeoJSON data). */
-type FeatureLeaf = StyleSetter & {
-  feature?: { properties?: Record<string, unknown> };
-};
-
-/** Read a leaf's `feature.properties[key]` value, if any.
- *
- *  The three reads walk into a third-party object, so each hop is its own
- *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
- *  is a throwing getter simply has no value. Letting it propagate aborts the
- *  whole layer's collection - no healthy sibling gets colored - and re-throws
- *  later out of a Leaflet mouseout handler that is replaying the highlight.
- *
- *  Only the read is inside the boundary. `buildRamp`, `colorFor` and
- *  `setStyle` stay outside it: a classifier or write failure is a different
- *  class of problem and must not be swallowed here. */
-const leafPropertyValue = (leaf: StyleSetter, key: string): unknown => {
-  try {
-    const feature = (leaf as FeatureLeaf).feature;
-    const properties = feature?.properties;
-    return properties?.[key];
-  } catch {
-    return undefined;
-  }
-};
-
-/** Whether a property value can drive a numeric classification. */
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-/** A value that can be a categorical label.
- *
- *  A non-empty string is a label as-is. A boolean is a label too — the fill
- *  kind inference types booleans as category — but the palette is keyed by
- *  string, so a boolean is stringified for the lookup ("true" / "false").
- *  Anything else (a number, null, an empty string, an object) reads as "no
- *  label", the same answer `isCategoryValue` gave before booleans joined. */
-const categoryLabel = (value: unknown): string | undefined => {
-  if (typeof value === "boolean") return String(value);
-  return isCategoryValue(value) ? value : undefined;
-};
 
 /** One collected leaf: the node plus its finite drive value, if any. */
 type CollectedLeaf = {

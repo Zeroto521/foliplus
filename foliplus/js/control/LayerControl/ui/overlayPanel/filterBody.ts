@@ -17,10 +17,9 @@ import type {
   LayerFilterModel,
 } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
+import { type DropdownSurface, Slider, createDropdown } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { Slider } from "#control/LayerControl/slider.js";
 
 /** What a body may use from the panel: translations, the owner write bridge,
  *  the panel's number formatters and the popup surface an open control portals
