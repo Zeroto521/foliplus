@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isFillRampConfig } from "#core/layer/intent.js";
+import { isFillValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
@@ -357,7 +357,10 @@ describe("LayerPersistence", () => {
   });
 
   describe("fillRamp / fillMode", () => {
-    it("round-trips a legal ramp config and mode", () => {
+    it("migrates a pre-rename fillMode: the stored literal is now value", () => {
+      // The value-based arm's stored mode spelling changed ("ramp" → "value").
+      // A record written before the rename must load as the new literal, and
+      // the write path stamps only "value" from here on.
       seedStorage({
         version: RECORD_VERSION,
         layers: {
@@ -374,14 +377,14 @@ describe("LayerPersistence", () => {
         },
       });
       expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "ramp",
+        fillMode: "value",
         fillRamp: { field: "price", method: "quantile", classes: 5, scheme: "Reds" },
         overrides: ["fillRamp", "fillMode"],
       });
     });
 
     it("accepts both mode literals", () => {
-      for (const mode of ["solid", "ramp"] as const) {
+      for (const mode of ["solid", "value"] as const) {
         seedStorage({
           version: RECORD_VERSION,
           layers: { a: { fillMode: mode, overrides: ["fillMode"] } },
@@ -391,6 +394,17 @@ describe("LayerPersistence", () => {
           overrides: ["fillMode"],
         });
       }
+    });
+
+    it("migrates a pre-rename mode literal on a bare fillMode record", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "value",
+        overrides: ["fillMode"],
+      });
     });
 
     it("keeps a whitespace-padded field name verbatim", () => {
@@ -549,7 +563,7 @@ describe("LayerPersistence", () => {
       // The panel and the storage path must agree on what a ramp record is:
       // a record one accepts and the other drops would vanish on the next
       // reload, and one the panel rejects would never be offered in the
-      // first place. `parseFillRamp` delegates to the same predicate the
+      // first place. `parseFillValue` delegates to the same predicate the
       // live intent write runs through, so the table is the contract.
       const cases: Array<[boolean, unknown]> = [
         [true, { field: "price", method: "equal", classes: 3, scheme: "Reds" }],
@@ -578,7 +592,7 @@ describe("LayerPersistence", () => {
         [false, null],
       ];
       for (const [ok, config] of cases) {
-        expect(isFillRampConfig(config), JSON.stringify(config)).toBe(ok);
+        expect(isFillValueConfig(config), JSON.stringify(config)).toBe(ok);
         seedStorage({
           version: RECORD_VERSION,
           layers: { a: { fillRamp: config, overrides: ["fillRamp"] } },
@@ -628,7 +642,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillMode: "ramp",
+            fillMode: "value",
             fillRamp: { field: "", method: "equal", classes: 3, scheme: "Reds" },
             fillOpacity: 0.5,
             overrides: ["fillMode", "fillRamp", "fillOpacity"],
@@ -638,7 +652,7 @@ describe("LayerPersistence", () => {
       // Only the provenance markers whose value survives are kept, in the
       // declaration order of PARSE_OVERRIDE.
       expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "ramp",
+        fillMode: "value",
         fillOpacity: 0.5,
         overrides: ["fillOpacity", "fillMode"],
       });
