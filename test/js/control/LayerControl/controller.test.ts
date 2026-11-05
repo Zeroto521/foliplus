@@ -2990,6 +2990,59 @@ describe("LayerController", () => {
     vi.useRealTimers();
   });
 
+  it("deleteLayer freezes the folder order before the last member leaves", () => {
+    // design §5 / invariant 7: removing the last member of a folder must
+    // materialise the section's block order into folderOrder BEFORE the
+    // removal (PRE-removal snapshot), so the emptied folder keeps its block
+    // position instead of the order becoming self-contradictory.
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "rd1",
+      name: "Roads",
+      role: "overlay",
+      folder: "Roads",
+    });
+    manager.map.hasLayer.mockReturnValue(false);
+
+    expect(manager.deleteLayer("rd1")).toBe(true);
+    expect(manager.folderOrder.sections.overlay).toContain("roads");
+  });
+
+  it("deleteLayer does not freeze a folder that still has a member", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "rd1",
+      name: "Roads",
+      role: "overlay",
+      folder: "Roads",
+    });
+    manager.registerLayer({
+      id: "rd2",
+      name: "Roads 2",
+      role: "overlay",
+      folder: "Roads",
+    });
+    manager.map.hasLayer.mockReturnValue(false);
+
+    expect(manager.deleteLayer("rd1")).toBe(true);
+    // The folder still has rd2, so there is nothing to freeze.
+    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+  });
+
+  it("deleteLayer freezes a base folder's block order too", () => {
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "b1",
+      name: "Base Roads",
+      role: "base",
+      folder: "Roads",
+    });
+    manager.map.hasLayer.mockReturnValue(false);
+
+    expect(manager.deleteLayer("b1")).toBe(true);
+    expect(manager.folderOrder.sections.base).toContain("roads");
+  });
+
   it("never builds a layer the user deleted", () => {
     // The registry is built from the initial data before anything registers at
     // runtime, so the discovery path has to be gated as well: gating
