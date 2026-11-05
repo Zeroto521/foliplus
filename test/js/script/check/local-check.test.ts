@@ -796,7 +796,9 @@ describe("default dependency-injection sides", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    const failed = runGates([{ name: "x", cmds: [{ argv: ["echo", "hi"] }] }]);
+    const failed = runGates([
+      { name: "x", cmds: [{ argv: ["echo", "hi"] }], fix: null },
+    ]);
     expect(failed).toEqual([]);
   });
 
@@ -804,8 +806,8 @@ describe("default dependency-injection sides", () => {
     const { io } = makeIo();
     const failed = runGates(
       [
-        { name: "a", error: "boom", cmds: [] },
-        { name: "b", cmds: [{ argv: ["x"] }] },
+        { name: "a", error: "boom", cmds: [], fix: null },
+        { name: "b", cmds: [{ argv: ["x"] }], fix: null },
       ],
       { failFast: true, run: makeRunner().run, io },
     );
@@ -814,7 +816,7 @@ describe("default dependency-injection sides", () => {
 
   it("runGates reports a string spawn error", () => {
     const { io, errs } = makeIo();
-    runGates([{ name: "x", cmds: [{ argv: ["x"] }] }], {
+    runGates([{ name: "x", cmds: [{ argv: ["x"] }], fix: null }], {
       run: () => ({ status: 1, error: "boom" }),
       io,
     });
