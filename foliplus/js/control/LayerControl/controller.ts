@@ -6,6 +6,11 @@ import {
   publish,
 } from "#core/event/index.js";
 import {
+  type FolderOrder,
+  freezeSectionOrder,
+  normalizeFolderName,
+} from "#core/layer/folderOrder.js";
+import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateColorAPI,
@@ -205,6 +210,10 @@ class LayerController implements LayerAPI {
    *  controller forwards the public face and keeps the ownership call-sites
    *  (register gate, delete mark). */
   declare order: LayerOrder;
+  /** The user's folder block order (per section) — the persisted `folderOrder`
+   *  record that `normalizeGroups` reads to place Folder blocks before root
+   *  layers. Seeded from storage, written on freeze / folder delete. */
+  declare folderOrder: FolderOrder;
   declare annotation: AnnotationManager;
   declare domain: LayerOrchestration;
   /** Per-layer intent store — domain-owned, exposed on
@@ -282,6 +291,7 @@ class LayerController implements LayerAPI {
       savedOrder: saved.order,
       removedIds,
     });
+    this.folderOrder = saved.folderOrder ?? { version: 1, sections: {} };
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -472,7 +482,7 @@ class LayerController implements LayerAPI {
     // above so `this.order` / `this.layerRegistry` / `this.factory` / `this.domain`
     // are all populated when these run.
     this.loadSavedOrder();
-    this.layerRegistry.normalizeGroups();
+    this.layerRegistry.normalizeGroups(this.folderOrder);
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
     // image matches the panel's layer order. A layer the pass could not price
@@ -1439,6 +1449,32 @@ class LayerController implements LayerAPI {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
    */
+  /** design §5 / invariant 7 — freeze a section's block order when a folder
+   *  is about to lose its LAST member. Called from the delete path with the
+   *  PRE-removal registry snapshot, so the emptied folder's own block is part
+   *  of the materialised order. Returns true when a freeze was written to
+   *  `this.folderOrder` (the caller persists it). */
+  private freezeEmptyFolder(layerInfo: LayerInfo): boolean {
+    const folder = layerInfo.folder;
+    if (!folder) return false;
+    const section = layerInfo.role === ROLE.BASE ? "base" : "overlay";
+    const key = normalizeFolderName(folder);
+    const members = this.layerRegistry.layers.filter(
+      l =>
+        l.role === layerInfo.role &&
+        l.folder != null &&
+        normalizeFolderName(l.folder) === key,
+    );
+    if (members.length !== 1) return false; // not the last member
+    this.folderOrder = freezeSectionOrder(
+      section,
+      this.layerRegistry.layers,
+      this.folderOrder,
+      key,
+    );
+    return true;
+  }
+
   deleteLayer(id: string): boolean {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return false;
@@ -1483,8 +1519,19 @@ class LayerController implements LayerAPI {
       return true;
     }
 
+    // Folder empty-freeze (design §5 / invariant 7): if this layer is the
+    // LAST member of its folder, materialise the section's whole block order
+    // into folderOrder BEFORE the removal — at this point the folder still has
+    // its last member, so its block is part of the snapshot and the frozen
+    // order is not self-contradictory. The persisted folderOrder then keeps
+    // the emptied folder's position (invariant 7) and a later new folder lands
+    // at the block tail (invariant 9).
+    const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
     if (!retired) return false;
+    if (frozen) {
+      this.persistence.schedule({ folderOrder: () => this.folderOrder });
+    }
 
     // User delete commits every persistent effect before the public fan-out:
     // once the registry entry is gone a retry cannot re-run the prune, so a

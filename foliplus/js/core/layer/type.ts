@@ -213,6 +213,12 @@ interface RegisterLayerOpts {
    *  Python normalises from the `foliplus={"zoom_range": {...}}` declaration.
    *  Absent means the author did not declare one. */
   zoomRange?: AuthorZoomRange | null;
+  /** Author's declared folder (CONFIG `data[].folder`, normalised by Python's
+   *  `normalise_folder`: NFC + trim + internal-whitespace fold; the JS side
+   *  adds the casefold when grouping). Absent/null means a root layer. This
+   *  field carries the author's display spelling — the grouping identity is
+   *  `normalizeFolderName(folder)`. */
+  folder?: string | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -443,6 +449,10 @@ interface LayerInfo {
    *  *policy* input (`inZoomRange`), never a carrier write — foliplus does not
    *  write `layer.options.minZoom/maxZoom` (see `ui/apply.ts`). */
   zoomRange?: AuthorZoomRange | null;
+  /** Author's declared folder (CONFIG `data[].folder`). Absent/null means a
+   *  root layer. Carries the author's display spelling; the grouping key is
+   *  `normalizeFolderName(folder)` (section + casefold identity). */
+  folder?: string | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
