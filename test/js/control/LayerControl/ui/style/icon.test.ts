@@ -4,13 +4,13 @@ import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { getIntent } from "#control/LayerControl/ui/intent.js";
+import { GLYPH_SETS } from "#control/LayerControl/ui/style/glyph.js";
 import {
   ICON_DIMENSION,
-  ICON_LEGEND_BUDGET,
   applyIconToLayer,
   buildIconRow,
-  commitIconField,
-  cycleIconSymbol,
+  buildMarkerIcon,
+  commitGlyph,
   layerCanIcon,
   resetLayerIcon,
 } from "#control/LayerControl/ui/style/icon.js";
@@ -21,9 +21,9 @@ import {
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
-// A marker leaf: the layer type the icon dimension owns. It carries the
-// per-feature categorical value in feature.properties and writes its icon
-// through setIcon (the duck-type the capability probe keys on).
+// A marker leaf: the layer type the icon dimension owns. It carries a
+// runtime `setIcon` (the duck-type the capability probe keys on) and an
+// `options.icon` that `setIcon` replaces in place.
 const makeMarker = (props: Record<string, unknown> = {}, icon?: unknown): any => {
   const leaf: any = {
     feature: { properties: props },
@@ -74,15 +74,59 @@ const fixtureWithMarkers = (markers: any[]) => {
 };
 
 const flushIcon = (id: string) => flushStyleDimApply(FACE.ICON, id);
-
-describe("icon dimension constants", () => {
-  it("exports a legend budget threshold so the test can pin it", () => {
-    // B2: the collapse-vs-scroll threshold must be a readable exported
-    // constant, not an inline magic number.
-    expect(ICON_LEGEND_BUDGET).toBeGreaterThan(0);
-  });
-});
-
+// A realistic author icon: the chassis a derive-based swap inherits. The
+// assertions compare the DERIVED icon's `createIcon` output against the
+// author's — className, backgroundImage/backgroundPosition, iconSize, and
+// the shadow's presence — so the derive contract is pinned at the DOM level.
+const makeAuthorIcon = (
+  opts: Partial<{
+    className: string;
+    bg: string;
+    size: [number, number];
+    markerColor: string;
+    withShadow: boolean;
+  }> = {},
+) => {
+  const cfg = {
+    className: opts.className ?? "awesome-marker",
+    bg: opts.bg ?? "url(icon.png) -24px 0",
+    size: opts.size ?? ([36, 46] as [number, number]),
+    markerColor: opts.markerColor ?? "blue",
+    withShadow: opts.withShadow ?? true,
+  };
+  const author: any = {
+    options: {
+      markerColor: cfg.markerColor,
+      className: cfg.className,
+      iconSize: cfg.size,
+      iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
+      popupAnchor: [0, -cfg.size[1]],
+    },
+    createIcon: vi.fn(() => {
+      const div = document.createElement("div");
+      div.className = cfg.className;
+      div.style.backgroundImage = cfg.bg;
+      div.style.backgroundPosition = "-24px 0";
+      div.style.width = `${cfg.size[0]}px`;
+      div.style.height = `${cfg.size[1]}px`;
+      div.innerHTML = '<i class="fa fa-map-marker"></i>';
+      return div;
+    }),
+    _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
+      // Real L.Icon._setIconStyles appends options.className — the author
+      // sprite class must survive the derived chassis swap.
+      div.className = `${name} ${cfg.className}`.trim();
+    }),
+    createShadow: cfg.withShadow
+      ? vi.fn(() => {
+          const sh = document.createElement("div");
+          sh.className = "awesome-marker-shadow";
+          return sh;
+        })
+      : undefined,
+  };
+  return author;
+};
 describe("layerCanIcon", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -122,16 +166,57 @@ describe("layerCanIcon", () => {
     expect(layerCanIcon(ui, "g1")).toBe(false);
   });
 });
+describe("buildMarkerIcon", () => {
+  it("derives from the author and swaps only the inner symbol", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
+    expect(derived).not.toBe(author);
+    expect(Object.getPrototypeOf(derived)).toBe(author);
 
+    const div = derived.createIcon();
+    const authorDiv = author.createIcon();
+    // className / background / size stay pixel-identical (chassis verbatim).
+    expect(div.className).toBe(authorDiv.className);
+    expect(div.style.backgroundImage).toBe(authorDiv.style.backgroundImage);
+    expect(div.style.backgroundPosition).toBe(authorDiv.style.backgroundPosition);
+    expect(div.style.width).toBe(authorDiv.style.width);
+    expect(div.style.height).toBe(authorDiv.style.height);
+    // The inner slot is OUR glyph, not the author's <i>.
+    expect(div.querySelector(".foliplus-marker-glyph")).not.toBeNull();
+    expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<svg");
+    expect(div.innerHTML).not.toContain("fa fa-map-marker");
+    // The shadow presence is identical (both true here).
+    const shadow = derived.createShadow?.();
+    expect(!!shadow).toBe(!!author.createShadow?.());
+  });
+
+  it("keeps the shadow absence identical when the author has none", () => {
+    const author = makeAuthorIcon({ withShadow: false });
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    expect(derived.createShadow).toBeUndefined();
+    expect(author.createShadow).toBeUndefined();
+  });
+
+  it("returns the author unchanged when it is not a Leaflet icon", () => {
+    const author = { html: "raw" };
+    expect(buildMarkerIcon({ author, glyph: "circle" })).toBe(author);
+  });
+
+  it("falls back to the circle glyph for an unknown name", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "nope" }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<circle");
+  });
+});
 describe("buildIconRow", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
     ({ manager, ui } = fixtureWithMarkers([
-      makeMarker({ type: "school" }),
-      makeMarker({ type: "hospital" }),
-      makeMarker({ type: "park" }),
+      makeMarker({ type: "school" }, makeAuthorIcon()),
+      makeMarker({ type: "hospital" }, makeAuthorIcon()),
     ]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
@@ -147,100 +232,67 @@ describe("buildIconRow", () => {
     expect(buildIconRow(ui, "nope")).toBeNull();
   });
 
-  it("renders the field select and one legend row per category", () => {
+  it("shows the author-original label when no glyph is chosen", () => {
     const row = buildIconRow(ui, "overlay1");
     expect(row).not.toBeNull();
-    const select = row!.querySelector("select") as HTMLSelectElement;
-    expect(select).not.toBeNull();
-    // The field picker lists the layer's categorical field names (the
-    // property keys), so the three markers sharing the "type" key yield one.
-    expect(select.options.length).toBe(1);
-    expect(select.options[0]?.value).toBe("type");
-    // The legend renders one row per distinct category value.
-    const legendRows = row!.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_LEGEND_ROW}`);
-    expect(legendRows.length).toBe(3);
+    const trigger = row!.querySelector(`.${CONST.CLASSES.STYLE_ICON_TRIGGER}`)!;
+    expect(trigger.textContent).toContain(ui.T("style_icon_original"));
+    expect(trigger.querySelector(".foliplus-marker-glyph")).toBeNull();
   });
 
-  it("renders the empty state when no categorical field exists", () => {
-    const { manager: m2, ui: u2 } = fixtureWithMarkers([
-      makeMarker({}),
-      makeMarker({}),
-    ]);
-    const row = buildIconRow(u2, "overlay1");
-    expect(row).not.toBeNull();
-    expect(row!.querySelector(`.${CONST.CLASSES.STYLE_ICON_EMPTY}`)).not.toBeNull();
-    m2?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
-  it("shows a collapse toggle past the legend budget and expands in place", () => {
-    // Over ICON_LEGEND_BUDGET categories: the list scrolls and the toggle
-    // swaps the expanded class + its own label.
-    const markers = Array.from({ length: ICON_LEGEND_BUDGET + 3 }, (_, i) =>
-      makeMarker({ type: `c${i}` }),
-    );
-    const { manager: m2, ui: u2 } = fixtureWithMarkers(markers);
-    const row = buildIconRow(u2, "overlay1");
-    const toggle = row!.querySelector(
-      `.${CONST.CLASSES.STYLE_ICON_LEGEND_TOGGLE}`,
-    ) as HTMLButtonElement;
-    expect(toggle).not.toBeNull();
-    // The fixture's translator falls back to the key, so the toggle's label
-    // is not asserted verbatim; the behaviour (expand in place) is.
-    const list = row!.querySelector(
-      `.${CONST.CLASSES.STYLE_ICON_LEGEND_LIST}`,
+  it("opens a grid of every glyph on trigger click and applies a selection", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
-      false,
-    );
-    toggle.click();
-    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
-      true,
-    );
-    toggle.click();
-    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
-      false,
-    );
-    m2?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    expect(grid).not.toBeNull();
+    const cells = grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    expect(cells.length).toBe(GLYPH_SETS.length);
+    // Choose a glyph: it writes the intent and closes.
+    (cells[0] as HTMLElement).click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    const intent = getIntent(ui, "overlay1", DIM.ICON);
+    expect(intent).toEqual({ kind: "glyph", value: GLYPH_SETS[0].name });
   });
 
-  it("renders an empty preview for an author-kind mapping entry", () => {
-    // A mapping value that keeps the author's icon has no symbol SVG, so the
-    // legend row's preview is an empty string (the defensive fallback).
-    const { manager: m2, ui: u2 } = fixtureWithMarkers([
-      makeMarker({ type: "school" }),
-      makeMarker({ type: "hospital" }),
-    ]);
-    writeIntentKeys(u2, "overlay1", [
-      [
-        DIM.ICON,
-        { field: "type", mapping: { school: { kind: "author", value: "inline" } } },
-      ],
-    ]);
-    const row = buildIconRow(u2, "overlay1");
-    expect(row).not.toBeNull();
-    expect(
-      row!.querySelector(`.${CONST.CLASSES.STYLE_ICON_LEGEND_LIST}`),
-    ).not.toBeNull();
-    m2?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
+  it("highlights the current glyph cell", () => {
+    writeIntentKeys(ui, "overlay1", [[DIM.ICON, { kind: "glyph", value: "star" }]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const selected = grid.querySelector(`.${CONST.CLASSES.STYLE_ICON_CELL_SELECTED}`);
+    expect(selected).not.toBeNull();
+    expect(selected?.getAttribute("data-glyph")).toBe("star");
+  });
+
+  it("closes on Escape and returns focus to the trigger", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    expect(grid).not.toBeNull();
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
   });
 });
-
-describe("applyIconToLayer", () => {
+describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
   let ui: LayerUI;
   let school: any;
-  let hospital: any;
+  let authorIcon: any;
 
   beforeEach(() => {
-    school = makeMarker({ type: "school" });
-    hospital = makeMarker({ type: "hospital" });
-    ({ manager, ui } = fixtureWithMarkers([school, hospital]));
+    authorIcon = makeAuthorIcon();
+    school = makeMarker({ type: "school" }, authorIcon);
+    ({ manager, ui } = fixtureWithMarkers([school]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -251,51 +303,37 @@ describe("applyIconToLayer", () => {
     vi.useRealTimers();
   });
 
-  it("commits the field and writes a symbol per category", () => {
-    commitIconField(ui, "overlay1", "type");
+  it("commit writes the intent and schedules an apply", () => {
+    commitGlyph(ui, "overlay1", "map-pin");
+    const intent = getIntent(ui, "overlay1", DIM.ICON);
+    expect(intent).toEqual({ kind: "glyph", value: "map-pin" });
     flushIcon("overlay1");
-    const config = getIntent(ui, "overlay1", DIM.ICON);
-    expect(config?.field).toBe("type");
-    expect(Object.keys(config?.mapping ?? {}).sort()).toEqual(["hospital", "school"]);
     expect(school.setIcon).toHaveBeenCalled();
-    expect(hospital.setIcon).toHaveBeenCalled();
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    expect(Object.getPrototypeOf(written)).toBe(authorIcon);
   });
 
-  it("applies a mapping derived from the layer's categories", () => {
-    const config = getIntent(ui, "overlay1", DIM.ICON);
-    expect(config).toBeUndefined();
+  it("apply is a no-op without a glyph intent", () => {
     applyIconToLayer(ui, "overlay1");
-    // No intent yet: the apply is a no-op, so the author icons are untouched.
     expect(school.setIcon).not.toHaveBeenCalled();
-    expect(hospital.setIcon).not.toHaveBeenCalled();
+    expect(school.options.icon).toBe(authorIcon);
   });
 
-  it("reset restores the authored icon", () => {
-    const authorIcon = { html: "author", className: "author" };
-    school = makeMarker({ type: "school" }, authorIcon);
-    hospital = makeMarker({ type: "hospital" }, authorIcon);
-    ({ manager, ui } = fixtureWithMarkers([school, hospital]));
-    commitIconField(ui, "overlay1", "type");
+  it("reset restores the authored icon and drops the intent", () => {
+    commitGlyph(ui, "overlay1", "star");
     flushIcon("overlay1");
-    expect(school.setIcon).toHaveBeenCalled();
+    expect(school.options.icon).not.toBe(authorIcon);
     resetLayerIcon(ui, "overlay1");
     flushIcon("overlay1");
     expect(school.options.icon).toBe(authorIcon);
-    expect(hospital.options.icon).toBe(authorIcon);
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
-  it("cycles a category's symbol to the next shape on each call", () => {
-    commitIconField(ui, "overlay1", "type");
-    cycleIconSymbol(ui, "overlay1", "type", "school");
-    const first = getIntent(ui, "overlay1", DIM.ICON);
-    const firstValue = first?.mapping?.school?.value as string;
-    expect(firstValue).toBeTruthy();
-    cycleIconSymbol(ui, "overlay1", "type", "school");
-    const second = getIntent(ui, "overlay1", DIM.ICON);
-    expect(second?.mapping?.school?.value).not.toBe(firstValue);
+  it("reset skips a missing layer without throwing", () => {
+    expect(() => resetLayerIcon(ui, "nope")).not.toThrow();
   });
 });
-
 describe("icon dimension descriptor", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -320,17 +358,11 @@ describe("icon dimension descriptor", () => {
   });
 
   it("value / write / valueSource / contentChange wire the intent slot", () => {
-    // The descriptor is the panel's entry point; the row tests cover the
-    // row builder, and this covers the write + provenance face that the
-    // panel invokes on a commit.
     const config = ICON_DIMENSION.value!(ui, "overlay1");
-    expect(config?.field).toBe("type");
-    ICON_DIMENSION.write!(ui, "overlay1", {
-      field: "type",
-      mapping: { school: { kind: "symbol", value: "circle" } },
-    });
+    expect(config).toBeUndefined();
+    ICON_DIMENSION.write!(ui, "overlay1", { kind: "glyph", value: "map-pin" });
     const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent?.field).toBe("type");
+    expect(intent).toEqual({ kind: "glyph", value: "map-pin" });
     expect(ICON_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
     expect(getDimension(DIM.ICON)?.valueSource!(ui, "overlay1")).toBe("user");
     const policy = ICON_DIMENSION.contentChange;
@@ -340,192 +372,18 @@ describe("icon dimension descriptor", () => {
     } else {
       throw new Error("expected a frame policy");
     }
-    // row + reset are the descriptor's remaining faces; the panel calls them
-    // when it renders the row and the user presses Reset.
     expect(ICON_DIMENSION.row!(ui, "overlay1")).not.toBeNull();
-    ICON_DIMENSION.reset!(ui, "overlay1");
-    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
-  it("valueSource reports author before a write, none for a non-icon layer, and reset of an unknown layer is a no-op", () => {
-    // Fresh fixture: no user intent yet -> the provenance arm is the author.
+  it("reports author provenance before any user write", () => {
     expect(ICON_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
-    // A polygon layer cannot carry a marker icon -> the dimension is inert.
-    manager.registerLayer({
-      id: "p1",
-      name: "P",
-      role: "overlay",
-      layer: makePoly(),
-    });
-    expect(ICON_DIMENSION.valueSource!(ui, "p1")).toBe("none");
-    // Resetting a layer outside the registry returns before any walk.
-    expect(() => resetLayerIcon(ui, "nope")).not.toThrow();
   });
 
-  it("commits the chosen field from the picker's change event", () => {
-    const row = buildIconRow(ui, "overlay1");
-    const select = row!.querySelector("select") as HTMLSelectElement;
-    select.value = "type";
-    select.dispatchEvent(new Event("change"));
-    const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent?.field).toBe("type");
-  });
-});
-describe("icon dimension defensive branches", () => {
-  let manager: LayerController;
-  let ui: LayerUI;
-
-  beforeEach(() => {
-    ({ manager, ui } = fixtureWithMarkers([
-      makeMarker({ type: "school" }),
-      makeMarker({ type: "hospital" }),
-    ]));
-    window.localStorage.removeItem(CONST.STORAGE.KEY);
-  });
-
-  afterEach(() => {
-    manager?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-    vi.useRealTimers();
-  });
-
-  it("skips a non-icon leaf and leaves without a usable feature or value", () => {
-    // L95 (feature without properties -> props falsy), L186 (non-icon leaf),
-    // L188 (null / absent field value), L192 (author-kind -> no symbol icon).
-    const school = makeMarker({ type: "school" });
-    const noProps = { feature: {}, options: { icon: undefined }, setIcon: vi.fn() };
-    const nullValue = makeMarker({ type: null });
-    const noType = makeMarker({});
-    const authorValue = makeMarker({ type: "park" });
-    const poly = makePoly();
-    const layer = makeMarkerGroup(
-      school,
-      noProps,
-      nullValue,
-      noType,
-      authorValue,
-      poly,
-    );
+  it("reports none for a layer that cannot carry icons", () => {
     const { manager: m2, ui: u2 } = initFixture({
-      data: [{ id: "mix1", name: "M", role: "overlay", layer }, BASE_LAYER],
+      data: [{ id: "p1", name: "P", role: "overlay", layer: makePoly() }, BASE_LAYER],
     });
-    writeIntentKeys(u2, "mix1", [
-      [
-        DIM.ICON,
-        {
-          field: "type",
-          mapping: {
-            school: { kind: "symbol", value: "circle" },
-            park: { kind: "author", value: "inline" },
-          },
-        },
-      ],
-    ]);
-    applyIconToLayer(u2, "mix1");
-    // Only the symbol-mapped school marker writes; every other leaf is skipped.
-    expect(school.setIcon).toHaveBeenCalledTimes(1);
-    expect((noProps as { setIcon: unknown }).setIcon).not.toHaveBeenCalled();
-    expect(nullValue.setIcon).not.toHaveBeenCalled();
-    expect(noType.setIcon).not.toHaveBeenCalled();
-    // author-kind maps to no built icon (L192 returns before capture).
-    expect(authorValue.setIcon).not.toHaveBeenCalled();
-    expect(poly.setStyle).not.toHaveBeenCalled();
-    m2?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
-  it("bails on a layer outside the registry for apply and commit", () => {
-    // L184 (applyIconToLayer no layer — reach it with a stored intent so the
-    // apply clears the intent gate first), L211 (commitIconField no layer).
-    writeIntentKeys(ui, "nope", [[DIM.ICON, { field: "type", mapping: {} }]]);
-    expect(() => applyIconToLayer(ui, "nope")).not.toThrow();
-    expect(() => commitIconField(ui, "nope", "type")).not.toThrow();
-  });
-
-  it("cycles from the fallback config and wraps a non-symbol entry", () => {
-    // L226 (getIntent ?? fallback): no stored intent -> the fallback config
-    // is used, and the absent current maps to -1 -> wraps to shape 0.
-    cycleIconSymbol(ui, "overlay1", "type", "school");
-    let intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent?.mapping?.school?.value).toBe("circle");
-    // L229 (non-symbol current -> -1 -> wraps): an author-kind entry is not
-    // a symbol, so the cycle wraps to the first shape too.
-    writeIntentKeys(ui, "overlay1", [
-      [
-        DIM.ICON,
-        {
-          field: "type",
-          mapping: { school: { kind: "author", value: "inline" } },
-        },
-      ],
-    ]);
-    cycleIconSymbol(ui, "overlay1", "type", "school");
-    intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent?.mapping?.school?.value).toBe("circle");
-  });
-
-  it("keeps the authored icon stable across a re-apply", () => {
-    // A second apply re-encounters an already-captured leaf: the
-    // authorIcon.has early return (L107) keeps the authored icon the
-    // capture source, so Reset restores it (not the symbol written on the
-    // first apply). The fresh-icon-per-call rule also means L194's
-    // already-same-icon return is never taken (the icon is rebuilt), so this
-    // test pins the stable-capture behaviour instead.
-    const authorIcon = { html: "author", className: "author" };
-    const school = makeMarker({ type: "school" }, authorIcon);
-    const { manager: m2, ui: u2 } = fixtureWithMarkers([school]);
-    writeIntentKeys(u2, "overlay1", [
-      [
-        DIM.ICON,
-        { field: "type", mapping: { school: { kind: "symbol", value: "circle" } } },
-      ],
-    ]);
-    applyIconToLayer(u2, "overlay1");
-    expect(school.options.icon).not.toBe(authorIcon);
-    applyIconToLayer(u2, "overlay1");
-    resetLayerIcon(u2, "overlay1");
-    flushIcon("overlay1");
-    expect(school.options.icon).toBe(authorIcon);
-    m2?.debouncedEnforce?.cancel?.();
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
-  it("renders the symbol SVG as the legend preview", () => {
-    // L279 (html string arm): the L.divIcon test mock returns {} by default,
-    // so the other legend tests exercise the defensive `: ""` fallback arm.
-    // Override the mock to return a string html to pin the real arm.
-    const leaflet = (globalThis as any).L;
-    const savedDivIcon = leaflet.divIcon;
-    leaflet.divIcon = vi.fn(() => ({ options: { html: "<svg>sym</svg>" } }));
-    try {
-      const row = buildIconRow(ui, "overlay1");
-      expect(row).not.toBeNull();
-      expect(row!.innerHTML).toContain("<svg>sym</svg>");
-    } finally {
-      leaflet.divIcon = savedDivIcon;
-    }
-  });
-
-  it("falls back to an empty config for a stale layer id", () => {
-    // L143 (registry miss -> findLayer fallback), L144 (no layer -> []),
-    // L169 (empty field -> ?? "") and L170 (!layer arm -> fallback). A stale
-    // id is an ordinary state (a removed layer), not a malformed one.
-    const config = ICON_DIMENSION.value!(ui, "stale-id");
-    expect(config).toEqual({ field: "", mapping: {} });
-  });
-
-  it("falls back to an empty config for a layer with no categorical field", () => {
-    // L169 (empty field -> ?? "") and L170 (!field arm -> fallback): a
-    // registered layer whose leaves carry no classifiable property.
-    const layer = makeMarkerGroup(makeMarker({}), makeMarker({}));
-    const { manager: m2, ui: u2 } = initFixture({
-      data: [{ id: "empty1", name: "E", role: "overlay", layer }, BASE_LAYER],
-    });
-    const config = ICON_DIMENSION.value!(u2, "empty1");
-    expect(config).toEqual({ field: "", mapping: {} });
+    expect(ICON_DIMENSION.valueSource!(u2, "p1")).toBe("none");
     m2?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();

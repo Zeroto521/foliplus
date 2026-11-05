@@ -149,12 +149,14 @@ class TestLayerControlBrowser:
         )
 
     def test_style_icon_dimension_swaps_marker_dom_class(self, browser, tmp_path):
-        """The icon row drives real markers: each category gets its symbol class.
+        """The icon row drives real markers: one whole-layer glyph swap.
 
-        The vitest layer proves setIcon receives the divIcon descriptor; this
-        crosses into the real Leaflet runtime to prove the marker's DOM element
-        actually carries `foliplus-marker-symbol--<shape>` for every shape in
-        the legend budget, and that Reset drops it back to the author icon.
+        The vitest layer proves setIcon receives the derived icon descriptor;
+        this crosses into the real Leaflet runtime to prove the marker's DOM
+        element actually carries `.foliplus-marker-glyph` for every marker on
+        the layer after one grid pick, that the derived chassis (className /
+        backgroundImage / backgroundPosition / iconSize) is pixel-identical to
+        the author baseline, and that Reset drops it back to the author icon.
         """
         with use_page(
             self._make_page,
@@ -166,20 +168,32 @@ class TestLayerControlBrowser:
             self._open_style_ramp(page)
             before = page.evaluate(_js("LayerControl/icon_dimension_probe"), [])
             assert before["panel"] and before["iconRow"], before
-            assert all(not icon["hasSymbolClass"] for icon in before["icons"]), (
-                f"markers already carry a symbol before the write: {before}"
+            assert all(not icon["hasGlyph"] for icon in before["icons"]), (
+                f"markers already carry a glyph before the write: {before}"
             )
 
-            written = page.evaluate(_js("LayerControl/icon_dimension_probe"), ["kind"])
-            assert written["fieldValue"] == "kind", written
-            symbols = {icon["symbol"] for icon in written["icons"]}
-            # Eight distinct categories -> the eight curated shapes all appear.
-            assert len(symbols) == 8, f"expected 8 shapes, got {symbols}: {written}"
+            written = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), ["map-pin"]
+            )
+            assert written["derivedMatchesAuthor"], (
+                f"derived chassis drifted from author: {written}"
+            )
+            assert written["icons"], "no marker icons read"
+            assert all(icon["hasGlyph"] for icon in written["icons"]), (
+                f"not every marker carries the glyph after the write: {written}"
+            )
+            # All markers share the SAME whole-layer glyph inner HTML.
+            svgs = {icon["glyphSvg"] for icon in written["icons"]}
+            assert len(svgs) == 1, f"glyph svg is not uniform: {written}"
+            assert svgs and next(iter(svgs)), f"empty glyph svg: {written}"
 
             reset = page.evaluate(
                 _js("LayerControl/icon_dimension_probe"), [None, True]
             )
-            assert all(not icon["hasSymbolClass"] for icon in reset["icons"]), (
+            assert reset["derivedMatchesAuthor"], (
+                f"Reset did not restore the author icon pixel-identical: {reset}"
+            )
+            assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
                 f"Reset did not restore the author icon: {reset}"
             )
             assert not errors, errors
