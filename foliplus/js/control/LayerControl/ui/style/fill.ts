@@ -20,12 +20,12 @@
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
-import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import {
-  dropdownSurface,
-  fullscreenSurface,
-  onFullscreenSurfaceChange,
-} from "#core/fullscreen.js";
+  categoricalPropertiesKeys,
+  inferFieldKind,
+  numericPropertiesKeys,
+  resolveField,
+} from "#core/field.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
@@ -33,23 +33,27 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
-import { dropdownOf } from "#common/dropdown.js";
 import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#common/fullscreen.js";
+import { createLogger } from "#common/log.js";
+import {
+  type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
+  createSchemePicker,
+  dropdownOf,
   colorInput as formColorInput,
   formRow,
   inlineControls,
   normalizeHexColor,
   numberInput,
-} from "#common/form.js";
-import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
-import { readOnlyValue } from "#ui/index.js";
+  readOnlyValue,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import {
-  type DeclaredFill,
-  readDeclaredFill,
-} from "#control/LayerControl/declaredFill.js";
+import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -79,6 +83,8 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+
+const log = createLogger("foliplus");
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
@@ -515,23 +521,31 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   //
   // The method readout is honest to the record. A continuous scale is a
   // LinearColormap — the default explore mapping, an equally spaced interval
-  // ramp — and states Equal Interval. A stepped scale (the author passed a
-  // scheme whose breaks the classification chose) has no recorded method here,
-  // so the readout states a dash rather than guessing; a categorical layer (no
-  // paired scale) uses the same dash. The row always renders so the arm stays
-  // aligned with the by-value grid.
+  // ramp — and states Equal Interval. A stepped scale states Equal Interval
+  // only when the record proves it (``method: "equal"`` — the breaks are
+  // equally spaced, see ``_fill_author.provable_equal_interval``); a stepped
+  // scale whose method is null or absent (quantiles/jenks/heads are not
+  // provable from the breaks alone) states a dash rather than guessing. A
+  // categorical layer (no paired scale) uses the same dash. The row always
+  // renders so the arm stays aligned with the by-value grid.
   // The two readouts stay distinguishable to assistive tech the way the
   // by-value selects do (the classes row keeps its own aria-labels): the
   // method box is named by the method label, the count box by the class-count
   // label. Both are readouts, never controls — the aria-label describes the
   // value, not an action.
+  // The recorded method is what Python proved from the shipped breaks; the
+  // continuous arm keeps its own honest Equal Interval (a LinearColormap is
+  // an interval ramp by construction). A stepped scale reads "Equal
+  // Interval" only when the record carries method: "equal", else the dash.
   const methodBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
     { role: "group" },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-      author?.scale?.kind === "continuous" ? methodLabel(ui, METHOD.EQUAL) : "—",
+      author?.scale?.kind === "continuous" || author?.scale?.method === METHOD.EQUAL
+        ? methodLabel(ui, METHOD.EQUAL)
+        : "—",
     ),
   );
   // A bare div is a generic role: Chromium does expose the aria-label on it,
@@ -567,13 +581,24 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
-  kind: "numeric",
-  field: ramp.field,
-  method: ramp.method,
-  classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
-  scheme: ramp.scheme,
-});
+const persistedRamp = (ramp: FillRampConfig): FillRampConfig =>
+  ramp.kind === "category"
+    ? {
+        kind: "category",
+        field: ramp.field,
+        // method/classes are type-required (the union stays assignable to
+        // the numeric RampConfig) but unused at runtime on a category.
+        method: ramp.method,
+        classes: ramp.classes,
+        scheme: ramp.scheme,
+      }
+    : {
+        kind: "numeric",
+        field: ramp.field,
+        method: ramp.method,
+        classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
+        scheme: ramp.scheme,
+      };
 
 /** The scheme picker owned by the open style panel. It installs
  *  document-level listeners while its listbox is open, so the panel must
@@ -611,11 +636,29 @@ const numericFields = (ui: LayerUI, layerId: string): string[] => {
   return layer ? numericPropertiesKeys(layer) : [];
 };
 
+/** Categorical field names offered by the category fill arm. Same cache
+ *  source as the numeric arm — the annotation panel field cache first, a
+ *  tree walk as the fallback — so a layer whose cache has not been
+ *  populated yet still sees its categorical columns. */
+const categoryFields = (ui: LayerUI, layerId: string): string[] => {
+  const cached = layerFields(ui, layerId)
+    .filter(field => !field.numeric)
+    .map(field => field.name);
+  if (cached.length > 0) return cached;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as L.Layer | null;
+  return layer ? categoricalPropertiesKeys(layer) : [];
+};
+
 /** Resolve a stored ramp config's field against the fields the layer offers
  *  right now. Display (`rampForUi`), the dimension's value and the paint path
  *  all go through this, so a stale stored name cannot make the panel show one
  *  column while the map paints by the author's face. The stored record keeps
- *  its name until the next write — the column may come back. */
+ *  its name until the next write — the column may come back. The candidate
+ *  list follows the ramp kind: a category ramp resolves against the
+ *  categorical columns, a numeric ramp against the numeric ones — the kind
+ *  is part of the record, so a same-named column in the other set must not
+ *  be re-pointed at. */
 const resolvedRamp = (
   ui: LayerUI,
   layerId: string,
@@ -623,7 +666,39 @@ const resolvedRamp = (
 ): FillRampConfig | undefined =>
   ramp === undefined
     ? undefined
-    : { ...ramp, field: resolveField(ramp.field, numericFields(ui, layerId)) };
+    : {
+        ...ramp,
+        field: resolveField(
+          ramp.field,
+          (ramp.kind ?? "numeric") === "category"
+            ? categoryFields(ui, layerId)
+            : numericFields(ui, layerId),
+        ),
+      };
+
+/** One-time inference-drop warnings, keyed by layer:field so a declaration
+ *  re-read (apply / panel / Reset) does not repeat the line. The inference
+ *  result itself is cached in core/field.ts (declaration-lifetime, not
+ *  re-inferred on contentChange); this only dedups the message. */
+const inferredKindWarned = new Set<string>();
+
+/** Warn once that a declaration was dropped because its field cannot drive a
+ *  single fill kind — the values mix number and category kinds ("mixes"), or
+ *  no usable value exists to infer the kind from (all null / no feature). */
+const warnDeclaredFillInference = (
+  layerId: string,
+  field: string,
+  inferred: "mixed" | "empty",
+): void => {
+  const scope = `${layerId}:${field}`;
+  if (inferredKindWarned.has(scope)) return;
+  inferredKindWarned.add(scope);
+  log.warn(
+    inferred === "mixed"
+      ? `declared fill: field "${field}" on layer "${layerId}" mixes number and category values; dropping the declaration`
+      : `declared fill: no usable value to infer the fill kind from field "${field}" on layer "${layerId}"; dropping the declaration`,
+  );
+};
 
 /** The author's fill declaration in force on this layer, or undefined.
  *
@@ -634,18 +709,52 @@ const resolvedRamp = (
  *  field vanished is not silently re-pointed at another column; the whole
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined => {
+const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  const declared = readDeclaredFill(
-    layerInfo?.layer ?? ui.c.findLayer(layerId),
-    layerId,
-  ).declared;
-  if (!declared?.ramp) return declared;
-  return numericFields(ui, layerId).includes(declared.ramp.field)
-    ? declared
-    : undefined;
+  const layer = layerInfo?.layer ?? ui.c.findLayer(layerId);
+  const declared = readDeclaredFill(layer, layerId).declared;
+  if (!declared) return undefined;
+  // Resolve the arm kind. An explicit kind is the author's override and is
+  // never re-inferred (the parse layer already validated it against its
+  // scheme); an absent kind is inferred from the layer's own values — a
+  // declaration is a read-time default, so the data is the truth about which
+  // arm the values can drive. A field that cannot drive one kind (mixed
+  // number/category values) or drives none (all null / no feature) drops the
+  // declaration whole rather than painting one arm over a mismatched column.
+  let config: FillRampConfig = declared;
+  if (declared.kind === undefined) {
+    const inferred = inferFieldKind(layer, declared.field);
+    if (inferred === "mixed" || inferred === "empty") {
+      warnDeclaredFillInference(layerId, declared.field, inferred);
+      return undefined;
+    }
+    config =
+      inferred === "category"
+        ? {
+            ...declared,
+            kind: "category",
+            // An inferred categorical column needs a qualitative palette. The
+            // author who named none gets the category default; a named scheme
+            // is the author's choice and is kept verbatim on either arm.
+            scheme:
+              declared.scheme === CONST.RAMP.SCHEME_DEFAULT
+                ? CONST.RAMP.CATEGORY_SCHEME_DEFAULT
+                : declared.scheme,
+          }
+        : { ...declared, kind: "numeric" };
+  }
+  // The declaration kind selects the candidate set: a category ramp
+  // needs its column among the categorical fields, a numeric ramp among
+  // the numeric ones. A declaration whose field vanished from the matching
+  // set is not re-pointed — the whole declaration steps aside, same as a
+  // numeric declaration whose column is gone.
+  const fields =
+    (config.kind ?? "numeric") === "category"
+      ? categoryFields(ui, layerId)
+      : numericFields(ui, layerId);
+  return fields.includes(config.field) ? config : undefined;
 };
 
 /** A fill ramp the layer *declares* from Python (#789).
@@ -656,10 +765,8 @@ const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined =>
  *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
-  const declared = declaredFill(ui, layerId);
-  return declared?.mode === "ramp" ? declared.ramp : undefined;
-};
+const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined =>
+  declaredFill(ui, layerId);
 
 /** The ramp config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared ramp. */
@@ -671,8 +778,8 @@ const effectiveFillRamp = (ui: LayerUI, layerId: string): FillRampConfig | undef
 const hasDeclaredRamp = (ui: LayerUI, layerId: string): boolean => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   return (
-    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared
-      ?.mode === "ramp"
+    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared !==
+    undefined
   );
 };
 
@@ -857,8 +964,8 @@ const buildRampDetail = (
   });
   // The author palette may have more classes than the picker vocabulary
   // offers: show that count as its own option so the row states the class
-  // count the author actually used. The first user pick replaces it with a
-  // normal 2..9 value.
+  // count the author drew. The first user pick replaces it with a normal
+  // 2..9 value.
   if (!CLASS_COUNT_VALUES.includes(ramp.classes)) {
     const option = document.createElement("option");
     option.value = String(ramp.classes);
@@ -1240,7 +1347,7 @@ const replayDeclaredFill = (ui: LayerUI, id: string): void => {
   for (const key of FILL_INTENT_KEYS) {
     if (getIntent(ui, id, key) !== undefined) return;
   }
-  if (declaredFill(ui, id)?.mode !== "ramp") return;
+  if (declaredFill(ui, id) === undefined) return;
   let painted = declaredReplayed.get(ui);
   if (painted?.has(id)) return;
   applyFillToLayer(ui, id);
@@ -1264,7 +1371,7 @@ const replayFillState = (ui: LayerUI, id: string): void => {
   // No user intent: an author-declared ramp still has to reach the map on
   // attach — a declaration is a read-time default, not a stored override, so
   // nothing else replays it and the map would open on the per-feature paint.
-  if (declaredFill(ui, id)?.mode === "ramp") applyFillToLayer(ui, id);
+  if (declaredFill(ui, id) !== undefined) applyFillToLayer(ui, id);
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -1326,7 +1433,7 @@ const FILL_DIMENSION = registerDimension<{
     // The declaration is Reset's target too: clearing the user's intent must
     // reveal the author's declared ramp, not the per-feature paint beneath
     // it. Applying here reads the declaration from the layer (no intent left).
-    if (declaredFill(ui, layerId)?.mode === "ramp") {
+    if (declaredFill(ui, layerId) !== undefined) {
       applyFillToLayer(ui, layerId);
       return;
     }

@@ -23,12 +23,18 @@ type LayerData = {
     scale?: {
       kind: "continuous" | "stepped";
       column?: string;
-      vmin: number;
-      vmax: number;
+      vmin?: number;
+      vmax?: number;
       levels?: number;
+      method?: "equal" | null;
     };
   };
   zoomRange?: { min: number; max: number };
+  /** Author's declared folder (per-layer, emitted by control.py from the
+   *  author's `foliplus={"folder": ...}` declaration). Not a CONFIG field:
+   *  the schema generator covers CONFIG fields only, so this per-layer
+   *  runtime payload is declared here by hand. */
+  folder?: string | null;
 }[];
 type ProviderConfig = {
   id: string;

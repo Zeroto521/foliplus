@@ -7,9 +7,13 @@
 // shared contract matrix below, which drives every surface the engine owns.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildFieldRow } from "#core/rampForm.js";
-import { type Dropdown, createDropdown } from "#common/dropdown.js";
-import { type DropdownSurface, createListbox } from "#common/listbox.js";
-import { createSchemePicker } from "#common/schemePicker.js";
+import {
+  type Dropdown,
+  type DropdownSurface,
+  createDropdown,
+  createListbox,
+  createSchemePicker,
+} from "#ui/index.js";
 
 const cleanup: (() => void)[] = [];
 
@@ -318,6 +322,7 @@ describe("listbox engine: bare shape and edge states", () => {
       multiple?: boolean;
       selected?: readonly string[];
       triggerParent?: "attached" | "detached";
+      ownDismiss?: boolean;
     } = {},
   ) => {
     const trigger = document.createElement("button");
@@ -337,6 +342,7 @@ describe("listbox engine: bare shape and edge states", () => {
       items: () => items,
       selected: () => opts.selected ?? [],
       multiple: opts.multiple ?? false,
+      ownDismiss: opts.ownDismiss,
       shape: {
         rowTag: "button",
         dataKey: "data-value",
@@ -418,6 +424,19 @@ describe("listbox engine: bare shape and edge states", () => {
     const { listbox } = makeBare([{ value: "a", label: "Alpha" }]);
     expect(() => listbox.refresh()).not.toThrow();
     expect(listbox.getList()?.querySelectorAll(".bare-row").length).toBe(0);
+  });
+
+  it("refresh while open keeps the trigger focused", () => {
+    const { trigger, listbox } = makeBare([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    listbox.open();
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+    listbox.refresh();
+    expect(listbox.isOpen()).toBe(true);
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("trigger click toggles open and closed", () => {
@@ -508,6 +527,20 @@ describe("listbox engine: bare shape and edge states", () => {
     expect(first.isOpen()).toBe(false);
   });
 
+  it("opening a second listbox with ownDismiss closes the first (once-at-a-time)", () => {
+    const { listbox: first } = makeBare([{ value: "a", label: "Alpha" }], {
+      ownDismiss: true,
+    });
+    const { listbox: second } = makeBare([{ value: "b", label: "Beta" }], {
+      ownDismiss: true,
+    });
+    first.open();
+    expect(first.isOpen()).toBe(true);
+    second.open();
+    expect(second.isOpen()).toBe(true);
+    expect(first.isOpen()).toBe(false);
+  });
+
   it("scroll on the list itself does not crash reposition", () => {
     const { listbox } = makeBare([{ value: "a", label: "Alpha" }]);
     listbox.open();
@@ -524,6 +557,26 @@ describe("listbox engine: bare shape and edge states", () => {
     expect(listbox.isOpen()).toBe(false);
     // Firing the surface callback after close must be a no-op.
     expect(() => surfaceCbs[0]()).not.toThrow();
+  });
+
+  it("closed list leaves no visible DOM and ignores key presses on it", () => {
+    const { listbox } = makeBare([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    listbox.open();
+    const list = listbox.getList()!;
+    expect(list.querySelectorAll(".bare-row").length).toBe(2);
+    listbox.close();
+    expect(listbox.isOpen()).toBe(false);
+    // The closed list is hidden — no lingering visible DOM.
+    expect(list.hidden).toBe(true);
+    // A key press on the hidden list neither activates a row nor re-renders.
+    list.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).not.toBe(list.querySelector(".bare-row"));
+    expect(list.querySelectorAll(".bare-row").length).toBe(2);
   });
 
   it("End after the items array grew hits the stale-row guard without crashing", () => {

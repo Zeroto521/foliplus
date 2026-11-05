@@ -11,7 +11,7 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._layer_declaration import declared_zoom_range
+from ._layer_declaration import declared_folder, declared_zoom_range
 
 
 class LayerControl(BaseControl):
@@ -24,7 +24,8 @@ class LayerControl(BaseControl):
       layers in a section.
     - 🎨 Solid-color replacement for base maps.
     - 🎨 Fill by value: color a layer by a numeric field with a classification
-      method, class count, and scheme, or use a single fill color.
+      method, class count, and scheme, use a single fill color, or keep the
+      layer's own per-feature paint as the read-only original.
     - 🧰 Per-layer style drawer: opacity, zoom range, border, fill, size, and
       text labels with color, size, number format, and overlap control.
     - 🔎 Filter a layer's features live: a range on a numeric field, or a set
@@ -123,37 +124,72 @@ class LayerControl(BaseControl):
 
     >>> gdf.explore(foliplus={"label": {"field": "name", "collide": False}})
 
+    Declare a value-based fill that classifies each feature at load:
+
+    >>> gdf.explore(foliplus={"fill": {"field": "score", "scheme": "Reds"}})
+
     Notes
     -----
     Recognised keys:
 
-    +----------------+--------+--------------------------------------------------------------+
-    | Key            | Type   | Meaning                                                      |
-    +================+========+==============================================================+
-    | ``fill``       | dict   | The layer's fill by value, with a ``ramp`` form for numeric   |
-    |                |        | fields (see the fill table below).                           |
-    +----------------+--------+--------------------------------------------------------------+
-    | ``label``      | dict   | The layer's text labels (see the label table below).         |
-    +----------------+--------+--------------------------------------------------------------+
-    | ``zoom_range`` | dict   | The layer's visible zoom range (see the zoom range table     |
-    |                |        | below).                                                      |
-    +----------------+--------+--------------------------------------------------------------+
+    +----------------+------+------------------------------------------------------------------+
+    | Key            | Type | Meaning                                                          |
+    +================+======+==================================================================+
+    | ``fill``       | dict | the layer's value-based fill (see the fill table below).         |
+    +----------------+------+------------------------------------------------------------------+
+    | ``label``      | dict | The layer's text labels (see the label table below).             |
+    +----------------+------+------------------------------------------------------------------+
+    | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
+    +----------------+------+------------------------------------------------------------------+
+    | ``folder``     | str  | The layer's folder (section group) name; see the note below.     |
+    +----------------+------+------------------------------------------------------------------+
+
+    Two layers declaring the same ``folder`` name in the same section and
+    role (for example ``foliplus={"folder": "底图"}``) are grouped into one
+    folder — a grouping intent, not a conflict, and it never warns.
+
+    Folder names group case-insensitively after whitespace folding, so
+    ``"Basemap"``, ``"basemap"`` and ``"BASE MAP"`` land in one folder.
+    The folder keeps the first spelling it saw (trimmed) as its display
+    name.
+
+    A folder keeps its group row after its last layer is removed, so you
+    can still drag more layers into it.
 
     The ``fill`` declaration keys:
 
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | Key              | Default                                                       | Meaning                                                                  |
-    +==================+===============================================================+==========================================================================+
-    | ``mode``         | ``ramp`` once ``ramp.field`` is declared, otherwise ``solid`` | fill mode: one color (``solid``) or color by value (``ramp``)             |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.field``   | declaring it turns the ramp on                                | the numeric feature property to classify                                 |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.method``  | ``jenks``                                                     | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``) |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.classes`` | ``6``                                                         | number of classes, any integer ``>= 2`` (``12`` is a common example)     |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
-    | ``ramp.scheme``  | ``Viridis``                                                   | palette name (the style panel's own candidates)                          |
-    +------------------+---------------------------------------------------------------+--------------------------------------------------------------------------+
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | Key         | Default                                         | Meaning                                                                                                                                                            |
+    +=============+=================================================+====================================================================================================================================================================+
+    | ``field``   | required — naming one turns value-based fill on | the numeric or categorical feature property to classify                                                                                                            |
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | ``kind``    | inferred from the layer's own values            | the arm (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops the declaration |
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | ``method``  | ``jenks``                                       | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)                                                                                           |
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | ``classes`` | ``6``                                           | number of classes, an integer from 2 to 9 (the panel's maximum)                                                                                                    |
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | ``scheme``  | ``Viridis`` (``Set3`` for a category arm)       | palette name (the style panel's own candidates)                                                                                                                    |
+    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+    How a ``fill`` declaration is resolved:
+
+    +-------------------------------+--------------------------------------------------------------+
+    | Condition                     | Behaviour                                                    |
+    +===============================+==============================================================+
+    | User stored mode              | The row shows the stored mode; it always wins.               |
+    +-------------------------------+--------------------------------------------------------------+
+    | Valid declaration             | The declared ramp classifies each feature by field at load   |
+    |                               | (it does not flatten the layer to a single color); the row   |
+    |                               | opens on it and Reset returns to it.                         |
+    +-------------------------------+--------------------------------------------------------------+
+    | No declaration                | The row shows the detected per-feature state, else the       |
+    |                               | built-in fallback.                                           |
+    +-------------------------------+--------------------------------------------------------------+
+    | Invalid declaration           | Degrades key by key (each rejected key warns once, the rest  |
+    |                               | survives); a declaration without a usable field drops whole  |
+    |                               | and falls back to the per-feature paint / built-in.          |
+    +-------------------------------+--------------------------------------------------------------+
 
     The ``label`` declaration keys:
 
@@ -238,9 +274,10 @@ class LayerControl(BaseControl):
                                     {
                                         "kind": ("continuous", "stepped"),
                                         "column": ("string", "?"),
-                                        "vmin": "number",
-                                        "vmax": "number",
+                                        "vmin": ("number", "?"),
+                                        "vmax": ("number", "?"),
                                         "levels": ("number", "?"),
+                                        "method": (("equal", "null"), "?"),
                                     },
                                     "?",
                                 ),
@@ -324,7 +361,15 @@ class LayerControl(BaseControl):
             zoom_range = declared_zoom_range(item, item.layer_name)
             if zoom_range is not None:
                 entry["zoomRange"] = zoom_range
+            folder = declared_folder(item, item.layer_name)
+            if folder is not None:
+                entry["folder"] = folder
             data.append(entry)
+
+        # A folder name shared by several layers is a grouping intent, not a
+        # conflict: the JS side merges same-name declarations of the same role
+        # into one authorFolderId (folder = section group name, one group may
+        # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")

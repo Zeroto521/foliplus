@@ -3,6 +3,7 @@
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
 import { ROLE } from "./const.js";
+import { type FolderOrder, fullDisplayOrder } from "./folderOrder.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 
@@ -201,6 +202,10 @@ class LayerInfoRegistry {
       // re-registration that does not resend it keeps the declared range
       // (`existingLi.zoomRange`).
       zoomRange: opts.zoomRange ?? existingLi?.zoomRange ?? null,
+      // Carried the same way `zoomRange` is: CONF `data[].folder` reaches
+      // this entry through the bulk build's `opts`, and a re-registration
+      // that does not resend it keeps the declared folder.
+      folder: opts.folder ?? existingLi?.folder ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),
@@ -475,15 +480,18 @@ class LayerInfoRegistry {
     this.refreshFirstBaseIdx();
   }
 
-  /** Reorder so all overlays come before all base layers. */
-  normalizeGroups() {
-    const overlays = [];
-    const bases = [];
-    for (const layerInfo of this.items) {
-      if (layerInfo?.role === ROLE.BASE) bases.push(layerInfo);
-      else overlays.push(layerInfo);
-    }
-    this.items.splice(0, this.items.length, ...overlays.concat(bases));
+  /** Reorder so the panel's display order is the two-segment folder order:
+   *  per section, Folder blocks first (folderOrder priority, then anchor) and
+   *  root layers after. The overlay section precedes the base section (the
+   *  historical overlay-before-base partition). The anchor axis is the CURRENT
+   *  items order (the user's saved arrangement, or the CONF registration order
+   *  when no order was ever saved) — `fullDisplayOrder` reads each block's
+   *  anchor as its position in `this.items` before the grouping reorders it,
+   *  so the anchor is not rewritten by the display grouping (design §8:
+   *  "只做分组展示，不改 registry 下标轴"). */
+  normalizeGroups(folderOrder: FolderOrder = { version: 1, sections: {} }) {
+    const display = fullDisplayOrder(this.items, folderOrder);
+    this.items.splice(0, this.items.length, ...display);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.reindex();
     this.refreshFirstBaseIdx();

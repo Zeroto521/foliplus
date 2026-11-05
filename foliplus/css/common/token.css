@@ -359,6 +359,12 @@
   --foliplus-z-index-hint: 10000;
   --foliplus-z-index-fullscreen: 99999;
   --foliplus-z-index-top: 100000;
+  /* An overlay (search results, a portalled menu) that must clear an expanded
+     layer panel: one step above the panel's highest expanded segment
+     (floating + 9), so it paints over it instead of tying on DOM order. Same
+     band as the hint toast — a transient toast over a menu is the intended
+     tie, not a layering bug. */
+  --foliplus-z-index-overlay: calc(var(--foliplus-z-index-floating) + 10);
 
   /* ══════════════════════════════════════════════════════════════════════
     Component-Specific Tokens
@@ -407,6 +413,15 @@
   --foliplus-menu-row-selected-bar: var(--foliplus-accent-primary);
   --foliplus-menu-row-bar-width: 3px;
   --foliplus-menu-max-width: 320px;
+  /* Max height of a menu/panel that needs to scroll (search results). The
+     scheme picker and the dropdown keep their own geometry and do not use
+     this default — see common/scheme-picker.css and ui/listbox.ts. */
+  --foliplus-menu-max-height: 240px;
+  /* Entrance duration/easing for the shared dropdown-in animation. The two
+     former 0.15s entrances (dropdown + scheme picker) were identical; this is
+     the single duration both use. Deliberately just under --foliplus-motion-quick. */
+  --foliplus-menu-in-duration: 0.15s;
+  --foliplus-menu-in-easing: ease-out;
 
   /* ── Scheme picker (shared by HeatmapControl and LayerControl) ──
      color-strip inset. The trigger's strip and a dropdown item's strip use

@@ -9,8 +9,8 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
-import { createListbox } from "#common/listbox.js";
 import { createLogger } from "#common/log.js";
+import { createListbox } from "./listbox.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
@@ -61,7 +61,7 @@ interface SchemePickerOptions {
    *  pseudo-fullscreen fallback's own transitions, which emit no
    *  fullscreenchange). The picker re-seats its dropdown into the new host
    *  whenever the callback fires; the returned function unsubscribes on
-   *  close/destroy. Consumers wire this to the shared core/fullscreen
+   *  close/destroy. Consumers wire this to the shared common/fullscreen
    *  contract — common/** must not import core/**. */
   onSurfaceChange?: (cb: () => void) => () => void;
   /** Called when the dropdown opens or closes, with the dropdown element
@@ -259,10 +259,10 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   };
 
   // A scheme row: the label bar the engine paints plus the row's disabled
-  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard;
-  // the adapter owns the color bar and the title (which needs the disabled
-  // hint, a picker-only concept).
-  const renderRow = (item: { value: string; disabled?: boolean; title?: string }) => {
+  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard and
+  // renders the title from `item.title` (provided by itemsOf, where the
+  // disabled hint lives); the adapter owns only the color bar.
+  const renderRow = (item: { value: string; disabled?: boolean }) => {
     const bar = dom.el("div", { class: classes.bar });
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
     return bar;

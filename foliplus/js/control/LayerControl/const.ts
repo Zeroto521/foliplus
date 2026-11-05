@@ -1,6 +1,6 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
-import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -42,6 +42,12 @@ const SIZE = {
 const RAMP = {
   METHOD_DEFAULT: "jenks",
   SCHEME_DEFAULT: "Viridis",
+  /** The qualitative palette an *inferred* categorical fill falls back to when
+   *  the author named no scheme. Only the inference path uses it: an explicit
+   *  `kind: "category"` still hard-rejects without a scheme, and a declared
+   *  scheme (on either arm) is the author's choice and is kept verbatim. Set3
+   *  is the qualitative default CATEGORY_SCHEMES offers. */
+  CATEGORY_SCHEME_DEFAULT: "Set3",
 } as const;
 
 /** Focus-on-layer behavior. */
@@ -101,6 +107,11 @@ const CLASSES = {
   COUNT_FILTERED: "foliplus-layer-count-filtered",
   /** The 12px neutral (text-primary) funnel glyph before a filtered count. */
   COUNT_FUNNEL: "foliplus-layer-count-funnel",
+  /** Set on a leaf hidden by the generic data-layer filter (path element /
+   *  marker icon + shadow). CSS `display:none` removes it from paint AND from
+   *  hit-testing, and ExportControl's SVG/marker channels skip it via computed
+   *  display — one class write instead of a per-leaf style loop. */
+  FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",

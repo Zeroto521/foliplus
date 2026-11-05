@@ -1,7 +1,7 @@
 """The shared scheme-picker dropdown, driven through both of its consumers.
 
 LayerControl's style drawer and HeatmapControl's panel mount the same
-``common/schemePicker``, so every behaviour here is a contract both must honour,
+``ui/schemePicker``, so every behaviour here is a contract both must honour,
 measured in Chromium against the real DOM rather than a class:
 
 * placement — the list is portalled, paints below by default, flips above when

@@ -53,6 +53,18 @@ FILL_AUTHOR_RGB_SLACK = 2
 # 8/12 = 0.67, five drop it to 7/12 = 0.58.
 FILL_AUTHOR_AGREE = 0.6
 
+# Distinct-color count above which a per-feature layer with no pair-able scale
+# is read as a continuous ramp. Matches CLASS_COUNT.MAX in
+# foliplus/js/core/classify.ts (9): the panel offers at most 9 classes, so a
+# layer painting more distinct colors than any classification the user could
+# have chosen is more likely a continuous colormap than a small-step scheme.
+# A legend=False explore layer (which mounts no colormap at all) cannot be
+# told apart from a real continuous one, so this is an accepted approximation
+# (10+ class bands read as Equal Interval, <= 9 stays a dash). Kept a literal
+# because Python cannot import the TS constant; the comment is the cross-stack
+# pointer.
+FILL_AUTHOR_CONTINUOUS_THRESHOLD = 9
+
 
 def fill_author_color(props: dict[str, Any]) -> str | None:
     """The feature's declarative color, when explore wrote one."""
@@ -431,6 +443,42 @@ def continuous_stops(colormap: Any) -> list[str]:
     return stops
 
 
+def provable_equal_interval(index: list[float]) -> bool:
+    """Whether a stepped scale's breaks are provably equally spaced.
+
+    geopandas.explore never keeps the ``scheme`` argument it passed to
+    ``mapclassify.classify`` on the mounted Colormap or the GeoJson layer
+    (measured: the colormap ``__dict__`` holds only vmin/vmax/caption/index/
+    colors -- no scheme). So the panel cannot read the author's method string.
+    The one method that is *mathematically provable* from the shipped breaks
+    is ``equal_interval``: every class spans the same width, so the adjacent
+    break gaps are identical. quantiles/fisherjenks/head_tail_breaks have no
+    closed form from the edges alone, so they are deliberately never guessed --
+    the panel states a dash instead. This is a *consistency* proof, not a
+    claim about the author's scheme: a uniform distribution under quantiles,
+    or an author who hand-set equal-width breaks, would also produce equal
+    gaps, so the proof states "provably equal-interval spacing" rather than
+    naming the scheme argument. Future geopandas that does expose the
+    scheme can extend this without changing the honest None arm.
+    """
+    if len(index) < 3:
+        # Need at least two intervals to compare; a single class has no
+        # provable method either.
+        return False
+    gaps = [b - a for a, b in zip(index, index[1:])]
+    if any(gap <= 0 for gap in gaps):
+        # Degenerate or descending edges are not a classification; never claim
+        # a method for a scale that cannot classify.
+        return False
+    first = gaps[0]
+    # float division may leave a rounding hair (a 100-wide range over three
+    # classes yields 33.333...), so compare with a relative tolerance rather
+    # than exact equality. The tolerance only absorbs float noise (~ulp); it
+    # never absorbs a deliberate re-rounding, so a scheme that quantised its
+    # edges to whole numbers is not misread as equal-interval.
+    return all(math.isclose(gap, first, rel_tol=1e-9, abs_tol=1e-9) for gap in gaps[1:])
+
+
 def scale_payload(
     colormap: Any, column: str | None
 ) -> tuple[dict[str, Any], list[str]]:
@@ -438,6 +486,15 @@ def scale_payload(
 
     A continuous scale ships 64 sampled colors; a classified one ships the
     author's own blocks, because those are what the author's map shows.
+
+    The record also states the classification *method* the panel can prove
+    (see :func:`provable_equal_interval`): ``"equal"`` for a stepped scale
+    whose breaks are equally spaced, ``None`` otherwise -- never a guess, so
+    the JS panel shows "Equal Interval" only on that proof. A continuous
+    scale is an equally spaced LinearColormap sample and carries ``None``
+    here; the panel's "Equal Interval" for it is the honest statement that a
+    LinearColormap *is* an interval ramp, not a claim about the author's
+    ``scheme`` argument (which explore does not retain).
     """
     stepped = isinstance(colormap, StepColormap)
     if stepped:
@@ -464,6 +521,13 @@ def scale_payload(
         # The author's real class edges: the panel states the classification
         # instead of re-deriving one. np.float64 is not JSON-serializable.
         scale["breaks"] = [float(edge) for edge in colormap.index]
+        scale["method"] = (
+            "equal"
+            if provable_equal_interval([float(edge) for edge in colormap.index])
+            else None
+        )
+    else:
+        scale["method"] = None
     return scale, stops[:FILL_AUTHOR_STOPS]
 
 
@@ -505,6 +569,25 @@ def fill_author(
         return payload
     paired = pair_scale(colormaps, features, claimed)
     if paired is None:
+        # No colormap paired: a legend=False explore layer mounts none, so no
+        # scale can be proven and the record ships without one. A per-feature
+        # layer painting more distinct colors than any classification the panel
+        # offers (a 10+ color ramp, or a scan that capped at FILL_AUTHOR_STOPS)
+        # is almost certainly a continuous ramp the author did not label — the
+        # panel reads a bare {"kind": "continuous"} as Equal Interval, the
+        # honest statement that a LinearColormap is an interval ramp, not a
+        # claim about the author's scheme. stops stay the sampled strip in
+        # feature-discovery order, so the record marks it "ordered": False:
+        # only a paired scale's stops are domain order, and the bar must sort
+        # a discovery-order strip (by lightness) instead of trusting it.
+        # column / vmin / vmax / method are deliberately NOT written (a guess
+        # at the drive column and extent would be worse than none). A
+        # low-cardinality layer (<= FILL_AUTHOR_CONTINUOUS_THRESHOLD distinct
+        # colors) keeps no scale: it may be a small-step classification the
+        # panel can still describe from its own colors, and reading it as
+        # continuous would be the approximation this threshold exists to avoid.
+        if per_feature and (capped or len(colors) > FILL_AUTHOR_CONTINUOUS_THRESHOLD):
+            payload["scale"] = {"kind": "continuous", "ordered": False}
         return payload
     colormap, column = paired
     scale, stops = scale_payload(colormap, column)

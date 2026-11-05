@@ -228,6 +228,37 @@ describe("renderShape", () => {
     expect(renderShape(["string"])).not.toBe("string[]");
   });
 
+  it("renders a literal union beside null unquoted", () => {
+    // A classification method is a literal ("equal") that may also be null;
+    // the null is a primitive name and must not be quoted, while the literal
+    // stays quoted. This is the mixed case the all-primitive union above
+    // cannot reach (isPrimitiveUnion is false when a literal is present).
+    expect(renderShape(["equal", "null"])).toBe('"equal" | null');
+    expect(renderShape(["equal", "heads", "null"])).toBe('"equal" | "heads" | null');
+  });
+
+  it("renders an author scale's vmin/vmax as optional keys", () => {
+    // The LayerData[].fillAuthor.scale shape marks vmin/vmax optional
+    // (("number", "?")): a present vmin/vmax renders as an optional key, so a
+    // scale that omits them is still a legal value and a scale that carries
+    // them keeps them.
+    expect(
+      renderShape({
+        kind: ["continuous", "stepped"],
+        vmin: ["number", "?"],
+        vmax: ["number", "?"],
+      }),
+    ).toBe('{ kind: "continuous" | "stepped"; vmin?: number; vmax?: number }');
+  });
+
+  it("renders an author scale with no vmin/vmax", () => {
+    // A scale that omits vmin/vmax is legal — the optional marker means the
+    // key may be absent, so the shape renders without them.
+    expect(renderShape({ kind: ["continuous", "stepped"] })).toBe(
+      '{ kind: "continuous" | "stepped" }',
+    );
+  });
+
   it("treats Object.prototype names as literal values, not primitives", () => {
     // Own-property lookup only: `in` or `[]` would resolve "constructor" to
     // Object's constructor through the prototype chain. Even a genuine

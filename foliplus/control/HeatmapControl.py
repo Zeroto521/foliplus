@@ -146,36 +146,30 @@ class HeatmapControl(BaseControl):
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import HeatmapControl
-        >>> m = folium.Map()
-        >>> HeatmapControl().add_to(m)
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl().add_to(m)
 
     With a declared starting filter on the aggregation field:
 
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import HeatmapControl
-        >>> m = folium.Map()
-        >>> HeatmapControl(
-        ...     agg="sum", field="score", filter={"min": 10, "max": 50}
-        ... ).add_to(m)
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(
+    ...     agg="sum", field="score", filter={"min": 10, "max": 50}
+    ... ).add_to(m)
 
     Only show the control while the map is between zoom levels 8 and 12:
 
-    .. code-block:: python
-
-        >>> import folium
-        >>> from foliplus import HeatmapControl
-        >>> m = folium.Map()
-        >>> HeatmapControl(zoom_range={"min": 8, "max": 12}).add_to(m)
+    >>> import folium
+    >>> from foliplus import HeatmapControl
+    >>> m = folium.Map()
+    >>> HeatmapControl(zoom_range={"min": 8, "max": 12}).add_to(m)
 
     Notes
     -----
-    .. rubric:: Filter declaration
+    **Filter declaration**
 
     ``filter`` is a mapping with ``min`` and ``max`` (the list form, a list of
     measurement-type names, belongs to ``MeasureControl``):
@@ -187,7 +181,7 @@ class HeatmapControl(BaseControl):
     |                    |                      |          | (``field=``).                                |
     +--------------------+----------------------+----------+----------------------------------------------+
 
-    .. rubric:: Situation → behavior
+    **Situation → behavior**
 
     +--------------------------------------------+--------------------------------------------+
     | Situation                                  | Behavior                                   |
@@ -211,7 +205,7 @@ class HeatmapControl(BaseControl):
     |                                            | declaration (this session and on reload).  |
     +--------------------------------------------+--------------------------------------------+
 
-    .. rubric:: Zoom-range declaration
+    **Zoom-range declaration**
 
     ``zoom_range={"min": 8, "max": 12}`` takes the same shape the per-layer
     ``foliplus`` declaration uses:
