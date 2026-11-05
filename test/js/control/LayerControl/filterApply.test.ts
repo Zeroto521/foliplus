@@ -36,9 +36,18 @@ const between = (field: string, range: readonly [number, number]) => ({
   range,
 });
 
+// The shared L.stamp stub (vi.fn(() => ++id)) re-issues a new id on every
+// call, so two `L.stamp(sameLayer)` calls disagree and the layeradd handler's
+// stamp match fails. Memoize one id per object like controller.test.ts does.
+const stableStamp = vi.fn((obj: unknown) =>
+  ((obj as { __id?: number }).__id ??= ++stableStampId),
+);
+let stableStampId = 1000;
+
 describe("generic data-layer filter (controller wiring)", () => {
   let manager: LayerController;
   let ui: LayerUI;
+  let map: L.Map;
 
   it("uses the design contract class name foliplus-feature-filtered", () => {
     // The apply mechanism's DOM class is part of the design contract. Assert
@@ -51,6 +60,7 @@ describe("generic data-layer filter (controller wiring)", () => {
     const fixture = initFixture();
     manager = fixture.manager;
     ui = fixture.ui;
+    map = fixture.map;
   });
 
   describe("registerLayer injection", () => {
@@ -190,12 +200,75 @@ describe("generic data-layer filter (controller wiring)", () => {
       expect(path(a.leaf)).toBe(true);
     });
 
+    it("the layeradd handler replays a committed filter onto a re-added layer", () => {
+      // The 415-419 replay branch only runs when a filter is committed and a
+      // layer rejoins the map; the direct replayFilter tests above cover the
+      // method but not the layeradd wiring. A re-add recreates the leaf's DOM
+      // element (dropping the class), so the handler must re-apply it. The
+      // shared L.stamp stub is not stable per object, so swap in a memoizing
+      // one for the stamp match the handler performs.
+      const realStamp = window.L.stamp;
+      window.L.stamp = stableStamp;
+      try {
+        const features = makeFeatures();
+        manager.registerLayer({ id: "late", name: "Late", role: "overlay" });
+        ui.runtimeStore.setFilterFeatures("late", features);
+        manager.setLayerFilter("late", between("value", [2, 5]));
+        const [a] = features.features;
+        const path = (leaf: L.Layer) =>
+          (leaf as { getElement: () => HTMLElement })
+            .getElement()
+            .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
+        expect(path(a.leaf)).toBe(true);
+        (a.leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.remove(CONST.CLASSES.FILTER_HIDDEN);
+        expect(path(a.leaf)).toBe(false);
+        // The real object joins the map after the filter was committed; the
+        // layeradd handler must match it by stamp and re-apply the class.
+        const arrived = new window.L.Path();
+        map._layers["late"] = arrived;
+        manager.onLayerAdd({ layer: arrived });
+        expect(path(a.leaf)).toBe(true);
+      } finally {
+        window.L.stamp = realStamp;
+      }
+    });
+
+    it("the layeradd replay leaves a layer that is not findable alone", () => {
+      // The replay's resolved check also needs the false side: a layer joins
+      // the map but is not findable (not in the internal registry), so the
+      // handler must not crash and must not re-apply a class to nothing.
+      const realStamp = window.L.stamp;
+      window.L.stamp = stableStamp;
+      try {
+        const features = makeFeatures();
+        manager.registerLayer({ id: "late", name: "Late", role: "overlay" });
+        ui.runtimeStore.setFilterFeatures("late", features);
+        manager.setLayerFilter("late", between("value", [2, 5]));
+        const stranger = new window.L.Path();
+        manager.onLayerAdd({ layer: stranger });
+        expect(manager.layerRegistry.get("late")?.layer).toBeNull();
+        expect(manager.layerRegistry.get("late")?.filterProvider).toBeTypeOf(
+          "function",
+        );
+      } finally {
+        window.L.stamp = realStamp;
+      }
+    });
+
     it("deleteFilterFeatures drops the snapshot and prunes the row", () => {
       const features = makeFeatures();
       ui.runtimeStore.setFilterFeatures("flt1", features);
       expect(ui.runtimeStore.getFilterFeatures("flt1")).toBe(features);
       ui.runtimeStore.deleteFilterFeatures("flt1");
       expect(ui.runtimeStore.getFilterFeatures("flt1")).toBeUndefined();
+    });
+
+    it("deleteFilterFeatures on an unknown id is a no-op", () => {
+      // The row-missing branch: deleting a snapshot for a layer that was
+      // never registered must not throw or touch anything.
+      expect(() => ui.runtimeStore.deleteFilterFeatures("nope")).not.toThrow();
     });
   });
 

@@ -168,6 +168,42 @@ describe("buildFilterFeatures — field domain", () => {
     expect(feat.numericFields).toEqual(["score"]);
     expect(feat.features[1].fields).toEqual({}); // "ten" omitted (mixed type)
   });
+
+  it("keeps a numeric value inside the established range unchanged", () => {
+    // A value inside [min, max] takes neither range rewrite branch — the
+    // running extents are unchanged (the else-if false arms).
+    const a = makeLeaf("marker", { score: 10 });
+    const b = makeLeaf("marker", { score: 30 });
+    const c = makeLeaf("marker", { score: 20 });
+    const feat = buildFilterFeatures(group(a, b, c));
+    expect(feat.ranges.score).toEqual([10, 30]);
+    expect(feat.features[2].fields.score).toBe(20);
+  });
+
+  it("omits a later non-string from a string-typed field", () => {
+    // The string domain is fixed by the first value; a later number is not a
+    // string, so it is omitted from the bag (it cannot match an enum filter).
+    const a = makeLeaf("marker", { kind: "x" });
+    const b = makeLeaf("marker", { kind: 5 });
+    const feat = buildFilterFeatures(group(a, b));
+    expect(feat.enumFields).toEqual(["kind"]);
+    expect(feat.enumValues.kind).toEqual(["x"]);
+    expect(feat.features[1].fields).toEqual({}); // 5 omitted (mixed type)
+  });
+
+  it("omits a later non-boolean from a boolean field and reuses the enum set", () => {
+    // Two booleans share one enum set; a later non-boolean is omitted. The
+    // boolean branch keeps the RAW boolean in the bag, never a string.
+    const a = makeLeaf("marker", { flag: true });
+    const b = makeLeaf("marker", { flag: false });
+    const c = makeLeaf("marker", { flag: "yes" });
+    const feat = buildFilterFeatures(group(a, b, c));
+    expect(feat.enumFields).toEqual(["flag"]);
+    expect(feat.enumValues.flag).toEqual(["true", "false"]);
+    expect(feat.features[0].fields.flag).toBe(true);
+    expect(feat.features[1].fields.flag).toBe(false);
+    expect(feat.features[2].fields).toEqual({}); // "yes" omitted (mixed type)
+  });
 });
 
 describe("buildFilterFeatures — total vs filterable", () => {
