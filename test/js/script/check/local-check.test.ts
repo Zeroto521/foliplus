@@ -765,11 +765,38 @@ describe("default dependency-injection sides", () => {
   });
 
   it("findPreCommit uses the real root and existsSync when none are injected", () => {
-    expect(findPreCommit()).toBe("pre-commit");
+    // The real existsSync + real root resolve to SOME pre-commit executable
+    // (absolute on a machine with .venv/bin/pre-commit, bare command on one
+    // without). Assert the shape, never the literal: a literal only holds on
+    // the machine it was written on and splits ubuntu/Windows CI.
+    expect(findPreCommit()).toMatch(/(^|[\\/])pre-commit(\\.exe|\\.cmd)?$/);
+  });
+
+  it("findPreCommit resolves an existing venv executable to its absolute path", () => {
+    const exe = resolve("/proj", preCommitExeFor());
+    expect(findPreCommit({ root: "/proj", exists: p => p === exe })).toBe(exe);
+  });
+
+  it("findPreCommit falls back to the bare command when the venv has none", () => {
+    expect(findPreCommit({ root: "/proj", exists: () => false })).toBe("pre-commit");
   });
 
   it("preCommitOnPath uses the real runCmd and platform when none are injected", () => {
-    expect(preCommitOnPath()).toBe(true);
+    // Boolean result on the real PATH — pre-commit may or may not be found,
+    // so only the type is stable across machines. The two logic arms (status
+    // 0 -> true, non-zero -> false) are covered by the injected fixtures below.
+    expect(typeof preCommitOnPath()).toBe("boolean");
+  });
+
+  it("preCommitOnPath maps a found lookup to true", () => {
+    const { run } = makeRunner({ where: { status: 0 }, which: { status: 0 } });
+    expect(preCommitOnPath({ run, platform: "win32" })).toBe(true);
+    expect(preCommitOnPath({ run, platform: "linux" })).toBe(true);
+  });
+
+  it("preCommitOnPath maps a missing lookup to false", () => {
+    const { run } = makeRunner({ which: { status: 1 } });
+    expect(preCommitOnPath({ run, platform: "linux" })).toBe(false);
   });
 
   it("shimArgs uses the real existsSync and platform when none are injected", () => {
@@ -779,7 +806,11 @@ describe("default dependency-injection sides", () => {
 
   it("collectChangedFiles uses the real runCmd and io when none are injected", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(collectChangedFiles()).toEqual([]);
+    // A dirty checkout has files; a clean one does not. Only the shape and
+    // the .foliplus exclusion are machine-independent.
+    const files = collectChangedFiles();
+    expect(Array.isArray(files)).toBe(true);
+    expect(files.every(f => !f.startsWith(".foliplus/"))).toBe(true);
   });
 
   it("collectChangedFiles tolerates a diff result with no stdout", () => {
@@ -830,7 +861,9 @@ describe("default dependency-injection sides", () => {
     const savedArgv = process.argv;
     process.argv = ["node", "script/check/local-check.mjs", "--no-fetch"];
     try {
-      expect(main({})).toBe(0);
+      // main() runs the real gate suite with the real toolchain; the exit code
+      // depends on this machine's state, so assert the type (number) not 0.
+      expect(typeof main({})).toBe("number");
     } finally {
       process.argv = savedArgv;
     }
