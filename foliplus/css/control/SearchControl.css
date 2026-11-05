@@ -34,6 +34,10 @@
   z-index: var(--foliplus-z-index-overlay);
   width: var(--foliplus-panel-width);
   max-height: var(--foliplus-menu-max-height);
+  /* The kernel owns the offset (computePlacement gap); the shared
+     menu.css rule sets margin-top: var(--foliplus-menu-gap), which would
+     double the gap on top of the kernel's style.top. Zero it here. */
+  margin-top: 0;
 }
 .foliplus-search-result-item {
   display: flex;
