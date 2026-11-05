@@ -407,6 +407,30 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("writes only the new literal after migrating a pre-rename record", () => {
+      // A pre-rename record loads as "value"; the write path must stamp only
+      // "value" and never write the old literal back. The last assertion checks
+      // the serialized record, so a field-level pass can't be faked by some
+      // other branch re-stamping "ramp" elsewhere in the record.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
+      });
+      const loaded = makePersistence().load();
+      expect(loaded.layers.a?.fillMode).toBe("value");
+
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ layers: () => loaded.layers as never });
+      p.flushAll();
+
+      expect(lastRecord(save).layers.a?.fillMode).toBe("value");
+      expect(JSON.stringify(lastRecord(save))).not.toContain('"ramp"');
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
     it("keeps a whitespace-padded field name verbatim", () => {
       // "  price  " is a different GeoJSON property from "price" (RFC 7946
       // section 3.2 with RFC 8259 section 4), so trimming it on read would
