@@ -151,13 +151,10 @@ class LayerControl(BaseControl):
     Folder names group case-insensitively after whitespace folding, so
     ``"Basemap"``, ``"basemap"`` and ``"BASE MAP"`` land in one folder.
     The folder keeps the first spelling it saw (trimmed) as its display
-    name; renaming it changes only that display name, never which layers
-    group together.
+    name.
 
-    A folder keeps its group row after its last layer is removed — you can
-    still drag more layers into it — until you explicitly delete the
-    folder. Deleting a folder moves its remaining layers (if any) back to
-    the section root; the layers themselves are never deleted.
+    A folder keeps its group row after its last layer is removed, so you
+    can still drag more layers into it.
 
     The ``fill`` declaration keys:
 
