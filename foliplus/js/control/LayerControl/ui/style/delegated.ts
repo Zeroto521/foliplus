@@ -24,11 +24,7 @@ import { DIM_ORDER, gatedRows } from "./registry.js";
  *  rendering path at all. Only LayerControl-owned rows (opacity, zoomRange)
  *  ride the delegated sweep; they survive a component's redraw. */
 const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
-  key =>
-    key !== DIM.FILL &&
-    key !== DIM.BORDER &&
-    key !== DIM.SIZE &&
-    key !== DIM.ICON,
+  key => key !== DIM.FILL && key !== DIM.BORDER && key !== DIM.SIZE && key !== DIM.ICON,
 );
 
 /** Whether the layer delegates its style to the drawer via styleSetters

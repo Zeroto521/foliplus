@@ -16,9 +16,7 @@ async (arg = []) => {
   if (!select) return { panel: true, iconRow: true, select: false };
 
   const flush = () =>
-    new Promise(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
+    new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   if (field) {
     select.value = field;
@@ -31,16 +29,16 @@ async (arg = []) => {
     await flush();
   }
 
-  const icons = Array.from(
-    document.querySelectorAll(".leaflet-marker-icon"),
-  ).map(el => {
-    const cls = el.className;
-    const match = cls.match(/foliplus-marker-symbol--(\w+)/);
-    return {
-      cls,
-      symbol: match ? match[1] : null,
-      hasSymbolClass: cls.includes("foliplus-marker-symbol"),
-    };
-  });
+  const icons = Array.from(document.querySelectorAll(".leaflet-marker-icon")).map(
+    el => {
+      const cls = el.className;
+      const match = cls.match(/foliplus-marker-symbol--(\w+)/);
+      return {
+        cls,
+        symbol: match ? match[1] : null,
+        hasSymbolClass: cls.includes("foliplus-marker-symbol"),
+      };
+    },
+  );
   return { panel: true, iconRow: true, select: true, fieldValue: select.value, icons };
 };

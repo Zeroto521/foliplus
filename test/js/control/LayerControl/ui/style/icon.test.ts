@@ -4,7 +4,6 @@ import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { getIntent } from "#control/LayerControl/ui/intent.js";
-import { getDimension, writeIntentKeys } from "#control/LayerControl/ui/style/registry.js";
 import {
   ICON_DIMENSION,
   ICON_LEGEND_BUDGET,
@@ -15,8 +14,12 @@ import {
   layerCanIcon,
   resetLayerIcon,
 } from "#control/LayerControl/ui/style/icon.js";
+import {
+  getDimension,
+  writeIntentKeys,
+} from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { findItem, initFixture } from "../fixture.js";
+import { initFixture } from "../fixture.js";
 
 // A marker leaf: the layer type the icon dimension owns. It carries the
 // per-feature categorical value in feature.properties and writes its icon
@@ -188,17 +191,17 @@ describe("buildIconRow", () => {
     const list = row!.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_LEGEND_LIST}`,
     ) as HTMLElement;
-    expect(
-      list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED),
-    ).toBe(false);
+    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
+      false,
+    );
     toggle.click();
-    expect(
-      list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED),
-    ).toBe(true);
+    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
+      true,
+    );
     toggle.click();
-    expect(
-      list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED),
-    ).toBe(false);
+    expect(list.classList.contains(CONST.CLASSES.STYLE_ICON_LEGEND_EXPANDED)).toBe(
+      false,
+    );
     m2?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -329,9 +332,7 @@ describe("icon dimension descriptor", () => {
     const intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent?.field).toBe("type");
     expect(ICON_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
-    expect(
-      getDimension(DIM.ICON)?.valueSource!(ui, "overlay1"),
-    ).toBe("user");
+    expect(getDimension(DIM.ICON)?.valueSource!(ui, "overlay1")).toBe("user");
     const policy = ICON_DIMENSION.contentChange;
     if (policy?.kind === "frame") {
       expect(policy.when!(ui, "overlay1")).toBe(true);
@@ -370,3 +371,113 @@ describe("icon dimension descriptor", () => {
     expect(intent?.field).toBe("type");
   });
 });
+describe("icon dimension defensive branches", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = fixtureWithMarkers([
+      makeMarker({ type: "school" }),
+      makeMarker({ type: "hospital" }),
+    ]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("skips a non-icon leaf and leaves without a usable feature or value", () => {
+    // L95 (feature without properties -> props falsy), L186 (non-icon leaf),
+    // L188 (null / absent field value), L192 (author-kind -> no symbol icon).
+    const school = makeMarker({ type: "school" });
+    const noProps = { feature: {}, options: { icon: undefined }, setIcon: vi.fn() };
+    const nullValue = makeMarker({ type: null });
+    const noType = makeMarker({});
+    const authorValue = makeMarker({ type: "park" });
+    const poly = makePoly();
+    const layer = makeMarkerGroup(school, noProps, nullValue, noType, authorValue, poly);
+    const { manager: m2, ui: u2 } = initFixture({
+      data: [{ id: "mix1", name: "M", role: "overlay", layer }, BASE_LAYER],
+    });
+    writeIntentKeys(u2, "mix1", [
+      [
+        DIM.ICON,
+        {
+          field: "type",
+          mapping: {
+            school: { kind: "symbol", value: "circle" },
+            park: { kind: "author", value: "inline" },
+          },
+        },
+      ],
+    ]);
+    applyIconToLayer(u2, "mix1");
+    // Only the symbol-mapped school marker writes; every other leaf is skipped.
+    expect(school.setIcon).toHaveBeenCalledTimes(1);
+    expect((noProps as { setIcon: unknown }).setIcon).not.toHaveBeenCalled();
+    expect(nullValue.setIcon).not.toHaveBeenCalled();
+    expect(noType.setIcon).not.toHaveBeenCalled();
+    // author-kind maps to no built icon (L192 returns before capture).
+    expect(authorValue.setIcon).not.toHaveBeenCalled();
+    expect(poly.setStyle).not.toHaveBeenCalled();
+    m2?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("bails on a layer outside the registry for apply and commit", () => {
+    // L184 (applyIconToLayer no layer), L211 (commitIconField no layer).
+    expect(() => applyIconToLayer(ui, "nope")).not.toThrow();
+    expect(() => commitIconField(ui, "nope", "type")).not.toThrow();
+  });
+
+  it("cycles from the fallback config and wraps a non-symbol entry", () => {
+    // L226 (getIntent ?? fallback), L229 (non-symbol current -> -1 -> wraps
+    // to the first shape).
+    writeIntentKeys(ui, "overlay1", [
+      [
+        DIM.ICON,
+        {
+          field: "type",
+          mapping: { school: { kind: "author", value: "inline" } },
+        },
+      ],
+    ]);
+    cycleIconSymbol(ui, "overlay1", "type", "school");
+    const intent = getIntent(ui, "overlay1", DIM.ICON);
+    // author -> not symbol -> currentIndex -1 -> next = shapes[0] (circle).
+    expect(intent?.mapping?.school?.value).toBe("circle");
+  });
+
+  it("keeps the authored icon stable across a re-apply", () => {
+    // A second apply re-encounters an already-captured leaf: the
+    // authorIcon.has early return (L107) keeps the authored icon the
+    // capture source, so Reset restores it (not the symbol written on the
+    // first apply). The fresh-icon-per-call rule also means L194's
+    // already-same-icon return is never taken (the icon is rebuilt), so this
+    // test pins the stable-capture behaviour instead.
+    const authorIcon = { html: "author", className: "author" };
+    const school = makeMarker({ type: "school" }, authorIcon);
+    const { manager: m2, ui: u2 } = fixtureWithMarkers([school]);
+    writeIntentKeys(u2, "overlay1", [
+      [
+        DIM.ICON,
+        { field: "type", mapping: { school: { kind: "symbol", value: "circle" } } },
+      ],
+    ]);
+    applyIconToLayer(u2, "overlay1");
+    expect(school.options.icon).not.toBe(authorIcon);
+    applyIconToLayer(u2, "overlay1");
+    resetLayerIcon(u2, "overlay1");
+    flushIcon("overlay1");
+    expect(school.options.icon).toBe(authorIcon);
+    m2?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+});
+
