@@ -3,7 +3,7 @@
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, sectionOf } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "../const.js";
 import { handleMoreClick, registerInteractions } from "../interaction.js";
@@ -224,6 +224,20 @@ const bindLayerEvents = (ui: LayerUI): void => {
         // row for the whole time the user is flipping controls inside it.
         row.focus({ focusVisible: false } as FocusOptions);
       }
+    }
+
+    // task-75: the clean-empty-folders button lives inside the toggle-all
+    // header, so it must be intercepted BEFORE the toggle-all branch folds
+    // the section. stopPropagation keeps the press from reaching the row /
+    // map (hard constraint 4).
+    const cleanBtn = el.closest(CONST.SEL.CLEAN_FOLDERS) as HTMLElement | null;
+    if (cleanBtn) {
+      event.stopPropagation();
+      event.preventDefault();
+      const role = cleanBtn.dataset.role ?? "";
+      if (role)
+        ui.c.cleanEmptyFolders(sectionOf(role as Parameters<typeof sectionOf>[0]));
+      return;
     }
 
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;

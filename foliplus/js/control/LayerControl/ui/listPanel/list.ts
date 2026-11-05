@@ -1,5 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, normalizeFolderName, sectionOf } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -309,25 +309,27 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 
   const targets: HTMLElement[] = [];
-  let hasBaseMaps = false;
-  let hasOverlays = false;
+  // Anchor push follows the layer order (renderInitialList's ordering): a
+  // role's anchor is pushed the first time the loop sees one of its rows. A
+  // section that owns only an empty folder key (no live rows) has its anchor
+  // pushed after the loop instead, so it stays reachable for the cleanup
+  // button and the drift check cannot false-warn (builder-4 ②).
+  const anchorSeen = new Set<string>();
   for (const layerInfo of ui.c.layers) {
-    // Anchor names follow renderInitialList's grouping: every non-base
-    // role rides the OVERLAY anchor, so base maps stay a trailing section.
-    if (layerInfo.role !== ROLE.BASE && !hasOverlays) {
-      hasOverlays = true;
-      const anchor = anchors.get(ROLE.OVERLAY);
+    const role = layerInfo.role;
+    if (!anchorSeen.has(role) && rolesWithHeader(ui, role)) {
+      anchorSeen.add(role);
+      const anchor = anchors.get(role);
       if (anchor) targets.push(anchor);
-      else ui.log?.warn("syncRowOrder: overlay rows present, anchor missing");
-    }
-    if (layerInfo.role === ROLE.BASE && !hasBaseMaps) {
-      hasBaseMaps = true;
-      const anchor = anchors.get(ROLE.BASE);
-      if (anchor) targets.push(anchor);
-      else ui.log?.warn("syncRowOrder: base rows present, anchor missing");
+      else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
     }
     const row = rows.get(layerInfo.id);
     if (row) targets.push(row);
+  }
+  for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
+    if (anchorSeen.has(role)) continue;
+    const anchor = anchors.get(role);
+    if (anchor) targets.push(anchor);
   }
   // The length check is the cheap side of the panel-matches-registry
   // invariant; only when it breaks is the diff computed and named, so the
@@ -377,6 +379,22 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 };
 
+/** Whether `role`'s section should render its toggle-all header row.
+ *  Shared by renderInitialList, syncRowOrder, insertLayerItem and retireRow so
+ *  the four cannot drift apart (builder-4 ②③④). A section keeps its header
+ *  while it owns at least one live layer OR at least one folder key in the
+ *  persisted order — the latter keeps the empty-folder cleanup button reachable
+ *  after the section's layers are gone (hard constraint 1).
+ *  @param {LayerUI} ui - The control surface.
+ *  @param {string} role - A LayerRole ("overlay" | "base").
+ *  @returns {boolean} True when the header must be rendered. */
+const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
+  if (ui.c.layers.some(l => l.role === role)) return true;
+  const keys =
+    ui.c.folderOrder.sections[role as keyof typeof ui.c.folderOrder.sections];
+  return Boolean(keys && keys.length > 0);
+};
+
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -389,24 +407,45 @@ const renderInitialList = (ui: LayerUI) => {
   // established or Escape cleared it, and either way it should stay cleared.
   const ref = cursorRef(ui);
   const frag = document.createDocumentFragment();
-  let hasBaseMaps = false;
-  let hasOverlays = false;
-
+  // Headers follow the layer order: a section's header is appended the first
+  // time the loop sees one of its rows, so a two-section panel keeps
+  // [overlay header][overlay rows][base header][base rows] (the ordering the
+  // layer sequence already establishes). A section that owns only an empty
+  // folder key — no live rows — gets its header after the loop, keeping the
+  // empty-folder cleanup button reachable (hard constraint 1 / builder-4 ②).
+  const headerSeen = new Set<string>();
   for (const layerInfo of ui.c.layers) {
-    if (layerInfo.role !== ROLE.BASE && !hasOverlays) {
-      hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(ui, ROLE.OVERLAY, "data_layer_label"));
-    }
-    if (layerInfo.role === ROLE.BASE && !hasBaseMaps) {
-      hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(ui, ROLE.BASE, "base_map_label"));
-    }
     const role = layerInfo.role;
+    if (!headerSeen.has(role) && rolesWithHeader(ui, role)) {
+      headerSeen.add(role);
+      frag.appendChild(
+        renderToggleAllRow(
+          ui,
+          role,
+          role === ROLE.BASE ? "base_map_label" : "data_layer_label",
+        ),
+      );
+    }
     const item = renderLayerItem(ui, layerInfo);
     if (ui.listPanel.foldedRoles.has(role)) {
       item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     }
     frag.appendChild(item);
+  }
+
+  // A section that owns only an empty folder key (no live rows) gets its
+  // header after the loop: the layer sequence could not introduce it, and
+  // the cleanup entry must stay reachable.
+  for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
+    if (!headerSeen.has(role) && rolesWithHeader(ui, role)) {
+      frag.appendChild(
+        renderToggleAllRow(
+          ui,
+          role,
+          role === ROLE.BASE ? "base_map_label" : "data_layer_label",
+        ),
+      );
+    }
   }
 
   // The rebuild drops every row (and any style panel anchored in one). A drag
@@ -458,14 +497,22 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const ref = cursorRef(ui);
   const role = layerInfo.role;
 
-  const anchorSel =
+  // `firstOfGroup` anchors the INSERT position: the first ROW of this role,
+  // not the section header. The header is checked separately so a late row
+  // lands at its registry depth (beside its role's other rows) instead of
+  // being wedged above the header — the TOGGLE_ALL match must not become an
+  // insertion anchor (lead WIP review: DOM order regression).
+  const firstRowSel =
     role === ROLE.BASE
       ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
       : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
-  const firstOfGroup = container.querySelector(anchorSel);
+  const firstOfGroup = container.querySelector(firstRowSel);
+  const header = container.querySelector(
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
+  );
 
   const frag = document.createDocumentFragment();
-  if (!firstOfGroup) {
+  if (!header) {
     frag.appendChild(
       renderToggleAllRow(
         ui,
@@ -533,6 +580,21 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
+/** Count the section's empty folder keys (key present, zero live members).
+ *  A key is empty when no live layer in the section has normalize(folder)===key.
+ *  Called on every render — never cached (hard constraint 3). */
+const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
+  const keys =
+    ui.c.folderOrder.sections[role as keyof typeof ui.c.folderOrder.sections] ?? [];
+  if (keys.length === 0) return [];
+  return keys.filter(
+    k =>
+      !ui.c.layers.some(
+        l => l.role === role && l.folder != null && normalizeFolderName(l.folder) === k,
+      ),
+  );
+};
+
 const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   const isFolded = ui.listPanel.foldedRoles.has(role);
   return dom.el(
@@ -562,7 +624,32 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     ),
     dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
     sectionDivider("div"),
+    ...cleanFolderButton(ui, role),
   );
+};
+
+/** Build the section's "clean empty folders" button when the section owns at
+ *  least one empty folder key; otherwise an empty array. A native <button>
+ *  so keyboard users Tab to it (hard constraint 4b); the click handler is
+ *  bound on the container by lifecycle, and the keydown guard sits in
+ *  keyboard.ts. */
+const cleanFolderButton = (ui: LayerUI, role: string): HTMLElement[] => {
+  const empty = emptyFolderKeys(ui, role);
+  if (empty.length === 0) return [];
+  const label = ui.T("clean_empty_folders").replace("{count}", String(empty.length));
+  return [
+    dom.el(
+      "button",
+      {
+        type: "button",
+        class: CONST.CLASSES.CLEAN_FOLDERS_BTN,
+        "data-role": role,
+        title: ui.T("clean_empty_folders_tooltip"),
+        "aria-label": label,
+      },
+      label,
+    ),
+  ];
 };
 
 /** Render a single layer row.

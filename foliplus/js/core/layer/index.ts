@@ -39,7 +39,7 @@ export {
   freezeSectionOrder,
   deleteFolderFromOrder,
 } from "./folderOrder.js";
-export type { FolderOrder } from "./folderOrder.js";
+export type { FolderOrder, FolderSection } from "./folderOrder.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
