@@ -415,7 +415,7 @@
   --foliplus-menu-max-width: 320px;
   /* Max height of a menu/panel that needs to scroll (search results). The
      scheme picker and the dropdown keep their own geometry and do not use
-     this default — see common/scheme-picker.css and common/listbox.ts. */
+     this default — see common/scheme-picker.css and ui/listbox.ts. */
   --foliplus-menu-max-height: 240px;
   /* Entrance duration/easing for the shared dropdown-in animation. The two
      former 0.15s entrances (dropdown + scheme picker) were identical; this is

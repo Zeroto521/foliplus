@@ -32,6 +32,11 @@ import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
 import { resolveVersion } from "../version.mjs";
+import {
+  assertNoSurvivorMarker,
+  planDistMarker,
+  settleDistMarker,
+} from "./distMarker.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
@@ -322,6 +327,7 @@ on a checkout that may not have `dist/` at all, and it must not touch it.
 */
 const writeArtifactManifest = filenames => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
+
   writeFileSync(
     resolve(distDir, "manifest.json"),
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
@@ -363,74 +369,87 @@ const main = async () => {
     verifyDist();
     return;
   }
-  console.time("build");
-  // ── Step 1: Create output dirs (no source mirror needed)
-  // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
-  mkdirSync(buildJs, { recursive: true });
-  // CSS scratch is wiped before every build so a stale merged stylesheet from
-  // a prior run can never be the one esbuild reads.
-  rmSync(buildCss, { recursive: true, force: true });
-  mkdirSync(buildCss, { recursive: true });
+  // Dist-mode marker lifecycle — plan/settle/assert are isolated in
+  // distMarker.mjs (see there for the full rationale); this entry only
+  // threads CFG.dev + distDir into them.
+  const devMarker = planDistMarker({ dev: CFG.dev, distDir });
+  let failed = 0;
+  let buildOk = false;
+  try {
+    console.time("build");
+    // ── Step 1: Create output dirs (no source mirror needed)
+    // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
+    mkdirSync(buildJs, { recursive: true });
+    // CSS scratch is wiped before every build so a stale merged stylesheet from
+    // a prior run can never be the one esbuild reads.
+    rmSync(buildCss, { recursive: true, force: true });
+    mkdirSync(buildCss, { recursive: true });
 
-  // ── Step 2: Generate shared registry ───────────────────────────
-  // Auto-registers every common/core module on window.foliplus (P5).
-  generateSharedRegistry();
+    // ── Step 2: Generate shared registry ───────────────────────────
+    // Auto-registers every common/core module on window.foliplus (P5).
+    generateSharedRegistry();
 
-  // ── Step 3: Discover components & build entries ───────────────
-  const components = findComponents();
-  const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda) {
-    console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
-  }
-  const artifacts = buildEntries(components, CFG.sonda);
-  console.log(
-    `Building ${artifacts.length} artifacts for ${components.length} components...`,
-  );
-
-  // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
-  const failed = results.filter(r => r.status === "rejected").length;
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.status === "fulfilled") {
-      console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
-    } else {
-      console.error(`  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`);
+    // ── Step 3: Discover components & build entries ───────────────
+    const components = findComponents();
+    const sonda = CFG.sonda ? await loadSonda() : null;
+    if (sonda) {
+      console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
     }
-  }
-
-  // ── Step 4.5: Combined sonda report (--sonda) ──
-  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
-  if (sonda) {
-    const metafiles = results
-      .filter(r => r.status === "fulfilled")
-      .map(r => r.value?.metafile)
-      .filter(Boolean);
-    const merged = mergeMetafiles(metafiles);
-    // Side product for Codecov Bundle Analysis: the same merged metafile
-    // sonda consumes, dumped so the upload adapter never re-runs esbuild.
-    // Additive only — packaging behavior is unchanged.
-    writeFileSync(
-      resolve(CFG.root, "bundle-metafile.json"),
-      `${JSON.stringify(merged, null, 2)}\n`,
+    const artifacts = buildEntries(components, CFG.sonda);
+    console.log(
+      `Building ${artifacts.length} artifacts for ${components.length} components...`,
     );
-    const reportFile = resolve(CFG.root, "bundle-treemap.html");
-    rmSync(reportFile, { force: true });
-    const config = new sonda.Config(
-      {
-        format: "html",
-        outputDir: CFG.root,
-        filename: "bundle-treemap.html",
-        open: false,
-        include: [/\.(js|css)$/],
-      },
-      { integration: "esbuild" },
-    );
-    await sonda.processEsbuildMetafile(merged, config);
+
+    // ── Step 4: esbuild bundle (parallel) ─────────────────────────
+    const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
+    failed = results.filter(r => r.status === "rejected").length;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
+      } else {
+        console.error(
+          `  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`,
+        );
+      }
+    }
+
+    // ── Step 4.5: Combined sonda report (--sonda) ──
+    // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
+    if (sonda) {
+      const metafiles = results
+        .filter(r => r.status === "fulfilled")
+        .map(r => r.value?.metafile)
+        .filter(Boolean);
+      const merged = mergeMetafiles(metafiles);
+      // Side product for Codecov Bundle Analysis: the same merged metafile
+      // sonda consumes, dumped so the upload adapter never re-runs esbuild.
+      // Additive only — packaging behavior is unchanged.
+      writeFileSync(
+        resolve(CFG.root, "bundle-metafile.json"),
+        `${JSON.stringify(merged, null, 2)}\n`,
+      );
+      const reportFile = resolve(CFG.root, "bundle-treemap.html");
+      rmSync(reportFile, { force: true });
+      const config = new sonda.Config(
+        {
+          format: "html",
+          outputDir: CFG.root,
+          filename: "bundle-treemap.html",
+          open: false,
+          include: [/\.(js|css)$/],
+        },
+        { integration: "esbuild" },
+      );
+      await sonda.processEsbuildMetafile(merged, config);
+    }
+
+    writeArtifactManifest(components.map(c => c.name));
+    buildOk = !failed;
+  } finally {
+    settleDistMarker({ dev: CFG.dev, buildOk, marker: devMarker });
   }
-
-  writeArtifactManifest(components.map(c => c.name));
-
+  assertNoSurvivorMarker({ dev: CFG.dev, marker: devMarker });
   if (failed) process.exit(1);
   console.timeEnd("build");
 };

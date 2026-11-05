@@ -21,7 +21,7 @@ from foliplus._declaration import (
 FOLIPLUS_KEYS = frozenset({"fill", "label", FOLDER_KEY, ZOOM_RANGE_KEY})
 
 
-def _foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None:
+def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None:
     """Read one layer's foliplus={...} namespace, or None when unusable.
 
     Returns the raw mapping when the layer declares one, else ``None``: "no
@@ -93,7 +93,7 @@ def declared_zoom_range(item: Layer, layer_name: str) -> dict[str, int] | None:
     ``zoom_range`` shape and the warning family, so layering the same rules
     here and on the controls cannot drift.
     """
-    namespace = _foliplus_namespace(item, layer_name)
+    namespace = foliplus_namespace(item, layer_name)
     if namespace is None:
         return None
     return normalise_zoom_range(
@@ -117,7 +117,7 @@ def declared_folder(item: Layer, layer_name: str) -> str | None:
     the ``folder`` shape and the warning family, so layering the same rules
     here and on the controls cannot drift.
     """
-    namespace = _foliplus_namespace(item, layer_name)
+    namespace = foliplus_namespace(item, layer_name)
     if namespace is None:
         return None
     return normalise_folder(

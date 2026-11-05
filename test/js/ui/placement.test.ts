@@ -8,7 +8,7 @@ import {
   computePlacement,
   intersect,
   isDegenerate,
-} from "#foliplus/common/placement.js";
+} from "#ui/index.js";
 
 const rect = (top: number, right: number, bottom: number, left: number): Rect => ({
   top,
