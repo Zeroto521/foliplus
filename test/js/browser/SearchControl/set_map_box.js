@@ -1,4 +1,4 @@
-(width, height) => {
+({ width, height }) => {
   const mapEl = document.querySelector(".foliplus-map, .leaflet-container");
   mapEl.style.width = width + "px";
   mapEl.style.height = height + "px";

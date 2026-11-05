@@ -642,7 +642,9 @@ class TestSearchControlPlacementBrowser:
             page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             # Shrink the map to a 600x400 box (smaller than the viewport).
-            page.evaluate(_js("SearchControl/set_map_box"), 600, 400)
+            page.evaluate(
+                _js("SearchControl/set_map_box"), {"width": 600, "height": 400}
+            )
             page.wait_for_timeout(300)
             page.evaluate(_js("SearchControl/click_toggle_btn"))
             page.wait_for_selector(
