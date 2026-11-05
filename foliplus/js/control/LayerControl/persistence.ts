@@ -272,8 +272,8 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
     record.removed = data.removed as string[];
   }
-  const fo = parseFolderOrder(data.folderOrder);
-  if (fo) record.folderOrder = fo;
+  const parsed = parseFolderOrder(data.folderOrder);
+  if (parsed) record.folderOrder = parsed;
   if (
     Array.isArray(data.foldedRoles) &&
     data.foldedRoles.every(role => typeof role === "string")

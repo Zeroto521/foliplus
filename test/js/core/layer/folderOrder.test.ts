@@ -105,8 +105,8 @@ describe("invariant 4 — folderOrder highest priority", () => {
       li("rail", "overlay", "Rail"),
       li("roads", "overlay", "Roads"),
     ];
-    const fo = { version: 1 as const, sections: { overlay: ["roads", "rail"] } };
-    const out = sectionOrder("overlay", reg, fo);
+    const order = { version: 1 as const, sections: { overlay: ["roads", "rail"] } };
+    const out = sectionOrder("overlay", reg, order);
     expect(out.map(e => e.id)).toEqual(["roads", "rail", "x0"]);
   });
 });
@@ -222,16 +222,16 @@ describe("invariant 9 — freeze side effect: later new folder lands at the bloc
 
 describe("deleteFolderFromOrder", () => {
   it("removes the normalised name from the section list", () => {
-    const fo = { version: 1 as const, sections: { overlay: ["a", "b", "c"] } };
-    const next = deleteFolderFromOrder("overlay", "B", fo);
+    const order = { version: 1 as const, sections: { overlay: ["a", "b", "c"] } };
+    const next = deleteFolderFromOrder("overlay", "B", order);
     expect(next.sections.overlay).toEqual(["a", "c"]);
   });
 
   it("is a no-op when the section has no order yet", () => {
     // The `?? []` read side: a section that never entered folderOrder must not
     // invent a key — the result stays an empty overlay list, not undefined.
-    const fo = { version: 1 as const, sections: {} };
-    const next = deleteFolderFromOrder("overlay", "Roads", fo);
+    const order = { version: 1 as const, sections: {} };
+    const next = deleteFolderFromOrder("overlay", "Roads", order);
     expect(next.sections.overlay).toEqual([]);
     expect(next.sections.base).toBeUndefined();
   });
