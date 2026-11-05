@@ -12,7 +12,7 @@
   if (!panel) return { ok: false, reason: "no-panel" };
   const mode = panel.querySelector(".foliplus-style-fill-mode-select");
   if (!mode) return { ok: false, reason: "no-mode-select" };
-  mode.value = "ramp";
+  mode.value = "value";
   mode.dispatchEvent(new Event("change", { bubbles: true }));
 
   const trigger = panel.querySelector(".foliplus-style-scheme-trigger");
