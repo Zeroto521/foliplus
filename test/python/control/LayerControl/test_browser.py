@@ -6129,6 +6129,61 @@ class TestLayerControlBrowser:
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_fill_ramp_paints_the_map_by_value(self, browser, tmp_path):
+        """The by-value arm repaints the map, and solid flattens it back.
+
+        The ramp arm maps each polygon's numeric property to a color, so the
+        rendered SVG carries one fill per value. Reading the panel's color bar
+        only proves the DOM changed; this reads the map's own path elements
+        under the leaflet-map-pane and asserts the real paint. Switching to the
+        solid arm flattens every polygon to the same fill, so the distinct
+        painted-fill set collapses to one — the negative control that a single
+        color really is one color, and that "ramp" was what made them differ.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_fill_ramp_paints_map",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            # The ramp arm is the default for a numeric field, but set it
+            # explicitly so the assertion targets the arm, not an accident of
+            # the default.
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "ramp"}
+            )
+            assert set_mode["ok"], f"could not enter the ramp arm: {set_mode}"
+            page.wait_for_timeout(300)
+
+            ramp = page.evaluate(_js("LayerControl/read_map_fills"))
+            assert ramp["count"] >= 3, (
+                f"expected at least the three polygons painted, got {ramp}"
+            )
+            assert ramp["present"] >= 3, (
+                f"the ramp arm did not paint distinct per-value fills: {ramp}"
+            )
+            assert len(ramp["fills"]) >= 3, (
+                f"the ramp arm did not paint at least three distinct colors: {ramp}"
+            )
+
+            # Negative control: the solid arm paints every polygon the same
+            # fill, so the distinct painted-fill set collapses to one value.
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "solid"}
+            )
+            assert set_mode["ok"], f"could not enter the solid arm: {set_mode}"
+            page.wait_for_timeout(300)
+
+            solid = page.evaluate(_js("LayerControl/read_map_fills"))
+            assert solid["count"] >= 3, f"the solid arm dropped polygons: {solid}"
+            assert solid["present"] == 1, (
+                f"the solid arm did not flatten to one fill: {solid}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_row_panels_pin_only_on_request(self, browser, tmp_path):
         """Pinning is opt-in: this PR's panels pin, a plain row panel does not.
 
