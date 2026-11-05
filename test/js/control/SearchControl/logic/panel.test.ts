@@ -704,6 +704,36 @@ describe("positionPanel", () => {
     expect(() => positionPanel(ctrl)).not.toThrow();
     expect(ctrl.panelWrap).toBeNull();
   });
+
+  it("falls back to gap 0 / token 240 when the CSS vars are malformed", () => {
+    // A malformed --foliplus-menu-gap / --foliplus-menu-max-height (a non-numeric
+    // value, or the token stylesheet missing entirely) must not collapse the
+    // panel: the gap falls back to 0 and the height token to 240 instead of 0.
+    withMapBounds(MAP_BOUNDS, () => {
+      const panel = makePanelEl(200, 80);
+      panel.style.setProperty("--foliplus-menu-gap", "auto");
+      panel.style.setProperty("--foliplus-menu-max-height", "auto");
+      const ctrl: any = {
+        ...ctx(),
+        panelWrap: panel,
+        ctrl: {
+          getBoundingClientRect: () => ({
+            left: 10,
+            top: 20,
+            right: 210,
+            bottom: 100,
+            width: 200,
+            height: 80,
+          }),
+        },
+      };
+      positionPanel(ctrl);
+      // gap 0 -> top = anchor.bottom + 0; the maxHeight stays the surface height
+      // (min(scrollHeight 80, token 240) = 80), not a collapsed 0.
+      expect(ctrl.panelWrap.style.top).toBe("100px");
+      expect(ctrl.panelWrap.style.maxHeight).toBe("80px");
+    });
+  });
 });
 
 // ─── attachSearchDelIcon ───

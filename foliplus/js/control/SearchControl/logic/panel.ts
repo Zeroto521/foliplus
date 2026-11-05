@@ -86,7 +86,7 @@ const positionPanel = (ctrl: SearchControlCtx) => {
   // menu-max-height token, so the kernel can flip above / clamp / cap.
   const gap = parseFloat(cssVar(panel, "--foliplus-menu-gap", "4px")) || 0;
   const maxToken =
-    parseFloat(cssVar(panel, "--foliplus-menu-max-height", "240px")) || 0;
+    parseFloat(cssVar(panel, "--foliplus-menu-max-height", "240px")) || 240;
   const placement = computePlacement(
     anchor,
     { width: panel.offsetWidth, height: Math.min(panel.scrollHeight, maxToken) },
