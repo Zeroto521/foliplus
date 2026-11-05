@@ -2,7 +2,7 @@ import type { FolderOrder } from "#core/layer/folderOrder.js";
 import {
   type FillRampConfig,
   isFillRampConfig,
-  isIconConfig,
+  isIconIntent,
 } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
@@ -180,7 +180,7 @@ const PARSE_OVERRIDE: Record<
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
-  icon: data => (isIconConfig(data.icon) ? data.icon : null),
+  icon: data => (isIconIntent(data.icon) ? data.icon : null),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

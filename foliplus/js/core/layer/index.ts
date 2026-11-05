@@ -101,7 +101,7 @@ export {
   serializedFilters,
   storeFilter,
 } from "./filter.js";
-export { INTENT, isFillRampConfig, isIconConfig, LIVE, STYLE_KEYS } from "./intent.js";
+export { INTENT, isFillRampConfig, isIconIntent, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type {
   FilterDimension,
@@ -121,7 +121,6 @@ export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
   FillRampConfig,
-  IconConfig,
   IconIntent,
   IntentKey,
   IntentRow,

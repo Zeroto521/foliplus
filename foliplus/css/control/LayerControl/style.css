@@ -149,62 +149,87 @@
 /* The icon row's category legend: one button per category (symbol + name).
    The list scrolls past the budget threshold; the toggle expands it in
    place so the panel does not grow to the full category count. */
-.foliplus-style-icon-legend {
-  display: flex;
-  flex-direction: column;
-  gap: var(--foliplus-gap-sm, 4px);
-  margin-top: var(--foliplus-gap-sm, 4px);
-}
-
-.foliplus-style-icon-legend-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--foliplus-gap-xs, 2px);
-  max-height: 8rem;
-  overflow-y: auto;
-}
-
-.foliplus-style-icon-legend-list-expanded {
-  max-height: none;
-}
-
-.foliplus-style-icon-legend-row {
-  display: flex;
+/* ── Icon row ────────────────────────────────────────────────
+   The row is one trigger + a grid popup. The trigger shows the current
+   glyph (or the author-original label) and opens the grid; the grid is a
+   8-column matrix of 28px cells. The glyph paints with currentColor, so
+   the row inherits the panel text colour and the selected cell uses the
+   accent. */
+.foliplus-style-icon-trigger {
+  display: inline-flex;
   align-items: center;
-  gap: var(--foliplus-gap-sm, 4px);
-  width: 100%;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   box-sizing: border-box;
-  padding: 2px 4px;
-  border: none;
-  border-radius: var(--foliplus-radius-sm);
+  padding: 0;
+  border: 1px solid var(--foliplus-border-color, rgba(0, 0, 0, 0.15));
+  border-radius: var(--foliplus-radius-sm, 4px);
   background: transparent;
   color: inherit;
-  font: inherit;
-  text-align: left;
   cursor: pointer;
+  font: inherit;
 }
 
-.foliplus-style-icon-legend-row:hover {
+.foliplus-style-icon-trigger:hover {
   background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
 }
 
-.foliplus-style-icon-legend-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.foliplus-style-icon-trigger .foliplus-marker-glyph {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
 }
 
-.foliplus-style-icon-legend-toggle {
-  align-self: flex-start;
-  padding: 2px 4px;
-  border: none;
+.foliplus-style-icon-trigger .foliplus-marker-glyph svg {
+  width: 100%;
+  height: 100%;
+}
+
+.foliplus-style-icon-grid {
+  position: absolute;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  gap: 2px;
+  padding: 6px;
+  background: var(--foliplus-panel-bg, #fff);
+  border: 1px solid var(--foliplus-border-color, rgba(0, 0, 0, 0.15));
+  border-radius: var(--foliplus-radius-sm, 4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.foliplus-style-icon-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--foliplus-radius-sm, 4px);
   background: transparent;
-  color: var(--foliplus-link-color, #0078d4);
-  font: inherit;
+  color: inherit;
   cursor: pointer;
 }
 
-.foliplus-style-icon-empty {
-  color: var(--foliplus-text-muted, #666);
-  font-size: 0.85em;
+.foliplus-style-icon-cell:hover {
+  background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
+}
+
+.foliplus-style-icon-cell .foliplus-marker-glyph {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+}
+
+.foliplus-style-icon-cell .foliplus-marker-glyph svg {
+  width: 100%;
+  height: 100%;
+}
+
+.foliplus-style-icon-cell-selected {
+  border-color: var(--foliplus-accent-color, #0078d4);
+  background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
 }
