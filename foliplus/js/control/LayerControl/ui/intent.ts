@@ -15,6 +15,8 @@
 // here so every `ui/intent.js` import keeps working unchanged.
 import {
   INTENT,
+  type IconConfig,
+  type IconIntent,
   type IntentKey,
   LIVE,
   type LayerInfo,
@@ -86,4 +88,4 @@ export {
   seedIntentMap,
   setIntent,
 };
-export type { IntentKey };
+export type { IconConfig, IconIntent, IntentKey };

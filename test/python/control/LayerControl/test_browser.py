@@ -105,6 +105,34 @@ class TestLayerControlBrowser:
         )
 
     @staticmethod
+    def _icon_marker_layer() -> folium.GeoJson:
+        """A marker layer with one categorical field across eight points.
+
+        The icon dimension owns the marker icon axis; the eight distinct
+        category values are what the derived symbol mapping walks (one symbol
+        per category, capped by the legend budget constant).
+        """
+        return folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": f"c{i}"},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.28 + i * 0.01, 26.08],
+                            },
+                        }
+                        for i in range(8)
+                    ],
+                }
+            ),
+            name="Icon markers",
+        )
+
+    @staticmethod
     def _open_style_ramp(page) -> None:
         """Expand the control, wait for its init pass, then open ⋮ → Style."""
         page.evaluate(_js("LayerControl/open_panel"))
@@ -119,6 +147,42 @@ class TestLayerControlBrowser:
         page.wait_for_selector(
             ".foliplus-layer-style-panel", state="visible", timeout=5000
         )
+
+    def test_style_icon_dimension_swaps_marker_dom_class(self, browser, tmp_path):
+        """The icon row drives real markers: each category gets its symbol class.
+
+        The vitest layer proves setIcon receives the divIcon descriptor; this
+        crosses into the real Leaflet runtime to prove the marker's DOM element
+        actually carries `foliplus-marker-symbol--<shape>` for every shape in
+        the legend budget, and that Reset drops it back to the author icon.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="style_icon_dimension",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            before = page.evaluate(_js("LayerControl/icon_dimension_probe"), [])
+            assert before["panel"] and before["iconRow"], before
+            assert all(not icon["hasSymbolClass"] for icon in before["icons"]), (
+                f"markers already carry a symbol before the write: {before}"
+            )
+
+            written = page.evaluate(_js("LayerControl/icon_dimension_probe"), ["kind"])
+            assert written["fieldValue"] == "kind", written
+            symbols = {icon["symbol"] for icon in written["icons"]}
+            # Eight distinct categories -> the eight curated shapes all appear.
+            assert len(symbols) == 8, f"expected 8 shapes, got {symbols}: {written}"
+
+            reset = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), [None, True]
+            )
+            assert all(not icon["hasSymbolClass"] for icon in reset["icons"]), (
+                f"Reset did not restore the author icon: {reset}"
+            )
+            assert not errors, errors
 
     def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
         """The layer more-menu shell keeps its design padding on a host

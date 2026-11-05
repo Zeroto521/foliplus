@@ -93,6 +93,16 @@ const hasSetStyle = (node: unknown): boolean =>
  *  carrier check for the vector stroke axis (border). */
 const hasSetStyleLeaf = (node: unknown): boolean => someLeaf(node, hasSetStyle);
 
+/** Whether one node exposes a runtime `setIcon` — the marker icon carrier.
+ *  Same guard as `hasSetStyle`: a throwing getter answers nothing, so the
+ *  axis reads "none" instead of the walk dying mid-tree. */
+const hasSetIcon = (node: unknown): boolean =>
+  safeRead(() => typeof (node as { setIcon?: unknown }).setIcon) === "function";
+
+/** Whether any leaf in the tree exposes a runtime `setIcon` — the honest
+ *  carrier check for the marker icon axis. */
+const hasSetIconLeaf = (node: unknown): boolean => someLeaf(node, hasSetIcon);
+
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
@@ -127,6 +137,8 @@ interface LayerCarrierProbe {
   fill: "native" | "none";
   /** Any leaf owns a pixel radius — the size carrier. */
   size: "native" | "none";
+  /** Any leaf owns a runtime `setIcon` — the marker icon carrier. */
+  icon: "native" | "none";
   /** The full-tree migratable audit: "mixed" is the degrade signal. */
   migratable: "ok" | "mixed" | "empty";
 }
@@ -135,12 +147,14 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
   let stroke = false;
   let fill = false;
   let radius = false;
+  let icon = false;
   let known = 0;
   let unknown = 0;
   walkLeaf(node, leaf => {
     if (!stroke && hasSetStyle(leaf)) stroke = true;
     if (!fill && isArealStyleLeaf(leaf)) fill = true;
     if (!radius && isPixelRadiusLeaf(leaf)) radius = true;
+    if (!icon && hasSetIcon(leaf)) icon = true;
     if (isMigratableLeaf(leaf)) known += 1;
     else unknown += 1;
   });
@@ -148,6 +162,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     stroke: stroke ? "native" : "none",
     fill: fill ? "native" : "none",
     size: radius ? "native" : "none",
+    icon: icon ? "native" : "none",
     migratable: unknown > 0 ? "mixed" : known > 0 ? "ok" : "empty",
   };
 };

@@ -138,7 +138,8 @@ type LayerOverride =
   | "borderWeight"
   | "opacity"
   | "zoomRange"
-  | "size";
+  | "size"
+  | "icon";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -178,6 +179,41 @@ type LayerOverride =
  *     consumer-side default; a snapshot is only ever rewritten by its own
  *     resolution edge, so a late-arriving layer lands once and the
  *     consumer sees the rebuilt entry rather than N independent fallbacks. */
+/** A per-category marker icon source. Forward-compatible: v1's UI only
+ *  produces "author" (keep the author's icon) and "symbol" (a built-in
+ *  geometric shape); "url" (an external icon URL) and "class" (a divIcon
+ *  CSS class list) land in a later PR (task-73). */
+type IconIntent = {
+  kind: "author" | "symbol" | "url" | "class";
+  value: string;
+};
+
+/** The icon dimension's config: a categorical field plus a per-category
+ *  icon source. `mapping[category]` is the icon for features whose field
+ *  value equals `category`; a category absent from the mapping keeps the
+ *  author's icon. */
+type IconConfig = {
+  field: string;
+  mapping: Record<string, IconIntent>;
+};
+
+const isIconIntent = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as { kind?: unknown }).kind === "string" &&
+  ["author", "symbol", "url", "class"].includes((value as { kind: string }).kind) &&
+  typeof (value as { value?: unknown }).value === "string";
+
+const isIconConfig = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as { field?: unknown }).field === "string" &&
+  typeof (value as { mapping?: unknown }).mapping === "object" &&
+  (value as { mapping: unknown }).mapping !== null &&
+  Object.values((value as { mapping: Record<string, unknown> }).mapping).every(
+    isIconIntent,
+  );
+
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;
@@ -198,6 +234,9 @@ type LayerIntent = {
    *  first write like `authorOpacityBase` — a re-read would feed the leaf its
    *  own last write, compounding every keystroke. */
   size?: number;
+  /** The marker-icon config: a categorical field plus per-category icon
+   *  sources. Absent = the author's icons stay. */
+  icon?: IconConfig;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (annotation) config seed for this layer. Live label state after
@@ -237,6 +276,10 @@ type PersistedLayerState = {
    *  only). LayerControl owns the write — a self-managed dimension, see
    *  ui/style/size.ts. */
   size?: number;
+  /** The marker-icon config the user set in the style panel (a categorical
+   *  field plus per-category icon sources). LayerControl owns the write —
+   *  a self-managed dimension, see ui/style/icon.ts. */
+  icon?: IconConfig;
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -283,6 +326,7 @@ const INTENT = {
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
+  ICON: "icon",
   NAME: "name",
   ANNOTATION: "annotation",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -307,6 +351,7 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // stored value would make the row fall back to the author's radius while
   // still advertising provenance.
   [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
+  [INTENT.ICON]: isIconConfig,
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.ANNOTATION]: value => value != null,
 };
@@ -327,13 +372,16 @@ const STYLE_KEYS = {
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,
+  icon: INTENT.ICON,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS };
+export { INTENT, isFillRampConfig, isIconConfig, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
   FillMode,
   FillRampConfig,
+  IconConfig,
+  IconIntent,
   IntentKey,
   IntentRow,
   LayerIntent,

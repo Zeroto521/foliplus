@@ -1,4 +1,8 @@
-import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
+import {
+  type FillRampConfig,
+  isFillRampConfig,
+  isIconConfig,
+} from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -174,6 +178,7 @@ const PARSE_OVERRIDE: Record<
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
+  icon: data => (isIconConfig(data.icon) ? data.icon : null),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

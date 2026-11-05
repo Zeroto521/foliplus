@@ -208,6 +208,14 @@ const CLASSES = {
    *  label-size and border-weight number fields. */
   STYLE_SIZE_ROW: "foliplus-style-size-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
+  STYLE_ICON_ROW: "foliplus-style-icon-row",
+  STYLE_ICON_EMPTY: "foliplus-style-icon-empty",
+  STYLE_ICON_LEGEND: "foliplus-style-icon-legend",
+  STYLE_ICON_LEGEND_LIST: "foliplus-style-icon-legend-list",
+  STYLE_ICON_LEGEND_ROW: "foliplus-style-icon-legend-row",
+  STYLE_ICON_LEGEND_LABEL: "foliplus-style-icon-legend-label",
+  STYLE_ICON_LEGEND_TOGGLE: "foliplus-style-icon-legend-toggle",
+  STYLE_ICON_LEGEND_EXPANDED: "foliplus-style-icon-legend-list-expanded",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",

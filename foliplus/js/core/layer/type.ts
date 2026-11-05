@@ -115,6 +115,18 @@ interface LayerCapabilities {
    *  Probe-derived and re-read on each audit — same contract as `stroke` /
    *  `fill`. */
   size: "native" | "none";
+  /** Whether the layer's tree has a write carrier for marker icons:
+   *    - "native" — any leaf owns a runtime `setIcon` (a Marker with its
+   *      default icon). The write walks `eachLayer` and calls `setIcon` per
+   *      leaf.
+   *    - "none"   — no `setIcon` leaf. Vector paths, canvas, MarkerCluster
+   *      (cluster bubbles live in the shared markerPane and never enter
+   *      eachLayer), native setter surfaces (ImageOverlay / GridLayer) and
+   *      the color basemap all fall out.
+   *
+   *  Probe-derived and re-read on each audit (`refreshCapabilities`) — same
+   *  contract as `stroke` / `fill`. */
+  icon: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
