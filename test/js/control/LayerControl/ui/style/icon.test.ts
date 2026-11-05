@@ -3,8 +3,8 @@ import { DIM } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { getIntent } from "#control/LayerControl/ui/intent.js";
-import { GLYPH_SETS } from "#control/LayerControl/ui/style/glyph.js";
+import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
+import { GLYPH_SETS, resolveGlyph } from "#control/LayerControl/ui/style/glyph.js";
 import {
   ICON_DIMENSION,
   applyIconToLayer,
@@ -190,6 +190,13 @@ describe("buildMarkerIcon", () => {
     expect(!!shadow).toBe(!!author.createShadow?.());
   });
 
+  it("returns null when the author chassis cannot be built", () => {
+    const author = { ...makeAuthorIcon(), createIcon: vi.fn(() => null) };
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const div = derived.createIcon();
+    expect(div).toBeNull();
+  });
+
   it("keeps the shadow absence identical when the author has none", () => {
     const author = makeAuthorIcon({ withShadow: false });
     const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
@@ -207,6 +214,22 @@ describe("buildMarkerIcon", () => {
     const derived = buildMarkerIcon({ author, glyph: "nope" }) as any;
     const div = derived.createIcon();
     expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<circle");
+  });
+});
+
+describe("resolveGlyph", () => {
+  it("returns the exact SVG for a known name", () => {
+    const svg = resolveGlyph("star");
+    expect(svg).toContain("<svg");
+    expect(svg).toContain("<polygon");
+  });
+
+  it("resolves a legacy alias (pin -> map-pin)", () => {
+    expect(resolveGlyph("pin")).toBe(resolveGlyph("map-pin"));
+  });
+
+  it("falls back to the circle glyph for an unknown name", () => {
+    expect(resolveGlyph("nope")).toBe(resolveGlyph("circle"));
   });
 });
 describe("buildIconRow", () => {
@@ -282,6 +305,97 @@ describe("buildIconRow", () => {
     grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
   });
+
+  it("navigates the grid with arrow keys and activates with Enter", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+    expect(cells.length).toBe(GLYPH_SETS.length);
+
+    // Focus the first cell and move right + down. ArrowRight wraps to the
+    // next row at the 8-column boundary; ArrowDown moves one full row.
+    cells[0].focus();
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
+    );
+    expect(document.activeElement).toBe(cells[1]);
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+    );
+    expect(document.activeElement).toBe(cells[9]);
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowLeft" }),
+    );
+    expect(document.activeElement).toBe(cells[8]);
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+    expect(document.activeElement).toBe(cells[0]);
+    // Home / End.
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "End" }));
+    expect(document.activeElement).toBe(cells[cells.length - 1]);
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Home" }));
+    expect(document.activeElement).toBe(cells[0]);
+    // Enter activates the focused cell: it writes the intent and closes.
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    const intent = getIntent(ui, "overlay1", DIM.ICON);
+    expect(intent).toEqual({ kind: "glyph", value: GLYPH_SETS[0].name });
+  });
+
+  it("closes on an outside pointerdown", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
+    // A press outside the grid (on the row, not inside a cell) closes it.
+    row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+  });
+
+  it("cleans up its document listeners when the grid is removed", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    expect(grid).not.toBeNull();
+    // jsdom does not fire a native "remove" event on element.remove(), so
+    // exercise the cleanup path by dispatching it explicitly.
+    grid.dispatchEvent(new Event("remove"));
+    // The grid is still in the DOM (removal listeners only detach the
+    // document listeners); close it by clicking the trigger.
+    trigger.click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+  });
+
+  it("ignores an unrecognized key while navigating", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+    cells[0].focus();
+    expect(() => {
+      grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
+    }).not.toThrow();
+    expect(document.activeElement).toBe(cells[0]);
+  });
 });
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
@@ -333,6 +447,78 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   it("reset skips a missing layer without throwing", () => {
     expect(() => resetLayerIcon(ui, "nope")).not.toThrow();
   });
+
+  it("reset is a no-op when the layer left the map", () => {
+    // The registry entry survives but the layer object is gone (removed from
+    // the map), so findLayer returns null — reset must not touch a null walk.
+    commitGlyph(ui, "overlay1", "star");
+    flushIcon("overlay1");
+    // Simulate the layer leaving the map: findLayer resolves via the map.
+    const layer = ui.c.findLayer("overlay1");
+    expect(layer).not.toBeNull();
+    resetLayerIcon(ui, "overlay1");
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
+  });
+
+  it("reset is a no-op when the layer left the map mid-flight", () => {
+    // A layer in the registry whose map lookup fails (removed from the
+    // map between the write and the reset) must not crash the walk.
+    commitGlyph(ui, "overlay1", "star");
+    flushIcon("overlay1");
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
+    expect(() => resetLayerIcon(ui, "overlay1")).not.toThrow();
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
+    vi.restoreAllMocks();
+  });
+  it("reset skips a non-marker leaf in the walk", () => {
+    const poly = makePoly();
+    const group = makeMarkerGroup(school, poly as any);
+    const { manager: m4, ui: u4 } = initFixture({
+      data: [{ id: "mix2", name: "MIX2", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    commitGlyph(u4, "mix2", "star");
+    flushIcon("mix2");
+    expect(() => resetLayerIcon(u4, "mix2")).not.toThrow();
+    m4?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("apply is a no-op for a layer the registry lost", () => {
+    writeIntentKeys(ui, "nope", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
+    applyIconToLayer(ui, "nope");
+    expect(school.setIcon).not.toHaveBeenCalled();
+  });
+
+  it("apply skips a non-marker leaf in the walk", () => {
+    // A group with a polygon leaf cannot carry an icon; the walk must skip
+    // it without touching setIcon.
+    const poly = makePoly();
+    const group = makeMarkerGroup(school, poly as any);
+    const { manager: m3, ui: u3 } = initFixture({
+      data: [{ id: "mix", name: "MIX", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    commitGlyph(u3, "mix", "star");
+    flushIcon("mix");
+    expect(school.setIcon).toHaveBeenCalled();
+    m3?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("re-applying captures the author only once", () => {
+    // A second apply must reuse the already-captured author (the WeakMap
+    // early-return) rather than re-reading options.icon — which by now holds
+    // the DERIVED icon.
+    commitGlyph(ui, "overlay1", "map-pin");
+    flushIcon("overlay1");
+    const first = school.options.icon;
+    commitGlyph(ui, "overlay1", "star");
+    flushIcon("overlay1");
+    expect(school.options.icon).not.toBe(first);
+    // The author captured on the first write is the prototype of both.
+    expect(Object.getPrototypeOf(school.options.icon)).toBe(authorIcon);
+  });
 });
 describe("icon dimension descriptor", () => {
   let manager: LayerController;
@@ -359,6 +545,7 @@ describe("icon dimension descriptor", () => {
 
   it("value / write / valueSource / contentChange wire the intent slot", () => {
     const config = ICON_DIMENSION.value!(ui, "overlay1");
+
     expect(config).toBeUndefined();
     ICON_DIMENSION.write!(ui, "overlay1", { kind: "glyph", value: "map-pin" });
     const intent = getIntent(ui, "overlay1", DIM.ICON);
@@ -373,6 +560,12 @@ describe("icon dimension descriptor", () => {
       throw new Error("expected a frame policy");
     }
     expect(ICON_DIMENSION.row!(ui, "overlay1")).not.toBeNull();
+  });
+  it("reset restores the authored icon and drops the intent", () => {
+    ICON_DIMENSION.write!(ui, "overlay1", { kind: "glyph", value: "star" });
+    flushStyleDimApply();
+    ICON_DIMENSION.reset!(ui, "overlay1");
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
   it("reports author provenance before any user write", () => {

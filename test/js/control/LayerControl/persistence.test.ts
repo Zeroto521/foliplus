@@ -1025,6 +1025,23 @@ describe("LayerPersistence", () => {
         l: { size: 30, borderColor: "#abcdef", overrides: ["borderColor", "size"] },
       });
     });
+
+    it("restores an icon override and drops a malformed one", () => {
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "glyph", value: "map-pin" }, overrides: ["icon"] },
+          b: { icon: { kind: "glyph", value: 42 }, overrides: ["icon"] },
+          c: { icon: { kind: "ramp" }, overrides: ["icon"] },
+          d: { icon: "map-pin", overrides: ["icon"] },
+          e: { icon: null, overrides: ["icon"] },
+          f: { icon: { kind: "glyph", value: "star" }, overrides: ["icon", "icon"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { icon: { kind: "glyph", value: "map-pin" }, overrides: ["icon"] },
+        f: { icon: { kind: "glyph", value: "star" }, overrides: ["icon"] },
+      });
+    });
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {

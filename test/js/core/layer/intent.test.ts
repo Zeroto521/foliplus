@@ -1,7 +1,7 @@
 // Unit tests for core/layer/intent — the per-layer intent domain, focused
 // on the value-based fill ramp's two arms (numeric / category).
 import { describe, expect, it } from "vitest";
-import { isFillRampConfig } from "#core/layer/intent.js";
+import { isFillRampConfig, isIconIntent } from "#core/layer/intent.js";
 
 const NUMERIC = {
   kind: "numeric",
@@ -66,5 +66,30 @@ describe("isFillRampConfig", () => {
     expect(isFillRampConfig(null)).toBe(false);
     expect(isFillRampConfig("Reds")).toBe(false);
     expect(isFillRampConfig([1, 2, 3])).toBe(false);
+  });
+});
+
+describe("isIconIntent", () => {
+  it("accepts a glyph intent", () => {
+    expect(isIconIntent({ kind: "glyph", value: "star" })).toBe(true);
+  });
+
+  it("rejects non-objects", () => {
+    expect(isIconIntent(null)).toBe(false);
+    expect(isIconIntent(undefined)).toBe(false);
+    expect(isIconIntent("star")).toBe(false);
+    expect(isIconIntent(["star"])).toBe(false);
+  });
+
+  it("rejects a wrong kind", () => {
+    expect(isIconIntent({ kind: "ramp", value: "star" })).toBe(false);
+    expect(isIconIntent({ kind: "size", value: 30 })).toBe(false);
+    expect(isIconIntent({ value: "star" })).toBe(false);
+  });
+
+  it("rejects a non-string value", () => {
+    expect(isIconIntent({ kind: "glyph", value: 42 })).toBe(false);
+    expect(isIconIntent({ kind: "glyph", value: null })).toBe(false);
+    expect(isIconIntent({ kind: "glyph" })).toBe(false);
   });
 });
