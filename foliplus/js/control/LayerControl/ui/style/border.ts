@@ -24,6 +24,7 @@
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import {
   BORDER_WEIGHT,
   bindLiveColor,
@@ -32,8 +33,7 @@ import {
   inlineControls,
   normalizeHexColor,
   numberInput,
-} from "#common/form.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";

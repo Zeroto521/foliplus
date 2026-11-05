@@ -15,8 +15,8 @@ import {
   type Dropdown,
   type DropdownSurface,
   createDropdown,
-} from "#common/dropdown.js";
-import { selectInput } from "#common/form.js";
+  selectInput,
+} from "#ui/index.js";
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer
  *  (icon / size by value) show a mode it cannot offer yet with the reason on
