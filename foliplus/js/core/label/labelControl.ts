@@ -9,28 +9,25 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
-import { type DropdownSurface, createDropdown, dropdownOf } from "#common/dropdown.js";
+import { NUMBER_FORMAT } from "#common/format.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
+  type DropdownSurface,
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
+  createDropdown,
+  dropdownOf,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   inlineControls,
-} from "#common/form.js";
-import { NUMBER_FORMAT } from "#common/format.js";
+} from "#ui/index.js";
 
 /** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)
  *  because the shared runtime cannot depend on a component module. */
 const CLS = {
-  FORM_ROW: "foliplus-form-row",
-  FORM_LABEL: "foliplus-form-label",
-  FORM_CONTROL: "foliplus-form-control",
-  TOGGLE_SWITCH: "foliplus-toggle-switch",
-  TOGGLE_SLIDER: "foliplus-toggle-slider",
-  HIDDEN: "foliplus-hidden",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
   STYLE_FORMAT_ROW: "foliplus-style-format-row",
@@ -66,7 +63,7 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
-  /** Popup host contract for the format dropdown (core/fullscreen's
+  /** Popup host contract for the format dropdown (common/fullscreen's
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
 }
@@ -146,9 +143,9 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     bodyRows.push(
       dom.el(
         "div",
-        { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_style")),
-        dom.el("div", { class: CLS.FORM_CONTROL }, inline),
+        { class: PANEL_CLASS.FORM_ROW },
+        dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, T("foliplus.label_style")),
+        dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, inline),
       ),
     );
   }
@@ -176,9 +173,9 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     bodyRows.push(
       dom.el(
         "div",
-        { class: `${CLS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_format")),
-        dom.el("div", { class: CLS.FORM_CONTROL }, formatDropdown.element),
+        { class: `${PANEL_CLASS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
+        dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, T("foliplus.label_format")),
+        dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, formatDropdown.element),
       ),
     );
   }
@@ -193,16 +190,16 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     bodyRows.push(
       dom.el(
         "div",
-        { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_collide")),
+        { class: PANEL_CLASS.FORM_ROW },
+        dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, T("foliplus.label_collide")),
         dom.el(
           "div",
-          { class: CLS.FORM_CONTROL },
+          { class: PANEL_CLASS.FORM_CONTROL },
           dom.el(
             "label",
-            { class: CLS.TOGGLE_SWITCH },
+            { class: PANEL_CLASS.TOGGLE_SWITCH },
             toggle,
-            dom.el("span", { class: CLS.TOGGLE_SLIDER }),
+            dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
           ),
         ),
       ),
@@ -222,16 +219,16 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     rows.push(
       dom.el(
         "div",
-        { class: CLS.FORM_ROW },
-        dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label")),
+        { class: PANEL_CLASS.FORM_ROW },
+        dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, T("foliplus.label")),
         dom.el(
           "div",
-          { class: CLS.FORM_CONTROL },
+          { class: PANEL_CLASS.FORM_CONTROL },
           dom.el(
             "label",
-            { class: CLS.TOGGLE_SWITCH },
+            { class: PANEL_CLASS.TOGGLE_SWITCH },
             toggle,
-            dom.el("span", { class: CLS.TOGGLE_SLIDER }),
+            dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
           ),
         ),
       ),
@@ -242,7 +239,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   // body" rule the label panel uses.
   if (bodyRows.length) {
     const body = dom.el("div", { class: CLS.STYLE_BODY }, ...bodyRows);
-    body.classList.toggle(CLS.HIDDEN, !showChecked);
+    body.classList.toggle(PANEL_CLASS.HIDDEN, !showChecked);
     rows.push(body);
   }
 
@@ -264,7 +261,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       setters.labelShow
     ) {
       const body = root.querySelector(`.${CLS.STYLE_BODY}`) as HTMLElement | null;
-      if (body) body.classList.toggle(CLS.HIDDEN, !t.checked);
+      if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !t.checked);
       setters.labelShow(t.checked);
     } else if (
       t instanceof HTMLInputElement &&
@@ -296,7 +293,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     // Body follows the toggle: a remote show/off (the other panel, or the
     // component's own setter emitting back) must collapse the body too.
     const body = root.querySelector(`.${CLS.STYLE_BODY}`) as HTMLElement | null;
-    if (body) body.classList.toggle(CLS.HIDDEN, !v.labelShow);
+    if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !v.labelShow);
 
     const collideInput = root.querySelector(
       `.${CLS.STYLE_COLLIDE_INPUT}`,

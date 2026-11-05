@@ -87,6 +87,12 @@ describe("runtimeTarget", () => {
   it("maps common subdirectories to common.<sub>", () => {
     expect(runtimeTarget("common/dom")).toBe("common.dom");
     expect(runtimeTarget("common/log")).toBe("common.log");
+    expect(runtimeTarget("common/engine/foo")).toBe("common.foo");
+  });
+
+  it("maps ui modules to ui.<mod>", () => {
+    expect(runtimeTarget("ui/panelChrome")).toBe("ui.panelChrome");
+    expect(runtimeTarget("ui/style/icon")).toBe("ui.icon");
   });
 
   it("returns a #-prefixed spec untouched", () => {
@@ -154,6 +160,10 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
     expect(sharedGlobalNamespace("#common/storage.js")).toBe("foliplus.common.storage");
     expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
+  });
+
+  it("maps ui modules to foliplus.ui.mod", () => {
+    expect(sharedGlobalNamespace("#ui/panelChrome.js")).toBe("foliplus.ui.panelChrome");
   });
 
   it("never maps a bare core barrel to a core namespace", () => {
@@ -477,8 +487,8 @@ describe("scanSharedImports", () => {
       path.join(base, "comp.ts"),
       [
         'import { BaseControl } from "#foliplus/BaseControl.js";',
-        'import { CONST } from "#foliplus/LayerControl/const.js";',
-        'import { Z_INDEX } from "#foliplus/LayerControl/ui/style/zoomRange.js";',
+        'import { CONST } from "#control/LayerControl/const.js";',
+        'import { Z_INDEX } from "#control/LayerControl/ui/style/zoomRange.js";',
         'import { ConfigSchema } from "#foliplus/config-schema.js";',
       ].join("\n"),
       "utf-8",
@@ -487,8 +497,8 @@ describe("scanSharedImports", () => {
       const { used } = scanSharedImports(base);
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
-      expect(used.has("#foliplus/LayerControl/const.js")).toBe(false);
-      expect(used.has("#foliplus/LayerControl/ui/style/zoomRange.js")).toBe(false);
+      expect(used.has("#control/LayerControl/const.js")).toBe(false);
+      expect(used.has("#control/LayerControl/ui/style/zoomRange.js")).toBe(false);
       expect(used.has("#foliplus/config-schema.js")).toBe(false);
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -597,7 +607,7 @@ describe("globalNamespacePlugin", () => {
 
   it("onResolve filter matches the shared set and rejects non-shared #foliplus/*", () => {
     // Regression for #628: the old filter `^#(common|core|foliplus)/`
-    // externalized component self-imports (#foliplus/LayerControl/const.js,
+    // externalized component self-imports (#control/LayerControl/const.js,
     // #foliplus/config-schema.js) as empty shims, which then resolved to
     // `undefined` at runtime. The new filter is anchored and only accepts
     // #common/*, #core/*, and the exact #foliplus/BaseControl.js.
@@ -607,8 +617,8 @@ describe("globalNamespacePlugin", () => {
     expect(filter.test("#common/dom.js")).toBe(true);
     expect(filter.test("#core/layer/LayerFactory.js")).toBe(true);
     expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
-    expect(filter.test("#foliplus/LayerControl/const.js")).toBe(false);
-    expect(filter.test("#foliplus/LayerControl/ui/index.js")).toBe(false);
+    expect(filter.test("#control/LayerControl/const.js")).toBe(false);
+    expect(filter.test("#control/LayerControl/ui/index.js")).toBe(false);
     expect(filter.test("#foliplus/config-schema.js")).toBe(false);
     expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
     expect(filter.test("#script/build.mjs")).toBe(false);
@@ -632,6 +642,40 @@ describe("globalNamespacePlugin", () => {
     const result = onLoad({ path: "#core/layer/foo.js" });
     expect(result.loader).toBe("js");
     expect(result.contents).toContain("export const Foo =");
+  });
+
+  it("strips the #ui/ alias and shims to foliplus.ui.<mod>", () => {
+    // The #ui/* strip chain (added with the ui layer) must turn a #ui spec
+    // into a source-relative path and a foliplus.ui.<mod> global lookup.
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { panelButton } from "#ui/panelChrome.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
+    const result = onLoad({ path: "#ui/panelChrome.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("globalThis.foliplus.ui.panelChrome");
+    expect(result.contents).toContain("export const panelButton =");
+  });
+
+  it("shims the ui barrel import to foliplus.ui.index, not flat foliplus.ui", () => {
+    // #ui/index.js is a shared spec (the ui prefix branch): the strip chain
+    // maps it to the source-relative path, and runtimeTarget resolves
+    // "ui/index" → "ui.index" (second path segment). The shim must read
+    // foliplus.ui.index — the namespace the generated registry publishes the
+    // barrel's re-exports under — and must NOT flatten onto foliplus.ui.
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { panelButton } from "#ui/index.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
+    const result = onLoad({ path: "#ui/index.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("globalThis.foliplus.ui.index");
+    expect(result.contents).not.toContain("globalThis.foliplus.ui.panelButton");
+    expect(result.contents).toContain("export const panelButton =");
   });
 
   it("shims star-imported property usage via starUsed", () => {

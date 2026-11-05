@@ -32,6 +32,11 @@ import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
 import { resolveVersion } from "../version.mjs";
+import {
+  assertNoSurvivorMarker,
+  planDistMarker,
+  settleDistMarker,
+} from "./distMarker.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
@@ -74,7 +79,9 @@ const CFG = raw;
 CFG.root = resolve(CFG.root);
 
 const srcDir = resolveJsRoot(CFG.root);
+const controlDir = resolve(srcDir, "control");
 const cssDir = resolve(CFG.root, "foliplus/css");
+const controlCssDir = resolve(cssDir, "control");
 const distDir = resolve(CFG.root, "foliplus/dist");
 // Two scratch dirs, both gitignored: .build/js holds the generated shared
 // registry (scan-registry.mjs writes it, resolveSharedRegistryPlugin reads it
@@ -140,23 +147,32 @@ const artifact = (entryPoints, outfile, name) => {
 /** Return the first path that exists, else null. */
 const resolveEntry = candidates => candidates.find(existsSync);
 
-/** Discover component entries (dirs with a matching `{Name}.{ts|js}`) under .build/. */
+/** Discover component entries (dirs with a matching `{Name}.{ts|js}`) under
+ *  `foliplus/js/control/`, plus the shared runtime entry (`runtime/`) which
+ *  lives outside `control/` and bundles as `foliplus-common.min.js`. */
 const findComponents = () => {
-  const entries = readdirSync(srcDir, { withFileTypes: true });
   const components = [];
+  // Shared runtime first (bundles as foliplus-common.min.js).
+  const runtimeJs = resolveEntry([
+    resolve(srcDir, SHARED_ENTRY, "index.ts"),
+    resolve(srcDir, SHARED_ENTRY, "index.js"),
+  ]);
+  if (runtimeJs) {
+    components.push({ name: SHARED_ENTRY, js: runtimeJs, css: null });
+  }
+  const entries = readdirSync(controlDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (entry.name === "core") continue; // core is a shared subdomain, not a control component
     const name = entry.name;
     const jsFile = resolveEntry([
-      resolve(srcDir, name, "index.ts"),
-      resolve(srcDir, name, "index.js"),
+      resolve(controlDir, name, "index.ts"),
+      resolve(controlDir, name, "index.js"),
     ]);
-    // A component entry may live at `css/{Name}.css` (single file) or, when
-    // the stylesheet is split across modules, at `css/{Name}/index.css`.
+    // A component entry may live at `css/control/{Name}.css` (single file) or,
+    // when the stylesheet is split across modules, at `css/control/{Name}/index.css`.
     const cssFile = resolveEntry([
-      resolve(cssDir, name, "index.css"),
-      resolve(cssDir, `${name}.css`),
+      resolve(controlCssDir, name, "index.css"),
+      resolve(controlCssDir, `${name}.css`),
     ]);
     if (jsFile) {
       components.push({ name, js: jsFile, css: cssFile });
@@ -193,12 +209,12 @@ const mergeCommonCss = () => {
   return mergeCss(readCssDir(dir), "common");
 };
 
-/** A component's split stylesheet (`css/{Name}/index.css`), concatenated in
+/** A component's split stylesheet (`css/control/{Name}/index.css`), concatenated in
  *  the entry's declared @import order — the cascade order, not a dependency
- *  graph. Falls back to null for a flat `css/{Name}.css` (no entry to expand),
+ *  graph. Falls back to null for a flat `css/control/{Name}.css` (no entry to expand),
  *  in which case the caller feeds the single file straight to esbuild. */
 const mergeComponentCss = name => {
-  const dir = resolve(cssDir, name);
+  const dir = resolve(controlCssDir, name);
   const entryFile = resolve(dir, "index.css");
   if (!existsSync(entryFile)) return null;
   return expandEntry(readCssDir(dir), "index.css", name);
@@ -311,6 +327,7 @@ on a checkout that may not have `dist/` at all, and it must not touch it.
 */
 const writeArtifactManifest = filenames => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
+
   writeFileSync(
     resolve(distDir, "manifest.json"),
     `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
@@ -352,74 +369,87 @@ const main = async () => {
     verifyDist();
     return;
   }
-  console.time("build");
-  // ── Step 1: Create output dirs (no source mirror needed)
-  // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
-  mkdirSync(buildJs, { recursive: true });
-  // CSS scratch is wiped before every build so a stale merged stylesheet from
-  // a prior run can never be the one esbuild reads.
-  rmSync(buildCss, { recursive: true, force: true });
-  mkdirSync(buildCss, { recursive: true });
+  // Dist-mode marker lifecycle — plan/settle/assert are isolated in
+  // distMarker.mjs (see there for the full rationale); this entry only
+  // threads CFG.dev + distDir into them.
+  const devMarker = planDistMarker({ dev: CFG.dev, distDir });
+  let failed = 0;
+  let buildOk = false;
+  try {
+    console.time("build");
+    // ── Step 1: Create output dirs (no source mirror needed)
+    // SVG/HTML transforms run at esbuild bundle time via sourceTransformPlugin.
+    mkdirSync(buildJs, { recursive: true });
+    // CSS scratch is wiped before every build so a stale merged stylesheet from
+    // a prior run can never be the one esbuild reads.
+    rmSync(buildCss, { recursive: true, force: true });
+    mkdirSync(buildCss, { recursive: true });
 
-  // ── Step 2: Generate shared registry ───────────────────────────
-  // Auto-registers every common/core module on window.foliplus (P5).
-  generateSharedRegistry();
+    // ── Step 2: Generate shared registry ───────────────────────────
+    // Auto-registers every common/core module on window.foliplus (P5).
+    generateSharedRegistry();
 
-  // ── Step 3: Discover components & build entries ───────────────
-  const components = findComponents();
-  const sonda = CFG.sonda ? await loadSonda() : null;
-  if (sonda) {
-    console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
-  }
-  const artifacts = buildEntries(components, CFG.sonda);
-  console.log(
-    `Building ${artifacts.length} artifacts for ${components.length} components...`,
-  );
-
-  // ── Step 4: esbuild bundle (parallel) ─────────────────────────
-  const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
-  const failed = results.filter(r => r.status === "rejected").length;
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.status === "fulfilled") {
-      console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
-    } else {
-      console.error(`  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`);
+    // ── Step 3: Discover components & build entries ───────────────
+    const components = findComponents();
+    const sonda = CFG.sonda ? await loadSonda() : null;
+    if (sonda) {
+      console.log("  Sonda analysis enabled (combined report → bundle-treemap.html)");
     }
-  }
-
-  // ── Step 4.5: Combined sonda report (--sonda) ──
-  // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
-  if (sonda) {
-    const metafiles = results
-      .filter(r => r.status === "fulfilled")
-      .map(r => r.value?.metafile)
-      .filter(Boolean);
-    const merged = mergeMetafiles(metafiles);
-    // Side product for Codecov Bundle Analysis: the same merged metafile
-    // sonda consumes, dumped so the upload adapter never re-runs esbuild.
-    // Additive only — packaging behavior is unchanged.
-    writeFileSync(
-      resolve(CFG.root, "bundle-metafile.json"),
-      `${JSON.stringify(merged, null, 2)}\n`,
+    const artifacts = buildEntries(components, CFG.sonda);
+    console.log(
+      `Building ${artifacts.length} artifacts for ${components.length} components...`,
     );
-    const reportFile = resolve(CFG.root, "bundle-treemap.html");
-    rmSync(reportFile, { force: true });
-    const config = new sonda.Config(
-      {
-        format: "html",
-        outputDir: CFG.root,
-        filename: "bundle-treemap.html",
-        open: false,
-        include: [/\.(js|css)$/],
-      },
-      { integration: "esbuild" },
-    );
-    await sonda.processEsbuildMetafile(merged, config);
+
+    // ── Step 4: esbuild bundle (parallel) ─────────────────────────
+    const results = await Promise.allSettled(artifacts.map(opts => build(opts)));
+    failed = results.filter(r => r.status === "rejected").length;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        console.log(`  ${OK} ${basename(artifacts[i].outfile)}`);
+      } else {
+        console.error(
+          `  ${FAIL} ${basename(artifacts[i].outfile)}: ${r.reason.message}`,
+        );
+      }
+    }
+
+    // ── Step 4.5: Combined sonda report (--sonda) ──
+    // Merge per-build metafiles into one sonda treemap (bundle-treemap.html).
+    if (sonda) {
+      const metafiles = results
+        .filter(r => r.status === "fulfilled")
+        .map(r => r.value?.metafile)
+        .filter(Boolean);
+      const merged = mergeMetafiles(metafiles);
+      // Side product for Codecov Bundle Analysis: the same merged metafile
+      // sonda consumes, dumped so the upload adapter never re-runs esbuild.
+      // Additive only — packaging behavior is unchanged.
+      writeFileSync(
+        resolve(CFG.root, "bundle-metafile.json"),
+        `${JSON.stringify(merged, null, 2)}\n`,
+      );
+      const reportFile = resolve(CFG.root, "bundle-treemap.html");
+      rmSync(reportFile, { force: true });
+      const config = new sonda.Config(
+        {
+          format: "html",
+          outputDir: CFG.root,
+          filename: "bundle-treemap.html",
+          open: false,
+          include: [/\.(js|css)$/],
+        },
+        { integration: "esbuild" },
+      );
+      await sonda.processEsbuildMetafile(merged, config);
+    }
+
+    writeArtifactManifest(components.map(c => c.name));
+    buildOk = !failed;
+  } finally {
+    settleDistMarker({ dev: CFG.dev, buildOk, marker: devMarker });
   }
-
-  writeArtifactManifest(components.map(c => c.name));
-
+  assertNoSurvivorMarker({ dev: CFG.dev, marker: devMarker });
   if (failed) process.exit(1);
   console.timeEnd("build");
 };

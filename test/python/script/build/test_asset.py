@@ -32,6 +32,7 @@ from conftest import read_css, render, render_control
 # and `dist_dir` would be invisible. The real module is what owns `dist_dir`.
 BaseControlModule = importlib.import_module("foliplus.BaseControl")
 
+from foliplus import ExportControl, SearchControl
 from foliplus.BaseControl import (
     MissingAssetsError,
     _build_component_template,
@@ -41,8 +42,6 @@ from foliplus.BaseControl import (
     dist_dir,
     expected_artifacts,
 )
-from foliplus.ExportControl import ExportControl
-from foliplus.SearchControl import SearchControl
 
 # Single source for the artifact list: `script/build/build.mjs` writes
 # `dist/manifest.json` on every real build, and both this file and
@@ -298,7 +297,7 @@ def test_sdist_contains_all_artifacts():
 # merged entry. Annotation labels have no module: they are drawn on a canvas,
 # not styled by CSS.
 
-LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "LayerControl"
+LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "control" / "LayerControl"
 
 # Module name → a token only it owns (proves both existence and ownership).
 # Tokens are chosen to appear in exactly one module across the whole split.

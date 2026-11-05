@@ -27,12 +27,14 @@ import { fileURLToPath } from "url";
 const ALIAS_TO_REL = {
   "#common": "foliplus/js/common",
   "#core": "foliplus/js/core",
+  "#ui": "foliplus/js/ui",
+  "#control": "foliplus/js/control",
   "#foliplus": "foliplus/js",
   "#script": "script",
 };
 
-/** The three shared aliases; `#script` is vitest-only. */
-const SHARED_ALIASES = ["#common", "#core", "#foliplus"];
+/** The shared aliases; `#script` is vitest-only. */
+const SHARED_ALIASES = ["#common", "#core", "#ui", "#control", "#foliplus"];
 
 /** Resolve `foliplus/js` under a project `root`. */
 const resolveJsRoot = root => resolve(root, ALIAS_TO_REL["#foliplus"]);
@@ -77,7 +79,7 @@ const testPathAliases = root => ({
 
 /**
  * Shared-module prefixes — the `#…` namespaces where ANY import routes to
- * the shared global namespace (`window.foliplus.common` / `window.foliplus.core`).
+ * the shared global namespace (`window.foliplus.common` / `window.foliplus.core` / `window.foliplus.ui`).
  *
  * Deliberately narrower than `SHARED_ALIASES`: `#foliplus` is an alias but
  * NOT a shared prefix. Only `#foliplus/BaseControl.js` is shared (see
@@ -85,7 +87,7 @@ const testPathAliases = root => ({
  * `const.js`, `icon.js`, or `config-schema.js` — resolves through esbuild's
  * alias table and bundles into the component.
  */
-const SHARED_MODULE_PREFIXES = ["common", "core"];
+const SHARED_MODULE_PREFIXES = ["common", "core", "ui"];
 
 /**
  * Exact `#…` specs that are shared but don't fall under a shared prefix.

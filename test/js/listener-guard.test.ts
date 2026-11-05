@@ -67,10 +67,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/dom.ts",
-    n: 2,
+    n: 3,
     pairedOff: 0,
     reason:
-      "free-standing input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature",
+      "free-standing helpers with no control instance in scope: the input-commit helper and the wheel containment; the caller owns teardown, and BaseControl can't be reached from either helper's signature",
   },
   {
     f: "core/leaflet/panel.ts",
@@ -80,7 +80,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "two calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The other two are the row-panel placement singleton (window scroll capture + resize): one pair for the whole page, bound on the first pinned card and shared by every card since, re-placing the open cards from live rects. The factory is free-standing (no mounting signal), and the singleton has no per-instance teardown to pair the removal with — a per-card pair would re-register the same two document listeners for every open panel",
   },
   {
-    f: "core/fullscreen.ts",
+    f: "common/fullscreen.ts",
     n: 1,
     pairedOff: 0,
     reason:
@@ -112,98 +112,98 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason common/fullscreen.ts is on this list for",
   },
   {
-    f: "ExportControl/session.ts",
+    f: "control/ExportControl/session.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "image preview click-dismiss on an ephemeral overlay img. ExportManager is a plain class (not a BaseControl subclass) with no mounting signal to route through; the listener is self-terminating — paired removeEventListener inside the same closure, plus a bounded setTimeout — and threading a signal would mean a manager ↔ control callback surface for no gain: an abort would drop the listener but not the img, which would linger on document.body until the timer fires anyway",
   },
   {
-    f: "LayerControl/ui/overlayPanel/attr.ts",
+    f: "control/LayerControl/ui/overlayPanel/attr.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "LayerControl/ui/overlayPanel/filter.ts",
+    f: "control/LayerControl/ui/overlayPanel/filter.ts",
     n: 3,
     pairedOff: 0,
     reason:
       "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
-    f: "LayerControl/ui/focus/focusMarquee.ts",
+    f: "control/LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "geometry-focus marquee focusin/focusout on the map container; returns its own unbind",
   },
   {
-    f: "LayerControl/ui/lifecycle.ts",
+    f: "control/LayerControl/ui/lifecycle.ts",
     n: 11,
     pairedOff: 0,
     reason:
       "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
-    f: "LayerControl/ui/overlayPanel/menu.ts",
+    f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,
     reason:
       "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
   },
   {
-    f: "LayerControl/ui/style/index.ts",
+    f: "control/LayerControl/ui/style/index.ts",
     n: 3,
     pairedOff: 0,
     reason:
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "LayerControl/slider.ts",
+    f: "ui/slider.ts",
     n: 10,
     pairedOff: 0,
     reason:
-      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through core/fullscreen's shared subscription",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
   },
   {
-    f: "MeasureControl/mode/circle.ts",
+    f: "control/MeasureControl/mode/circle.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "ripple animationend on an ephemeral decoration layer: a one-shot listener that terminates itself (paired removeEventListener in the handler) and is collected with the element the moment the ripple is removed. CircleMode extends MeasureMode, not BaseControl, so no mounting signal is in scope",
   },
   {
-    f: "MeasureControl/util.ts",
+    f: "control/MeasureControl/util.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
   {
-    f: "common/schemePicker.ts",
-    n: 9,
-    pairedOff: 0,
-    reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), fullscreenchange (mount-scope), and a wheel stop-propagation on the portalled dropdown (a wheel over the open list must not bubble to the map container where Leaflet's scrollWheelZoom fires; the dropdown element is removed in closeDropdown, so the listener goes with it). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
-  },
-  {
-    f: "common/dropdown.ts",
+    f: "ui/dropdown.ts",
     n: 1,
     pairedOff: 0,
     reason:
-      "shared select-replacement ADAPTER over common/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into common/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
+      "shared select-replacement ADAPTER over ui/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into ui/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
   },
   {
-    f: "common/listbox.ts",
-    n: 10,
+    f: "ui/listbox.ts",
+    n: 7,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by common/dropdown now; common/schemePicker in S-B): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), and five popup-scope listeners — document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press and window keydown (capture, Escape ownership ahead of the panel dispatcher), both gated on `spec.ownDismiss` (a select-replacement adapter owning its own dismissal leaves them off), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+  },
+  {
+    f: "common/floating.ts",
+    n: 4,
+    pairedOff: 0,
+    reason:
+      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, always mode), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
   },
 ];
 
@@ -504,17 +504,17 @@ describe("no module-level map.on in *Control/index.ts", () => {
     expect(
       globSync({
         cwd: ROOT,
-        patterns: ["foliplus/js/*Control/index.ts"],
+        patterns: ["foliplus/js/control/*Control/index.ts"],
       }).sort(),
     ).toEqual([
-      "foliplus/js/ExportControl/index.ts",
-      "foliplus/js/FullscreenControl/index.ts",
-      "foliplus/js/HeatmapControl/index.ts",
-      "foliplus/js/LayerControl/index.ts",
-      "foliplus/js/LocateControl/index.ts",
-      "foliplus/js/MeasureControl/index.ts",
-      "foliplus/js/ScaleControl/index.ts",
-      "foliplus/js/SearchControl/index.ts",
+      "foliplus/js/control/ExportControl/index.ts",
+      "foliplus/js/control/FullscreenControl/index.ts",
+      "foliplus/js/control/HeatmapControl/index.ts",
+      "foliplus/js/control/LayerControl/index.ts",
+      "foliplus/js/control/LocateControl/index.ts",
+      "foliplus/js/control/MeasureControl/index.ts",
+      "foliplus/js/control/ScaleControl/index.ts",
+      "foliplus/js/control/SearchControl/index.ts",
     ]);
   });
 });

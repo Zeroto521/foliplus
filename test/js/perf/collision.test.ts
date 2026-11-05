@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as Collision from "#foliplus/MeasureControl/collision.js";
-import type { CollidableLabel } from "#foliplus/MeasureControl/type.js";
+import * as Collision from "#control/MeasureControl/collision.js";
+import type { CollidableLabel } from "#control/MeasureControl/type.js";
 
 // Attribution for `test/js/perf/`: a test belongs here iff BOTH
 //   (a) it reads real elapsed time (not a fake clock), AND

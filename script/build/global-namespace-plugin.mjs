@@ -87,10 +87,17 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  deleted `core/index.ts` barrel — it is returned as-is so
  *  `sharedGlobalNamespace` produces an invalid JS identifier in the shim
  *  name. The build fails loudly rather than shipping a stale artifact. */
+// Same-name collision guard lives upstream in scan-registry.mjs, which
+// canonicalizes every shared module to the flat key (common.<name> /
+// ui.<name>) before this plugin sees the spec. Two subdirectory modules with
+// the same last segment would have collided there and aborted the build, so
+// no per-spec fallback is needed here — the registry is the single source of
+// the flat-key contract, and this mapping trusts it.
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("common/")) return `common.${spec.split("/")[1]}`;
+  if (spec.startsWith("common/")) return `common.${spec.split("/").at(-1)}`;
+  if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
     return sub === "index" ? `#${spec}` : `core.${sub}`;
@@ -172,6 +179,7 @@ const globalNamespacePlugin = sourceRoot => ({
       const rel = spec
         .replace(/^#core\//, "core/")
         .replace(/^#common\//, "common/")
+        .replace(/^#ui\//, "ui/")
         .replace(/^#foliplus\//, "");
       const sourcePath = resolve(sourceRoot, rel);
       const ns = sharedGlobalNamespace(spec);

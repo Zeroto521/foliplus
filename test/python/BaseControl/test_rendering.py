@@ -132,7 +132,7 @@ class TestBaseControlRendering:
 
     def test_z_policy_export_header_pointer(self):
         """ExportControl.css points at the policy table instead of re-laddering."""
-        css = read_css("foliplus/css/ExportControl.css")
+        css = read_css("foliplus/css/control/ExportControl.css")
         assert "token.css" in css
         # Cross-system hint/fullscreen narration no longer lives here.
         assert "JS-managed by runtime.js" not in css
@@ -225,10 +225,11 @@ class TestBaseControlRendering:
         html = render_control(HeatmapControl())
         assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
 
-        frame = Path("foliplus/js/LayerControl/ui/style/frame.ts").read_text(
-            encoding="utf-8"
-        )
-        assert 'class: "foliplus-panel-btn foliplus-style-reset-btn"' in frame
+        # The DOM contract (panel-btn + caller class on the same button) is
+        # asserted in the jsdom style tests and ui/affordance.test.ts; the
+        # Python layer only pins the CSS recipe that both buttons share.
+        button_css = Path("foliplus/css/common/button.css").read_text(encoding="utf-8")
+        assert ".foliplus-panel-btn" in button_css
 
     def test_collapsed_shadow_shared(self, base_map: folium.Map):
         """foliplus-ctrl-fold.foliplus-is-collapsed uses --foliplus-shadow-ctrl-strong (shared shadow for all collapsed controls)."""
@@ -293,7 +294,7 @@ class TestBaseControlRendering:
 
     def test_layer_more_menu_focus_ring_uses_shared_tokens(self):
         """Layer overflow menu items take the shared focus-ring + fast transition."""
-        css = read_css_dir("foliplus/css/LayerControl", "menu.css")
+        css = read_css_dir("foliplus/css/control/LayerControl", "menu.css")
         idx = css.find(".foliplus-layer-more-menu button:focus-visible")
         assert idx != -1
         block = css[idx : css.index("}", idx)]

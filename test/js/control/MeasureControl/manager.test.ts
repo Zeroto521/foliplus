@@ -1,0 +1,2788 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+import * as CONST from "#control/MeasureControl/const.js";
+import { MeasureManager } from "#control/MeasureControl/manager.js";
+import { makeControlEnv } from "../../fixture.js";
+import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
+
+// Label-collision lifecycle tests mock the collision module. It must be
+// hoisted + mocked before MeasureManager is imported, because manager.ts
+// imports collision.js synchronously at module load.
+const placeLabels = vi.hoisted(() => vi.fn(() => 0));
+
+vi.mock("#control/MeasureControl/collision.js", () => ({
+  placeLabels,
+  mapProjector: () => ({
+    box: () => ({ x: 0, y: 0, w: 64, h: 18 }),
+  }),
+}));
+
+// Hoistable mock for guardBlocked — allows per-test override to exercise the
+// blocked-path in setMode() without affecting the real ensureModes/ModeManager
+// that the interaction-lock tests depend on.
+const modeMocks = vi.hoisted(() => ({
+  guardBlocked: vi.fn(() => false),
+}));
+
+vi.mock("#core/mode.js", async () => {
+  const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
+  return {
+    ...real,
+    guardBlocked: modeMocks.guardBlocked,
+  };
+});
+
+afterEach(resetMeasureControlState);
+
+// ── Filter fixtures ───────────────────────────────────────────────────
+// Shared by the type-filter tests and the cross-arm contract below: both
+// build the same manager and read the filter through the LayerAPI option bag.
+
+/** The LayerAPI option bag the manager registered at construction. */
+const createLayersOpts = (map: any): any =>
+  (map.foliplus.LayerAPI.createLayers.mock.calls as unknown[][])[0][0];
+
+/** Three measurements, one per type, so a declared subset has something to
+ *  keep and total against. */
+const addMeasurements = (manager: any): void => {
+  manager.store.add({ id: "m1", type: CONST.MEASURE_MODE.MARKER });
+  manager.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
+  manager.store.add({ id: "m3", type: CONST.MEASURE_MODE.POLYGON });
+};
+
+/** The enum filter shape the Measure panel writes. */
+const filter = (values: string[]): any => ({
+  kind: "enum",
+  field: CONST.FILTER.FIELD,
+  values,
+});
+
+describe("MeasureManager — persistence", () => {
+  it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
+    const { manager } = makeManager();
+    const bus = ensureEvents(manager.map);
+    const handler = vi.fn();
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
+    // Direct call (after constructor already emitted once).
+    manager.restoreMeasurements();
+    expect(handler).toHaveBeenCalledWith({ id: manager.layerId });
+  });
+
+  it("nextMeasurementId increments counter and includes type", () => {
+    const { manager } = makeManager();
+    const id1 = manager.nextMeasurementId("distance");
+    const id2 = manager.nextMeasurementId("distance");
+    expect(id1).toContain("distance");
+    expect(id2).not.toBe(id1);
+  });
+
+  it("featureCountProvider reports the live measurement count to LayerControl", () => {
+    const { manager, map } = makeManager();
+    const opts = (
+      map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][]
+    )[0][0] as { featureCountProvider: () => number };
+    manager.measurements = [{}, {}, {}] as any;
+    expect(opts.featureCountProvider()).toBe(3);
+    manager.measurements = [] as any;
+    expect(opts.featureCountProvider()).toBe(0);
+  });
+
+  it("metaProvider reports per-mode counts with T-locale keys", () => {
+    const { manager, map } = makeManager();
+    const opts = (
+      map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][]
+    )[0][0] as { metaProvider: () => Record<string, number> };
+    expect(typeof opts.metaProvider).toBe("function");
+
+    // No measurements → all four rows show 0.
+    expect(opts.metaProvider()).toEqual({
+      [manager.T("tool_marker")]: 0,
+      [manager.T("tool_distance")]: 0,
+      [manager.T("tool_polygon")]: 0,
+      [manager.T("tool_circle")]: 0,
+    });
+
+    // Mixed measurements → per-mode counts match the store.
+    manager.measurements = [
+      { id: "1", type: CONST.MEASURE_MODE.MARKER },
+      { id: "2", type: CONST.MEASURE_MODE.MARKER },
+      { id: "3", type: CONST.MEASURE_MODE.DISTANCE },
+      { id: "4", type: CONST.MEASURE_MODE.POLYGON },
+    ] as any;
+    expect(opts.metaProvider()).toEqual({
+      [manager.T("tool_marker")]: 2,
+      [manager.T("tool_distance")]: 1,
+      [manager.T("tool_polygon")]: 1,
+      [manager.T("tool_circle")]: 0,
+    });
+  });
+
+  it("restoreMeasurements stabilizes persisted measurements missing an id", () => {
+    const { manager } = makeManager();
+    // Seed localStorage with a legacy measurement that predates the id field.
+    // restoreMeasurements must assign one before rebuilding so later
+    // onUpdate/onDelete paths (which match by id) resolve correctly.
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify([{ type: "marker", lng: 121, lat: 31 }]),
+    );
+    manager.restoreMeasurements();
+    const m = manager.measurements[0];
+    expect(m.id).toBeDefined();
+    expect(typeof m.id).toBe("string");
+    // The stabilized id is persisted back to localStorage.
+    const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    expect(persisted.version).toBe(CONST.RECORD_VERSION);
+    expect(persisted.items[0].id).toBe(m.id);
+  });
+
+  it("saveMeasurements persists to storage", () => {
+    const { manager } = makeManager();
+    manager.measurements = [{ id: 1, type: "marker" }];
+    const spy = vi.spyOn(manager, "saveMeasurements");
+    manager.saveMeasurements();
+    expect(spy).toHaveBeenCalled();
+  });
+});
+
+describe("MeasureManager — mode switching", () => {
+  it("setMode CLEAR clears all measurements", () => {
+    const { manager } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+    manager.setMode(CONST.MEASURE_MODE.CLEAR);
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("setMode to same active mode clears it", () => {
+    const { manager } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    expect(clearSpy).toHaveBeenCalled();
+  });
+
+  it("clearActiveMode resets currentMode and hides hints", () => {
+    const { manager } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    manager.clearActiveMode();
+    expect(manager.currentMode).toBeNull();
+    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+  });
+
+  it("clearAll clears layers and measurements", () => {
+    const { manager, layers } = makeManager();
+    manager.measurements = [{ id: 1 }];
+    manager.clearAll();
+    expect(layers.clearLayers).toHaveBeenCalled();
+    expect(manager.measurements).toHaveLength(0);
+  });
+
+  it("stays hidden after arming until it has a real cursor position", () => {
+    // Regression: showing the chip before the first mousemove left it at the
+    // container's default spot (by the hint) with no inline left/top.
+    const { manager, container } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("reveals the chip on mousemove and hides it on clearActiveMode", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.hidden).toBe(false);
+    manager.clearActiveMode();
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("shows the readout in edit mode too", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
+    manager.applyEditMode(true);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    expect(readout.hidden).toBe(true); // not positioned yet
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.hidden).toBe(false);
+    // Leaving edit mode hides it.
+    manager.applyEditMode(false);
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("tracks the cursor and anchors the chip below it (due south)", () => {
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    let px = { x: 500, y: 400 };
+    map.latLngToContainerPoint = () => px;
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    // jsdom reports no layout, so the flip decision (which depends on the
+    // chip's measured height) has no signal without a stubbed size.
+    Object.defineProperty(readout, "offsetHeight", { value: 24 });
+    Object.defineProperty(readout, "offsetWidth", { value: 140 });
+
+    // The offset lives in CSS (translate), so the inline style is just the
+    // cursor's container point; the horizontal clamp keeps it on-screen.
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.style.left).toBe("500px");
+    expect(readout.style.top).toBe("400px");
+    expect(readout.style.transform).toBe("");
+    expect(readout.textContent).toBe("121.000000, 31.000000");
+    expect(readout.hidden).toBe(false);
+
+    // Near the bottom edge with no room below, the chip re-anchors above it.
+    px = { x: 500, y: 790 };
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
+
+    // In the open middle it never flips.
+    px = { x: 500, y: 400 };
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(false);
+  });
+
+  it("hides the chip on mouseout", () => {
+    const { manager, map, container } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    const out = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mouseout",
+    )?.[1];
+    out();
+    expect(readout.hidden).toBe(true);
+  });
+
+  it("survives a dispatched mousemove with no containerPoint", () => {
+    // Regression: Leaflet fills containerPoint only for browser-driven events.
+    // Programmatic `map.fire("mousemove", { latlng })` (as the browser tests do)
+    // must not throw — the handler reads the pixel point from `latlng`.
+    const { manager, map, container } = makeManager();
+    map.getSize = () => ({ x: 1000, y: 800 });
+    map.latLngToContainerPoint = vi.fn(() => ({ x: 120, y: 240 }));
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
+    const move = (map.on as any).mock.calls.find(
+      ([ev]: unknown[]) => ev === "mousemove",
+    )?.[1];
+
+    expect(() => move({ latlng: { lat: 31, lng: 121 } })).not.toThrow();
+    expect(map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 31, lng: 121 });
+    expect(readout.style.left).toBe("120px");
+    expect(readout.style.top).toBe("240px");
+    expect(readout.hidden).toBe(false);
+  });
+
+  it("removes the readout element on destroy", () => {
+    const { manager, container } = makeManager();
+    expect(container.querySelector(".foliplus-measure-readout")).not.toBeNull();
+    manager.destroy();
+    expect(container.querySelector(".foliplus-measure-readout")).toBeNull();
+  });
+
+  it("setMode toggles active class on matching tool button", () => {
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
+    manager.toolBtns = [btn];
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
+
+  it("setMode completes its UI sync when a MODE_CHANGE consumer throws", () => {
+    // MODE_CHANGE is a notification: the observer cannot interrupt the
+    // producer's remaining local work (button highlight, MEASURING class).
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
+    manager.toolBtns = [btn];
+    manager.events.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() => manager.setMode(CONST.MEASURE_MODE.MARKER)).not.toThrow();
+
+    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.MARKER);
+  });
+
+  it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    // The start hint must persist until the mode is cleared. setMode shows it
+    // AFTER cleanMapEvents hides any previous hint, so showHint must be the
+    // last hint operation (previously a trailing hideHint swallowed it).
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+    const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
+    const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
+    expect(showOrder).toBeGreaterThan(hideOrder);
+  });
+
+  it("leaves modeInstance null when setMode is given an unknown mode name", () => {
+    // An unknown mode string passes the guard but has no entry in MODE_MAP, so
+    // setMode must not throw and modeInstance stays null instead of a runtime
+    // error on modeInstance.start().
+    const { manager } = makeManager();
+    expect(() => manager.setMode("nonexistent-mode")).not.toThrow();
+    expect(manager.modeInstance).toBeNull();
+  });
+
+  it("clears an active drawing mode when leaving edit mode via clearActiveMode", () => {
+    // Regression surface: clearActiveMode (called by the LAYER_REMOVED handler)
+    // must exit edit mode before clearing the drawing mode, otherwise edit
+    // handles linger while the drawing mode is deactivated.
+    // Note: setMode(DISTANCE) exits edit mode on its own (line 232) before
+    // entering the drawing mode, so that normal flow never leaves us in the
+    // (isEditMode=true, currentMode=distance) state; we synthesize that state
+    // here to exercise the clearActiveMode branch.
+    const { manager } = makeManager();
+    manager.applyEditMode(true);
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+
+    const spy = vi.spyOn(manager, "applyEditMode");
+
+    manager.clearActiveMode();
+
+    expect(spy).toHaveBeenCalledWith(false);
+    expect(manager.currentMode).toBeNull();
+    expect(manager.isEditMode).toBe(false);
+  });
+});
+
+describe("MeasureManager — applyEditMode", () => {
+  it("shows the edit hint and activates the edit button when enabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
+    const otherBtn = document.createElement("button");
+    otherBtn.dataset.mode = CONST.MEASURE_MODE.DISTANCE;
+    manager.toolBtns = [editBtn, otherBtn];
+
+    manager.applyEditMode(true);
+
+    expect(manager.isEditMode).toBe(true);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(otherBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+  });
+
+  it("toggles the EDITING class on the map container for cursor styling", () => {
+    const { manager, container } = makeManager();
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+
+    manager.applyEditMode(true);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(true);
+
+    manager.applyEditMode(false);
+    expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
+  });
+
+  it("hides the hint and deactivates the edit button when disabled", () => {
+    const { manager } = makeManager();
+    const editBtn = document.createElement("button");
+    editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
+    manager.toolBtns = [editBtn];
+    manager.applyEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+
+    manager.applyEditMode(false);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent for the same state", () => {
+    const { manager } = makeManager();
+    manager.applyEditMode(true);
+    manager.map.foliplus!.showHint.mockClear();
+    manager.applyEditMode(true); // no-op
+    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+  });
+
+  it("closes registered overlays when disabled", () => {
+    const { manager } = makeManager();
+    const close1 = vi.fn();
+    const close2 = vi.fn();
+    manager.registerEditOverlayCloser(close1, "m1");
+    manager.registerEditOverlayCloser(close2, "m2");
+
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
+
+    expect(close1).toHaveBeenCalledTimes(1);
+    expect(close2).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps closers registered so a later edit session can close them again", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    manager.registerEditOverlayCloser(close, "m1");
+
+    // First session: open → close
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
+    expect(close).toHaveBeenCalledTimes(1);
+
+    // Second session must still close (regression: closers were cleared on exit)
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
+    expect(close).toHaveBeenCalledTimes(2);
+  });
+
+  it("closes other overlays but skips the one keyed by the given id", () => {
+    const { manager } = makeManager();
+    const a = vi.fn();
+    const b = vi.fn();
+    const c = vi.fn();
+    manager.registerEditOverlayCloser(a, "m1");
+    manager.registerEditOverlayCloser(b, "m2");
+    manager.registerEditOverlayCloser(c, "m3");
+
+    manager.closeOtherEditOverlays("m2");
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(c).toHaveBeenCalledTimes(1);
+    expect(b).not.toHaveBeenCalled();
+  });
+
+  it("unregisters a closer when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const close = vi.fn();
+    const unregister = manager.registerEditOverlayCloser(close, "m1");
+
+    unregister();
+
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("toggles registered drag binds on applyEditMode (nodes draggable without click-first)", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    manager.registerEditDragToggle(toggle, "m1");
+
+    manager.applyEditMode(true);
+    expect(toggle).toHaveBeenCalledWith(true);
+
+    manager.applyEditMode(false);
+    expect(toggle).toHaveBeenCalledWith(false);
+  });
+
+  it("unregisters a drag toggle when the returned unregister runs", () => {
+    const { manager } = makeManager();
+    const toggle = vi.fn();
+    const unregister = manager.registerEditDragToggle(toggle, "m1");
+
+    unregister();
+    manager.applyEditMode(true);
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("merges three registrations for one id into a single handle", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    expect((manager as any).editHandles.size).toBe(1);
+    expect((manager as any).editHandles.has("m1")).toBe(true);
+  });
+
+  it("keeps separate handles for different ids", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m2");
+    manager.registerEditDragToggle(vi.fn(), "m3");
+
+    expect((manager as any).editHandles.size).toBe(3);
+  });
+
+  it("clearAll drops all handles and runs each dispose once", () => {
+    const { manager } = makeManager();
+    const d1 = vi.fn();
+    const d2 = vi.fn();
+    manager.registerFinalized(d1, "m1");
+    manager.registerFinalized(d2, "m2");
+
+    manager.clearAll();
+
+    expect(d1).toHaveBeenCalledTimes(1);
+    expect(d2).toHaveBeenCalledTimes(1);
+    expect((manager as any).editHandles.size).toBe(0);
+  });
+
+  it("unregisterFinalized removes the handle (delete drops one entry)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn(), "m1");
+    manager.registerEditOverlayCloser(vi.fn(), "m1");
+    manager.registerEditDragToggle(vi.fn(), "m1");
+
+    const unregister = manager.registerFinalized(vi.fn(), "m1");
+    expect((manager as any).editHandles.size).toBe(1);
+
+    unregister();
+    expect((manager as any).editHandles.size).toBe(0);
+  });
+
+  it("registers under ANON_HANDLE when no id is given (fallback)", () => {
+    const { manager } = makeManager();
+    manager.registerFinalized(vi.fn());
+
+    const handles = (manager as any).editHandles;
+    expect(handles.size).toBe(1);
+    expect(handles.has(" anon-edit-handle")).toBe(true);
+  });
+
+  it("clearAll runs dispose but NOT closeOverlay or toggleDrag", () => {
+    const { manager } = makeManager();
+    const dispose = vi.fn();
+    const closeOverlay = vi.fn();
+    const toggleDrag = vi.fn();
+    manager.registerFinalized(dispose, "m1");
+    manager.registerEditOverlayCloser(closeOverlay, "m1");
+    manager.registerEditDragToggle(toggleDrag, "m1");
+
+    manager.clearAll();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(closeOverlay).not.toHaveBeenCalled();
+    expect(toggleDrag).not.toHaveBeenCalled();
+  });
+
+  it("clearAll drops the layer id from the stored order so a redraw lands on top", () => {
+    const { manager, map } = makeManager();
+    const forgetSavedOrder = vi.fn(() => true);
+    (map.foliplus.LayerAPI as any).forgetSavedOrder = forgetSavedOrder;
+
+    manager.clearAll();
+
+    expect(forgetSavedOrder).toHaveBeenCalledWith(manager.layerId);
+  });
+
+  it("clearAll tolerates a LayerAPI without forgetSavedOrder", () => {
+    const { manager, map } = makeManager();
+    delete (map.foliplus.LayerAPI as any).forgetSavedOrder;
+    expect(() => manager.clearAll()).not.toThrow();
+  });
+
+  it("setMode EDIT enters edit mode when off", () => {
+    const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT exits edit mode when already on (toggle)", () => {
+    const { manager } = makeManager();
+    manager.isEditMode = true;
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
+    expect(manager.isEditMode).toBe(false);
+  });
+
+  it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("setMode EDIT does not enter edit mode when there is nothing to edit", () => {
+    const { manager } = makeManager();
+    manager.measurements = [];
+
+    manager.setMode(CONST.MEASURE_MODE.EDIT);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.any(String),
+      expect.anything(),
+    );
+  });
+
+  it("setMode drawing cancels edit mode (mutual exclusivity)", () => {
+    const { manager } = makeManager();
+    manager.applyEditMode(true);
+
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+
+    expect(manager.isEditMode).toBe(false);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
+  });
+
+  it("setMode drawing returns early when another component holds the map (blocked)", () => {
+    const { manager } = makeManager();
+    modeMocks.guardBlocked.mockReturnValue(true);
+
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+
+    expect(modeMocks.guardBlocked).toHaveBeenCalledWith(
+      manager.map,
+      "MeasureControl",
+      expect.any(String),
+      expect.arrayContaining([expect.objectContaining({ blockedBy: "ExportControl" })]),
+    );
+    expect(manager.currentMode).toBeNull();
+    modeMocks.guardBlocked.mockReturnValue(false);
+  });
+});
+
+describe("MeasureManager — lifecycle", () => {
+  it("destroy unbinds map events", () => {
+    const { manager, map } = makeManager();
+    manager.destroy();
+    expect(map.off).toHaveBeenCalled();
+  });
+
+  it("destroy is idempotent", () => {
+    const { manager, map } = makeManager();
+    manager.destroy();
+    const calls = map.off.mock.calls.length;
+    manager.destroy();
+    expect(map.off.mock.calls.length).toBeGreaterThanOrEqual(calls);
+  });
+
+  it("skips the coord readout when show_live_coords is false", () => {
+    window.CONFIG.show_live_coords = false;
+    const { manager } = makeManager();
+    expect((manager as any).coordReadoutEl).toBeNull();
+    delete window.CONFIG.show_live_coords;
+  });
+});
+
+describe("MeasureManager — persistence edge cases", () => {
+  it("clearAll collapses expanded panel when ctrl exists", () => {
+    const { manager } = makeManager();
+    const ctrl = document.createElement("div");
+    ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    manager.ctrl = ctrl;
+    manager.clearAll();
+    expect(ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+  });
+
+  it("clearAll is safe when ctrl is null", () => {
+    const { manager } = makeManager();
+    manager.ctrl = null;
+    expect(() => manager.clearAll()).not.toThrow();
+  });
+});
+
+describe("MeasureManager — global events", () => {
+  it("onUnload clears active mode and layers without wiping measurements", () => {
+    const { manager, map, layers } = makeManager();
+    manager.measurements = [{ id: 1, type: "marker" }];
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    // onUnload is bound via this.map.on("unload", ...). Leaflet fires all
+    // bound handlers on unload, so invoke every "unload" handler the manager
+    // registered (InteractionManager's own unload cleanup runs first).
+    const unloadHandlers = (map as any).on.mock.calls
+      .filter(([ev]: [string]) => ev === "unload")
+      .map((c: any[]) => c[1]);
+    expect(unloadHandlers.length).toBeGreaterThanOrEqual(1);
+    unloadHandlers.forEach((h: () => void) => h());
+    expect(manager.currentMode).toBeNull();
+    expect(layers.clearLayers).toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+    expect(layers.removeLayer).not.toHaveBeenCalled();
+    expect(manager.measurements).toHaveLength(1);
+  });
+
+  it("Escape keydown calls clearActiveMode when mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "clearActiveMode");
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    // The Escape shortcut is registered via registerInteractions →
+    // InteractionManager, which listens on document. Dispatch a real keydown
+    // so the handler reaches onKeyDown through the real routing path.
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("Escape keydown does nothing when no mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "clearActiveMode");
+    manager.currentMode = null;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("Escape keydown exits edit mode when no drawing mode is active", () => {
+    const { manager } = makeManager();
+    const spy = vi.spyOn(manager, "applyEditMode");
+    manager.applyEditMode(true);
+    manager.currentMode = null;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("non-Escape keydown is ignored by the manager's keydown handler", () => {
+    // The manager's onKeyDown only acts on Escape; every other key returns
+    // early and must not clear mode or edit state.
+    const { manager } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    const editSpy = vi.spyOn(manager, "applyEditMode");
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(editSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeasureManager — cleanMapEvents", () => {
+  it("cleans up modeInstance and hides hints", () => {
+    const { manager } = makeManager();
+    const mode = { cleanup: vi.fn() } as any;
+    manager.modeInstance = mode;
+    manager.cleanMapEvents();
+    expect(mode.cleanup).toHaveBeenCalled();
+    expect(manager.modeInstance).toBeNull();
+  });
+
+  it("cleanMapEvents is safe when no modeInstance", () => {
+    const { manager } = makeManager();
+    expect(() => manager.cleanMapEvents()).not.toThrow();
+  });
+});
+
+describe("MeasureManager — active Escape shortcut lifecycle", () => {
+  it("setMode registers high-priority active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+
+    const im = map.foliplus.interaction;
+    // After setMode, the interaction manager has an active-escape registration
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeDefined();
+    expect(activeReg!.priority).toBe(1);
+    expect(activeReg!.key).toBe("Escape");
+  });
+
+  it("clearActiveMode unregisters active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.clearActiveMode();
+
+    const im = map.foliplus.interaction;
+    const activeReg = im.shortcuts.find(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeReg).toBeUndefined();
+  });
+
+  it("re-entering mode re-registers active-escape shortcut", () => {
+    const { manager, map } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    manager.clearActiveMode();
+    manager.setMode(CONST.MEASURE_MODE.POLYGON);
+
+    const im = map.foliplus.interaction;
+    const activeRegs = im.shortcuts.filter(
+      (s: any) => s.component === "MeasureControl-escape-active",
+    );
+    expect(activeRegs).toHaveLength(1);
+    expect(activeRegs[0].priority).toBe(1);
+  });
+});
+
+describe("MeasureManager — export auto-clear", () => {
+  it("EVENTS.MODE_CHANGE from ExportControl clears active mode and shows export_paused hint", () => {
+    const { manager } = makeManager();
+    manager.setMode("distance");
+    expect(manager.currentMode).toBe("distance");
+    const events = ensureEvents(manager.map);
+    manager.map.foliplus!.showHint.mockClear();
+    events.publish("foliplus:mode:change", {
+      component: "ExportControl",
+      mode: "selecting",
+    });
+    expect(manager.currentMode).toBeNull();
+    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      expect.stringContaining("export_paused"),
+      expect.any(Number),
+    );
+  });
+
+  it("EVENTS.MODE_CHANGE from ExportControl does nothing when no mode is active", () => {
+    const { manager } = makeManager();
+    expect(manager.currentMode).toBeNull();
+    const events = ensureEvents(manager.map);
+    expect(() =>
+      events.publish("foliplus:mode:change", {
+        component: "ExportControl",
+        mode: "selecting",
+      }),
+    ).not.toThrow();
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("EVENTS.MODE_CHANGE from other components does not clear measurement", () => {
+    const { manager } = makeManager();
+    manager.setMode("distance");
+    const events = ensureEvents(manager.map);
+    events.publish("foliplus:mode:change", {
+      component: "FullscreenControl",
+      mode: "fullscreen",
+    });
+    expect(manager.currentMode).toBe("distance");
+  });
+});
+
+// ==================== Layer lifecycle cleanup ====================
+describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
+  it("clears active mode when own layer is removed via EVENTS.LAYER_REMOVED event", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    // Simulate the LayerControl panel deleting the measure layer
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: manager.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("does NOT react when a different layer is removed", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: "some_other_layer" });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
+  });
+
+  it("does NOT react when EVENTS.LAYER_REMOVED has no id payload", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, {});
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
+  });
+
+  it("does NOT react when EVENTS.LAYER_REMOVED is called with undefined payload", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED);
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("destroy unsubscribes from EVENTS.LAYER_REMOVED (no reaction after destroy)", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    manager.destroy();
+    // destroy() itself calls clearActiveMode() via clearAll(); reset the spy
+    // so we can assert the EVENTS.LAYER_REMOVED handler no longer fires.
+    clearSpy.mockClear();
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: manager.layerId });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("destroy unsubscribes from EVENTS.MODE_CHANGE (no reaction after destroy)", () => {
+    const { manager, map } = makeManager();
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+    manager.destroy();
+    clearSpy.mockClear();
+
+    const bus = map.foliplus!.events;
+    bus.publish(EVENTS.MODE_CHANGE, {
+      component: "ExportControl",
+      mode: "crop",
+    });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("works with namespaced layer ID (opts.id)", () => {
+    const { manager, map } = makeManager({ id: "map2" });
+    expect(manager.layerId).toBe("foliplus_measure_map2");
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: "foliplus_measure_map2" });
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("ignores default ID when using namespaced layer ID", () => {
+    const { manager, map } = makeManager({ id: "map2" });
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    const clearSpy = vi.spyOn(manager, "clearActiveMode");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: "foliplus_measure" });
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.DISTANCE);
+  });
+});
+
+describe("MeasureManager — EVENTS.LAYER_DELETED auto-clear", () => {
+  it("clears all measurements when own layer is deleted via EVENTS.LAYER_DELETED", () => {
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_DELETED, { id: manager.layerId });
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT react when a different layer is deleted", () => {
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("LAYER_REMOVED is a separate channel and does not trigger the LAYER_DELETED handler", () => {
+    // LAYER_REMOVED clears active mode only; LAYER_DELETED clears the store.
+    // Confusing the two would leave a user's "clear data" request unhandled.
+    const { manager, map } = makeManager();
+    const clearSpy = vi.spyOn(manager, "clearAll");
+
+    const bus = map.foliplus!.events;
+    bus.emit(EVENTS.LAYER_REMOVED, { id: manager.layerId });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("destroy unsubscribes LAYER_DELETED so post-destroy emits are ignored", () => {
+    const { manager, map } = makeManager();
+    manager.destroy();
+
+    const bus = map.foliplus!.events;
+    const clearSpy = vi.spyOn(manager, "clearAll");
+    bus.emit(EVENTS.LAYER_DELETED, { id: manager.layerId });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it("destroy skips offLayerDeleted when it was never bound", () => {
+    const { manager } = makeManager();
+    (manager as any).offLayerDeleted = null;
+    expect(() => manager.destroy()).not.toThrow();
+  });
+});
+
+describe("MeasureManager — export click", () => {
+  it("bindExportClick registers the click handler", () => {
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    expect(() => manager.bindExportClick(btn)).not.toThrow();
+  });
+});
+
+// ==================== Measure-mode layer interaction lock (mode-driven) ====================
+// The lock lives in core/mode ModeManager; these tests pin the MeasureManager
+// integration: setMode/clearActiveMode flow through the centralized lock.
+describe("MeasureManager — mode-driven layer interaction lock", () => {
+  const makeTop = (leaf: unknown) => ({
+    eachLayer: (fn: (l: unknown) => void) => fn(leaf),
+  });
+
+  const makeLeaf = (map: unknown, interactive = true) => {
+    const el = document.createElement("path");
+    if (interactive) el.classList.add("leaflet-interactive");
+    return {
+      leaf: {
+        options: { interactive } as { interactive: boolean; pane?: string },
+        _map: map,
+        _path: el,
+        _icon: undefined,
+        _container: undefined,
+        addInteractiveTarget: vi.fn(),
+        removeInteractiveTarget: vi.fn(),
+      },
+      el,
+    };
+  };
+
+  it("setMode suspends layer interaction and clearActiveMode restores it", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    expect(leaf.options.interactive).toBe(false);
+    expect(leaf.removeInteractiveTarget).toHaveBeenCalled();
+
+    manager.clearActiveMode();
+    expect(leaf.options.interactive).toBe(true);
+    expect(leaf.addInteractiveTarget).toHaveBeenCalled();
+  });
+
+  it("switching measure modes keeps the existing suspension (no double walk)", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    const callsAfterFirst = map.eachLayer.mock.calls.length;
+    expect(callsAfterFirst).toBe(1);
+
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    // Already suspended by ModeManager → no second walk.
+    expect(map.eachLayer.mock.calls.length).toBe(callsAfterFirst);
+    expect(leaf.options.interactive).toBe(false);
+  });
+
+  it("a non-interactive layer is left untouched", () => {
+    const { manager, map } = makeManager();
+    const { leaf } = makeLeaf(map, false);
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) => fn(makeTop(leaf)));
+
+    manager.setMode(CONST.MEASURE_MODE.MARKER);
+    expect(leaf.removeInteractiveTarget).not.toHaveBeenCalled();
+    expect(() => manager.clearActiveMode()).not.toThrow();
+  });
+
+  it("edit mode suspends data layers but keeps measurement layers interactive", () => {
+    const { manager, map } = makeManager();
+    const { leaf: measureLeaf } = makeLeaf(map);
+    measureLeaf.options.pane = "foliplus-measure-graph";
+    const { leaf: dataLeaf } = makeLeaf(map);
+    dataLeaf.options.pane = "overlayPane";
+    map.eachLayer.mockImplementation((fn: (l: unknown) => void) =>
+      fn({
+        eachLayer: (c: (l: unknown) => void) => {
+          c(measureLeaf);
+          c(dataLeaf);
+        },
+      }),
+    );
+
+    manager.applyEditMode(true);
+    expect(dataLeaf.options.interactive).toBe(false);
+    expect(dataLeaf.removeInteractiveTarget).toHaveBeenCalled();
+    expect(measureLeaf.options.interactive).toBe(true); // kept draggable/clickable
+
+    manager.applyEditMode(false);
+    expect(dataLeaf.options.interactive).toBe(true);
+    expect(dataLeaf.addInteractiveTarget).toHaveBeenCalled();
+  });
+});
+
+it("onExportClick triggers the export flow", () => {
+  const { manager } = makeManager();
+  // mock handleExportClick to avoid full export DOM
+  const event = { stopPropagation: vi.fn() } as any;
+  expect(() => manager.onExportClick(event)).not.toThrow();
+  expect(event.stopPropagation).toHaveBeenCalled();
+});
+
+describe("MeasureManager — onMapClick handler", () => {
+  it("hides del icons when clicking empty map space", () => {
+    const { manager } = makeManager();
+    // the onMapClick handler is bound during bindGlobalEvents
+    // find the click handler on the map
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+    expect(clickHandler).toBeDefined();
+    // Simulate a click with a non-del-icon target
+    const event = { originalEvent: { target: document.createElement("div") } } as any;
+    expect(() => clickHandler(event)).not.toThrow();
+  });
+
+  it("does NOT exit edit mode when clicking empty space", () => {
+    const { manager } = makeManager();
+    manager.applyEditMode(true);
+    expect(manager.isEditMode).toBe(true);
+
+    const handler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    // Empty-space click with a plain target
+    const event = {
+      originalEvent: { target: document.createElement("div") },
+    } as any;
+    handler(event);
+
+    // Edit mode stays on; the click is handled by each overlay's own
+    // map-click handler, not the manager.
+    expect(manager.isEditMode).toBe(true);
+  });
+
+  it("ignores a del-icon click in edit mode", () => {
+    const { manager } = makeManager();
+    manager.applyEditMode(true);
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [string]) => ev === "click",
+    )?.[1];
+
+    const delBtn = document.createElement("button");
+    delBtn.classList.add("foliplus-measure-delete");
+    const event = {
+      originalEvent: { target: delBtn },
+    } as any;
+    clickHandler(event);
+
+    // A del-icon click must not reach the empty-space path.
+    expect(manager.isEditMode).toBe(true);
+  });
+});
+
+// ==================== Label-collision lifecycle ====================
+// End-to-end registerLabel flow: lazy map-event binding, next-frame placement
+// plan, re-plan on label-set changes. The pure planner is tested in
+// collision.test.ts; here we mock the collision module (hoisted at the top of
+// this file) and only exercise the manager.
+type CollidableLabel = {
+  marker: L.Marker;
+  priority: number;
+};
+
+// A real DOM chip nested inside a mock L.Marker so chipOf(marker) resolves.
+function makeLabelMarker(): L.Marker {
+  const chip = document.createElement("div");
+  chip.className = "foliplus-measure-label";
+  const icon = document.createElement("span");
+  icon.appendChild(chip);
+  const marker = {
+    getElement: vi.fn(() => icon),
+    on: vi.fn(),
+    off: vi.fn(),
+    setLatLng: vi.fn(),
+  };
+  return marker as unknown as L.Marker;
+}
+
+// requestAnimationFrame is unavailable in jsdom/node — defer each callback to
+// the next microtask so it behaves like a real async paint frame. The
+// manager's labelPlanFrame re-entrancy guard only works if the callback does
+// NOT run synchronously on the same stack as the schedule call.
+let labelRafQueue: Array<() => void> = [];
+
+function flushRaf() {
+  while (labelRafQueue.length) {
+    const q = labelRafQueue;
+    labelRafQueue = [];
+    q.forEach(cb => cb());
+  }
+}
+
+function makeLabelManager(config: Partial<typeof window.CONFIG> = {}) {
+  window.CONFIG = { name: "MeasureControl", locale_code: "en", ...config };
+  const env = makeControlEnv();
+
+  const layers = mockLayerAPI();
+  const container = document.createElement("div");
+  container.id = "test-map";
+  const map = {
+    getContainer: () => container,
+    on: vi.fn(),
+    off: vi.fn(),
+    eachLayer: vi.fn(),
+    foliplus: {
+      showHint: vi.fn(),
+      hideHint: vi.fn(),
+      LayerAPI: { createLayers: vi.fn(() => layers) },
+    },
+  };
+
+  const manager = new MeasureManager(map, env);
+  manager.init();
+  return { manager, map, container, layers };
+}
+
+beforeEach(() => {
+  document.body.innerHTML = "";
+  window.L.marker = vi.fn(() => ({
+    bindPopup: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+    getElement: vi.fn(() => null),
+    setLatLng: vi.fn(),
+  }));
+  window.CONFIG.label_collide = undefined;
+  labelRafQueue = [];
+  vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+    labelRafQueue.push(cb);
+    return 1;
+  });
+  placeLabels.mockReset();
+});
+
+describe("MeasureManager — registerLabel lifecycle", () => {
+  it("runs a placement plan on the next frame after registering a label", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(1);
+  });
+
+  it("passes the collide flag through to placeLabels", () => {
+    const { manager } = makeLabelManager({ label_collide: true });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      true,
+    );
+  });
+
+  it("passes collide=false through when detection is off", () => {
+    const { manager } = makeLabelManager({ label_collide: false });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      false,
+    );
+  });
+
+  it("labelCollide defaults to true and flips via setLabelCollide", () => {
+    const { manager } = makeLabelManager();
+    expect(manager.labelCollide).toBe(true);
+
+    manager.setLabelCollide(false);
+    expect(manager.labelCollide).toBe(false);
+  });
+
+  it("forwards the marker and priority to the label passed into placeLabels", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+
+    flushRaf();
+    const label = (
+      (placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[]
+    )[0]!;
+    expect(label.marker).toBe(marker);
+    expect(label.priority).toBe(60);
+  });
+
+  it("re-plans the live label set when a map-move event fires", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+    const initialCalls = placeLabels.mock.calls.length;
+
+    const moveendCall = (map.on.mock.calls as unknown as [string, () => void][]).find(
+      ([ev]) => ev === "moveend",
+    )![1];
+
+    moveendCall();
+    flushRaf();
+    expect(placeLabels.mock.calls.length).toBe(initialCalls + 1);
+  });
+
+  it("coalesces multiple same-frame registerLabel calls into one plan", () => {
+    const { manager } = makeLabelManager();
+
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+    manager.registerLabel(makeLabelMarker(), 60);
+
+    // Two rAF callbacks may be queued (the coalescing guard skips the
+    // schedule work, but requestAnimationFrame is still called), so drain
+    // them; placeLabels must run exactly once with all three labels.
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(3);
+  });
+
+  it("passes a runtime label_collide flip through to the next plan", () => {
+    const { manager, map } = makeLabelManager({ label_collide: true });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+    flushRaf();
+    expect((placeLabels.mock.calls as unknown as unknown[][])[0][2] as boolean).toBe(
+      true,
+    );
+
+    const moveendCall = (map.on.mock.calls as unknown as [string, () => void][]).find(
+      ([ev]) => ev === "moveend",
+    )![1];
+
+    manager.setLabelCollide(false);
+    moveendCall();
+    flushRaf();
+    expect((placeLabels.mock.calls as unknown as unknown[][])[1][2] as boolean).toBe(
+      false,
+    );
+  });
+
+  it("setLabelsVisible hides and restores every chip via visibility", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    manager.setLabelsVisible(false);
+    const chip = (marker.getElement() as HTMLElement).querySelector<HTMLElement>(
+      ".foliplus-measure-label",
+    )!;
+    expect(chip.style.visibility).toBe("hidden");
+
+    manager.setLabelsVisible(true);
+    expect(chip.style.visibility).toBe("");
+  });
+
+  it("registerLabel hides the chip when label_show starts false", () => {
+    const { manager } = makeLabelManager({ label_show: false });
+    const marker = makeLabelMarker();
+    manager.registerLabel(marker, 60);
+
+    const chip = (marker.getElement() as HTMLElement).querySelector<HTMLElement>(
+      ".foliplus-measure-label",
+    )!;
+    expect(chip.style.visibility).toBe("hidden");
+  });
+
+  it("styleProvider returns the live labelShow and labelCollide values", () => {
+    const { manager, map } = makeLabelManager({ label_collide: false });
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleProvider: () => Record<string, unknown>;
+    };
+    expect(opts.styleProvider()).toEqual({ labelShow: true, labelCollide: false });
+
+    manager.setLabelCollide(true);
+    expect(opts.styleProvider().labelCollide).toBe(true);
+  });
+
+  it("styleDefaultsProvider returns the Python CONFIG snapshot, not live toggles", () => {
+    const { manager, map } = makeLabelManager({
+      label_show: true,
+      label_collide: false,
+    });
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleDefaultsProvider?: () => Record<string, unknown>;
+    };
+    expect(typeof opts.styleDefaultsProvider).toBe("function");
+    expect(opts.styleDefaultsProvider!()).toEqual({
+      labelShow: true,
+      labelCollide: false,
+    });
+
+    // Runtime toggles must not leak into the Reset snapshot.
+    manager.setLabelsVisible(false);
+    manager.setLabelCollide(true);
+    expect(opts.styleDefaultsProvider!()).toEqual({
+      labelShow: true,
+      labelCollide: false,
+    });
+  });
+
+  it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
+    const { manager } = makeLabelManager();
+    const emitSpy = vi.spyOn(manager.events, "publish");
+
+    manager.setLabelsVisible(false);
+
+    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
+      id: manager.layerId,
+    });
+  });
+
+  it("style broadcast is settled — a thrower does not starve later consumers", () => {
+    const { manager } = makeLabelManager();
+    const seen: string[] = [];
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, () => {
+      throw new Error("style boom");
+    });
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => manager.setLabelsVisible(false)).toThrow("style boom");
+
+    expect(seen).toEqual([manager.layerId]);
+  });
+
+  it("re-plans a smaller set when a label is removed mid-measurement", () => {
+    const { manager } = makeLabelManager();
+    const a = makeLabelMarker();
+    const b = makeLabelMarker();
+
+    const unregisterA = manager.registerLabel(a, 60);
+    flushRaf();
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[0][0] as CollidableLabel[])
+        .length,
+    ).toBe(1);
+
+    manager.registerLabel(b, 60);
+    flushRaf();
+    expect(
+      ((placeLabels.mock.calls as unknown as unknown[][])[1][0] as CollidableLabel[])
+        .length,
+    ).toBe(2);
+
+    unregisterA();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(3);
+    const last = (placeLabels.mock.calls as unknown as unknown[][])[2] as [
+      CollidableLabel[],
+    ];
+    expect(last[0].length).toBe(1);
+    expect(last[0][0]!.marker).toBe(b);
+  });
+
+  it("skips the planner when the label set is empty after unregistering the last label", () => {
+    // planLabels returns early when collidableLabels is empty; unregistering
+    // the final label must not pass an empty array into the planner.
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+
+    unregister();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("MeasureManager — map event binding", () => {
+  it("binds move/zoom/resize events lazily on the first label", () => {
+    const { manager, map } = makeLabelManager();
+
+    expect(map.on).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+
+    manager.registerLabel(makeLabelMarker(), 60);
+
+    expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("unbinds all map events when the last label is removed", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+
+    unregister();
+    flushRaf();
+
+    expect(map.off).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("keeps map events bound while a second label is still registered", () => {
+    const { manager } = makeLabelManager();
+    const a = makeLabelMarker();
+    const b = makeLabelMarker();
+
+    const unregisterA = manager.registerLabel(a, 60);
+    flushRaf();
+    manager.registerLabel(b, 60);
+    flushRaf();
+
+    unregisterA();
+    flushRaf();
+
+    expect(placeLabels).toHaveBeenCalledTimes(3);
+    expect(manager.map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+  });
+
+  it("rebinds map events after a fresh register following a full unbind", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    const unregister = manager.registerLabel(marker, 60);
+    flushRaf();
+    unregister();
+    flushRaf();
+
+    const offBefore = map.off.mock.calls.length;
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+
+    expect(map.on).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.on).toHaveBeenCalledWith("resize", expect.any(Function));
+    expect(map.off.mock.calls.length).toBe(offBefore);
+  });
+});
+
+describe("MeasureManager — label cleanup", () => {
+  it("destroy clears the label set and unbinds map events", () => {
+    const { manager, map } = makeLabelManager();
+    const marker = makeLabelMarker();
+
+    manager.registerLabel(marker, 60);
+    flushRaf();
+
+    manager.destroy();
+
+    expect(map.off).toHaveBeenCalledWith("moveend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("zoomend", expect.any(Function));
+    expect(map.off).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("destroy tolerates an unflushed rAF — the pending plan runs against an empty set", () => {
+    const { manager } = makeLabelManager();
+    const marker = makeLabelMarker();
+    placeLabels.mockClear();
+
+    manager.registerLabel(marker, 60);
+    // Do not flush rAF — leave a plan in flight.
+    manager.destroy();
+
+    // Now drain the pending rAF; it must not throw even though the manager
+    // has cleared collidableLabels. planLabels() returns early (empty set) so
+    // placeLabels is never reached.
+    expect(() => flushRaf()).not.toThrow();
+    expect(placeLabels).not.toHaveBeenCalled();
+  });
+
+  it("destroy unbinds map events safely even when no label was ever registered", () => {
+    const { manager, map } = makeLabelManager();
+
+    expect(() => manager.destroy()).not.toThrow();
+    expect(map.off).not.toHaveBeenCalledWith("moveend", expect.any(Function));
+  });
+
+  it("styleSetters.labelShow calls setLabelsVisible", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelsVisible");
+
+    opts.styleSetters.labelShow!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("styleSetters.labelCollide calls setLabelCollide", () => {
+    const { manager, map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as {
+      styleSetters: Record<string, (v: unknown) => void>;
+    };
+    const spy = vi.spyOn(manager, "setLabelCollide");
+
+    opts.styleSetters.labelCollide!(false);
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("labelShow reflects the live value set by setLabelsVisible", () => {
+    const { manager } = makeLabelManager();
+    expect(manager.labelShow).toBe(true);
+
+    manager.setLabelsVisible(false);
+    expect(manager.labelShow).toBe(false);
+  });
+
+  it("setLabelsVisible tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager();
+    // A marker with no DOM element — labelChipOf returns null.
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+    manager.registerLabel(bareMarker as unknown as L.Marker, 60);
+
+    expect(() => manager.setLabelsVisible(false)).not.toThrow();
+  });
+
+  it("registerLabel with label_show=false tolerates a marker whose chip is missing", () => {
+    const { manager } = makeLabelManager({ label_show: false });
+    const bareMarker = { getElement: vi.fn(() => null), on: vi.fn(), off: vi.fn() };
+
+    expect(() =>
+      manager.registerLabel(bareMarker as unknown as L.Marker, 60),
+    ).not.toThrow();
+  });
+
+  it("destroy calls offModeChange and offLayerRemoved when set", () => {
+    const { manager, map } = makeLabelManager();
+    const offModeChange = vi.fn();
+    const offLayerRemoved = vi.fn();
+    (manager as unknown as { offModeChange: () => void }).offModeChange = offModeChange;
+    (manager as unknown as { offLayerRemoved: () => void }).offLayerRemoved =
+      offLayerRemoved;
+
+    manager.destroy();
+
+    expect(offModeChange).toHaveBeenCalled();
+    expect(offLayerRemoved).toHaveBeenCalled();
+    expect(map.off).toHaveBeenCalledWith("unload", expect.any(Function));
+  });
+});
+
+describe("MeasureManager — destroy finalization", () => {
+  it("reports the step that threw and still detaches the map click", () => {
+    const { manager, map } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const off = map.off as ReturnType<typeof vi.fn>;
+    off.mockImplementation((event: string) => {
+      if (event === "unload") throw new Error("unload bound elsewhere");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // `detach-unload` is the fourth step; the click detach is the last one.
+    expect(off).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "detach-unload" threw',
+      expect.any(Error),
+    );
+  });
+
+  it("a failing clear still drains the handles and names the one that failed", () => {
+    const { manager } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const disposed = vi.fn();
+    const handles = (manager as any).editHandles as Map<string, unknown>;
+    handles.set("bad", {
+      dispose: () => {
+        throw new Error("handle stuck");
+      },
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    handles.set("good", {
+      dispose: disposed,
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    vi.spyOn(manager.layers, "clearLayers").mockImplementation(() => {
+      throw new Error("clear failed");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    expect(disposed).toHaveBeenCalledTimes(1);
+    expect(handles.size).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      'clearTransientState step "clear-layers" threw',
+      expect.any(Error),
+    );
+    // The handle-level failure is isolated, so it never reaches the outer
+    // step — disposeAllHandles must report it itself or it evaporates.
+    expect(warn).toHaveBeenCalledWith(
+      'disposeAllHandles step "handle:bad" threw',
+      expect.any(Error),
+    );
+  });
+});
+
+describe("MeasureManager — persistence guarantees", () => {
+  const KEY = CONST.STORAGE.KEY;
+  const marker: MeasureData = {
+    id: "m1",
+    type: "marker",
+    lng: 121,
+    lat: 31,
+  };
+
+  function clearStore() {
+    window.localStorage.removeItem(KEY);
+  }
+
+  beforeEach(() => clearStore());
+
+  it("destroy keeps localStorage intact and a fresh manager restores the list", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+
+    manager.destroy();
+
+    expect(manager.store.count()).toBe(1);
+    const raw = window.localStorage.getItem(KEY);
+    expect(raw).not.toBeNull();
+    const items = JSON.parse(raw!).items;
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("m1");
+
+    const m2 = makeManager();
+    expect(m2.manager.measurements).toHaveLength(1);
+    expect(m2.manager.measurements[0].id).toBe("m1");
+  });
+
+  it("onUnload flushes a mutation still pending on the rAF queue", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+    manager.store.mutate("m1", m => {
+      m.lng = 122;
+    });
+
+    const onUnload = (manager as any).onUnload;
+    expect(typeof onUnload).toBe("function");
+    onUnload();
+
+    const raw = window.localStorage.getItem(KEY);
+    const items = JSON.parse(raw!).items;
+    expect(items[0].lng).toBe(122);
+  });
+
+  it("explicit CLEAR mode still wipes the persisted list", () => {
+    const { manager } = makeManager();
+    manager.store.add(marker);
+    expect(manager.store.count()).toBe(1);
+
+    manager.setMode(CONST.MEASURE_MODE.CLEAR);
+
+    expect(manager.store.count()).toBe(0);
+    const raw = window.localStorage.getItem(KEY);
+    const items = JSON.parse(raw!).items;
+    expect(items).toHaveLength(0);
+  });
+
+  it("destroy still runs the transient-only cleanup pass", () => {
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.store.add(marker);
+
+    manager.destroy();
+    manager.destroy();
+
+    expect((manager as any).currentMode).toBeNull();
+    expect(manager.store.count()).toBe(1);
+  });
+});
+
+describe("MeasureManager — type filter", () => {
+  it("exposes one enum dimension over the measurement types present, counting items", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const provider = createLayersOpts(map).filterProvider;
+    const model = provider();
+
+    expect(model.dimensions).toHaveLength(1);
+    expect(model.dimensions[0]).toMatchObject({
+      kind: "enum",
+      field: CONST.FILTER.FIELD,
+      multi: true,
+    });
+    // Captions belong to the panel's shared vocabulary, not the component.
+    expect(model.dimensions[0]).not.toHaveProperty("label");
+    // Only the types that have a measurement are offered; the order is the
+    // toolbar order.
+    expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
+      CONST.MEASURE_MODE.MARKER,
+      CONST.MEASURE_MODE.DISTANCE,
+      CONST.MEASURE_MODE.POLYGON,
+    ]);
+    expect(model.dimensions[0].options[0].label).toBe(manager.T("tool_marker"));
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(3);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements()).toHaveLength(3);
+  });
+
+  it("commits a valid type filter, drops invalid ones, and counts items", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const provider = opts.filterProvider;
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    const model = provider();
+    expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(model.kept).toBe(1);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+
+    // Unknown field / values outside the declared domain / empty selection all
+    // read as "no filter", never "hide everything".
+    opts.filterSetter({ kind: "enum", field: "other", values: ["marker"] });
+    expect(provider().filter).toBeUndefined();
+    expect(provider().kept).toBe(3);
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    opts.filterSetter({ kind: "enum", field: CONST.FILTER.FIELD, values: ["unknown"] });
+    expect(provider().filter).toBeUndefined();
+
+    opts.filterSetter(undefined);
+    expect(provider().filter).toBeUndefined();
+    expect(provider().kept).toBe(3);
+  });
+
+  it("offers only present types while keeping a filter on a vanished type", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const provider = opts.filterProvider;
+
+    // Circle has no measurement, so it is not offered...
+    expect(provider().dimensions[0].options.map((o: any) => o.value)).not.toContain(
+      CONST.MEASURE_MODE.CIRCLE,
+    );
+
+    // ...but a committed circle filter survives (the filter keeps filtering and
+    // reads 0 kept instead of silently clearing).
+    opts.filterSetter(filter([CONST.MEASURE_MODE.CIRCLE]));
+    expect(provider().filter).toEqual(filter([CONST.MEASURE_MODE.CIRCLE]));
+    expect(provider().kept).toBe(0);
+    expect(provider().total).toBe(3);
+    expect(manager.visibleMeasurements()).toHaveLength(0);
+
+    // Adding a circle measurement makes the option appear and the item visible.
+    manager.store.add({ id: "m4", type: CONST.MEASURE_MODE.CIRCLE });
+    const model = provider();
+    expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
+      CONST.MEASURE_MODE.MARKER,
+      CONST.MEASURE_MODE.DISTANCE,
+      CONST.MEASURE_MODE.POLYGON,
+      CONST.MEASURE_MODE.CIRCLE,
+    ]);
+    expect(model.kept).toBe(1);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m4"]);
+  });
+
+  it("hides and restores a whole measurement through the pane-routing layer API", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leafA = { options: { pane: "graph" } } as unknown as unknown;
+    const leafB = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m1", [leafA]);
+    manager.registerItemLayers("m2", [leafB]);
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+    expect(removeLayer).toHaveBeenCalledWith(leafB);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+
+    // A measurement finalized while the filter is active starts hidden.
+    const leafC = { options: { pane: "graph" } } as unknown as unknown;
+    manager.store.add({ id: "m4", type: CONST.MEASURE_MODE.CIRCLE });
+    manager.registerItemLayers("m4", [leafC]);
+    expect(removeLayer).toHaveBeenLastCalledWith(leafC);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+
+    // Repeating the same filter must not touch the map again.
+    removeLayer.mockClear();
+    addLayer.mockClear();
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(addLayer).not.toHaveBeenCalled();
+
+    opts.filterSetter(undefined);
+    // Every visible measurement replays its leaves; both hidden ones come back.
+    expect(addLayer).toHaveBeenCalledTimes(3);
+    expect(addLayer).toHaveBeenCalledWith(leafA);
+    expect(addLayer).toHaveBeenCalledWith(leafB);
+    expect(addLayer).toHaveBeenCalledWith(leafC);
+    expect(manager.visibleMeasurements()).toHaveLength(4);
+  });
+
+  it("keeps hiding and showing stable across repeated filter changes", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+    expect(addLayer).not.toHaveBeenCalled();
+
+    opts.filterSetter(undefined);
+    expect(addLayer).toHaveBeenCalledTimes(1);
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.POLYGON]));
+    expect(removeLayer).toHaveBeenCalledTimes(2);
+    expect(addLayer).toHaveBeenCalledTimes(1);
+
+    // Clear wipes the store; the next filter cannot resurrect leaves.
+    manager.clearAll();
+    expect(manager.visibleMeasurements()).toHaveLength(0);
+  });
+
+  it("persists the filter under its own record and restores it on the next manager", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    opts.filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+
+    const key = (manager as any).filterStorageKey as string;
+    const record = JSON.parse(window.localStorage.getItem(key)!);
+    expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
+    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    // The round-trip carries the explicit ownership flag, so a later reload
+    // cannot mistake the user's write for "never spoke" and re-seed.
+    expect(record.filtersTouched).toBe(true);
+
+    // Same map container + layer id -> the reloaded manager reads it back.
+    // The measurement list is cleared first so the reload does not rebuild the
+    // bare test rows (they carry no geometry); the filter record must survive.
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const { manager: reloaded, map: reloadedMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
+    reloaded.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
+    const reloadedModel = createLayersOpts(reloadedMap).filterProvider();
+    expect(reloadedModel.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(reloadedModel.kept).toBe(1);
+    expect(reloadedModel.total).toBe(1);
+  });
+
+  it("forgets a measurement's leaves when it is deleted", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+
+    manager.forgetItemLayers("m2");
+
+    expect((manager as any).itemLeaves.size).toBe(0);
+    expect((manager as any).itemVisible.size).toBe(0);
+    // A filter applied afterwards must not try to hide the forgotten leaves.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("hides leaves registered after the first visibility pass", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leafA = { options: { pane: "graph" } } as unknown as unknown;
+    const leafB = { options: { pane: "label" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leafA]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledWith(leafA);
+
+    // A rebuilt label / centroid overlay is a new leaf: it must join the set
+    // and be hidden immediately while the filter excludes this measurement.
+    manager.addItemLeaves("m2", [leafB]);
+    expect(removeLayer).toHaveBeenLastCalledWith(leafB);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+  });
+
+  it("ignores empty leaf additions and applies the filter to a new set", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    removeLayer.mockClear();
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    // Nothing to add: the call is a no-op (and must not create a set).
+    manager.addItemLeaves("m2", []);
+    manager.addItemLeaves("m2", [null, undefined]);
+    expect((manager as any).itemLeaves.has("m2")).toBe(false);
+
+    // A measurement with no prior set gets one, and the committed filter is
+    // applied to it immediately (m3 is a polygon, excluded by marker).
+    manager.addItemLeaves("m3", [leaf]);
+    expect((manager as any).itemLeaves.get("m3")).toEqual([leaf]);
+    expect((manager as any).itemVisible.get("m3")).toBe(false);
+    expect(removeLayer).toHaveBeenCalledWith(leaf);
+
+    // The same leaf twice does not grow the set.
+    manager.addItemLeaves("m3", [leaf]);
+    expect((manager as any).itemLeaves.get("m3")).toHaveLength(1);
+
+    // Refreshing a measurement that no longer exists is a no-op, not a hide.
+    expect(() => manager.refreshItemVisibility("missing")).not.toThrow();
+    expect((manager as any).itemVisible.has("missing")).toBe(false);
+  });
+
+  it("drops leaves a repaint path replaced or removed", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leafA = { options: { pane: "label" } } as unknown as unknown;
+    // Distinct pane options: toHaveBeenCalledWith compares structurally, so
+    // two identical leaves would make the "not called with" assertion match.
+    const leafB = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leafA, leafB]);
+
+    manager.removeItemLeaves("m2", [leafA]);
+    expect((manager as any).itemLeaves.get("m2")).toEqual([leafB]);
+
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    // A full hide/show replay must not resurrect the detached leaf.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    opts.filterSetter(undefined);
+    expect(addLayer).toHaveBeenCalledWith(leafB);
+    expect(addLayer).not.toHaveBeenCalledWith(leafA);
+
+    // Empty, null-only and unknown inputs are no-ops.
+    expect(() => manager.removeItemLeaves("m2", [])).not.toThrow();
+    expect(() => manager.removeItemLeaves("m2", [null, undefined])).not.toThrow();
+    expect((manager as any).itemLeaves.get("m2")).toEqual([leafB]);
+    expect(() => manager.removeItemLeaves("missing", [leafA])).not.toThrow();
+  });
+
+  it("replays the filter after an attach path re-adds a hidden leaf", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+
+    // z-order sorting re-adds the leaf behind the filter's back.
+    manager.layers.addLayer(leaf);
+    addLayer.mockClear();
+    manager.refreshItemVisibility("m2");
+
+    expect(removeLayer).toHaveBeenCalledTimes(2);
+    expect(addLayer).not.toHaveBeenCalled();
+    expect((manager as any).itemVisible.get("m2")).toBe(false);
+  });
+
+  it("prunes leaves of measurements deleted outside the filter path", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    manager.store.remove("m2");
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    expect((manager as any).itemLeaves.size).toBe(0);
+    expect((manager as any).itemVisible.has("m2")).toBe(false);
+    expect(removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("drops a stale persisted filter value instead of hiding everything", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    // Values outside the current option domain (older version, hand edit) must
+    // read as "no filter": an expired condition may never hide every row.
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filter: filter(["bogus"]), filtersTouched: true }),
+    );
+    // The record still owns the slot: the declaration must not replace the
+    // invalid condition the user's own record represents.
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toBeUndefined();
+    const model = createLayersOpts(nextMap).filterProvider();
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(model.total);
+  });
+
+  it("ignores a corrupt filter record instead of taking the map down", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(key, "not-json");
+    const { map: nextMap } = makeManager();
+    expect(createLayersOpts(nextMap).filterProvider().filter).toBeUndefined();
+  });
+
+  it("treats a non-record payload as no stored filter and no ownership", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(key, JSON.stringify([]));
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    // An array is not a record: the declaration is free to seed.
+    expect((reloaded as any).filtersTouched).toBe(false);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
+  it("clearing every measurement also drops the committed filter", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    manager.clearAll();
+
+    // The CLEAR mode is a factory Reset: the committed filter is dropped
+    // AND the record is removed, so a reload re-applies the declaration.
+    expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  // ── Python-declared starting filter (CONFIG.filter) ──
+  // The record's explicit filtersTouched flag is the ownership signal: no
+  // ownership -> the declaration seeds; a touched record (including one that
+  // says "cleared") -> it does not. A legacy record without the flag counts
+  // as touched, preserving the pre-flag presence-is-ownership behaviour.
+  it("seeds the declared filter when no record exists", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    const model = createLayersOpts(map).filterProvider();
+    expect(model.kept).toBe(1);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m2"]);
+  });
+
+  it("keeps the declaration out when the record says the user touched the filter", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    // A cleared record: the user explicitly removed the filter. The flag —
+    // not the record's presence — is what keeps the declaration out.
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filtersTouched: true }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded, map } = makeManager();
+
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toBeUndefined();
+    expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+  });
+
+  it("treats a legacy record without the flag as user-owned", () => {
+    // Records written before filtersTouched existed kept the user's filter in
+    // the record itself; an upgrade must not let the declaration overwrite it.
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: 1,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+      }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
+  });
+
+  it("a stored filter wins over the declaration", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filter: filter([CONST.MEASURE_MODE.MARKER]) }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    expect((reloaded as any).filtersTouched).toBe(true);
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
+  });
+
+  it("reports an unreadable declaration once and starts unfiltered", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // An atom outside the runtime schema: the same tolerant reader a stored
+    // record uses rejects it, so the declaration is dropped whole.
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: { kind: "atom", field: "type", op: "nope" },
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // A Clear re-seeds from the cached declaration without re-normalising, so
+    // the unusable declaration is still reported exactly once total.
+    manager.clearAll();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an unknown declared type once and starts unfiltered", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = { ...window.CONFIG, filter: filter(["bogus"]) };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a partially unknown declaration whole instead of half-applying it", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+    };
+
+    const { manager } = makeManager();
+
+    // Keeping DISTANCE would apply a condition the author never declared; an
+    // unknown name makes the declaration invalid as a whole.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Clear re-seeds from the cached (invalid) declaration without warning
+    // again, and a reload starts undeclared as well.
+    manager.clearAll();
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const { manager: reloaded } = makeManager();
+    expect((reloaded as any).measureFilter).toBeUndefined();
+  });
+
+  it("rejects a declaration for another filter shape", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "atom",
+        field: CONST.FILTER.FIELD,
+        op: "between",
+        range: [1, 2],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    // Measure's only dimension is the measurement type; a numeric range is
+    // not it, so the declaration is ignored whole rather than coerced.
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a declaration bound to another field", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: {
+        kind: "enum",
+        field: "other",
+        values: [CONST.MEASURE_MODE.DISTANCE],
+      },
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports every unknown declared type, pluralized, exactly once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter(["bogus", "fake", CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0].join(" "))).toContain("types: bogus, fake");
+  });
+
+  it("the CLEAR mode re-seeds the declared filter and deletes the record", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager } = makeManager();
+    addMeasurements(manager);
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+
+    // The CLEAR mode is a factory Reset: the filter re-seeds to the declaration
+    // in this session and the record is deleted, so a reload re-applies it.
+    manager.clearAll();
+
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+
+    // Rebuilding (reload) re-applies the declaration.
+    const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    expect(createLayersOpts(nextMap).filterProvider().filter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+  });
+
+  it("an ordinary filter edit sticks (user write wins, even after Clear is not involved)", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+
+    // A user edit through the panel capability flips ownership and writes a
+    // record; a reload keeps the user's filter, not the declaration.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
+  });
+
+  it("a no-op panel write still takes ownership away from the declaration", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    const save = vi.spyOn(manager as any, "saveMeasureFilter");
+    const replan = vi.spyOn(manager, "requestLabelPlan");
+
+    // Writing the same values the declaration seeded is still a user action;
+    // it must persist ownership so a later declaration change cannot replace
+    // the user's choice.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
+
+    // A repeated identical write is a no-op once the slot is owned: it must
+    // not rewrite the record or repaint for a state that did not change.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(replan).toHaveBeenCalledTimes(1);
+
+    const key = (manager as any).filterStorageKey as string;
+    const record = JSON.parse(window.localStorage.getItem(key)!);
+    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(record.filtersTouched).toBe(true);
+  });
+
+  it("a clear with nothing to clear leaves the slot to the declaration", () => {
+    const { manager, map } = makeManager();
+    expect((manager as any).filtersTouched).toBe(false);
+
+    // No filter exists and the panel's Clear is disabled in that state, so an
+    // empty write is not a user choice: it must not persist ownership (nor a
+    // record), leaving a declaration free to seed.
+    createLayersOpts(map).filterSetter(undefined);
+
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    const key = (manager as any).filterStorageKey as string;
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+});
+
+// ── Cross-arm filter contract (enum arm) ──────────────────────────────
+//
+// The other half of a mirrored pair. The sibling
+// test/js/control/HeatmapControl/manager.test.ts pins the same rows against
+// the range arm; the describe/it structure is identical on purpose, so a
+// change that moves one arm without the other fails here instead of in a
+// user report.
+//
+// The rows, in order:
+//   1. a declared filter is a starting condition and owns nothing;
+//   2. a user write owns the slot and wins from then on;
+//   3. a stored filter wins over the declaration;
+//   4. the filter row's Clear keeps the empty slot, while the factory Reset
+//      drops ownership and re-seeds the declaration;
+//   5. an unusable declaration warns once and never leaves a half-open state;
+//   6. a saved filter round-trips through persistence;
+//   7. the dimension carries values only — captions are panel chrome.
+describe("MeasureManager — filter contract (enum arm)", () => {
+  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+
+  /** Write a filter record as if an earlier session had owned the slot. A
+   *  probe manager supplies the stable key (container id + layer id). */
+  const seedRecord = (record: unknown): string => {
+    const { manager } = makeManager();
+    const key = storageKey(manager);
+    window.localStorage.setItem(key, JSON.stringify(record));
+    // The measurements list must not distract the reload; the filter record is
+    // the thing under test.
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    return key;
+  };
+
+  /** A reload: the measurements list is dropped, the filter record survives. */
+  const reload = () => {
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    return makeManager();
+  };
+
+  /** A user write through the same setter the panel's filter row calls. */
+  const userWrite = (manager: any, map: any, values = [CONST.MEASURE_MODE.MARKER]) => {
+    createLayersOpts(map).filterSetter(filter(values));
+    return manager;
+  };
+
+  beforeEach(() => window.localStorage.clear());
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  describe("1. a declared filter is a starting condition", () => {
+    it("seeds the declaration without taking ownership", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+      // A declaration is not a user choice: the factory Reset can still
+      // return to it.
+      expect((manager as any).filtersTouched).toBe(false);
+
+      const model = createLayersOpts(map).filterProvider();
+      expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+      expect(model.kept).toBe(1);
+      expect(model.total).toBe(3);
+    });
+
+    it("does not seed while a stored record owns the slot", () => {
+      // A deliberate empty record (the user cleared the filter earlier): the
+      // declaration must stay out even though no filter value is stored.
+      seedRecord({
+        version: CONST.FILTER.RECORD_VERSION,
+        filtersTouched: true,
+      });
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+
+      const { manager } = makeManager();
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toBeUndefined();
+    });
+  });
+
+  describe("2. a user write owns the slot", () => {
+    it("takes ownership and persists the user's choice", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      userWrite(manager, map);
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      const record = JSON.parse(window.localStorage.getItem(storageKey(manager))!);
+      expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
+      expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+      expect(record.filtersTouched).toBe(true);
+    });
+  });
+
+  describe("3. a stored filter wins over the declaration", () => {
+    it("restores the stored filter instead of the declaration", () => {
+      seedRecord({
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+        filtersTouched: true,
+      });
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+
+      const { manager, map } = makeManager();
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      expect(createLayersOpts(map).filterProvider().filter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+    });
+  });
+
+  describe("4. the two clear paths are not the same", () => {
+    it("the filter row's Clear keeps the user's empty slot", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+
+      createLayersOpts(map).filterSetter(undefined);
+
+      expect((manager as any).filtersTouched).toBe(true);
+      expect((manager as any).measureFilter).toBeUndefined();
+
+      // The declaration must not come back on the next load either.
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).filtersTouched).toBe(true);
+      expect((reloaded as any).measureFilter).toBeUndefined();
+    });
+
+    it("the factory Reset drops ownership and re-seeds the declaration", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+      userWrite(manager, map);
+      expect((manager as any).filtersTouched).toBe(true);
+
+      // The CLEAR mode is the factory Reset: delete the record, drop
+      // ownership, and return to the declaration.
+      manager.clearAll();
+
+      expect((manager as any).filtersTouched).toBe(false);
+      expect((manager as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+      expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).filtersTouched).toBe(false);
+      expect((reloaded as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.DISTANCE]),
+      );
+    });
+  });
+
+  describe("5. an unusable declaration warns once, never half-applies", () => {
+    it("reports the declaration once and starts unfiltered", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+      };
+
+      const { manager } = makeManager();
+
+      // Keeping DISTANCE would apply a condition the author never declared.
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // The cached declaration is still invalid on the factory Reset; it is
+      // not re-normalised, so the warning is not repeated.
+      manager.clearAll();
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects the other arm whole instead of coercing it", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: {
+          kind: "atom",
+          field: CONST.FILTER.FIELD,
+          op: "between",
+          range: [1, 2],
+        },
+      };
+
+      const { manager } = makeManager();
+
+      // The panel's only dimension is the measurement type; a numeric range is
+      // not coerced into it.
+      expect((manager as any).measureFilter).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays undeclared after the factory Reset and a reload", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+      };
+
+      const { manager } = makeManager();
+      manager.clearAll();
+      expect((manager as any).measureFilter).toBeUndefined();
+
+      const { manager: reloaded } = reload();
+      expect((reloaded as any).measureFilter).toBeUndefined();
+    });
+  });
+
+  describe("6. a saved filter round-trips through persistence", () => {
+    it("save → load → apply restores the filter and its ownership", () => {
+      window.CONFIG = {
+        ...window.CONFIG,
+        filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+      };
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      userWrite(manager, map);
+
+      const { manager: reloaded, map: nextMap } = reload();
+
+      expect((reloaded as any).filtersTouched).toBe(true);
+      expect((reloaded as any).measureFilter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+      expect(createLayersOpts(nextMap).filterProvider().filter).toEqual(
+        filter([CONST.MEASURE_MODE.MARKER]),
+      );
+    });
+  });
+
+  describe("7. the dimension carries values only", () => {
+    it("exposes values with captions left to the panel", () => {
+      const { manager, map } = makeManager();
+      addMeasurements(manager);
+
+      const dim = createLayersOpts(map).filterProvider().dimensions[0];
+
+      expect(dim).toMatchObject({
+        kind: "enum",
+        field: CONST.FILTER.FIELD,
+        multi: true,
+      });
+      expect(dim.options.map((option: any) => option.value)).toEqual([
+        CONST.MEASURE_MODE.MARKER,
+        CONST.MEASURE_MODE.DISTANCE,
+        CONST.MEASURE_MODE.POLYGON,
+      ]);
+      // The panel reads its shared locale key (filter_enum); a
+      // component-owned caption here is the defect the contract prevents.
+      expect(dim).not.toHaveProperty("label");
+    });
+  });
+});

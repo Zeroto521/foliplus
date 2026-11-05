@@ -1,0 +1,1202 @@
+// MeasureControl core manager — persistence, mode switching, layer management.
+import { COMPONENTS, generateId } from "#core/component.js";
+import {
+  EVENTS,
+  type EventBus,
+  type EventHandler,
+  ensureEvents,
+  publish,
+} from "#core/event/index.js";
+import { requireFoliplus } from "#core/guard.js";
+import { HINT_DURATION } from "#core/hint.js";
+import {
+  type FilterEnumDimension,
+  type LayerFilter,
+  type LayerFilterModel,
+  filtersEqual,
+  isLayerInPanes,
+  matchesValues,
+  parsePersistedFilter,
+} from "#core/layer/index.js";
+import {
+  adjustPanelZIndex,
+  bindMapEvents,
+  hideDelIcons,
+  unbindMapEvents,
+} from "#core/leaflet/index.js";
+import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
+import type { ControlEnv } from "#core/type.js";
+import { finalize, finalizeEach } from "#common/finalize.js";
+import * as Storage from "#common/storage.js";
+import { throttleRaf } from "#common/throttle.js";
+import type { Logger } from "#common/type.js";
+import { mapProjector, placeLabels } from "./collision.js";
+import * as CONST from "./const.js";
+import * as Export from "./export.js";
+import * as SVGs from "./icon.js";
+import {
+  registerActiveEscape,
+  registerExportClick,
+  registerInteractions,
+} from "./interaction.js";
+import { MODE_MAP, type MeasureMode } from "./mode/index.js";
+import { MeasureStore } from "./store.js";
+import type { CollidableLabel } from "./type.js";
+import * as Util from "./util.js";
+
+/** Measurement types in toolbar order with the locale key of their tool name.
+ *  This is the filter's whole domain and its option order: the panel offers
+ *  only the types present on the map, while a committed filter may name any of
+ *  them. */
+const TYPE_LABELS: ReadonlyArray<readonly [string, string]> = [
+  [CONST.MEASURE_MODE.MARKER, "tool_marker"],
+  [CONST.MEASURE_MODE.DISTANCE, "tool_distance"],
+  [CONST.MEASURE_MODE.POLYGON, "tool_polygon"],
+  [CONST.MEASURE_MODE.CIRCLE, "tool_circle"],
+];
+
+/** Membership view of the same domain, shared by every filter-validation path
+ *  (session writes, persisted records, declared config) so they can never drift
+ *  apart. Built once: the table is a module constant. */
+const MEASURE_TYPES: ReadonlySet<string> = new Set(TYPE_LABELS.map(([value]) => value));
+
+/** In edit mode, suspend every layer except the measurement panes so nodes stay
+ *  draggable and shapes clickable to reveal their ✕ handles. */
+const skipMeasureLayers = isLayerInPanes([
+  CONST.PANES.GRAPH,
+  CONST.PANES.NODE,
+  CONST.PANES.LABEL,
+]);
+
+/** Group key for edit registrations that carry no measurement id (tests,
+ *  one-off call sites) — each such handle stays isolated. A string literal is
+ *  valid as a Map key, unlike a Symbol. */
+const ANON_HANDLE = " anon-edit-handle";
+
+/** Per-measurement edit-mode resource bundle: the three things a finalized
+ *  measurement registers with the manager — its dispose (unbinds drag binds,
+ *  edit overlay and the drag toggle), the ✕ overlay close callback, and the
+ *  node-drag toggle. Keyed by measurement id so delete drops one handle and
+ *  applyEditMode/clearAll/destroy each walk one collection. */
+interface EditHandle {
+  dispose: () => void;
+  closeOverlay: () => void;
+  toggleDrag: (enabled: boolean) => void;
+}
+
+/** Map events that change pixel geometry and therefore invalidate placements. */
+const LABEL_MAP_EVENTS: Array<"moveend" | "zoomend" | "resize"> = [
+  "moveend",
+  "zoomend",
+  "resize",
+];
+
+// ==================== Core Manager ====================
+/** Central manager for all measurements. */
+class MeasureManager {
+  map: L.Map;
+  /** Per-map mode manager / event bus — bound once in the constructor
+   *  (ensure-style getters return the cached instance, so hold them like the
+   *  logger instead of re-ensuring at each call site). */
+  modes: ModeManager;
+  events: EventBus;
+  /** Component config — carried on the manager instead of a module-level
+   *  free variable, so the UI functions are unit-testable with their own CONFIG. */
+  config: ComponentConfig;
+  /** Scoped translator (prepending config.name) bound to `config`, created once
+   *  by the manager. */
+  T: (key: string) => string;
+  /** Plain translator (no prefix) — label keys that are compared by identity
+   *  must get the bare key back. */
+  _: (key: string) => string;
+  /** Logger bound to `config.name`, created once by the manager. */
+  log: Logger;
+  /** The factory-built environment this manager was constructed with. Modules
+   *  that need the full env (export serialization) read it here rather than
+   *  duck-typing the manager as a ControlEnv. */
+  readonly env: ControlEnv;
+  private interactionCleanup?: () => void;
+  private measureEscapeCleanup?: () => void;
+  private exportClickCleanup?: () => void;
+  layers: CreateLayersAPI;
+  currentMode: string | null;
+  modeInstance: MeasureMode | null;
+  toolBtns: HTMLElement[];
+  /** Per-measurement edit handles, keyed by measurement id (see EditHandle).
+   *  registerFinalized / registerEditOverlayCloser / registerEditDragToggle all
+   *  merge into the one handle for their id. */
+  private editHandles: Map<string, EditHandle> = new Map();
+  /** Central store for measurement data + persistence + count emission. */
+  readonly store: MeasureStore;
+  /** The committed type filter (undefined = no filter). Kept apart from the
+   *  measurements record so that record's shape stays unchanged. */
+  private measureFilter: LayerFilter = undefined;
+  /** Whether the user owns the filter slot (see the filter record's
+   *  `filtersTouched` — the same ownership signal HeatmapControl uses). The
+   *  Python declaration seeds only while this is false; the CLEAR mode's
+   *  factory Reset deletes the record and clears it, so the declaration
+   *  returns with the factory defaults. */
+  filtersTouched = false;
+  /** The Python declaration normalised once at construction — the value a
+   *  Clear re-seeds from (without re-normalising, so an unusable declaration
+   *  still warns exactly once). */
+  private declaredStartFilter: LayerFilter = undefined;
+
+  /** Rendered leaves of each measurement, keyed by measurement id. A filter
+   *  hides/shows a whole measurement through these, never through a redraw. */
+  private readonly itemLeaves = new Map<string, L.Layer[]>();
+  /** Whether each measurement's leaves are currently rendered. The layer API
+   *  keeps leaves inside per-pane child groups, so the group's own hasLayer()
+   *  cannot answer this for a single leaf — the manager tracks it instead. */
+  private readonly itemVisible = new Map<string, boolean>();
+  /** localStorage key of the type filter, scoped to map + layer instance. */
+  private readonly filterStorageKey: string;
+  /** Every rendered label chip, so collision detection plans all measurements
+   *   together instead of one measurement at a time. */
+  private collidableLabels: CollidableLabel[] = [];
+  /** Deferred re-plan; coalesces bursts of label updates into one pass. */
+  private readonly scheduleLabelPlan = throttleRaf(() => this.planLabels());
+  /** Bound map-move/zoom/resize listener that invalidates label placements. */
+  private onLabelMapMove: (() => void) | null = null;
+  /** Cursor-following coordinate readout, live for the manager's lifetime.
+   *  null when `show_live_coords` is off. */
+  private coordReadoutEl: HTMLElement | null = null;
+  /** The readout is only created while a mode is armed (setMode), so its
+   *  map listeners are only ever live inside that window. */
+  private coordReadoutEvents: [string, L.LeafletEventHandlerFn][] = [];
+  ctrl: HTMLElement | null;
+  /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
+  isEditMode: boolean;
+  /** The layer id used to register this manager's measure layer. */
+  layerId: string;
+  /** Event bus unsubscribe for EVENTS.LAYER_REMOVED. */
+  private offLayerRemoved!: () => void;
+  /** Event bus unsubscribe for EVENTS.LAYER_DELETED. */
+  private offLayerDeleted!: () => void;
+  /** Event bus unsubscribe for the EVENTS.MODE_CHANGE export-pause interrupt. */
+  private offModeChange!: () => void;
+  private onMapClick!: (event: L.LeafletMouseEvent) => void;
+  onKeyDown!: (event: KeyboardEvent) => void;
+  private onUnload!: () => void;
+
+  /** Handle export button click — delegates to the export module. */
+  onExportClick(event: Event) {
+    Export.handleExportClick(this)(event);
+  }
+
+  /** Register the export toolbar button click via the interaction manager. */
+  bindExportClick(element: HTMLElement): void {
+    this.exportClickCleanup = registerExportClick(this, element);
+  }
+
+  /**
+   * @param mapInstance - Leaflet map instance.
+   * @param opts - Optional configuration.
+   * @param opts.id - Optional namespace for the layer ID. When provided,
+   *   the layer is registered as "{ID}_{id}" to support multi-instance maps.
+   */
+  constructor(mapInstance: L.Map, env: ControlEnv, opts?: { id?: string }) {
+    this.map = mapInstance;
+    this.env = env;
+    this.config = env.config;
+    this.T = env.T;
+    this._ = env._;
+    this.log = env.log;
+    this.layerId = generateId(CONST.ID, opts?.id);
+    this.labelCollide = env.config.label_collide !== false;
+    this.labelShow = env.config.label_show !== false;
+    this.store = new MeasureStore(this.map, env, this.layerId);
+    this.filterStorageKey = `${CONST.FILTER.STORAGE_PREFIX}_${mapInstance.getContainer().id}_${this.layerId}`;
+    // The record's explicit `filtersTouched` flag is the ownership signal —
+    // the same rule HeatmapControl applies to its SavedConfig. A touched
+    // record wins (including one that says "cleared"); otherwise the Python
+    // declaration is the starting condition. The declaration is normalised
+    // once here (a Clear re-seeds from it without re-normalising, so an
+    // unusable declaration warns exactly once).
+    this.declaredStartFilter = this.declaredMeasureFilter();
+    const filterState = this.loadFilterState();
+    this.filtersTouched = filterState.touched;
+    this.measureFilter = this.filtersTouched
+      ? filterState.filter
+      : this.declaredStartFilter;
+    // The config defaults were read above — snapshot them before any runtime
+    // toggle so Reset cannot drift.
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelCollide = this.labelCollide;
+    this.layers = requireFoliplus(this.map).LayerAPI.createLayers({
+      id: this.layerId,
+      name: this.T("tool_toggle"),
+      panes: [
+        { name: CONST.PANES.GRAPH },
+        { name: CONST.PANES.NODE },
+        { name: CONST.PANES.LABEL, isLabel: true },
+      ],
+      iconSvg: SVGs.ICON_RULER,
+      featureCountProvider: () => this.store.count(),
+      // Filter capability: one enum dimension over the measurement types. The
+      // panel re-reads the model after every write; kept/total count
+      // measurement items, never rendered leaves.
+      filterProvider: () => this.filterModel(),
+      filterSetter: filter => this.setFilter(filter),
+      // The layer style drawer renders these two switches; the component owns
+      // the values (single source — both UIs call the same setters).
+      styleProvider: () => ({
+        labelShow: this.labelShow,
+        labelCollide: this.labelCollide,
+      }),
+      styleSetters: {
+        labelShow: v => this.setLabelsVisible(v === true),
+        labelCollide: v => this.setLabelCollide(v === true),
+      },
+      // Snapshot taken at construction — Reset restores these, never the
+      // live runtime toggles.
+      styleDefaultsProvider: () => ({
+        labelShow: defaultLabelShow,
+        labelCollide: defaultLabelCollide,
+      }),
+      metaProvider: () => {
+        const counts: Record<string, number> = {};
+        for (const m of this.store.all()) {
+          counts[m.type] = (counts[m.type] ?? 0) + 1;
+        }
+        return {
+          [this.T("tool_marker")]: counts[CONST.MEASURE_MODE.MARKER] ?? 0,
+          [this.T("tool_distance")]: counts[CONST.MEASURE_MODE.DISTANCE] ?? 0,
+          [this.T("tool_polygon")]: counts[CONST.MEASURE_MODE.POLYGON] ?? 0,
+          [this.T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
+        };
+      },
+    });
+    this.currentMode = null;
+    this.modeInstance = null;
+    this.modes = ensureModes(this.map);
+    this.events = ensureEvents(this.map);
+    // When ExportControl enters crop interaction or export, interrupt the
+    // active measurement so map clicks are not captured while exporting.
+    this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
+      if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
+        this.clearActiveMode();
+        this.map.foliplus?.showHint?.(
+          this.config.name,
+          this.T("export_paused"),
+          HINT_DURATION.SHORT,
+        );
+      }
+    });
+    this.toolBtns = [];
+    this.ctrl = null;
+    this.isEditMode = false;
+
+    this.coordReadoutEl =
+      this.config.show_live_coords !== false ? this.buildCoordReadout() : null;
+
+    this.bindGlobalEvents();
+    this.bindLayerRemoved();
+    this.bindLayerDeleted();
+  }
+
+  /** Restore persisted measurements. Called by the lazy `createManager`
+   *  factory immediately after construction — kept out of the constructor
+   *  so deps wiring and state restore are separate phases. */
+  init() {
+    this.restoreMeasurements();
+  }
+
+  // ── Filter capability (measurement type) ───────────────────────────
+
+  /** The one filterable dimension: the measurement type, in toolbar order,
+   *  labelled with the component's own translations. Only the types that
+   *  currently have a measurement are offered, so the option list tracks the
+   *  map; the filter itself may still carry a type whose last measurement was
+   *  deleted (see `normalizeMeasureFilter`). */
+  private filterDimension(): FilterEnumDimension {
+    const present = new Set(this.store.all().map(measurement => measurement.type));
+    const options = TYPE_LABELS.filter(([value]) => present.has(value)).map(
+      ([value, key]) => ({ value, label: this.T(key) }),
+    );
+    return {
+      kind: "enum",
+      field: CONST.FILTER.FIELD,
+      multi: true,
+      options,
+    };
+  }
+
+  /** Drop values outside the declared option domain and an empty selection
+   *  (which always means "no filter", never "hide everything"). */
+  private normalizeMeasureFilter(filter: LayerFilter): LayerFilter {
+    if (filter?.kind !== "enum" || filter.field !== CONST.FILTER.FIELD) {
+      return undefined;
+    }
+    // The persisted domain is the component's full type set, not the types
+    // that happen to exist right now: deleting the last measurement of a
+    // selected type must not silently drop it from the filter (it comes back
+    // when such a measurement appears again).
+    const values = filter.values.filter(value => MEASURE_TYPES.has(value));
+    return values.length > 0
+      ? { kind: "enum", field: CONST.FILTER.FIELD, values }
+      : undefined;
+  }
+
+  /** Does one measurement pass the committed filter? The filtered unit is the
+   *  measurement item, never its rendered leaves. */
+  private itemMatchesFilter(measurement: MeasureData): boolean {
+    return matchesValues({ type: measurement.type }, this.measureFilter);
+  }
+
+  /** The model the shared filter panel renders for this layer. */
+  filterModel(): LayerFilterModel {
+    this.pruneItemLeaves();
+    let kept = 0;
+    for (const measurement of this.store.all()) {
+      if (this.itemMatchesFilter(measurement)) kept += 1;
+    }
+    return {
+      dimensions: [this.filterDimension()],
+      filter: this.measureFilter,
+      kept,
+      total: this.store.count(),
+    };
+  }
+
+  /** Measurements whose leaves are rendered — the export view. Reads the
+   *  rendered state so it always agrees with the map, falling back to the
+   *  committed filter for items that have not registered leaves yet. */
+  visibleMeasurements(): MeasureData[] {
+    return this.store.all().filter(measurement => {
+      const rendered = this.itemVisible.get(measurement.id!);
+      return rendered ?? this.itemMatchesFilter(measurement);
+    });
+  }
+
+  /** Panel write path: keep the filter, persist it, repaint only visibility
+   *  (no redraw), then re-plan labels and notify the row. */
+  setFilter(filter: LayerFilter): void {
+    const next = this.normalizeMeasureFilter(filter);
+    const unchanged = filtersEqual(next, this.measureFilter);
+    // A write that changes nothing is a no-op once the user owns the slot.
+    // Clearing a slot that already holds nothing is also not a choice to
+    // remember (the panel's Clear is disabled in that state anyway) — the
+    // declaration may still seed. Every other write is the user taking the
+    // slot, including re-affirming the filter the declaration seeded.
+    if (unchanged && (this.filtersTouched || next === undefined)) return;
+    this.measureFilter = next;
+    // Any panel write — including the panel's Clear (undefined) — is the
+    // user taking the slot. The declaration must not resurrect itself.
+    this.filtersTouched = true;
+    this.saveMeasureFilter();
+    this.applyFilterVisibility();
+    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    this.requestLabelPlan();
+  }
+
+  /** Register the rendered leaves of one measurement so a filter can hide and
+   *  restore the whole measurement without touching the drawing/edit layers. */
+  registerItemLayers(
+    id: string,
+    leaves: ReadonlyArray<L.Layer | null | undefined>,
+  ): void {
+    this.itemLeaves.set(
+      id,
+      leaves.filter((leaf): leaf is L.Layer => Boolean(leaf)),
+    );
+    // The mode attaches the leaves before registering them, so they start out
+    // rendered; a committed filter may then hide the whole measurement.
+    this.itemVisible.set(id, true);
+    this.refreshItemVisibility(id);
+  }
+
+  /** Append leaves rendered after the initial registration (a rebuilt label
+   *  or a centroid overlay). They join the measurement's set immediately, so a
+   *  committed filter hides them too instead of leaving them on the map. */
+  addItemLeaves(id: string, leaves: ReadonlyArray<L.Layer | null | undefined>): void {
+    const extra = leaves.filter((leaf): leaf is L.Layer => Boolean(leaf));
+    if (extra.length === 0) return;
+    const existing = this.itemLeaves.get(id);
+    if (existing) {
+      for (const leaf of extra) {
+        if (!existing.includes(leaf)) existing.push(leaf);
+      }
+    } else {
+      this.itemLeaves.set(id, extra);
+    }
+    this.refreshItemVisibility(id);
+  }
+
+  /** Drop leaves a repaint path replaced or removed (a rebuilt label, a
+   *  deleted node), so a later visibility replay cannot resurrect detached
+   *  nodes. */
+  removeItemLeaves(
+    id: string,
+    leaves: ReadonlyArray<L.Layer | null | undefined>,
+  ): void {
+    const current = this.itemLeaves.get(id);
+    if (!current || leaves.length === 0) return;
+    const gone = new Set(leaves.filter((leaf): leaf is L.Layer => Boolean(leaf)));
+    if (gone.size === 0) return;
+    this.itemLeaves.set(
+      id,
+      current.filter(leaf => !gone.has(leaf)),
+    );
+  }
+
+  /** Re-apply the committed filter to one measurement's current leaf set.
+   *  Attach paths that rebuild or re-add leaves (z-order churn, relabelling)
+   *  call this so a hidden measurement cannot reappear behind the filter. */
+  refreshItemVisibility(id: string): void {
+    const measurement = this.store.all().find(entry => entry.id === id);
+    if (!measurement) return;
+    this.setItemVisible(id, this.itemMatchesFilter(measurement));
+  }
+
+  /** Forget one measurement's leaves (its delete path). */
+  forgetItemLayers(id: string): void {
+    this.itemLeaves.delete(id);
+    this.itemVisible.delete(id);
+  }
+
+  /** Hide or show one measurement's leaves. The layer API routes by each
+   *  leaf's own pane option, so a restored leaf keeps its pane. */
+  private setItemVisible(id: string, visible: boolean): void {
+    this.itemVisible.set(id, visible);
+    const leaves = this.itemLeaves.get(id);
+    if (!leaves || leaves.length === 0) return;
+    // Always replay every leaf instead of early-returning on an unchanged
+    // flag: an attach path may re-add leaves after the last hide (z-order
+    // sorting, a rebuilt label), and only a full replay pulls them back out.
+    // Both layer calls are idempotent, so replaying an already-correct set is
+    // free at this size.
+    for (const leaf of leaves) {
+      if (visible) this.layers.addLayer(leaf);
+      else this.layers.removeLayer(leaf);
+    }
+  }
+
+  /** Apply the committed filter to every measurement on the map. */
+  private applyFilterVisibility(): void {
+    this.pruneItemLeaves();
+    for (const measurement of this.store.all()) {
+      this.setItemVisible(measurement.id!, this.itemMatchesFilter(measurement));
+    }
+  }
+
+  /** Drop leaf sets of measurements that no longer exist (delete paths do not
+   *  all route through the manager). */
+  private pruneItemLeaves(): void {
+    if (this.itemLeaves.size === 0) return;
+    const live = new Set(this.store.all().map(measurement => measurement.id));
+    for (const id of this.itemLeaves.keys()) {
+      if (!live.has(id)) {
+        this.itemLeaves.delete(id);
+        this.itemVisible.delete(id);
+      }
+    }
+  }
+
+  /** Load the committed filter from its own record, plus the explicit
+   *  ownership flag.
+   *
+   *  The flag — not the record's mere existence — decides whether the Python
+   *  declaration may seed: `filtersTouched: true` means "the user owns the
+   *  slot, including a deliberate clear", `false` means "never spoke". A
+   *  corrupt record carries no usable filter and no ownership; values outside
+   *  the current option domain are dropped so a stale condition cannot hide
+   *  every measurement. Records written before the flag existed count as
+   *  touched, preserving the old presence-is-ownership behaviour for users
+   *  upgrading with a stored filter. */
+  private loadFilterState(): { filter: LayerFilter; touched: boolean } {
+    const record = Storage.loadRecord<unknown>(this.filterStorageKey, this.config.name);
+    if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return { filter: undefined, touched: false };
+    }
+    const data = record as Record<string, unknown>;
+    return {
+      filter: this.normalizeMeasureFilter(parsePersistedFilter(data.filter)),
+      touched: typeof data.filtersTouched === "boolean" ? data.filtersTouched : true,
+    };
+  }
+
+  /** The Python declaration as the starting filter.
+   *
+   *  The declaration is validated against the component's whole type domain,
+   *  not the types currently on the map: a type with no measurement yet is
+   *  still a legal declared value. Any unknown name makes the declaration
+   *  invalid as a whole — dropping just that name would apply a half-open
+   *  condition the author never wrote. An invalid declaration is reported
+   *  once and ignored; "declared" must never mean "filtered to empty" or
+   *  "filtered to a subset nobody asked for". */
+  private declaredMeasureFilter(): LayerFilter {
+    const raw: unknown = this.config.filter;
+    if (raw == null) return undefined;
+    const declared = parsePersistedFilter(raw);
+    if (!declared) {
+      this.warnDeclaredFilter("unreadable declaration");
+      return undefined;
+    }
+    if (declared.kind !== "enum" || declared.field !== CONST.FILTER.FIELD) {
+      this.warnDeclaredFilter("the panel filters measurement types only");
+      return undefined;
+    }
+    const unknown = declared.values.filter(value => !MEASURE_TYPES.has(value));
+    if (unknown.length > 0) {
+      this.warnDeclaredFilter(
+        `unknown measurement type${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,
+      );
+      return undefined;
+    }
+    return { kind: "enum", field: CONST.FILTER.FIELD, values: [...declared.values] };
+  }
+
+  /** Report one declared-filter problem. No once-guard: the declaration is
+   *  read once at construction (declaredMeasureFilter), so each call site is
+   *  already a single report — a flag here would be a second copy of that
+   *  fact and an unreachable branch. */
+  private warnDeclaredFilter(reason: string): void {
+    this.log.warn("declared filter ignored:", reason);
+  }
+
+  /** Persist the committed filter and its ownership flag (undefined filter =
+   *  explicitly cleared, but still owned by the user). */
+  private saveMeasureFilter(): void {
+    Storage.saveRecord(
+      this.filterStorageKey,
+      {
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: this.measureFilter,
+        filtersTouched: this.filtersTouched,
+      },
+      this.config.name,
+    );
+  }
+
+  /** The CLEAR mode's factory Reset: the filter record is deleted, ownership
+   *  returns to the declaration, and the current filter is set to the
+   *  declaration — both in this session and on reload. */
+  private clearFilter(): void {
+    Storage.removeRecord(this.filterStorageKey, this.config.name);
+    this.filtersTouched = false;
+    if (this.measureFilter === this.declaredStartFilter) return;
+    this.measureFilter = this.declaredStartFilter;
+    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+  }
+
+  /** Explicit label re-plan entry point for filter-driven visibility changes. */
+  requestLabelPlan(): void {
+    this.scheduleLabelPlan();
+  }
+
+  // ── Persistence (compatibility shell over MeasureStore) ──
+  // Browser tests and legacy call sites read `mgr.measurements` /
+  // call `saveMeasurements()` directly; new code should use `mgr.store`.
+
+  /** Live measurements array. Reads return the store's backing array; writes
+   *  hydrate the store in place (used by tests + legacy seed paths). Mutating
+   *  the returned array directly does NOT persist — use store.add/remove/update. */
+  get measurements(): MeasureData[] {
+    return this.store.all();
+  }
+  set measurements(data: MeasureData[]) {
+    this.store.hydrate(data);
+  }
+
+  /** Persist all measurements to localStorage and refresh the count column. */
+  saveMeasurements() {
+    this.store.persist();
+    // Runtime content changed — refresh the attributes panel timestamp.
+    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+  }
+
+  /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
+   * The id is persisted with the measurement and exported (CSV / GeoJSON). */
+  nextMeasurementId(type: string): string {
+    return this.store.nextId(type);
+  }
+
+  /** Restore all persisted measurements from localStorage and rebuild their UI. */
+  restoreMeasurements() {
+    this.store.hydrate(this.store.load());
+    // Older persisted measurements may lack an `id`. Assign one before rebuild
+    // so later onUpdate / onDelete paths (which match by id) resolve to the right
+    // measurement and exports carry a stable id.
+    if (this.store.assignMissingIds()) this.store.persist();
+    this.store.all().forEach(m => {
+      MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
+    });
+    // Notify LayerControl to refresh the count column now that the
+    // persisted measurements are back, so the count is correct on page load
+    // rather than only after the next user action.
+    this.store.emitCount();
+    // Restored measurements are drawn before the filter is applied; hide the
+    // ones the persisted filter excludes, then plan labels on the survivors.
+    this.applyFilterVisibility();
+    this.requestLabelPlan();
+  }
+
+  /** Bind global map click, keydown, and unload events. */
+  bindGlobalEvents() {
+    this.onMapClick = (event: L.LeafletMouseEvent) => {
+      const t = Util.getEventTarget(event);
+      if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
+      // In edit mode, a click on empty map space is handled by each overlay's
+      // own map-click handler (which closes it) — it does NOT exit edit mode.
+      // Measurement-item clicks are intercepted by attach*UI handlers
+      // (stopEvent) so they never reach here.
+      if (this.isEditMode) return;
+      hideDelIcons();
+    };
+    this.map.on("click", this.onMapClick);
+
+    this.onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (this.currentMode) this.clearActiveMode();
+      else if (this.isEditMode) this.applyEditMode(false);
+    };
+    this.interactionCleanup = registerInteractions(this);
+
+    // On map unload (page refresh/close), flush any pending writes, then
+    // clear transient UI state but KEEP persisted measurements.
+    //
+    // Flush first: marker drag persists via a rAF throttle, so the last
+    // mutation during a drag lands only when the next frame fires — if the
+    // browser closes inside that window, the position is in memory only.
+    // store.persist() is write-through (debounceMs=0), so calling it here
+    // writes the current list synchronously. clearAll() would wipe
+    // localStorage, losing all saved data on every reload.
+    this.onUnload = () => {
+      this.store.persist();
+      this.clearActiveMode();
+      this.layers.clearLayers();
+      this.disposeAllHandles();
+    };
+    this.map.on("unload", this.onUnload);
+  }
+
+  /** Activate a measurement mode, or toggle the edit / clear modes. */
+  setMode(mode: string | null) {
+    if (mode === CONST.MEASURE_MODE.CLEAR) {
+      this.clearAll();
+      return;
+    }
+    if (mode === CONST.MEASURE_MODE.EDIT) {
+      if (this.isEditMode) {
+        this.applyEditMode(false);
+        return;
+      }
+      // Edit and drawing modes are mutually exclusive: cancel any active
+      // drawing mode before entering edit.
+      if (this.currentMode) this.clearActiveMode();
+      // Nothing to edit yet — keep out of edit mode and explain instead of
+      // entering a dead state with no clickable measurements.
+      if (this.store.count() === 0) {
+        this.map.foliplus!.showHint(
+          this.config.name,
+          this.T("hint_edit_empty"),
+          HINT_DURATION.SHORT,
+        );
+        return;
+      }
+      this.applyEditMode(true);
+      return;
+    }
+    if (this.currentMode === mode) {
+      this.clearActiveMode();
+      return;
+    }
+    if (!mode) return;
+
+    // Starting a drawing mode exits edit mode so node handles / drag don't
+    // coexist with the drawing cursor.
+    if (this.isEditMode) this.applyEditMode(false);
+
+    // Symmetric lock with the other interactive components (focus / export).
+    if (
+      guardBlocked(this.map, this.config.name, this.T("blocked"), [
+        { blockedBy: COMPONENTS.ExportControl, text: this.T("blocked_export") },
+        { blockedBy: COMPONENTS.LayerControl, text: this.T("blocked_layer") },
+        { blockedBy: COMPONENTS.SearchControl, text: this.T("blocked_search") },
+        { blockedBy: COMPONENTS.LocateControl, text: this.T("blocked_locate") },
+      ])
+    ) {
+      return;
+    }
+
+    this.layers.register();
+
+    this.cleanMapEvents();
+    this.currentMode = mode;
+    // Registering a mode in the ModeManager also suspends map-layer interaction
+    // while measuring (see core/mode syncInteractionLock), so clicks fall
+    // through to the map for node placement instead of firing layer handlers.
+    this.modes.setMode(this.config.name, mode);
+
+    this.toolBtns.forEach(btn =>
+      btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
+    );
+
+    this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
+    // The readout tracks the cursor for as long as a mode is armed, including
+    // before the first click: the operator wants the coordinate they are about
+    // to place, not only the ones already placed.
+    this.showCoordReadout();
+
+    // Register a high-priority Escape so it wins over all container-bound
+    // shortcuts (LayerControl/ExportControl) while a measurement is in
+    // progress. priority=1 overrides the default 0 that those use.
+    this.measureEscapeCleanup = registerActiveEscape(this);
+
+    const hintKey = {
+      [CONST.MEASURE_MODE.MARKER]: this.T("hint_marker"),
+      [CONST.MEASURE_MODE.DISTANCE]: this.T("hint_dist_start"),
+      [CONST.MEASURE_MODE.POLYGON]: this.T("hint_polygon"),
+      [CONST.MEASURE_MODE.CIRCLE]: this.T("hint_circle_start"),
+    }[mode];
+
+    if (hintKey) {
+      this.map.foliplus!.showHint(this.config.name, hintKey, HINT_DURATION.PERSIST);
+    }
+
+    const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
+    this.modeInstance = ModeClass ? new ModeClass(this) : null;
+    this.modeInstance?.start();
+  }
+
+  /** Get-or-create the EditHandle for a measurement id. Three registrations for
+   *  the same id (dispose + overlay close + drag toggle) merge into one handle,
+   *  so delete drops one entry and clearAll/destroy walk one collection. */
+  private handleFor(id: string): EditHandle {
+    let handle = this.editHandles.get(id);
+    if (!handle) {
+      // Mutable slot defaults: each method is overwritten by the registration
+      // that owns it, so an unregistered slot is a no-op rather than a throw.
+      /* eslint-disable @typescript-eslint/no-empty-function -- slot defaults, overwritten by their registration */
+      handle = {
+        dispose: () => {},
+        closeOverlay: () => {},
+        toggleDrag: () => {},
+      };
+      /* eslint-enable @typescript-eslint/no-empty-function */
+      this.editHandles.set(id, handle);
+    }
+    return handle;
+  }
+
+  /** Run every handle's dispose, then clear the map. Iterating a snapshot keeps
+   *  handles that dispose() detaches from mid-walk from leaking — and each
+   *  dispose is isolated, so one failing handle cannot leave the rest bound to
+   *  the map after the control is gone. A failed dispose leaves a map-click
+   *  listener attached to a removed control, so it must be logged rather than
+   *  dropped on the floor. */
+  private disposeAllHandles() {
+    const handles = [...this.editHandles.entries()];
+    finalizeEach(
+      handles,
+      ([, handle]) => handle.dispose(),
+      ([key]) => `handle:${key}`,
+      failure =>
+        this.log.warn(`disposeAllHandles step "${failure.name}" threw`, failure.error),
+    );
+    this.editHandles.clear();
+  }
+
+  /** Register an overlay close callback so applyEditMode(false) can hide ✕.
+   *  `id` groups the closer with the measurement's other edit registrations.
+   *  Returns an unregister function so deleted measurements drop their entry. */
+  registerEditOverlayCloser = (close: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).closeOverlay = close;
+    return () => this.editHandles.delete(key);
+  };
+
+  /** Build the cursor-following readout chip, appended to the map container.
+   *  It lives outside the Leaflet panes, so panning and zooming never move it.
+   *  Hidden until a drawing mode is armed — nothing is measured while idle. */
+  private buildCoordReadout(): HTMLElement {
+    const container = document.createElement("div");
+    container.className = CONST.READOUT.CLASS_PREFIX;
+    container.setAttribute("role", "status");
+    container.setAttribute("aria-live", "off");
+    container.hidden = true;
+    this.map.getContainer().appendChild(container);
+    return container;
+  }
+
+  /** Start tracking the pointer. Only called from setMode, so the listeners
+   *  are live exactly while a drawing mode is armed. The handler reads only
+   *  `event.latlng` — it is the one field present on both browser-driven and
+   *  programmatically dispatched mousemove events. */
+  private showCoordReadout(): void {
+    if (!this.coordReadoutEl || this.coordReadoutEvents.length) return;
+    const container = this.coordReadoutEl;
+    const move = (event: L.LeafletMouseEvent): void => {
+      // Derive the pixel point from `latlng` rather than reading
+      // `event.containerPoint`: Leaflet fills that only for browser-driven
+      // events, while tests (and the mode's own mousemove handlers) dispatch
+      // a bare `{ latlng }`. `latlng` is the contract both share.
+      const { x, y } = this.map.latLngToContainerPoint(event.latlng);
+      const size = this.map.getSize();
+      const gap = CONST.READOUT.ANCHOR_GAP;
+      // The chip is centered on the cursor and dropped `gap` px below it —
+      // due south of it, the same way the area label sits south of the centroid
+      // dot. When that would push it past the bottom edge, the flip re-anchors
+      // it above the cursor instead.
+      const h = container.offsetHeight;
+      const cx = Math.max(
+        container.offsetWidth / 2,
+        Math.min(size.x - container.offsetWidth / 2, x),
+      );
+      container.style.left = `${cx}px`;
+      container.style.top = `${y}px`;
+      container.classList.toggle(
+        CONST.READOUT.CLASS_FLIP,
+        y + h + gap > size.y && y >= h,
+      );
+      container.textContent = Util.coordText(this.map, event.latlng, this.log);
+      // Reveal only once it has a real position. Showing it before the first
+      // mousemove would leave it at the container's default spot (by the hint)
+      // with no inline left/top.
+      container.hidden = false;
+    };
+    const handlers: [string, L.LeafletEventHandlerFn][] = [
+      ["mousemove", event => move(event as L.LeafletMouseEvent)],
+      ["mouseout", () => (container.hidden = true)],
+    ];
+    bindMapEvents(this.map, handlers);
+    this.coordReadoutEvents = handlers;
+  }
+
+  /** Stop tracking. Called by clearActiveMode, so a finalized measurement
+   *  reports nothing — the chip only ever describes a coordinate under the
+   *  cursor. */
+  private hideCoordReadout(): void {
+    if (!this.coordReadoutEl) return;
+    if (this.coordReadoutEvents.length) {
+      unbindMapEvents(this.map, this.coordReadoutEvents);
+      this.coordReadoutEvents = [];
+    }
+    this.coordReadoutEl.hidden = true;
+  }
+
+  /** Close every open edit overlay except the one keyed by `exceptId`, so
+   *  selecting a new measurement hides the previously selected one's ✕. */
+  closeOtherEditOverlays = (exceptId: string) => {
+    this.editHandles.forEach((h, id) => {
+      if (id !== exceptId) h.closeOverlay();
+    });
+  };
+
+  /** Register a node-drag toggle so applyEditMode toggles dragging directly.
+   *  `id` groups the toggle with the measurement's other edit registrations.
+   *  Returns an unregister function so deleted measurements drop their entry. */
+  registerEditDragToggle = (
+    toggle: (enabled: boolean) => void,
+    id?: string,
+  ): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).toggleDrag = toggle;
+    return () => this.editHandles.delete(key);
+  };
+
+  /** Register a finalized measurement's dispose so clearAll/destroy run it.
+   *  `id` groups the dispose with the measurement's other edit registrations.
+   *  Returns an unregister function so deleting one measurement drops its entry. */
+  registerFinalized = (cleanup: () => void, id?: string): (() => void) => {
+    const key = id ?? ANON_HANDLE;
+    this.handleFor(key).dispose = cleanup;
+    return () => this.editHandles.delete(key);
+  };
+
+  // ── Label collision detection ─────────────────────────────────
+
+  /** True unless collision detection was switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  labelCollide = true;
+  /** True unless the labels were switched off (Python default, overridable
+   *  from the layer style drawer at runtime). */
+  labelShow = true;
+
+  /** Runtime toggle for label visibility (the drawer's label switch). Hides
+   *  every chip via the same `visibility` mechanism collision uses, so the two
+   *  never fight over the element. */
+  setLabelsVisible = (visible: boolean): void => {
+    this.labelShow = visible;
+    for (const { marker } of this.collidableLabels) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = visible ? "" : "hidden";
+    }
+    if (visible) this.scheduleLabelPlan();
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
+  setLabelCollide = (on: boolean): void => {
+    this.labelCollide = on;
+    this.scheduleLabelPlan();
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+  };
+
+  /**
+   * Register a label chip for collision detection. `priority` says how much
+   * this label matters: the lowest values drop out first when two chips
+   * overlap heavily. The chip is re-read on every plan, so a `setIcon` during
+   * a drag cannot leave a stale element reference.
+   *
+   * Returns an unregister function; measurements call it when a label is
+   * removed from the map.
+   */
+  registerLabel = (marker: L.Marker, priority: number): (() => void) => {
+    const label: CollidableLabel = { marker, priority };
+    this.collidableLabels.push(label);
+    // Respect a label_show=False initial state: hide the chip immediately so
+    // a newly registered label does not flash visible before the next plan.
+    if (!this.labelShow) {
+      const chip = Util.labelChipOf(marker);
+      if (chip) chip.style.visibility = "hidden";
+    }
+    this.bindLabelMapEvents();
+    this.scheduleLabelPlan();
+
+    return () => {
+      this.collidableLabels = this.collidableLabels.filter(l => l !== label);
+      if (this.collidableLabels.length) {
+        // A surviving label lost a competitor, so re-plan to possibly restore
+        // a chip that was hidden because of this one.
+        this.scheduleLabelPlan();
+      } else {
+        this.unbindLabelMapEvents();
+      }
+    };
+  };
+
+  /** Placement depends on pixel geometry, so a pan, zoom or resize makes the
+   *  last plan stale. Bound lazily on the first label, released when the
+   *  last one is removed. */
+  private bindLabelMapEvents(): void {
+    if (this.onLabelMapMove) return;
+    const handler = () => this.scheduleLabelPlan();
+    this.onLabelMapMove = handler;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.on(ev, handler));
+  }
+
+  private unbindLabelMapEvents(): void {
+    if (!this.onLabelMapMove) return;
+    const handler = this.onLabelMapMove;
+    LABEL_MAP_EVENTS.forEach(ev => this.map.off(ev, handler));
+    this.onLabelMapMove = null;
+  }
+
+  /** Re-plan every label placement. With collision off every chip simply
+   *  returns to its anchor; labels themselves are hidden by the container
+   *  class, which also keeps them out of PNG exports. */
+  private planLabels(): void {
+    if (this.collidableLabels.length === 0) return;
+    placeLabels(
+      this.collidableLabels,
+      mapProjector(this.map),
+      this.labelCollide,
+      Util.labelChipOf,
+    );
+  }
+
+  /** Enable/disable the edit overlay: ✕ handles and node drag. */
+  applyEditMode(on: boolean) {
+    if (this.isEditMode === on) return;
+    this.isEditMode = on;
+    // Edit mode owns the map like a drawing mode, but it edits the measurement
+    // layers themselves — register it with a skip predicate so data layers are
+    // suspended while the measure panes stay interactive.
+    this.modes.setMode(
+      this.config.name,
+      on ? CONST.MEASURE_MODE.EDIT : null,
+      on ? skipMeasureLayers : undefined,
+    );
+    this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
+    this.toolBtns.forEach(btn => {
+      if (btn.dataset.mode === CONST.MEASURE_MODE.EDIT) {
+        btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+      }
+    });
+    // Node drag is tied to edit mode (not the overlay): entering edit makes
+    // nodes directly draggable, leaving disables them.
+    this.editHandles.forEach(h => h.toggleDrag(on));
+    if (on) {
+      this.map.foliplus!.showHint(
+        this.config.name,
+        this.T("hint_edit"),
+        HINT_DURATION.PERSIST,
+      );
+      // The readout is live in edit mode too: the operator drags nodes to
+      // reshape a measurement and wants to see the coordinate under the cursor
+      // while doing it.
+      this.showCoordReadout();
+    } else {
+      this.map.foliplus!.hideHint(this.config.name);
+      this.hideCoordReadout();
+      // Close any open overlays so ✕ handles don't linger after leaving edit
+      // mode. Keep the handles registered so a later edit session can close
+      // them again; each overlay unregisters itself on delete.
+      this.editHandles.forEach(h => h.closeOverlay());
+    }
+  }
+
+  /** Deactivate current mode, clean up events, and hide hints. */
+  clearActiveMode() {
+    if (this.isEditMode) this.applyEditMode(false);
+    this.currentMode = null;
+    // Clearing the mode restores map-layer interaction (core/mode lock).
+    this.modes.setMode(this.config.name, null);
+    this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
+    this.map.foliplus!.hideHint(this.config.name);
+    this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
+    this.cleanMapEvents();
+    // Unregister the high-priority Escape so container-bound shortcuts
+    // (LayerControl/ExportControl) can respond again.
+    this.measureEscapeCleanup?.();
+    this.measureEscapeCleanup = undefined;
+    // A finalized measurement reports nothing: the chip only ever describes
+    // the coordinate under the cursor, which is the transient quantity.
+    this.hideCoordReadout();
+    // NOTE: the low-priority Escape (interactionCleanup) stays registered for
+    // the manager's lifetime (unregistered only in destroy()); it also drives
+    // edit-mode Escape, so unregistering here would break Escape after the
+    // first measurement.
+    this.layers.unregister();
+  }
+
+  /** Transient-only cleanup: drop every live layer, cancel the armed mode,
+   *  run each measurement's dispose, and collapse the panel — but leave the
+   *  store's persisted list untouched. Called by destroy(), which runs on
+   *  control removal and must not wipe localStorage (only an explicit
+   *  user action may drop saved data). */
+  private clearTransientState() {
+    finalize(
+      [
+        ["clear-layers", () => this.layers.clearLayers()],
+        ["clear-active-mode", () => this.clearActiveMode()],
+        // Run each handle's dispose to unbind its map-click listener; clearLayers
+        // above removed the targets, so dangling listeners would otherwise persist.
+        ["dispose-handles", () => this.disposeAllHandles()],
+        // Unbinding the map events guarantees no plan fires after the call.
+        ["unbind-label-events", () => this.unbindLabelMapEvents()],
+        // Collapse the panel after clearing all measurements
+        [
+          "collapse-panel",
+          () => {
+            if (!this.ctrl) return;
+            this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+            this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+            adjustPanelZIndex({ container: this.ctrl, expanded: false });
+          },
+        ],
+      ],
+      failure =>
+        this.log.warn(
+          `clearTransientState step "${failure.name}" threw`,
+          failure.error,
+        ),
+    );
+    // Safety net: each measurement's dispose (run above) drains its labels
+    // through the unregister, but clearing the array here is O(1) insurance
+    // against a measurement that skips its dispose. It cannot throw, so it is a
+    // reset, not a step.
+    this.collidableLabels = [];
+    this.itemLeaves.clear();
+    this.itemVisible.clear();
+  }
+
+  /** Clear all measurements, layers, and persisted data. Called only by the
+   *  explicit CLEAR mode (setMode(CLEAR)) — the one place where dropping the
+   *  saved list is the user's request. */
+  clearAll() {
+    this.clearTransientState();
+    this.store.clear();
+    // The CLEAR mode is a factory Reset for the filter: the record is deleted
+    // and `filtersTouched` returns to false, so the Python declaration
+    // re-seeds both this session and on reload — the same semantics as
+    // Heatmap's panel Reset. An ordinary filter edit writes the flag and
+    // sticks.
+    this.clearFilter();
+    // Same reason as Heatmap's clearHeatmapCanvas: the panel row is gone and
+    // the next draw is new content, so the id must leave the stored order or
+    // insertOverlayAt will place the re-drawn measurement back at the old
+    // slot instead of the top.
+    this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
+  }
+
+  /** Full cleanup including global events. Called on control removal; the
+   *  in-memory list is left alone so a follow-up `removeControl` + `addControl`
+   *  restores every saved measurement from localStorage (constructor calls
+   *  restoreMeasurements). clearAll() would wipe the saved list here, losing
+   *  everything the user had — hence the split above. */
+  destroy() {
+    finalize(
+      [
+        ["off-mode-change", () => this.offModeChange?.()],
+        ["off-layer-removed", () => this.offLayerRemoved?.()],
+        ["off-layer-deleted", () => this.offLayerDeleted?.()],
+        ["detach-unload", () => this.map.off("unload", this.onUnload)],
+        ["cancel-label-plan", () => this.scheduleLabelPlan.cancel()],
+        ["clear-transient", () => this.clearTransientState()],
+        ["hide-coord-readout", () => this.hideCoordReadout()],
+        [
+          "remove-coord-readout",
+          () => {
+            this.coordReadoutEl?.remove();
+          },
+        ],
+        ["interaction-cleanup", () => this.interactionCleanup?.()],
+        ["export-click-cleanup", () => this.exportClickCleanup?.()],
+        ["detach-click", () => this.map.off("click", this.onMapClick)],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain reset: the element is gone either way, and a failed step must not
+    // leave the manager holding a detached node.
+    this.coordReadoutEl = null;
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_REMOVED so we can detect when the LayerControl panel
+   * (or any external caller) deletes our measure layer. When that happens,
+   * our active mode must be cleared — otherwise currentMode, hint, and the
+   * "measuring" CSS class would remain stuck in an inconsistent state.
+   */
+  bindLayerRemoved() {
+    this.offLayerRemoved = this.events.on(EVENTS.LAYER_REMOVED, ((payload: {
+      id?: string;
+    }) => {
+      if (payload?.id === this.layerId) {
+        this.clearActiveMode();
+      }
+    }) as EventHandler);
+  }
+
+  /**
+   * Subscribe to EVENTS.LAYER_DELETED: LayerControl's deleteLayer emits this
+   * for component-owned layers (styleSetters discriminator), skipping the
+   * removedIds retirement — so this id stays registerable and the panel keeps
+   * its row. Clearing the store is the user's request; the layer itself stays
+   * registered at 0 features so the next draw lands cleanly without needing a
+   * re-register. Re-registering here would double-count an already-present
+   * entry and clobber the persisted order.
+   */
+  bindLayerDeleted() {
+    this.offLayerDeleted = this.events.on(
+      EVENTS.LAYER_DELETED,
+      ({ id }) => {
+        if (id === this.layerId) this.clearAll();
+      },
+      "internal",
+    );
+  }
+
+  /** Clean up current mode instance and hide hints. */
+  cleanMapEvents() {
+    if (this.modeInstance) {
+      this.modeInstance.cleanup();
+      this.modeInstance = null;
+    }
+    this.map.foliplus!.hideHint(this.config.name);
+  }
+}
+
+export { MeasureManager };

@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,16 @@ import {
   readSizes,
 } from "#script/build/bundle-fuse.mjs";
 import { runCli, trapExit } from "../../fixture.js";
+
+// The "defaults --root to the checkout" case runs the tool without --root, so
+// it reads the checkout's own foliplus/dist. Without a prior build there is no
+// dist/, so the case skips cleanly instead of crashing on the missing dir.
+const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
+
+// A dev build (build:dev) emits unminified output larger than the minified
+// ceilings these dist-dependent cases assert, so they also skip when build.mjs
+// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
+const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
@@ -212,7 +222,13 @@ describe("CLI entry", () => {
     expect(exit).toHaveBeenCalledWith(EXIT_OK);
   });
 
-  it("defaults --root to the checkout and fuses it", async () => {
+  it("defaults --root to the checkout and fuses it", async ({ skip }) => {
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
+      skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
     // `node script/bundle-fuse.mjs` without --root reads the checkout's own
     // dist — the Makefile and CI call it exactly this way. The dist dir is
     // shared build output that build.test.ts asserts on, so the size read is

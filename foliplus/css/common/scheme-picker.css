@@ -5,17 +5,6 @@
    `foliplus-scheme-picker-` prefix so consumers can override with
    their own names via the `classes` option.                    */
 
-@keyframes foliplus-scheme-picker-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(-1 * var(--foliplus-space-sm)));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Hidden select: visually collapsed but stays in layout (Bootstrap also
    defines a global .hidden, so this uses a component-scoped name).        */
 .foliplus-scheme-picker-hidden {
@@ -69,9 +58,12 @@
 }
 
 /* ── Dropdown shell ──
-   Position, width, max-height, padding, background, border, shadow,
-   entrance animation.  The :focus-visible / :hover / :active / :is-active
-   states for items live below (one block, no split across files).        */
+   The box recipe (background, border, radius, shadow, entrance animation,
+   gap, overflow-y) is the shared shell in common/menu.css; this rule keeps
+   only what the picker does not share — its anchor geometry, the 200px
+   max-height, the padding, and the scrollbar lane the item strip subtracts.
+   The :focus-visible / :hover / :active / :is-active states for items live
+   below (one block, no split across files). */
 .foliplus-scheme-picker-dropdown {
   position: absolute;
   top: 100%;
@@ -80,17 +72,13 @@
   max-width: var(--foliplus-menu-max-width);
   max-height: 200px;
   padding: var(--foliplus-space-sm) 0;
-  box-sizing: border-box;
-  margin-top: var(--foliplus-menu-gap);
-  background: var(--foliplus-input-bg);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
-  box-shadow: var(--foliplus-shadow-md);
-  z-index: var(--foliplus-z-index-floating);
-  overflow-y: auto;
-  /* The item strip subtracts the lane from its right inset, so the lane must
-     be the same whether the list scrolls or fits — otherwise a list that
-     crosses the max-height would narrow every strip mid-session. */
+  /* The item strip subtracts the measured lane from its right inset, so a
+     list that crosses the max-height keeps the strip on the same edge (a
+     stable gutter keeps the lane constant between the scrolling and fitting
+     states). The gutter is a classic scrollbar's lane outside the scrollport:
+     it cannot be painted by the row, so a lane wider than the inset leaves the
+     strip shorter than the trigger by (lane - inset) px — see the item rule. */
+  overflow-x: hidden;
   scrollbar-gutter: stable;
   /* Optional, and cheap: a scheme list of seven rows usually fits, but a
      custom long list should not get a full-width OS scrollbar. */
@@ -100,7 +88,6 @@
      leak into the dropdown. */
   list-style: none;
   margin-bottom: 0;
-  animation: foliplus-scheme-picker-in 0.15s ease-out;
 }
 
 /* A portaled dropdown is appended to <body> (or the fullscreen element), not to
@@ -114,12 +101,6 @@
   z-index: var(--foliplus-z-index-hint);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .foliplus-scheme-picker-dropdown {
-    animation: none;
-  }
-}
-
 /* ── Dropdown item ──
    Layout + all interactive states (hover / press / active / focus) in one
    place so the scheme dropdown never drifts from the menu.css recipe.     */
@@ -130,7 +111,11 @@
   /* Same strip inset as the trigger bar. The item's reserved selection border
      (below) sits *inside* the inset, so its strip lands on the trigger strip's
      x on both sides — the trigger insets by the token, the item by the token
-     minus that border. */
+     minus that border and the scrollbar lane. Physical limit: the lane is a
+     classic scrollbar's gutter, which lies outside the scrollport and cannot
+     be painted by the row, so when the lane exceeds the inset the strip is
+     shorter than the trigger's by (lane - inset) px; when the lane is at or
+     below the inset the two align exactly. */
   padding: 0
     max(
       0px,

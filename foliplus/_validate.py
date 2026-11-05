@@ -56,7 +56,7 @@ R = TypeVar("R")
 Rule = Callable[[str, Any], None]
 
 #: Noun phrases per annotated base type, used to build the error message.
-_NOUNS: dict[Any, tuple[str, str]] = {
+NOUNS: dict[Any, tuple[str, str]] = {
     int: ("an int", "int"),
     float: ("a number", "number"),
 }
@@ -118,7 +118,7 @@ class Bound:
         return True
 
 
-def _describe(base: Any, bound: Bound) -> str:
+def describe(base: Any, bound: Bound) -> str:
     """Render ``bound`` as the noun phrase used in the error message.
 
     Parameters
@@ -134,7 +134,7 @@ def _describe(base: Any, bound: Bound) -> str:
     str
         e.g. ``"an int between 1 and 18"``, ``"a positive number"``.
     """
-    article, noun = _NOUNS[float] if base is float else _NOUNS[int]
+    article, noun = NOUNS[float] if base is float else NOUNS[int]
     if bound.low is not None and bound.high is not None:
         return f"{article} between {bound.low} and {bound.high}"
     if bound.low is not None:
@@ -146,7 +146,7 @@ def _describe(base: Any, bound: Bound) -> str:
     return f"{article} {operator} {bound.high}"
 
 
-def _choice_rule(options: tuple[Any, ...]) -> Rule:
+def choice_rule(options: tuple[Any, ...]) -> Rule:
     """Build a checker that only accepts ``options``."""
 
     def check(name: str, value: Any) -> None:
@@ -156,7 +156,7 @@ def _choice_rule(options: tuple[Any, ...]) -> Rule:
     return check
 
 
-def _is_integer_like(value: Any) -> bool:
+def is_integer_like(value: Any) -> bool:
     """Whether ``value`` is an integer, numpy scalars included.
 
     ``isinstance(x, numbers.Integral)`` is ``False`` for ``np.int64``, so the
@@ -180,7 +180,7 @@ def _is_integer_like(value: Any) -> bool:
     return True
 
 
-def _bound_rule(base: Any, bound: Bound) -> Rule:
+def bound_rule(base: Any, bound: Bound) -> Rule:
     """Build a checker that only accepts numbers inside ``bound``.
 
     For an ``int`` base the value must additionally be integer-like; for a
@@ -188,11 +188,11 @@ def _bound_rule(base: Any, bound: Bound) -> Rule:
     compared against (a string, ``None``, ...) is reported as a ``ValueError``
     rather than leaking the underlying ``TypeError``.
     """
-    phrase = _describe(base, bound)
+    phrase = describe(base, bound)
     needs_int = base is not float
 
     def check(name: str, value: Any) -> None:
-        failed = needs_int and not _is_integer_like(value)
+        failed = needs_int and not is_integer_like(value)
         if not failed:
             try:
                 failed = not bound.contains(value)
@@ -204,7 +204,7 @@ def _bound_rule(base: Any, bound: Bound) -> Rule:
     return check
 
 
-def _optional(rule: Rule) -> Rule:
+def optional(rule: Rule) -> Rule:
     """Wrap ``rule`` so that an explicit ``None`` always passes."""
 
     def check(name: str, value: Any) -> None:
@@ -214,7 +214,7 @@ def _optional(rule: Rule) -> Rule:
     return check
 
 
-def _rule_for(hint: Any) -> Rule | None:
+def rule_for(hint: Any) -> Rule | None:
     """Compile one annotation into a checker, or ``None`` when unconstrained.
 
     Parameters
@@ -233,25 +233,25 @@ def _rule_for(hint: Any) -> Rule | None:
         base, *metadata = get_args(hint)
         for item in metadata:
             if isinstance(item, Bound):
-                return _bound_rule(base, item)
+                return bound_rule(base, item)
         # Metadata that is not a bound (e.g. a FieldSpec) says nothing about
         # runtime checking, so the base type is enforced as written.
-        return _rule_for(base)
+        return rule_for(base)
     if origin is Literal:
-        return _choice_rule(get_args(hint))
+        return choice_rule(get_args(hint))
     if origin is Union or origin is UnionType:
         arms = get_args(hint)
         values = [arm for arm in arms if arm is not NoneType]
         if len(values) != 1:
             return None
-        inner = _rule_for(values[0])
+        inner = rule_for(values[0])
         if inner is None:
             return None
-        return _optional(inner) if len(values) != len(arms) else inner
+        return optional(inner) if len(values) != len(arms) else inner
     return None
 
 
-def _rules_for(fn: Callable[..., Any]) -> tuple[tuple[str, Rule], ...]:
+def rules_for(fn: Callable[..., Any]) -> tuple[tuple[str, Rule], ...]:
     """Compile every constrained parameter of ``fn`` into a rule.
 
     Parameters
@@ -268,7 +268,7 @@ def _rules_for(fn: Callable[..., Any]) -> tuple[tuple[str, Rule], ...]:
     for name, hint in get_type_hints(fn, include_extras=True).items():
         if name == "return":
             continue
-        rule = _rule_for(hint)
+        rule = rule_for(hint)
         if rule is not None:
             rules.append((name, rule))
     return tuple(rules)
@@ -292,7 +292,7 @@ def validate(fn: Callable[P, R]) -> Callable[P, R]:
         ``fn`` wrapped with validation; ``functools.wraps`` keeps the original
         signature for type checkers and documentation tools.
     """
-    rules = _rules_for(fn)
+    rules = rules_for(fn)
 
     @wraps(fn)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

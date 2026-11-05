@@ -66,8 +66,12 @@
   // Legacy third arg (`addEventListener(type, fn, useCapture)`) as well as the
   // options-object form.
   const captureOf = options =>
-    options === true || (options && options.capture === true);
-
+    // Normalise undefined to false: an add may pass an options object
+    // ({ passive: true }) while its remove passes no options (undefined).
+    // The stored entry keeps the resolved capture, so the remove finds it
+    // again (false === false; without this the remove computes undefined
+    // and never matches, leaving the count one high).
+    !!(options === true || (options && options.capture === true));
   const kill = entry => {
     if (!entry.live) return;
     entry.live = false;

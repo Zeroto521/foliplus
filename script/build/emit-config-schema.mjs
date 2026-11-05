@@ -82,7 +82,7 @@ if (_raw.errors.length) {
 const opts = _raw;
 
 // ── Type tag → TS type mapping ────────────────────────────────────────────
-// Kept in sync with foliplus/_config_schema.py's _TS_PRIMITIVES and _TS_OBJECTS.
+// Kept in sync with foliplus/_config_schema.py's TS_PRIMITIVES and TS_OBJECTS.
 // Adding a new tag there without adding it here is caught by the
 // `unknown_tag` error below, which fails the build loudly.
 //
@@ -99,7 +99,7 @@ const OBJECTS = new Set([
   "array_string",
   "array_unknown",
   "ControlPosition",
-  // Inline union, not a name — mirrors _TS_OBJECTS on the Python side, and is
+  // Inline union, not a name — mirrors TS_OBJECTS on the Python side, and is
   // deliberately absent from IMPORTS (there is nothing to import for it).
   "string | ProviderConfig",
 ]);
@@ -129,9 +129,9 @@ const RENDER = {
  *  the dump instead of emitting an unimported type. */
 const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Shape leaf names → their TS type. Mirrors _TS_PRIMITIVES on the Python
+/** Shape leaf names → their TS type. Mirrors TS_PRIMITIVES on the Python
  *  side minus "any", which the shape validator never accepts: the names in
- *  _TS_PRIMITIVE_NAMES. Only "bool" and "array_string" need a mapping, since TS
+ *  TS_PRIMITIVE_NAMES. Only "bool" and "array_string" need a mapping, since TS
  *  spells those types `boolean` and `string[]`. "array_string" is a leaf
  *  because an all-string list renders as a union: `["string"]` is the literal
  *  `"string"`, so a string array needs its own name. */
@@ -176,7 +176,7 @@ const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
 
 /** Render a shape descriptor (from FieldSpec.shape) as a TS type.
  *
- * Shape grammar (validated by _validate_shape on the Python side):
+ * Shape grammar (validated by validate_shape on the Python side):
  *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
  *   - "array_string" → TS string[] (the general list-of-strings leaf)
  *   - null → TS null
@@ -212,6 +212,17 @@ const renderShape = (x, path = "") => {
     if (x.every(v => typeof v === "string")) {
       if (isPrimitiveUnion(x)) {
         return x.map(v => SHAPE_PRIMITIVES[v]).join(" | ");
+      }
+      // A union mixing a literal with null (e.g. ["equal", "null"]): null
+      // is a primitive name and must render unquoted (`"equal" | null`),
+      // while the literals stay quoted. `isPrimitiveUnion` above already
+      // handles the all-primitive case (["bool", "null"] → boolean | null);
+      // this branch handles the mixed one, where a literal such as "equal"
+      // sits beside null and cannot take the primitive path.
+      if (x.includes("null")) {
+        return x
+          .map(v => (v === "null" ? SHAPE_PRIMITIVES.null : `"${v}"`))
+          .join(" | ");
       }
       return x.map(v => `"${v}"`).join(" | ");
     }

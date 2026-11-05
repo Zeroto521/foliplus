@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+from typing import Annotated, Literal
+
+from foliplus._config_schema import FieldSpec
+from foliplus._typing import ControlPosition, Fraction, PositiveInt
+from foliplus._validate import Bound, validate
+from foliplus.BaseControl import BaseControl
+from foliplus.locale import LocaleConfig
+
+FORMAT = Literal["png", "jpeg", "webp", "geotiff"]
+
+
+class ExportControl(BaseControl):
+    """Capture a specific area of the map and export it as an image.
+
+    Shortcuts
+    ---------
+    Focus the map, then use:
+
+    +------------------------------+-------------------------------------------------+
+    | Key / Event                  | Action                                          |
+    +==============================+=================================================+
+    | Enter                        | Lock the current crop area, then begin export   |
+    +------------------------------+-------------------------------------------------+
+    | Escape                       | Unlock or dismiss the crop box                  |
+    +------------------------------+-------------------------------------------------+
+    | R                            | Reset the crop box to the default centered size |
+    +------------------------------+-------------------------------------------------+
+    | Arrow keys                   | Nudge the crop box by a fixed pixel step        |
+    +------------------------------+-------------------------------------------------+
+    | Mouse drag (crop box edge)   | Resize the crop box                             |
+    +------------------------------+-------------------------------------------------+
+    | Mouse drag (inside crop box) | Move the crop box                               |
+    +------------------------------+-------------------------------------------------+
+
+    The keyboard shortcuts require the map container to have focus — click the
+    map before using them. While the crop box is unlocked, the arrow keys nudge
+    the box instead of panning the map (Leaflet's own arrow-key pan is
+    suspended for the duration of the edit).
+
+    Parameters
+    ----------
+    position : str, default "bottomright"
+        One of "topleft", "topright", "bottomleft", "bottomright".
+
+    filename : str, default "map"
+        Base filename for the exported image, without the extension. The correct
+        extension (``.png``, ``.jpeg``, ``.webp``, ``.tif``) is appended automatically
+        based on ``format``.
+
+    format : str, default "png"
+        Image format for the export. One of ``"png"``, ``"jpeg"``, ``"webp"``, or
+        ``"geotiff"``. JPEG and WebP are lossy and much smaller than PNG; PNG preserves
+        transparency. ``"geotiff"`` writes a DEFLATE-compressed GeoTIFF (TIFF code 8)
+        with embedded georeferencing (WGS84 / EPSG:4326), suitable for GIS software.
+
+    quality : float, default 0.92
+        Compression quality for ``"jpeg"`` and ``"webp"`` formats, ranging from
+        0.0 (worst) to 1.0 (best). Ignored for ``"png"`` and ``"geotiff"``.
+
+    scale : float, default 2.0
+        DPI scaling. 1.0 is original resolution, 2.0 is suitable for Retina screens,
+        3.0 for printing. Must be positive. Note: excessively high values may crash
+        the browser.
+
+    max_pixels : int, default 10240000
+        Maximum number of pixels in the exported image (``width * height``). Larger
+        exports may exceed the browser canvas limit or exhaust memory. Default is
+        10,240,000 (e.g. 3200×3200). Set to ``None`` to disable the limit; otherwise
+        it must be positive.
+
+    timeout : int, default 7500
+        Maximum time (ms) to wait for map tiles to finish loading before capture.
+        Must not be negative.
+
+    locale : str or LocaleConfig, optional
+        Language code ("en", "zh") or a LocaleConfig instance.
+        Defaults to auto-detection, falling back to English.
+
+    Examples
+    --------
+    >>> import folium
+    >>> from foliplus import ExportControl
+    >>> m = folium.Map()
+    >>> ExportControl(position="bottomright").add_to(m)
+    >>> ExportControl(format="jpeg", quality=0.8).add_to(m)
+    >>> ExportControl(format="geotiff", filename="raster").add_to(m)
+    >>> ExportControl(scale=3.0, filename="print").add_to(m)
+
+    Notes
+    -----
+    **Export opt-out.**  By default, most elements inside a layer pane are captured
+    in the export.  To exclude an element from the exported image, set the
+    ``data-foliplus-export="exclude"`` attribute on it.  This is used by built-in
+    controls (e.g. ``MeasureControl``'s delete icons) and is the recommended way for
+    third-party controls to exclude internal UI without coupling to ``ExportControl``.
+
+    **Text labels.**  Elements that should be rendered as text labels (with background
+    fill and centered text) can be marked with  ``data-foliplus-export="label"``.
+    ``MeasureControl``'s distance labels use this attribute.
+
+    **Image format.**  Visual formats download as ``{filename}.{format}`` — for
+    example ``filename="map"`` with ``format="jpeg"`` produces ``map.jpeg`` — while
+    ``"geotiff"`` downloads ``{filename}.tif`` with embedded georeferencing.
+
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | Format      | Extension   | Compression | Notes                                              |
+    +=============+=============+=============+====================================================+
+    | ``png``     | ``.png``    | Lossless    | Preserves transparency; the largest visual format. |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``jpeg``    | ``.jpeg``   | Lossy       | Uses the ``quality`` parameter; much smaller than  |
+    |             |             |             | PNG.                                               |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``webp``    | ``.webp``   | Lossy       | Uses the ``quality`` parameter; much smaller than  |
+    |             |             |             | PNG.                                               |
+    +-------------+-------------+-------------+----------------------------------------------------+
+    | ``geotiff`` | ``.tif``    | Lossless    | DEFLATE-compressed (TIFF code 8) with embedded     |
+    |             |             |             | georeferencing (WGS84 / EPSG:4326).                |
+    +-------------+-------------+-------------+----------------------------------------------------+
+
+    **Tile CORS.**  A tile source must answer ``Access-Control-Allow-Origin`` to
+    appear in the exported image; otherwise that area is blank and the export
+    says so.  The first export may re-request the visible tiles — set
+    ``crossOrigin`` on your own ``TileLayer`` if you need the live tiles loaded
+    with CORS.
+    """
+
+    @validate
+    def __init__(
+        self,
+        *,
+        position: ControlPosition = "bottomright",
+        filename: str = "map",
+        format: FORMAT = "png",
+        quality: Fraction = 0.92,
+        scale: Annotated[float, Bound(0.0, None, exclusive_low=True)] = 2.0,
+        max_pixels: Annotated[
+            PositiveInt | None,
+            FieldSpec(ts="", note="Null disables the pixel limit."),
+        ] = 10_240_000,
+        timeout: Annotated[int, Bound(0, None)] = 7500,
+        locale: str | LocaleConfig | None = None,
+    ):
+        super().__init__(position=position, locale=locale)
+        self.filename = filename
+        self.format = format
+        self.quality = quality
+        self.scale = scale
+        self.max_pixels = max_pixels
+        self.timeout = timeout

@@ -25,6 +25,16 @@ import {
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
 import { runCli, trapExit } from "../../fixture.js";
 
+// The "defaults --root to the checkout" case runs the tool without --root, so
+// it reads the checkout's own foliplus/dist. Without a prior build there is no
+// dist/, so the case skips cleanly instead of crashing on the missing dir.
+const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
+
+// A dev build (build:dev) emits unminified output larger than the minified
+// ceilings these dist-dependent cases assert, so they also skip when build.mjs
+// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
+const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+
 type BundleArgs = {
   help: boolean;
   errors: string[];
@@ -1483,7 +1493,15 @@ describe("cli entry point", () => {
     expect(error.mock.calls.join("\n")).toContain("must be a number");
   });
 
-  it("defaults --root to the checkout and lists sizes when nothing to diff", () => {
+  it("defaults --root to the checkout and lists sizes when nothing to diff", ({
+    skip,
+  }) => {
+    if (!distReady) {
+      skip("no foliplus/dist build present");
+    }
+    if (distDev) {
+      skip("dev (unminified) build: absolute caps hold only for minified output");
+    }
     // `node script/bundle-size-check.mjs` without --root reads the checkout's
     // own dist; without a --baseline that is a bare size listing, which exits
     // 0 regardless of what the dist holds. Same shape as the Makefile target.

@@ -1,0 +1,110 @@
+// HeatmapControl constants — independent named exports, consumed via
+// ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
+// Only pure static constants live here; CONFIG-derived values are accessed
+// via ``CONFIG.*`` directly in the consuming code.
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
+
+const TIMING = {
+  ZOOM_DEBOUNCE: 200,
+  LAYER_SCAN_DEBOUNCE: 200,
+  SCHEME_DROPDOWN_BLUR_DELAY: 150,
+};
+
+const H3 = {
+  RES_MAP: [
+    [2, 0],
+    [3, 1],
+    [4, 1],
+    [5, 2],
+    [6, 3],
+    [7, 4],
+    [8, 4],
+    [9, 5],
+    [10, 6],
+    [11, 6],
+    [12, 7],
+    [13, 7],
+    [14, 8],
+    [15, 9],
+    [16, 9],
+    [17, 10],
+    [18, 11],
+    [19, 11],
+    [20, 12],
+  ],
+  RES_FALLBACK: 12,
+};
+
+const ID = "foliplus_heatmap";
+
+const AGG = {
+  DEFAULT: CONFIG.agg,
+  COUNT: "count",
+  SUM: "sum",
+  AVG: "avg",
+  MIN: "min",
+  MAX: "max",
+};
+
+/** Hex-label typography — shared bounds from common/form.js so the layer
+ *  style drawer never redeclares 6/32/11. */
+const LABEL = {
+  ...LABEL_SIZE,
+  COLOR_DEFAULT: DEFAULT_LABEL_COLOR,
+};
+
+const CLASSES = {
+  HIDDEN: "foliplus-hidden",
+  COLLAPSED: "foliplus-is-collapsed",
+  EXPANDED: "foliplus-is-expanded",
+  ACTIVE: "foliplus-is-active",
+  PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
+  SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
+  SECTION_BLOCK: "foliplus-heatmap-section-block",
+  SECTION_BLOCK_LAST: "foliplus-heatmap-section-block-last",
+  CONFIG_BODY: "foliplus-heatmap-config-body",
+  EXTRA_BODY: "foliplus-heatmap-extra-body",
+  FIELD: "foliplus-heatmap-field",
+  SCHEME_BAR: "foliplus-heatmap-scheme-bar",
+  SCHEME_BAR_OPEN: "foliplus-heatmap-scheme-bar-open",
+  SCHEME_BAR_INNER: "foliplus-heatmap-scheme-bar-inner",
+  SCHEME_BAR_BLOCK: "foliplus-heatmap-scheme-bar-block",
+  SCHEME_DROPDOWN: "foliplus-heatmap-scheme-dropdown",
+  SCHEME_DROPDOWN_BAR: "foliplus-heatmap-scheme-dropdown-bar",
+  BTN_ROW: "foliplus-heatmap-btn-row",
+  BTN_CLEAR: "foliplus-heatmap-btn-clear",
+  CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
+  FORM_CONTROL_INLINE: "foliplus-form-inline",
+  SECTION_DIVIDER: "foliplus-section-divider",
+  CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
+  HEATMAP_CTRL: "foliplus-heatmap-ctrl",
+};
+
+const SEL = {
+  SCHEME_DROPDOWN_ITEM: ".foliplus-heatmap-scheme-dropdown-item",
+  SCHEME_DROPDOWN_BAR: ".foliplus-heatmap-scheme-dropdown-bar",
+  SCHEME_BAR: ".foliplus-heatmap-scheme-bar",
+  SCHEME_BAR_INNER: ".foliplus-heatmap-scheme-bar-inner",
+};
+
+/** Persistent storage key for heatmap configuration + the record shape's
+ * version stamp (positive integer, incremented only when the record shape
+ * changes; readers accept older/unknown values and never migrate). */
+const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
+const RECORD_VERSION = 2;
+
+const DATA_ATTR = {
+  LAYER: "data-heatmap-layer",
+  EXTRA_BODY: "data-heatmap-extra-body",
+  AGG: "data-heatmap-agg",
+  FIELD: "data-heatmap-field",
+  FIELD_SELECT: "data-heatmap-field-select",
+  METHOD: "data-heatmap-method",
+  CLASS_COUNT: "data-heatmap-class-count",
+  RAMP_ROWS: "data-heatmap-ramp-rows",
+  SCHEME_CTRL: "data-heatmap-scheme-ctrl",
+  SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
+  BTN_CLEAR: "data-heatmap-btn-clear",
+};
+
+export { AGG, CLASSES, DATA_ATTR, H3, ID, LABEL, SEL, STORAGE, RECORD_VERSION, TIMING };

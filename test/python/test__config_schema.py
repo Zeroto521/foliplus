@@ -42,15 +42,16 @@ from foliplus import (
     SearchControl,
 )
 from foliplus._config_schema import (
-    _UNSET,
     RUNTIME_ONLY,
     SHARED,
+    UNSET,
     FieldSpec,
-    _validate_shape,
     config_fields,
     derive_schema,
+    derived_control_schemas,
     render_ts_type,
     schema_to_json,
+    validate_shape,
 )
 
 # Controls the schema covers. Every entry must appear as a foliplus-module
@@ -85,7 +86,7 @@ def _spec_dict(spec: FieldSpec) -> dict[str, object]:
         out["values"] = list(spec.values)
     if spec.note:
         out["note"] = spec.note
-    if spec.default is not _UNSET:
+    if spec.default is not UNSET:
         out["default"] = spec.default
     return out
 
@@ -169,7 +170,7 @@ class TestValidateShape:
     """The shape-descriptor grammar: valid shapes pass, bad ones fail loudly.
 
     Every error names the path it failed at, so an author fixing a typo knows
-    which key to touch. These are the branches :func:`_validate_shape` raises
+    which key to touch. These are the branches :func:`validate_shape` raises
     in — without them the validator would be untested outside the happy path.
     """
 
@@ -184,11 +185,23 @@ class TestValidateShape:
         {"a": ("string", "?")},
         {"nested": {"inner": {"deep": "string"}}},
         {"matrix": [["string"]]},
+        # The author scale (LayerData[].fillAuthor.scale): vmin/vmax are
+        # optional keys, so a scale that carries them and one that omits them
+        # are both legal shapes - the optional marker renders them as
+        # vmin?: number / vmax?: number and the missing-key case stays valid.
+        {
+            "scale": {
+                "kind": ("continuous", "stepped"),
+                "vmin": ("number", "?"),
+                "vmax": ("number", "?"),
+            }
+        },
+        {"scale": {"kind": ("continuous", "stepped")}},
     ]
 
     @pytest.mark.parametrize("shape", VALID_SHAPES)
     def test_valid_shapes_pass(self, shape: object) -> None:
-        _validate_shape(shape, "T")
+        validate_shape(shape, "T")
 
     @pytest.mark.parametrize(
         ("shape", "message"),
@@ -205,16 +218,16 @@ class TestValidateShape:
     )
     def test_bad_shapes_name_the_problem(self, shape: object, message: str) -> None:
         with pytest.raises(ValueError, match=message):
-            _validate_shape(shape, "T")
+            validate_shape(shape, "T")
 
     def test_none_is_a_no_op(self) -> None:
         # None is only reachable from callers that guard first; it must not
         # raise, so a descriptor that resolves to None is harmless.
-        _validate_shape(None, "T")
+        validate_shape(None, "T")
 
     def test_error_reports_the_path(self) -> None:
         with pytest.raises(ValueError, match=r"T\.a\.bad"):
-            _validate_shape({"a": {"bad": 42}}, "T")
+            validate_shape({"a": {"bad": 42}}, "T")
 
     def test_union_kind_is_carried_in_content_not_the_container(self) -> None:
         # A tuple of primitive names is a primitive union (`string | number`);
@@ -225,12 +238,22 @@ class TestValidateShape:
         # coerced the tuples would destroy the very signal the renderer reads.
         primitive = {"params": {"*": ("string", "number")}}
         literal = {"role": ("base", "overlay")}
-        _validate_shape(primitive, "T")
-        _validate_shape(literal, "T")
+        validate_shape(primitive, "T")
+        validate_shape(literal, "T")
         assert json.loads(json.dumps(primitive)) == {
             "params": {"*": ["string", "number"]}
         }
         assert json.loads(json.dumps(literal)) == {"role": ["base", "overlay"]}
+
+    def test_mixed_literal_null_union_round_trips(self) -> None:
+        # A literal union may mix one literal with null (the method field of
+        # the author scale: "equal" or null). null is a primitive name, so the
+        # generator renders it unquoted beside the quoted literal — the
+        # validator must accept the descriptor and the round trip must not
+        # coerce the null into a string.
+        mixed = {"method": ("equal", "null")}
+        validate_shape(mixed, "T")
+        assert json.loads(json.dumps(mixed)) == {"method": ["equal", "null"]}
 
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):
@@ -316,7 +339,7 @@ class TestSchemaDefaultsMatchPython:
     leaves the schema's default stale and the vitest fixture wrong, while
     every name/order test stays green. Runtime-only and dynamic fields are
     skipped — Python has no such attribute. Fields without a declared schema
-    default (``_UNSET``) are skipped.
+    default (``UNSET``) are skipped.
     """
 
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
@@ -326,7 +349,7 @@ class TestSchemaDefaultsMatchPython:
         for field_name, spec in _derived(name).items():
             if spec.runtime_only or spec.dynamic:
                 continue
-            if spec.default is _UNSET:
+            if spec.default is UNSET:
                 continue
             assert getattr(instance, field_name) == spec.default, (
                 f"{name} default {field_name}={getattr(instance, field_name)!r} "
@@ -491,11 +514,9 @@ class TestSchemaDump:
         # already-imported ``BaseControl`` rather than a subprocess, because a
         # fresh interpreter under an editable install would resolve ``foliplus``
         # to the checkout it was installed from — not this worktree.
-        from foliplus import BaseControl
-        from foliplus._config_schema import _derived_control_schemas
 
         out = tmp_path / "config-schema.json"
-        control_schemas = _derived_control_schemas(BaseControl)
+        control_schemas = derived_control_schemas(BaseControl)
         text = json.dumps(
             {
                 "version": 1,
@@ -568,7 +589,7 @@ class TestRuntimeZeroChange:
         repo_root = Path(__file__).resolve().parents[2]
         probe = (
             "import foliplus\n"
-            "from foliplus.FullscreenControl import FullscreenControl\n"
+            "from foliplus import FullscreenControl\n"
             "assert FullscreenControl._config_fields == ('hide_self', 'hide_others'), \\\n"
             "    FullscreenControl._config_fields\n"
         )

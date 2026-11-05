@@ -42,15 +42,16 @@ def _js(path: str) -> str:
 
 
 def snippet(path: str) -> str:
-    """Read an extracted JS snippet, e.g. ``snippet("heatmap/dropdown_open")``.
+    """Read an extracted JS snippet, e.g. ``snippet("HeatmapControl/dropdown_open")``.
 
-    Extracted snippets live in ``test/js/snippets/<area>/<name>.js`` and are read
-    by the Python side so inline JS strings in browser tests are not duplicated
-    across files. The snippet is returned verbatim (its own line endings).
+    An extracted snippet lives in ``test/js/snippet/<Component>/<name>.js``
+    (shared helpers under ``common/``) and is read by the Python side so inline
+    JS strings in browser tests are not duplicated across files. The snippet is
+    returned verbatim (its own line endings).
     """
-    return (
-        Path(__file__).resolve().parent.parent / f"js/snippets/{path}.js"
-    ).read_text(encoding="utf-8")
+    return (Path(__file__).resolve().parent.parent / f"js/snippet/{path}.js").read_text(
+        encoding="utf-8"
+    )
 
 
 # ── CDN cache (browser tests) ──
@@ -294,8 +295,8 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 # ── Health probe (flaky-95 investigation) ──
 #
 # Inert observer for browser tests under `-n 24` xdist load. Samples worker
-# process + Chromium resource usage to a per-worker JSONL log under
-# ``.foliplus/flaky95/`` so a future 95-anomaly-round can be attributed
+# process + Chromium resource usage to a per-worker JSONL log in the gitignored
+# scratch directory so a future 95-anomaly-round can be attributed
 # (context accumulation? worker resource exhaustion? Chromium spawn burst?)
 # rather than filed as an unsolved flake.
 #
@@ -312,7 +313,7 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #                                 only — see the storage-isolation
 #                                 caveat under ``file://`` origins.
 #
-# ``.foliplus/`` is gitignored; the probe leaves no tracked artifacts.
+# The log directory is gitignored; the probe leaves no tracked artifacts.
 #
 # Findings (2026-09-25):
 #   Windows local (15 baseline rounds of -n 24):

@@ -1,0 +1,115 @@
+/* ── H3 HEX icon layered fills ── */
+.foliplus-heatmap-fill-bg {
+  fill: currentColor;
+  opacity: var(--foliplus-alpha-05);
+  stroke: none;
+}
+.foliplus-heatmap-fill-center {
+  fill: currentColor;
+  opacity: var(--foliplus-alpha-15);
+  stroke: none;
+}
+.foliplus-heatmap-fill-secondary {
+  fill: currentColor;
+  /* Deliberately not tokenized: 0.08 sits between --foliplus-alpha-05 (bg)
+     and --foliplus-alpha-15 (center) to keep the second/third hex visibly
+     lighter than either step. The nearest token, --foliplus-alpha-10, is
+     close but not identical, so tokenizing would nudge the layering. */
+  opacity: 0.08;
+  stroke: none;
+}
+
+.foliplus-heatmap-ctrl {
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+
+  /* Label typography is not redeclared here: the canvas renderer
+     (common/canvasLabel, shared with LayerControl's annotation labels) reads the
+     shared map-label tokens — --foliplus-label-font-family / -size / -weight / -color /
+     -halo-color / -halo-width from common/token.css — directly, so one override
+     styles a hex value and an annotation label alike. */
+
+  /* ── Style rows block ──
+     Sits below the data rows with no heading of its own since the panel
+     dropped its Data / Style group titles; padding stays 0 so the rows
+     keep the config-body's own inset. */
+  .foliplus-heatmap-section-block {
+    padding: 0;
+  }
+
+  /* ── Inline control groups use shared form.css (.foliplus-form-inline /
+     .foliplus-form-color-input / .foliplus-form-number-input). ── */
+
+  /* Unified container. Its rows and footer carry their own shared inset
+     (common/form.css, common/button.css), so the body adds none — a second
+     inset here is exactly how the heatmap footer ended up 12px short of the
+     style panel's. */
+  .foliplus-heatmap-config-body {
+    padding: 0;
+  }
+  /* Dynamic content container */
+  .foliplus-heatmap-extra-body {
+    padding: 0;
+  }
+
+  /* ── Color Scheme Bar ──
+     The trigger box and chevron are the shared scheme-picker recipe
+     (common/scheme-picker.css); this block only keeps the color strip's own
+     inline height token as the fallback. */
+  .foliplus-heatmap-scheme-bar-inner {
+    height: var(
+      --foliplus-scheme-picker-bar-height,
+      var(--foliplus-heatmap-inline-height)
+    );
+  }
+  /* Scheme row: the control cell needs relative positioning so the dropdown
+     hangs off it (not the page flow). */
+  .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {
+    position: relative;
+  }
+  /* Scheme hidden select, dropdown, items, and color bars live in
+     common/scheme-picker.css (shared by HeatmapControl and LayerControl). */
+
+  /* Color / number inputs live in common/form.css — one visual for the
+     heatmap panel and the layer style drawer. */
+
+  /* ── Bottom Buttons ──
+     The Clear action and its row come from the shared panel-button recipe
+     (common/button.css `.foliplus-panel-btn` / the `.foliplus-*-btn-row`
+     group), so the heatmap's footer and the per-layer style panel's footer
+     cannot drift apart. Nothing component-specific is left to state here. */
+
+  /* The divider above the footer action comes from the shared panel recipe
+     (common/panel.css), so the heatmap's footer and the per-layer style
+     panel's footer are inset and spaced identically. Nothing to add here. */
+}
+
+/* ── Method + Classes row geometry ──
+   The Method + Classes row (core/rampForm buildClassesRow) puts two shared
+   dropdowns in one .foliplus-form-inline cell. The Method dropdown flexes to
+   fill the control column and the class-count dropdown takes the compact
+   secondary width — the LayerControl by-value row's shape — so the two panels
+   read alike. The rules name the visible shared dropdown wrappers through the
+   wrapper hook classes bindControls adds (foliplus-heatmap-method /
+   foliplus-heatmap-classes-count); the shared classes-select hook class on the
+   hidden native select is left alone. The hook classes are heatmap-only, so
+   these rules cannot reach LayerControl's by-value row. */
+.foliplus-dropdown.foliplus-heatmap-method {
+  flex: 1;
+  min-width: 0;
+}
+.foliplus-dropdown.foliplus-heatmap-classes-count {
+  width: var(--foliplus-form-secondary-width);
+  flex-shrink: 0;
+}
+
+/* Field selector: extra body / field reuse the shared `foliplus-hidden`
+   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN. */
+/* Placeholder select styling */
+:is(
+  .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,
+  .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt,
+  .foliplus-heatmap-ctrl select option.foliplus-heatmap-placeholder-opt:disabled
+) {
+  color: var(--foliplus-text-muted);
+}

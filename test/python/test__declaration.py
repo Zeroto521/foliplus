@@ -1,8 +1,9 @@
 """Unit tests for the shared declaration readers (``foliplus._declaration``).
 
-``_declaration.py`` owns both author-facing declaration payloads — the zoom
+``_declaration.py`` owns the author-facing declaration payloads — the zoom
 range (layer ``foliplus={"zoom_range": ...}`` and the control ``zoom_range=``
-kwarg) and the filter (Heatmap/Measure ``filter=``) — plus the warning family
+kwarg), the filter (Heatmap/Measure ``filter=``) and the layer folder
+(``foliplus={"folder": ...}``) — plus the warning family
 they share. The per-control suites pin the rendered CONFIG; this module pins
 the reader contract itself: accepted shapes, the exact verdict (``None`` means
 "treat as undeclared"), the de-duplication rule, and the one API-misuse case
@@ -11,6 +12,7 @@ that raises instead of warning.
 
 from __future__ import annotations
 
+import ast
 import warnings
 from fractions import Fraction
 from pathlib import Path
@@ -21,25 +23,26 @@ import pytest
 from foliplus import _declaration
 from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
-    _enum_atom,
-    _json_number,
-    _normalise_zoom_range,
-    _range_atom,
-    _should_report,
-    _warn_foliplus,
-    _zoom_level,
+    enum_atom,
+    json_number,
+    normalise_folder,
+    normalise_zoom_range,
     normalize_declared_filter,
+    range_atom,
+    should_report,
+    warn_foliplus,
+    zoom_level,
 )
 
 
 @pytest.fixture(autouse=True)
 def _fresh_report_filters() -> None:
     """Isolate the process-wide diagnostic stores between tests."""
-    _declaration._foliplus_reports.clear()
-    _declaration._refused_captions.clear()
+    _declaration.foliplus_reports.clear()
+    _declaration.refused_captions.clear()
     yield
-    _declaration._foliplus_reports.clear()
-    _declaration._refused_captions.clear()
+    _declaration.foliplus_reports.clear()
+    _declaration.refused_captions.clear()
 
 
 # ── Shared diagnostics ───────────────────────────────────────────────────
@@ -47,17 +50,17 @@ class TestShouldReport:
     def test_first_report_is_true_and_the_repeat_is_false(self) -> None:
         store: set[tuple[str, ...]] = set()
 
-        assert _should_report(("a",), store) is True
-        assert _should_report(("a",), store) is False
+        assert should_report(("a",), store) is True
+        assert should_report(("a",), store) is False
         assert store == {("a",)}
 
     def test_the_cap_clears_the_store_instead_of_growing(self) -> None:
         store: set[tuple[str, ...]] = set()
-        for index in range(_declaration._LOG_FILTER_CAP):
-            assert _should_report((str(index),), store) is True
-        assert len(store) == _declaration._LOG_FILTER_CAP
+        for index in range(_declaration.LOG_FILTER_CAP):
+            assert should_report((str(index),), store) is True
+        assert len(store) == _declaration.LOG_FILTER_CAP
 
-        assert _should_report(("new",), store) is True
+        assert should_report(("new",), store) is True
         assert store == {("new",)}
 
     def test_families_do_not_crowd_each_other_out_at_the_cap(self) -> None:
@@ -69,34 +72,34 @@ class TestShouldReport:
         captions: set[tuple[str, ...]] = set()
         caption = ("caption", "C", "1", "1")
 
-        assert _should_report(caption, captions) is True
-        for index in range(_declaration._LOG_FILTER_CAP):
-            assert _should_report((str(index),), declarations) is True
-        assert len(declarations) == _declaration._LOG_FILTER_CAP
+        assert should_report(caption, captions) is True
+        for index in range(_declaration.LOG_FILTER_CAP):
+            assert should_report((str(index),), declarations) is True
+        assert len(declarations) == _declaration.LOG_FILTER_CAP
 
-        assert _should_report(caption, captions) is False
+        assert should_report(caption, captions) is False
 
 
 class TestWarnFoliplus:
     def test_the_same_note_warns_once(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _warn_foliplus("note", "first")
-            _warn_foliplus("note", "second")
+            warn_foliplus("note", "first")
+            warn_foliplus("note", "second")
 
         assert [str(item.message) for item in caught] == ["first"]
 
     def test_a_different_note_warns_separately(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _warn_foliplus("a", "first")
-            _warn_foliplus("b", "second")
+            warn_foliplus("a", "first")
+            warn_foliplus("b", "second")
 
         assert [str(item.message) for item in caught] == ["first", "second"]
 
     def test_the_warning_points_at_the_caller(self) -> None:
         with pytest.warns(UserWarning) as record:
-            _warn_foliplus("caller", "message")
+            warn_foliplus("caller", "message")
 
         assert Path(record[0].filename).resolve() == Path(__file__).resolve()
 
@@ -104,13 +107,13 @@ class TestWarnFoliplus:
 # ── Zoom-range declaration ───────────────────────────────────────────────
 class TestZoomLevel:
     def test_accepts_python_integers(self) -> None:
-        assert _zoom_level(0) == 0
-        assert _zoom_level(-3) == -3
+        assert zoom_level(0) == 0
+        assert zoom_level(-3) == -3
 
     def test_narrows_numpy_integers_to_plain_int(self) -> None:
         np = pytest.importorskip("numpy")
 
-        value = _zoom_level(np.int64(8))
+        value = zoom_level(np.int64(8))
 
         assert value == 8
         assert type(value) is int
@@ -120,25 +123,25 @@ class TestZoomLevel:
         [True, False, 8.0, 8.5, "8", None, [8], {"min": 8}],
     )
     def test_rejects_non_integers(self, raw: object) -> None:
-        assert _zoom_level(raw) is None
+        assert zoom_level(raw) is None
 
 
 class TestNormaliseZoomRange:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            assert _normalise_zoom_range(None, owner="Owner") is None
+            assert normalise_zoom_range(None, owner="Owner") is None
 
         assert caught == []
 
     def test_a_valid_mapping_is_narrowed_to_min_max(self) -> None:
-        assert _normalise_zoom_range({"min": 8, "max": 12}, owner="Owner") == {
+        assert normalise_zoom_range({"min": 8, "max": 12}, owner="Owner") == {
             "min": 8,
             "max": 12,
         }
 
     def test_equal_bounds_are_valid(self) -> None:
-        assert _normalise_zoom_range({"min": 7, "max": 7}, owner="Owner") == {
+        assert normalise_zoom_range({"min": 7, "max": 7}, owner="Owner") == {
             "min": 7,
             "max": 7,
         }
@@ -146,7 +149,7 @@ class TestNormaliseZoomRange:
     def test_a_generic_mapping_is_accepted(self) -> None:
         declaration = MappingProxyType({"min": 8, "max": 12})
 
-        assert _normalise_zoom_range(declaration, owner="Owner") == {
+        assert normalise_zoom_range(declaration, owner="Owner") == {
             "min": 8,
             "max": 12,
         }
@@ -154,7 +157,7 @@ class TestNormaliseZoomRange:
     def test_numpy_bounds_are_narrowed_to_plain_int(self) -> None:
         np = pytest.importorskip("numpy")
 
-        normalised = _normalise_zoom_range(
+        normalised = normalise_zoom_range(
             {"min": np.int64(8), "max": np.int32(12)}, owner="Owner"
         )
 
@@ -179,13 +182,13 @@ class TestNormaliseZoomRange:
         self, raw: object, reason: str
     ) -> None:
         with pytest.warns(UserWarning) as record:
-            assert _normalise_zoom_range(raw, owner="Owner") is None
+            assert normalise_zoom_range(raw, owner="Owner") is None
 
         assert reason in str(record[0].message)
 
     def test_the_message_names_the_owner_and_the_control_source(self) -> None:
         with pytest.warns(UserWarning) as record:
-            _normalise_zoom_range(
+            normalise_zoom_range(
                 {"min": 8.5, "max": 12},
                 owner="HeatmapControl",
                 source="zoom_range",
@@ -199,7 +202,7 @@ class TestNormaliseZoomRange:
 
     def test_the_message_names_the_layer_and_the_namespace_source(self) -> None:
         with pytest.warns(UserWarning) as record:
-            _normalise_zoom_range(
+            normalise_zoom_range(
                 {"min": 8.5, "max": 12},
                 owner="LayerControl",
                 subject="layer 'roads'",
@@ -216,8 +219,7 @@ class TestNormaliseZoomRange:
             warnings.simplefilter("always")
             for _ in range(3):
                 assert (
-                    _normalise_zoom_range({"min": 8.5, "max": 12}, owner="Owner")
-                    is None
+                    normalise_zoom_range({"min": 8.5, "max": 12}, owner="Owner") is None
                 )
 
         assert len(caught) == 1
@@ -225,10 +227,10 @@ class TestNormaliseZoomRange:
     def test_different_subjects_are_reported_separately(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _normalise_zoom_range(
+            normalise_zoom_range(
                 {"min": 8.5, "max": 12}, owner="LayerControl", subject="layer 'a'"
             )
-            _normalise_zoom_range(
+            normalise_zoom_range(
                 {"min": 8.5, "max": 12}, owner="LayerControl", subject="layer 'b'"
             )
 
@@ -238,11 +240,11 @@ class TestNormaliseZoomRange:
 # ── Filter declaration ───────────────────────────────────────────────────
 class TestJsonNumber:
     def test_integral_values_become_plain_int(self) -> None:
-        assert _json_number(3) == 3
-        assert type(_json_number(3)) is int
+        assert json_number(3) == 3
+        assert type(json_number(3)) is int
 
     def test_real_values_become_float(self) -> None:
-        value = _json_number(Fraction(1, 2))
+        value = json_number(Fraction(1, 2))
 
         assert value == 0.5
         assert type(value) is float
@@ -250,7 +252,7 @@ class TestJsonNumber:
 
 class TestRangeAtom:
     def test_a_valid_range_is_a_between_atom_on_the_bound_field(self) -> None:
-        assert _range_atom({"min": 10, "max": 50}, "HeatmapControl", "score") == {
+        assert range_atom({"min": 10, "max": 50}, "HeatmapControl", "score") == {
             "kind": "atom",
             "field": "score",
             "op": "between",
@@ -259,13 +261,13 @@ class TestRangeAtom:
 
     def test_a_field_key_is_api_misuse_and_raises(self) -> None:
         with pytest.raises(ValueError, match="drop 'field' from filter="):
-            _range_atom(
+            range_atom(
                 {"field": "score", "min": 10, "max": 50}, "HeatmapControl", "score"
             )
 
     def test_a_range_without_a_bound_field_is_api_misuse_and_raises(self) -> None:
         with pytest.raises(ValueError, match="needs the aggregation field"):
-            _range_atom({"min": 10, "max": 50}, "HeatmapControl", None)
+            range_atom({"min": 10, "max": 50}, "HeatmapControl", None)
 
     @pytest.mark.parametrize(
         ("raw", "reason"),
@@ -282,14 +284,14 @@ class TestRangeAtom:
         self, raw: object, reason: str
     ) -> None:
         with pytest.warns(UserWarning) as record:
-            assert _range_atom(raw, "HeatmapControl", "score") is None
+            assert range_atom(raw, "HeatmapControl", "score") is None
 
         assert reason in str(record[0].message)
 
 
 class TestEnumAtom:
     def test_values_are_deduplicated_in_first_seen_order(self) -> None:
-        assert _enum_atom(
+        assert enum_atom(
             ["polygon", "distance", "polygon"], "MeasureControl", MEASURE_TYPE_FIELD
         ) == {
             "kind": "enum",
@@ -310,7 +312,7 @@ class TestEnumAtom:
         self, raw: list[object], reason: str
     ) -> None:
         with pytest.warns(UserWarning) as record:
-            assert _enum_atom(raw, "MeasureControl", MEASURE_TYPE_FIELD) is None
+            assert enum_atom(raw, "MeasureControl", MEASURE_TYPE_FIELD) is None
 
         assert reason in str(record[0].message)
 
@@ -319,47 +321,181 @@ class TestNormalizeDeclaredFilter:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            assert normalize_declared_filter(None, owner="Owner", arm="range") is None
+            assert normalize_declared_filter(None, owner="Owner", kind="range") is None
 
         assert caught == []
 
-    def test_the_range_arm_delegates_to_the_range_atom(self) -> None:
+    def test_the_range_kind_delegates_to_the_range_atom(self) -> None:
         assert normalize_declared_filter(
             {"min": 10, "max": 50},
             owner="HeatmapControl",
-            arm="range",
+            kind="range",
             bound_field="score",
-        ) == _range_atom({"min": 10, "max": 50}, "HeatmapControl", "score")
+        ) == range_atom({"min": 10, "max": 50}, "HeatmapControl", "score")
 
-    def test_the_range_arm_rejects_a_non_mapping(self) -> None:
+    def test_the_range_kind_rejects_a_list_and_points_at_measurecontrol(self) -> None:
+        with pytest.raises(ValueError, match="enum filters belong to MeasureControl"):
+            normalize_declared_filter(
+                ["score"],
+                owner="HeatmapControl",
+                kind="range",
+                bound_field="score",
+            )
+
+    def test_the_range_kind_warns_on_a_non_mapping_scalar(self) -> None:
         with pytest.warns(UserWarning, match="must be a mapping with min and max"):
             assert (
                 normalize_declared_filter(
-                    ["score"],
+                    "score",
                     owner="HeatmapControl",
-                    arm="range",
+                    kind="range",
                     bound_field="score",
                 )
                 is None
             )
 
-    def test_the_enum_arm_delegates_to_the_enum_atom(self) -> None:
+    def test_the_list_kind_delegates_to_the_enum_atom(self) -> None:
         assert normalize_declared_filter(
-            ["distance"], owner="MeasureControl", arm="enum", enum_field="type"
-        ) == _enum_atom(["distance"], "MeasureControl", "type")
+            ["distance"], owner="MeasureControl", kind="enum", enum_field="type"
+        ) == enum_atom(["distance"], "MeasureControl", "type")
 
-    def test_the_enum_arm_rejects_a_non_sequence(self) -> None:
+    def test_the_list_kind_rejects_a_non_sequence(self) -> None:
         with pytest.warns(UserWarning, match="must be a list of value names"):
             assert (
                 normalize_declared_filter(
                     {"field": "type"},
                     owner="MeasureControl",
-                    arm="enum",
+                    kind="enum",
                     enum_field="type",
                 )
                 is None
             )
 
-    def test_the_enum_arm_requires_an_enum_field(self) -> None:
+    def test_the_list_kind_requires_an_enum_field(self) -> None:
         with pytest.raises(ValueError, match="requires enum_field"):
-            normalize_declared_filter(["distance"], owner="MeasureControl", arm="enum")
+            normalize_declared_filter(["distance"], owner="MeasureControl", kind="enum")
+
+
+# ── Folder declaration ───────────────────────────────────────────────────
+class TestNormaliseFolder:
+    def test_absent_is_none_without_a_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert normalise_folder(None, owner="Owner") is None
+
+        assert caught == []
+
+    def test_a_valid_name_is_stripped_and_returned(self) -> None:
+        assert normalise_folder("roads", owner="Owner") == "roads"
+
+    def test_surrounding_whitespace_is_stripped(self) -> None:
+        assert normalise_folder("  roads  ", owner="Owner") == "roads"
+
+    @pytest.mark.parametrize(
+        ("raw", "reason"),
+        [
+            ("", "empty or whitespace-only string"),
+            ("   ", "empty or whitespace-only string"),
+            (42, "as int; expected a non-empty string"),
+            ({"name": "roads"}, "as dict; expected a non-empty string"),
+            (["roads"], "as list; expected a non-empty string"),
+        ],
+    )
+    def test_unusable_declarations_warn_and_degrade(
+        self, raw: object, reason: str
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_folder(raw, owner="Owner") is None
+
+        assert reason in str(record[0].message)
+
+    def test_the_message_names_the_layer(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="layer 'roads'")
+
+        message = str(record[0].message)
+        assert "layer 'roads' declares foliplus['folder'] as int" in message
+
+    def test_the_message_names_the_layer_via_subject(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="LayerControl", subject="layer 'roads'")
+
+        message = str(record[0].message)
+        assert (
+            "LayerControl: layer 'roads' declares foliplus['folder'] as int" in message
+        )
+
+    def test_the_message_uses_the_source_it_was_written_with(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_folder(42, owner="LayerControl", source="foliplus['layerFolder']")
+
+        message = str(record[0].message)
+        assert "LayerControl declares foliplus['layerFolder'] as int" in message
+
+    def test_the_same_defect_is_reported_once(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            for _ in range(3):
+                assert normalise_folder("", owner="Owner") is None
+
+        assert len(caught) == 1
+
+    def test_different_layers_are_reported_separately(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            normalise_folder("", owner="layer 'a'")
+            normalise_folder("", owner="layer 'b'")
+
+        assert len(caught) == 2
+
+    def test_never_raises_on_any_input(self) -> None:
+        # The verdict rule shared with zoom_range: a malformed folder
+        # declaration is a warning, never an exception.
+        for raw in [None, "", "  ", "roads", 42, {}, {"name": "x"}, [], object()]:
+            try:
+                normalise_folder(raw, owner="Owner")
+            except Exception as exc:  # pragma: no cover - must never raise
+                pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
+
+
+# ── Module-constants placement guard ─────────────────────────────────────
+# A regression guard for the top-of-file "Module constants" block: every
+# module-level assignment must sit above the first function/class definition,
+# so a new constant cannot be dropped mid-module and escape the single block
+# the module docstring promises. Parametrised over the reader and its own test
+# module (the test module currently declares no module-level constant).
+@pytest.mark.parametrize(
+    "module_path",
+    ["foliplus/_declaration.py", "test/python/test__declaration.py"],
+)
+def test_module_constants_precede_the_first_definition(module_path: str) -> None:
+    module = Path(__file__).resolve().parents[2] / module_path
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    first_def = next(
+        (
+            node.lineno
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        ),
+        None,
+    )
+    assert first_def is not None, f"{module_path}: no function or class definition"
+
+    def _names(node: ast.AST) -> list[str]:
+        if isinstance(node, ast.AnnAssign):
+            return [node.target.id] if isinstance(node.target, ast.Name) else []
+        if isinstance(node, ast.Assign):
+            return [
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            ]
+        return []
+
+    late = [
+        (name, node.lineno)
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.lineno > first_def
+        for name in _names(node)
+    ]
+    assert not late, (
+        f"{module_path}: module assignments after the first definition: {late}"
+    )

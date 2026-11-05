@@ -20,8 +20,10 @@ import {
   type Dropdown,
   type DropdownSurface,
   createDropdown,
-} from "#common/dropdown.js";
-import { formRow, inlineControls, selectInput } from "#common/form.js";
+  formRow,
+  inlineControls,
+  selectInput,
+} from "#ui/index.js";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
  *  data-* seams that Python rendering tests pin. */
@@ -45,7 +47,7 @@ type FieldRowOptions = {
   rowAttributes?: Attributes;
   selectAttributes?: Attributes;
   onChange?: (field: string) => void;
-  /** Popup host contract for the bridged dropdown (core/fullscreen's
+  /** Popup host contract for the bridged dropdown (common/fullscreen's
    *  `dropdownSurface(map.getContainer())`), so an open list follows the
    *  surface covering the trigger. */
   surface?: DropdownSurface;
