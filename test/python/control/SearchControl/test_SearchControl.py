@@ -535,9 +535,7 @@ class TestSearchControlPlacementBrowser:
         """Wait for the shared menu entrance animation to finish so the rect
         reflects the final (post-fade) position."""
         page.wait_for_function(
-            "() => { const p = document.querySelector('.foliplus-search-result-panel');"
-            " return p && getComputedStyle(p).transform === 'none'; }",
-            timeout=8000,
+            _js("SearchControl/read_result_panel_settled"), timeout=8000
         )
 
     def _geometry(self, page):
@@ -644,14 +642,7 @@ class TestSearchControlPlacementBrowser:
             page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             # Shrink the map to a 600x400 box (smaller than the viewport).
-            page.evaluate(
-                """() => {
-                    const mapEl = document.querySelector(".foliplus-map, .leaflet-container");
-                    mapEl.style.width = "600px";
-                    mapEl.style.height = "400px";
-                    if (window.map && window.map.invalidateSize) window.map.invalidateSize();
-                }"""
-            )
+            page.evaluate(_js("SearchControl/set_map_box"), 600, 400)
             page.wait_for_timeout(300)
             page.evaluate(_js("SearchControl/click_toggle_btn"))
             page.wait_for_selector(
