@@ -863,6 +863,110 @@ class TestLayerControlBrowser:
             assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
 
+    def test_fill_two_layers_keep_their_own_color(self, browser, tmp_path):
+        """A solid fill write on one layer never bleeds onto another layer.
+
+        commitStyleDim / styleBag commit the fill by layer and surface in one
+        batch, so a “write串” (A's color landing on B) is exactly the bug this
+        guards. Two GeoJSON polygon layers are driven to distinct solid fills,
+        then A is restyled and the OTHER pane's path fill/stroke must be
+        byte-identical to its baseline — the hard “no cross-layer bleed”
+        evidence, not just “B is still blue”. The map is read by grouping
+        every SVG path by its owning pane (each layer migrates to its own pane).
+        """
+
+        def poly(name: str) -> folium.GeoJson:
+            """One polygon layer with a numeric field so the fill row exists."""
+            return folium.GeoJson(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"value": i},
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [119.28 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.06],
+                                        ]
+                                    ],
+                                },
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                ),
+                name=name,
+            )
+
+        first = poly("IsoLayerA")
+        second = poly("IsoLayerB")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="fill_two_layer_iso"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Baseline: give layer A a red solid fill.
+            a_red = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#ff0000"},
+            )
+            assert a_red.get("ok"), f"write A failed: {a_red}"
+            assert len(a_red["panes"]) >= 2, f"expected 2 pane groups: {a_red}"
+
+            # Give layer B a blue solid fill, then snapshot every pane.
+            b_blue = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerB", "color": "#0000ff"},
+            )
+            assert b_blue.get("ok"), f"write B failed: {b_blue}"
+            panes_before = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in b_blue["panes"]
+            }
+            assert len(panes_before) >= 2, f"pane groups: {b_blue}"
+
+            # The two pane groups must not share a fill (distinct colors).
+            all_fills = [set(p["fills"]) for p in b_blue["panes"]]
+            assert all(len(s) == 1 for s in all_fills), f"not solid: {all_fills}"
+            assert len({next(iter(s)) for s in all_fills}) == len(all_fills), (
+                f"panes share a fill: {all_fills}"
+            )
+
+            # Restyle A to a third color; every OTHER pane stays byte-identical.
+            a_green = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#00ff00"},
+            )
+            assert a_green.get("ok"), f"re-write A failed: {a_green}"
+            panes_after = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in a_green["panes"]
+            }
+            # Find the pane whose fill changed (A's) and assert every other pane unchanged.
+            changed = [
+                cls for cls in panes_after if panes_after[cls] != panes_before.get(cls)
+            ]
+            assert changed, (
+                f"A restyle changed nothing: {panes_before} vs {panes_after}"
+            )
+            for cls in panes_after:
+                if cls not in changed:
+                    assert panes_after[cls] == panes_before[cls], (
+                        f"pane {cls} bled: {panes_before[cls]} != {panes_after[cls]}"
+                    )
+            assert not errors, f"JS errors: {errors}"
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
