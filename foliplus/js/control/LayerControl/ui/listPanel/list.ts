@@ -1,5 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { ROLE, normalizeFolderName, sectionOf } from "#core/layer/index.js";
+import { ROLE, normalizeFolderName } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

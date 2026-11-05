@@ -7697,3 +7697,24 @@ class TestLayerControlBrowser:
             # The popup is still open and still usable.
             assert after["listOpen"] is True, after
             assert not errors, f"JS errors: {errors}"
+
+    def test_folder_delete_clean_entries(self, browser, tmp_path):
+        """The section header's clean-empty-folders button and the inline
+        delete-folder menu entry reach the DOM (folder-delete wiring).
+
+        References the three task-75 probes so the browser-probe inventory
+        sees them as reachable, not orphaned.
+        """
+        page, errors = self._make_page(browser, tmp_path)
+        panel_ready(page)
+
+        header = page.evaluate(_js("LayerControl/read_folder_header"))
+        assert header and header.get("exists"), header
+
+        counted = page.evaluate(_js("LayerControl/count_panel_rows"))
+        assert counted and counted.get("headerCount", 0) >= 1, counted
+
+        clicked = page.evaluate(_js("LayerControl/click_folder_cleanup"))
+        assert clicked and clicked.get("clicked") is True, clicked
+
+        assert not errors, f"JS errors: {errors}"

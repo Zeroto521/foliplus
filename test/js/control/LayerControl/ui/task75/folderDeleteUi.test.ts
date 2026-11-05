@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -12,10 +11,9 @@ import { attachedPanel, findItem, initFixture } from "../fixture.js";
 describe("task-75 folder delete UI wiring", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui } = initFixture());
     if (!manager.layerRegistry.get("overlay2")) {
       manager.registerLayer({
         id: "overlay2",
@@ -102,8 +100,9 @@ describe("task-75 folder delete UI wiring", () => {
     const seq = Array.from(container.children)
       .filter(el => !el.getAttribute(CONST.DATA.LAYER_ID)?.startsWith("foliplus_"))
       .map(el => {
-        if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL))
+        if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
           return { kind: "header", role: (el as HTMLElement).dataset.role };
+        }
         return { kind: "row", role: (el as HTMLElement).dataset.layerType };
       });
     const pos = (pred: (x: { kind: string; role?: string }) => boolean) =>
@@ -136,10 +135,11 @@ describe("task-75 folder delete UI wiring", () => {
     const kinds = Array.from(container.children)
       .filter(el => !el.getAttribute(CONST.DATA.LAYER_ID)?.startsWith("foliplus_"))
       .map(el => {
-        if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL))
-          return "header:" + (el as HTMLElement).dataset.role;
+        if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
+          return `header:${(el as HTMLElement).dataset.role}`;
+        }
         const id = el.getAttribute(CONST.DATA.LAYER_ID);
-        return "row:" + id;
+        return `row:${id}`;
       });
     // The empty overlay section's header trails the live base section.
     expect(kinds).toEqual(["header:base", "row:base1", "header:overlay"]);

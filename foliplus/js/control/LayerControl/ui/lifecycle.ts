@@ -235,8 +235,9 @@ const bindLayerEvents = (ui: LayerUI): void => {
       event.stopPropagation();
       event.preventDefault();
       const role = cleanBtn.dataset.role ?? "";
-      if (role)
+      if (role) {
         ui.c.cleanEmptyFolders(sectionOf(role as Parameters<typeof sectionOf>[0]));
+      }
       return;
     }
 

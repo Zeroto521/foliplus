@@ -1,6 +1,6 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { HINT_DURATION } from "#core/hint.js";
-import { CAP_TIER, normalizeFolderName, sectionOf } from "#core/layer/index.js";
+import { CAP_TIER, sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -144,7 +144,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
-    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- booleans, || is intended
+    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
     layerCanLabel(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;

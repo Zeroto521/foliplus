@@ -12,19 +12,22 @@ import { initFixture, polygonLayer } from "./ui/fixture.js";
  */
 
 describe("task-75 deleteFolder wiring", () => {
-  let fixture: ReturnType<typeof initFixture>;
-
   beforeEach(() => {
     window.localStorage.clear();
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
-    fixture = initFixture();
   });
 
   it("[V4-1] non-empty folder delete: member folder=null + layer kept + order key removed + one schedule", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "Roads", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
       ],
     });
     const schedule = vi.spyOn(manager.persistence, "schedule");
@@ -67,9 +70,17 @@ describe("task-75 deleteFolder wiring", () => {
 
   it("[V4-P2#1] cross-section isolation: delete base foo keeps overlay foo", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["foo"], base: ["foo"] } } },
+      seed: {
+        folderOrder: { version: 1, sections: { overlay: ["foo"], base: ["foo"] } },
+      },
       data: [
-        { id: "b1", name: "Base Foo", role: "base", folder: "foo", layer: polygonLayer() },
+        {
+          id: "b1",
+          name: "Base Foo",
+          role: "base",
+          folder: "foo",
+          layer: polygonLayer(),
+        },
       ],
     });
 
@@ -88,8 +99,20 @@ describe("task-75 deleteFolder wiring", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "Roads", layer: polygonLayer() },
-        { id: "wt1", name: "Water", role: "overlay", folder: "Water", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "wt1",
+          name: "Water",
+          role: "overlay",
+          folder: "Water",
+          layer: polygonLayer(),
+        },
       ],
     });
     manager.deleteFolder("overlay", "Roads");
@@ -106,9 +129,20 @@ describe("task-75 deleteFolder wiring", () => {
 
   it("[V4-2] cleanEmptyFolders: one schedule + one flushAll + returns count", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["empty1", "empty2", "full"] } } },
+      seed: {
+        folderOrder: {
+          version: 1,
+          sections: { overlay: ["empty1", "empty2", "full"] },
+        },
+      },
       data: [
-        { id: "rd1", name: "Full", role: "overlay", folder: "full", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Full",
+          role: "overlay",
+          folder: "full",
+          layer: polygonLayer(),
+        },
       ],
     });
     const schedule = vi.spyOn(manager.persistence, "schedule");
@@ -126,7 +160,13 @@ describe("task-75 deleteFolder wiring", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "Roads", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
       ],
     });
     const schedule = vi.spyOn(manager.persistence, "schedule");
