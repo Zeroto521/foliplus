@@ -480,4 +480,3 @@ describe("icon dimension defensive branches", () => {
     vi.clearAllMocks();
   });
 });
-
