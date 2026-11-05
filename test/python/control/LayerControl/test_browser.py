@@ -1087,6 +1087,14 @@ class TestLayerControlBrowser:
                     "#3388ff" not in fills
                     or "#3388ff" in panes_before.get(cls, ([], []))[0]
                 ), (f"pane {cls} decayed to default blue after reload: {fills}",)
+            # The record itself must survive the reload: the colours above come
+            # from localStorage, so a record that lost a layer would leave the
+            # attach sweep nothing to re-apply even while the panes look right.
+            stored_after = page.evaluate(_js("LayerControl/read_persisted_record"))
+            assert stored_after, "the persisted record vanished across the reload"
+            assert len(stored_after.get("layers") or {}) >= 2, (
+                f"a layer dropped out of the persisted record: {stored_after}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
