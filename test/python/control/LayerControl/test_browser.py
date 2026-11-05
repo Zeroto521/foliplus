@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from pathlib import Path
 
 import folium
@@ -1042,8 +1043,22 @@ class TestLayerControlBrowser:
             assert len(panes_before) >= 2, f"pane groups before reload: {b_blue}"
 
             # Reload; the attach sweep must re-apply the persisted fill.
-            # Let the 100ms persistence debounce flush before the reload.
-            page.wait_for_timeout(300)
+            # Wait for the real signal — both colours present in the persisted
+            # record — rather than sleeping on the 100ms write debounce. A fixed
+            # sleep is either flaky (too short when the CI box is loaded) or
+            # wasteful, and this test guards persistence: it must not guess.
+            deadline = time.monotonic() + 5
+            persisted = None
+            while time.monotonic() < deadline:
+                persisted = page.evaluate(_js("LayerControl/read_persisted_record"))
+                stored = json.dumps(persisted) if persisted else ""
+                if "#ff0000" in stored and "#0000ff" in stored:
+                    break
+                time.sleep(0.05)
+            else:
+                raise AssertionError(
+                    f"fill never reached storage within 5s: {persisted}"
+                )
             page.reload(wait_until="load")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
