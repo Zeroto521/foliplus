@@ -12,6 +12,7 @@
 // per class plus the final bound, so colors is requested for the span, not
 // for the raw classes config (a 6-class quantile is 7 breaks, 6 colors).
 import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
+import { isCategoryValue } from "#core/field.js";
 import {
   SCHEME_FALLBACK_COLOR,
   getCategoryColors,
@@ -129,4 +130,51 @@ const buildCategoryRamp = (values: string[], scheme: string): CategoryRamp => {
   return { colors, other: SCHEME_FALLBACK_COLOR };
 };
 
-export { buildCategoryRamp, buildRamp, colorFor };
+/** A leaf that may carry a `feature` envelope (GeoJSON data). The ramp's
+ *  sampling reads only this envelope; a full Leaflet path (a `StyleSetter`) is
+ *  assignable to it because the property is optional, so callers pass the
+ *  walk's leaf without a cast. */
+type StyleLeaf = {
+  feature?: { properties?: Record<string, unknown> };
+};
+
+/** Read a leaf's `feature.properties[key]` value, if any.
+ *
+ *  The three reads walk into a third-party object, so each hop is its own
+ *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
+ *  is a throwing getter simply has no value. Letting it propagate aborts the
+ *  whole layer's collection — no healthy sibling gets colored. Only the read
+ *  is inside the boundary; `buildRamp`, `colorFor` and `setStyle` stay
+ *  outside it (a classifier or write failure is a different class of
+ *  problem). Shared by the value-based fill and the value-stroke dimension. */
+const leafPropertyValue = (leaf: unknown, key: string): unknown => {
+  try {
+    const feature = (leaf as StyleLeaf | null | undefined)?.feature;
+    const properties = feature?.properties;
+    return properties?.[key];
+  } catch {
+    return undefined;
+  }
+};
+
+/** Whether a property value can drive a numeric classification. */
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/** A value that can be a categorical label. A non-empty string is a label
+ *  as-is; a boolean too (the fill kind inference types booleans as category),
+ *  stringified for the palette lookup ("true" / "false"). Anything else (a
+ *  number, null, an empty string, an object) reads as "no label". */
+const categoryLabel = (value: unknown): string | undefined => {
+  if (typeof value === "boolean") return String(value);
+  return isCategoryValue(value) ? value : undefined;
+};
+
+export {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+};
