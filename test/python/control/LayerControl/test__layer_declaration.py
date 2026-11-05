@@ -288,6 +288,37 @@ def test_same_name_different_role_not_merged():
     assert sorted(entry["role"] for entry in declared) == ["base", "overlay"]
 
 
+def test_data_order_is_registration_order_not_folder_grouped():
+    # design §8 (cross-end hard constraint): CONF data[] order IS the layer
+    # registration order — the anchor axis for the JS-side folder blocks.
+    # Python must NOT reorder data[] by folder: a folder-grouped serialisation
+    # would silently move a block's anchor (min member index), violating
+    # invariant 3. Interleave two folders with root layers and assert the
+    # serialised data[] keeps the registration sequence.
+    layers = [
+        _geo(name="F1-a", foliplus={"folder": "F1"}),
+        _geo(name="Root1"),
+        _geo(name="F2-a", foliplus={"folder": "F2"}),
+        _geo(name="Root2"),
+        _geo(name="F1-b", foliplus={"folder": "F1"}),
+    ]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(*layers)
+
+    assert not [w for w in caught if "ambiguous" in str(w.message)]
+    data = _conf(html)["data"]
+    # The auto-added OpenStreetMap basemap may follow the declared layers; the
+    # declared layers themselves must keep their registration sequence (a
+    # folder-grouped reorder would break invariant 3's anchor).
+    declared = [
+        entry["name"]
+        for entry in data
+        if entry["name"] in {"F1-a", "Root1", "F2-a", "Root2", "F1-b"}
+    ]
+    assert declared == ["F1-a", "Root1", "F2-a", "Root2", "F1-b"]
+
+
 def test_foliplus_keys_contains_folder():
     # The folder key is accepted by the declaration namespace: a regression
     # here would turn a valid folder declaration into an "unknown key" warning.

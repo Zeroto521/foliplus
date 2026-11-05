@@ -99,10 +99,6 @@ const hasSetStyleLeaf = (node: unknown): boolean => someLeaf(node, hasSetStyle);
 const hasSetIcon = (node: unknown): boolean =>
   safeRead(() => typeof (node as { setIcon?: unknown }).setIcon) === "function";
 
-/** Whether any leaf in the tree exposes a runtime `setIcon` — the honest
- *  carrier check for the marker icon axis. */
-const hasSetIconLeaf = (node: unknown): boolean => someLeaf(node, hasSetIcon);
-
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)

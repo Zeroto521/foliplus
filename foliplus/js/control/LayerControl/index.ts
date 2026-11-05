@@ -25,6 +25,7 @@ const LayerControl = defineControl<LayerController>({
       ...row,
       fillAuthor: row.fillAuthor ?? null,
       zoomRange: row.zoomRange ?? null,
+      folder: row.folder ?? null,
     }));
     const manager = new LayerController(map, seed as LayerInfo[], {
       T: env.T,

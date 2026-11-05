@@ -372,8 +372,6 @@ export {
   buildIconRow,
   commitIconField,
   cycleIconSymbol,
-  effectiveIconConfig,
   layerCanIcon,
-  replayIconIntent,
   resetLayerIcon,
 };

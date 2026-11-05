@@ -25,9 +25,9 @@ const makeMarker = (props: Record<string, unknown> = {}, icon?: unknown): any =>
   const leaf: any = {
     feature: { properties: props },
     options: { icon },
-    setIcon: vi.fn(function (next: unknown) {
-      this.options.icon = next;
-      return this;
+    setIcon: vi.fn((next: unknown) => {
+      leaf.options.icon = next;
+      return leaf;
     }),
   };
   return leaf;
@@ -321,7 +321,7 @@ describe("icon dimension descriptor", () => {
     // row builder, and this covers the write + provenance face that the
     // panel invokes on a commit.
     const config = ICON_DIMENSION.value!(ui, "overlay1");
-    expect(config.field).toBe("type");
+    expect(config?.field).toBe("type");
     ICON_DIMENSION.write!(ui, "overlay1", {
       field: "type",
       mapping: { school: { kind: "symbol", value: "circle" } },
@@ -332,9 +332,10 @@ describe("icon dimension descriptor", () => {
     expect(
       getDimension(DIM.ICON)?.valueSource!(ui, "overlay1"),
     ).toBe("user");
-    if (ICON_DIMENSION.contentChange.kind === "frame") {
-      expect(ICON_DIMENSION.contentChange.when(ui, "overlay1")).toBe(true);
-      ICON_DIMENSION.contentChange.run(ui, "overlay1");
+    const policy = ICON_DIMENSION.contentChange;
+    if (policy?.kind === "frame") {
+      expect(policy.when!(ui, "overlay1")).toBe(true);
+      policy.run!(ui, "overlay1");
     } else {
       throw new Error("expected a frame policy");
     }
