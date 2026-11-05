@@ -186,11 +186,7 @@ describe("applyValueFill", () => {
     ]);
 
     expect(() =>
-      applyValueFill(
-        makeUI(layer),
-        "overlay1",
-        makeRamp({ method: METHOD.QUANTILE }),
-      ),
+      applyValueFill(makeUI(layer), "overlay1", makeRamp({ method: METHOD.QUANTILE })),
     ).not.toThrow();
 
     // The project logger namespaces the message and takes the error as its
@@ -507,11 +503,7 @@ describe("applyValueFill", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() =>
-      applyValueFill(
-        makeUI(layer),
-        "overlay1",
-        makeRamp({ method: "bogus" as never }),
-      ),
+      applyValueFill(makeUI(layer), "overlay1", makeRamp({ method: "bogus" as never })),
     ).not.toThrow();
 
     expect(warn.mock.calls[0][0]).toBe("[foliplus] value-based fill:");

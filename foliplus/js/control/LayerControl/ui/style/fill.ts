@@ -770,7 +770,10 @@ const declaredValue = (ui: LayerUI, layerId: string): FillValueConfig | undefine
 
 /** The value config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared value fill. */
-const effectiveFillValue = (ui: LayerUI, layerId: string): FillValueConfig | undefined =>
+const effectiveFillValue = (
+  ui: LayerUI,
+  layerId: string,
+): FillValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_RAMP) ?? declaredValue(ui, layerId);
 
 /** Whether a declaration names a value arm — the cheap form for gates that run
@@ -1228,7 +1231,8 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
-  fieldSelect.onchange = () => writeFillValue(ui, layerId, { field: fieldSelect.value });
+  fieldSelect.onchange = () =>
+    writeFillValue(ui, layerId, { field: fieldSelect.value });
 
   const methodSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
