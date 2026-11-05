@@ -460,18 +460,17 @@ class TestNormaliseFolder:
 
 # ── Module-constants placement guard ─────────────────────────────────────
 # A regression guard for the top-of-file "Module constants" block: every
-# module-level assignment must sit above the first function/class definition,
-# so a new constant cannot be dropped mid-module and escape the single block
-# the module docstring promises. Parametrised over the reader and its own test
-# module (the test module currently declares no module-level constant).
-@pytest.mark.parametrize(
-    "module_path",
-    ["foliplus/_declaration.py", "test/python/test__declaration.py"],
-)
-def test_module_constants_precede_the_first_definition(module_path: str) -> None:
-    module = Path(__file__).resolve().parents[2] / module_path
-    tree = ast.parse(module.read_text(encoding="utf-8"))
-    first_def = next(
+# module-level binding — plain assignment, annotated assignment, augmented
+# assignment, a module-level walrus, or an import — must sit above the first
+# function/class definition, so a new constant cannot be dropped mid-module
+# and escape the single block the module docstring promises. The check is
+# deliberately declaration-scoped: it inspects only the module body, never a
+# function/class body (a binding inside a definition is inherently after the
+# first definition and would be a false positive). Parametrised over the
+# reader and its own test module, plus negative fixtures that prove the
+# guard actually sees each late-binding shape it claims to.
+def _first_definition_line(tree: ast.Module) -> int | None:
+    return next(
         (
             node.lineno
             for node in tree.body
@@ -479,23 +478,77 @@ def test_module_constants_precede_the_first_definition(module_path: str) -> None
         ),
         None,
     )
-    assert first_def is not None, f"{module_path}: no function or class definition"
 
-    def _names(node: ast.AST) -> list[str]:
-        if isinstance(node, ast.AnnAssign):
-            return [node.target.id] if isinstance(node.target, ast.Name) else []
-        if isinstance(node, ast.Assign):
-            return [
-                target.id for target in node.targets if isinstance(target, ast.Name)
-            ]
+
+def _module_binding_names(node: ast.AST) -> list[str]:
+    """Names a module-level node binds, for the placement guard.
+
+    Declaration scope only: top-level ``Assign``/``AnnAssign``/``AugAssign``,
+    a bare module-level walrus (an ``Expr`` wrapping a ``NamedExpr``), and
+    imports. Function/class bodies are never entered, so their internal
+    bindings are invisible to the guard.
+    """
+    if isinstance(node, ast.AnnAssign):
+        return [node.target.id] if isinstance(node.target, ast.Name) else []
+    if isinstance(node, ast.Assign):
+        return [target.id for target in node.targets if isinstance(target, ast.Name)]
+    if isinstance(node, ast.AugAssign):
+        return [node.target.id] if isinstance(node.target, ast.Name) else []
+    if isinstance(node, ast.Expr) and isinstance(node.value, ast.NamedExpr):
+        return [node.value.target.id] if isinstance(node.value.target, ast.Name) else []
+    if isinstance(node, ast.Import):
+        return [alias.asname or alias.name for alias in node.names]
+    if isinstance(node, ast.ImportFrom):
+        return [alias.asname or alias.name for alias in node.names]
+    return []
+
+
+def _late_module_bindings(tree: ast.Module) -> list[tuple[str, int]]:
+    """Module-level bindings that land after the first definition."""
+    first_def = _first_definition_line(tree)
+    if first_def is None:
         return []
-
-    late = [
+    return [
         (name, node.lineno)
         for node in tree.body
-        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.lineno > first_def
-        for name in _names(node)
+        if node.lineno > first_def
+        for name in _module_binding_names(node)
     ]
-    assert not late, (
-        f"{module_path}: module assignments after the first definition: {late}"
+
+
+@pytest.mark.parametrize(
+    "module_path",
+    ["foliplus/_declaration.py", "test/python/test__declaration.py"],
+)
+def test_module_constants_precede_the_first_definition(module_path: str) -> None:
+    module = Path(__file__).resolve().parents[2] / module_path
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    assert _first_definition_line(tree) is not None, (
+        f"{module_path}: no function or class definition"
     )
+    late = _late_module_bindings(tree)
+    assert not late, (
+        f"{module_path}: module bindings after the first definition: {late}"
+    )
+
+
+@pytest.mark.parametrize(
+    "source, shape",
+    [
+        ("X = 1\ndef f():\n    pass\nX += 1\n", "AugAssign"),
+        ("def f():\n    pass\n(y := 5)\n", "module-level walrus"),
+        (
+            "def f():\n    pass\nimport os\nfrom os import path\n",
+            "import / import-from",
+        ),
+    ],
+)
+def test_guard_catches_late_module_bindings(source: str, shape: str) -> None:
+    """Negative fixtures: each late-binding shape must actually be caught.
+
+    A negative fixture that never fires would not exercise the branch it
+    claims to cover — the guard would be green regardless of whether the
+    branch exists. Each shape here must produce at least one late binding.
+    """
+    late = _late_module_bindings(ast.parse(source))
+    assert late, f"guard missed a late {shape} binding"
