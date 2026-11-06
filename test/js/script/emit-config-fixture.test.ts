@@ -26,7 +26,6 @@ const schema = {
       dynamic: false,
     },
   },
-  runtime_only: {},
   controls: {
     ExportControl: {
       filename: {

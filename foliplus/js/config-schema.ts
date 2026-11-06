@@ -131,10 +131,6 @@ interface ConfigSearch extends ConfigCommon {
   collapse_on_outside: boolean;
 }
 
-interface ConfigRuntimeOnly {
-  background?: string; // Export background color (currently declared but unread).
-}
-
 /** Flat CONFIG type for all controls. All fields optional except `name`. */
 interface ComponentConfig {
   name: string; // Control class name (Python self._name).
@@ -183,7 +179,6 @@ interface ComponentConfig {
   provider?: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
   provider_config?: ProviderConfig | null;
-  background?: string; // Export background color (currently declared but unread).
   /** Escape hatch for truly dynamic keys not in the schema. */
   [key: string]: unknown;
 }
@@ -202,6 +197,5 @@ export type {
   ConfigMeasure,
   ConfigScale,
   ConfigSearch,
-  ConfigRuntimeOnly,
   ComponentConfig,
 };
