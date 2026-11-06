@@ -189,6 +189,54 @@ describe("LayerInfoRegistry", () => {
       const info = registry.createLayerInfo({ id: "heat", canvas });
       expect(info.opacity).toBe(1);
     });
+
+    it("carries the author's declared folder", () => {
+      const info = registry.createLayerInfo({ id: "grouped", folder: "Basemap" });
+      expect(info.folder).toBe("Basemap");
+    });
+
+    it("defaults folder to null when the author declared nothing", () => {
+      expect(registry.createLayerInfo({ id: "bare" }).folder).toBeNull();
+    });
+
+    it("keeps the stored folder when a re-registration omits it", () => {
+      const info = registry.createLayerInfo(
+        { id: "overlay1" },
+        registry.createLayerInfo({ id: "overlay1", folder: "Basemap" }),
+      );
+      expect(info.folder).toBe("Basemap");
+    });
+
+    it("lets an explicit folder win on re-registration", () => {
+      const info = registry.createLayerInfo(
+        { id: "overlay1", folder: "Overlays" },
+        registry.createLayerInfo({ id: "overlay1", folder: "Basemap" }),
+      );
+      expect(info.folder).toBe("Overlays");
+    });
+
+    it("warns once and ignores a non-string folder", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = registry.createLayerInfo({
+        id: "bad",
+        folder: 7 as unknown as string,
+      });
+      expect(info.folder).toBeNull();
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy.mock.calls[0][0]).toContain("[LayerInfoRegistry]");
+      expect(String(warnSpy.mock.calls[0][0])).toContain(
+        'layer "bad" declares folder as number',
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("warns once and ignores a blank folder", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = registry.createLayerInfo({ id: "blank", folder: "   " });
+      expect(info.folder).toBeNull();
+      expect(warnSpy).toHaveBeenCalledOnce();
+      warnSpy.mockRestore();
+    });
   });
 
   describe("upsert", () => {

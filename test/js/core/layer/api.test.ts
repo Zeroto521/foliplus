@@ -69,6 +69,17 @@ describe("ensureLayerAPI", () => {
     expect(api.extractPoints("x")).toEqual([]);
     expect(api.getLayersByType("x")).toEqual([]);
   });
+  it("ignores a declared folder on the lightweight stub", () => {
+    // A map without LayerControl has no FolderStore; the lightweight
+    // ensureLayerAPI stub must accept a folder-bearing registerLayer call
+    // silently (no throw, no warn) and keep its empty layer list.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const api = ensureLayerAPI(map);
+    expect(() => api.registerLayer({ id: "third", folder: "Basemap" })).not.toThrow();
+    expect(api.layers).toEqual([]);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 
   it("returns existing LayerAPI when already present", () => {
     const existing = { layers: [{ id: "a" }] } as any;

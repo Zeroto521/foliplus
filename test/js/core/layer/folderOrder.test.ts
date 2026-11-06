@@ -236,3 +236,37 @@ describe("deleteFolderFromOrder", () => {
     expect(next.sections.base).toBeUndefined();
   });
 });
+
+describe("third-party same-name-same-role grouping", () => {
+  it("groups two third-party layers with the same folder name and role", () => {
+    // Two independently-registered third-party layers (same role, same folder
+    // display spelling) must land in ONE folder block.
+    const entries = [
+      li("third-a", "overlay", "Basemap"),
+      li("third-b", "overlay", "Basemap"),
+    ];
+    const order = sectionOrder("overlay", entries, EMPTY);
+    // One folder block: the two members are adjacent, folder first segment.
+    expect(order.map(l => l.id)).toEqual(["third-a", "third-b"]);
+  });
+
+  it("same normalised name, different display spelling, still one folder", () => {
+    const entries = [
+      li("third-a", "overlay", "Basemap"),
+      li("third-b", "overlay", "basemap"),
+    ];
+    const order = sectionOrder("overlay", entries, EMPTY);
+    expect(order.map(l => l.id)).toEqual(["third-a", "third-b"]);
+  });
+
+  it("same folder name, different role, stays separate", () => {
+    const entries = [
+      li("third-overlay", "overlay", "Basemap"),
+      li("third-base", "base", "Basemap"),
+    ];
+    const overlayOrder = sectionOrder("overlay", entries, EMPTY);
+    const baseOrder = sectionOrder("base", entries, EMPTY);
+    expect(overlayOrder.map(l => l.id)).toEqual(["third-overlay"]);
+    expect(baseOrder.map(l => l.id)).toEqual(["third-base"]);
+  });
+});
