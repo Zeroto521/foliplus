@@ -19,7 +19,7 @@ import {
   getColorScale,
 } from "#core/palette.js";
 
-/** The three inputs a ramp is built from — the persisted FillRampConfig's
+/** The three inputs a ramp is built from — the persisted FillValueConfig's
  *  values minus field, which selects the property key and is the caller's
  *  business, not the classifier's. */
 type RampConfig = {

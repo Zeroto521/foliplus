@@ -12,7 +12,7 @@
 // frame, so a scheme drag does not trigger a walk per input step.
 //
 // The user's solid-mode `fillOpacity` rides along on every fill leaf,
-// including ones the ramp cannot classify: a ramp replaces only the color,
+// including ones the value ramp cannot classify: the ramp replaces only the color,
 // so dropping the opacity here would make a mode switch back to solid silently
 // lose it, and a valueless leaf would keep the author's opacity next to the
 // user's on a classifiable neighbour of the same layer. `fillOpacity` is
@@ -20,12 +20,12 @@
 // value is replayed by the highlight pin.
 //
 // Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
-// reads the live fillRamp intent and the cached breaks. If the config
+// reads the live fillValue intent and the cached breaks. If the config
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
 import { DIM } from "#core/layer/index.js";
-import type { FillMode, FillRampConfig } from "#core/layer/intent.js";
+import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
 import {
   buildCategoryRamp,
   buildRamp,
@@ -60,21 +60,21 @@ type CollectedLeaf = {
   category: string | undefined;
 };
 
-/** Whether two ramp configs differ in a way that invalidates a cached
+/** Whether two value configs differ in a way that invalidates a cached
  *  breaks/scale pair. Every field counts: `field` because the collected
  *  values come from it, so a field change is a full rebuild, not a repaint;
  *  `kind` because another typing would build its breaks differently, so a
  *  same-named config for a different kind must not repaint off a numeric
  *  cache. An explicit "numeric" is read as the same typing as absence — the
  *  persistence reader strips it, so the two spellings are one config. */
-const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
+const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
   (a.kind ?? "numeric") === (b.kind ?? "numeric") &&
   a.field === b.field &&
   a.method === b.method &&
   a.classes === b.classes &&
   a.scheme === b.scheme;
 
-/** The stored fill arm. An absent mode defers to whether a ramp config
+/** The stored fill arm. An absent mode defers to whether a value config
  *  exists — the pre-fillMode record shape, where a config alone meant "paint
  *  by value". Every reader of the fill state goes through this (or the
  *  panel's own resolver in `fill.ts`, which adds the author's original-colors
@@ -86,39 +86,40 @@ const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillRampConfig | undefined,
+  ramp: FillValueConfig | undefined,
 ): FillMode =>
-  getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "ramp" : "solid");
+  getIntent(ui, layerId, INTENT.FILL_MODE) ??
+  (ramp !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
 
 /** Apply a value-based fill to one layer.
  *
  *  Two-pass walk: collect `feature.properties[field]` values, then write
  *  per-leaf fillColor via styleBag. Every fill leaf is written on every apply:
- *  one the ramp can classify gets the ramp's color, one it cannot gets the
+ *  one the value ramp can classify gets the ramp's color, one it cannot gets the
  *  author's own color and `fill` flag back, and both get the user's opacity.
  *
  *  Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter
- *  that reads the live fillRamp intent and uses the cached breaks to
- *  re-derive the leaf's color on mouseout. If the ramp config changed
+ *  that reads the live fillValue intent and uses the cached breaks to
+ *  re-derive the leaf's color on mouseout. If the value config changed
  *  since the cache was built, the getter returns null so folium's
  *  `resetStyle` is not overridden with a stale color — the next
  *  scheduler tick rebuilds the cache. */
-const applyRampToLayer = (
+const applyValueFill = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillRampConfig,
+  ramp: FillValueConfig,
   /** Resolve a stored config's field against the layer's current fields.
    *  The caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing: a stored field the
    *  data no longer offers would otherwise compare unequal to the resolved one
-   *  and the mouseout replay would drop the ramp color. Identity by default —
+   *  and the mouseout replay would drop the value color. Identity by default —
    *  a caller with no field list has nothing to resolve. */
-  resolveStored: (stored: FillRampConfig) => FillRampConfig = stored => stored,
+  resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
-   *  or the author's declared ramp when the user has not chosen one. Without
-   *  it a declared ramp would be dropped by folium's `resetStyle` on the first
+   *  or the author's declared value fill when the user has not chosen one. Without
+   *  it a declared value fill would be dropped by folium's `resetStyle` on the first
    *  hover, leaving the author's flat face under a by-value panel. */
-  liveRamp: () => FillRampConfig | undefined = () =>
+  liveRamp: () => FillValueConfig | undefined = () =>
     getIntent(ui, layerId, INTENT.FILL_RAMP),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
@@ -139,7 +140,7 @@ const applyRampToLayer = (
   // ── Pass 1: collect values ──
   // The collection is local to this call on purpose. A module-level scratch
   // would be shared with a re-entrant apply - a setStyle that triggers
-  // another layer's ramp would clear this walk's entries mid-pass and the
+  // another layer's value fill would clear this walk's entries mid-pass and the
   // surviving leaves would be repainted with the author's color - and it
   // would keep every leaf of the last painted layer alive between applies.
   const values: number[] = [];
@@ -215,14 +216,14 @@ const applyRampToLayer = (
         ? colorFor(scale, value)
         : undefined;
     if (paint !== undefined) {
-      // The ramp owns this leaf's color, so `fill` is lit and the author's
+      // The value ramp owns this leaf's color, so `fill` is lit and the author's
       // color is replaced. The payload stays minimal: a named color replaces
       // whatever the previous arm left in that slot, and the opacity is named
       // only when the user chose one, so the author's stays in force.
       write.fillColor = paint;
       commitStyleDim(leaf, write, FACE.FILL);
     } else {
-      // Outside the ramp's reach: the author's color and `fill` flag —
+      // Outside the value ramp's reach: the author's color and `fill` flag —
       // `fill: false` on a hollow layer — ride the merge untouched, but the
       // user's opacity still does. Restoring the whole face would leave the
       // author's opacity next to the user's on a classifiable neighbour of
@@ -235,16 +236,16 @@ const applyRampToLayer = (
       if (!stored) return null;
       // Resolve the live record exactly as the paint did, or a stale field
       // name compares unequal to the resolved config and the replay drops the
-      // ramp color on the first mouseout.
+      // value color on the first mouseout.
       const currentRamp = resolveStored(stored);
       // The arm changed since the cache was built: the solid commit owns the
       // leaf now, and this getter must not replay a color the active mode
-      // does not own (a mode switch back to solid that leaves the ramp config
-      // stored would otherwise re-apply the ramp on every mouseout).
-      if (resolveFillMode(ui, layerId, currentRamp) !== "ramp") return null;
+      // does not own (a mode switch back to solid that leaves the value config
+      // stored would otherwise re-apply the value fill on every mouseout).
+      if (resolveFillMode(ui, layerId, currentRamp) !== FILL_MODE.VALUE) return null;
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
-      if (!sameRampConfig(currentRamp, ramp)) return null;
+      if (!sameValueConfig(currentRamp, ramp)) return null;
       const op = readOpacity();
       const curVal = leafPropertyValue(leaf, ramp.field);
       if (category && catScale !== null) {
@@ -264,7 +265,7 @@ const applyRampToLayer = (
           FACE.FILL,
         );
       }
-      // Out of the ramp's reach: folium's restore already gave the author's
+      // Out of the value ramp's reach: folium's restore already gave the author's
       // color and `fill` flag back, so the only thing worth re-applying on
       // top of it is the user's opacity. With none chosen there is nothing
       // to add, and null lets the restore stand instead of rewriting it.
@@ -274,4 +275,4 @@ const applyRampToLayer = (
   }
 };
 
-export { applyRampToLayer, resolveFillMode };
+export { applyValueFill, resolveFillMode };

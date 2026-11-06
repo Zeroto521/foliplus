@@ -9,7 +9,6 @@
 // coordinate algorithm (the `position` callback, re-run on every re-pin), the
 // value/aria model, and dismissal. The listbox engine and the search panel
 // share one implementation so a listener-lifecycle fix lands once.
-import { bindWheelContainment } from "#common/dom.js";
 
 /** The covering surface contract: where an open popup mounts and how it hears
  *  that the surface changed (native fullscreen, pseudo-fullscreen). */
@@ -48,20 +47,18 @@ const hostFor = (opts: FloatingOptions): HTMLElement =>
   (document.fullscreenElement as HTMLElement | null) ??
   document.body;
 
-/** Wheel containment over a floating root. "always" stops propagation
- *  unconditionally (the listbox rule); "contain" stops only a wheel that can
- *  actually scroll the root (the search panel's boundary-aware rule).
+/** Wheel containment over a floating root: unconditionally swallow the wheel
+ *  so it never bubbles to the map container, where Leaflet's scrollWheelZoom
+ *  would zoom the map. The former boundary-aware "contain" mode was removed:
+ *  it only stopped a wheel that could actually scroll the root, so a wheel at
+ *  a boundary or over a non-overflowing root (scrollHeight <= clientHeight, or
+ *  deltaY === 0) kept bubbling and the map zoomed — the user-visible bug. The
+ *  shared rule is "always" (the listbox rule): the inner native scroll keeps
+ *  working because we stop propagation only, never preventDefault.
  *  Attached once for the root's lifetime — it must be in place whether the
  *  layer mounts inline (CSS-anchored) or portalled, so the caller binds it at
  *  element creation, not per mount. */
-const bindFloatingWheel = (
-  root: HTMLElement,
-  mode: "always" | "contain" = "always",
-): void => {
-  if (mode === "contain") {
-    bindWheelContainment(root);
-    return;
-  }
+const bindFloatingWheel = (root: HTMLElement): void => {
   root.addEventListener("wheel", event => event.stopPropagation());
 };
 

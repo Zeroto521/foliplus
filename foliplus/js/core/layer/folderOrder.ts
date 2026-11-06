@@ -186,4 +186,4 @@ export {
   freezeSectionOrder,
   deleteFolderFromOrder,
 };
-export type { FolderOrder };
+export type { FolderOrder, FolderSection };

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from pathlib import Path
 
 import folium
@@ -25,6 +26,7 @@ from conftest import (
     use_raw_page,
 )
 from folium import Element
+from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -925,6 +927,239 @@ class TestLayerControlBrowser:
             assert result["annotatedLabelBakeAlpha"] == 0, result
             assert result["neighborAnnotationPaneExists"] is True, result
             assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_fill_two_layers_keep_their_own_color(self, browser, tmp_path):
+        """A solid fill write on one layer never bleeds onto another layer.
+
+        commitStyleDim / styleBag commit the fill by layer and surface in one
+        batch, so a “write串” (A's color landing on B) is exactly the bug this
+        guards. Two GeoJSON polygon layers are driven to distinct solid fills,
+        then A is restyled and the OTHER pane's path fill/stroke must be
+        byte-identical to its baseline — the hard “no cross-layer bleed”
+        evidence, not just “B is still blue”. The map is read by grouping
+        every SVG path by its owning pane (each layer migrates to its own pane).
+        """
+
+        def poly(name: str) -> folium.GeoJson:
+            """One polygon layer with a numeric field so the fill row exists."""
+            return folium.GeoJson(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"value": i},
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [119.28 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.06],
+                                        ]
+                                    ],
+                                },
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                ),
+                name=name,
+            )
+
+        first = poly("IsoLayerA")
+        second = poly("IsoLayerB")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="fill_two_layer_iso"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Baseline: give layer A a red solid fill.
+            a_red = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#ff0000"},
+            )
+            assert a_red.get("ok"), f"write A failed: {a_red}"
+            assert len(a_red["panes"]) >= 2, f"expected 2 pane groups: {a_red}"
+
+            # Give layer B a blue solid fill, then snapshot every pane.
+            b_blue = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerB", "color": "#0000ff"},
+            )
+            assert b_blue.get("ok"), f"write B failed: {b_blue}"
+            panes_before = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in b_blue["panes"]
+            }
+            assert len(panes_before) >= 2, f"pane groups: {b_blue}"
+
+            # The two pane groups must not share a fill (distinct colors).
+            all_fills = [set(p["fills"]) for p in b_blue["panes"]]
+            assert all(len(s) == 1 for s in all_fills), f"not solid: {all_fills}"
+            assert len({next(iter(s)) for s in all_fills}) == len(all_fills), (
+                f"panes share a fill: {all_fills}"
+            )
+
+            # Restyle A to a third color; every OTHER pane stays byte-identical.
+            a_green = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#00ff00"},
+            )
+            assert a_green.get("ok"), f"re-write A failed: {a_green}"
+            panes_after = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in a_green["panes"]
+            }
+            # Find the pane whose fill changed (A's) and assert every other pane unchanged.
+            changed = [
+                cls for cls in panes_after if panes_after[cls] != panes_before.get(cls)
+            ]
+            assert changed, (
+                f"A restyle changed nothing: {panes_before} vs {panes_after}"
+            )
+            for cls in panes_after:
+                if cls not in changed:
+                    assert panes_after[cls] == panes_before[cls], (
+                        f"pane {cls} bled: {panes_before[cls]} != {panes_after[cls]}"
+                    )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_fill_two_layers_keep_their_own_color_across_reload(
+        self, browser, tmp_path
+    ):
+        """A persisted solid fill survives a page reload, per layer, with no decay.
+
+        The write is persisted to localStorage and re-applied by the attach
+        sweep on the next load. The failure this guards is not "the color came
+        back wrong" (a wrong color is loud) but "the color silently decayed to
+        the author default" — a reload can drop a layer back to its original
+        fill while the row still reads the user's color, which is the quiet
+        regression. Two layers are set to distinct solid fills, then the page
+        reloads and every pane's path fill/stroke must be byte-identical to its
+        pre-reload snapshot (and no pane may decay to the default blue).
+        """
+
+        def poly(name: str) -> folium.GeoJson:
+            """One polygon layer with a numeric field so the fill row exists."""
+            return folium.GeoJson(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"value": i},
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [119.28 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.06],
+                                        ]
+                                    ],
+                                },
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                ),
+                name=name,
+            )
+
+        first = poly("IsoLayerA")
+        second = poly("IsoLayerB")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="fill_reload_iso"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Set A red, B blue through the real user write path.
+            a_red = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#ff0000"},
+            )
+            assert a_red.get("ok"), f"write A failed: {a_red}"
+            b_blue = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerB", "color": "#0000ff"},
+            )
+            assert b_blue.get("ok"), f"write B failed: {b_blue}"
+            panes_before = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in b_blue["panes"]
+            }
+            assert len(panes_before) >= 2, f"pane groups before reload: {b_blue}"
+
+            # Reload; the attach sweep must re-apply the persisted fill.
+            # Wait for the real signal — both colours present in the persisted
+            # record — rather than sleeping on the 100ms write debounce. A fixed
+            # sleep is either flaky (too short when the CI box is loaded) or
+            # wasteful, and this test guards persistence: it must not guess.
+            deadline = time.monotonic() + 5
+            persisted = None
+            while time.monotonic() < deadline:
+                persisted = page.evaluate(_js("LayerControl/read_persisted_record"))
+                stored = json.dumps(persisted) if persisted else ""
+                if "#ff0000" in stored and "#0000ff" in stored:
+                    break
+                time.sleep(0.05)
+            else:
+                raise AssertionError(
+                    f"fill never reached storage within 5s: {persisted}"
+                )
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            panel_ready(page)
+            # No write path is driven here: this snapshot is read-only, so any
+            # restored color came from the attach sweep, not from us.
+            after = page.evaluate(_js("LayerControl/fill_reload_read"))
+            assert after.get("ok"), f"read after reload failed: {after}"
+            panes_after = {p["cls"]: (p["fills"], p["strokes"]) for p in after["panes"]}
+            assert len(panes_after) >= 2, f"pane groups after reload: {after}"
+
+            # Every pane must be byte-identical to its pre-reload snapshot.
+            for cls in panes_before:
+                assert cls in panes_after, (
+                    f"pane {cls} missing after reload: {sorted(panes_after)}"
+                )
+                assert panes_after[cls] == panes_before[cls], (
+                    f"pane {cls} changed across reload: {panes_before[cls]} != {panes_after[cls]}",
+                )
+
+            # The anti-decay guard: no pane may carry the default blue fill
+            # unless it did so before the reload.
+            for cls, (fills, _) in panes_after.items():
+                assert (
+                    "#3388ff" not in fills
+                    or "#3388ff" in panes_before.get(cls, ([], []))[0]
+                ), (f"pane {cls} decayed to default blue after reload: {fills}",)
+            # The record itself must survive the reload: the colours above come
+            # from localStorage, so a record that lost a layer would leave the
+            # attach sweep nothing to re-apply even while the panes look right.
+            stored_after = page.evaluate(_js("LayerControl/read_persisted_record"))
+            assert stored_after, "the persisted record vanished across the reload"
+            assert len(stored_after.get("layers") or {}) >= 2, (
+                f"a layer dropped out of the persisted record: {stored_after}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
@@ -4876,11 +5111,24 @@ class TestLayerControlBrowser:
             panel_ready(page)
             item = page.query_selector(".foliplus-layer-item")
             assert item is not None, "no layer row rendered"
+            # Register a one-shot signal: the fitBounds `moveend` is the
+            # deterministic "animation settled" marker. The mask is drawn
+            # synchronously *before* fitBounds (drawFocusMask), so by this
+            # moveend the post-fitBounds viewport is live and the mask is
+            # still shown — registerAutoCancel dismisses it only 1050ms
+            # after this same moveend. Reading right at the signal removes
+            # the fixed-sleep race against that dismiss window.
+            page.evaluate(snippet("LayerControl/arm_fit_settled"))
             item.dispatch_event("dblclick")
-            # fitBounds animates for 600ms; registerAutoCancel gives a
-            # 1050ms grace period after the animation. Read inside that
-            # window so the mask is still live.
-            page.wait_for_timeout(1100)
+            try:
+                page.wait_for_function(
+                    snippet("LayerControl/fit_settled"), timeout=5000
+                )
+            except TimeoutError:
+                pytest.fail(
+                    "fitBounds did not settle (__fitSettled) within 5s — "
+                    "the focus mask read window raced; probe was not run"
+                )
             result = page.evaluate(_js("LayerControl/focus_mask_covers_viewport"))
             assert result is not None, "focus_mask_covers_viewport failed"
             assert "error" not in result, f"probe error: {result}"
@@ -6087,6 +6335,61 @@ class TestLayerControlBrowser:
             assert result["panelWidthToken"] == "280px", result
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_fill_ramp_paints_the_map_by_value(self, browser, tmp_path):
+        """The by-value arm repaints the map, and solid flattens it back.
+
+        The ramp arm maps each polygon's numeric property to a color, so the
+        rendered SVG carries one fill per value. Reading the panel's color bar
+        only proves the DOM changed; this reads the map's own path elements
+        under the leaflet-map-pane and asserts the real paint. Switching to the
+        solid arm flattens every polygon to the same fill, so the distinct
+        painted-fill set collapses to one — the negative control that a single
+        color really is one color, and that "ramp" was what made them differ.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_fill_ramp_paints_map",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            # The ramp arm is the default for a numeric field, but set it
+            # explicitly so the assertion targets the arm, not an accident of
+            # the default.
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "value"}
+            )
+            assert set_mode["ok"], f"could not enter the value arm: {set_mode}"
+            page.wait_for_timeout(300)
+
+            ramp = page.evaluate(_js("LayerControl/read_map_fills"))
+            assert ramp["count"] >= 3, (
+                f"expected at least the three polygons painted, got {ramp}"
+            )
+            assert ramp["present"] >= 3, (
+                f"the ramp arm did not paint distinct per-value fills: {ramp}"
+            )
+            assert len(ramp["fills"]) >= 3, (
+                f"the ramp arm did not paint at least three distinct colors: {ramp}"
+            )
+
+            # Negative control: the solid arm paints every polygon the same
+            # fill, so the distinct painted-fill set collapses to one value.
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "solid"}
+            )
+            assert set_mode["ok"], f"could not enter the solid arm: {set_mode}"
+            page.wait_for_timeout(300)
+
+            solid = page.evaluate(_js("LayerControl/read_map_fills"))
+            assert solid["count"] >= 3, f"the solid arm dropped polygons: {solid}"
+            assert solid["present"] == 1, (
+                f"the solid arm did not flatten to one fill: {solid}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_row_panels_pin_only_on_request(self, browser, tmp_path):
@@ -7601,4 +7904,38 @@ class TestLayerControlBrowser:
             assert after["zoomBefore"] == before_zoom, (before_zoom, after)
             # The popup is still open and still usable.
             assert after["listOpen"] is True, after
+            assert not errors, f"JS errors: {errors}"
+
+    def test_folder_delete_clean_entries(self, browser, tmp_path):
+        """The section header's clean-empty-folders button is the real end-to-end
+        coverage of the empty-folder cleanup path.
+
+        A folder layer is registered and then deleted, so #911's empty-folder
+        freeze leaves a key with no live member; the header renders with a clean
+        button. Clicking it removes the stale key and the button itself. The
+        three empty-folder cleanup probes are referenced here so the browser-probe inventory
+        sees them as reachable, not orphaned.
+        """
+        layer = folium.GeoJson(_geo_mixed, name="Roads")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            panel_ready(page)
+
+            seeded = page.evaluate(_js("LayerControl/seed_empty_folder"))
+            assert seeded and seeded.get("deleted") is True, seeded
+            assert seeded.get("header") is True, seeded
+
+            header = page.evaluate(_js("LayerControl/read_folder_header"))
+            assert header and header.get("exists") is True, header
+            cleanup = header.get("cleanup")
+            assert cleanup and cleanup.get("count", 0) >= 1, header
+            assert cleanup.get("ariaLabel"), header
+
+            counted = page.evaluate(_js("LayerControl/count_panel_rows"))
+            assert counted and counted.get("headerCount", 0) >= 1, counted
+
+            clicked = page.evaluate(_js("LayerControl/click_folder_cleanup"))
+            assert clicked and clicked.get("clicked") is True, clicked
+            assert clicked.get("remainingCount") == 0, clicked
+            assert clicked.get("buttonGone") is True, clicked
+
             assert not errors, f"JS errors: {errors}"

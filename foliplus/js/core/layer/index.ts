@@ -39,7 +39,7 @@ export {
   freezeSectionOrder,
   deleteFolderFromOrder,
 } from "./folderOrder.js";
-export type { FolderOrder } from "./folderOrder.js";
+export type { FolderOrder, FolderSection } from "./folderOrder.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -101,7 +101,7 @@ export {
   serializedFilters,
   storeFilter,
 } from "./filter.js";
-export { INTENT, isFillRampConfig, isIconConfig, LIVE, STYLE_KEYS } from "./intent.js";
+export { FILL_MODE, INTENT, isFillValueConfig, isIconConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type {
   FilterDimension,
@@ -120,7 +120,7 @@ export type {
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
-  FillRampConfig,
+  FillValueConfig,
   IconConfig,
   IconIntent,
   IntentKey,

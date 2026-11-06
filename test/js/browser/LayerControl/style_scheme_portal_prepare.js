@@ -10,8 +10,8 @@ async () => {
   if (!panel) return { ok: false, reason: "no-panel" };
   const mode = panel.querySelector(".foliplus-style-fill-mode-select");
   if (!mode) return { ok: false, reason: "no-mode-select" };
-  if (mode.value !== "ramp") {
-    mode.value = "ramp";
+  if (mode.value !== "value") {
+    mode.value = "value";
     mode.dispatchEvent(new Event("change", { bubbles: true }));
     // The row rebuilds its detail for the new arm; let it settle so the trigger
     // measured below is the live one with its picker bound.

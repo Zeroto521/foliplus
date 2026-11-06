@@ -28,7 +28,12 @@ import {
 } from "#core/field.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
-import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
+import {
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+  type LayerOverride,
+} from "#core/layer/intent.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
@@ -57,7 +62,7 @@ import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
+import { applyValueFill, resolveFillMode } from "./fillValue.js";
 import { layerFields } from "./label.js";
 import { originalGradient } from "./originalColor.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -142,7 +147,7 @@ const toHexColor = (value: string): string => {
 /** Every fill-dimension intent key the user can own. The reset list, the
  *  valueSource check and the replay guard must agree on this set, so they
  *  name one array instead of each spelling the four keys — adding a key and
- *  updating only one of the three is the bug a reload with a persisted ramp
+ *  updating only one of the three is the bug a reload with a persisted value fill
  *  would otherwise hide. */
 const FILL_INTENT_KEYS: readonly LayerOverride[] = [
   INTENT.FILL_COLOR,
@@ -172,31 +177,31 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
 
   // Arm selection goes through the panel's resolver: an absent mode is solid,
-  // a ramp config with no explicit mode is the pre-fillMode record shape (so
+  // a value config with no explicit mode is the pre-fillMode record shape (so
   // the config's presence alone means "paint by value"), and an explore layer
   // with neither is in the author's own original colors. The arms are mutually
   // exclusive on apply, even though every config stays stored (a mode switch
   // back must restore the other arm).
-  // A declared ramp (#789) is a read-time default, so this arm can be "ramp"
-  // with nothing in the intent store: `effectiveFillRamp` is the same chain
+  // A declared value fill (#789) is a read-time default, so this arm can be "value"
+  // with nothing in the intent store: `effectiveFillValue` is the same chain
   // the panel reads, so the map and the row cannot disagree about it.
-  const ramp = effectiveFillRamp(ui, layerId);
+  const ramp = effectiveFillValue(ui, layerId);
   const mode = displayFillMode(ui, layerId);
 
-  if (mode === "ramp" && ramp !== undefined) {
-    // A solid-color basemap has no leaves to classify, so a ramp degrades to
+  if (mode === FILL_MODE.VALUE && ramp !== undefined) {
+    // A solid-color basemap has no leaves to classify, so a value fill degrades to
     // the authored pane paint instead of painting nothing.
     if (!isColorBasemap(layerInfo)) {
       // Paint the column the row shows: the stored config's field resolved
-      // against the current data, the same rule `rampForUi` applies. The live
+      // against the current data, the same rule `valueForUi` applies. The live
       // reader is that chain again, so the highlight pin replays the declared
-      // ramp on mouseout instead of folium's flat author face.
-      applyRampToLayer(
+      // value fill on mouseout instead of folium's flat author face.
+      applyValueFill(
         ui,
         layerId,
-        resolvedRamp(ui, layerId, ramp)!,
-        stored => resolvedRamp(ui, layerId, stored)!,
-        () => effectiveFillRamp(ui, layerId),
+        resolvedValue(ui, layerId, ramp)!,
+        stored => resolvedValue(ui, layerId, stored)!,
+        () => effectiveFillValue(ui, layerId),
       );
     }
     return;
@@ -207,7 +212,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // restores each leaf's captured author face. They stay in the intent record
   // rather than being cleared, so a later switch back to solid still restores
   // the user's color and opacity.
-  const original = mode === "original";
+  const original = mode === FILL_MODE.ORIGINAL;
   const color = original ? undefined : getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = original ? undefined : getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
@@ -253,7 +258,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     } else if (hasOverride) {
       // An opacity-only commit replaces nothing but the opacity, so the
       // previous arm's color would ride under it: pull the author's keys
-      // back in the same payload. The pin below replaces any ramp getter
+      // back in the same payload. The pin below replaces any value getter
       // still holding this leaf.
       commitStyleDimMerged(node, values, FACE.FILL, true);
     } else {
@@ -274,7 +279,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       // already put them back, so there is no user face to replay over it. The
       // arm is resolved, not read off the intent, because an explore layer
       // opens in it before any mode has been written.
-      if (displayFillMode(ui, layerId) === "original") return null;
+      if (displayFillMode(ui, layerId) === FILL_MODE.ORIGINAL) return null;
       const c = getIntent(ui, layerId, INTENT.FILL_COLOR);
       const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
       if (c === undefined && o === undefined) return null;
@@ -380,31 +385,31 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
  *  record is the gate, so a stored "original" on any other layer (or on a
  *  layer whose record has since disappeared) reads as the normal arms instead
  *  of a state the layer cannot paint. Before any fill intent exists an explore
- *  layer opens on its author's colors without writing one — a stored ramp
+ *  layer opens on its author's colors without writing one — a stored value fill
  *  config is the pre-fillMode shape of "the user already classified". */
 const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
   const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
   const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
   // One precedence chain, highest first:
   //   1. an explicit arm the user stored (INTENT.FILL_MODE);
-  //   2. the author's declared ramp (#789) — a real instruction, so it
+  //   2. the author's declared value fill (#789) — a real instruction, so it
   //      outranks the presentation state detected from the author's paint;
   //   3. the detected per-feature state, the pre-fillMode record shape and
   //      the built-in fallback, in the order below.
   // (2) cannot shadow (1): `declaredFill` reads undefined the moment either
   // fill intent exists, so a stored arm is never overridden by a declaration.
   if (stored !== undefined) return stored;
-  if (declaredRamp(ui, layerId)) return "ramp";
+  if (declaredValue(ui, layerId)) return FILL_MODE.VALUE;
   if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, ramp);
-  // A ramp config means the user already classified (the pre-fillMode record
+  // A value config means the user already classified (the pre-fillMode record
   // shape). A lone fill color means the solid arm owns the paint — that is how
   // a record written before this arm existed still reads, and how a
   // programmatic color write lands. Opacity alone does not move the arm: it
   // rides both arms, and an explore layer with only an opacity override is
   // still painting its author's colors.
-  if (ramp !== undefined) return "ramp";
-  if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return "solid";
-  return "original";
+  if (ramp !== undefined) return FILL_MODE.VALUE;
+  if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return FILL_MODE.SOLID;
+  return FILL_MODE.ORIGINAL;
 };
 
 /** What the author's strip is, in the author's own terms.
@@ -513,7 +518,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   colorsBox.setAttribute("aria-label", caption);
 
   // Row order matches the by-value arm: Field, Method, Scheme. The method and
-  // class count share one row (the by-value rampForm classes row's shape): a
+  // class count share one row (the by-value valueForm classes row's shape): a
   // single style_method label with two read-only boxes side by side, the method
   // box filling the control column (the by-value method select's role) and the
   // count box taking the compact secondary width (the class-count select's
@@ -521,7 +526,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   //
   // The method readout is honest to the record. A continuous scale is a
   // LinearColormap — the default explore mapping, an equally spaced interval
-  // ramp — and states Equal Interval. A stepped scale states Equal Interval
+  // value fill — and states Equal Interval. A stepped scale states Equal Interval
   // only when the record proves it (``method: "equal"`` — the breaks are
   // equally spaced, see ``_fill_author.provable_equal_interval``); a stepped
   // scale whose method is null or absent (quantiles/jenks/heads are not
@@ -535,7 +540,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // value, not an action.
   // The recorded method is what Python proved from the shipped breaks; the
   // continuous arm keeps its own honest Equal Interval (a LinearColormap is
-  // an interval ramp by construction). A stepped scale reads "Equal
+  // an interval value fill by construction). A stepped scale reads "Equal
   // Interval" only when the record carries method: "equal", else the dash.
   const methodBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD,
@@ -581,13 +586,13 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedRamp = (ramp: FillRampConfig): FillRampConfig =>
+const persistedValue = (ramp: FillValueConfig): FillValueConfig =>
   ramp.kind === "category"
     ? {
         kind: "category",
         field: ramp.field,
         // method/classes are type-required (the union stays assignable to
-        // the numeric RampConfig) but unused at runtime on a category.
+        // the numeric ValueConfig) but unused at runtime on a category.
         method: ramp.method,
         classes: ramp.classes,
         scheme: ramp.scheme,
@@ -602,14 +607,14 @@ const persistedRamp = (ramp: FillRampConfig): FillRampConfig =>
 
 /** The scheme picker owned by the open style panel. It installs
  *  document-level listeners while its listbox is open, so the panel must
- *  destroy it when it closes or rebuilds the ramp detail; one entry per UI
+ *  destroy it when it closes or rebuilds the value detail; one entry per UI
  *  because a map owns one LayerControl instance. */
 const schemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
 /** Unregister for the picker's overlay-registry entry (one per UI). */
 const schemePickerOverlayByUi = new WeakMap<LayerUI, () => void>();
 
 /** Destroy the panel's scheme picker, if any. Idempotent; also called when a
- *  mode switch rebuilds the ramp detail so a stale picker cannot answer the
+ *  mode switch rebuilds the value detail so a stale picker cannot answer the
  *  next click. */
 const disposeFillRow = (ui: LayerUI): void => {
   schemePickerOverlayByUi.get(ui)?.();
@@ -618,7 +623,7 @@ const disposeFillRow = (ui: LayerUI): void => {
   schemePickerByUi.delete(ui);
 };
 
-/** Numeric field names offered by the ramp field picker. The annotation
+/** Numeric field names offered by the value field picker. The annotation
  *  panel's field cache is the primary source (it is already computed and
  *  invalidated with the layer's features); a tree walk is the fallback for a
  *  layer whose cache has not been populated yet. Order is first-seen, so the
@@ -650,20 +655,20 @@ const categoryFields = (ui: LayerUI, layerId: string): string[] => {
   return layer ? categoricalPropertiesKeys(layer) : [];
 };
 
-/** Resolve a stored ramp config's field against the fields the layer offers
- *  right now. Display (`rampForUi`), the dimension's value and the paint path
+/** Resolve a stored value config's field against the fields the layer offers
+ *  right now. Display (`valueForUi`), the dimension's value and the paint path
  *  all go through this, so a stale stored name cannot make the panel show one
  *  column while the map paints by the author's face. The stored record keeps
  *  its name until the next write — the column may come back. The candidate
- *  list follows the ramp kind: a category ramp resolves against the
- *  categorical columns, a numeric ramp against the numeric ones — the kind
+ *  list follows the value kind: a category value fill resolves against the
+ *  categorical columns, a numeric value fill against the numeric ones — the kind
  *  is part of the record, so a same-named column in the other set must not
  *  be re-pointed at. */
-const resolvedRamp = (
+const resolvedValue = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillRampConfig | undefined,
-): FillRampConfig | undefined =>
+  ramp: FillValueConfig | undefined,
+): FillValueConfig | undefined =>
   ramp === undefined
     ? undefined
     : {
@@ -702,14 +707,14 @@ const warnDeclaredFillInference = (
 
 /** The author's fill declaration in force on this layer, or undefined.
  *
- *  A declaration is a read-time default, not user intent: any fill ramp or
+ *  A declaration is a read-time default, not user intent: any fill value or
  *  mode intent means the user owns the arm and the declaration steps aside
- *  (the same rule the detected per-feature state follows). A declared ramp is
+ *  (the same rule the detected per-feature state follows). A declared value fill is
  *  only in force while the data still offers its column — a declaration whose
  *  field vanished is not silently re-pointed at another column; the whole
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
+const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
@@ -723,7 +728,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined 
   // arm the values can drive. A field that cannot drive one kind (mixed
   // number/category values) or drives none (all null / no feature) drops the
   // declaration whole rather than painting one arm over a mismatched column.
-  let config: FillRampConfig = declared;
+  let config: FillValueConfig = declared;
   if (declared.kind === undefined) {
     const inferred = inferFieldKind(layer, declared.field);
     if (inferred === "mixed" || inferred === "empty") {
@@ -739,14 +744,14 @@ const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined 
             // author who named none gets the category default; a named scheme
             // is the author's choice and is kept verbatim on either arm.
             scheme:
-              declared.scheme === CONST.RAMP.SCHEME_DEFAULT
-                ? CONST.RAMP.CATEGORY_SCHEME_DEFAULT
+              declared.scheme === CONST.FILL_VALUE.SCHEME_DEFAULT
+                ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
                 : declared.scheme,
           }
         : { ...declared, kind: "numeric" };
   }
-  // The declaration kind selects the candidate set: a category ramp
-  // needs its column among the categorical fields, a numeric ramp among
+  // The declaration kind selects the candidate set: a category value fill
+  // needs its column among the categorical fields, a numeric value fill among
   // the numeric ones. A declaration whose field vanished from the matching
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
@@ -757,7 +762,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined 
   return fields.includes(config.field) ? config : undefined;
 };
 
-/** A fill ramp the layer *declares* from Python (#789).
+/** A fill value the layer *declares* from Python (#789).
  *
  *  The declaration sits in the same chain as the user's intent, not beside
  *  it: it is a read-time default the panel and the paint both read, so a
@@ -765,17 +770,20 @@ const declaredFill = (ui: LayerUI, layerId: string): FillRampConfig | undefined 
  *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined =>
+const declaredValue = (ui: LayerUI, layerId: string): FillValueConfig | undefined =>
   declaredFill(ui, layerId);
 
-/** The ramp config the fill paints and reports when the user has not chosen:
- *  the stored intent, else the author's declared ramp. */
-const effectiveFillRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined =>
-  getIntent(ui, layerId, INTENT.FILL_RAMP) ?? declaredRamp(ui, layerId);
+/** The value config the fill paints and reports when the user has not chosen:
+ *  the stored intent, else the author's declared value fill. */
+const effectiveFillValue = (
+  ui: LayerUI,
+  layerId: string,
+): FillValueConfig | undefined =>
+  getIntent(ui, layerId, INTENT.FILL_RAMP) ?? declaredValue(ui, layerId);
 
-/** Whether a declaration names a ramp arm — the cheap form for gates that run
+/** Whether a declaration names a value arm — the cheap form for gates that run
  *  before an apply allocates its scheduler box (no field resolution). */
-const hasDeclaredRamp = (ui: LayerUI, layerId: string): boolean => {
+const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   return (
     readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared !==
@@ -783,19 +791,19 @@ const hasDeclaredRamp = (ui: LayerUI, layerId: string): boolean => {
   );
 };
 
-/** The ramp config a first switch to the by-value arm starts from. The field
+/** The value config a first switch to the by-value arm starts from. The field
  *  is the caller's seed field; method/classes/scheme come from the shared
  *  bounds, so the first render and the persistence validator agree on what a
  *  legal record looks like. */
-const defaultRampConfig = (
+const defaultValueConfig = (
   field: string,
   classes: number = CLASS_COUNT.DEFAULT,
-): FillRampConfig => ({
+): FillValueConfig => ({
   kind: "numeric",
   field,
-  method: CONST.RAMP.METHOD_DEFAULT,
+  method: CONST.FILL_VALUE.METHOD_DEFAULT,
   classes,
-  scheme: CONST.RAMP.SCHEME_DEFAULT,
+  scheme: CONST.FILL_VALUE.SCHEME_DEFAULT,
 });
 
 /** The column the first user classification starts from: the author's scale
@@ -820,32 +828,32 @@ const seedClasses = (ui: LayerUI, layerId: string): number => {
     : CLASS_COUNT.DEFAULT;
 };
 
-/** The config the ramp detail displays and writes from — one chain:
- *  the user's intent, then a declared ramp (#789), then the seed. A stored
+/** The config the value detail displays and writes from — one chain:
+ *  the user's intent, then a declared value fill (#789), then the seed. A stored
  *  field the current data no longer offers is resolved to the first offered
  *  field through the shared `resolveField` rule — the same rule the paint side
  *  uses, so the row and the map cannot disagree about which column is in use. */
-const rampForUi = (
+const valueForUi = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-): FillRampConfig => {
-  const stored = resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP));
+): FillValueConfig => {
+  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP));
   if (stored) return stored;
-  const declared = resolvedRamp(ui, layerId, declaredRamp(ui, layerId));
+  const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
   if (declared) return declared;
   // Every caller reaches this line with a non-empty list: the detail only
-  // renders the ramp arm when a numeric field exists, and the mode write
+  // renders the value arm when a numeric field exists, and the mode write
   // bails first when it does not.
-  return defaultRampConfig(seedField(ui, layerId, fields), seedClasses(ui, layerId));
+  return defaultValueConfig(seedField(ui, layerId, fields), seedClasses(ui, layerId));
 };
 
-/** Write the mode intent, seeding the ramp config when the user switches to
+/** Write the mode intent, seeding the value config when the user switches to
  *  the by-value arm and none is stored yet. Solid and original keep whatever
- *  ramp config the other arm holds, and original owns no fill value at all —
+ *  value config the other arm holds, and original owns no fill value at all —
  *  a mode alone — so a switch back to either arm restores its own state. */
 const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
-  if (mode !== "ramp") {
+  if (mode !== FILL_MODE.VALUE) {
     getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
     return true;
   }
@@ -853,7 +861,7 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
   if (fields.length === 0) return false;
   getDimension(DIM.FILL)!.write!(ui, layerId, {
     mode,
-    ramp: persistedRamp(rampForUi(ui, layerId, fields)),
+    ramp: persistedValue(valueForUi(ui, layerId, fields)),
   });
   return true;
 };
@@ -862,7 +870,7 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
  *  calls rather than `T(\`style_method_\${method}\`)`: the locale-usage scanner
  *  only sees literal keys, and a template-built key would let a renamed locale
  *  entry pass silently. */
-const methodLabel = (ui: LayerUI, method: FillRampConfig["method"]): string => {
+const methodLabel = (ui: LayerUI, method: FillValueConfig["method"]): string => {
   switch (method) {
     case METHOD.JENKS:
       return ui.T("style_method_jenks");
@@ -875,20 +883,20 @@ const methodLabel = (ui: LayerUI, method: FillRampConfig["method"]): string => {
   }
 };
 
-/** Merge one ramp-detail change into the stored config and schedule the
+/** Merge one value-detail change into the stored config and schedule the
  *  per-leaf repaint through the dimension write. Returns the config that was
  *  written so the caller can keep the controls in sync. */
-const writeFillRamp = (
+const writeFillValue = (
   ui: LayerUI,
   layerId: string,
-  patch: Partial<FillRampConfig>,
-): FillRampConfig => {
+  patch: Partial<FillValueConfig>,
+): FillValueConfig => {
   const fields = numericFields(ui, layerId);
-  const next: FillRampConfig = persistedRamp({
-    ...rampForUi(ui, layerId, fields),
+  const next: FillValueConfig = persistedValue({
+    ...valueForUi(ui, layerId, fields),
     ...patch,
   });
-  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: "ramp", ramp: next });
+  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: FILL_MODE.VALUE, ramp: next });
   return next;
 };
 
@@ -925,16 +933,16 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   ];
 };
 
-/** The ramp arm's detail rows, built from the shared `core/rampForm`
+/** The value arm's detail rows, built from the shared `core/rampForm`
  *  primitives: the heatmap panel and this panel therefore share the row
  *  structure, the control types (native selects) and the option vocabularies
  *  (method order + 2..9 class counts from #core/classify). The scheme trigger
  *  shows the color strip only, matching the heatmap trigger. */
-const buildRampDetail = (
+const buildValueDetail = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-  ramp: FillRampConfig,
+  ramp: FillValueConfig,
 ): HTMLElement[] => {
   const field = buildFieldRow({
     label: ui.T("style_fill_field"),
@@ -993,7 +1001,7 @@ const buildRampDetail = (
 };
 
 /** Fill one detail slot for the active arm. Always disposes the previous
- *  scheme picker first: rebuilding the ramp detail must not leave a picker
+ *  scheme picker first: rebuilding the value detail must not leave a picker
  *  answering clicks for a trigger that no longer exists. */
 const renderFillDetail = (
   ui: LayerUI,
@@ -1006,15 +1014,15 @@ const renderFillDetail = (
   // The original-colors arm shows what the author declared and nothing
   // editable: the column (when a scale paired), the colors as one order, and
   // how many there are. No classification controls — those belong to the
-  // user's own ramp.
-  if (mode === "original") {
+  // user's own value fill.
+  if (mode === FILL_MODE.ORIGINAL) {
     detail.append(...buildOriginalDetail(ui, layerId));
     return;
   }
   const fields = numericFields(ui, layerId);
-  if (mode === "ramp" && fields.length > 0) {
+  if (mode === FILL_MODE.VALUE && fields.length > 0) {
     detail.append(
-      ...buildRampDetail(ui, layerId, fields, rampForUi(ui, layerId, fields)),
+      ...buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields)),
     );
     return;
   }
@@ -1072,15 +1080,15 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     ...(perFeature
       ? [
           {
-            value: "original",
+            value: FILL_MODE.ORIGINAL,
             label: ui.T("style_fill_per_feature"),
             title: ui.T("style_fill_per_feature_note"),
           },
         ]
       : []),
-    { value: "solid", label: ui.T("style_fill_single") },
+    { value: FILL_MODE.SOLID, label: ui.T("style_fill_single") },
     ...(fields.length > 0
-      ? [{ value: "ramp", label: ui.T("style_fill_by_value") }]
+      ? [{ value: FILL_MODE.VALUE, label: ui.T("style_fill_by_value") }]
       : []),
   ];
 
@@ -1154,7 +1162,7 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   }
 };
 
-/** State the committed class count on the ramp row.
+/** State the committed class count on the value row.
  *
  *  The write path clamps to the editable 2..9 vocabulary, so an author-declared
  *  count (12, say) stops describing the row the moment the user edits it.
@@ -1178,14 +1186,14 @@ const convergeClassesRow = (select: HTMLSelectElement, classes: number): void =>
   dropdown?.refresh();
 };
 
-/** Bind the ramp arm's three controls, including the shared scheme picker.
+/** Bind the value arm's three controls, including the shared scheme picker.
  *
- *  Every element is built by `buildRampDetail` immediately above, so the
+ *  Every element is built by `buildValueDetail` immediately above, so the
  *  queries cast instead of re-testing for null: a guard here could never take
  *  its false arm (the markup is a private contract) and would just read as an
  *  uncovered branch. The picker is created first so the class-count commit can
  *  update it directly (its strip has one block per class). */
-const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
+const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
   const trigger = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
   ) as HTMLElement;
@@ -1193,7 +1201,7 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
   const fields = numericFields(ui, layerId);
-  const ramp = rampForUi(ui, layerId, fields);
+  const ramp = valueForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
@@ -1210,7 +1218,7 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     resolveHost: () => fullscreenSurface(ui.c.map.getContainer()),
     onSurfaceChange: onFullscreenSurfaceChange,
     label: ui.T("style_fill_scheme"),
-    onChange: name => writeFillRamp(ui, layerId, { scheme: name }),
+    onChange: name => writeFillValue(ui, layerId, { scheme: name }),
   });
   schemePickerByUi.set(ui, picker);
   schemePickerOverlayByUi.set(
@@ -1228,21 +1236,22 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
-  fieldSelect.onchange = () => writeFillRamp(ui, layerId, { field: fieldSelect.value });
+  fieldSelect.onchange = () =>
+    writeFillValue(ui, layerId, { field: fieldSelect.value });
 
   const methodSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
   ) as HTMLSelectElement;
   methodSelect.onchange = () =>
-    writeFillRamp(ui, layerId, {
-      method: methodSelect.value as FillRampConfig["method"],
+    writeFillValue(ui, layerId, {
+      method: methodSelect.value as FillValueConfig["method"],
     });
 
   const classesSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
   ) as HTMLSelectElement;
   classesSelect.onchange = () => {
-    const next = writeFillRamp(ui, layerId, {
+    const next = writeFillValue(ui, layerId, {
       classes: parseInt(classesSelect.value, 10),
     });
     // The strip has one block per class: keep the picker's preview in step
@@ -1255,7 +1264,7 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
   };
 };
 
-/** Bind one detail slot for the active arm (solid color/opacity or the ramp
+/** Bind one detail slot for the active arm (solid color/opacity or the value
  *  controls). Called on open and again after every mode switch. */
 const bindFillDetail = (
   ui: LayerUI,
@@ -1264,9 +1273,9 @@ const bindFillDetail = (
   mode: FillMode,
 ): void => {
   // The original-colors detail is a read-only readout: nothing to bind.
-  if (mode === "original") return;
-  if (mode === "ramp" && numericFields(ui, layerId).length > 0) {
-    bindRampDetail(ui, layerId, detail);
+  if (mode === FILL_MODE.ORIGINAL) return;
+  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+    bindValueDetail(ui, layerId, detail);
   } else {
     bindSolidDetail(ui, layerId, detail);
   }
@@ -1302,11 +1311,11 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // layer that has never been switched) is recognised as "original" too.
     const previous = displayFillMode(ui, layerId);
     const next: FillMode =
-      select.value === "ramp"
-        ? "ramp"
-        : select.value === "original"
-          ? "original"
-          : "solid";
+      select.value === FILL_MODE.VALUE
+        ? FILL_MODE.VALUE
+        : select.value === FILL_MODE.ORIGINAL
+          ? FILL_MODE.ORIGINAL
+          : FILL_MODE.SOLID;
     if (next === previous) return;
     writeFillMode(ui, layerId, next);
     // Leaving the original colors must repaint. A mode write alone paints
@@ -1314,12 +1323,12 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // override or a captured bag, and an explore layer has neither, so the
     // map would keep its per-feature colors while the row claims solid.
     // Seed the swatch's base color so choosing solid actually takes the
-    // fill over; a ramp -> solid switch needs no seed because the apply
+    // fill over; a value -> solid switch needs no seed because the apply
     // restores the captured author bag itself. Coming back to the original
     // colors needs no seed either: the apply releases every override.
     if (
-      previous === "original" &&
-      next === "solid" &&
+      previous === FILL_MODE.ORIGINAL &&
+      next === FILL_MODE.SOLID &&
       getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined &&
       getIntent(ui, layerId, INTENT.FILL_OPACITY) === undefined
     ) {
@@ -1333,7 +1342,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
 };
 
 /** One attach-sweep paint per layer: `applyUserState()` also runs on folds
- *  and renames, and a declared ramp reclassifies every leaf — an idempotent
+ *  and renames, and a declared value fill reclassifies every leaf — an idempotent
  *  but O(N) walk the sweep should not repeat. */
 const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
 
@@ -1368,7 +1377,7 @@ const replayFillState = (ui: LayerUI, id: string): void => {
       return;
     }
   }
-  // No user intent: an author-declared ramp still has to reach the map on
+  // No user intent: an author-declared value fill still has to reach the map on
   // attach — a declaration is a read-time default, not a stored override, so
   // nothing else replays it and the map would open on the per-feature paint.
   if (declaredFill(ui, id) !== undefined) applyFillToLayer(ui, id);
@@ -1387,11 +1396,11 @@ const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
   /** The active arm. "solid" is the derived default — it doubles as the
-   *  shape of a pre-ramp record, so an absent mode reads back as solid. */
+   *  shape of a pre-value record, so an absent mode reads back as solid. */
   mode: FillMode;
   /** The value-based fill config. Kept while the active arm is solid, so a
    *  mode switch back restores it; undefined when never set. */
-  ramp?: FillRampConfig;
+  ramp?: FillValueConfig;
 }>({
   key: DIM.FILL,
   gate: layerCanFill,
@@ -1405,11 +1414,11 @@ const FILL_DIMENSION = registerDimension<{
       color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
       opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
       // The same resolver the row and apply use: "solid" is derived, not
-      // authored, so the readout defers to whether a ramp config exists (and,
+      // authored, so the readout defers to whether a value config exists (and,
       // on an explore layer, to the author's own colors) rather than claiming
       // a solid paint the map is not showing.
       mode: displayFillMode(ui, layerId),
-      ramp: resolvedRamp(ui, layerId, effectiveFillRamp(ui, layerId)),
+      ramp: resolvedValue(ui, layerId, effectiveFillValue(ui, layerId)),
     };
   },
   row: buildFillRow,
@@ -1431,7 +1440,7 @@ const FILL_DIMENSION = registerDimension<{
     cancelStyleDimApply(FACE.FILL, layerId, ui);
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     // The declaration is Reset's target too: clearing the user's intent must
-    // reveal the author's declared ramp, not the per-feature paint beneath
+    // reveal the author's declared value fill, not the per-feature paint beneath
     // it. Applying here reads the declaration from the layer (no intent left).
     if (declaredFill(ui, layerId) !== undefined) {
       applyFillToLayer(ui, layerId);
@@ -1473,7 +1482,7 @@ const FILL_DIMENSION = registerDimension<{
   },
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
-   *  author's color and a running ramp classifies on stale breaks. The
+   *  author's color and a running value fill classifies on stale breaks. The
    *  when-gate reads the SAME FILL_INTENT_KEYS array replayFillState's own
    *  loop reads, so the gate and the replay cannot drift: a new fill intent
    *  joins one array and is automatically both gated and replayed. The gate
@@ -1483,7 +1492,7 @@ const FILL_DIMENSION = registerDimension<{
     face: FACE.FILL,
     when: (ui, layerId) =>
       FILL_INTENT_KEYS.some(key => getIntent(ui, layerId, key) !== undefined) ||
-      hasDeclaredRamp(ui, layerId),
+      hasDeclaredValue(ui, layerId),
     run: (ui, layerId) => applyFillToLayer(ui, layerId),
   },
 });

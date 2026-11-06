@@ -7,6 +7,8 @@ import {
 } from "#core/event/index.js";
 import {
   type FolderOrder,
+  type FolderSection,
+  deleteFolderFromOrder,
   freezeSectionOrder,
   normalizeFolderName,
 } from "#core/layer/folderOrder.js";
@@ -1291,7 +1293,12 @@ class LayerController implements LayerAPI {
       role === ROLE.BASE
         ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
         : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
-    if (!container.querySelector(anchorSel)) {
+    // Keep the header while the section still owns a folder key: the
+    // empty-folder cleanup button must stay reachable after the last layer
+    // goes (hard constraint 1 / builder-4 ④).
+    const sectionKeys =
+      this.folderOrder.sections[role as keyof typeof this.folderOrder.sections] ?? [];
+    if (!container.querySelector(anchorSel) && sectionKeys.length === 0) {
       container
         .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
         ?.remove();
@@ -1449,8 +1456,8 @@ class LayerController implements LayerAPI {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
    */
-  /** design §5 / invariant 7 — freeze a section's block order when a folder
-   *  is about to lose its LAST member. Called from the delete path with the
+  /** Freeze a section's block order when a folder is about to lose its
+   *  LAST member. Called from the delete path with the
    *  PRE-removal registry snapshot, so the emptied folder's own block is part
    *  of the materialised order. Returns true when a freeze was written to
    *  `this.folderOrder` (the caller persists it). */
@@ -1519,13 +1526,13 @@ class LayerController implements LayerAPI {
       return true;
     }
 
-    // Folder empty-freeze (design §5 / invariant 7): if this layer is the
-    // LAST member of its folder, materialise the section's whole block order
-    // into folderOrder BEFORE the removal — at this point the folder still has
-    // its last member, so its block is part of the snapshot and the frozen
-    // order is not self-contradictory. The persisted folderOrder then keeps
-    // the emptied folder's position (invariant 7) and a later new folder lands
-    // at the block tail (invariant 9).
+    // Folder empty-freeze: if this layer is the LAST member of its folder,
+    // materialise the section's whole block order into folderOrder BEFORE the
+    // removal — at this point the folder still has its last member, so its
+    // block is part of the snapshot and the frozen order is not
+    // self-contradictory. The persisted folderOrder then keeps the emptied
+    // folder's position (the folder order stays frozen while the section has
+    // no live members) and a later new folder lands at the block tail.
     const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
     if (!retired) return false;
@@ -1575,6 +1582,95 @@ class LayerController implements LayerAPI {
     if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
+  }
+
+  /** Explicitly delete one folder block in one section.
+   *
+   *  This is the user-facing counterpart of {@link freezeEmptyFolder} (#911):
+   *  freeze is the AUTOMATIC keep (a folder that would lose its last member
+   *  is pinned so the block survives); this method is the EXPLICIT delete the
+   *  row menu and the header's clean button call. The two are mutually
+   *  exclusive — an explicit delete never routes through the freeze, and the
+   *  freeze never hands control here.
+   *
+   *  Every member of the folder (same section + same normalize(name)) is
+   *  PROMOTED to root, never retired: the layer stays registered and visible,
+   *  only its folder association drops. The folder's key is then removed from
+   *  `folderOrder`, and the materialised block order is re-derived. The
+   *  display name is not separately persisted, so no name cleanup is owed.
+   *
+   *  Returns false (and writes nothing) when the folder does not exist —
+   *  no members in this section and no key in `folderOrder`. An existing but
+   *  empty folder (a key with no live member) deletes the key and returns
+   *  true without touching any layer.
+   *
+   * @param section - The UI section (role) the folder belongs to.
+   * @param folderName - The folder's display name (normalised for the key).
+   * @param opts - Optional control over persistence.
+   * @returns true when the folder existed and was removed, false otherwise.
+   */
+  deleteFolder(
+    section: FolderSection,
+    folderName: string,
+    opts?: { persist?: boolean },
+  ): boolean {
+    const key = normalizeFolderName(folderName);
+    const members = this.layerRegistry.layers.filter(
+      l =>
+        l.role === section && l.folder != null && normalizeFolderName(l.folder) === key,
+    );
+    const listed = this.folderOrder.sections[section] ?? [];
+    const existed = listed.includes(key);
+    // Nothing to delete: no live members and no persisted key. A no-op must
+    // not write, or the schedule below would fire for a folder that never was.
+    if (!existed && members.length === 0) return false;
+
+    for (const member of members) member.folder = null;
+    this.folderOrder = deleteFolderFromOrder(section, folderName, this.folderOrder);
+    this.layerRegistry.normalizeGroups(this.folderOrder);
+
+    if (opts?.persist !== false) {
+      this.persistence.schedule({ folderOrder: () => this.folderOrder });
+      this.persistence.flushAll();
+    }
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Remove every EMPTY folder key from one section in
+   *  one operation.
+   *
+   *  A folder whose last member was deleted leaves a stale key behind (the
+   *  automatic freeze is the reason it survives at all). The clean button on
+   *  the section header clears all of them in a single pass: one schedule,
+   *  one flush, one repaint. Returns how many keys were removed (0 = nothing
+   *  to clean, no write).
+   *
+   * @param section - The UI section (role) whose empty folders are cleaned.
+   * @returns The number of empty folder keys removed.
+   */
+  cleanEmptyFolders(section: FolderSection): number {
+    const listed = this.folderOrder.sections[section] ?? [];
+    const emptyKeys = listed.filter(
+      k =>
+        !this.layerRegistry.layers.some(
+          l =>
+            l.role === section &&
+            l.folder != null &&
+            normalizeFolderName(l.folder) === k,
+        ),
+    );
+    if (emptyKeys.length === 0) return 0;
+
+    const remaining = listed.filter(k => !emptyKeys.includes(k));
+    this.folderOrder = {
+      ...this.folderOrder,
+      sections: { ...this.folderOrder.sections, [section]: remaining },
+    };
+    this.persistence.schedule({ folderOrder: () => this.folderOrder });
+    this.persistence.flushAll();
+    if (this.ui) this.ui.reindexAfterMove();
+    return emptyKeys.length;
   }
 
   /**

@@ -48,6 +48,7 @@ _DECLARED_SCORES = [10, 20, 30, 40, 50, 60]
 _ARM = _js("LayerControl/fill_author_arm")
 _READ_FILL = _js("LayerControl/fill_author_read")
 _PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
+_READ_FILL_METHOD = _js("LayerControl/read_fill_method")
 _DECLARED_READ = _js("LayerControl/fill_declared_read")
 
 _layer_control_mod = importlib.import_module(
@@ -1066,6 +1067,71 @@ class TestFillAuthorBrowser:
             assert read["stops"] >= 2, (width, read)
             assert not errors, f"JS errors: {errors}"
 
+    def test_continuous_band_without_a_scale_states_equal_interval(
+        self, browser, tmp_path
+    ):
+        """A legend=False layer painting >9 distinct colors is read as a
+        continuous ramp: the original-colors arm states Equal Interval, the
+        honest statement that a LinearColormap is an interval ramp — not a
+        dash, and not a guessed classification.
+        """
+        colors = ["#%06x" % (i * 0x111111) for i in range(12)]
+        features = [
+            {
+                "type": "Feature",
+                "properties": {"__folium_color": color, "score": float(i)},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [119.28 + i * 0.01, 26.06],
+                            [119.32 + i * 0.01, 26.06],
+                            [119.32 + i * 0.01, 26.10],
+                            [119.28 + i * 0.01, 26.10],
+                            [119.28 + i * 0.01, 26.06],
+                        ]
+                    ],
+                },
+            }
+            for i, color in enumerate(colors)
+        ]
+        layer = folium.GeoJson(
+            json.dumps({"type": "FeatureCollection", "features": features}),
+            name="Facility Points",
+            style_function=lambda f: {
+                "fillColor": f["properties"]["__folium_color"],
+                "fillOpacity": 0.8,
+                "color": "none",
+            },
+        )
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        layer.add_to(m)
+        LayerControl(locale="en").add_to(m)
+        page, errors = make_browser_page(
+            browser, tmp_path, m.get_root().render(), "fill_continuous_band"
+        )
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl .foliplus-toggle-btn",
+            state="attached",
+            timeout=10000,
+        )
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
+        )
+        panel_ready(page)
+        _open_author_style_panel(page)
+
+        state = page.evaluate(_READ_FILL)
+        assert state["mode"] == "original", state
+        assert state["method"] == "Equal Interval", state
+        # The map paints the author's 10+ distinct colors, not a synthetic
+        # 9-class ramp: the >9 threshold is exactly what the inference is about.
+        assert len(state["fills"]) >= 10, state
+        assert not errors, f"JS errors: {errors}"
+
 
 def _declared_layer() -> folium.GeoJson:
     features = [
@@ -1151,13 +1217,17 @@ class TestDeclaredFillBrowser:
 
             _open_declared_style_panel(page)
             initial = page.evaluate(_DECLARED_READ)
-            assert initial["mode"] == "ramp", initial
+            assert initial["mode"] == "value", initial
             assert initial["originalAvailable"] is False, initial
             assert initial["hasSwatch"] is False, initial
             assert initial["field"] == "score", initial
             assert initial["classes"] == "3", initial
             assert initial["schemeTitle"] == "Reds", initial
             assert initial["fills"] == before_panel["fills"], initial
+            # The method key is the fifth declared control: the by-value arm
+            # states the declared classification, not a guess.
+            method = page.evaluate(_READ_FILL_METHOD)
+            assert method == {"value": "equal", "label": "Equal Interval"}, method
 
             # A panel edit is the user's intent: it repaints the map and the
             # row now reads the user's scheme.
@@ -1177,13 +1247,20 @@ class TestDeclaredFillBrowser:
             page.wait_for_timeout(300)
             _open_declared_style_panel(page)
             restored = page.evaluate(_DECLARED_READ)
-            assert restored["mode"] == "ramp", restored
+            assert restored["mode"] == "value", restored
             assert restored["field"] == "score", restored
             assert restored["classes"] == "3", restored
             assert restored["schemeTitle"] == "Reds", restored
             assert restored["fills"] == initial["fills"], (
                 f"Reset did not restore the declared ramp: {restored}"
             )
+            # Reset restores the declared method too — the read-only by-value
+            # arm comes back to the author's classification, not a guess.
+            restored_method = page.evaluate(_READ_FILL_METHOD)
+            # Reset may drop the drawer (the element can be absent), so do not
+            # assume the probe always returns an object.
+            assert restored_method is not None, restored_method
+            assert restored_method["value"] == "equal", restored_method
 
             # The user's choice wins across a reload; the declaration is still
             # what Reset would return to.
@@ -1198,6 +1275,6 @@ class TestDeclaredFillBrowser:
             _open_declared_style_panel(page)
             reloaded = page.evaluate(_DECLARED_READ)
             assert reloaded["schemeTitle"] == "Blues", reloaded
-            assert reloaded["mode"] == "ramp", reloaded
+            assert reloaded["mode"] == "value", reloaded
 
             assert not errors, f"JS errors: {errors}"

@@ -11,8 +11,8 @@
   if (ramp) {
     const mode = rootEl.querySelector(".foliplus-style-fill-mode-select");
     if (!mode) return { ok: false, reason: "no-mode-select" };
-    if (mode.value !== "ramp") {
-      mode.value = "ramp";
+    if (mode.value !== "value") {
+      mode.value = "value";
       mode.dispatchEvent(new Event("change", { bubbles: true }));
     }
   }

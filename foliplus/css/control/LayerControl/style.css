@@ -124,7 +124,7 @@
    (common/scheme-picker.css), so the two arms' color preview reads alike. */
 .foliplus-style-fill-original-strip {
   flex: 1;
-  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  height: var(--foliplus-scheme-picker-bar-height);
   box-sizing: border-box;
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   border-radius: var(--foliplus-radius-sm);

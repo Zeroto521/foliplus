@@ -1,0 +1,15 @@
+() => {
+  const row = document.querySelector('.foliplus-layer-toggle-all[data-role="overlay"]');
+  if (!row) return { exists: false, cleanup: null };
+  const btn = row.querySelector(".foliplus-layer-clean-folders");
+  return {
+    exists: true,
+    cleanup: btn
+      ? {
+          text: btn.textContent,
+          ariaLabel: btn.getAttribute("aria-label"),
+          count: Number((btn.textContent || "").match(/[（(](\d+)[)）]/)?.[1]),
+        }
+      : null,
+  };
+};

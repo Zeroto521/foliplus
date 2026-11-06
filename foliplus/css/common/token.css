@@ -477,6 +477,15 @@
   --foliplus-dot-fill: var(--foliplus-neutral-0);
   --foliplus-dot-stroke-color: var(--foliplus-accent-primary);
 
+  /* ── Common (runtime-tunable geometry) ──
+     Written by JS at runtime (panel placement cap, slider bubble arrow) or
+     overridden by a consumer control (scheme-picker bar height). Each has a
+     static default here so component CSS reads the bare var() with no inline
+     fallback. */
+  --foliplus-row-panel-max-height: var(--foliplus-panel-max-height);
+  --foliplus-scheme-picker-bar-height: var(--foliplus-icon-size-md);
+  --foliplus-bubble-arrow: 0px;
+
   /* ── Common (input animation) ──
      Breathing animation for text inputs. */
   --foliplus-input-breathe-anim: foliplus-input-breathe 2s ease-in-out infinite;
