@@ -1,7 +1,7 @@
 // core/ramp — the shared value → color ramp: ordered class breaks, the
 // scheme's per-class colors, and the value → class bisection.
 //
-// Consumed today by LayerControl's value-based fill (ui/style/fillRamp.ts),
+// Consumed today by LayerControl's value-based fill (ui/style/fillValue.ts),
 // which owns the layer walk, the styleBag commit, and the highlight pin.
 // By-value icon and by-value size reuse the same three pieces, so they live
 // here rather than inside the fill dimension — the classifier (classify.ts)
