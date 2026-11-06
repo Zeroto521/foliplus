@@ -247,7 +247,7 @@ class FieldSpec:
 
     optional
         Field may be absent at runtime (JSON `undefined`). Renders ``?`` in
-        TS. All runtime_only fields are optional by construction.
+        TS.
 
     nullable
         Field may be JSON ``null`` in addition to its base type. Renders
@@ -260,9 +260,6 @@ class FieldSpec:
         For array tags, the item type tag (rarely used; most arrays are
         ``array_string``). Kept for extensibility; unused today.
 
-    runtime_only
-        JS sets this field at runtime; Python never emits it. Excluded from
-        ``BaseControl._config_fields``; declared in TS and vitest fixture.
 
     dynamic
         Python emits this field at render time via ``_extra_config`` (not a
@@ -318,7 +315,6 @@ class FieldSpec:
     nullable: bool = False
     values: tuple[str, ...] | None = None
     item: str | None = None
-    runtime_only: bool = False
     dynamic: bool = False
     default: Any = UNSET
     note: str = ""
@@ -367,17 +363,6 @@ class FieldSpec:
             raise ValueError(
                 f"FieldSpec ts={self.ts!r} is not a supported tag; "
                 f"valid: {sorted(set(SUPPORTED_TAGS) | {'union'})}"
-            )
-        if self.runtime_only and not self.optional:
-            # A field Python never emits can only be present at runtime;
-            # it is therefore always optional in TS.
-            raise ValueError(
-                f"runtime_only field must be optional (was optional={self.optional})"
-            )
-        if self.dynamic and self.runtime_only:
-            raise ValueError(
-                "dynamic and runtime_only are mutually exclusive — a field is "
-                "either emitted by Python (static or dynamic) or set by JS."
             )
 
 
@@ -459,23 +444,6 @@ SHARED: ControlSchema = {
         "string", optional=True, note="Resolved locale code (empty when unset)."
     ),
 }
-
-# ── Runtime-only fields (JS declares but Python never emits) ─────────────
-# `field` used to live here (the per-layer annotation field, which JS reads
-# from `layer.options.foliplus`, never from CONFIG). HeatmapControl now
-# declares its own `field` aggregation parameter, so the flat ComponentConfig
-# gets the heatmap meaning and the runtime-only entry would contradict
-# "Python never emits it". The annotation field needs no CONFIG declaration:
-# it never crosses the Python bridge.
-#
-# `background` (ExportControl) was previously declared here as a forward-
-# compatibility marker, but no consumer ever read it -- Python never emits it,
-# no JS module reads it from CONFIG, and the ExportControl renderer resolves
-# the canvas background from the map container's computed style instead.
-# The RUNTIME_ONLY dict is now empty; it is kept as a named constant so the
-# schema assembly code below does not need a conditional for the empty case.
-
-RUNTIME_ONLY: ControlSchema = {}
 
 
 # ── Reflection ─────────────────────────────────────────────────────────────
@@ -709,7 +677,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
         if not has_default:
             raise ValueError(
                 f"{cls.__name__}.{name} has no default — a CONFIG field without a "
-                "default is emitted only if JS sets it (runtime_only), which "
+                "default cannot be a CONFIG field at all, and JS cannot declare it, "
                 "cannot be declared in a signature"
             )
 
@@ -741,7 +709,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
         # Reflection decides the tag; the caller's FieldSpec decides the
         # render-time attributes. `optional` defaults to False: Python emits
         # every non-runtime, non-dynamic field, so the per-control TS interface
-        # declares it required — runtime_only and dynamic carry optionality.
+        # declares it required — dynamic carries optionality.
         # ``shape`` and ``name`` come from the same FieldSpec in the
         # annotation (see above); the reflector cannot infer either from a
         # Python annotation.
@@ -815,11 +783,10 @@ def config_fields(schema: ControlSchema) -> tuple[str, ...]:
     Order is declaration order. Called by BaseControl's
     ``__init_subclass__``, which assigns the result to ``_config_fields`` —
     the schema is the single source and the tuple inherits this order.
-    Dynamic and runtime-only fields are intentionally excluded — dynamic
-    fields are emitted via ``_extra_config`` and runtime-only fields are
-    JS-set.
+    Dynamic fields are intentionally excluded — they are emitted via
+    ``_extra_config`` rather than a static ``_config_fields`` key.
     """
-    return tuple(k for k, f in schema.items() if not f.runtime_only and not f.dynamic)
+    return tuple(k for k, f in schema.items() if not f.dynamic)
 
 
 def schema_to_json() -> str:
@@ -849,12 +816,11 @@ def schema_to_json() -> str:
     payload = {
         "version": 1,
         "shared": field_dict_list(SHARED),
-        "runtime_only": field_dict_list(RUNTIME_ONLY),
         "controls": {name: field_dict_list(schema) for name, schema in control_schemas},
     }
     verify_tags(
-        collect_tags(SHARED, RUNTIME_ONLY, *(s for _, s in control_schemas)),
-        collect_named_types(SHARED, RUNTIME_ONLY, *(s for _, s in control_schemas)),
+        collect_tags(SHARED, *(s for _, s in control_schemas)),
+        collect_named_types(SHARED, *(s for _, s in control_schemas)),
     )
     return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
 
@@ -949,9 +915,8 @@ def field_dict_list(schema: ControlSchema) -> dict[str, dict[str, Any]]:
     for name, spec in schema.items():
         entry: dict[str, Any] = {
             "ts": spec.ts,
-            "optional": spec.optional or spec.runtime_only,
+            "optional": spec.optional,
             "nullable": spec.nullable,
-            "runtime_only": spec.runtime_only,
             "dynamic": spec.dynamic,
         }
         if spec.values is not None:

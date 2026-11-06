@@ -30,11 +30,6 @@ type LayerData = {
     };
   };
   zoomRange?: { min: number; max: number };
-  /** Author's declared folder (per-layer, emitted by control.py from the
-   *  author's `foliplus={"folder": ...}` declaration). Not a CONFIG field:
-   *  the schema generator covers CONFIG fields only, so this per-layer
-   *  runtime payload is declared here by hand. */
-  folder?: string | null;
 }[];
 type ProviderConfig = {
   id: string;
@@ -131,8 +126,6 @@ interface ConfigSearch extends ConfigCommon {
   collapse_on_outside: boolean;
 }
 
-interface ConfigRuntimeOnly {}
-
 /** Flat CONFIG type for all controls. All fields optional except `name`. */
 interface ComponentConfig {
   name: string; // Control class name (Python self._name).
@@ -199,6 +192,5 @@ export type {
   ConfigMeasure,
   ConfigScale,
   ConfigSearch,
-  ConfigRuntimeOnly,
   ComponentConfig,
 };

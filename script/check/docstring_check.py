@@ -37,10 +37,13 @@ import sys
 import textwrap
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_CONTROL_DIR = _REPO_ROOT / "foliplus" / "control"
+
 
 # ── Module constants ───────────────────────────────────────────────────
-# Each shipped control class and its source file. BaseControl is the shared
-# base; the rest are the public controls. Order is the API-docs order.
+# Each shipped control class and its source file, discovered from disk.
+# BaseControl is the shared base; the rest are the public controls.
 def _discover_control_classes() -> dict[str, str]:
     """Map each shipped control class to its source file, discovered from disk.
 
@@ -53,22 +56,13 @@ def _discover_control_classes() -> dict[str, str]:
     ``BaseControl`` is the shared base and lives outside ``control/``; it is
     added explicitly because the glob below only covers the ``control/`` tree.
     """
-    import glob
-    import os
-
-    here = os.path.dirname(os.path.abspath(__file__))
-    repo = os.path.abspath(os.path.join(here, os.pardir, os.pardir))
-    control_dir = os.path.join(repo, "foliplus", "control")
-
     found: dict[str, str] = {}
-    for py in sorted(glob.glob(os.path.join(control_dir, "*.py"))):
-        name = os.path.splitext(os.path.basename(py))[0]
-        if name == "__init__":
+    for module in sorted(_CONTROL_DIR.glob("*.py")):
+        if module.name == "__init__.py":
             continue
-        found[name] = os.path.relpath(py, repo).replace(os.sep, "/")
-    for py in sorted(glob.glob(os.path.join(control_dir, "*", "control.py"))):
-        name = os.path.basename(os.path.dirname(py))
-        found[name] = os.path.relpath(py, repo).replace(os.sep, "/")
+        found[module.stem] = module.relative_to(_REPO_ROOT).as_posix()
+    for package in sorted(_CONTROL_DIR.glob("*/control.py")):
+        found[package.parent.name] = package.relative_to(_REPO_ROOT).as_posix()
     found["BaseControl"] = "foliplus/BaseControl.py"
     return found
 
