@@ -5,10 +5,10 @@ import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
-// task-75 UI wiring: the inline "delete folder" menu entry and the section
+// The inline "delete folder" menu entry and the section
 // header's "clean empty folders" button, plus the DOM ordering the header
-// rewrite must preserve (lead WIP review: header-adjacent-to-rows).
-describe("task-75 folder delete UI wiring", () => {
+// rewrite must preserve: the header stays adjacent to its rows.
+describe("folder delete wiring", () => {
   let manager: LayerController;
   let ui: LayerUI;
 

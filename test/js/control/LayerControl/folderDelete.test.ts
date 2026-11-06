@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initFixture, polygonLayer } from "./ui/fixture.js";
 
 /**
- * task-75 deleteFolder / cleanEmptyFolders wiring tests (RED scaffold).
+ * deleteFolder / cleanEmptyFolders wiring tests.
  *
  * These tests pin the v4 semantics of the two controller methods that are
  * NOT IMPLEMENTED yet (deleteFolder / cleanEmptyFolders). They are expected
@@ -11,13 +11,13 @@ import { initFixture, polygonLayer } from "./ui/fixture.js";
  * confirm they are red at the expected place (not a syntax/import error).
  */
 
-describe("task-75 deleteFolder wiring", () => {
+describe("deleteFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
   });
 
-  it("[V4-1] non-empty folder delete: member folder=null + layer kept + order key removed + one schedule", () => {
+  it("deleting a non-empty folder keeps its layers and removes the order key: one schedule", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [
@@ -41,7 +41,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(schedule).toHaveBeenCalledTimes(1);
   });
 
-  it("[V4-1] empty folder delete: only key removed", () => {
+  it("deleting an empty folder removes only the key", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [],
@@ -55,7 +55,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(schedule).toHaveBeenCalledTimes(1);
   });
 
-  it("[V4-1][V4-P2#3] non-existent folder: false + no schedule", () => {
+  it("deleting a missing folder returns false and does not persist", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [],
@@ -68,7 +68,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(schedule).not.toHaveBeenCalled();
   });
 
-  it("[V4-P2#1] cross-section isolation: delete base foo keeps overlay foo", () => {
+  it("deleting a base folder keeps an overlay folder of the same name", () => {
     const { manager } = initFixture({
       seed: {
         folderOrder: { version: 1, sections: { overlay: ["foo"], base: ["foo"] } },
@@ -91,7 +91,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(manager.folderOrder.sections.overlay ?? []).toContain("foo");
   });
 
-  it("[V4-P2#2] not resurrected by a *different* folder's freeze after delete", () => {
+  it("a later freeze of another folder does not bring a deleted folder back", () => {
     // P2#2 regression: after deleteFolder("Roads"), a *different* folder (Water)
     // losing its last member must NOT write the just-deleted "roads" name back.
     // This deliberately uses a different folder to trigger freeze, distinguishing
@@ -127,7 +127,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(manager.folderOrder.sections.overlay ?? []).toContain("water");
   });
 
-  it("[V4-2] cleanEmptyFolders: one schedule + one flushAll + returns count", () => {
+  it("cleanEmptyFolders schedules once and flushes once for each empty key", () => {
     const { manager } = initFixture({
       seed: {
         folderOrder: {
@@ -156,7 +156,7 @@ describe("task-75 deleteFolder wiring", () => {
     expect(manager.folderOrder.sections.overlay ?? []).toEqual(["full"]);
   });
 
-  it("[V4-mutex] deleteFolder never goes through freezeEmptyFolder", () => {
+  it("deleteFolder does not go through freezeEmptyFolder", () => {
     const { manager } = initFixture({
       seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
       data: [

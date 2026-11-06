@@ -501,7 +501,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // not the section header. The header is checked separately so a late row
   // lands at its registry depth (beside its role's other rows) instead of
   // being wedged above the header — the TOGGLE_ALL match must not become an
-  // insertion anchor (lead WIP review: DOM order regression).
+  // insertion anchor, so the header stays adjacent to its rows.
   const firstRowSel =
     role === ROLE.BASE
       ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
@@ -769,7 +769,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  */
 
 /** Incremental three-state sync of a section header's "clean empty folders"
- *  button (task-75). Runs on LAYER_ROLE_COUNT_CHANGED so a folder's last
+ *  button. Runs on LAYER_ROLE_COUNT_CHANGED so a folder's last
  *  member leaving (deleteLayer freeze) shows the button, and a layer
  *  rejoining the folder hides it — without a full rebuild (which would drop
  *  focus/drag state). Idempotent: a no-op when the button state already

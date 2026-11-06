@@ -227,7 +227,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
       }
     }
 
-    // task-75: the clean-empty-folders button lives inside the toggle-all
+    // The clean-empty-folders button lives inside the toggle-all
     // header, so it must be intercepted BEFORE the toggle-all branch folds
     // the section. stopPropagation keeps the press from reaching the row /
     // map (hard constraint 4).

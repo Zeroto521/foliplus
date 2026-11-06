@@ -1584,7 +1584,7 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** task-75 / design §5 — explicitly delete one folder block in one section.
+  /** Explicitly delete one folder block in one section.
    *
    *  This is the user-facing counterpart of {@link freezeEmptyFolder} (#911):
    *  freeze is the AUTOMATIC keep (a folder that would lose its last member
@@ -1637,7 +1637,7 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** task-75 / design §5 — remove every EMPTY folder key from one section in
+  /** Remove every EMPTY folder key from one section in
    *  one operation.
    *
    *  A folder whose last member was deleted leaves a stale key behind (the

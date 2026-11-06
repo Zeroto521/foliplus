@@ -114,7 +114,7 @@ const CLASSES = {
   FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
-  /** The section header's "clean empty folders" button (task-75). A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
+  /** The section header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
   CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEPARATOR_LABEL: "foliplus-layer-sep-label",
@@ -280,7 +280,7 @@ const ACTION = {
   FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",
-  /** Explicitly delete the folder block a row belongs to (task-75). The row's layer keeps its folder until this fires; then every member is promoted to root and the folder key is removed. data-action value only — the menu renders the entry when the row's layer has a folder. */
+  /** Explicitly delete the folder block a row belongs to. The row's layer keeps its folder until this fires; then every member is promoted to root and the folder key is removed. data-action value only — the menu renders the entry when the row's layer has a folder. */
   DELETE_FOLDER: "delete-folder",
 };
 

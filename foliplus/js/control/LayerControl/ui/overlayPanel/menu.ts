@@ -213,7 +213,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ui.T("attributes_layer"),
     ),
   );
-  // task-75: a row whose layer belongs to a folder block gets an explicit
+  // A row whose layer belongs to a folder block gets an explicit
   // "delete folder" entry. The user-facing counterpart of the #911 auto-retain:
   // freeze keeps an emptied folder key around; this entry removes it. Deleting a
   // non-empty folder promotes every member to section root (folder = null,

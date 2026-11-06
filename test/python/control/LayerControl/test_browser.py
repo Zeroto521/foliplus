@@ -7705,7 +7705,7 @@ class TestLayerControlBrowser:
         A folder layer is registered and then deleted, so #911's empty-folder
         freeze leaves a key with no live member; the header renders with a clean
         button. Clicking it removes the stale key and the button itself. The
-        three task-75 probes are referenced here so the browser-probe inventory
+        three empty-folder cleanup probes are referenced here so the browser-probe inventory
         sees them as reachable, not orphaned.
         """
         layer = folium.GeoJson(_geo_mixed, name="Roads")
