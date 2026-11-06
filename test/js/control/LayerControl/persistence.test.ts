@@ -101,7 +101,7 @@ describe("LayerPersistence", () => {
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.annotations).toBeUndefined();
+      expect("annotations" in rec).toBe(false);
       expect(rec.layers).toEqual({});
     });
 
@@ -152,7 +152,7 @@ describe("LayerPersistence", () => {
         overrides: [],
         annotation: { show: true, field: "new" },
       });
-      expect(rec.annotations).toBeUndefined();
+      expect("annotations" in rec).toBe(false);
     });
 
     it("prunes a deleted id from the label segment on read", () => {
