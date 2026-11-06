@@ -4,6 +4,7 @@ import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
+import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
 import {
   GLYPH_NAMES,
   glyphHtml,
@@ -55,6 +56,36 @@ const makeMarker = (props: Record<string, unknown> = {}, icon?: unknown): any =>
       return leaf;
     }),
   };
+  return leaf;
+};
+
+// A leaf that carries BOTH a fill (setStyle) and an icon (setIcon) — the
+// cross-dimension isolation tests need one layer that can host fill and icon
+// at once, which a pure marker (setIcon only) or pure polygon (setStyle only)
+// cannot. The leaf keeps an authored options.fillColor and authored icon so
+// reset restores them.
+const makeHybridLeaf = (authorIcon: any, opts: Record<string, unknown> = {}): any => {
+  // An L.Polygon instance (the fixture's real class, so isArealStyleLeaf's
+  // `instanceof L.Polygon` step admits it) that also carries setIcon — a
+  // layer that can host both a fill (setStyle) and an icon (setIcon) at once.
+  const leaf = Object.create((window.L as any).Polygon.prototype) as any;
+  leaf.feature = { properties: {} };
+  leaf.options = { fillColor: opts.fillColor ?? "#aabbcc", icon: authorIcon };
+  leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+    Object.assign(leaf.options, style);
+    return leaf;
+  });
+  leaf.setIcon = vi.fn((next: unknown) => {
+    leaf.options.icon = next;
+    return leaf;
+  });
+  leaf.getLatLngs = () => [
+    [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 0 },
+      { lat: 0, lng: 1 },
+    ],
+  ];
   return leaf;
 };
 
@@ -273,6 +304,28 @@ describe("buildMarkerIcon", () => {
     const div = derived.createIcon();
     expect(div.querySelector("i")?.style.color).toBe("rgb(255, 255, 255)");
   });
+  it("defaults to white and no author paint when the author div has no inner <i>", () => {
+    // The author's chassis div carries no <i> at all: the derived glyph must
+    // still render, fall back to the white paint (no author colour to carry),
+    // and inherit no icon-font class (nothing to filter).
+    const author = makeAuthorIcon();
+    author.createIcon = vi.fn(() => {
+      const div = document.createElement("div");
+      div.className = "awesome-marker";
+      return div;
+    });
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const div = derived.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner).not.toBeNull();
+    expect(inner.className).toContain("foliplus-marker-glyph");
+    expect(inner.className).toContain("fa-solid");
+    // No author icon-font class survived (the author div has no inner <i>).
+    expect(inner.className).not.toContain("fa ");
+    // No author colour to read: the glyph falls back to white.
+    expect(inner.style.color).toBe("rgb(255, 255, 255)");
+  });
+
   it("keeps the author icon for a name outside the set (no substitute glyph)", () => {
     // Honest degradation: a name the panel no longer knows (an FA4 name, an
     // old persisted value) leaves the layer's author icon untouched instead of
@@ -341,6 +394,119 @@ describe("buildIconRow", () => {
 
   it("returns null for a layer that cannot carry icons", () => {
     expect(buildIconRow(ui, "nope")).toBeNull();
+  });
+
+  it("shows the author-original label when a walk encounters a non-marker leaf", () => {
+    // A mixed group (marker + polygon): the walk must skip the polygon leaf
+    // (no setIcon) and continue to the marker. The marker's author declares a
+    // name outside the set, so authorGlyphName stays null and the trigger
+    // shows the author-original label.
+    const poly = makePoly();
+    const marker = makeMarker(
+      { type: "school" },
+      (() => {
+        const a = makeAuthorIcon();
+        a.options = { ...a.options, icon: "map-marker" };
+        return a;
+      })(),
+    );
+    const group = makeMarkerGroup(marker, poly as any);
+    const { manager: m8, ui: u8 } = initFixture({
+      data: [{ id: "mix3", name: "MIX3", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u8, "mix3")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(trigger.textContent).toContain(u8.T("style_icon_original"));
+    m8?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("shows the author glyph name when a marker declares a known glyph", () => {
+    // The marker's author icon.options.icon is a valid FA6 name: authorGlyphName
+    // walks and returns it, so the trigger previews that glyph (not the label).
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "star" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m9, ui: u9 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u9, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(trigger.querySelector(".foliplus-marker-glyph")).not.toBeNull();
+    expect(trigger.textContent).toContain("star");
+    m9?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("stops the author glyph walk at the first recognized name", () => {
+    // A multi-marker group where the FIRST marker declares a known glyph: the
+    // walk must short-circuit (found already set) and not inspect later leaves.
+    const a1 = makeAuthorIcon();
+    a1.options = { ...a1.options, icon: "star" };
+    const m1 = makeMarker({ type: "a" }, a1);
+    const a2 = makeAuthorIcon();
+    a2.options = { ...a2.options, icon: "heart" };
+    const m2 = makeMarker({ type: "b" }, a2);
+    const group = makeMarkerGroup(m1, m2);
+    const { manager: m10, ui: u10 } = initFixture({
+      data: [{ id: "grp1", name: "GRP1", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u10, "grp1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(trigger.textContent).toContain("star");
+    m10?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("shows the author-original label when the registry layer left the map", () => {
+    // A layer in the registry whose map lookup fails: buildIconRow must not
+    // crash and renderTrigger falls back to the author-original label.
+    const { manager: m11, ui: u11 } = fixtureWithMarkers([
+      makeMarker({ type: "school" }, makeAuthorIcon()),
+    ]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    vi.spyOn(u11.c, "findLayer").mockReturnValue(null as never);
+    const row = buildIconRow(u11, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(trigger.textContent).toContain(u11.T("style_icon_original"));
+    vi.restoreAllMocks();
+    m11?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("shows the author-original label when the author glyph name is not in the set", () => {
+    // The author declares a glyph name the FA6 set no longer knows (an FA4
+    // name): renderTrigger resolves it to null, so the row must show the
+    // author-original label rather than render an unknown symbol.
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "map-marker" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m6, ui: u6 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u6, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    // The author's icon.options.icon is "map-marker" (not in the FA6 set), so
+    // authorGlyphName returns null (isGlyphName rejects it) — the trigger
+    // shows the author-original label, not an unknown glyph.
+    expect(trigger.textContent).toContain(u6.T("style_icon_original"));
+    m6?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
   });
 
   it("shows the author-original label when no glyph is chosen", () => {
@@ -457,6 +623,35 @@ describe("buildIconRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
+  });
+
+  it("clamps keyboard navigation at the grid edges", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+    const last = cells[cells.length - 1];
+    last.focus();
+    // ArrowDown past the end stays on the last cell (clamped).
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+    );
+    expect(document.activeElement).toBe(last);
+    // ArrowRight past the last column also clamps.
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
+    );
+    expect(document.activeElement).toBe(last);
+    // ArrowUp from the top clamps at index 0.
+    cells[0].focus();
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+    expect(document.activeElement).toBe(cells[0]);
   });
 
   it("closes on an outside pointerdown", () => {
@@ -613,6 +808,129 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     flushIcon("mix");
     expect(school.setIcon).toHaveBeenCalled();
     m3?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("reset tolerates a leaf whose captured author is missing", () => {
+    // A leaf can reach reset with no authorIcon entry (e.g. the layer was
+    // mutated so a new leaf joined after the write, or a prior reset already
+    // deleted the entry). The walk must delete (a no-op) without throwing.
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { manager: m7, ui: u7 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    commitGlyph(u7, "overlay1", "star");
+    flushIcon("overlay1");
+    // Force the WeakMap entry away by clearing via a first reset, then reset again.
+    resetLayerIcon(u7, "overlay1");
+    expect(() => resetLayerIcon(u7, "overlay1")).not.toThrow();
+    expect(getIntent(u7, "overlay1", DIM.ICON)).toBeUndefined();
+    m7?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("multi-leaf commit and reset restore each author independently", () => {
+    // Two markers with DIFFERENT authors: commit gives both the star glyph,
+    // and reset returns each leaf to its OWN author (not the other's). This
+    // pins the per-leaf WeakMap keyed by leaf — a walk that early-returns or
+    // keyed the wrong object would restore the wrong icon.
+    const authorA = makeAuthorIcon();
+    authorA.options = { ...authorA.options, className: "author-a" };
+    const authorB = makeAuthorIcon();
+    authorB.options = { ...authorB.options, className: "author-b" };
+    const mA = makeMarker({ type: "school" }, authorA);
+    const mB = makeMarker({ type: "hospital" }, authorB);
+    const { manager: m12, ui: u12 } = fixtureWithMarkers([mA, mB]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    commitGlyph(u12, "overlay1", "star");
+    flushIcon("overlay1");
+    expect(mA.options.icon).not.toBe(authorA);
+    expect(mB.options.icon).not.toBe(authorB);
+    // Both leaves show the committed glyph (derived from their own author).
+    expect(Object.getPrototypeOf(mA.options.icon)).toBe(authorA);
+    expect(Object.getPrototypeOf(mB.options.icon)).toBe(authorB);
+    resetLayerIcon(u12, "overlay1");
+    flushIcon("overlay1");
+    expect(mA.options.icon).toBe(authorA);
+    expect(mB.options.icon).toBe(authorB);
+    expect(Object.getPrototypeOf(mA.options.icon)).not.toBe(authorB);
+    m12?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("fill write does not disturb a committed icon", () => {
+    // G5 cross-dimension isolation (fill → icon): writing a fill colour must
+    // not clear or replace the icon the layer already committed.
+    const author = makeAuthorIcon();
+    const leaf = makeHybridLeaf(author, { fillColor: "#aabbcc" });
+    const group = makeMarkerGroup(leaf);
+    const { manager: m13, ui: u13 } = initFixture({
+      data: [{ id: "hy1", name: "HY1", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    // Commit an icon first.
+    commitGlyph(u13, "hy1", "star");
+    flushIcon("hy1");
+    const iconAfterGlyph = leaf.options.icon;
+    expect(iconAfterGlyph).not.toBe(author);
+    // Now write a fill colour and flush its face.
+    commitFillColor(u13, "hy1", "#123456");
+    flushStyleDimApply(FACE.FILL, "hy1");
+    // The icon is untouched, the fill landed, and the fill colour is visible.
+    expect(leaf.options.icon).toBe(iconAfterGlyph);
+    expect(leaf.options.fillColor).toBe("#123456");
+    m13?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("icon write does not disturb an existing fill", () => {
+    // G5 cross-dimension isolation (icon → fill): committing a glyph after a
+    // fill write must not clear the fill colour on the leaf.
+    const author = makeAuthorIcon();
+    const leaf = makeHybridLeaf(author, { fillColor: "#aabbcc" });
+    const group = makeMarkerGroup(leaf);
+    const { manager: m14, ui: u14 } = initFixture({
+      data: [{ id: "hy2", name: "HY2", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    commitFillColor(u14, "hy2", "#123456");
+    flushStyleDimApply(FACE.FILL, "hy2");
+    expect(leaf.options.fillColor).toBe("#123456");
+    commitGlyph(u14, "hy2", "star");
+    flushIcon("hy2");
+    expect(leaf.options.icon).not.toBe(author);
+    // The fill survives the icon write.
+    expect(leaf.options.fillColor).toBe("#123456");
+    m14?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("reset only affects the icon, leaving the fill intent and value in place", () => {
+    // G5 cross-dimension isolation (reset scoping): resetting the icon must
+    // restore the authored icon but keep the fill override (intent + value).
+    const author = makeAuthorIcon();
+    const leaf = makeHybridLeaf(author, { fillColor: "#aabbcc" });
+    const group = makeMarkerGroup(leaf);
+    const { manager: m15, ui: u15 } = initFixture({
+      data: [{ id: "hy3", name: "HY3", role: "overlay", layer: group }, BASE_LAYER],
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    commitFillColor(u15, "hy3", "#123456");
+    flushStyleDimApply(FACE.FILL, "hy3");
+    commitGlyph(u15, "hy3", "star");
+    flushIcon("hy3");
+    expect(leaf.options.icon).not.toBe(author);
+    // Reset the icon: it returns to the author, fill stays.
+    resetLayerIcon(u15, "hy3");
+    flushIcon("hy3");
+    expect(leaf.options.icon).toBe(author);
+    expect(leaf.options.fillColor).toBe("#123456");
+    expect(getIntent(u15, "hy3", INTENT.FILL_COLOR)).toEqual("#123456");
+    m15?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
