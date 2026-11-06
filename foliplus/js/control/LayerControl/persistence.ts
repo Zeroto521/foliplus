@@ -51,10 +51,10 @@ type LiveState = {
  *  and round-trip tests with it.
  *
  *  2 → 3: the label config moved into `layers[id].annotation` (a style
- *  dimension of the layer, not a parallel segment), which needs a
- *  compatibility read, so it did bump. v2 records still read — their
- *  `annotations[id]` entries fall back to the new key's absence, and the
- *  segment is now dropped as invalid (the dual-key removal).
+ *  dimension of the layer, not a parallel segment). There is deliberately no
+ *  compatibility read: the legacy top-level `annotations` segment is
+ *  dropped, not read (no compatibility migration), so a v2 record still loads
+ *  but its label config is discarded, and the next write stamps v3.
  *
  *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
  *  no compatibility read: the field rename is a breaking change accepted for
