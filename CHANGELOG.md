@@ -18,6 +18,7 @@
 
 ### Changed
 
+- `CSS`: panel inputs share one frame and one font step instead of three hand-written copies ([#952](https://github.com/Zeroto521/foliplus/pull/952))
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`) ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#790](https://github.com/Zeroto521/foliplus/pull/790))
 - `LayerControl`: labels rebuild once per frame and repaint only their own canvas, each dimension owns its replay policy, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
