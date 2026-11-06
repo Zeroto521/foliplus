@@ -37,20 +37,37 @@ import sys
 import textwrap
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_CONTROL_DIR = _REPO_ROOT / "foliplus" / "control"
+
+
 # ── Module constants ───────────────────────────────────────────────────
-# Each shipped control class and its source file. BaseControl is the shared
-# base; the rest are the public controls. Order is the API-docs order.
-CONTROL_CLASSES: dict[str, str] = {
-    "BaseControl": "foliplus/BaseControl.py",
-    "LayerControl": "foliplus/control/LayerControl/control.py",
-    "FullscreenControl": "foliplus/control/FullscreenControl.py",
-    "ScaleControl": "foliplus/control/ScaleControl.py",
-    "LocateControl": "foliplus/control/LocateControl.py",
-    "HeatmapControl": "foliplus/control/HeatmapControl.py",
-    "MeasureControl": "foliplus/control/MeasureControl.py",
-    "SearchControl": "foliplus/control/SearchControl.py",
-    "ExportControl": "foliplus/control/ExportControl.py",
-}
+# Each shipped control class and its source file, discovered from disk.
+# BaseControl is the shared base; the rest are the public controls.
+def _discover_control_classes() -> dict[str, str]:
+    """Map each shipped control class to its source file, discovered from disk.
+
+    A control is either a single module ``foliplus/control/<Name>.py`` or a
+    package ``foliplus/control/<Name>/control.py`` (promoted once it passes the
+    ~300-line criterion). Discovering both shapes here means promoting a control
+    to a package, renaming one, or adding a new one is no longer an edit to this
+    gate -- the table stays in sync with what is actually on disk.
+
+    ``BaseControl`` is the shared base and lives outside ``control/``; it is
+    added explicitly because the glob below only covers the ``control/`` tree.
+    """
+    found: dict[str, str] = {}
+    for module in sorted(_CONTROL_DIR.glob("*.py")):
+        if module.name == "__init__.py":
+            continue
+        found[module.stem] = module.relative_to(_REPO_ROOT).as_posix()
+    for package in sorted(_CONTROL_DIR.glob("*/control.py")):
+        found[package.parent.name] = package.relative_to(_REPO_ROOT).as_posix()
+    found["BaseControl"] = "foliplus/BaseControl.py"
+    return found
+
+
+CONTROL_CLASSES: dict[str, str] = _discover_control_classes()
 
 # Sphinx roles the docstrings use as cross-references. docutils alone does
 # not know them and would report ``Unknown interpreted text role`` (ERROR/3),

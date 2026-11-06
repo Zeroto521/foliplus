@@ -43,6 +43,32 @@ PY_SCAN_DIR = "foliplus"
 # Hard-coded exemptions.
 CONFIG_SCHEMA = "foliplus/js/config-schema.ts"
 
+# Directory that holds one sub-directory per control; each control's IIFE entry
+# is its ``index.ts``. Enumerating the directory (rather than trusting a regex
+# against file content) means renaming a control or adding a ninth one is picked
+# up automatically -- a content regex would silently stop matching and the
+# renamed entry would be reported as a dead barrel export.
+CONTROL_DIR = "foliplus/js/control"
+
+
+def _control_entry_paths() -> set[str]:
+    """Return the repo-relative ``index.ts`` path of every shipped control.
+
+    Reads the directory so the set is discovered, not maintained by hand. A
+    control directory that exists but has no ``index.ts`` is skipped (it is
+    not an IIFE entry); a renamed control therefore changes the set in the
+    same commit as the rename, keeping the exemption honest.
+    """
+    root = REPO_ROOT / CONTROL_DIR
+    if not root.is_dir():
+        return set()
+    return {
+        (CONTROL_DIR + "/" + child.name + "/index.ts")
+        for child in sorted(root.iterdir())
+        if child.is_dir() and (child / "index.ts").is_file()
+    }
+
+
 # ---------------------------------------------------------------------------
 # Path helpers (pure-pathlib replacements for os.path.normpath / os.path.relpath)
 # ---------------------------------------------------------------------------
@@ -281,9 +307,14 @@ def parse_file(filepath: str, text: str, repo_root: str) -> FileAnalysis:
     """Parse a .ts file into a FileAnalysis."""
     fa = FileAnalysis(filepath)
 
-    # Detect IIFE entry, test file, exempt file, barrel scope
-    fa.is_iife_entry = bool(IIFE_ENTRY_RE.search(text))
+    # Detect IIFE entry, test file, exempt file, barrel scope.
+    # An IIFE entry is identified by path -- it is one of the per-control
+    # ``index.ts`` files enumerated from ``control/`` -- with the content
+    # regex as the fallback for a test fixture that synthesises an entry
+    # outside the real tree. Path identity is what keeps a renamed control
+    # from silently dropping out of the exemption.
     rel = _relpath(filepath, repo_root)
+    fa.is_iife_entry = rel in _control_entry_paths() or bool(IIFE_ENTRY_RE.search(text))
     fa.is_test_file = rel.startswith("test/js/") or rel.startswith("test/python/")
     fa.is_exempt = rel == CONFIG_SCHEMA
     fa.is_barrel_scope = (

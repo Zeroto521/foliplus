@@ -251,6 +251,71 @@ class TestFindTableBorderIssues:
         assert mod.scan_table_border_issues(REPO_ROOT) == {}
 
 
+class TestDiscoverControlClasses:
+    """_discover_control_classes reads foliplus/control/ from disk.
+
+    A control is either a single module or a package; both shapes must be
+    discovered, and ``__init__.py`` must never be mistaken for a control
+    source. These tests build a synthetic tree so the glob logic is pinned
+    independently of the real repo layout.
+    """
+
+    def _write_tree(self, root: Path, entries: list[str]) -> None:
+        """Create control/ files/dirs for each entry under a synthetic repo.
+
+        An entry ``Foo.py`` is a single-module control; ``Bar/control.py`` is
+        a package control. ``__init__.py`` inside a package dir is written
+        too, since a real package always has one.
+        """
+        control = root / "foliplus" / "control"
+        for entry in entries:
+            target = control / entry
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                target.write_text("", encoding="utf-8")
+
+    def test_single_module_control_is_discovered(self, tmp_path, monkeypatch):
+        self._write_tree(tmp_path, ["ScaleControl.py"])
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(mod, "_CONTROL_DIR", tmp_path / "foliplus" / "control")
+        result = mod._discover_control_classes()
+        assert result["ScaleControl"] == "foliplus/control/ScaleControl.py"
+
+    def test_package_control_is_discovered(self, tmp_path, monkeypatch):
+        """A package control's source is its control.py, not its __init__.py."""
+        self._write_tree(
+            tmp_path, ["LayerControl/__init__.py", "LayerControl/control.py"]
+        )
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(mod, "_CONTROL_DIR", tmp_path / "foliplus" / "control")
+        result = mod._discover_control_classes()
+        assert result["LayerControl"] == ("foliplus/control/LayerControl/control.py")
+
+    def test_init_py_is_skipped(self, tmp_path, monkeypatch):
+        """__init__.py never appears as a control, in either shape."""
+        self._write_tree(
+            tmp_path,
+            ["__init__.py", "LayerControl/__init__.py", "LayerControl/control.py"],
+        )
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(mod, "_CONTROL_DIR", tmp_path / "foliplus" / "control")
+        result = mod._discover_control_classes()
+        assert "__init__" not in result
+        assert not any(
+            name == "LayerControl" and name.endswith("init") for name in result
+        )
+        # The package control is still found.
+        assert result["LayerControl"] == "foliplus/control/LayerControl/control.py"
+
+    def test_basecontrol_is_always_registered(self, tmp_path, monkeypatch):
+        """BaseControl lives outside control/, so it is added explicitly."""
+        self._write_tree(tmp_path, ["ScaleControl.py"])
+        monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(mod, "_CONTROL_DIR", tmp_path / "foliplus" / "control")
+        result = mod._discover_control_classes()
+        assert result["BaseControl"] == "foliplus/BaseControl.py"
+
+
 class TestControlClassesComplete:
     def test_control_classes_cover_every_shipped_control(self):
         """A newly added control source must be registered in CONTROL_CLASSES.
