@@ -26,6 +26,23 @@ import {
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
+// The shared L stub (test/js/setup.ts) defines no Icon key; the lead's
+// buildMarkerIcon branch reads L.Icon.Default (task #932 step 1). Provide a
+// minimal Default class here so `author instanceof L.Icon.Default` does not
+// throw, and so the default-icon tests below can build an author that IS an
+// instance of it. Scoped to this file — the shared stub stays generic.
+class TestDivIcon {
+  options: any;
+  constructor(options: any) {
+    this.options = options;
+  }
+}
+(window.L as any).Icon = { Default: class {} };
+(window.L as any).DivIcon = TestDivIcon;
+// The shared stub's divIcon factory returns a bare {}; the lead's branch
+// produces a real L.DivIcon, so point the factory at our class here.
+(window.L as any).divIcon = vi.fn((options: any) => new TestDivIcon(options));
+
 // A marker leaf: the layer type the icon dimension owns. It carries a
 // runtime `setIcon` (the duck-type the capability probe keys on) and an
 // `options.icon` that `setIcon` replaces in place.
@@ -130,6 +147,18 @@ const makeAuthorIcon = (
         })
       : undefined,
   };
+  return author;
+};
+
+// A Leaflet default-icon author: an L.Icon.Default instance (the branch keys
+// on `instanceof L.Icon.Default` first, then on createIcon -> <img>). Its
+// createIcon returns a real <img> like Leaflet's _createImg, so the second
+// clause also fires — the dedicated divIcon branch must take it over.
+const makeDefaultIconAuthor = (): any => {
+  const proto = (window.L as any).Icon.Default.prototype;
+  const author = Object.create(proto);
+  author.options = { iconSize: [25, 41], iconAnchor: [12, 41] };
+  author.createIcon = vi.fn(() => document.createElement("img"));
   return author;
 };
 describe("layerCanIcon", () => {
@@ -245,6 +274,19 @@ describe("buildMarkerIcon", () => {
     const div = derived.createIcon();
     expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<circle");
   });
+
+  it("takes a Leaflet default icon down a dedicated divIcon branch", () => {
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
+    expect(derived).toBeInstanceOf((window.L as any).DivIcon);
+    expect(derived.options).toMatchObject({
+      className: "foliplus-marker-default",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+    });
+    expect(derived.options.html).toContain("foliplus-marker-glyph");
+    expect(derived.options.html).toContain("<svg");
+  });
 });
 
 describe("resolveGlyph", () => {
@@ -317,6 +359,29 @@ describe("buildIconRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
+  });
+
+  it("re-renders the trigger to show the selected glyph", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const glyphBox = trigger.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER_GLYPH}`,
+    ) as HTMLElement;
+    const nameBox = trigger.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER_NAME}`,
+    ) as HTMLElement;
+    // Uncovered: the author-original label, no glyph box.
+    expect(nameBox.textContent).toBe(ui.T("style_icon_original"));
+    expect(glyphBox.querySelector(".foliplus-marker-glyph")).toBeNull();
+    trigger.click();
+    const cells = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    (cells[0] as HTMLElement).click();
+    // The trigger now previews the chosen glyph (not the static label) —
+    // the renderTrigger callback wired into cell.onclick must have run.
+    expect(nameBox.textContent).toBe(GLYPH_NAMES[0]);
+    expect(glyphBox.querySelector(".foliplus-marker-glyph")).not.toBeNull();
   });
 
   it("highlights the current glyph cell", () => {
@@ -541,6 +606,27 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     flushIcon("mix");
     expect(school.setIcon).toHaveBeenCalled();
     m3?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("applies a divIcon to a default-icon marker and pins the anchor", () => {
+    const defaultAuthor = makeDefaultIconAuthor();
+    const marker = makeMarker({ type: "school" }, defaultAuthor);
+    const { manager: m2, ui: u2 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    commitGlyph(u2, "overlay1", "map-pin");
+    flushIcon("overlay1");
+    expect(marker.setIcon).toHaveBeenCalled();
+    // The leaf's icon is now the dedicated divIcon (not a derived chassis),
+    // with the Leaflet default anchor pinned so the glyph sits on the point.
+    expect(marker.options.icon).toBeInstanceOf((window.L as any).DivIcon);
+    expect(marker.options.icon.options).toMatchObject({
+      className: "foliplus-marker-default",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+    });
+    m2?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });

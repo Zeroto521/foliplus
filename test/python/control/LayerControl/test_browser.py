@@ -177,21 +177,31 @@ class TestLayerControlBrowser:
             written = page.evaluate(
                 _js("LayerControl/icon_dimension_probe"), ["map-pin"]
             )
-            assert written["derivedMatchesAuthor"], (
-                f"derived chassis drifted from author: {written}"
+            # Task #932 step 1: a plain L.Icon.Default author (this fixture)
+            # takes the dedicated divIcon branch — the marker DOM carries the
+            # foliplus-marker-default class + the glyph shell, and Leaflet's
+            # default 25x41 / [12,41] anchor is pinned. The old
+            # derivedMatchesAuthor contract (chassis pixel-identical to the
+            # author's <img>) does NOT hold here — Default is replaced by a
+            # DivIcon by design.
+            assert written["derived"]["cls"].split().includes(
+                "foliplus-marker-default"
+            ), f"default branch did not set foliplus-marker-default: {written}"
+            assert written["derived"]["inner"] and written["derived"]["inner"][
+                "cls"
+            ].split().includes("foliplus-marker-glyph"), (
+                f"default branch lost the glyph inner shell: {written}"
             )
-            # A plain L.Icon.Default author (this fixture) has no inner <i>,
-            # so innerKeepsAuthor is None by construction; the glyph then
-            # paints the default white. An author WITH an inner <i> (an
-            # awesome-markers chassis) must carry its class and colour.
-            if written["innerKeepsAuthor"] is None:
-                assert written["derived"]["inner"]["color"] == "rgb(255, 255, 255)", (
-                    f"glyph did not fall back to white: {written}"
-                )
-            else:
-                assert written["innerKeepsAuthor"], (
-                    f"glyph swap lost the author inner <i> class/colour: {written}"
-                )
+            assert written["derived"]["iconSize"] == [25, 41], (
+                f"default branch did not pin the 25x41 size: {written}"
+            )
+            # Leaflet offsets the icon element from the anchor: a [12,41]
+            # anchor on a 25x41 icon shifts the element -12px / -41px. The
+            # glyph must sit on the point, not below it (the pre-932 偏下 bug).
+            assert written["derived"]["anchor"] == {
+                "left": "-12px",
+                "top": "-41px",
+            }, f"default branch did not pin the [12,41] anchor: {written}"
             assert written["icons"], "no marker icons read"
             assert all(icon["hasGlyph"] for icon in written["icons"]), (
                 f"not every marker carries the glyph after the write: {written}"
@@ -207,9 +217,9 @@ class TestLayerControlBrowser:
             assert reset["derivedMatchesAuthor"], (
                 f"Reset did not restore the author icon pixel-identical: {reset}"
             )
-            # Same as the write path: a plain L.Icon.Default author has no
-            # inner <i> to carry, so the colour contract only applies when
-            # the author supplied one.
+            # After Reset the marker is the author's real <img> again — a
+            # plain L.Icon.Default author has no inner <i> to carry, so the
+            # colour contract only applies when the author supplied one.
             if reset["innerKeepsAuthor"] is not None:
                 assert reset["innerKeepsAuthor"], (
                     f"Reset lost the author inner <i> class/colour: {reset}"

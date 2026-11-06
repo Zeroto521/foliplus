@@ -84,6 +84,13 @@ async (arg = []) => {
         Math.round(el.getBoundingClientRect().width),
         Math.round(el.getBoundingClientRect().height),
       ],
+      // Leaflet offsets the icon element from the anchor: for the default
+      // 25x41 / [12,41] icon the element is shifted -12px / -41px. Reading the
+      // live margins proves the anchor is pinned (task #932 step 1).
+      anchor: {
+        left: el.style.marginLeft,
+        top: el.style.marginTop,
+      },
       inner: readInner(el),
     };
   };
