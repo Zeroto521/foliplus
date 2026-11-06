@@ -174,6 +174,16 @@ class TestLayerControlBrowser:
                 f"markers already carry a glyph before the write: {before}"
             )
 
+            # P3-22: a wrong FA glyph name renders as a 0-width tofu. Open the
+            # grid and assert every glyph cell's icon paints at a real width.
+            grid = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), ["@readGrid"]
+            )
+            assert grid["gridOpen"], f"grid did not open: {grid}"
+            assert grid["cellCount"] == 40, f"expected 40 glyph cells: {grid}"
+            bad = [w for w in grid["widths"] if w["width"] <= 0]
+            assert not bad, f"glyph cells render at zero width (tofu): {bad}"
+
             written = page.evaluate(
                 _js("LayerControl/icon_dimension_probe"), ["map-pin"]
             )
@@ -184,14 +194,14 @@ class TestLayerControlBrowser:
             # derivedMatchesAuthor contract (chassis pixel-identical to the
             # author's <img>) does NOT hold here — Default is replaced by a
             # DivIcon by design.
-            assert (
-                written["derived"]["cls"].split().includes("foliplus-marker-default")
-            ), f"default branch did not set foliplus-marker-default: {written}"
-            assert written["derived"]["inner"] and written["derived"]["inner"][
-                "cls"
-            ].split().includes("foliplus-marker-glyph"), (
-                f"default branch lost the glyph inner shell: {written}"
+            assert "foliplus-marker-default" in written["derived"]["cls"].split(), (
+                f"default branch did not set foliplus-marker-default: {written}"
             )
+            assert (
+                written["derived"]["inner"]
+                and "foliplus-marker-glyph"
+                in written["derived"]["inner"]["cls"].split()
+            ), f"default branch lost the glyph inner shell: {written}"
             assert written["derived"]["iconSize"] == [25, 41], (
                 f"default branch did not pin the 25x41 size: {written}"
             )

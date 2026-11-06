@@ -17,6 +17,7 @@ async (arg = []) => {
   // Playwright passes `null` when evaluate() is called without an argument,
   // and a list otherwise; the default only covers undefined, so normalise here.
   const [glyph, reset] = Array.isArray(arg) ? arg : [];
+  const readGrid = glyph === "@readGrid";
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { panel: false };
   const iconRow = panel.querySelector(".foliplus-style-icon-row");
@@ -53,7 +54,7 @@ async (arg = []) => {
     }
   }
 
-  if (glyph) {
+  if (glyph && !readGrid) {
     trigger.click();
     const grid = iconRow.querySelector(".foliplus-style-icon-grid");
     const cell = grid?.querySelector(
@@ -70,6 +71,29 @@ async (arg = []) => {
     if (resetBtn) resetBtn.click();
     await flush();
     window.__panelAfterReset = !!document.querySelector(".foliplus-layer-style-panel");
+  }
+
+  if (readGrid) {
+    trigger.click();
+    await flush();
+    const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+    const cells = grid
+      ? Array.from(grid.querySelectorAll(".foliplus-style-icon-cell"))
+      : [];
+    const widths = cells.map(cell => {
+      const i = cell.querySelector(".foliplus-marker-glyph");
+      const rect = i ? i.getBoundingClientRect() : null;
+      return { glyph: cell.getAttribute("data-glyph"), width: rect ? rect.width : -1 };
+    });
+    trigger.click(); // close the grid again
+    return {
+      panel: true,
+      iconRow: true,
+      trigger: true,
+      gridOpen: !!grid,
+      cellCount: cells.length,
+      widths,
+    };
   }
 
   const first = document.querySelector(".leaflet-marker-icon");
