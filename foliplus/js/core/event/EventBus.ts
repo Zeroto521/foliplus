@@ -3,7 +3,7 @@
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
 import { createLogger } from "#common/log.js";
-import { EVENT_POLICY, type EventPolicy } from "./const.js";
+import { EVENT_POLICY, EVENT_POLICY_KIND, type EventPolicy } from "./const.js";
 import type { EventPayloadMap } from "./type.js";
 
 const log = createLogger("EventBus");
@@ -36,7 +36,7 @@ interface EventEntry {
   inFlight: Map<string, object>;
 }
 
-const DEFAULT_POLICY: EventPolicy = { kind: "terminal" };
+const DEFAULT_POLICY: EventPolicy = { kind: EVENT_POLICY_KIND.TERMINAL };
 
 /** Policy of an event that was never subscribed (still declared in the
  *  table). Unknown third-party strings default to terminal — loud rather than
@@ -88,7 +88,7 @@ class EventBus {
    *  through `emit` would give the event the opposite contract to its
    *  declared policy. Producers use `publish` / `SettledOperation`. */
   private assertPublishable(event: string): void {
-    if (this.entryPolicy(event).kind === "notification") {
+    if (this.entryPolicy(event).kind === EVENT_POLICY_KIND.NOTIFICATION) {
       throw new Error(
         log.msg(
           `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
@@ -344,7 +344,7 @@ class EventBus {
     failure: DispatchFailure | undefined,
   ): DispatchFailure | undefined {
     if (!failure) return undefined;
-    if (this.entryPolicy(event).kind === "notification") {
+    if (this.entryPolicy(event).kind === EVENT_POLICY_KIND.NOTIFICATION) {
       this.reportConsumerFailure(event, failure.error);
       return undefined;
     }
