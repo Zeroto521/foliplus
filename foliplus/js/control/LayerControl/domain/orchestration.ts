@@ -17,6 +17,7 @@ import {
   type LayerMutation,
   type LayerOrder,
   LayerSurface,
+  NATIVE_PANE_Z_OFFSET,
   PANE_ROLE,
   type PaneManager,
   type PaneSpec,
@@ -294,17 +295,24 @@ class LayerOrchestration {
     );
 
     // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
-    // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
-    // markers (search/locate pins, ✕, data markers) one step below topZ but
+    // above the highest data pane (NATIVE_PANE_Z_OFFSET.popup), tooltip exactly
+    // at topZ (NATIVE_PANE_Z_OFFSET.tooltip), and markers (search/locate pins,
+    // ✕, data markers) one step below topZ (NATIVE_PANE_Z_OFFSET.marker) but
     // still above every data pane — otherwise markerPane would hide under
     // overlays. The base comes from the ladder; the offsets are fixed.
     const topZ = topSlotZ(this.layers.length);
     const popupPaneEl = this.map.getPane("popupPane");
-    if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
+    if (popupPaneEl) {
+      popupPaneEl.style.zIndex = String(topZ + NATIVE_PANE_Z_OFFSET.popup);
+    }
     const tooltipPaneEl = this.map.getPane("tooltipPane");
-    if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
+    if (tooltipPaneEl) {
+      tooltipPaneEl.style.zIndex = String(topZ + NATIVE_PANE_Z_OFFSET.tooltip);
+    }
     const markerPaneEl = this.map.getPane("markerPane");
-    if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+    if (markerPaneEl) {
+      markerPaneEl.style.zIndex = String(topZ + NATIVE_PANE_Z_OFFSET.marker);
+    }
 
     return failed.map(f => f.item.id);
   }

@@ -29,7 +29,14 @@ export {
 export type { CarrierDecl } from "./carrier.js";
 export { sectionOf } from "./role.js";
 export type { LayerRole, LayerSection } from "./role.js";
-export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
+export {
+  LABEL_Z_OFFSET,
+  FOCUS_Z,
+  focusLayerZ,
+  NATIVE_PANE_Z_OFFSET,
+  topSlotZ,
+  zFor,
+} from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
