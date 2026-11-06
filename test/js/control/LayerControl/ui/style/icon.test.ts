@@ -4,7 +4,11 @@ import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
-import { GLYPH_SETS, resolveGlyph } from "#control/LayerControl/ui/style/glyph.js";
+import {
+  GLYPHS,
+  GLYPH_NAMES,
+  resolveGlyph,
+} from "#control/LayerControl/ui/style/glyph.js";
 import {
   ICON_DIMENSION,
   applyIconToLayer,
@@ -218,10 +222,9 @@ describe("buildMarkerIcon", () => {
 });
 
 describe("resolveGlyph", () => {
-  it("returns the exact SVG for a known name", () => {
-    const svg = resolveGlyph("star");
-    expect(svg).toContain("<svg");
-    expect(svg).toContain("<polygon");
+  it("resolves a known name to its canonical key and svg", () => {
+    expect(resolveGlyph("star")).toBe("star");
+    expect(GLYPHS[resolveGlyph("star")]).toContain("<svg");
   });
 
   it("resolves a legacy alias (pin -> map-pin)", () => {
@@ -272,12 +275,12 @@ describe("buildIconRow", () => {
     const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
     expect(grid).not.toBeNull();
     const cells = grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
-    expect(cells.length).toBe(GLYPH_SETS.length);
+    expect(cells.length).toBe(GLYPH_NAMES.length);
     // Choose a glyph: it writes the intent and closes.
     (cells[0] as HTMLElement).click();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent).toEqual({ kind: "glyph", value: GLYPH_SETS[0].name });
+    expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
   });
 
   it("highlights the current glyph cell", () => {
@@ -317,7 +320,7 @@ describe("buildIconRow", () => {
     const cells = [
       ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
     ] as HTMLElement[];
-    expect(cells.length).toBe(GLYPH_SETS.length);
+    expect(cells.length).toBe(GLYPH_NAMES.length);
 
     // Focus the first cell and move right + down. ArrowRight wraps to the
     // next row at the 8-column boundary; ArrowDown moves one full row.
@@ -345,7 +348,7 @@ describe("buildIconRow", () => {
     grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent).toEqual({ kind: "glyph", value: GLYPH_SETS[0].name });
+    expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
   });
 
   it("closes on an outside pointerdown", () => {

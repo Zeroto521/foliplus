@@ -14,6 +14,7 @@ import type {
   PersistedLayerState,
   PersistedRecord,
 } from "./type.js";
+import { isGlyphName } from "./ui/style/glyph.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that
@@ -186,7 +187,10 @@ const PARSE_OVERRIDE: Record<
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
-  icon: data => (isIconIntent(data.icon) ? data.icon : null),
+  icon: data => {
+    const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
+    return isIconIntent(icon) && isGlyphName(icon?.value) ? icon : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

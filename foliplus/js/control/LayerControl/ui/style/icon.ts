@@ -28,7 +28,7 @@ import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { GLYPH_SETS, resolveGlyph } from "./glyph.js";
+import { GLYPHS, GLYPH_NAMES, resolveGlyph } from "./glyph.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
@@ -102,7 +102,7 @@ const buildMarkerIcon = (opts: {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { markerColor?: string } } | undefined;
   if (!author || typeof author.createIcon !== "function") return opts.author;
-  const svg = resolveGlyph(opts.glyph);
+  const svg = GLYPHS[resolveGlyph(opts.glyph)];
   const inner = glyphInnerHtml(svg);
   const derived = Object.create(author) as {
     createIcon: () => HTMLElement | undefined;
@@ -202,7 +202,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     const value = currentGlyph(ui, layerId);
     trigger.textContent = "";
     if (value) {
-      trigger.innerHTML = glyphInnerHtml(resolveGlyph(value));
+      trigger.innerHTML = glyphInnerHtml(GLYPHS[resolveGlyph(value)]);
       trigger.title = value;
     } else {
       trigger.textContent = ui.T("style_icon_original");
@@ -281,24 +281,24 @@ const buildGlyphGrid = (
   }) as HTMLElement;
   const cells: HTMLButtonElement[] = [];
 
-  for (const glyph of GLYPH_SETS) {
+  for (const glyph of GLYPH_NAMES) {
     const cell = dom.el(
       "button",
       {
         class: CONST.CLASSES.STYLE_ICON_CELL,
         type: "button",
         role: "gridcell",
-        title: glyph.name,
-        "data-glyph": glyph.name,
-        ...(glyph.name === current ? { "aria-current": "true" } : {}),
+        title: glyph,
+        "data-glyph": glyph,
+        ...(glyph === current ? { "aria-current": "true" } : {}),
       },
-      { html: glyphInnerHtml(glyph.svg) },
+      { html: glyphInnerHtml(GLYPHS[glyph]) },
     ) as HTMLButtonElement;
-    if (glyph.name === current) {
+    if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);
     }
     cell.onclick = () => {
-      commitGlyph(ui, layerId, glyph.name);
+      commitGlyph(ui, layerId, glyph);
       close();
     };
     cells.push(cell);
