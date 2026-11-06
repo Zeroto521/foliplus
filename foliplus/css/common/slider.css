@@ -246,7 +246,7 @@
 .foliplus-slider-bubble::after {
   content: "";
   position: absolute;
-  left: calc(50% + var(--foliplus-bubble-arrow, 0px));
+  left: calc(50% + var(--foliplus-bubble-arrow));
   width: var(--foliplus-size-8);
   height: var(--foliplus-size-8);
   background: inherit;

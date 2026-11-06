@@ -1,5 +1,9 @@
 import type { FolderOrder } from "#core/layer/folderOrder.js";
-import { type FillValueConfig, isFillValueConfig } from "#core/layer/index.js";
+import {
+  FILL_MODE,
+  type FillValueConfig,
+  isFillValueConfig,
+} from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -169,10 +173,10 @@ const PARSE_OVERRIDE: Record<
     // only the stored literal changed ("ramp" → "value"). The write path
     // always stamps "value", so the migration is idempotent — reading the
     // same record twice yields "value" both times.
-    if (data.fillMode === "ramp") return "value";
-    return data.fillMode === "solid" ||
-      data.fillMode === "value" ||
-      data.fillMode === "original"
+    if (data.fillMode === "ramp") return FILL_MODE.VALUE;
+    return data.fillMode === FILL_MODE.SOLID ||
+      data.fillMode === FILL_MODE.VALUE ||
+      data.fillMode === FILL_MODE.ORIGINAL
       ? data.fillMode
       : null;
   },

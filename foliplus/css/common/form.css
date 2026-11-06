@@ -76,7 +76,7 @@
 
 /* Compact integer / weight field beside a color swatch. */
 .foliplus-form-number-input {
-  width: var(--foliplus-form-secondary-width, 52px);
+  width: var(--foliplus-form-secondary-width);
   height: var(--foliplus-ctrl-size);
   font-size: var(--foliplus-font-size-sm);
   padding: 0 var(--foliplus-size-6);
