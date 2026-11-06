@@ -62,15 +62,12 @@ const GLYPHS = {
 
 type GlyphName = keyof typeof GLYPHS;
 
-/** The one <svg> wrapper around a glyph's inner markup. Plain strings, no
- *  template literal: the build SVG pass only rewrites backtick strings.
+/** The one <svg> wrapper around a glyph's inner markup. A template literal so
+ *  it reads like the other inline-SVG call sites in the repo and so prettier's
+ *  prefer-template rule is satisfied without a join() detour.
  *  No width/height attributes — the icon box owns the size (see header). */
 const glyphSvg = (name: GlyphName): string =>
-  [
-    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">',
-    GLYPHS[name],
-    "</svg>",
-  ].join("");
+  `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${GLYPHS[name]}</svg>`;
 
 const GLYPH_NAMES = Object.keys(GLYPHS) as readonly GlyphName[];
 
