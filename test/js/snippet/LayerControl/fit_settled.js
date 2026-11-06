@@ -1,1 +1,1 @@
-() => window.__fitSettled === true
+() => window.__fitSettled === true;

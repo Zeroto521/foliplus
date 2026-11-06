@@ -3,4 +3,4 @@
   window.map.once("moveend", () => {
     window.__fitSettled = true;
   });
-}
+};
