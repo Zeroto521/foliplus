@@ -152,7 +152,7 @@ const EVENT_POLICY_KIND = {
 } as const;
 type EventPolicyKind = (typeof EVENT_POLICY_KIND)[keyof typeof EVENT_POLICY_KIND];
 
-type EventPolicy = { kind: "terminal" | "notification" };
+type EventPolicy = { kind: EventPolicyKind };
 
 type EventName = (typeof EVENTS)[keyof typeof EVENTS];
 
@@ -182,4 +182,4 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
 };
 
 export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND };
-export type { EventPolicy, EventPolicyKind };
+export type { EventPolicy };
