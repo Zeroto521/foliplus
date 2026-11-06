@@ -1,17 +1,17 @@
 // Unit tests for fillRamp — value-based fill rendering.
 //
-// The mutual exclusion logic (Solid ↔ ramp) is covered in fill.test.ts
-// through the FILL_DIMENSION descriptor; applyRampToLayer is tested here
+// The mutual exclusion logic (Solid ↔ value) is covered in fill.test.ts
+// through the FILL_DIMENSION descriptor; applyValueFill is tested here
 // directly with mock layers.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillRampConfig } from "#core/layer/intent.js";
+import type { FillValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
-import { applyRampToLayer } from "#control/LayerControl/ui/style/fillRamp.js";
+import { applyValueFill } from "#control/LayerControl/ui/style/fillValue.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 
 // A live intent table keyed by the intent-key string, so a test can set the
-// ramp config and the opacity independently — the pin reads both live.
+// value config and the opacity independently — the pin reads both live.
 let intentValues: Record<string, unknown> = {};
 const mockGetIntent = vi.fn(
   (_ui: unknown, _id: unknown, key: string) => intentValues[key],
@@ -74,7 +74,7 @@ const makeFeatureLayer = (features: Array<{ properties: Record<string, unknown> 
   };
 };
 
-/** Create a minimal mock LayerUI for applyRampToLayer. */
+/** Create a minimal mock LayerUI for applyValueFill. */
 const makeUI = (layer: unknown) =>
   ({
     c: {
@@ -83,7 +83,7 @@ const makeUI = (layer: unknown) =>
     },
   }) as any;
 
-const makeRamp = (overrides: Partial<FillRampConfig> = {}): FillRampConfig => ({
+const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
   field: "value",
   method: METHOD.EQUAL,
   classes: 3,
@@ -91,7 +91,7 @@ const makeRamp = (overrides: Partial<FillRampConfig> = {}): FillRampConfig => ({
   ...overrides,
 });
 
-describe("applyRampToLayer", () => {
+describe("applyValueFill", () => {
   it("classifies values and writes per-leaf fillColor via commitStyleDim", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
 
@@ -100,7 +100,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: 5 } },
       { properties: { value: 9 } },
     ]);
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     // Each leaf's setStyle should be called with a fillColor and the fill
     // visibility bit (commitStyleDim's write contract).
@@ -121,13 +121,13 @@ describe("applyRampToLayer", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     const call = (layer.leaves[0].setStyle as any).mock.calls[0][0];
     expect(call.fillOpacity).toBeUndefined();
   });
 
-  it("carries the solid-mode fillOpacity onto every ramp leaf", () => {
+  it("carries the solid-mode fillOpacity onto every value leaf", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     intentValues = { fillOpacity: 0.25 };
     const layer = makeFeatureLayer([
@@ -135,7 +135,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: 9 } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     for (const leaf of layer.leaves) {
       const call = (leaf.setStyle as any).mock.calls[0][0];
@@ -145,7 +145,7 @@ describe("applyRampToLayer", () => {
   });
 
   it("restores the author's face for a leaf whose value is non-finite", () => {
-    // A leaf outside the ramp's reach is not left holding a color the current
+    // A leaf outside the value fill's reach is not left holding a color the current
     // config cannot justify: it gets the author's face back, which is also how
     // the next apply undoes this one's output.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
@@ -156,7 +156,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: "string" } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     const last = (leaf: (typeof layer.leaves)[number]) =>
       (leaf.setStyle as any).mock.calls.at(-1)![0];
@@ -186,11 +186,7 @@ describe("applyRampToLayer", () => {
     ]);
 
     expect(() =>
-      applyRampToLayer(
-        makeUI(layer),
-        "overlay1",
-        makeRamp({ method: METHOD.QUANTILE }),
-      ),
+      applyValueFill(makeUI(layer), "overlay1", makeRamp({ method: METHOD.QUANTILE })),
     ).not.toThrow();
 
     // The project logger namespaces the message and takes the error as its
@@ -206,15 +202,15 @@ describe("applyRampToLayer", () => {
     warn.mockRestore();
   });
 
-  it("carries the layer-level opacity onto a leaf the ramp cannot classify", () => {
+  it("carries the layer-level opacity onto a leaf the value fill cannot classify", () => {
     // fillOpacity is chosen once for the layer, not per class, so a leaf
-    // outside the ramp's reach gets it too: the author's color and
+    // outside the value fill's reach gets it too: the author's color and
     // visibility come back and the whole layer shares one transparency.
     installChroma(["#ff0000"]);
     intentValues = { fillOpacity: 0.4 };
     const layer = makeFeatureLayer([{ properties: { value: NaN } }]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
       fillColor: "#3388ff",
@@ -255,7 +251,7 @@ describe("applyRampToLayer", () => {
       leaves: [line, area],
     } as any;
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ classes: 3 }));
+    applyValueFill(makeUI(layer), "overlay1", makeRamp({ classes: 3 }));
 
     expect(line.setStyle).not.toHaveBeenCalled();
     expect(pinStyleOnHighlight).toHaveBeenCalledTimes(1);
@@ -266,7 +262,7 @@ describe("applyRampToLayer", () => {
   });
 
   it("survives a re-entrant apply from another layer", () => {
-    // A layer's setStyle can synchronously trigger another layer's ramp
+    // A layer's setStyle can synchronously trigger another layer's value fill
     // apply - a custom Path, a third-party plugin, or an observer hook.
     // Both applies must paint their own values: a shared collection
     // would be cleared by the inner call and the outer one would repaint
@@ -282,9 +278,9 @@ describe("applyRampToLayer", () => {
     ]);
     const ramp = makeRamp({ classes: 2 });
     (outer.leaves[0].setStyle as any).mockImplementation(() => {
-      applyRampToLayer(makeUI(inner), "overlay1", ramp);
+      applyValueFill(makeUI(inner), "overlay1", ramp);
     });
-    applyRampToLayer(makeUI(outer), "overlay1", ramp);
+    applyValueFill(makeUI(outer), "overlay1", ramp);
     for (const layer of [outer, inner]) {
       for (const leaf of layer.leaves) {
         expect((leaf.setStyle as any).mock.calls[0][0].fillColor).toBeDefined();
@@ -309,12 +305,12 @@ describe("applyRampToLayer", () => {
     // which is a property of the trigger, not of the apply.
     let depth = 0;
     (layer.leaves[0].setStyle as any).mockImplementation(() => {
-      if (depth++ === 0) applyRampToLayer(ui, "overlay1", ramp);
+      if (depth++ === 0) applyValueFill(ui, "overlay1", ramp);
     });
-    applyRampToLayer(ui, "overlay1", ramp);
+    applyValueFill(ui, "overlay1", ramp);
     for (const leaf of layer.leaves) {
       expect(leaf.setStyle).toHaveBeenCalledTimes(2);
-      // Both the outer write and the re-entrant one painted a ramp color
+      // Both the outer write and the re-entrant one painted a value color
       // for this leaf; a collection cleared by the inner pass would have
       // restored the author's face instead.
       expect((leaf.setStyle as any).mock.calls.at(-1)![0].fillColor).toBeDefined();
@@ -335,9 +331,9 @@ describe("applyRampToLayer", () => {
     (layer.leaves[1].setStyle as any).mockImplementation(() => {
       if (throws) throw new Error("boom");
     });
-    expect(() => applyRampToLayer(ui, "overlay1", ramp)).toThrow("boom");
+    expect(() => applyValueFill(ui, "overlay1", ramp)).toThrow("boom");
     throws = false;
-    applyRampToLayer(ui, "overlay1", ramp);
+    applyValueFill(ui, "overlay1", ramp);
     for (const leaf of layer.leaves) {
       expect((leaf.setStyle as any).mock.calls.at(-1)![0].fillColor).toBeDefined();
     }
@@ -345,7 +341,7 @@ describe("applyRampToLayer", () => {
 
   it("restores the author's face for a layer with no finite values", () => {
     // Nothing to classify is not "leave everything as it is": if a previous
-    // ramp already painted the leaves, that output must be undone, or the map
+    // value fill already painted the leaves, that output must be undone, or the map
     // would keep a color the current config cannot justify.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
@@ -353,8 +349,8 @@ describe("applyRampToLayer", () => {
       { properties: { value: 9 } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ field: "missing" }));
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp({ field: "missing" }));
 
     // Every painted leaf is back at what the author drew.
     for (const leaf of layer.leaves) {
@@ -369,7 +365,7 @@ describe("applyRampToLayer", () => {
   it("restores a leaf the new field leaves behind", () => {
     // Switching the drive property can orphan leaves: the ones that still have
     // a value get the new color, the ones that do not go back to the
-    // author's face instead of keeping the previous ramp's output.
+    // author's face instead of keeping the previous value fill's output.
     installChroma(["#111111", "#222222", "#333333"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1, alt: 1 } },
@@ -378,8 +374,8 @@ describe("applyRampToLayer", () => {
       { properties: { value: 17, alt: 17 } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ field: "alt" }));
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp({ field: "alt" }));
 
     const last = (leaf: (typeof layer.leaves)[number]) =>
       (leaf.setStyle as any).mock.calls.at(-1)![0];
@@ -396,7 +392,7 @@ describe("applyRampToLayer", () => {
   it("returns early for a layer not in the registry", () => {
     const ui = { c: { layerRegistry: new Map(), findLayer: () => null } } as any;
 
-    expect(() => applyRampToLayer(ui, "missing", makeRamp())).not.toThrow();
+    expect(() => applyValueFill(ui, "missing", makeRamp())).not.toThrow();
   });
 
   it("caps classes at the number of available values", () => {
@@ -406,7 +402,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: 2 } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ classes: 9 }));
+    applyValueFill(makeUI(layer), "overlay1", makeRamp({ classes: 9 }));
 
     expect(layer.leaves[0].setStyle).toHaveBeenCalled();
     expect(layer.leaves[1].setStyle).toHaveBeenCalled();
@@ -417,11 +413,11 @@ describe("applyRampToLayer", () => {
     // grey. That throw must not escape the apply walk, which also runs from
     // the replay that fires while the control attaches: one bad record in
     // storage would otherwise leave the whole panel unmounted. The layer gets
-    // the author's face back, and no pin is attached for a ramp that could
+    // the author's face back, and no pin is attached for a value fill that could
     // not be built.
     installChroma(["#111111"]);
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     globalThis.chroma = {
       scale: () => {
@@ -430,35 +426,35 @@ describe("applyRampToLayer", () => {
     } as never;
 
     expect(() =>
-      applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ scheme: "bogus-scheme" })),
+      applyValueFill(makeUI(layer), "overlay1", makeRamp({ scheme: "bogus-scheme" })),
     ).not.toThrow();
     expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
       fillColor: "#3388ff",
       fillOpacity: 0.2,
       fill: true,
     });
-    // The failed ramp attaches an invalidating pin rather than a repainting
-    // one — the previous getter would replay a color this ramp cannot
+    // The failed value fill attaches an invalidating pin rather than a repainting
+    // one — the previous getter would replay a color this value fill cannot
     // justify.
     const pinCalls = (pinStyleOnHighlight as ReturnType<typeof vi.fn>).mock.calls;
     expect(pinGetterOf(pinCalls.length - 1)()).toBeNull();
   });
 
-  it("replays the resolved ramp on mouseout when the stored field went stale", () => {
-    // Production resolves a stored ramp field the data no longer offers to the
+  it("replays the resolved value fill on mouseout when the stored field went stale", () => {
+    // Production resolves a stored value field the data no longer offers to the
     // first offered field before painting. The pin guard must resolve the live
     // record the same way: comparing the stale stored name against the resolved
-    // config used to fail, so the first mouseout dropped the ramp color and
+    // config used to fail, so the first mouseout dropped the value color and
     // the leaf fell back to the author's face until the next apply.
     installChroma(["#111111"]);
     const layer = makeFeatureLayer([{ properties: { count: 5 } }]);
     intentValues = { fillRamp: makeRamp({ field: "gone" }) };
-    const resolveStored = (stored: FillRampConfig): FillRampConfig => ({
+    const resolveStored = (stored: FillValueConfig): FillValueConfig => ({
       ...stored,
       field: "count",
     });
 
-    applyRampToLayer(
+    applyValueFill(
       makeUI(layer),
       "overlay1",
       resolveStored(makeRamp({ field: "count" })),
@@ -468,7 +464,7 @@ describe("applyRampToLayer", () => {
     expect((layer.leaves[0].setStyle as any).mock.calls[0][0].fillColor).toBe(
       "#111111",
     );
-    // The mouseout replay still owns the leaf: the ramp color comes back
+    // The mouseout replay still owns the leaf: the value color comes back
     // instead of null (which would let folium's resetStyle win).
     expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
   });
@@ -484,7 +480,7 @@ describe("applyRampToLayer", () => {
     intentValues = { fillRamp: ramp };
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
 
@@ -496,7 +492,7 @@ describe("applyRampToLayer", () => {
   });
 
   it("reports an unknown method and restores the author's face", () => {
-    // isFillRampConfig rejects an unknown method on read, so this is the
+    // isFillValueConfig rejects an unknown method on read, so this is the
     // defence-in-depth path: a caller that wrote the record directly still
     // gets a report and the author's fill rather than an equal-split guess.
     installChroma(["#ff0000", "#00ff00"]);
@@ -507,11 +503,7 @@ describe("applyRampToLayer", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() =>
-      applyRampToLayer(
-        makeUI(layer),
-        "overlay1",
-        makeRamp({ method: "bogus" as never }),
-      ),
+      applyValueFill(makeUI(layer), "overlay1", makeRamp({ method: "bogus" as never })),
     ).not.toThrow();
 
     expect(warn.mock.calls[0][0]).toBe("[foliplus] value-based fill:");
@@ -528,7 +520,7 @@ describe("applyRampToLayer", () => {
   });
 
   describe("the drive property is read through its own boundary", () => {
-    // The capability probe admits the leaf; reading its data is the ramp's
+    // The capability probe admits the leaf; reading its data is the value fill's
     // own job, so a hostile property bag must read as "no value" instead of
     // aborting the layer - and the same read runs again on every highlight
     // replay, where a throw would escape into Leaflet's event dispatch.
@@ -568,7 +560,7 @@ describe("applyRampToLayer", () => {
       });
 
       expect(() =>
-        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+        applyValueFill(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
       ).not.toThrow();
       expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
     });
@@ -584,7 +576,7 @@ describe("applyRampToLayer", () => {
       leaf.feature.geometry = { type: "Polygon" };
 
       expect(() =>
-        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+        applyValueFill(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
       ).not.toThrow();
       expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
     });
@@ -600,7 +592,7 @@ describe("applyRampToLayer", () => {
       leaf.feature = { properties, geometry: { type: "Polygon" } };
 
       expect(() =>
-        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+        applyValueFill(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
       ).not.toThrow();
       expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
     });
@@ -620,7 +612,7 @@ describe("applyRampToLayer", () => {
       healthy.feature = { properties: { value: 9 }, geometry: { type: "Polygon" } };
 
       expect(() =>
-        applyRampToLayer(makeUI(makeLayer(hostile, healthy)), "overlay1", makeRamp()),
+        applyValueFill(makeUI(makeLayer(hostile, healthy)), "overlay1", makeRamp()),
       ).not.toThrow();
 
       expect(healthy.setStyle).toHaveBeenCalled();
@@ -639,7 +631,7 @@ describe("applyRampToLayer", () => {
       });
       const leaf = makeRampLeaf();
       leaf.feature = { properties, geometry: { type: "Polygon" } };
-      applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp());
+      applyValueFill(makeUI(makeLayer(leaf)), "overlay1", makeRamp());
       const replay = pinGetterOf();
 
       explode = true;
@@ -649,15 +641,15 @@ describe("applyRampToLayer", () => {
     });
   });
 
-  it("pin stops replaying the ramp once the mode is solid", () => {
-    // A mode switch back to solid keeps the ramp config stored — the config is
+  it("pin stops replaying the value fill once the mode is solid", () => {
+    // A mode switch back to solid keeps the value config stored — the config is
     // the arm's next-time state, not evidence that the arm is active. The pin
-    // must not repaint the ramp on the next mouseout, and it must still
-    // replay while the ramp arm is active.
+    // must not repaint the value fill on the next mouseout, and it must still
+    // replay while the value arm is active.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = { fillRamp: ramp, fillMode: "solid" };
     expect(pinGetterOf()()).toBeNull();
@@ -666,10 +658,10 @@ describe("applyRampToLayer", () => {
     expect(pinGetterOf()()!.fillColor).toBe("#ff0000");
   });
 
-  it("pin getter returns null when the ramp intent is cleared", () => {
+  it("pin getter returns null when the value intent is cleared", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     expect(pinGetterOf()()).toBeNull();
   });
@@ -678,9 +670,9 @@ describe("applyRampToLayer", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    // Getter sees a different ramp under each key — the cached breaks no
+    // Getter sees a different value config under each key — the cached breaks no
     // longer describe the live config, so the author's face stays in force.
     for (const [key, value] of [
       ["field", "otherField"],
@@ -697,7 +689,7 @@ describe("applyRampToLayer", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = { fillRamp: ramp };
     const result = pinGetterOf()();
@@ -717,7 +709,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: 5 } },
       { properties: { value: 9 } },
     ]);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     const colorOf = (n: number) =>
       (layer.leaves[n].setStyle as any).mock.calls[0][0].fillColor as string;
@@ -736,10 +728,10 @@ describe("applyRampToLayer", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = {
-      fillRamp: { ...ramp, kind: "categorical" } as unknown as FillRampConfig,
+      fillRamp: { ...ramp, kind: "categorical" } as unknown as FillValueConfig,
     };
     expect(pinGetterOf()()).toBeNull();
   });
@@ -750,7 +742,7 @@ describe("applyRampToLayer", () => {
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
     // Build with no opacity, then choose one afterwards.
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = { fillRamp: ramp, fillOpacity: 0.4 };
     expect(pinGetterOf()()!.fillOpacity).toBe(0.4);
@@ -759,19 +751,19 @@ describe("applyRampToLayer", () => {
   it("pin getter returns null when the live value is non-finite", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
-    // Feature starts with a valid value so applyRampToLayer collects it,
+    // Feature starts with a valid value so applyValueFill collects it,
     // but it is mutated before the getter is invoked.
     const features = [{ properties: { value: 5 } }];
     const layer = makeFeatureLayer(features);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     features[0].properties.value = NaN;
     intentValues = { fillRamp: ramp };
     expect(pinGetterOf()()).toBeNull();
   });
 
-  it("replays the live opacity over the author's face for a leaf the ramp cannot classify", () => {
-    // The out-of-reach twin of the ramp's own opacity replay: the author's
+  it("replays the live opacity over the author's face for a leaf the value fill cannot classify", () => {
+    // The out-of-reach twin of the value fill's own opacity replay: the author's
     // color and fill flag ride folium's restore untouched, and only the
     // user's opacity is added on top. With none chosen the getter above
     // returns null and the restore stands.
@@ -779,7 +771,7 @@ describe("applyRampToLayer", () => {
     const ramp = makeRamp();
     const features = [{ properties: { value: 5 } }];
     const layer = makeFeatureLayer(features);
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     features[0].properties.value = NaN;
     intentValues = { fillRamp: ramp, fillOpacity: 0.3 };
@@ -800,7 +792,7 @@ describe("applyRampToLayer", () => {
       { properties: { value: 9 } },
     ]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyValueFill(makeUI(layer), "overlay1", makeRamp());
 
     for (const leaf of layer.leaves) {
       expect(leaf.setStyle).toHaveBeenCalled();
@@ -813,7 +805,7 @@ describe("applyRampToLayer", () => {
     installChroma(["#ff0000"]);
     const layer = makeFeatureLayer([{ properties: { value: 42 } }]);
 
-    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ classes: 5 }));
+    applyValueFill(makeUI(layer), "overlay1", makeRamp({ classes: 5 }));
 
     expect(layer.leaves[0].setStyle).toHaveBeenCalled();
     expect((layer.leaves[0].setStyle as any).mock.calls[0][0].fillColor).toBe(
@@ -834,7 +826,7 @@ describe("applyRampToLayer", () => {
     ]);
     const ramp = makeRamp({ kind: "category", field: "kind" });
 
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     const colors = layer.leaves.map(
       leaf => (leaf.setStyle as any).mock.calls[0][0].fillColor as string,
@@ -852,7 +844,7 @@ describe("applyRampToLayer", () => {
     // during the collect walk (e.g. added after the first apply) paints it.
     installChroma(["#e41a1c", "#377eb8"]);
     const layer = makeFeatureLayer([{ properties: { kind: "forest" } }]);
-    applyRampToLayer(
+    applyValueFill(
       makeUI(layer),
       "overlay1",
       makeRamp({ kind: "category", field: "kind" }),
@@ -865,7 +857,7 @@ describe("applyRampToLayer", () => {
     expect(out!.fillColor).toBe("#999");
   });
 
-  it("leaves a category leaf with a non-string value out of the ramp's reach", () => {
+  it("leaves a category leaf with a non-string value out of the value fill's reach", () => {
     // isCategoryValue accepts only a non-empty string, so a numeric or null
     // property is not painted: the author's face comes back, the same rule
     // the numeric arm applies to a non-finite value.
@@ -875,7 +867,7 @@ describe("applyRampToLayer", () => {
       { properties: { kind: 42 } },
       { properties: { kind: null } },
     ]);
-    applyRampToLayer(
+    applyValueFill(
       makeUI(layer),
       "overlay1",
       makeRamp({ kind: "category", field: "kind" }),
@@ -893,7 +885,7 @@ describe("applyRampToLayer", () => {
     installChroma(["#e41a1c", "#377eb8"]);
     const layer = makeFeatureLayer([{ properties: { kind: "water" } }]);
     const ramp = makeRamp({ kind: "category", field: "kind" });
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = { fillRamp: ramp };
     const out = pinGetterOf()();
@@ -902,7 +894,7 @@ describe("applyRampToLayer", () => {
     expect(out!.fillColor).toBe("#e41a1c");
     expect(out!.fill).toBe(true);
   });
-  it("restores the author's face when a category ramp has no valid labels", () => {
+  it("restores the author's face when a category value fill has no valid labels", () => {
     // The paint ternary's `: undefined` arm for the category branch when the
     // scale itself is null: no leaf offers a valid categorical label (numbers,
     // null, an empty string), so buildCategoryRamp yields no colors, catScale
@@ -915,7 +907,7 @@ describe("applyRampToLayer", () => {
       { properties: { kind: null } },
       { properties: { kind: "" } },
     ]);
-    applyRampToLayer(
+    applyValueFill(
       makeUI(layer),
       "overlay1",
       makeRamp({ kind: "category", field: "kind" }),
@@ -938,7 +930,7 @@ describe("applyRampToLayer", () => {
       { properties: { ok: false } },
       { properties: { ok: true } },
     ]);
-    applyRampToLayer(
+    applyValueFill(
       makeUI(layer),
       "overlay1",
       makeRamp({ kind: "category", field: "ok" }),
@@ -964,7 +956,7 @@ describe("applyRampToLayer", () => {
       { properties: { kind: 42 } },
     ]);
     const ramp = makeRamp({ kind: "category", field: "kind" });
-    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+    applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = { fillRamp: ramp };
     // Leaf 0 is an in-domain label; leaf 1 is a number — categoryLabel reads

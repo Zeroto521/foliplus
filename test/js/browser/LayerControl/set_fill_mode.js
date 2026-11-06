@@ -4,7 +4,7 @@ arg => {
   const { mode } = arg ?? {};
   const select = document.querySelector(".foliplus-style-fill-mode-select");
   if (!select) return { ok: false, reason: "no-mode-select" };
-  if (!["original", "solid", "ramp"].includes(mode)) {
+  if (!["original", "solid", "value"].includes(mode)) {
     return { ok: false, reason: "bad-mode", mode };
   }
   select.value = mode;
