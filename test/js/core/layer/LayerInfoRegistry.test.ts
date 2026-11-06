@@ -237,6 +237,17 @@ describe("LayerInfoRegistry", () => {
       expect(warnSpy).toHaveBeenCalledOnce();
       warnSpy.mockRestore();
     });
+
+    it("uses <unknown> as the layer id in the warning when none was given", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = registry.createLayerInfo({
+        folder: 7,
+      } as unknown as Parameters<LayerInfoRegistry["createLayerInfo"]>[0]);
+      expect(info.folder).toBeNull();
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(String(warnSpy.mock.calls[0][0])).toContain('layer "<unknown>"');
+      warnSpy.mockRestore();
+    });
   });
 
   describe("upsert", () => {
