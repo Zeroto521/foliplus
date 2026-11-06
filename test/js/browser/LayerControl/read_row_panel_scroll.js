@@ -10,8 +10,8 @@
   if (!panel) return { ok: false, reason: "no-panel" };
   if (ramp) {
     const mode = panel.querySelector(".foliplus-style-fill-mode-select");
-    if (mode && mode.value !== "ramp") {
-      mode.value = "ramp";
+    if (mode && mode.value !== "value") {
+      mode.value = "value";
       mode.dispatchEvent(new Event("change", { bubbles: true }));
     }
   }

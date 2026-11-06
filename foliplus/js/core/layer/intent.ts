@@ -24,7 +24,7 @@ import type { NumberStyle } from "#foliplus/config-schema.js";
  *
  *  A record that asks for a `kind` this client cannot build is dropped whole
  *  by the persistence reader rather than misapplied as a numeric ramp. */
-type FillRampConfig =
+type FillValueConfig =
   | {
       /** How the drive property is typed. Absent = "numeric". */
       kind?: "numeric";
@@ -55,7 +55,7 @@ type FillRampConfig =
  *  geopandas explore layer (it can be left and come back to), and an invalid
  *  one everywhere else — the row offers it only while the author's record still
  *  paints per feature, and a stored value on any other layer reads as solid. */
-type FillMode = "solid" | "ramp" | "original";
+type FillMode = "solid" | "value" | "original";
 
 /** Whether a value is a ramp config this client can build. Two arms,
  *  discriminated by `kind`:
@@ -81,7 +81,7 @@ type FillMode = "solid" | "ramp" | "original";
  *  them, and a category does not classify so they cannot be wrong in a way
  *  that affects the ramp). A `kind` outside the two drops the record whole
  *  rather than misapplying it as a numeric ramp. */
-const isFillRampConfig = (value: unknown): value is FillRampConfig => {
+const isFillValueConfig = (value: unknown): value is FillValueConfig => {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
   const isName = (v: unknown): v is string =>
@@ -202,7 +202,7 @@ type LayerIntent = {
   fillOpacity?: number;
   /** The value-based fill config when the layer is painted by a field.
    *  Kept when the active arm is solid — the mode switch back restores it. */
-  fillRamp?: FillRampConfig;
+  fillRamp?: FillValueConfig;
   /** Which fill arm the user chose: a single color, a value ramp, or the
    *  layer author's own per-feature colors. Absent means solid — the arm that
    *  predates the ramp. */
@@ -238,8 +238,8 @@ type PersistedLayerState = {
   /** The value-based fill config the user set (field / method / classes /
    *  scheme). The ramp arm owns the color; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
-  fillRamp?: FillRampConfig;
-  /** Which fill arm is active ("solid" | "ramp" | "original"); the inactive
+  fillRamp?: FillValueConfig;
+  /** Which fill arm is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
   fillMode?: FillMode;
   /** The hex stroke color the user picked in the style panel. LayerControl
@@ -321,9 +321,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
-  [INTENT.FILL_RAMP]: isFillRampConfig,
+  [INTENT.FILL_RAMP]: isFillValueConfig,
   [INTENT.FILL_MODE]: value =>
-    value === "solid" || value === "ramp" || value === "original",
+    value === "solid" || value === "value" || value === "original",
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
@@ -356,11 +356,11 @@ const STYLE_KEYS = {
   icon: INTENT.ICON,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { INTENT, isFillRampConfig, isIconIntent, LIVE, STYLE_KEYS };
+export { INTENT, isFillValueConfig, isIconIntent, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
   FillMode,
-  FillRampConfig,
+  FillValueConfig,
   IconIntent,
   IntentKey,
   IntentRow,

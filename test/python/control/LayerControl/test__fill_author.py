@@ -1217,7 +1217,7 @@ class TestDeclaredFillBrowser:
 
             _open_declared_style_panel(page)
             initial = page.evaluate(_DECLARED_READ)
-            assert initial["mode"] == "ramp", initial
+            assert initial["mode"] == "value", initial
             assert initial["originalAvailable"] is False, initial
             assert initial["hasSwatch"] is False, initial
             assert initial["field"] == "score", initial
@@ -1247,7 +1247,7 @@ class TestDeclaredFillBrowser:
             page.wait_for_timeout(300)
             _open_declared_style_panel(page)
             restored = page.evaluate(_DECLARED_READ)
-            assert restored["mode"] == "ramp", restored
+            assert restored["mode"] == "value", restored
             assert restored["field"] == "score", restored
             assert restored["classes"] == "3", restored
             assert restored["schemeTitle"] == "Reds", restored
@@ -1275,6 +1275,6 @@ class TestDeclaredFillBrowser:
             _open_declared_style_panel(page)
             reloaded = page.evaluate(_DECLARED_READ)
             assert reloaded["schemeTitle"] == "Blues", reloaded
-            assert reloaded["mode"] == "ramp", reloaded
+            assert reloaded["mode"] == "value", reloaded
 
             assert not errors, f"JS errors: {errors}"
