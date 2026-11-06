@@ -8,6 +8,7 @@ import { BORDER_WEIGHT } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#control/HeatmapControl/ui.js";
+import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import { makeConfig, makeCtrl, makeManager, makeManagerOn } from "./fixture.js";
@@ -97,13 +98,14 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
     const m = makeManager();
-    const schemeBarCleanup = vi.fn();
+    const close = vi.fn();
     m.ui = {
       ...makeCtrl(m, makeConfig()),
-      schemeBarCleanup,
+      schemePicker: { close } as unknown as HeatmapControlUI["schemePicker"],
     };
     m.clearHeatmapCanvas();
-    expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledWith({ restoreFocus: false });
   });
 
   it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {

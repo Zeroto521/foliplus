@@ -81,13 +81,15 @@ describe("readMarkerField", () => {
     ).toBe(3);
   });
 
-  it("strips the legacy properties. prefix from a dotted field id", () => {
+  it("does not resolve a legacy properties.-prefixed id (old configs dropped)", () => {
+    // A stored "properties.price" id now resolves as the literal property key
+    // "properties.price", which no feature carries — the old config is dropped.
     expect(
       readMarkerField(
         { feature: { properties: { price: 100 } } } as never,
         "properties.price",
       ),
-    ).toBe(100);
+    ).toBeUndefined();
   });
 
   it("returns undefined for null or unknown fields", () => {

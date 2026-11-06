@@ -18,7 +18,7 @@ from .helper import _make_page
 
 class TestMeasurePersistBrowser:
     def test_save_measurements_stores_to_localStorage(self, browser, tmp_path):
-        """saveMeasurements() writes measurements to localStorage."""
+        """store.persist() writes measurements to localStorage."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/save_marker_measurement"))
             data = page.evaluate(_js("MeasureControl/read_localStorage_measurements"))

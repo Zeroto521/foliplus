@@ -7,6 +7,6 @@
       [26.09, 119.31],
     ]),
   );
-  mm.measurements = [{ id: "test", type: "marker", lng: 119.3, lat: 26.08 }];
-  mm.saveMeasurements();
+  mm.store.hydrate([{ id: "test", type: "marker", lng: 119.3, lat: 26.08 }]);
+  mm.store.persist();
 };

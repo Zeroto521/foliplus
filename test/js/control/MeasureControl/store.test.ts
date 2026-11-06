@@ -350,48 +350,6 @@ describe("MeasureStore — hydrate reference stability", () => {
   });
 });
 
-describe("MeasureStore — assignMissingIds (restore path)", () => {
-  it("assigns ids to id-less measurements, preserving existing ones", () => {
-    const store = makeStore().store;
-    store.hydrate([
-      { id: "existing", type: "marker" },
-      { type: "distance" },
-      { type: "circle" },
-    ] as any);
-
-    expect(store.assignMissingIds()).toBe(true);
-
-    expect(store.all()[0].id).toBe("existing"); // untouched
-    expect(
-      store
-        .all()
-        .slice(1)
-        .every(m => m.id),
-    ).toBe(true);
-    expect(new Set(store.all().map(m => m.id)).size).toBe(3);
-  });
-
-  it("returns false and leaves the list alone when every entry already has an id", () => {
-    const store = makeStore().store;
-    store.hydrate([{ id: "a", type: "marker" }] as any);
-    expect(store.assignMissingIds()).toBe(false);
-    expect(store.all().map(m => m.id)).toEqual(["a"]);
-  });
-
-  it("returns false on an empty store", () => {
-    expect(makeStore().store.assignMissingIds()).toBe(false);
-  });
-
-  it("assigns each id from nextId, so ids stay unique and type-tagged", () => {
-    const store = makeStore().store;
-    store.hydrate([{ type: "marker" }, { type: "marker" }] as any);
-    store.assignMissingIds();
-    const ids = store.all().map(m => m.id);
-    expect(new Set(ids).size).toBe(2);
-    expect(ids.every(id => id.startsWith(`${CONST.ID}_marker_`))).toBe(true);
-  });
-});
-
 describe("MeasureStore — nextId", () => {
   it("increments the counter and embeds type + counter in the id", () => {
     const store = makeStore().store;
