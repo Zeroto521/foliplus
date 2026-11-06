@@ -463,7 +463,6 @@ class TestHeatmapDropdownPanelBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-
     def test_input_skin_computed_parity(self, browser, tmp_path):
         """The Heatmap layer select resolves the shared input skin.
 

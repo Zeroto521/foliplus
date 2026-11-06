@@ -153,7 +153,6 @@ class TestLayerControlBrowser:
             },
         )
 
-
     @staticmethod
     def _open_style_ramp(page) -> None:
         """Expand the control, wait for its init pass, then open ⋮ → Style."""
