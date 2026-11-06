@@ -357,7 +357,6 @@ describe("collectNamedTypes", () => {
     const orphan = {
       version: 1,
       shared: {},
-      runtime_only: {},
       controls: {
         SearchControl: {
           provider_config: { ts: "ProviderConfig", name: "ProviderConfig" },
@@ -412,13 +411,12 @@ describe("buildConfigSchema", () => {
   );
 
   it(
-    "keeps ConfigCommon and ConfigRuntimeOnly standalone",
+    "keeps ConfigCommon standalone",
     async () => {
       const text = await buildConfigSchema(schema);
       expect(text).toMatch(/interface ConfigCommon \{\n  name: string;/);
       // No `extends` on either standalone interface.
       expect(text).not.toContain("interface ConfigCommon extends");
-      expect(text).not.toContain("interface ConfigRuntimeOnly extends");
     },
     SLOW,
   );
@@ -469,7 +467,6 @@ describe("buildConfigSchema", () => {
       expect(tail).toContain("ConfigFullscreen");
       expect(tail).toContain("ConfigScale");
       expect(tail).toContain("ConfigSearch");
-      expect(tail).toContain("ConfigRuntimeOnly");
       expect(tail).toContain("ComponentConfig");
       // Named aliases are declared without `export` and re-exported here.
       expect(tail).toContain("LayerData");
@@ -516,7 +513,6 @@ describe("buildConfigSchema", () => {
             dynamic: false,
           },
         },
-        runtime_only: {},
         controls: {
           FullscreenControl: {
             hide_self: {
@@ -533,7 +529,7 @@ describe("buildConfigSchema", () => {
       const text = await buildConfigSchema(bare);
       expect(text).not.toMatch(/^type \w+ = /m);
       expect(oneLine(text)).toContain(
-        "export type { ConfigCommon, ConfigFullscreen, ConfigRuntimeOnly, ComponentConfig };",
+        "export type { ConfigCommon, ConfigFullscreen, ComponentConfig };",
       );
     },
     SLOW,

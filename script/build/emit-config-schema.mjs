@@ -10,7 +10,6 @@
  *   - Per-control interfaces (`ConfigFullscreen`, `ConfigScale`, …)
  *     with that control's declared fields as required (per the schema's
  *     `optional` flag).
- *   - `ConfigRuntimeOnly` — fields JS sets at runtime; Python never emits.
  *   - `ComponentConfig` — the flat merged interface for backward
  *     compatibility with the existing `global.d.ts` shape. All fields are
  *     optional except `name`, plus a `[key: string]: unknown` escape hatch.
@@ -299,6 +298,12 @@ const formatField = (name, field, indent = "  ") => {
  *  and runtime-only interfaces are standalone. */
 const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}) => {
   const head = extendsShared ? `${name} extends ConfigCommon` : name;
+  // An empty interface (`interface X {}`) is a lint error — it admits any
+  // non-nullish value. A schema with no fields is emitted as a never-keyed
+  // type alias instead, which carries the same "no CONFIG fields" meaning.
+  if (Object.keys(schema).length === 0) {
+    return [`${indent}type ${name} = Record<string, never>;`];
+  }
   const lines = [`${indent}interface ${head} {`];
   for (const [fieldName, field] of Object.entries(schema)) {
     lines.push(...formatField(fieldName, field, `${indent}  `));
@@ -326,7 +331,6 @@ const collectNamedTypes = schema => {
     }
   };
   visit(schema.shared);
-  visit(schema.runtime_only);
   for (const controlSchema of Object.values(schema.controls)) {
     visit(controlSchema);
   }
@@ -379,9 +383,6 @@ const buildConfigSchema = async schema => {
     );
   }
 
-  // Runtime-only interface
-  lines.push(...emitInterface("ConfigRuntimeOnly", schema.runtime_only), "");
-
   // Flat ComponentConfig — all fields optional except `name`, plus escape hatch.
   // This matches the existing global.d.ts shape so existing code continues to
   // compile. Per-control interfaces above are stricter and available for new
@@ -391,8 +392,8 @@ const buildConfigSchema = async schema => {
     "interface ComponentConfig {",
   );
 
-  // Collect all fields from shared + runtime_only + all controls, deduplicated.
-  // Order: shared first, then controls alphabetically, then runtime_only last.
+  // Collect all fields from shared + all controls, deduplicated.
+  // Order: shared first, then controls alphabetically.
   const seen = new Set();
   const mergedFields = [];
 
@@ -412,13 +413,6 @@ const buildConfigSchema = async schema => {
         seen.add(name);
         mergedFields.push([name, field]);
       }
-    }
-  }
-
-  for (const [name, field] of Object.entries(schema.runtime_only)) {
-    if (!seen.has(name)) {
-      seen.add(name);
-      mergedFields.push([name, field]);
     }
   }
 
@@ -442,7 +436,6 @@ const buildConfigSchema = async schema => {
     ...namedTypes.keys(),
     "ConfigCommon",
     ...Object.keys(schema.controls).map(n => `Config${n.replace("Control", "")}`),
-    "ConfigRuntimeOnly",
     "ComponentConfig",
   ];
   lines.push(`export type { ${allTypes.join(", ")} };`);

@@ -42,7 +42,6 @@ from foliplus import (
     SearchControl,
 )
 from foliplus._config_schema import (
-    RUNTIME_ONLY,
     SHARED,
     UNSET,
     FieldSpec,
@@ -77,9 +76,8 @@ def _spec_dict(spec: FieldSpec) -> dict[str, object]:
     """JSON-friendly view of one field spec (for dump-shape assertions)."""
     out: dict[str, object] = {
         "ts": spec.ts,
-        "optional": spec.optional or spec.runtime_only,
+        "optional": spec.optional,
         "nullable": spec.nullable,
-        "runtime_only": spec.runtime_only,
         "dynamic": spec.dynamic,
     }
     if spec.values is not None:
@@ -281,9 +279,7 @@ class TestSchemaMatchesConfigFields:
         # empty tuple. A control whose signature declares at least one
         # exportable parameter must expose it.
         schema = _derived(name)
-        exportable = [
-            k for k, f in schema.items() if not f.runtime_only and not f.dynamic
-        ]
+        exportable = [k for k, f in schema.items() if not f.dynamic]
         if not exportable:
             pytest.skip(f"{name} declares no exportable fields")
         assert CONTROL_CLASSES[name]._config_fields, (
@@ -347,7 +343,7 @@ class TestSchemaDefaultsMatchPython:
         cls = CONTROL_CLASSES[name]
         instance = cls()  # default constructor args only
         for field_name, spec in _derived(name).items():
-            if spec.runtime_only or spec.dynamic:
+            if spec.dynamic:
                 continue
             if spec.default is UNSET:
                 continue
@@ -372,21 +368,8 @@ class TestSchemaDefaultsMatchPython:
                 )
 
 
-class TestRuntimeOnlyFields:
-    """Runtime-only and dynamic fields are declared in schema but not _config_fields."""
-
-    def test_runtime_only_fields_are_not_in_config_fields(self) -> None:
-        for name in CONTROL_CLASSES:
-            runtime_only_in_schema = [
-                k for k, f in _derived(name).items() if f.runtime_only
-            ]
-            declared = set(CONTROL_CLASSES[name]._config_fields)
-            overlap = set(runtime_only_in_schema) & declared
-            assert not overlap, (
-                f"{name} has runtime_only fields in schema that are also in "
-                f"_config_fields: {sorted(overlap)} — runtime_only means Python "
-                f"must NOT emit them."
-            )
+class TestDynamicFields:
+    """Dynamic fields are declared in schema but not in _config_fields."""
 
     def test_dynamic_fields_are_not_in_config_fields(self) -> None:
         for name in CONTROL_CLASSES:
@@ -399,15 +382,6 @@ class TestRuntimeOnlyFields:
                 f"emits them via _extra_config, not as static fields."
             )
 
-    def test_runtime_only_global_fields_never_emit(self) -> None:
-        for name in CONTROL_CLASSES:
-            declared = set(CONTROL_CLASSES[name]._config_fields)
-            for runtime_key in RUNTIME_ONLY:
-                assert runtime_key not in declared, (
-                    f"{name}._config_fields contains runtime_only key {runtime_key!r} "
-                    f"— Python must not serialize runtime-only fields."
-                )
-
 
 class TestSchemaTypes:
     """FieldSpec must render to a valid TS type and the tag must be known."""
@@ -416,8 +390,7 @@ class TestSchemaTypes:
         specs: list[tuple[str, FieldSpec]] = []
         for name, field in SHARED.items():
             specs.append((f"SHARED.{name}", field))
-        for name, field in RUNTIME_ONLY.items():
-            specs.append((f"RUNTIME_ONLY.{name}", field))
+
         for name in CONTROL_CLASSES:
             for field_name, field in _derived(name).items():
                 specs.append((f"{name}.{field_name}", field))
@@ -427,11 +400,6 @@ class TestSchemaTypes:
             except ValueError as exc:
                 pytest.fail(f"{where} rendered with error: {exc}")
             assert ts, f"{where} rendered to empty TS type"
-
-    def test_runtime_only_is_always_optional(self) -> None:
-        for where, spec in _walk_specs():
-            if spec.runtime_only:
-                assert spec.optional, f"{where} is runtime_only but not optional"
 
 
 class TestFieldSpecValidation:
@@ -453,14 +421,6 @@ class TestFieldSpecValidation:
     def test_unknown_tag_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="not a supported tag"):
             FieldSpec("bogus")
-
-    def test_runtime_only_must_be_optional(self) -> None:
-        with pytest.raises(ValueError, match="must be optional"):
-            FieldSpec("string", runtime_only=True)
-
-    def test_dynamic_and_runtime_only_are_mutually_exclusive(self) -> None:
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            FieldSpec("string", optional=True, dynamic=True, runtime_only=True)
 
     def test_metadata_only_field_spec_has_no_tag(self) -> None:
         # A FieldSpec carrying only a note (or nullable/optional) decides no
@@ -487,7 +447,6 @@ class TestSchemaDump:
         data = json.loads(text)
         assert data["version"] == 1
         assert "shared" in data
-        assert "runtime_only" in data
         assert "controls" in data
 
     def test_dump_is_deterministic(self) -> None:
@@ -521,7 +480,6 @@ class TestSchemaDump:
             {
                 "version": 1,
                 "shared": {n: _spec_dict(s) for n, s in SHARED.items()},
-                "runtime_only": {n: _spec_dict(s) for n, s in RUNTIME_ONLY.items()},
                 "controls": {n: _schema_dict(schema) for n, schema in control_schemas},
             },
             indent=2,
@@ -653,14 +611,14 @@ _JS_FIELD_RE = re.compile(r"(?m)^\s*([a-z][A-Za-z0-9_]*)\??\s*:")
 
 
 def _ts_short_to_control(short: str) -> str | None:
-    """``Layer`` -> ``LayerControl``; ``Common``/``RuntimeOnly`` -> ``None``.
+    """``Layer`` -> ``LayerControl``; ``Common`` -> ``None``.
 
     The emitter names TS interfaces as ``Config<ShortName>`` where the short
     name is the Python control class with its ``Control`` suffix dropped.
-    ``ConfigCommon`` and ``ConfigRuntimeOnly`` are the shared and runtime-only
-    blocks, not per-control interfaces, so they map to no control.
+    ``ConfigCommon`` is the shared block, not a per-control interface, so it
+    maps to no control.
     """
-    if short in ("Common", "RuntimeOnly"):
+    if short == "Common":
         return None
     return f"{short}Control"
 
@@ -893,8 +851,7 @@ def _walk_specs() -> list[tuple[str, FieldSpec]]:
     out: list[tuple[str, FieldSpec]] = []
     for name, field in SHARED.items():
         out.append((f"SHARED.{name}", field))
-    for name, field in RUNTIME_ONLY.items():
-        out.append((f"RUNTIME_ONLY.{name}", field))
+
     for name in CONTROL_CLASSES:
         for field_name, field in _derived(name).items():
             out.append((f"{name}.{field_name}", field))
