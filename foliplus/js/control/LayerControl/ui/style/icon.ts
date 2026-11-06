@@ -102,6 +102,25 @@ const buildMarkerIcon = (opts: {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { markerColor?: string } } | undefined;
   if (!author || typeof author.createIcon !== "function") return opts.author;
+  // Leaflet's L.Icon.Default builds an <img> in createIcon; a DivIcon (or an
+  // awesome-markers icon) builds a <div>. For the default chassis, reusing the
+  // author's <img> and setting innerHTML is a no-op (an <img> has no children),
+  // so the glyph would silently vanish and Leaflet would fall back to the
+  // default anchor, dropping the glyph below the point. Take the default icon
+  // down a dedicated DivIcon branch that carries the glyph in an HTML shell and
+  // pins the default 25x41 / [12,41] anchor (task #932 step 1).
+  const isDefaultIcon =
+    author instanceof L.Icon.Default ||
+    author.createIcon?.() instanceof HTMLImageElement;
+  if (isDefaultIcon) {
+    const svg = glyphSvg(resolveGlyph(opts.glyph));
+    return L.divIcon({
+      className: "foliplus-marker-default",
+      html: glyphInnerHtml(svg),
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+    });
+  }
   const svg = glyphSvg(resolveGlyph(opts.glyph));
   const derived = Object.create(author) as {
     createIcon: () => HTMLElement | undefined;
@@ -255,7 +274,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   renderTrigger();
 
   const row = formRow(ui.T("style_icon"), trigger, CONST.CLASSES.STYLE_ICON_ROW);
-  bindGlyphGrid(ui, layerId, trigger, row);
+  bindGlyphGrid(ui, layerId, trigger, row, renderTrigger);
   return row;
 };
 /** Open the glyph grid popup under the trigger and wire its interactions.
@@ -266,6 +285,7 @@ const bindGlyphGrid = (
   layerId: string,
   trigger: HTMLButtonElement,
   row: HTMLElement,
+  renderTrigger: () => void,
 ): void => {
   let grid: HTMLElement | null = null;
   const close = () => {
