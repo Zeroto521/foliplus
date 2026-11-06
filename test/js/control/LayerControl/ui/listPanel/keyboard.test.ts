@@ -1286,6 +1286,32 @@ describe("LayerUI keyboard", () => {
       expect(focusLayer).toHaveBeenCalledTimes(1);
     });
 
+    it("handleKeyDown does not toggle the row on Enter when the clean button is focused", () => {
+      // Seed an empty folder key so the section header renders the clean button.
+      manager.folderOrder = { version: 1, sections: { overlay: ["my folder"] } };
+      manager.ui?.reindexAfterMove?.();
+      const cleanBtn = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+      ) as HTMLElement;
+      expect(cleanBtn).not.toBeNull();
+      cleanBtn.focus();
+      const prevent = vi.fn();
+      const stop = vi.fn();
+      const event = {
+        key: "Enter",
+        preventDefault: prevent,
+        stopPropagation: stop,
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false,
+      } as unknown as KeyboardEvent;
+      ui.handleKeyDown(event);
+      expect(prevent).toHaveBeenCalled();
+      // The clean-button branch calls stopPropagation (the row-toggle branch does
+      // not), so a stopped event proves the guard stood aside.
+      expect(stop).toHaveBeenCalled();
+    });
     it("an Arrow key on a focused menu button routes through the menu branch", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);

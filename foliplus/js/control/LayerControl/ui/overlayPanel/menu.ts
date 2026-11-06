@@ -1,6 +1,6 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { HINT_DURATION } from "#core/hint.js";
-import { CAP_TIER } from "#core/layer/index.js";
+import { CAP_TIER, sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -144,7 +144,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
-    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- booleans, || is intended
+    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
     layerCanLabel(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
@@ -212,6 +213,28 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ui.T("attributes_layer"),
     ),
   );
+  // A row whose layer belongs to a folder block gets an explicit
+  // "delete folder" entry. The user-facing counterpart of the #911 auto-retain:
+  // freeze keeps an emptied folder key around; this entry removes it. Deleting a
+  // non-empty folder promotes every member to section root (folder = null,
+  // order preserved); the layers themselves are never touched.
+  const folderInfo = ui.c.layerRegistry.get(layerId);
+  const folderName = folderInfo?.folder ?? null;
+  if (folderName) {
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.DELETE_FOLDER,
+          role: "menuitem",
+          title: ui.T("delete_folder_tooltip"),
+        },
+        { html: Icons.ICON_DELETE },
+        ui.T("delete_folder").replace("{name}", folderName),
+      ),
+    );
+  }
 
   // Delete goes behind a divider: everything above it is reversible (view,
   // configure, rename, inspect), and this is the only entry that is not. Three
@@ -502,6 +525,19 @@ const MENU_ACTIONS: Record<
     // and the confirming label is visible; the second one deletes.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
+    }
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.DELETE_FOLDER]: ui => {
+    // The row's layer is the only handle: the menu does not carry the folder
+    // name, so resolve it from the registry at dispatch time. The menu closes
+    // first (hard constraint 4a) — the action rerenders the list, and the menu
+    // anchors to the row being rebuilt.
+    const layerId = menuLayerId(ui);
+    const folderInfo = ui.c.layerRegistry.get(layerId);
+    if (folderInfo?.folder) {
+      ui.closeMoreMenu(true);
+      ui.c.deleteFolder(sectionOf(folderInfo.role), folderInfo.folder);
     }
     return { closeMenu: false, restoreRowFocus: false };
   },
