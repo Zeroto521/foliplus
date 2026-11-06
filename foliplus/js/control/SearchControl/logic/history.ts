@@ -77,7 +77,7 @@ const loadHistory = (ctrl: SearchControlCtx): SearchHistoryEntry[] =>
  *  non-array, or all-legacy store. Old-version rows are dropped, not migrated. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
   if (!Array.isArray(data)) return [];
-  // C7: old-version tolerance removed. Only complete current-format rows are
+  // Old-version tolerance removed: only complete current-format rows are
   // kept; partial or legacy rows (older bare-array shape, label-field rows,
   // missing fields) are dropped as old data rather than migrated. Non-object
   // rows ([null], strings, numbers) a corrupted store can produce are dropped

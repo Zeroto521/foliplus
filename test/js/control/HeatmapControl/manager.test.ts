@@ -7,8 +7,10 @@ import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
-import { rebuildLayerDropdown } from "#control/HeatmapControl/ui.js";
-import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
+import {
+  type HeatmapControlUI,
+  rebuildLayerDropdown,
+} from "#control/HeatmapControl/ui.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import { makeConfig, makeCtrl, makeManager, makeManagerOn } from "./fixture.js";

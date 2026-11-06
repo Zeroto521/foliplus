@@ -11,13 +11,13 @@ import { dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
+  type HeatmapControlUI,
   bindControls,
   initScan,
   rebuildLayerDropdown,
   resetPanel,
   setupObserver,
 } from "#control/HeatmapControl/ui.js";
-import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
