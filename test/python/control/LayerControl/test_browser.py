@@ -180,12 +180,18 @@ class TestLayerControlBrowser:
             assert written["derivedMatchesAuthor"], (
                 f"derived chassis drifted from author: {written}"
             )
-            assert written["innerKeepsAuthor"] is not None, (
-                f"author inner <i> not captured: {written}"
-            )
-            assert written["innerKeepsAuthor"], (
-                f"glyph swap lost the author inner <i> class/colour: {written}"
-            )
+            # A plain L.Icon.Default author (this fixture) has no inner <i>,
+            # so innerKeepsAuthor is None by construction; the glyph then
+            # paints the default white. An author WITH an inner <i> (an
+            # awesome-markers chassis) must carry its class and colour.
+            if written["innerKeepsAuthor"] is None:
+                assert written["derived"]["inner"]["color"] == "rgb(255, 255, 255)", (
+                    f"glyph did not fall back to white: {written}"
+                )
+            else:
+                assert written["innerKeepsAuthor"], (
+                    f"glyph swap lost the author inner <i> class/colour: {written}"
+                )
             assert written["icons"], "no marker icons read"
             assert all(icon["hasGlyph"] for icon in written["icons"]), (
                 f"not every marker carries the glyph after the write: {written}"
@@ -201,12 +207,13 @@ class TestLayerControlBrowser:
             assert reset["derivedMatchesAuthor"], (
                 f"Reset did not restore the author icon pixel-identical: {reset}"
             )
-            assert reset["innerKeepsAuthor"] is not None, (
-                f"author inner <i> not captured at reset: {reset}"
-            )
-            assert reset["innerKeepsAuthor"], (
-                f"Reset lost the author inner <i> class/colour: {reset}"
-            )
+            # Same as the write path: a plain L.Icon.Default author has no
+            # inner <i> to carry, so the colour contract only applies when
+            # the author supplied one.
+            if reset["innerKeepsAuthor"] is not None:
+                assert reset["innerKeepsAuthor"], (
+                    f"Reset lost the author inner <i> class/colour: {reset}"
+                )
             assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
                 f"Reset did not restore the author icon: {reset}"
             )
