@@ -1456,8 +1456,8 @@ class LayerController implements LayerAPI {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
    */
-  /** design §5 / invariant 7 — freeze a section's block order when a folder
-   *  is about to lose its LAST member. Called from the delete path with the
+  /** Freeze a section's block order when a folder is about to lose its
+   *  LAST member. Called from the delete path with the
    *  PRE-removal registry snapshot, so the emptied folder's own block is part
    *  of the materialised order. Returns true when a freeze was written to
    *  `this.folderOrder` (the caller persists it). */
@@ -1526,13 +1526,13 @@ class LayerController implements LayerAPI {
       return true;
     }
 
-    // Folder empty-freeze (design §5 / invariant 7): if this layer is the
-    // LAST member of its folder, materialise the section's whole block order
-    // into folderOrder BEFORE the removal — at this point the folder still has
-    // its last member, so its block is part of the snapshot and the frozen
-    // order is not self-contradictory. The persisted folderOrder then keeps
-    // the emptied folder's position (invariant 7) and a later new folder lands
-    // at the block tail (invariant 9).
+    // Folder empty-freeze: if this layer is the LAST member of its folder,
+    // materialise the section's whole block order into folderOrder BEFORE the
+    // removal — at this point the folder still has its last member, so its
+    // block is part of the snapshot and the frozen order is not
+    // self-contradictory. The persisted folderOrder then keeps the emptied
+    // folder's position (the folder order stays frozen while the section has
+    // no live members) and a later new folder lands at the block tail.
     const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
     if (!retired) return false;
