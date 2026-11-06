@@ -191,6 +191,12 @@ class LayerControl(BaseControl):
     |                               | and falls back to the per-feature paint / built-in.          |
     +-------------------------------+--------------------------------------------------------------+
 
+    Value-based fill needs an areal geometry. Polygons (``Polygon``,
+    ``MultiPolygon``, ``Rectangle``) and circles (``Circle``,
+    ``CircleMarker``) repaint by value; a ``Polyline`` takes a stroke
+    colour instead, so value-based stroke is a known gap; and a marker is
+    an icon, which has no fill to repaint.
+
     The ``label`` declaration keys:
 
     +-------------+-------------------------------------+--------------------------------------------------------------+
