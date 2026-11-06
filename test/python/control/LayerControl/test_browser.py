@@ -26,6 +26,7 @@ from conftest import (
     use_raw_page,
 )
 from folium import Element
+from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -5046,11 +5047,24 @@ class TestLayerControlBrowser:
             panel_ready(page)
             item = page.query_selector(".foliplus-layer-item")
             assert item is not None, "no layer row rendered"
+            # Register a one-shot signal: the fitBounds `moveend` is the
+            # deterministic "animation settled" marker. The mask is drawn
+            # synchronously *before* fitBounds (drawFocusMask), so by this
+            # moveend the post-fitBounds viewport is live and the mask is
+            # still shown — registerAutoCancel dismisses it only 1050ms
+            # after this same moveend. Reading right at the signal removes
+            # the fixed-sleep race against that dismiss window.
+            page.evaluate(snippet("LayerControl/arm_fit_settled"))
             item.dispatch_event("dblclick")
-            # fitBounds animates for 600ms; registerAutoCancel gives a
-            # 1050ms grace period after the animation. Read inside that
-            # window so the mask is still live.
-            page.wait_for_timeout(1100)
+            try:
+                page.wait_for_function(
+                    snippet("LayerControl/fit_settled"), timeout=5000
+                )
+            except TimeoutError:
+                pytest.fail(
+                    "fitBounds did not settle (__fitSettled) within 5s — "
+                    "the focus mask read window raced; probe was not run"
+                )
             result = page.evaluate(_js("LayerControl/focus_mask_covers_viewport"))
             assert result is not None, "focus_mask_covers_viewport failed"
             assert "error" not in result, f"probe error: {result}"
