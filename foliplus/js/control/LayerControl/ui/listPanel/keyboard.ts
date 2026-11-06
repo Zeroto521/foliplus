@@ -245,6 +245,14 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         runMenuAction(ui, menuBtn, { explainDisabled: true });
         break;
       }
+      // The clean-empty-folders button is a native <button>; its
+      // Enter/Space activation fires a click (handled in lifecycle), so this
+      // manual dispatch must stand aside or the row's checkbox flips too.
+      if (document.activeElement?.classList.contains(CONST.CLASSES.CLEAN_FOLDERS_BTN)) {
+        event.preventDefault();
+        event.stopPropagation();
+        break;
+      }
       event.preventDefault();
       toggleFocusedLayer(ui);
       break;

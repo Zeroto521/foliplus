@@ -778,6 +778,60 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
+
+    describe("delete-folder menu item", () => {
+      it("dispatches deleteFolder(role, folder) from the folder entry", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        manager.registerLayer({
+          id: "folder1",
+          name: "Roads",
+          role: "overlay",
+          folder: "My Folder",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        const item = attachedPanel(ui).querySelector(
+          `[data-layer-id="folder1"]`,
+        ) as HTMLElement;
+        ui.openMoreMenu(item);
+        const folderLi = item.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        handleMenuClick(ui, event);
+        expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
+      });
+
+      it("does not dispatch deleteFolder when the layer has lost its folder", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        manager.registerLayer({
+          id: "folder1",
+          name: "Roads",
+          role: "overlay",
+          folder: "My Folder",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        const item = attachedPanel(ui).querySelector(
+          `[data-layer-id="folder1"]`,
+        ) as HTMLElement;
+        ui.openMoreMenu(item);
+        const folderLi = item.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        // The menu renders the entry while the layer had a folder; by dispatch
+        // time the layer lost it (folderInfo?.folder is falsy) — the action
+        // must be a no-op rather than deleting with an undefined name.
+        (manager.layerRegistry.get("folder1") as any).folder = null;
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        handleMenuClick(ui, event);
+        expect(folderSpy).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("focus-layer menu item when the surface has no bounds carrier", () => {
@@ -1176,4 +1230,38 @@ describe("LayerUI menu", () => {
   });
 
   // ─────────────────── checkbox dblclick / Enter ─────────────────────
+
+  describe("delete-folder menu entry rendering", () => {
+    const registerLayer = (id: string, name: string, role: string, folder?: string) => {
+      manager.registerLayer({
+        id,
+        name,
+        role: role as "overlay" | "base",
+        ...(folder ? { folder } : {}),
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as never);
+    };
+    const actionsFor = (item: HTMLElement) =>
+      Array.from(item.querySelectorAll(".foliplus-layer-more-menu button")).map(
+        b => (b as HTMLElement).dataset.action,
+      );
+
+    it("renders the delete-folder entry last for a row whose layer has a folder", () => {
+      registerLayer("folder1", "Roads", "overlay", "My Folder");
+      const item = findItem(ui, "folder1");
+      ui.openMoreMenu(item);
+      const actions = actionsFor(item);
+      expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+      // The folder entry sits before the destructive delete-layer divider.
+      expect(actions.indexOf(CONST.ACTION.DELETE_FOLDER)).toBeLessThan(
+        actions.indexOf(CONST.ACTION.DELETE_LAYER),
+      );
+    });
+
+    it("does not render the delete-folder entry for a root layer", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(actionsFor(item)).not.toContain(CONST.ACTION.DELETE_FOLDER);
+    });
+  });
 });
