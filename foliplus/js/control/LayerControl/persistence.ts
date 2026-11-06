@@ -33,7 +33,7 @@ type LiveState = {
 /** Compatibility version of the persisted record: bumped only when the stored
  *  shape needs migrating, or when an old record would otherwise read with a
  *  different meaning. Adding an optional field whose absence keeps the old
- *  behavior does not bump it — `fillRamp` / `fillMode` keep this at 3, an old
+ *  behavior does not bump it — `fillValue` / `fillMode` keep this at 3, an old
  *  record still reads as solid, and a value record without a mode reads as value
  *  through the compatibility branch. So does a rename-free internal refactor
  *  or a UI-only change.
@@ -167,19 +167,13 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
-  fillRamp: data => parseFillValue(data.fillRamp),
-  fillMode: data => {
-    // Migrate a pre-rename record: the value-based arm is the same paint,
-    // only the stored literal changed ("ramp" → "value"). The write path
-    // always stamps "value", so the migration is idempotent — reading the
-    // same record twice yields "value" both times.
-    if (data.fillMode === "ramp") return FILL_MODE.VALUE;
-    return data.fillMode === FILL_MODE.SOLID ||
-      data.fillMode === FILL_MODE.VALUE ||
-      data.fillMode === FILL_MODE.ORIGINAL
+  fillValue: data => parseFillValue(data.fillValue),
+  fillMode: data =>
+    data.fillMode === FILL_MODE.SOLID ||
+    data.fillMode === FILL_MODE.VALUE ||
+    data.fillMode === FILL_MODE.ORIGINAL
       ? data.fillMode
-      : null;
-  },
+      : null,
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),

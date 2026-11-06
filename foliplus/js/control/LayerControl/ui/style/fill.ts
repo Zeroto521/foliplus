@@ -152,7 +152,7 @@ const toHexColor = (value: string): string => {
 const FILL_INTENT_KEYS: readonly LayerOverride[] = [
   INTENT.FILL_COLOR,
   INTENT.FILL_OPACITY,
-  INTENT.FILL_RAMP,
+  INTENT.FILL_VALUE,
   INTENT.FILL_MODE,
 ];
 
@@ -388,7 +388,7 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
  *  layer opens on its author's colors without writing one — a stored value fill
  *  config is the pre-fillMode shape of "the user already classified". */
 const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
-  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  const ramp = getIntent(ui, layerId, INTENT.FILL_VALUE);
   const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
   // One precedence chain, highest first:
   //   1. an explicit arm the user stored (INTENT.FILL_MODE);
@@ -586,23 +586,23 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedValue = (ramp: FillValueConfig): FillValueConfig =>
-  ramp.kind === "category"
+const persistedValue = (value: FillValueConfig): FillValueConfig =>
+  value.kind === "category"
     ? {
         kind: "category",
-        field: ramp.field,
+        field: value.field,
         // method/classes are type-required (the union stays assignable to
         // the numeric ValueConfig) but unused at runtime on a category.
-        method: ramp.method,
-        classes: ramp.classes,
-        scheme: ramp.scheme,
+        method: value.method,
+        classes: value.classes,
+        scheme: value.scheme,
       }
     : {
         kind: "numeric",
-        field: ramp.field,
-        method: ramp.method,
-        classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
-        scheme: ramp.scheme,
+        field: value.field,
+        method: value.method,
+        classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
+        scheme: value.scheme,
       };
 
 /** The scheme picker owned by the open style panel. It installs
@@ -667,15 +667,15 @@ const categoryFields = (ui: LayerUI, layerId: string): string[] => {
 const resolvedValue = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillValueConfig | undefined,
+  value: FillValueConfig | undefined,
 ): FillValueConfig | undefined =>
-  ramp === undefined
+  value === undefined
     ? undefined
     : {
-        ...ramp,
+        ...value,
         field: resolveField(
-          ramp.field,
-          (ramp.kind ?? "numeric") === "category"
+          value.field,
+          (value.kind ?? "numeric") === "category"
             ? categoryFields(ui, layerId)
             : numericFields(ui, layerId),
         ),
@@ -715,7 +715,7 @@ const warnDeclaredFillInference = (
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
 const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined => {
-  if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
   const layer = layerInfo?.layer ?? ui.c.findLayer(layerId);
@@ -779,7 +779,7 @@ const effectiveFillValue = (
   ui: LayerUI,
   layerId: string,
 ): FillValueConfig | undefined =>
-  getIntent(ui, layerId, INTENT.FILL_RAMP) ?? declaredValue(ui, layerId);
+  getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
 
 /** Whether a declaration names a value arm — the cheap form for gates that run
  *  before an apply allocates its scheduler box (no field resolution). */
@@ -838,7 +838,7 @@ const valueForUi = (
   layerId: string,
   fields: readonly string[],
 ): FillValueConfig => {
-  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP));
+  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.FILL_VALUE));
   if (stored) return stored;
   const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
   if (declared) return declared;
@@ -861,7 +861,7 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
   if (fields.length === 0) return false;
   getDimension(DIM.FILL)!.write!(ui, layerId, {
     mode,
-    ramp: persistedValue(valueForUi(ui, layerId, fields)),
+    value: persistedValue(valueForUi(ui, layerId, fields)),
   });
   return true;
 };
@@ -896,7 +896,7 @@ const writeFillValue = (
     ...valueForUi(ui, layerId, fields),
     ...patch,
   });
-  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: FILL_MODE.VALUE, ramp: next });
+  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: FILL_MODE.VALUE, value: next });
   return next;
 };
 
@@ -942,13 +942,13 @@ const buildValueDetail = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-  ramp: FillValueConfig,
+  value: FillValueConfig,
 ): HTMLElement[] => {
   const field = buildFieldRow({
     label: ui.T("style_fill_field"),
     ariaLabel: ui.T("style_fill_field"),
     fields,
-    value: resolveField(ramp.field, fields),
+    value: resolveField(value.field, fields),
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
     surface: dropdownSurface(ui.c.map.getContainer()),
@@ -962,8 +962,8 @@ const buildValueDetail = (
     label: ui.T("style_method"),
     methodAriaLabel: ui.T("style_method"),
     classesAriaLabel: ui.T("style_fill_classes"),
-    methodValue: ramp.method,
-    classesValue: ramp.classes,
+    methodValue: value.method,
+    classesValue: value.classes,
     methodLabel: method => methodLabel(ui, method),
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
@@ -974,13 +974,13 @@ const buildValueDetail = (
   // offers: show that count as its own option so the row states the class
   // count the author drew. The first user pick replaces it with a normal
   // 2..9 value.
-  if (!CLASS_COUNT_VALUES.includes(ramp.classes)) {
+  if (!CLASS_COUNT_VALUES.includes(value.classes)) {
     const option = document.createElement("option");
-    option.value = String(ramp.classes);
-    option.textContent = String(ramp.classes);
+    option.value = String(value.classes);
+    option.textContent = String(value.classes);
     option.title = ui.T("style_fill_classes_out_of_range");
     classes.classesSelect.append(option);
-    classes.classesSelect.value = String(ramp.classes);
+    classes.classesSelect.value = String(value.classes);
     // #793: the bridged select is hidden and the trigger is the control the
     // user sees, so the explanation rides the dropdown's own hint channel
     // (a `title` on the select is invisible and would be overwritten by the
@@ -1400,7 +1400,7 @@ const FILL_DIMENSION = registerDimension<{
   mode: FillMode;
   /** The value-based fill config. Kept while the active arm is solid, so a
    *  mode switch back restores it; undefined when never set. */
-  ramp?: FillValueConfig;
+  value?: FillValueConfig;
 }>({
   key: DIM.FILL,
   gate: layerCanFill,
@@ -1418,19 +1418,19 @@ const FILL_DIMENSION = registerDimension<{
       // on an explore layer, to the author's own colors) rather than claiming
       // a solid paint the map is not showing.
       mode: displayFillMode(ui, layerId),
-      ramp: resolvedValue(ui, layerId, effectiveFillValue(ui, layerId)),
+      value: resolvedValue(ui, layerId, effectiveFillValue(ui, layerId)),
     };
   },
   row: buildFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    const { color, opacity, mode, ramp } = patch;
+    const { color, opacity, mode, value } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
     if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
     if (mode !== undefined) writes.push([INTENT.FILL_MODE, mode]);
-    if (ramp !== undefined) writes.push([INTENT.FILL_RAMP, ramp]);
+    if (value !== undefined) writes.push([INTENT.FILL_VALUE, value]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleFillApply(ui, layerId);
   },
