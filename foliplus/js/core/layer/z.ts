@@ -14,15 +14,15 @@
 // out of `zFor`.
 //
 // One ladder stays out on purpose: the popup/tooltip/marker relationship the
-// ordering pass writes onto Leaflet's own panes (`topZ + 1 / topZ / topZ - 1`
-// in `LayerController.enforceOrder`). The base for those three lines comes out of
+// ordering pass writes onto Leaflet's own panes (`NATIVE_PANE_Z_OFFSET` in
+// `LayerController.enforceOrder`). The base for those three lines comes out of
 // the ladder (`topSlotZ`); what stays out is the fixed relationship between
 // them — they describe the relative order of Leaflet's *native* panes, not a
 // foliplus layer's slot. Folding it in would mean adding `PaneRole` values
 // (marker/tooltip/popup) that no layer ever declares, polluting the frozen
 // role contract, and the per-role renderer defaults do not apply to a native
-// pane at all. So leave those three lines where they are: a fixed
-// relationship, not a ladder.
+// pane at all. So the relationship is named here (with the other offsets) but
+// stays OUT of the ladder: a fixed relationship, not a ladder.
 //
 // Division of labor: core owns the z space — every value the layer stack
 // writes, including the focus spotlight ceiling. LayerControl owns *when* to
@@ -48,6 +48,20 @@ const LABEL_Z_OFFSET = 1;
  *  boundary is the one ordering that survives: the icons' inline z competes
  *  inside the base pane's stacking context, never against the shadow pane. */
 const SHADOW_Z_OFFSET = -1;
+
+/** The fixed offsets the ordering pass writes onto Leaflet's OWN panes -
+ *  popup one step above the topmost layer slot, tooltip at that slot, and
+ *  markers one step below but still above every data pane. These describe the
+ *  relative order of Leaflet's *native* panes (not a foliplus layer's slot),
+ *  so they are deliberately NOT part of the layer-z ladder - see the file
+ *  header. Named here (with the other offsets) so the three lines in
+ *  `LayerController.enforceOrder` do not spell bare numbers, and so a change
+ *  to the relationship has exactly one place to edit. */
+const NATIVE_PANE_Z_OFFSET = {
+  popup: 1,
+  tooltip: 0,
+  marker: -1,
+} as const;
 
 /** The z the focus spotlight writes. Layer panes start at `Z_INDEX.BASE` and
  *  step by `Z_INDEX.STEP`, so both values sit clear above any layer stack: the
@@ -91,7 +105,7 @@ const zFor = ({
 };
 
 /** The z one step above the topmost layer's slot — the base for the three
- *  native-pane offsets (popup / tooltip / marker) in `LayerController.enforceOrder`. */
+ *  native-pane offsets (`NATIVE_PANE_Z_OFFSET`) in `LayerController.enforceOrder`. */
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
-export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
+export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, NATIVE_PANE_Z_OFFSET, topSlotZ, zFor };
