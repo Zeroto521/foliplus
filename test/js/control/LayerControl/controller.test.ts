@@ -2991,8 +2991,8 @@ describe("LayerController", () => {
   });
 
   it("deleteLayer freezes the folder order before the last member leaves", () => {
-    // design §5 / invariant 7: removing the last member of a folder must
-    // materialise the section's block order into folderOrder BEFORE the
+    // Removing the last member of a folder must materialise the section's
+    // block order into folderOrder BEFORE the
     // removal (PRE-removal snapshot), so the emptied folder keeps its block
     // position instead of the order becoming self-contradictory.
     manager.map.hasLayer.mockReturnValue(true);
