@@ -297,7 +297,7 @@ const bindGlyphGrid = (
 
   const open = () => {
     if (grid) return;
-    grid = buildGlyphGrid(ui, layerId, trigger, close);
+    grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
     // Outside press closes.
@@ -335,6 +335,7 @@ const buildGlyphGrid = (
   layerId: string,
   trigger: HTMLButtonElement,
   close: () => void,
+  renderTrigger: () => void,
 ): HTMLElement => {
   const current = currentGlyph(ui, layerId);
   const grid = dom.el("div", {
@@ -362,6 +363,7 @@ const buildGlyphGrid = (
     }
     cell.onclick = () => {
       commitGlyph(ui, layerId, glyph);
+      renderTrigger();
       close();
     };
     cells.push(cell);
