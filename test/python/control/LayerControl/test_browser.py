@@ -6283,9 +6283,9 @@ class TestLayerControlBrowser:
             # explicitly so the assertion targets the arm, not an accident of
             # the default.
             set_mode = page.evaluate(
-                _js("LayerControl/set_fill_mode"), {"mode": "ramp"}
+                _js("LayerControl/set_fill_mode"), {"mode": "value"}
             )
-            assert set_mode["ok"], f"could not enter the ramp arm: {set_mode}"
+            assert set_mode["ok"], f"could not enter the value arm: {set_mode}"
             page.wait_for_timeout(300)
 
             ramp = page.evaluate(_js("LayerControl/read_map_fills"))
