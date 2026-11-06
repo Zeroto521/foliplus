@@ -98,7 +98,7 @@ async (arg = []) => {
     el => ({
       cls: el.className,
       hasGlyph: !!el.querySelector(".foliplus-marker-glyph"),
-      glyphSvg: el.querySelector(".foliplus-marker-glyph")?.innerHTML ?? null,
+      glyphClass: el.querySelector(".foliplus-marker-glyph")?.className ?? null,
     }),
   );
   const baseline = window.__iconProbeBaseline ?? null;

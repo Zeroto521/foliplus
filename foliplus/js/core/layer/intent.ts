@@ -195,8 +195,9 @@ type LayerOverride =
 /** The marker-icon override: one glyph for every marker leaf in the layer.
  *  A single value (not a per-category mapping) — the icon dimension is a
  *  whole-layer choice, no field, no per-category assignment. The value is a
- *  glyph name from the inline SVG set (`GLYPH_SETS` in ui/style/icon.ts);
- *  `resolveGlyph` maps it to the concrete SVG string. */
+ *  glyph name from the panel's FA vocabulary (`GLYPH_NAMES` in
+ *  ui/style/glyph.ts); `resolveGlyph` maps it to the FontAwesome class name,
+ *  or null when the set has dropped that name (then the author icon stays). */
 type IconIntent = {
   kind: IconKind;
   value: string;

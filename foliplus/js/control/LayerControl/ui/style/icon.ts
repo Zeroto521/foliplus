@@ -28,7 +28,7 @@ import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { GLYPH_NAMES, glyphSvg, isGlyphName, resolveGlyph } from "./glyph.js";
+import { GLYPH_NAMES, glyphHtml, isGlyphName, resolveGlyph } from "./glyph.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
@@ -72,14 +72,7 @@ const layerCanIcon = (ui: LayerUI, layerId: string): boolean => {
   if (!layerInfo) return false;
   return ui.c.surfaceFor(layerInfo).capabilities.icon === CAP_TIER.NATIVE;
 };
-/** The inner shell: our SVG glyph inside the same <i> slot the author's
- *  FontAwesome/AwesomeMarkers icon used. `.awesome-marker i` carries
- *  margin-top:10px; display:inline-block; font-size:14px — the SVG inherits
- *  the container's color via fill=currentColor. The shell class lets tests
- *  and the stylesheet address the glyph's box without touching the author's
- *  chassis classes. */
-const glyphInnerHtml = (svg: string): string =>
-  `<i class="foliplus-marker-glyph">${svg}</i>`;
+
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
  *  object is the prototype; `createIcon` is overridden to build the same
  *  chassis div (via `_setIconStyles` with the author's markerColor) but with
@@ -112,16 +105,18 @@ const buildMarkerIcon = (opts: {
   const isDefaultIcon =
     author instanceof L.Icon.Default ||
     author.createIcon?.() instanceof HTMLImageElement;
+  const glyph = resolveGlyph(opts.glyph);
+  // A name outside the set renders nothing of ours: keep the author icon
+  // (honest degradation, never a substituted symbol).
+  if (!glyph) return opts.author;
   if (isDefaultIcon) {
-    const svg = glyphSvg(resolveGlyph(opts.glyph));
     return L.divIcon({
       className: "foliplus-marker-default",
-      html: glyphInnerHtml(svg),
+      html: glyphHtml(glyph),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });
   }
-  const svg = glyphSvg(resolveGlyph(opts.glyph));
   const derived = Object.create(author) as {
     createIcon: () => HTMLElement | undefined;
     createShadow?: () => HTMLElement | undefined;
@@ -140,10 +135,22 @@ const buildMarkerIcon = (opts: {
     // turn "the author named nothing" into black). The colour dimension
     // itself is task-82.
     const authorInner = div.querySelector("i");
-    const authorClass = authorInner?.className ?? "";
     const authorColor = authorInner ? (authorInner as HTMLElement).style.color : "";
     const markerColor = authorColor || "#fff";
-    div.innerHTML = `<i class="foliplus-marker-glyph${authorClass ? ` ${authorClass}` : ""}" style="color:${markerColor}">${svg}</i>`;
+    // Drop the author's own icon-font classes (fa / fas / fa-star /
+    // glyphicon-*) so only the paint classes survive and our FA glyph is the
+    // one thing painting.
+    const authorClass = (authorInner?.className ?? "")
+      .split(/\s+/)
+      .filter(
+        cls =>
+          cls &&
+          !/^fa[srbl]?$/.test(cls) &&
+          !cls.startsWith("fa-") &&
+          !cls.startsWith("glyphicon"),
+      )
+      .join(" ");
+    div.innerHTML = glyphHtml(glyph, authorClass, `color:${markerColor}`);
     return div;
   };
   return derived;
@@ -261,9 +268,10 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // (preview only — the write is still the author icon), else the
     // author-original label.
     const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
-    if (value) {
-      glyphBox.innerHTML = glyphInnerHtml(glyphSvg(resolveGlyph(value)));
-      nameBox.textContent = value;
+    const glyph = value ? resolveGlyph(value) : null;
+    if (value && glyph) {
+      glyphBox.innerHTML = glyphHtml(glyph);
+      nameBox.textContent = glyph;
       trigger.title = value;
     } else {
       glyphBox.innerHTML = "";
@@ -356,7 +364,7 @@ const buildGlyphGrid = (
         "data-glyph": glyph,
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
-      { html: glyphInnerHtml(glyphSvg(glyph)) },
+      { html: glyphHtml(glyph) },
     ) as HTMLButtonElement;
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);

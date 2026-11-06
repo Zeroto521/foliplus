@@ -173,13 +173,8 @@
 .foliplus-style-icon-trigger-glyph {
   display: inline-flex;
   flex-shrink: 0;
-  width: var(--foliplus-icon-size-sm);
-  height: var(--foliplus-icon-size-sm);
-}
-
-.foliplus-style-icon-trigger-glyph svg {
-  width: 100%;
-  height: 100%;
+  font-size: var(--foliplus-icon-size-sm);
+  line-height: 1;
 }
 
 .foliplus-style-icon-trigger-name {
@@ -229,14 +224,7 @@
 }
 
 .foliplus-style-icon-cell .foliplus-marker-glyph {
-  display: inline-flex;
-  width: var(--foliplus-icon-size-md);
-  height: var(--foliplus-icon-size-md);
-}
-
-.foliplus-style-icon-cell .foliplus-marker-glyph svg {
-  width: 100%;
-  height: 100%;
+  font-size: var(--foliplus-icon-size-md);
 }
 
 .foliplus-style-icon-cell-selected {
@@ -244,17 +232,24 @@
   border-color: var(--foliplus-accent-primary);
 }
 
-/* Marker scene: the glyph paints inside a Leaflet marker icon. The icon
-   box owns the size (1em of the marker's own font-size), so the svg
-   fills it. The picker rules above are more specific and win there. */
+/* Marker scene: the glyph paints inside a Leaflet marker icon. The glyph is
+   FontAwesome text, so the icon box's own font-size owns its size (1em); the
+   picker rules above are more specific and win there. */
 .foliplus-marker-glyph {
-  display: inline-flex;
-  width: 1em;
-  height: 1em;
+  display: inline-block;
+  font-size: 1em;
+  line-height: 1;
 }
 
-.foliplus-marker-glyph svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* The Leaflet default icon is an <img> pin; when we swap it for a glyph, the
+   divIcon box is the old pin footprint (25x41, tip at [12,41]), so the glyph
+   sits bottom-centred where the pin tip used to be. */
+.foliplus-marker-default {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.foliplus-marker-default .foliplus-marker-glyph {
+  font-size: var(--foliplus-icon-size-md);
 }

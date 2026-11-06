@@ -6,7 +6,7 @@ import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import {
   GLYPH_NAMES,
-  glyphSvg,
+  glyphHtml,
   isGlyphName,
   resolveGlyph,
 } from "#control/LayerControl/ui/style/glyph.js";
@@ -215,10 +215,15 @@ describe("buildMarkerIcon", () => {
     expect(div.style.backgroundPosition).toBe(authorDiv.style.backgroundPosition);
     expect(div.style.width).toBe(authorDiv.style.width);
     expect(div.style.height).toBe(authorDiv.style.height);
-    // The inner slot is OUR glyph, not the author's <i>.
-    expect(div.querySelector(".foliplus-marker-glyph")).not.toBeNull();
-    expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<svg");
-    expect(div.innerHTML).toContain("fa fa-map-marker");
+    // The inner slot is OUR glyph, not the author's <i>: a FontAwesome
+    // element carrying our classes, and the author's FA/glyphicon classes are
+    // dropped so only one icon font paints.
+    const glyphEl = div.querySelector(".foliplus-marker-glyph") as HTMLElement;
+    expect(glyphEl).not.toBeNull();
+    expect(glyphEl.className).toContain("fa-solid");
+    expect(glyphEl.className).toContain("fa-circle");
+    expect(div.innerHTML).not.toContain("<svg");
+    expect(div.innerHTML).not.toContain("fa-map-marker");
     // The shadow presence is identical (both true here).
     const shadow = derived.createShadow?.();
     expect(!!shadow).toBe(!!author.createShadow?.());
@@ -268,11 +273,12 @@ describe("buildMarkerIcon", () => {
     const div = derived.createIcon();
     expect(div.querySelector("i")?.style.color).toBe("rgb(255, 255, 255)");
   });
-  it("falls back to the circle glyph for an unknown name", () => {
+  it("keeps the author icon for a name outside the set (no substitute glyph)", () => {
+    // Honest degradation: a name the panel no longer knows (an FA4 name, an
+    // old persisted value) leaves the layer's author icon untouched instead of
+    // silently swapping in a different symbol.
     const author = makeAuthorIcon();
-    const derived = buildMarkerIcon({ author, glyph: "nope" }) as any;
-    const div = derived.createIcon();
-    expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<circle");
+    expect(buildMarkerIcon({ author, glyph: "nope" })).toBe(author);
   });
 
   it("takes a Leaflet default icon down a dedicated divIcon branch", () => {
@@ -285,31 +291,32 @@ describe("buildMarkerIcon", () => {
       iconAnchor: [12, 41],
     });
     expect(derived.options.html).toContain("foliplus-marker-glyph");
-    expect(derived.options.html).toContain("<svg");
+    expect(derived.options.html).toContain("fa-solid");
+    expect(derived.options.html).toContain("fa-map-pin");
+    expect(derived.options.html).not.toContain("<svg");
   });
 });
 
 describe("resolveGlyph", () => {
-  it("resolves a known name to its canonical key and svg", () => {
+  it("resolves a known name to itself and renders a FontAwesome element", () => {
     expect(resolveGlyph("star")).toBe("star");
-    expect(glyphSvg(resolveGlyph("star"))).toContain("<svg");
+    const html = glyphHtml("star");
+    expect(html).toContain('class="foliplus-marker-glyph fa-solid fa-star"');
+    expect(html).not.toContain("<svg");
   });
 
-  it("resolves a legacy alias (pin -> map-pin)", () => {
-    expect(resolveGlyph("pin")).toBe(resolveGlyph("map-pin"));
+  it("returns null for a name outside the set — never a substitute icon", () => {
+    // No alias table: an FA4 name (map-marker, pin, …) is simply not in the
+    // FA6 set, and the row then shows the author's original icon.
+    expect(resolveGlyph("nope")).toBeNull();
+    expect(resolveGlyph("pin")).toBeNull();
+    expect(resolveGlyph("map-marker")).toBeNull();
   });
 
-  it("falls back to the circle glyph for an unknown name", () => {
-    expect(resolveGlyph("nope")).toBe(resolveGlyph("circle"));
-  });
-
-  it("keeps the alias asymmetry: aliases resolve but never persist", () => {
-    // resolveGlyph accepts the legacy alias at runtime...
-    expect(resolveGlyph("pin")).toBe("map-pin");
-    // ...but isGlyphName — the persistence read gate — rejects it, so an
-    // alias can never reach disk. Locking the asymmetry (lead m04384).
-    expect(isGlyphName("pin")).toBe(false);
+  it("gates persistence on the same set (no alias asymmetry to maintain)", () => {
     expect(isGlyphName("map-pin")).toBe(true);
+    expect(isGlyphName("pin")).toBe(false);
+    expect(isGlyphName("map-marker")).toBe(false);
   });
 });
 

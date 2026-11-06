@@ -206,10 +206,13 @@ class TestLayerControlBrowser:
             assert all(icon["hasGlyph"] for icon in written["icons"]), (
                 f"not every marker carries the glyph after the write: {written}"
             )
-            # All markers share the SAME whole-layer glyph inner HTML.
-            svgs = {icon["glyphSvg"] for icon in written["icons"]}
-            assert len(svgs) == 1, f"glyph svg is not uniform: {written}"
-            assert svgs and next(iter(svgs)), f"empty glyph svg: {written}"
+            # All markers share the SAME whole-layer glyph: one FontAwesome
+            # element class set, no inline SVG payload anywhere.
+            classes = {icon["glyphClass"] for icon in written["icons"]}
+            assert len(classes) == 1, f"glyph class is not uniform: {written}"
+            glyph_class = next(iter(classes))
+            assert "fa-solid" in glyph_class, f"not a FA glyph: {written}"
+            assert "foliplus-marker-glyph" in glyph_class, written
 
             reset = page.evaluate(
                 _js("LayerControl/icon_dimension_probe"), [None, True]
