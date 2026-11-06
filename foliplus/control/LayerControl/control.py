@@ -156,45 +156,19 @@ class LayerControl(BaseControl):
     A folder keeps its group row after its last layer is removed, so you
     can still drag more layers into it.
 
-    Third-party layers and components
-    ---------------------------------
+    Third-party layers and components:
 
     A third-party or custom :class:`folium.map.Layer` subclass can declare a
-    folder the same way foliplus layers do — two declaration channels are
-    accepted, and the attribute channel wins when both are present:
+    folder the same way foliplus layers do, through the same
+    ``foliplus={"folder": "..."}`` namespace:
 
-    .. code-block:: python
+    >>> gdf.explore(foliplus={"folder": "底图"})
 
-       # channel 1 — folium forwards the unknown keyword into layer options
-       layer = folium.GeoJson(data, foliplus={"folder": "底图"})
-
-       # channel 2 — attribute assignment (folium's base Layer.__init__ never
-       # consumes **kwargs, so custom/extension layers commonly set this)
-       layer.foliplus = {"folder": "底图"}
-
-    Both channels read the same ``foliplus={"folder": "..."}`` namespace and
-    apply the same rules: a non-string or blank value warns once and is
+    The same rules apply: a non-string or blank ``folder`` warns once and is
     ignored (the layer stays at the section root), and two layers declaring
     the same folder name in the same section and role are grouped into one
-    folder.
-
-    On the JavaScript side, a third-party component can declare its folder
-    through the layer API — a map that has this :class:`~foliplus.LayerControl`
-    exposes a ``LayerAPI.registerLayer`` call with an
-    optional ``folder`` field:
-
-    .. code-block:: js
-
-       map.foliplus.LayerAPI.registerLayer({
-         id: "third-party",
-         layer: someLeafletLayer,
-         folder: "Basemap",
-       });
-
-    A layer registered without ``folder`` (or on a map that has no
-    LayerControl — where only the lightweight layer API exists) stays at the
-    section root, and an illegal ``folder`` value (non-string or blank) warns
-    once and is ignored.
+    folder. On the JavaScript side, a third-party component can declare its
+    folder through ``LayerAPI.registerLayer``.
 
     The ``fill`` declaration keys:
 
