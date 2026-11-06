@@ -57,10 +57,7 @@
      (common/scheme-picker.css); this block only keeps the color strip's own
      inline height token as the fallback. */
   .foliplus-heatmap-scheme-bar-inner {
-    height: var(
-      --foliplus-scheme-picker-bar-height,
-      var(--foliplus-heatmap-inline-height)
-    );
+    height: var(--foliplus-scheme-picker-bar-height);
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
      hangs off it (not the page flow). */
