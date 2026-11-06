@@ -142,34 +142,44 @@ const EVENTS = {
 /** One event's declared exception contract, resolved once and stored with the
  *  event's listeners (see EventEntry in EventBus.ts) — so a dispatcher cannot
  *  choose a different contract at a call site. */
-type EventPolicy = { kind: "terminal" | "notification" };
+/** One event's publish-policy kind — the discriminator behind
+ *  {@link EventPolicy}. Owned here so the vocabulary and the type are one
+ *  definition: a dispatch site cannot spell a kind the policy table never
+ *  declared. */
+const EVENT_POLICY_KIND = {
+  TERMINAL: "terminal",
+  NOTIFICATION: "notification",
+} as const;
+type EventPolicyKind = (typeof EVENT_POLICY_KIND)[keyof typeof EVENT_POLICY_KIND];
+
+type EventPolicy = { kind: EventPolicyKind };
 
 type EventName = (typeof EVENTS)[keyof typeof EVENTS];
 
 /** Every event declares its policy; a missing key is a compile error, so a
  *  new event cannot silently inherit a default it did not choose. */
 const EVENT_POLICY: Record<EventName, EventPolicy> = {
-  [EVENTS.MODE_CHANGE]: { kind: "notification" },
-  [EVENTS.BEFORE_EXPORT]: { kind: "notification" },
-  [EVENTS.OVERLAY_CLEAR]: { kind: "notification" },
-  [EVENTS.CONTROL_ATTACHED]: { kind: "notification" },
-  [EVENTS.LAYER_CHANGE]: { kind: "terminal" },
-  [EVENTS.LAYER_INTENT_CHANGE]: { kind: "terminal" },
-  [EVENTS.LAYER_REMOVED]: { kind: "terminal" },
-  [EVENTS.LAYER_DELETED]: { kind: "terminal" },
-  [EVENTS.AFTER_EXPORT]: { kind: "terminal" },
-  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { kind: "terminal" },
-  [EVENTS.LAYER_STYLE_CHANGE]: { kind: "terminal" },
-  [EVENTS.LAYER_ITEM_ADDED]: { kind: "terminal" },
-  [EVENTS.LAYER_ITEM_UPDATED]: { kind: "terminal" },
-  [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
-  [EVENTS.LAYER_CAPABILITY_CHANGED]: { kind: "notification" },
-  [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
-  [EVENTS.LAYER_ROLE_COUNT_CHANGED]: { kind: "terminal" },
-  [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },
-  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: { kind: "terminal" },
-  [EVENTS.LAYER_FILTER_CHANGE]: { kind: "notification" },
+  [EVENTS.MODE_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
+  [EVENTS.BEFORE_EXPORT]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
+  [EVENTS.OVERLAY_CLEAR]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
+  [EVENTS.CONTROL_ATTACHED]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
+  [EVENTS.LAYER_CHANGE]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_INTENT_CHANGE]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_REMOVED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_DELETED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.AFTER_EXPORT]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_STYLE_CHANGE]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_ITEM_ADDED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_ITEM_UPDATED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_ITEM_REFRESHED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_CAPABILITY_CHANGED]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
+  [EVENTS.LAYER_ITEM_REMOVED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_ROLE_COUNT_CHANGED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_LIST_REBUILD]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: { kind: EVENT_POLICY_KIND.TERMINAL },
+  [EVENTS.LAYER_FILTER_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
 };
 
-export { EVENTS, EVENT_POLICY };
+export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND };
 export type { EventPolicy };
