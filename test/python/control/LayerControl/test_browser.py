@@ -25,6 +25,7 @@ from conftest import (
     use_raw_page,
 )
 from folium import Element
+from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -4923,23 +4924,11 @@ class TestLayerControlBrowser:
             # still shown — registerAutoCancel dismisses it only 1050ms
             # after this same moveend. Reading right at the signal removes
             # the fixed-sleep race against that dismiss window.
-            page.evaluate(
-                """() => {
-                    window.__fitSettled = false;
-                    window.map.once("moveend", () => {
-                        window.__fitSettled = true;
-                    });
-                }"""
-            )
+            page.evaluate(snippet("LayerControl/arm_fit_settled"))
             item.dispatch_event("dblclick")
-            # TimeoutError is imported lazily: this test is browser-marked,
-            # so playwright is guaranteed present when it runs (module-level
-            # import would break `-m "not browser"` collection).
-            from playwright.sync_api import TimeoutError
-
             try:
                 page.wait_for_function(
-                    "() => window.__fitSettled === true", timeout=5000
+                    snippet("LayerControl/fit_settled"), timeout=5000
                 )
             except TimeoutError:
                 pytest.fail(
