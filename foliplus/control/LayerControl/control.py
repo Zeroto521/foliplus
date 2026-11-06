@@ -156,6 +156,20 @@ class LayerControl(BaseControl):
     A folder keeps its group row after its last layer is removed, so you
     can still drag more layers into it.
 
+    Third-party layers and components:
+
+    A third-party or custom :class:`folium.map.Layer` subclass can declare a
+    folder the same way foliplus layers do, through the same
+    ``foliplus={"folder": "..."}`` namespace:
+
+    >>> gdf.explore(foliplus={"folder": "底图"})
+
+    The same rules apply: a non-string or blank ``folder`` warns once and is
+    ignored (the layer stays at the section root), and two layers declaring
+    the same folder name in the same section and role are grouped into one
+    folder. On the JavaScript side, a third-party component can declare its
+    folder through ``LayerAPI.registerLayer``.
+
     The ``fill`` declaration keys:
 
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+

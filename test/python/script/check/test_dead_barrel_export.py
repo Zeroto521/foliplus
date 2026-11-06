@@ -764,3 +764,67 @@ class TestPathlibHelpers:
         found = mod.find_python_files(str(tmp_path))
         names = {Path(p).name for p in found}
         assert names == {"one.py", "three.py"}
+
+
+class TestControlEntryDiscovery:
+    r"""C3: IIFE entry detection must be path-based, not content-regex only.
+
+    The old content-only regex (``new\s+\w+Control\s*\(``) silently stopped
+    matching when a control was renamed or when a 9th control used a
+    different naming shape. The fix enumerates ``foliplus/js/control/`` from
+    disk so the exemption set is discovered, not maintained by hand.
+    """
+
+    def test_control_entry_paths_discovers_all_8(self):
+        """The set contains all 8 shipped control entry paths."""
+        entries = mod._control_entry_paths()
+        expected_controls = {
+            "ExportControl",
+            "FullscreenControl",
+            "HeatmapControl",
+            "LayerControl",
+            "LocateControl",
+            "MeasureControl",
+            "ScaleControl",
+            "SearchControl",
+        }
+        for name in expected_controls:
+            expected = f"foliplus/js/control/{name}/index.ts"
+            assert expected in entries, (
+                f"{expected} missing from _control_entry_paths(); got {sorted(entries)}"
+            )
+
+    def test_control_entry_paths_missing_dir(self, tmp_path, monkeypatch):
+        """A missing control/ directory returns an empty set, not a crash."""
+        empty_root = tmp_path / "emptyrepo"
+        empty_root.mkdir()
+        monkeypatch.setitem(
+            mod._control_entry_paths.__globals__, "REPO_ROOT", empty_root
+        )
+        assert mod._control_entry_paths() == set()
+
+    def test_renamed_control_is_detected(self, tmp_path, monkeypatch):
+        """A renamed control's new index.ts is still discovered as an entry."""
+        control_dir = tmp_path / "foliplus" / "js" / "control"
+        (control_dir / "RenamedControl").mkdir(parents=True)
+        (control_dir / "RenamedControl" / "index.ts").write_text("")
+        monkeypatch.setitem(mod._control_entry_paths.__globals__, "REPO_ROOT", tmp_path)
+        entries = mod._control_entry_paths()
+        assert "foliplus/js/control/RenamedControl/index.ts" in entries
+
+    def test_path_based_detection_beats_content_regex_for_renamed(
+        self, tmp_path, monkeypatch
+    ):
+        """A file at a discovered entry path is iife_entry even if its content
+        does not match the old regex (e.g. the rename also changed the class name)."""
+        fake = tmp_path / "foliplus/js/control/RenamedControl/index.ts"
+        fake.parent.mkdir(parents=True)
+        fake.write_text("export { init } from './a.js';\n")
+        # Both globals must point at tmp_path: the entry set for path match,
+        # and repo_root for _relpath inside parse_file.
+        monkeypatch.setitem(mod._control_entry_paths.__globals__, "REPO_ROOT", tmp_path)
+        monkeypatch.setitem(mod.parse_file.__globals__, "REPO_ROOT", tmp_path)
+        fa = mod.parse_file(str(fake), fake.read_text(), str(tmp_path))
+        # Path is in the discovered set, so is_iife_entry is True even
+        # though the content regex would not match.
+        assert fa.is_iife_entry, "path-based detection failed for renamed control"
