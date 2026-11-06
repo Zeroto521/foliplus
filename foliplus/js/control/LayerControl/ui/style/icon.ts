@@ -28,7 +28,7 @@ import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { GLYPHS, GLYPH_NAMES, isGlyphName, resolveGlyph } from "./glyph.js";
+import { GLYPH_NAMES, glyphSvg, isGlyphName, resolveGlyph } from "./glyph.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
@@ -102,7 +102,7 @@ const buildMarkerIcon = (opts: {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { markerColor?: string } } | undefined;
   if (!author || typeof author.createIcon !== "function") return opts.author;
-  const svg = GLYPHS[resolveGlyph(opts.glyph)];
+  const svg = glyphSvg(resolveGlyph(opts.glyph));
   const derived = Object.create(author) as {
     createIcon: () => HTMLElement | undefined;
     createShadow?: () => HTMLElement | undefined;
@@ -245,7 +245,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // author-original label.
     const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
     if (value) {
-      glyphBox.innerHTML = glyphInnerHtml(GLYPHS[resolveGlyph(value)]);
+      glyphBox.innerHTML = glyphInnerHtml(glyphSvg(resolveGlyph(value)));
       nameBox.textContent = value;
       trigger.title = value;
     } else {
@@ -337,7 +337,7 @@ const buildGlyphGrid = (
         "data-glyph": glyph,
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
-      { html: glyphInnerHtml(GLYPHS[glyph]) },
+      { html: glyphInnerHtml(glyphSvg(glyph)) },
     ) as HTMLButtonElement;
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);

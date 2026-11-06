@@ -5,8 +5,8 @@ import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import {
-  GLYPHS,
   GLYPH_NAMES,
+  glyphSvg,
   isGlyphName,
   resolveGlyph,
 } from "#control/LayerControl/ui/style/glyph.js";
@@ -250,7 +250,7 @@ describe("buildMarkerIcon", () => {
 describe("resolveGlyph", () => {
   it("resolves a known name to its canonical key and svg", () => {
     expect(resolveGlyph("star")).toBe("star");
-    expect(GLYPHS[resolveGlyph("star")]).toContain("<svg");
+    expect(glyphSvg(resolveGlyph("star"))).toContain("<svg");
   });
 
   it("resolves a legacy alias (pin -> map-pin)", () => {
