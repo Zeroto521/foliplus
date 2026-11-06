@@ -25,7 +25,7 @@
 // overridden to swap only the inner <i> symbol. The chassis (sprite
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
-import { walkLeaf } from "#core/layer/index.js";
+import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { glyphHtml, isGlyphName, resolveGlyph } from "./glyphSource.js";
 
 /** The leaf probe for the icon axis: a runtime `setIcon` (a marker). Same

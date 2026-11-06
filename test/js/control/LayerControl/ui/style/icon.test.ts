@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
-import { GLYPH_NAMES, isGlyphName } from "#core/leaflet/glyphSource.js";
+import { GLYPH_NAMES } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
