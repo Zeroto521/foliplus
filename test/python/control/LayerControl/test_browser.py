@@ -184,8 +184,8 @@ class TestLayerControlBrowser:
             # derivedMatchesAuthor contract (chassis pixel-identical to the
             # author's <img>) does NOT hold here — Default is replaced by a
             # DivIcon by design.
-            assert written["derived"]["cls"].split().includes(
-                "foliplus-marker-default"
+            assert (
+                written["derived"]["cls"].split().includes("foliplus-marker-default")
             ), f"default branch did not set foliplus-marker-default: {written}"
             assert written["derived"]["inner"] and written["derived"]["inner"][
                 "cls"
