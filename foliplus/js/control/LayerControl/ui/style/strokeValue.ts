@@ -131,6 +131,11 @@ const applyValueStroke = (
    *  that does not exist yet. A mode that is not "value" returns null so a
    *  solid-mode leaf is never re-painted by a stale value pin. */
   liveMode: () => FillMode | undefined,
+  /** The border width to carry through the value arm. Default `undefined`
+   *  keeps the existing color-only behavior (the author's width stays in
+   *  force); the border dimension passes its live width so a user-set
+   *  border width survives the value-stroke write and the highlight pin. */
+  weight?: number,
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
@@ -229,6 +234,7 @@ const applyValueStroke = (
       // lights the face bit), so an author's `stroke: false` does not
       // swallow the write — the styleBag write contract.
       write.color = paint;
+      if (weight !== undefined) write.weight = weight;
       commitStyleDim(leaf, write, FACE.STROKE);
     } else {
       // Outside the value ramp's reach: the author's color, width and
@@ -257,14 +263,22 @@ const applyValueStroke = (
         const label = categoryLabel(curVal);
         if (label !== undefined) {
           const color = catScale.colors.get(label) ?? catScale.other;
-          return styleDimPayload({ color }, FACE.STROKE);
+          return styleDimPayload(
+            weight !== undefined ? { color, weight } : { color },
+            FACE.STROKE,
+          );
         }
       }
       if (!category && scale !== null && isFiniteNumber(curVal)) {
         // stroke:true rides the replay too — folium's resetStyle would
         // otherwise re-apply the author's stroke:false on mouseout and hide
         // the stroke.
-        return styleDimPayload({ color: colorFor(scale, curVal) }, FACE.STROKE);
+        return styleDimPayload(
+          weight !== undefined
+            ? { color: colorFor(scale, curVal), weight }
+            : { color: colorFor(scale, curVal) },
+          FACE.STROKE,
+        );
       }
       // Out of the value ramp's reach: folium's restore already gave the
       // author's color and `stroke` flag back, so there is nothing worth

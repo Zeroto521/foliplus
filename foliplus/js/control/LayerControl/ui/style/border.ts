@@ -22,21 +22,44 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import {
+  CAP_TIER,
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+} from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { dom } from "#common/dom.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#common/fullscreen.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import {
   BORDER_WEIGHT,
+  type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
+  createSchemePicker,
+  dropdownOf,
   inlineControls,
   normalizeHexColor,
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { INTENT, type IntentKey, getIntent } from "../intent.js";
+import { INTENT, type IntentKey, clearIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
+import {
+  buildValueDetail,
+  effectiveFillValue,
+  numericFields,
+  resolvedValue,
+} from "./fill.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -44,6 +67,8 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { buildModeRow } from "./row.js";
+import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
   type StyleCarrier,
@@ -135,6 +160,154 @@ const authoredBorder = (
   const base = styleBaseOf(ui, layerId);
   return { color: base.color, weight: base.weight };
 };
+const BORDER_INTENT_KEYS: readonly IntentKey[] = [
+  INTENT.BORDER_COLOR,
+  INTENT.BORDER_WEIGHT,
+  INTENT.BORDER_RAMP,
+  INTENT.BORDER_MODE,
+];
+
+/** The scheme picker owned by the open style panel's border value detail.
+ *  One entry per UI (a map owns one LayerControl instance); the panel must
+ *  destroy it when it closes or rebuilds the detail, or a stale picker
+ *  answers the next click. Mirrors fill's per-UI picker slot. */
+const borderSchemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
+/** Unregister for the picker's overlay-registry entry (one per UI). */
+const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
+
+/** The border's value ramp — the config the stroke classifies by.
+ *
+ *  C8 derivation: an explicit border ramp the user stored wins; otherwise
+ *  the border follows the fill's own value ramp (effectiveFillValue), so a
+ *  fill-only classification paints the same value domain on both faces. The
+ *  derived arm is the same rule resolveStrokeMode applies (mode or (ramp ?
+ *  value : solid)), so the row and the paint path cannot disagree about
+ *  which arm is active when only the fill side was configured. */
+const effectiveBorderRamp = (
+  ui: LayerUI,
+  layerId: string,
+): FillValueConfig | undefined =>
+  getIntent(ui, layerId, INTENT.BORDER_RAMP) ?? effectiveFillValue(ui, layerId);
+
+/** The arm the border row shows and the stroke paints.
+ *
+ *  mode or (ramp ? value : solid) — the shared stroke resolver, so a
+ *  borderMode intent and a derived fill ramp agree on what the engine does.
+ *  A stored mode always wins; a mode-less border defers to whether a value
+ *  ramp exists (own, derived from fill, or a declared fill value). */
+const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
+  resolveStrokeMode(
+    getIntent(ui, layerId, INTENT.BORDER_MODE),
+    effectiveBorderRamp(ui, layerId),
+  );
+
+/** Whether a value ramp is actually in force on the border face. The value
+ *  arm is active exactly when the derived mode is value and a ramp exists;
+ *  anything else paints the solid path. */
+const borderValueActive = (ui: LayerUI, layerId: string): boolean =>
+  effectiveBorderMode(ui, layerId) === FILL_MODE.VALUE &&
+  effectiveBorderRamp(ui, layerId) !== undefined;
+
+/** The seed field for a first user border classification: the fill's own
+ *  seed column when it is a numeric field of this layer, else the first
+ *  numeric field. The author's scale column is the most likely to be kept. */
+const borderSeedField = (
+  ui: LayerUI,
+  layerId: string,
+  fields: readonly string[],
+): string => {
+  const column = ui.c.layerRegistry.get(layerId)?.fillAuthor?.scale?.column;
+  return column !== undefined && fields.includes(column) ? column : fields[0];
+};
+
+/** The config the border value detail displays and writes from. The chain
+ *  mirrors fill's valueForUi: the stored border ramp, then the derived fill
+ *  ramp, then a seeded default. A stored field the current data no longer
+ *  offers is resolved through the shared resolveField rule — the same rule
+ *  the paint side uses, so the row and the map cannot disagree. */
+const borderValueForUi = (
+  ui: LayerUI,
+  layerId: string,
+  fields: readonly string[],
+): FillValueConfig => {
+  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.BORDER_RAMP));
+  if (stored) return stored;
+  const derived = resolvedValue(ui, layerId, effectiveFillValue(ui, layerId));
+  if (derived) return derived;
+  return {
+    kind: "numeric",
+    field: borderSeedField(ui, layerId, fields),
+    method: CONST.FILL_VALUE.METHOD_DEFAULT,
+    classes: CLASS_COUNT.DEFAULT,
+    scheme: CONST.FILL_VALUE.SCHEME_DEFAULT,
+  };
+};
+
+/** Persist a border value config in the shape the validator accepts. Mirrors
+ *  fill's persistedValue: clamps the numeric class count into the editable
+ *  vocabulary, keeps a category record's optional method/classes as-is. */
+const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
+  value.kind === "category"
+    ? {
+        kind: "category",
+        field: value.field,
+        method: value.method,
+        classes: value.classes,
+        scheme: value.scheme,
+      }
+    : {
+        kind: "numeric",
+        field: value.field,
+        method: value.method,
+        classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
+        scheme: value.scheme,
+      };
+
+/** Write the border mode intent, seeding the border ramp when the user
+ *  switches to the by-value arm and none is stored yet. */
+const writeBorderMode = (
+  ui: LayerUI,
+  layerId: string,
+  mode: FillMode | undefined,
+): boolean => {
+  if (mode === undefined) {
+    // Follow fill: drop the border's own mode arm so the derived fill ramp
+    // decides. The ramp stays (a solid border keeps its independent ramp
+    // for the next by-value switch).
+    getDimension(DIM.BORDER)!.write!(ui, layerId, { mode: undefined });
+    return true;
+  }
+  if (mode === FILL_MODE.VALUE) {
+    const fields = numericFields(ui, layerId);
+    if (fields.length === 0) return false;
+    getDimension(DIM.BORDER)!.write!(ui, layerId, {
+      mode,
+      ramp: persistedBorderValue(borderValueForUi(ui, layerId, fields)),
+    });
+    return true;
+  }
+  getDimension(DIM.BORDER)!.write!(ui, layerId, { mode });
+  return true;
+};
+
+/** Merge one border value-detail change into the stored config and schedule
+ *  the per-leaf repaint through the dimension write. */
+const writeBorderValue = (
+  ui: LayerUI,
+  layerId: string,
+  patch: Partial<FillValueConfig>,
+): FillValueConfig => {
+  const fields = numericFields(ui, layerId);
+  const next: FillValueConfig = persistedBorderValue({
+    ...borderValueForUi(ui, layerId, fields),
+    ...patch,
+  });
+  getDimension(DIM.BORDER)!.write!(ui, layerId, {
+    mode: FILL_MODE.VALUE,
+    ramp: next,
+  });
+  return next;
+};
 
 /** Commit the current border color and width to the layer. Walks the layer
  *  tree and calls `setStyle({color?, weight?, stroke: true})` once per leaf
@@ -153,6 +326,25 @@ const authoredBorder = (
  *  the walk is the single writer of a border style — the commits only record
  *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
+  // Value arm: when the derived border mode is 'value' and a ramp exists,
+  // delegate the whole face to the stroke engine. The engine owns the
+  // per-leaf classification, the merged author+value write, and the
+  // highlight pin — this function only derives the live config so the
+  // pin's getter and a later fill-only repaint agree with this paint.
+  const ramp = effectiveBorderRamp(ui, layerId);
+  if (borderValueActive(ui, layerId)) {
+    applyValueStroke(
+      ui,
+      layerId,
+      resolvedValue(ui, layerId, ramp)!,
+      stored => resolvedValue(ui, layerId, stored)!,
+      () => effectiveBorderRamp(ui, layerId),
+      () => effectiveBorderMode(ui, layerId),
+      getIntent(ui, layerId, INTENT.BORDER_WEIGHT),
+    );
+    return;
+  }
+  // Solid path (unchanged): a flat color+weight write per leaf.
   const color = getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   if (color === undefined && weight === undefined) return;
@@ -165,10 +357,10 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // that own setStyle, so a group's style function (L.GeoJSON, L.FeatureGroup)
   // never captures the base in place of its features.
   walkStyleLeaves(layer, node => {
-    // Shared write contract: value keys + visibility bit (`stroke: true`).
+    // Shared write contract: value keys + visibility bit (stroke: true).
     commitStyleDim(node, values, FACE.STROKE);
     // Pin the leaf's stroke against folium's highlight restore via the shared
-    // pinStyleOnHighlight hook, keyed "border" so a re-commit
+    // pinStyleOnHighlight hook, keyed 'border' so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
     // The fill row pins under its own key on the same leaf: one shared
     // mouseout handler merges both dimensions into a single setStyle, so a
@@ -185,7 +377,6 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     });
   });
 };
-
 /** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
@@ -353,7 +544,11 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
  *  author's own `options` — never a constant — so the row shows what the
  *  layer is actually painting on first open. The color is resolved to the
  *  swatch's own form by `displayColor` before it reaches the field. */
-const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
+
+/** The solid arm's border detail: color swatch + width number, one row.
+ *  Mirrors fill's solid detail but keeps the border's own row class and
+ *  the width control (the fill side has no width). */
+const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
   return buildBorderRowShell({
     rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
@@ -369,18 +564,233 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
 };
 
-/** Wire the shared live-color and live-number binders to this row's commit
- *  paths. Called from `openStylePanel`. */
-const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
-  bindBorderRowShell(row, {
-    className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
-    weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-    onChangeColor: value => commitBorderColor(ui, layerId, value),
-    onChangeWeight: value => commitBorderWeight(ui, layerId, value),
-    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
-  });
+/** Destroy the panel's border scheme picker, if any. Idempotent; also
+ *  called when a mode switch rebuilds the value detail so a stale picker
+ *  cannot answer the next click. Mirrors fill's disposeFillRow. */
+const disposeBorderRow = (ui: LayerUI): void => {
+  borderSchemeOverlayByUi.get(ui)?.();
+  borderSchemeOverlayByUi.delete(ui);
+  borderSchemePickerByUi.get(ui)?.destroy();
+  borderSchemePickerByUi.delete(ui);
 };
 
+/** The border mode the row's select shows: 'follow' when no borderMode
+ *  intent is stored (the arm defers to the derived fill ramp), else the
+ *  stored solid/value arm. */
+const displayBorderMode = (ui: LayerUI, layerId: string): string => {
+  const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
+  return stored ?? "follow";
+};
+
+/** Render the detail slot for the active border arm into the block's
+ *  detail element. Called on open and after every mode switch. */
+/** The detail arm the border block renders for the current display mode:
+ *  'follow' and 'solid' both show the solid controls; only an explicit
+ *  'value' choice shows the value controls. */
+const borderDetailMode = (ui: LayerUI, layerId: string): FillMode =>
+  displayBorderMode(ui, layerId) === FILL_MODE.VALUE
+    ? FILL_MODE.VALUE
+    : FILL_MODE.SOLID;
+
+const renderBorderDetail = (
+  ui: LayerUI,
+  layerId: string,
+  detail: HTMLElement,
+  mode: FillMode,
+): void => {
+  disposeBorderRow(ui);
+  detail.replaceChildren();
+  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+    const value = borderValueForUi(ui, layerId, numericFields(ui, layerId));
+    for (const row of buildValueDetail(
+      ui,
+      layerId,
+      numericFields(ui, layerId),
+      value,
+    )) {
+      detail.append(row);
+    }
+  } else {
+    detail.append(buildSolidBorderDetail(ui, layerId));
+  }
+};
+
+/** Build the border row block: the three-state mode select (follow fill /
+ *  solid / by value) plus the active arm's detail slot. A layer with no
+ *  numeric field has no mode select and only owns the solid controls. */
+const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const fields = numericFields(ui, layerId);
+  const block = dom.el("div", {
+    class: CONST.CLASSES.STYLE_BORDER_BLOCK,
+    "data-style-dim": "border",
+  });
+  if (fields.length === 0) {
+    block.append(buildSolidBorderDetail(ui, layerId));
+    return block;
+  }
+  const options = [
+    { value: "follow", label: ui.T("style_border_follow") },
+    { value: FILL_MODE.SOLID, label: ui.T("style_fill_single") },
+    { value: FILL_MODE.VALUE, label: ui.T("style_fill_by_value") },
+  ];
+  const modeRow = buildModeRow({
+    label: ui.T("style_border_mode"),
+    selectClass: CONST.CLASSES.STYLE_BORDER_MODE_SELECT,
+    rowClass: CONST.CLASSES.STYLE_BORDER_ROW,
+    detailClass: CONST.CLASSES.STYLE_BORDER_DETAIL,
+    value: displayBorderMode(ui, layerId),
+    options,
+    surface: dropdownSurface(ui.c.map.getContainer()),
+  });
+  block.append(modeRow.block, modeRow.detail);
+  renderBorderDetail(ui, layerId, modeRow.detail, borderDetailMode(ui, layerId));
+  return block;
+};
+
+/** Drop the out-of-vocabulary class option once the user picks a 2..9 count;
+ *  mirrors fill's convergeClassesRow. */
+const convergeBorderClassesRow = (select: HTMLSelectElement, classes: number): void => {
+  const extra = Array.from(select.options).find(
+    option => !CLASS_COUNT_VALUES.includes(Number(option.value)),
+  );
+  if (!extra) return;
+  extra.remove();
+  select.value = String(classes);
+  const dropdown = dropdownOf(select);
+  dropdown?.setHint("");
+  dropdown?.refresh();
+};
+
+/** Bind the value detail's three controls (field / method+classes / scheme)
+ *  plus the scheme picker. Mirrors fill's bindValueDetail but writes through
+ *  the border dimension and registers the border picker overlay id. */
+const bindBorderValueDetail = (
+  ui: LayerUI,
+  layerId: string,
+  detail: HTMLElement,
+): void => {
+  const trigger = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+  ) as HTMLElement;
+  const hidden = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
+  ) as HTMLSelectElement;
+  const fields = numericFields(ui, layerId);
+  const ramp = borderValueForUi(ui, layerId, fields);
+  const picker = createSchemePicker({
+    trigger,
+    hiddenSelect: hidden,
+    schemes: DEFAULT_SCHEMES,
+    value: ramp.scheme,
+    colorScale: getColorScale,
+    numClasses: ramp.classes,
+    portal: true,
+    resolveHost: () => fullscreenSurface(ui.c.map.getContainer()),
+    onSurfaceChange: onFullscreenSurfaceChange,
+    label: ui.T("style_fill_scheme"),
+    onChange: name => writeBorderValue(ui, layerId, { scheme: name }),
+  });
+  borderSchemePickerByUi.set(ui, picker);
+  borderSchemeOverlayByUi.set(
+    ui,
+    ensureOverlayRegistry(ui.c.map).register({
+      id: OVERLAY_IDS.BORDER_PICKER_DROPDOWN,
+      isOpen: () => picker.getDropdown() !== null,
+      panels: () => [trigger],
+      close: ({ restoreFocus }) => picker.close({ restoreFocus }),
+      dismissOn: "click",
+      pressPriority: 845,
+    }),
+  );
+
+  const fieldSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+  ) as HTMLSelectElement;
+  fieldSelect.onchange = () =>
+    writeBorderValue(ui, layerId, { field: fieldSelect.value });
+
+  const methodSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+  ) as HTMLSelectElement;
+  methodSelect.onchange = () =>
+    writeBorderValue(ui, layerId, {
+      method: methodSelect.value as FillValueConfig["method"],
+    });
+
+  const classesSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+  ) as HTMLSelectElement;
+  classesSelect.onchange = () => {
+    const next = writeBorderValue(ui, layerId, {
+      classes: parseInt(classesSelect.value, 10),
+    });
+    picker.setNumClasses(next.classes);
+    convergeBorderClassesRow(classesSelect, next.classes);
+  };
+};
+
+/** Bind one detail slot for the active border arm. Called on open and after
+ *  every mode switch. */
+const bindBorderDetail = (
+  ui: LayerUI,
+  layerId: string,
+  detail: HTMLElement,
+  mode: FillMode,
+): void => {
+  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+    bindBorderValueDetail(ui, layerId, detail);
+  } else {
+    bindBorderRowShell(detail, {
+      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+      onChangeColor: value => commitBorderColor(ui, layerId, value),
+      onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+      onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+    });
+  }
+};
+
+/** Wire the border block: the mode select switches arms in place (rebuilding
+ *  the detail slot), and the active arm's controls commit through the
+ *  dimension's write path. A layer with no numeric field has no mode select
+ *  and only owns the solid controls. */
+const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
+  const block = (row.closest("[data-style-dim='border']") ??
+    row.closest(`.${CONST.CLASSES.STYLE_BORDER_BLOCK}`)) as HTMLElement | null;
+  if (!block) {
+    bindBorderRowShell(row, {
+      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+      onChangeColor: value => commitBorderColor(ui, layerId, value),
+      onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+      onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+    });
+    return;
+  }
+  const select = block.querySelector(
+    `.${CONST.CLASSES.STYLE_BORDER_MODE_SELECT}`,
+  ) as HTMLSelectElement | null;
+  if (!select) {
+    bindBorderDetail(ui, layerId, block, effectiveBorderMode(ui, layerId));
+    return;
+  }
+  const detail = block.querySelector(
+    `.${CONST.CLASSES.STYLE_BORDER_DETAIL}`,
+  ) as HTMLElement | null;
+  select.onchange = () => {
+    const previous = effectiveBorderMode(ui, layerId);
+    const raw = select.value;
+    const next: FillMode | undefined = raw === "follow" ? undefined : (raw as FillMode);
+    if (next === previous) return;
+    if (!writeBorderMode(ui, layerId, next)) return;
+
+    if (detail) {
+      renderBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
+      bindBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
+    }
+  };
+  if (detail) bindBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
+};
 /** Register border as a per-layer dimension. The descriptor wires the existing
  *  helpers plus the intent+persist slots: `write` / `reset` own store +
  *  styleBag orchestration (cohesive `LayerIntentStore.set` / `.clear`); the named
@@ -390,34 +800,50 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  Registered ahead of `opacity` and `zoomRange` in `DIM_ORDER`
  *  (see `./registry.js`): border comes second in the label panel's
  *  Layer section, right after fill. */
-const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
+const BORDER_DIMENSION = registerDimension<{
+  color: string;
+  weight: number;
+  mode: FillMode;
+  ramp?: FillValueConfig;
+}>({
   key: DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return undefined;
     const author = authoredBorder(ui, layerId);
+    const ramp = effectiveBorderRamp(ui, layerId);
     return {
       color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
       weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
+      mode: effectiveBorderMode(ui, layerId),
+      ramp: ramp === undefined ? undefined : resolvedValue(ui, layerId, ramp),
     };
   },
   row: buildBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    const { color, weight } = patch;
+    const { color, weight, mode, ramp } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
     if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
+    if (ramp !== undefined) writes.push([INTENT.BORDER_RAMP, ramp]);
+    // 'mode' present with an undefined value means 'follow fill': clear the
+    // stored border mode so the derived fill ramp decides the arm.
+    if ("mode" in patch) {
+      if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
+      else clearIntent(ui, layerId, INTENT.BORDER_MODE);
+    }
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleBorderApply(ui, layerId);
   },
-  /** Cohesive reset: cancel trailing apply, clear both border overrides,
-   *  save, restore the author's stroke face from the style bag. */
+  /** Cohesive reset: cancel trailing apply, clear all border overrides
+   *  (color/weight/mode/ramp), save, restore the author's stroke face from
+   *  the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId, ui);
-    resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
+    resetIntentKeys(ui, layerId, BORDER_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // Same restore walk as fill — one styleBag contract, not two copies.
@@ -427,7 +853,9 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     if (!layerCanBorder(ui, layerId)) return "none";
     if (
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT)
+      ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
+      ui.intentStore.isUserSet(layerId, INTENT.BORDER_RAMP) ||
+      ui.intentStore.isUserSet(layerId, INTENT.BORDER_MODE)
     ) {
       return "user";
     }
@@ -441,7 +869,10 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     face: FACE.STROKE,
     when: (ui, layerId) =>
       getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
-      getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined,
+      getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_RAMP) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_MODE) !== undefined ||
+      effectiveBorderRamp(ui, layerId) !== undefined,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
@@ -449,13 +880,23 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
 export {
   applyBorderToLayer,
   authoredBorder,
+  bindBorderDetail,
   bindBorderRow,
   bindBorderRowShell,
   BORDER_DIMENSION,
+  borderValueActive,
   buildBorderRow,
   buildBorderRowShell,
+  buildSolidBorderDetail,
   commitBorderColor,
   commitBorderWeight,
+  displayBorderMode,
+  disposeBorderRow,
+  effectiveBorderMode,
+  effectiveBorderRamp,
   layerCanBorder,
+  renderBorderDetail,
   resetLayerBorder,
+  writeBorderMode,
+  writeBorderValue,
 };

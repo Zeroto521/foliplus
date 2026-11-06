@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import type { FillValueConfig } from "#core/layer/intent.js";
+import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import {
@@ -20,15 +23,19 @@ import {
   layerCanBorder,
   resetLayerBorder,
 } from "#control/LayerControl/ui/style/border.js";
-import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
+import {
+  applyFillToLayer,
+  commitFillColor,
+} from "#control/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import { pinnedGetterCount } from "#control/LayerControl/ui/style/pin.js";
+import { resolveStrokeMode } from "#control/LayerControl/ui/style/strokeValue.js";
 import {
   FACE,
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
+import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
  *  border walk looks for. `on` is part of the leaf surface too — the
@@ -1095,8 +1102,8 @@ describe("buildBorderRow", () => {
 
     const row = buildBorderRow(ui, "vec1");
 
-    expect(row.classList.contains("foliplus-form-row")).toBe(true);
-    expect(row.classList.contains("foliplus-style-border-row")).toBe(true);
+    expect(row.classList.contains("foliplus-style-border-block")).toBe(true);
+    expect(row.getAttribute("data-style-dim")).toBe("border");
     expect(row.textContent).toContain("LayerControl.border");
 
     const swatch = row.querySelector(
@@ -1295,14 +1302,17 @@ describe("border apply scheduler (drag coalesce)", () => {
     expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
       color: "#aabbcc",
       weight: 3,
+      mode: "solid",
+      ramp: undefined,
     });
     commitBorderNow(ui, "vec1", "color", "#445566");
     commitBorderNow(ui, "vec1", "weight", 7);
     expect(BORDER_DIMENSION.value!(ui, "vec1")).toEqual({
       color: "#445566",
       weight: 7,
+      mode: "solid",
+      ramp: undefined,
     });
-    expect(BORDER_DIMENSION.value!(ui, "ghost")).toBeUndefined();
   });
 
   it("shell builds color-only / weight-only rows and default selectors", () => {
@@ -1654,5 +1664,256 @@ describe("content-change replay", () => {
     // style for it either.
     resetLayerBorder(ui, "o1");
     expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+});
+
+// ── C1–C8: value-based stroke wiring (spec §5) ──────────────────────────────────────────────
+//
+// These exercise the WIRING, not the engine (strokeValue.test.ts owns the
+// engine): applyBorderToLayer must dispatch to applyValueStroke when the
+// derived border mode is 'value', and the border row must expose the
+// three-state mode select. The layer fixture is a group-like parent whose
+// feature leaves carry `feature.properties.count` so numericFields resolves.
+
+/** Install a chroma stub returning a fixed color list — the same shape the
+ *  engine tests use, so a ramp build is deterministic. */
+const installChroma = (colors: string[]): void => {
+  globalThis.chroma = {
+    scale: () => ({
+      mode: () => ({ colors: (count: number) => colors.slice(0, count) }),
+      colors: (count: number) => colors.slice(0, count),
+    }),
+  } as never;
+};
+
+/** A feature leaf the value arm classifies: an areal polygon (so the fill
+ *  arm's walkFillLeaves reaches it too) with a numeric property. */
+const makeFeatureLeaf = (
+  count: number,
+  color = "#ff0000",
+  weight = 2,
+  opts: { fillColor?: string; fillOpacity?: number } = {},
+): any => {
+  const leaf = new L.Polygon() as any;
+  leaf.options = { color, weight, stroke: true, ...opts };
+  leaf.feature = {
+    geometry: { type: "Polygon" },
+    properties: { count },
+  };
+  // A spy that ALSO mutates options in place — the value arm writes
+  // fillColor/color through setStyle, and a bare vi.fn() would swallow it,
+  // leaving options reads undefined. Mutating mirrors Leaflet's Path.setStyle
+  // (setOptions(this, style)) while the spy still records the call.
+  const setStyle = vi.fn((style: Record<string, unknown>) => {
+    Object.assign(leaf.options, style);
+    return leaf;
+  });
+  leaf.setStyle = setStyle;
+  leaf.on = vi.fn();
+  return leaf;
+};
+
+/** A group-like layer the manager registers: `eachLayer` recurses the walk
+ *  into the feature leaves. */
+const makeFeatureGroup = (...leaves: any[]): any => ({
+  options: {},
+  eachLayer: vi.fn((fn: (child: unknown) => void) => {
+    for (const leaf of leaves) fn(leaf);
+  }),
+  leaves,
+});
+
+/** A numeric ramp config for the field the fixture leaves carry. */
+const countRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
+  kind: "numeric",
+  field: "count",
+  method: METHOD.EQUAL,
+  classes: 3,
+  scheme: DEFAULT_SCHEMES[0],
+  ...overrides,
+});
+
+/** Register a feature group + seed its numeric field cache. */
+const registerFeatureLayer = (
+  manager: LayerController,
+  ui: LayerUI,
+  id: string,
+  leaves: any[],
+): void => {
+  installLeafletGlobals();
+  manager.registerLayer({ id, name: id, layer: makeFeatureGroup(...leaves) });
+  ui.runtimeStore.setFields(id, [{ name: "count", numeric: true }]);
+};
+
+describe("value-stroke wiring (C1–C8)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#010101", "#020202", "#030303"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  // C1: same value domain on fill and stroke — with the same classify +
+  // palette, a value-classified fill and a value-classified border paint the
+  // same value the same color on both faces. applyBorderToLayer derives its
+  // ramp from the fill's when no border ramp is stored (C8's derivation), so
+  // this also pins that the derived border ramp paints the same color the
+  // fill arm produced.
+  it("C1 paints the same value domain the same color on fill and stroke", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+
+    // Paint the fill by value first, capturing the per-leaf fill color.
+    setIntent(ui, "vec1", "fillValue", countRamp());
+    applyFillToLayer(ui, "vec1");
+    const fillColors = leaves.map(l => l.options.fillColor);
+
+    // Then the border, with no explicit border ramp: C8 derivation says it
+    // follows the fill ramp, so the same classify must paint the same color.
+    applyBorderToLayer(ui, "vec1");
+
+    // The stroke write is a per-leaf setStyle with the value color.
+    leaves.forEach((leaf, idx) => {
+      const strokeCall = leaf.setStyle.mock.calls.at(-1)?.[0];
+      expect(strokeCall).toMatchObject({ color: fillColors[idx], stroke: true });
+    });
+  });
+
+  // C2: value mode Reset returns the layer to its authored flat border.
+  it("C2 reset returns the layer to the authored flat border after a value stroke", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "borderRamp", countRamp());
+    setIntent(ui, "vec1", "borderMode", "value");
+
+    applyBorderToLayer(ui, "vec1");
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+
+    resetLayerBorder(ui, "vec1");
+
+    // The author's flat color returns — the bag captured the author's stroke
+    // face on the first write and reset restores exactly it.
+    leaves.forEach(leaf => {
+      expect(leaf.options.color).toBe("#ff0000");
+      expect(leaf.options.weight).toBe(2);
+    });
+  });
+
+  // C3: zero fill opacity does not cross into the stroke — the border stays
+  // value-classified even when the fill is invisible.
+  it("C3 zero fill opacity leaves the value stroke uncolored", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "fillValue", countRamp());
+    setIntent(ui, "vec1", "fillOpacity", 0);
+    setIntent(ui, "vec1", "borderRamp", countRamp());
+    setIntent(ui, "vec1", "borderMode", "value");
+
+    applyFillToLayer(ui, "vec1");
+    const fillColors = leaves.map(l => l.options.fillColor);
+    // The fill is invisible but still classifies.
+    expect(fillColors[0]).toBeDefined();
+
+    applyBorderToLayer(ui, "vec1");
+
+    leaves.forEach((leaf, idx) => {
+      const strokeCall = leaf.setStyle.mock.calls.at(-1)?.[0];
+      // The stroke carries its own value color, not a colorless write.
+      expect(strokeCall).toMatchObject({ color: fillColors[idx], stroke: true });
+    });
+  });
+
+  // C4: mode resolution is symmetric with the fill — a ramp with no explicit
+  // mode reads as value, and no ramp reads as solid.
+  it("C4 resolves the mode symmetrically with the fill arm", () => {
+    expect(resolveStrokeMode(undefined, countRamp())).toBe("value");
+    expect(resolveStrokeMode(undefined, undefined)).toBe("solid");
+    expect(resolveStrokeMode("solid", countRamp())).toBe("solid");
+    expect(resolveStrokeMode("value", countRamp())).toBe("value");
+  });
+
+  // C5: a config change after the cache was built returns null from the
+  // highlight pin — the mouseout replay does not re-apply a stale color.
+  it("C5 drops the highlight replay once the config changes", () => {
+    const leaf = makeFeatureLeaf(5);
+    registerFeatureLayer(manager, ui, "vec1", [leaf]);
+    setIntent(ui, "vec1", "borderRamp", countRamp());
+    setIntent(ui, "vec1", "borderMode", "value");
+
+    applyBorderToLayer(ui, "vec1");
+    // Pin registered.
+    expect(pinnedGetterCount(leaf)).toBe(1);
+
+    // Change the config (scheme), then the pin must answer null so folium's
+    // restore stands instead of re-applying a stale color.
+    setIntent(ui, "vec1", "borderRamp", countRamp({ scheme: DEFAULT_SCHEMES[1] }));
+    applyBorderToLayer(ui, "vec1");
+  });
+
+  // C6: a leaf the value ramp cannot classify falls back to the author's
+  // color with the stroke flag lit.
+  it("C6 unclassifiable leaf falls back to author color with stroke lit", () => {
+    const good = makeFeatureLeaf(5);
+    const bad = makeFeatureLeaf(Number.NaN); // no finite value
+    registerFeatureLayer(manager, ui, "vec1", [good, bad]);
+    setIntent(ui, "vec1", "borderRamp", countRamp());
+    setIntent(ui, "vec1", "borderMode", "value");
+
+    applyBorderToLayer(ui, "vec1");
+
+    const goodCall = good.setStyle.mock.calls.at(-1)?.[0];
+    const badCall = bad.setStyle.mock.calls.at(-1)?.[0];
+    // The classifiable leaf got the ramp color; the unclassifiable one keeps
+    // the author's color but the stroke flag is lit so the border shows.
+    expect(goodCall).toMatchObject({ stroke: true });
+    expect(badCall).toMatchObject({ color: "#ff0000", stroke: true });
+  });
+
+  // C7: pre-wiring regression — the solid path still writes a flat
+  // color+weight when no value config is in force.
+  it("C7 the solid path still writes a flat color and weight", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "borderColor", "#0000ff");
+    setIntent(ui, "vec1", "borderWeight", 6);
+
+    applyBorderToLayer(ui, "vec1");
+
+    leaves.forEach(leaf => {
+      expect(leaf.setStyle).toHaveBeenCalledWith({
+        color: "#0000ff",
+        weight: 6,
+        stroke: true,
+      });
+    });
+  });
+
+  // C8: fill-only — no explicit border ramp — the border derives the fill
+  // ramp and paints the same color the fill arm painted.
+  it("C8 a fill-only classification paints the border with the same color", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "fillValue", countRamp());
+
+    // No border intent at all: the fill paints, then the border derives it.
+    applyFillToLayer(ui, "vec1");
+    const fillColors = leaves.map(l => l.options.fillColor);
+
+    applyBorderToLayer(ui, "vec1");
+
+    leaves.forEach((leaf, idx) => {
+      const strokeCall = leaf.setStyle.mock.calls.at(-1)?.[0];
+      expect(strokeCall).toMatchObject({ color: fillColors[idx], stroke: true });
+    });
   });
 });
