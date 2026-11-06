@@ -32,6 +32,29 @@ const MUTATING_METHODS = new Set([
   "fill",
   "copyWithin",
 ]);
+/** Resolve one author's declared folder with the registry's validation rules.
+ *  Mirrors Python's normalise_folder: a non-empty string passes through, an
+ *  omitted value (null/undefined) keeps the previous folder on re-registration,
+ *  and an illegal value (non-string or blank) warns once and is treated as
+ *  undeclared — the layer stays at the section root rather than hiding in a
+ *  folder the author never saw validated. Registration is never blocked. */
+const declaredFolderOf = (
+  opts: RegisterLayerOpts,
+  existingLi?: LayerInfo | null,
+): string | null => {
+  if (opts.folder == null) {
+    return existingLi?.folder ?? null;
+  }
+  if (typeof opts.folder === "string" && opts.folder.trim() !== "") {
+    return opts.folder;
+  }
+  const shown =
+    typeof opts.folder === "string" ? JSON.stringify(opts.folder) : typeof opts.folder;
+  log.warn(
+    `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder as ${shown}; expected a non-empty string - ignored`,
+  );
+  return null;
+};
 
 /** Derive `kind` at the registration edge — the single place in the codebase
  *  where a layer's kind is derived. `LayerController.surfaceFor` forwards the
@@ -143,6 +166,13 @@ class LayerInfoRegistry {
       opts.opacity ??
       existingLi?.opacity ??
       (typeof authorOpts?.opacity === "number" ? authorOpts.opacity : 1);
+    // Resolve the author's declared folder with the registry's validation
+    // rules (see the field comment above). Mirrors Python's normalise_folder:
+    // a non-empty string passes through, an omitted value keeps the previous
+    // folder on re-registration, and an illegal value (non-string or blank)
+    // warns once and is treated as undeclared.
+    const declaredFolder = declaredFolderOf(opts, existingLi);
+
     return {
       // A re-registration's caller name is the provider's own metadata, which
       // resets `name` and would clobber a user rename on the next render or
@@ -202,10 +232,14 @@ class LayerInfoRegistry {
       // re-registration that does not resend it keeps the declared range
       // (`existingLi.zoomRange`).
       zoomRange: opts.zoomRange ?? existingLi?.zoomRange ?? null,
-      // Carried the same way `zoomRange` is: CONF `data[].folder` reaches
-      // this entry through the bulk build's `opts`, and a re-registration
-      // that does not resend it keeps the declared folder.
-      folder: opts.folder ?? existingLi?.folder ?? null,
+      // Declared folder (CONF `data[].folder`, or a third-party JS
+      // registerLayer call). Python's normalise_folder already validated the
+      // CONF value, so this guards the direct-JS path: a non-string or blank
+      // folder is an author error — warn and treat it as undeclared (the
+      // layer stays at the section root) rather than hiding the layer in a
+      // folder the author never saw validated. A re-registration that omits
+      // the folder (null/undefined) keeps the previous declared folder.
+      folder: declaredFolder,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),

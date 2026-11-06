@@ -5,10 +5,11 @@
 // (cssvar.js) directly instead of reading them from the runtime global.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import * as SVGs from "#common/icon.js";
+import { ICON_CLOSE } from "#common/icon.js";
+import { PANEL_CLASS } from "#common/panelClassName.js";
 import { isPortalOf } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
-import { computePlacement } from "#ui/index.js";
+import { closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
@@ -18,7 +19,7 @@ const CLASSES = {
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
   TOOL_BAR: "foliplus-tool-bar",
-  PANEL_HEADER: "foliplus-panel-header",
+  PANEL_HEADER: PANEL_CLASS.HEADER,
 };
 
 /**
@@ -291,11 +292,11 @@ const createPanelHeader = (opts: {
   header.appendChild(
     dom.el(
       "span",
-      { class: opts.titleClass ?? "foliplus-header-title" },
+      { class: opts.titleClass ?? PANEL_CLASS.TITLE },
       dom.el(
         "span",
         {
-          class: opts.iconClass ?? "foliplus-header-icon",
+          class: opts.iconClass ?? PANEL_CLASS.ICON,
           "aria-hidden": "true",
         },
         { html: opts.iconSvg },
@@ -304,16 +305,11 @@ const createPanelHeader = (opts: {
     ),
   );
   header.appendChild(
-    dom.el(
-      "button",
-      {
-        class: "foliplus-ctrl-btn foliplus-close-btn",
-        type: "button",
-        title: opts.closeTitle,
-        "aria-label": opts.closeTitle,
-      },
-      { html: SVGs.ICON_CLOSE },
-    ),
+    closeButton({
+      title: opts.closeTitle,
+      iconSvg: ICON_CLOSE,
+      className: "foliplus-ctrl-btn",
+    }),
   );
   return header;
 };
