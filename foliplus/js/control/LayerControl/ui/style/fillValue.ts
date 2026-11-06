@@ -161,9 +161,9 @@ const applyValueFill = (
       }
       collected.push({ leaf, value: undefined, category: text });
     } else {
-      const value = isFiniteNumber(read) ? read : undefined;
-      if (value !== undefined) values.push(value);
-      collected.push({ leaf, value, category: undefined });
+      const leafValue = isFiniteNumber(read) ? read : undefined;
+      if (leafValue !== undefined) values.push(leafValue);
+      collected.push({ leaf, value: leafValue, category: undefined });
     }
   });
 
