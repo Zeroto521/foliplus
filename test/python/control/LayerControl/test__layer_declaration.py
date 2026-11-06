@@ -289,12 +289,12 @@ def test_same_name_different_role_not_merged():
 
 
 def test_data_order_is_registration_order_not_folder_grouped():
-    # design §8 (cross-end hard constraint): CONF data[] order IS the layer
-    # registration order — the anchor axis for the JS-side folder blocks.
-    # Python must NOT reorder data[] by folder: a folder-grouped serialisation
-    # would silently move a block's anchor (min member index), violating
-    # invariant 3. Interleave two folders with root layers and assert the
-    # serialised data[] keeps the registration sequence.
+    # Cross-end hard constraint: CONF data[] order IS the layer registration
+    # order — the anchor axis for the JS-side folder blocks. Python must NOT
+    # reorder data[] by folder: a folder-grouped serialisation would silently
+    # move a block's anchor (min member index), breaking the folder block
+    # ordering the JS side relies on. Interleave two folders with root layers
+    # and assert the serialised data[] keeps the registration sequence.
     layers = [
         _geo(name="F1-a", foliplus={"folder": "F1"}),
         _geo(name="Root1"),

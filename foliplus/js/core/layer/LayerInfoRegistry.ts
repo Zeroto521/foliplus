@@ -487,8 +487,8 @@ class LayerInfoRegistry {
    *  items order (the user's saved arrangement, or the CONF registration order
    *  when no order was ever saved) — `fullDisplayOrder` reads each block's
    *  anchor as its position in `this.items` before the grouping reorders it,
-   *  so the anchor is not rewritten by the display grouping (design §8:
-   *  "只做分组展示，不改 registry 下标轴"). */
+   *  so the anchor is not rewritten by the display grouping (the grouping
+   *  only reorders what is shown, never the registry's index axis). */
   normalizeGroups(folderOrder: FolderOrder = { version: 1, sections: {} }) {
     const display = fullDisplayOrder(this.items, folderOrder);
     this.items.splice(0, this.items.length, ...display);
