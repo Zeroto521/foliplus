@@ -37,9 +37,9 @@ const SIZE = {
 
 /** Defaults for the value-based fill (the fill row). The method / scheme
  *  values only seed the first ramp a user switches to (a stored
- *  `FillRampConfig` always wins); the class-count vocabulary lives in
+ *  `FillValueConfig` always wins); the class-count vocabulary lives in
  *  #core/classify and is imported where it is used. */
-const RAMP = {
+const FILL_VALUE = {
   METHOD_DEFAULT: "jenks",
   SCHEME_DEFAULT: "Viridis",
   /** The qualitative palette an *inferred* categorical fill falls back to when
@@ -320,7 +320,7 @@ export {
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
-  RAMP,
+  FILL_VALUE,
   SAVE_DEBOUNCE_MS,
   SEL,
   SIZE,
