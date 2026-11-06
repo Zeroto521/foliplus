@@ -242,7 +242,7 @@ const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
 const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!layerCanIcon(ui, layerId)) return null;
   const trigger = dom.el("button", {
-    class: CONST.CLASSES.STYLE_ICON_TRIGGER,
+    class: `${CONST.CLASSES.STYLE_ICON_TRIGGER} foliplus-form-select`,
     type: "button",
     "aria-haspopup": "grid",
     "aria-label": ui.T("style_icon"),
