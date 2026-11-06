@@ -1,5 +1,5 @@
 import type { FolderOrder } from "#core/layer/folderOrder.js";
-import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
+import { type FillValueConfig, isFillValueConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -30,7 +30,7 @@ type LiveState = {
  *  shape needs migrating, or when an old record would otherwise read with a
  *  different meaning. Adding an optional field whose absence keeps the old
  *  behavior does not bump it — `fillRamp` / `fillMode` keep this at 3, an old
- *  record still reads as solid, and a ramp record without a mode reads as ramp
+ *  record still reads as solid, and a value record without a mode reads as value
  *  through the compatibility branch. So does a rename-free internal refactor
  *  or a UI-only change.
  *
@@ -108,20 +108,20 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  *  padding; keeping them as stored leaves any stray space visible in the
  *  record instead of normalising it away.
  *
- *  The bounds themselves live in `isFillRampConfig`, shared with the LIVE
+ *  The bounds themselves live in `isFillValueConfig`, shared with the LIVE
  *  presence rule. `kind` accepts absence, "numeric" or "category". An
  *  explicit "numeric" is the default and is stripped, so the stored record
  *  keeps reading "kindless = numeric"; a category record keeps its kind so
  *  the apply path dispatches on it after a reload. */
-const parseFillRamp = (raw: unknown): FillRampConfig | null => {
-  if (!isFillRampConfig(raw)) return null;
+const parseFillValue = (raw: unknown): FillValueConfig | null => {
+  if (!isFillValueConfig(raw)) return null;
   return {
     kind: raw.kind === "category" ? "category" : undefined,
     field: raw.field,
     method: raw.method,
     scheme: raw.scheme,
     classes: raw.classes,
-  } as FillRampConfig;
+  } as FillValueConfig;
 };
 
 /** A border width inside the shared bounds — the same constants the number
@@ -163,13 +163,19 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
-  fillRamp: data => parseFillRamp(data.fillRamp),
-  fillMode: data =>
-    data.fillMode === "solid" ||
-    data.fillMode === "ramp" ||
-    data.fillMode === "original"
+  fillRamp: data => parseFillValue(data.fillRamp),
+  fillMode: data => {
+    // Migrate a pre-rename record: the value-based arm is the same paint,
+    // only the stored literal changed ("ramp" → "value"). The write path
+    // always stamps "value", so the migration is idempotent — reading the
+    // same record twice yields "value" both times.
+    if (data.fillMode === "ramp") return "value";
+    return data.fillMode === "solid" ||
+      data.fillMode === "value" ||
+      data.fillMode === "original"
       ? data.fillMode
-      : null,
+      : null;
+  },
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
