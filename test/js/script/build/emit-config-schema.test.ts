@@ -357,7 +357,7 @@ describe("collectNamedTypes", () => {
     const orphan = {
       version: 1,
       shared: {},
-          controls: {
+      controls: {
         SearchControl: {
           provider_config: { ts: "ProviderConfig", name: "ProviderConfig" },
         },
@@ -417,7 +417,7 @@ describe("buildConfigSchema", () => {
       expect(text).toMatch(/interface ConfigCommon \{\n  name: string;/);
       // No `extends` on either standalone interface.
       expect(text).not.toContain("interface ConfigCommon extends");
-          },
+    },
     SLOW,
   );
 
@@ -467,7 +467,7 @@ describe("buildConfigSchema", () => {
       expect(tail).toContain("ConfigFullscreen");
       expect(tail).toContain("ConfigScale");
       expect(tail).toContain("ConfigSearch");
-            expect(tail).toContain("ComponentConfig");
+      expect(tail).toContain("ComponentConfig");
       // Named aliases are declared without `export` and re-exported here.
       expect(tail).toContain("LayerData");
       expect(tail).toContain("ProviderConfig");
@@ -513,7 +513,7 @@ describe("buildConfigSchema", () => {
             dynamic: false,
           },
         },
-              controls: {
+        controls: {
           FullscreenControl: {
             hide_self: {
               ts: "bool",
