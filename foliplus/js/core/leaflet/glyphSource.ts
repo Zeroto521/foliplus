@@ -1,4 +1,6 @@
-// LayerControl UI — the picker's glyph vocabulary.
+// core/leaflet — the picker's glyph vocabulary (relocated from
+// control/LayerControl/ui/style/glyph.ts so core/leaflet/markerIcon can
+// render a marker's inner glyph HTML without importing control).
 //
 // One ordered source: array order is the picker grid order (8 columns), and
 // each entry is BOTH the persisted glyph name and the FontAwesome class

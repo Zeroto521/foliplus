@@ -1,21 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { GLYPH_NAMES, isGlyphName } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
 import {
-  GLYPH_NAMES,
-  glyphHtml,
-  isGlyphName,
-  resolveGlyph,
-} from "#control/LayerControl/ui/style/glyph.js";
-import {
   ICON_DIMENSION,
   applyIconToLayer,
   buildIconRow,
-  buildMarkerIcon,
   commitGlyph,
   layerCanIcon,
   resetLayerIcon,
@@ -27,11 +21,12 @@ import {
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
 
-// The shared L stub (test/js/setup.ts) defines no Icon key; the lead's
-// buildMarkerIcon branch reads L.Icon.Default (task #932 step 1). Provide a
-// minimal Default class here so `author instanceof L.Icon.Default` does not
-// throw, and so the default-icon tests below can build an author that IS an
-// instance of it. Scoped to this file — the shared stub stays generic.
+// The shared L stub (test/js/setup.ts) defines no Icon key. The default-icon
+// panel test routes through the core markerIcon module, which reads
+// L.Icon.Default; provide a minimal Default class here so
+// `author instanceof L.Icon.Default` does not throw. Scoped to this file —
+// the shared stub stays generic.
+
 class TestDivIcon {
   options: any;
   constructor(options: any) {
@@ -231,148 +226,6 @@ describe("layerCanIcon", () => {
     expect(layerCanIcon(ui, "g1")).toBe(false);
   });
 });
-describe("buildMarkerIcon", () => {
-  it("derives from the author and swaps only the inner symbol", () => {
-    const author = makeAuthorIcon();
-    const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
-    expect(derived).not.toBe(author);
-    expect(Object.getPrototypeOf(derived)).toBe(author);
-
-    const div = derived.createIcon();
-    const authorDiv = author.createIcon();
-    // className / background / size stay pixel-identical (chassis verbatim).
-    expect(div.className).toBe(authorDiv.className);
-    expect(div.style.backgroundImage).toBe(authorDiv.style.backgroundImage);
-    expect(div.style.backgroundPosition).toBe(authorDiv.style.backgroundPosition);
-    expect(div.style.width).toBe(authorDiv.style.width);
-    expect(div.style.height).toBe(authorDiv.style.height);
-    // The inner slot is OUR glyph, not the author's <i>: a FontAwesome
-    // element carrying our classes, and the author's FA/glyphicon classes are
-    // dropped so only one icon font paints.
-    const glyphEl = div.querySelector(".foliplus-marker-glyph") as HTMLElement;
-    expect(glyphEl).not.toBeNull();
-    expect(glyphEl.className).toContain("fa-solid");
-    expect(glyphEl.className).toContain("fa-circle");
-    expect(div.innerHTML).not.toContain("<svg");
-    expect(div.innerHTML).not.toContain("fa-map-marker");
-    // The shadow presence is identical (both true here).
-    const shadow = derived.createShadow?.();
-    expect(!!shadow).toBe(!!author.createShadow?.());
-  });
-
-  it("returns null when the author chassis cannot be built", () => {
-    const author = { ...makeAuthorIcon(), createIcon: vi.fn(() => null) };
-    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
-    const div = derived.createIcon();
-    expect(div).toBeNull();
-  });
-
-  it("keeps the shadow absence identical when the author has none", () => {
-    const author = makeAuthorIcon({ withShadow: false });
-    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
-    expect(derived.createShadow).toBeUndefined();
-    expect(author.createShadow).toBeUndefined();
-  });
-
-  it("returns the author unchanged when it is not a Leaflet icon", () => {
-    const author = { html: "raw" };
-    expect(buildMarkerIcon({ author, glyph: "circle" })).toBe(author);
-  });
-
-  it("carries the author inner <i> class and colour into the glyph", () => {
-    const author = makeAuthorIcon();
-    author.createIcon = vi.fn(() => {
-      const div = document.createElement("div");
-      div.className = "awesome-marker";
-      div.innerHTML = '<i class="fa icon-white" style="color: rgb(255, 255, 255)"></i>';
-      return div;
-    });
-    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
-    const div = derived.createIcon();
-    const inner = div.querySelector("i");
-    // Our class is added, the author class survives (lead m04384).
-    expect(inner.className).toContain("foliplus-marker-glyph");
-    expect(inner.className).toContain("fa");
-    expect(inner.className).toContain("icon-white");
-    // The author's inline colour is carried (and set explicitly).
-    expect(inner.style.color).toBe("rgb(255, 255, 255)");
-  });
-
-  it("defaults the glyph colour to white when the author has none", () => {
-    const author = makeAuthorIcon();
-    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
-    const div = derived.createIcon();
-    expect(div.querySelector("i")?.style.color).toBe("rgb(255, 255, 255)");
-  });
-  it("defaults to white and no author paint when the author div has no inner <i>", () => {
-    // The author's chassis div carries no <i> at all: the derived glyph must
-    // still render, fall back to the white paint (no author colour to carry),
-    // and inherit no icon-font class (nothing to filter).
-    const author = makeAuthorIcon();
-    author.createIcon = vi.fn(() => {
-      const div = document.createElement("div");
-      div.className = "awesome-marker";
-      return div;
-    });
-    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
-    const div = derived.createIcon();
-    const inner = div.querySelector("i") as HTMLElement;
-    expect(inner).not.toBeNull();
-    expect(inner.className).toContain("foliplus-marker-glyph");
-    expect(inner.className).toContain("fa-solid");
-    // No author icon-font class survived (the author div has no inner <i>).
-    expect(inner.className).not.toContain("fa ");
-    // No author colour to read: the glyph falls back to white.
-    expect(inner.style.color).toBe("rgb(255, 255, 255)");
-  });
-
-  it("keeps the author icon for a name outside the set (no substitute glyph)", () => {
-    // Honest degradation: a name the panel no longer knows (an FA4 name, an
-    // old persisted value) leaves the layer's author icon untouched instead of
-    // silently swapping in a different symbol.
-    const author = makeAuthorIcon();
-    expect(buildMarkerIcon({ author, glyph: "nope" })).toBe(author);
-  });
-
-  it("takes a Leaflet default icon down a dedicated divIcon branch", () => {
-    const author = makeDefaultIconAuthor();
-    const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
-    expect(derived).toBeInstanceOf((window.L as any).DivIcon);
-    expect(derived.options).toMatchObject({
-      className: "foliplus-marker-default",
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-    });
-    expect(derived.options.html).toContain("foliplus-marker-glyph");
-    expect(derived.options.html).toContain("fa-solid");
-    expect(derived.options.html).toContain("fa-map-pin");
-    expect(derived.options.html).not.toContain("<svg");
-  });
-});
-
-describe("resolveGlyph", () => {
-  it("resolves a known name to itself and renders a FontAwesome element", () => {
-    expect(resolveGlyph("star")).toBe("star");
-    const html = glyphHtml("star");
-    expect(html).toContain('class="foliplus-marker-glyph fa-solid fa-star"');
-    expect(html).not.toContain("<svg");
-  });
-
-  it("returns null for a name outside the set — never a substitute icon", () => {
-    // No alias table: an FA4 name (map-marker, pin, …) is simply not in the
-    // FA6 set, and the row then shows the author's original icon.
-    expect(resolveGlyph("nope")).toBeNull();
-    expect(resolveGlyph("pin")).toBeNull();
-    expect(resolveGlyph("map-marker")).toBeNull();
-  });
-
-  it("gates persistence on the same set (no alias asymmetry to maintain)", () => {
-    expect(isGlyphName("map-pin")).toBe(true);
-    expect(isGlyphName("pin")).toBe(false);
-    expect(isGlyphName("map-marker")).toBe(false);
-  });
-});
-
 describe("buildIconRow", () => {
   let manager: LayerController;
   let ui: LayerUI;

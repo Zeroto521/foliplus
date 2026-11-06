@@ -5,6 +5,7 @@ import {
   isFillValueConfig,
   isIconIntent,
 } from "#core/layer/index.js";
+import { isGlyphName } from "#core/leaflet/glyphSource.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -15,7 +16,6 @@ import type {
   PersistedLayerState,
   PersistedRecord,
 } from "./type.js";
-import { isGlyphName } from "./ui/style/glyph.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that

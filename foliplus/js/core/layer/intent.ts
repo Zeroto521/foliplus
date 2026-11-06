@@ -196,7 +196,7 @@ type LayerOverride =
  *  A single value (not a per-category mapping) — the icon dimension is a
  *  whole-layer choice, no field, no per-category assignment. The value is a
  *  glyph name from the panel's FA vocabulary (`GLYPH_NAMES` in
- *  ui/style/glyph.ts); `resolveGlyph` maps it to the FontAwesome class name,
+ *  core/leaflet/glyphSource.ts); `resolveGlyph` maps it to the FontAwesome class name,
  *  or null when the set has dropped that name (then the author icon stays). */
 type IconIntent = {
   kind: IconKind;
