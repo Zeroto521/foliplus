@@ -22,13 +22,15 @@
 - `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`) ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#790](https://github.com/Zeroto521/foliplus/pull/790))
 - `LayerControl`: labels rebuild once per frame and repaint only their own canvas, each dimension owns its replay policy, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 - `HeatmapControl`: field selection resolves to a concrete name; a source without numeric fields falls back to counting ([#758](https://github.com/Zeroto521/foliplus/pull/758), [#782](https://github.com/Zeroto521/foliplus/pull/782), [#799](https://github.com/Zeroto521/foliplus/pull/799))
-- `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759), [#881](https://github.com/Zeroto521/foliplus/pull/881))
+- `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759), [#871](https://github.com/Zeroto521/foliplus/pull/871), [#881](https://github.com/Zeroto521/foliplus/pull/881))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 - `LayerControl`: the layer declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
 - Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793), [#810](https://github.com/Zeroto521/foliplus/pull/810), [#824](https://github.com/Zeroto521/foliplus/pull/824), [#837](https://github.com/Zeroto521/foliplus/pull/837), [#865](https://github.com/Zeroto521/foliplus/pull/865), [#894](https://github.com/Zeroto521/foliplus/pull/894), [#897](https://github.com/Zeroto521/foliplus/pull/897))
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
 - `LayerControl`: a pinned row panel scrolls inside its height cap instead of overflowing ([#878](https://github.com/Zeroto521/foliplus/pull/878))
 - `LayerControl`: hovering the style drawer keeps its owner row highlighted instead of dropping the highlight ([#883](https://github.com/Zeroto521/foliplus/pull/883))
+
+- `SearchControl`: the result panel opens from the shared placement kernel, so it measures against the map viewport and stays inside it without the fixed offsets ([#917](https://github.com/Zeroto521/foliplus/pull/917))
 
 ### Removed
 
@@ -38,7 +40,7 @@
 ### Fixed
 
 - `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
-- `LayerControl`: a row panel (style/attrs) measures the space above and below its anchor row and flips upward when the space below is tight, so a tall panel on a low row is no longer clipped by the map's edge ([#725](https://github.com/Zeroto521/foliplus/pull/725))
+- `LayerControl`: a row panel (style/attrs) measures the space above and below its anchor row and flips upward when the space below is tight, so a tall panel on a low row is no longer clipped by the map's edge ([#725](https://github.com/Zeroto521/foliplus/pull/725), [#846](https://github.com/Zeroto521/foliplus/pull/846), [#859](https://github.com/Zeroto521/foliplus/pull/859))
 - `LayerControl`: value-based fill follows the layer's real geometry, and features added after a fill was set are repainted instead of keeping the declared colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 - `LayerControl`: reordering moves rows in place instead of rebuilding the panel ([#731](https://github.com/Zeroto521/foliplus/pull/731), [#735](https://github.com/Zeroto521/foliplus/pull/735))
@@ -46,11 +48,17 @@
 - `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes, a retired surface can no longer corrupt another, and the child-ownership index stays bounded by live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker, and a layer's annotation labels are frozen at export start so a mid-render refresh cannot blank them ([#740](https://github.com/Zeroto521/foliplus/pull/740), [#825](https://github.com/Zeroto521/foliplus/pull/825))
+- `LayerControl`: the slider scale's end numbers centre on their thumbs ([#754](https://github.com/Zeroto521/foliplus/pull/754))
 - `Interaction`: Space/Enter keep their native meaning on buttons and links, and a focused menu entry runs its own action ([#755](https://github.com/Zeroto521/foliplus/pull/755), [#778](https://github.com/Zeroto521/foliplus/pull/778))
 - `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784), [#847](https://github.com/Zeroto521/foliplus/pull/847))
 - `HeatmapControl` / `LayerControl`: Escape dismisses one floating surface per press — the overlay registry closes the top-most by rank, so a portalled picker or enum takes the first press and its panel the next ([#783](https://github.com/Zeroto521/foliplus/pull/783), [#807](https://github.com/Zeroto521/foliplus/pull/807), [#809](https://github.com/Zeroto521/foliplus/pull/809))
 - Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
+- `LayerControl`: clicking a row panel's close button no longer bubbles to the map and pans it ([#816](https://github.com/Zeroto521/foliplus/pull/816))
+- Shared dropdown: an open popup's placeholder keeps its muted ink while disabled ([#817](https://github.com/Zeroto521/foliplus/pull/817))
+- Shared dropdown: a wheel over the open popup scrolls the list instead of zooming the map ([#832](https://github.com/Zeroto521/foliplus/pull/832))
+- `OverlayRegistry`: an outside press dismisses click-phase overlays even when the press stops propagation ([#833](https://github.com/Zeroto521/foliplus/pull/833))
 - `SearchControl`: a wheel over the result panel scrolls its list instead of zooming the map, including at the panel's top/bottom edge and when the list is shorter than the panel ([#866](https://github.com/Zeroto521/foliplus/pull/866), [#921](https://github.com/Zeroto521/foliplus/pull/921))
+- `OverlayRegistry`: Escape accounts for every open surface by priority, with the documented exemptions ([#870](https://github.com/Zeroto521/foliplus/pull/870))
 
 ## [v0.4.1] (2026-10-18)
 
