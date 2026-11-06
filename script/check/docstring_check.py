@@ -46,7 +46,7 @@ CONTROL_CLASSES: dict[str, str] = {
     "FullscreenControl": "foliplus/control/FullscreenControl.py",
     "ScaleControl": "foliplus/control/ScaleControl.py",
     "LocateControl": "foliplus/control/LocateControl.py",
-    "HeatmapControl": "foliplus/control/HeatmapControl/control.py",
+    "HeatmapControl": "foliplus/control/HeatmapControl.py",
     "MeasureControl": "foliplus/control/MeasureControl.py",
     "SearchControl": "foliplus/control/SearchControl.py",
     "ExportControl": "foliplus/control/ExportControl.py",
