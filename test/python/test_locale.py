@@ -60,8 +60,6 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LocateControl.popup_title_geo",
     # localeFallback() in core/geocode/geocoder.ts — dynamic key lookup.
     "MeasureControl.geo_fail",
-    "foliplus.addr_not_found",
-    "foliplus.geo_fail",
     # HeatmapControl's method labels: the shared rampForm rows resolve
     # T(method) by lookup (the method token is the locale key suffix).
     "HeatmapControl.jenks",
@@ -86,8 +84,6 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_empty_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
-    "LayerControl.filter_result",
-    "LayerControl.filter_result_label",
 }
 
 
@@ -733,3 +729,55 @@ class TestAllKeysCoverJS:
                 and not key.startswith("scale.")
                 and not key.startswith("heatmap.")
             ), f"Old-style key: {key}"
+
+
+class TestDynamicSupplementDrift:
+    """C4: the hand-written _DYNAMIC_SUPPLEMENT set must stay honest.
+
+    The set exists because the JS scanner cannot see keys reached through a
+    dynamic lookup (a template literal, a map lookup, a function parameter).
+    It is maintained by hand, so two failure modes are possible and both
+    are silent until a locale assertion goes red in an unrelated place:
+
+    1. A key is removed from the JS but left here — the set claims a use
+       that no longer exists.
+    2. A key is added to the scanner-reachable surface but stays here — the
+       set duplicates what the scanner now derives.
+
+    These tests pin the set against the JS source so the drift surfaces
+    here, at the point it is introduced.
+    """
+
+    def test_every_supplement_key_is_absent_from_scanner_output(self):
+        """A key in the supplement that the scanner now derives is a duplicate.
+
+        The scanner grows over time; when it starts finding a key on its own
+        the supplement entry becomes a no-op that hides the fact the scanner
+        has improved, and the set stops being a minimal audit surface.
+        """
+        scanned = _scan_js_keys()
+        duplicated = sorted(_DYNAMIC_SUPPLEMENT & scanned)
+        assert not duplicated, (
+            "Keys in _DYNAMIC_SUPPLEMENT are now found by the scanner; "
+            f"remove them from the hand-written set: {duplicated}"
+        )
+
+    def test_every_supplement_key_cites_a_js_site(self):
+        """Each supplement entry names its JS site in the comment above it.
+
+        The comment block is the audit trail: without it a future reader
+        cannot tell whether a key is still dynamically reached or has simply
+        been forgotten. A stale site citation is as bad as a missing one,
+        so the comment is pinned alongside the key.
+        """
+        # The supplement block is the only place the keys are written, so
+        # read the source and confirm every key appears inside a comment
+        # that mentions a file (the "JS site" the header promises).
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        block = source[source.index("_DYNAMIC_SUPPLEMENT: set[str] = {") :]
+        block = block[: block.index("}", block.index("_DYNAMIC_SUPPLEMENT"))]
+        comment_files = set(re.findall(r"([\w/.]+\.ts)", block))
+        assert comment_files, (
+            "No .ts file cited in _DYNAMIC_SUPPLEMENT comments; the audit "
+            "trail that maps each key to its dynamic lookup site is gone."
+        )
