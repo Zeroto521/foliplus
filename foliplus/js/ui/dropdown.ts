@@ -197,7 +197,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   }
   const trigger = dom.el("button", {
     type: "button",
-    class: `foliplus-form-select ${DROPDOWN_CLASSES.trigger}`,
+    class: `foliplus-input-skin foliplus-form-select ${DROPDOWN_CLASSES.trigger}`,
     "aria-haspopup": "listbox",
     "aria-expanded": "false",
   }) as HTMLButtonElement;

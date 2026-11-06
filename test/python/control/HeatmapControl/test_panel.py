@@ -464,6 +464,39 @@ class TestHeatmapDropdownPanelBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
+    def test_input_skin_computed_parity(self, browser, tmp_path):
+        """The Heatmap layer select resolves the shared input skin.
+
+        The layer select (a static native <select> in template.ts) must
+        resolve the same height, frame, radius, ink, type size and box model
+        from .foliplus-input-skin as the LayerControl method select and
+        label-size number (test_browser.py). jsdom never loads the stylesheet
+        cascade, so only a browser can prove the parity: a missing
+        foliplus-input-skin on this call site reads UA defaults (e.g.
+        height: auto) and fails here.
+        """
+        with use_page(_dropdown_make_page, browser, tmp_path) as (page, errors):
+            _hexbin_panel_ready(page)
+            data = page.evaluate(_js("LayerControl/read_input_skin"))
+            assert data["heat"]["ok"], f"heatmap layer select not found: {data}"
+            t = data["tokens"]
+            assert t["ctrlSize"], f"ctrl-size token unresolved: {data}"
+            assert t["borderThin"], f"border-thin token unresolved: {data}"
+            assert t["radiusSm"], f"radius-sm token unresolved: {data}"
+            assert t["fontSizeMd"], f"font-size-md token unresolved: {data}"
+            assert t["inputBg"], f"input-bg token unresolved: {data}"
+            assert t["textPrimary"], f"text-primary token unresolved: {data}"
+            got = data["heat"]["layer"]
+            assert got["height"] == t["ctrlSize"], (data,)
+            assert got["borderTopWidth"] == t["borderThin"], (data,)
+            assert got["borderRadius"] == t["radiusSm"], (data,)
+            assert got["backgroundColor"] == t["inputBg"], (data,)
+            assert got["fontSize"] == t["fontSizeMd"], (data,)
+            assert got["color"] == t["textPrimary"], (data,)
+            assert got["boxSizing"] == "border-box", (data,)
+            assert not errors, f"JS errors: {errors}"
+
+
 def _polygon_layer() -> folium.GeoJson:
     """Overlay layer with a numeric property, for the style drawer's ramp arm."""
     data = {

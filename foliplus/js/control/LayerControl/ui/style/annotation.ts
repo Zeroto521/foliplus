@@ -27,6 +27,7 @@ import {
   createDropdown,
   colorInput as formColorInput,
   numberInput as formNumberInput,
+  selectInput,
   formRow,
   inlineControls,
   normalizeHexColor,
@@ -82,20 +83,12 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // is no "Auto"/placeholder entry: the picker always names a concrete column,
   // and the default above is already a field. The <option>s are appended to the
   // select itself, never nested inside an option.
-  const fieldSelect = dom.el("select", {
-    class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-    "aria-label": ui.T("style_label_field"),
+  const fieldSelect = selectInput({
+    className: CONST.CLASSES.STYLE_FIELD_SELECT,
+    ariaLabel: ui.T("style_label_field"),
+    value: selectedField,
+    options: fields.map(f => ({ value: f.name, label: f.name })),
   });
-  fields.forEach(f =>
-    fieldSelect.appendChild(
-      dom.el(
-        "option",
-        { value: f.name, selected: f.name === selectedField ? "" : null },
-        f.name,
-      ),
-    ),
-  );
-  (fieldSelect as HTMLSelectElement).value = selectedField;
   // The visible picker is the shared dropdown; the select stays mounted
   // (hidden) as the value/change bridge the panel delegates on.
   const fieldDropdown = createDropdown({
@@ -144,7 +137,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const formatSelect = dom.el(
     "select",
     {
-      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+      class: `foliplus-input-skin foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
       "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,

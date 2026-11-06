@@ -156,7 +156,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatSelect = dom.el(
       "select",
       {
-        class: `foliplus-form-select ${CLS.STYLE_FORMAT_SELECT}`,
+        class: `foliplus-input-skin foliplus-form-select ${CLS.STYLE_FORMAT_SELECT}`,
         "aria-label": T("foliplus.label_format"),
       },
       ...numberFormatOptions(fmtLabel),
