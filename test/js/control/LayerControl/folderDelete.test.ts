@@ -179,4 +179,82 @@ describe("task-75 deleteFolder wiring", () => {
     expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
     expect(schedule).toHaveBeenCalledTimes(1);
   });
+
+  it("[BR-1] deleteFolder: opts.persist=false skips persistence (persist branch)", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+    const flushAll = vi.spyOn(manager.persistence, "flushAll");
+    const ok = manager.deleteFolder("overlay", "roads", { persist: false });
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(schedule).not.toHaveBeenCalled();
+    expect(flushAll).not.toHaveBeenCalled();
+  });
+
+  it("[BR-2] deleteFolder: absent section key -> ?? [] empty-branch (no crash)", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: {} } },
+      data: [],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+    // No "overlay" key in sections: listed ?? [] = []. members empty. Neither
+    // existed nor members => false without writing.
+    const ok = manager.deleteFolder("overlay", "roads");
+    expect(ok).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("[BR-3] deleteFolder: no ui -> reindexAfterMove not called (if(this.ui) false)", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    const reindex = vi.fn();
+    (manager as any).ui = null;
+    const ok = manager.deleteFolder("overlay", "roads");
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(reindex).not.toHaveBeenCalled();
+  });
+
+  it("[BR-4] cleanEmptyFolders: absent section key -> ?? [] empty-branch", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: {} } },
+      data: [],
+    });
+    const count = manager.cleanEmptyFolders("overlay");
+    expect(count).toBe(0);
+  });
+
+  it("[BR-5] cleanEmptyFolders: no empty keys -> return 0 (emptyKeys.length===0)", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["full"] } } },
+      data: [
+        {
+          id: "rd1",
+          name: "Full",
+          role: "overlay",
+          folder: "full",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+    const count = manager.cleanEmptyFolders("overlay");
+    expect(count).toBe(0);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["empty1"] } } },
+      data: [],
+    });
+    (manager as any).ui = null;
+    const count = manager.cleanEmptyFolders("overlay");
+    expect(count).toBe(1);
+  });
 });

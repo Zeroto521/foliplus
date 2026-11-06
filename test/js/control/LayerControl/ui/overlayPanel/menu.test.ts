@@ -803,6 +803,34 @@ describe("LayerUI menu", () => {
         handleMenuClick(ui, event);
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });
+
+      it("does not dispatch deleteFolder when the layer has lost its folder", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        manager.registerLayer({
+          id: "folder1",
+          name: "Roads",
+          role: "overlay",
+          folder: "My Folder",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        const item = attachedPanel(ui).querySelector(
+          `[data-layer-id="folder1"]`,
+        ) as HTMLElement;
+        ui.openMoreMenu(item);
+        const folderLi = item.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        // The menu renders the entry while the layer had a folder; by dispatch
+        // time the layer lost it (folderInfo?.folder is falsy) — the action
+        // must be a no-op rather than deleting with an undefined name.
+        (manager.layerRegistry.get("folder1") as any).folder = null;
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        handleMenuClick(ui, event);
+        expect(folderSpy).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -81,6 +81,19 @@ describe("task-75 folder delete UI wiring", () => {
     expect(spy).toHaveBeenCalledWith("overlay");
   });
 
+  it("does not call cleanEmptyFolders for a clean button without data-role (defensive)", () => {
+    manager.folderOrder = { version: 1, sections: { overlay: ["empty-1"] } };
+    manager.ui?.reindexAfterMove?.();
+    const spy = vi.spyOn(manager, "cleanEmptyFolders");
+    // A hand-built clean button with no data-role (the renderer always writes
+    // it, but the handler must not assume) — the click must not throw and must
+    // not dispatch a cleanup for an unknown role.
+    const btn = document.createElement("button");
+    btn.className = CONST.CLASSES.CLEAN_FOLDERS_BTN;
+    attachedPanel(ui).appendChild(btn);
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    expect(spy).not.toHaveBeenCalled();
+  });
   it("hides the clean button once the section has no empty folder key", () => {
     manager.folderOrder = { version: 1, sections: { overlay: [] } };
     manager.ui?.reindexAfterMove?.();

@@ -834,6 +834,41 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(container.children.length).toBe(7);
   });
 
+  it("syncRowOrder keeps a role anchor when the registry has no rows for it", () => {
+    // L332 fallback loop branch: a role whose toggle-all anchor exists in the
+    // DOM but no layer row of that role is in the registry. The first loop
+    // never marks the role seen (no row), so the fallback pushes the anchor
+    // (anchor truthy) rather than dropping the empty section header.
+    const container = document.createElement("div");
+    const overlayAnchor = document.createElement("div");
+    overlayAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
+    overlayAnchor.setAttribute("data-role", ROLE.OVERLAY);
+    const baseAnchor = document.createElement("div");
+    baseAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
+    baseAnchor.setAttribute("data-role", ROLE.BASE);
+    container.append(overlayAnchor, baseAnchor);
+    // Registry has ONLY a base row — the overlay anchor has no rows, so it is
+    // an empty-section header the reconcile must preserve (the clean button
+    // still hangs off it).
+    const row = document.createElement("div");
+    row.setAttribute(CONST.DATA.LAYER_ID, "base1");
+    container.appendChild(row);
+    const registry = { layers: [{ id: "base1", role: ROLE.BASE } as LayerInfo] };
+    const ui = {
+      uiContainer: container,
+      c: registry,
+      listPanel: { activeIdx: null },
+      log: { warn: vi.fn() },
+    } as unknown as LayerUI;
+    syncRowOrder(ui);
+    // Both anchors survive (overlay via the fallback push, base via its row);
+    // the row is present.
+    const roles = Array.from(container.children)
+      .filter(el => el.classList.contains(CONST.CLASSES.TOGGLE_ALL))
+      .map(el => (el as HTMLElement).dataset.role);
+    expect(roles.sort()).toEqual([ROLE.OVERLAY, ROLE.BASE].sort());
+    expect(container.querySelector(`[${CONST.DATA.LAYER_ID}="base1"]`)).not.toBeNull();
+  });
   it("repairs a duplicate row instead of only warning about it", () => {
     const { manager, ui } = initFixture({ data: benchData(3, 1) });
     const container = attachedPanel(ui);
@@ -1434,5 +1469,32 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(ledger.marked).toBeNull();
     expect(ledger.tabStops).toEqual(["role:overlay"]);
     expect(document.activeElement).toBe(document.body);
+  });
+
+  it("renders a base header for an empty base section via the fallback loop", () => {
+    // L445 BASE side: after the user deletes every base layer, the base
+    // section has no live row but keeps a stale folder key (freezeEmptyFolder).
+    // rolesWithHeader(BASE) is then true with no base layer, so the fallback
+    // loop must render the base header with base_map_label — not the overlay
+    // label, which would be a user-visible mislabel.
+    const { manager, ui } = initFixture({
+      data: [{ id: "O1", name: "O1", role: "overlay" }],
+    });
+    // Remove the always-registered solid basemap so the base section is empty.
+    manager.unregisterLayer(CONST.SOLID_BASEMAP_ID);
+    manager.folderOrder = { version: 1, sections: { base: ["Ghost"] } };
+    manager.ui?.reindexAfterMove?.();
+    const baseHeader = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.BASE}"]`,
+    ) as HTMLElement | null;
+    expect(baseHeader).not.toBeNull();
+    // The ternary passes base_map_label; syncNoBasemap may then show
+    // no_base_map_label when zero basemaps are visible — either is correct
+    // for a base header, the overlay label never is.
+    expect(
+      baseHeader!.textContent.includes(ui.T("base_map_label")) ||
+        baseHeader!.textContent.includes(ui.T("no_base_map_label")),
+    ).toBe(true);
+    expect(baseHeader!.textContent).not.toContain(ui.T("data_layer_label"));
   });
 });
