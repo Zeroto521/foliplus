@@ -7,7 +7,7 @@
 // The owner is host-agnostic: the host's normalize / apply / publish / persist
 // are the only carriers, so a control can verify its own equivalence here and
 // reuse the same rows for Measure / Heatmap / Layer.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { LayerFilter } from "#core/layer/filter.js";
 import { type FilterOwnerHost, createFilterOwner } from "#core/layer/filterOwner.js";
 
@@ -19,7 +19,7 @@ const makeHost = (): {
   applied: LayerFilter[];
   published: LayerFilter[];
   persisted: Array<{ filter: LayerFilter; owned: boolean }>;
-  cleared: number;
+  cleared: () => number;
 } => {
   const applied: LayerFilter[] = [];
   const published: LayerFilter[] = [];
@@ -128,6 +128,7 @@ describe("createFilterOwner — orchestration", () => {
     const owner = createFilterOwner(host);
     owner.setDeclaration(filter(["distance"]));
     owner.restore(undefined, false);
+    expect(owner.declared()).toEqual(filter(["distance"]));
     expect(owner.getFilter()).toEqual(filter(["distance"]));
     expect(owner.isOwned()).toBe(false);
     // A touched record (even a cleared one) wins over the declaration.
@@ -137,7 +138,7 @@ describe("createFilterOwner — orchestration", () => {
   });
 
   it("reset clears persistence and re-seeds the declaration", () => {
-    const { host, applied, cleared } = makeHost();
+    const { host, cleared } = makeHost();
     const owner = createFilterOwner(host);
     owner.setDeclaration(filter(["distance"]));
     owner.restore(undefined, false);
@@ -163,5 +164,39 @@ describe("createFilterOwner — orchestration", () => {
     expect(model.filter).toEqual(filter(["marker"]));
     expect(model.kept).toBe(1);
     expect(model.total).toBe(3);
+  });
+
+  it("reset with the current filter already at the declaration is a no-op (no re-publish)", () => {
+    const { host, published } = makeHost();
+    const owner = createFilterOwner(host);
+    owner.setDeclaration(filter(["distance"]));
+    owner.restore(undefined, false); // current = declaration
+    owner.reset();
+    // Already at the declaration: the early return skips the re-publish.
+    expect(published).toHaveLength(0);
+    expect(owner.getFilter()).toEqual(filter(["distance"]));
+  });
+
+  it("an owner without publish/persist/clearPersist/counts/dimensions still runs", () => {
+    // A host with only the mandatory normalize + apply: every optional carrier
+    // is absent, so the owner degrades to a pure session filter.
+    const applied: LayerFilter[] = [];
+    const owner = createFilterOwner({
+      normalize: filter => filter,
+      apply: filter => {
+        applied.push(filter);
+      },
+    });
+    expect(owner.setFilter(filter(["marker"]))).toBe(true);
+    expect(owner.getFilter()).toEqual(filter(["marker"]));
+    // filterModel without dimensions/counts reports empty defaults.
+    const model = owner.filterModel();
+    expect(model.dimensions).toEqual([]);
+    expect(model.kept).toBe(0);
+    expect(model.total).toBe(0);
+    // reset without clearPersist is safe.
+    owner.reset();
+    expect(owner.isOwned()).toBe(false);
+    expect(owner.getFilter()).toBeUndefined();
   });
 });

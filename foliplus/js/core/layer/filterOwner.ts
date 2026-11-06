@@ -23,7 +23,7 @@ import {
  *  the host supplies the domain (normalize), the carrier write (apply), and
  *  the optional side effects (publish / persist / clearPersist / dimensions /
  *  counts). */
-export interface FilterOwnerHost {
+interface FilterOwnerHost {
   /** Clamp a candidate into the owner's domain (extent clamp, enum domain).
    *  `undefined` means "no filter" — never a partially-applied condition. */
   normalize(filter: LayerFilter): LayerFilter;
@@ -45,7 +45,7 @@ export interface FilterOwnerHost {
 }
 
 /** The shared filter controller one control builds. */
-export interface FilterOwner {
+interface FilterOwner {
   /** Panel write path: normalize → compare → store → apply → publish.
    *  Returns whether the write was applied (false = a no-op the caller may
    *  skip its own side effects for). */
@@ -70,7 +70,7 @@ export interface FilterOwner {
 
 /** Build a filter owner over a control's variant bits. The owner holds the
  *  current filter and the ownership flag; the host is read-only from here. */
-export const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
+const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
   let current: LayerFilter = undefined;
   let owned = false;
   let declared: LayerFilter = undefined;
@@ -119,3 +119,6 @@ export const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
   };
   return owner;
 };
+
+export { createFilterOwner };
+export type { FilterOwner, FilterOwnerHost };
