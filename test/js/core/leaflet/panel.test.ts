@@ -549,7 +549,9 @@ describe("createPanelHeader", () => {
     // Logo precedes the label, close button closes the bar.
     const children = Array.from(header.children);
     expect(children[0].className).toBe("foliplus-header-title");
-    expect(children[1].className).toBe("foliplus-ctrl-btn foliplus-close-btn");
+    // Unified on the shared panelChrome.closeButton recipe (close-btn first);
+    // class order is CSS-order-independent, only the string is canonicalized.
+    expect(children[1].className).toBe("foliplus-close-btn foliplus-ctrl-btn");
   });
 
   it("names the close button for pointer and screen reader users", () => {
