@@ -27,10 +27,10 @@ import {
   createDropdown,
   colorInput as formColorInput,
   numberInput as formNumberInput,
-  selectInput,
   formRow,
   inlineControls,
   normalizeHexColor,
+  selectInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { AnnotationConfig } from "#control/LayerControl/type.js";

@@ -50,7 +50,7 @@
   const lcNumber = panel?.querySelector(".foliplus-style-label-size-input");
   // HeatmapControl layer select.
   const heat = document.querySelector(".foliplus-heatmap-ctrl");
-  const hmLayer = heat?.querySelector('select[data-heatmap-layer]');
+  const hmLayer = heat?.querySelector("select[data-heatmap-layer]");
   // The design tokens the skin resolves to, read from the same live
   // stylesheet so the test compares probe value to token value (never a
   // hardcoded px/rgb). A missing token makes this null and the assertion
@@ -86,7 +86,11 @@
       inputBg,
       textPrimary,
     },
-    lc: { ok: !!(lcMethod && lcNumber), method: read(lcMethod), number: read(lcNumber) },
+    lc: {
+      ok: !!(lcMethod && lcNumber),
+      method: read(lcMethod),
+      number: read(lcNumber),
+    },
     heat: { ok: !!hmLayer, layer: read(hmLayer) },
   };
 };
