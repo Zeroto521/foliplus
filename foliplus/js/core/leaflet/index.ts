@@ -30,3 +30,12 @@ export {
   pinRowPanel,
   unpinRowPanel,
 } from "./panel.js";
+export {
+  applyIconToLeaves,
+  authorGlyphName,
+  buildMarkerIcon,
+  captureAuthorIcon,
+  isIconLeaf,
+  resetIconLeaves,
+} from "./markerIcon.js";
+export { GLYPH_NAMES, glyphHtml, isGlyphName, resolveGlyph } from "./glyphSource.js";
