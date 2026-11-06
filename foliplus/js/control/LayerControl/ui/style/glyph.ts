@@ -88,4 +88,11 @@ const resolveGlyph = (name: string): GlyphName => {
   return GLYPH_ALIASES[name] ?? "circle";
 };
 
+/** Alias asymmetry (deliberate): `resolveGlyph` accepts legacy aliases such
+ *  as `pin` at RUNTIME (a stored/author value may predate the rename), but
+ *  `isGlyphName` — the persistence read gate — accepts only canonical names.
+ *  A persisted value is always written through the canonical grid, so an
+ *  alias never reaches disk. Keep this asymmetry: flattening it would store
+ *  a name the picker no longer offers. */
+
 export { GLYPHS, GLYPH_NAMES, isGlyphName, resolveGlyph };

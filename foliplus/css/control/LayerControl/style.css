@@ -124,7 +124,7 @@
    (common/scheme-picker.css), so the two arms' color preview reads alike. */
 .foliplus-style-fill-original-strip {
   flex: 1;
-  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  height: var(--foliplus-scheme-picker-bar-height);
   box-sizing: border-box;
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   border-radius: var(--foliplus-radius-sm);
@@ -150,78 +150,119 @@
    The list scrolls past the budget threshold; the toggle expands it in
    place so the panel does not grow to the full category count. */
 /* ── Icon row ────────────────────────────────────────────────
-   The row is one trigger + a grid popup. The trigger shows the current
-   glyph (or the author-original label) and opens the grid; the grid is a
-   8-column matrix of 28px cells. The glyph paints with currentColor, so
-   the row inherits the panel text colour and the selected cell uses the
-   accent. */
+   The row is one full-width trigger (same recipe as the shared
+   form-select: full control-column width, ctrl-size height, input
+   border + radius) plus a grid popup. Left = 16px glyph + name text;
+   right = the shared 4px border-triangle chevron (same as the
+   scheme-picker trigger). The glyph paints with currentColor, so the
+   row inherits the panel text colour. */
+/* The row is the grid's containing block: the popup drops below the
+   trigger, not beside it. */
+.foliplus-style-icon-row {
+  position: relative;
+}
+
 .foliplus-style-icon-trigger {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: var(--foliplus-space-md);
+  width: 100%;
+  height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
-  padding: 0;
-  border: 1px solid var(--foliplus-border-color, rgba(0, 0, 0, 0.15));
-  border-radius: var(--foliplus-radius-sm, 4px);
-  background: transparent;
-  color: inherit;
+  padding: 0 var(--foliplus-space-xl) 0 var(--foliplus-space-md);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  color: var(--foliplus-text-primary);
+  font-size: var(--foliplus-font-size-sm);
+  text-align: start;
   cursor: pointer;
-  font: inherit;
+  transition: var(--foliplus-transition-input);
+}
+
+.foliplus-style-icon-trigger::after {
+  content: "";
+  position: absolute;
+  right: var(--foliplus-space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: var(--foliplus-size-4) solid transparent;
+  border-right: var(--foliplus-size-4) solid transparent;
+  border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted);
 }
 
 .foliplus-style-icon-trigger:hover {
-  background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
+  border-color: var(--foliplus-accent-primary);
 }
 
-.foliplus-style-icon-trigger .foliplus-marker-glyph {
+.foliplus-style-icon-trigger:focus-visible {
+  outline: none;
+  border-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
+}
+
+.foliplus-style-icon-trigger-glyph {
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  flex-shrink: 0;
+  width: var(--foliplus-icon-size-sm);
+  height: var(--foliplus-icon-size-sm);
 }
 
-.foliplus-style-icon-trigger .foliplus-marker-glyph svg {
+.foliplus-style-icon-trigger-glyph svg {
   width: 100%;
   height: 100%;
+}
+
+.foliplus-style-icon-trigger-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .foliplus-style-icon-grid {
   position: absolute;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(8, 28px);
-  gap: 2px;
-  padding: 6px;
-  background: var(--foliplus-panel-bg, #fff);
-  border: 1px solid var(--foliplus-border-color, rgba(0, 0, 0, 0.15));
-  border-radius: var(--foliplus-radius-sm, 4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  grid-template-columns: repeat(8, var(--foliplus-ctrl-size));
+  gap: var(--foliplus-space-xs);
+  padding: var(--foliplus-space-sm);
+  background: var(--foliplus-surface-raised);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-md);
+  left: 0;
+  top: calc(100% + var(--foliplus-space-xs));
 }
 
 .foliplus-style-icon-cell {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--foliplus-ctrl-size);
+  height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--foliplus-radius-sm, 4px);
+  border: var(--foliplus-border-thin) solid transparent;
+  border-radius: var(--foliplus-radius-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
 .foliplus-style-icon-cell:hover {
-  background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
 }
 
 .foliplus-style-icon-cell .foliplus-marker-glyph {
   display: inline-flex;
-  width: 18px;
-  height: 18px;
+  width: var(--foliplus-icon-size-md);
+  height: var(--foliplus-icon-size-md);
 }
 
 .foliplus-style-icon-cell .foliplus-marker-glyph svg {
@@ -230,6 +271,8 @@
 }
 
 .foliplus-style-icon-cell-selected {
-  border-color: var(--foliplus-accent-color, #0078d4);
-  background: var(--foliplus-btn-secondary-bg, rgba(0, 0, 0, 0.05));
+  background: var(--foliplus-menu-row-selected-bg);
+  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
+    var(--foliplus-menu-row-selected-bar);
+  border-color: var(--foliplus-accent-primary);
 }

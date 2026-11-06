@@ -14,8 +14,10 @@
 // intent-domain types sunk to `core/layer/intent.ts` — re-exported
 // here so every `ui/intent.js` import keeps working unchanged.
 import {
+  ICON_KIND,
   INTENT,
   type IconIntent,
+  type IconKind,
   type IntentKey,
   LIVE,
   type LayerInfo,
@@ -77,6 +79,7 @@ const seedAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
 };
 
 export {
+  ICON_KIND,
   INTENT,
   LIVE,
   clearIntent,
@@ -87,4 +90,4 @@ export {
   seedIntentMap,
   setIntent,
 };
-export type { IconIntent, IntentKey };
+export type { IconIntent, IconKind, IntentKey };

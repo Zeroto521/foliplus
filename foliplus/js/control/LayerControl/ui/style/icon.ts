@@ -26,9 +26,9 @@ import { CAP_TIER, DIM, walkLeaf } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { INTENT, type IconIntent, getIntent } from "../intent.js";
+import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { GLYPHS, GLYPH_NAMES, resolveGlyph } from "./glyph.js";
+import { GLYPHS, GLYPH_NAMES, isGlyphName, resolveGlyph } from "./glyph.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
@@ -103,7 +103,6 @@ const buildMarkerIcon = (opts: {
     { createIcon?: () => HTMLElement; options?: { markerColor?: string } } | undefined;
   if (!author || typeof author.createIcon !== "function") return opts.author;
   const svg = GLYPHS[resolveGlyph(opts.glyph)];
-  const inner = glyphInnerHtml(svg);
   const derived = Object.create(author) as {
     createIcon: () => HTMLElement | undefined;
     createShadow?: () => HTMLElement | undefined;
@@ -114,7 +113,20 @@ const buildMarkerIcon = (opts: {
     // and popupAnchor stay pixel-identical by construction, which is
     // exactly the DOM-level contract the lead pinned (m01511).
     const div = author.createIcon?.() as HTMLElement | undefined;
-    if (div) div.innerHTML = inner;
+    if (!div) return div;
+    // Carry the author's inner <i> class + inline color (awesome-markers
+    // paints `icon-white` via a class and an inline color), so our glyph
+    // inherits the same paint. No inline author color -> white (a computed
+    // colour is not a signal: every element computes one, so reading it would
+    // turn "the author named nothing" into black). The colour dimension
+    // itself is task-82.
+    const authorInner = div.querySelector("i");
+    const authorClass = authorInner?.className ?? "";
+    const authorColor = authorInner ? (authorInner as HTMLElement).style.color : "";
+    const markerColor = authorColor || "#fff";
+    div.innerHTML =
+      `<i class="foliplus-marker-glyph${authorClass ? " " + authorClass : ""}"` +
+      ` style="color:${markerColor}">${svg}</i>`;
     return div;
   };
   return derived;
@@ -124,7 +136,7 @@ const buildMarkerIcon = (opts: {
  *  the user never touched keeps exactly what the author declared. */
 const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   const intent = getIntent(ui, layerId, INTENT.ICON);
-  if (intent?.kind !== "glyph") return;
+  if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   walkLeaf(layer, leaf => {
@@ -138,7 +150,9 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
-  writeIntentKeys(ui, layerId, [[INTENT.ICON, { kind: "glyph", value: glyph }]]);
+  writeIntentKeys(ui, layerId, [
+    [INTENT.ICON, { kind: ICON_KIND.GLYPH, value: glyph }],
+  ]);
   scheduleStyleDimApply(FACE.ICON, layerId, () => applyIconToLayer(ui, layerId), {
     owner: ui,
   });
@@ -181,7 +195,26 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
  *  the author's icon (uncovered). */
 const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
   const intent = getIntent(ui, layerId, INTENT.ICON);
-  return intent?.kind === "glyph" ? intent.value : null;
+  return intent?.kind === ICON_KIND.GLYPH ? intent.value : null;
+};
+
+/** The author's own glyph name when the layer's marker icon declares one
+ *  we can render (awesome-markers/Leaflet put the name in
+ *  `leaf.options.icon.options.icon`). Used for the row preview only — the
+ *  write semantics are unchanged: an uncovered layer keeps the author icon.
+ *  Walks leaves and returns the first recognized name, or null. */
+const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return null;
+  let found: string | null = null;
+  walkLeaf(layer, leaf => {
+    if (found) return;
+    if (!isIconLeaf(leaf)) return;
+    const own = (leaf as { options?: { icon?: { options?: { icon?: unknown } } } })
+      .options?.icon?.options?.icon;
+    if (isGlyphName(own)) found = own;
+  });
+  return found;
 };
 /** Build the icon row: a trigger showing the current glyph (or the author's
  *  original, labelled 「原始」) plus a grid picker popup. The popup is a
@@ -198,14 +231,26 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     "aria-label": ui.T("style_icon"),
   }) as HTMLButtonElement;
 
+  const glyphBox = dom.el("span", {
+    class: CONST.CLASSES.STYLE_ICON_TRIGGER_GLYPH,
+  }) as HTMLSpanElement;
+  const nameBox = dom.el("span", {
+    class: CONST.CLASSES.STYLE_ICON_TRIGGER_NAME,
+  }) as HTMLSpanElement;
+  trigger.append(glyphBox, nameBox);
+
   const renderTrigger = () => {
-    const value = currentGlyph(ui, layerId);
-    trigger.textContent = "";
+    // Covered: the user's glyph. Uncovered: the author's recognized glyph
+    // (preview only — the write is still the author icon), else the
+    // author-original label.
+    const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
     if (value) {
-      trigger.innerHTML = glyphInnerHtml(GLYPHS[resolveGlyph(value)]);
+      glyphBox.innerHTML = glyphInnerHtml(GLYPHS[resolveGlyph(value)]);
+      nameBox.textContent = value;
       trigger.title = value;
     } else {
-      trigger.textContent = ui.T("style_icon_original");
+      glyphBox.innerHTML = "";
+      nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
     }
   };

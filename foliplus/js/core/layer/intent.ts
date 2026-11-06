@@ -48,14 +48,27 @@ type FillValueConfig =
       classes: number;
     };
 
-/** The fill arms the user can choose between, one vocabulary for the row, the
- *  intent and the resolver.
+/** The stored fill-arm literals (persisted `fillMode`). One vocabulary for the
+ *  row, the intent and the resolver.
  *
  *  "original" is the layer author's own per-feature paint: a real choice on a
  *  geopandas explore layer (it can be left and come back to), and an invalid
  *  one everywhere else — the row offers it only while the author's record still
  *  paints per feature, and a stored value on any other layer reads as solid. */
-type FillMode = "solid" | "value" | "original";
+const FILL_MODE = {
+  SOLID: "solid",
+  VALUE: "value",
+  ORIGINAL: "original",
+} as const;
+type FillMode = (typeof FILL_MODE)[keyof typeof FILL_MODE];
+
+/** The marker-icon override's single kind. One constant so the write
+ *  path, the persistence reader and the intent guard cannot drift on the
+ *  literal. Mirrors FILL_MODE. */
+const ICON_KIND = {
+  GLYPH: "glyph",
+} as const;
+type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
 
 /** Whether a value is a ramp config this client can build. Two arms,
  *  discriminated by `kind`:
@@ -185,14 +198,14 @@ type LayerOverride =
  *  glyph name from the inline SVG set (`GLYPH_SETS` in ui/style/icon.ts);
  *  `resolveGlyph` maps it to the concrete SVG string. */
 type IconIntent = {
-  kind: "glyph";
+  kind: IconKind;
   value: string;
 };
 
 const isIconIntent = (value: unknown): boolean =>
   typeof value === "object" &&
   value !== null &&
-  (value as { kind?: unknown }).kind === "glyph" &&
+  (value as { kind?: unknown }).kind === ICON_KIND.GLYPH &&
   typeof (value as { value?: unknown }).value === "string";
 
 type LayerIntent = {
@@ -323,7 +336,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
   [INTENT.FILL_RAMP]: isFillValueConfig,
   [INTENT.FILL_MODE]: value =>
-    value === "solid" || value === "value" || value === "original",
+    value === FILL_MODE.SOLID ||
+    value === FILL_MODE.VALUE ||
+    value === FILL_MODE.ORIGINAL,
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
@@ -356,11 +371,20 @@ const STYLE_KEYS = {
   icon: INTENT.ICON,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { INTENT, isFillValueConfig, isIconIntent, LIVE, STYLE_KEYS };
+export {
+  FILL_MODE,
+  ICON_KIND,
+  INTENT,
+  isFillValueConfig,
+  isIconIntent,
+  LIVE,
+  STYLE_KEYS,
+};
 export type {
   AnnotationConfig,
   FillMode,
   FillValueConfig,
+  IconKind,
   IconIntent,
   IntentKey,
   IntentRow,

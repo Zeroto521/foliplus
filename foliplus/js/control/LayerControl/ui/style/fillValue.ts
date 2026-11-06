@@ -25,7 +25,7 @@
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
 import { DIM } from "#core/layer/index.js";
-import type { FillMode, FillValueConfig } from "#core/layer/intent.js";
+import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
 import {
   buildCategoryRamp,
   buildRamp,
@@ -88,7 +88,8 @@ const resolveFillMode = (
   layerId: string,
   ramp: FillValueConfig | undefined,
 ): FillMode =>
-  getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "value" : "solid");
+  getIntent(ui, layerId, INTENT.FILL_MODE) ??
+  (ramp !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
 
 /** Apply a value-based fill to one layer.
  *
@@ -241,7 +242,7 @@ const applyValueFill = (
       // leaf now, and this getter must not replay a color the active mode
       // does not own (a mode switch back to solid that leaves the value config
       // stored would otherwise re-apply the value fill on every mouseout).
-      if (resolveFillMode(ui, layerId, currentRamp) !== "value") return null;
+      if (resolveFillMode(ui, layerId, currentRamp) !== FILL_MODE.VALUE) return null;
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameValueConfig(currentRamp, ramp)) return null;

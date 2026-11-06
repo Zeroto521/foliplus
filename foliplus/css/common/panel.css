@@ -46,9 +46,9 @@
   align-items: stretch;
   width: var(--foliplus-panel-width);
   /* The placement code writes `--foliplus-row-panel-max-height` from the
-     measured space between the anchor and the map's edge; the token fallback
+     measured space between the anchor and the map's edge; the token's static default (token.css)
      keeps an older page without the JS placement working as before. */
-  max-height: var(--foliplus-row-panel-max-height, var(--foliplus-panel-max-height));
+  max-height: var(--foliplus-row-panel-max-height);
   padding: 0;
   overflow-x: hidden;
   border-radius: var(--foliplus-radius-card);

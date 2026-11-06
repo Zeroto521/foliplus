@@ -9,7 +9,10 @@
 // On the FIRST call it snapshots the author baseline (className /
 // backgroundImage / backgroundPosition / iconSize of the first marker
 // element and its icon.options) into window.__iconProbeBaseline, so a later
-// call can diff the derived icon against the author pixel-for-pixel.
+// call can diff the derived icon against the author pixel-for-pixel. The
+// inner <i> className + computed colour are captured too: the glyph swap
+// must carry the author's symbol paint (class + color), so the derived
+// marker's inner <i> must keep them (lead m04384).
 async (arg = []) => {
   // Playwright passes `null` when evaluate() is called without an argument,
   // and a list otherwise; the default only covers undefined, so normalise here.
@@ -23,6 +26,12 @@ async (arg = []) => {
 
   const flush = () =>
     new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const readInner = el => {
+    const inner = el?.querySelector("i");
+    if (!inner) return null;
+    return { cls: inner.className, color: getComputedStyle(inner).color };
+  };
 
   // Author baseline: read before any user write touches the marker set.
   if (!window.__iconProbeBaseline) {
@@ -39,6 +48,7 @@ async (arg = []) => {
               Math.round(first.getBoundingClientRect().height),
             ]
           : null,
+        inner: readInner(first),
       };
     }
   }
@@ -74,6 +84,7 @@ async (arg = []) => {
         Math.round(el.getBoundingClientRect().width),
         Math.round(el.getBoundingClientRect().height),
       ],
+      inner: readInner(el),
     };
   };
   const icons = Array.from(document.querySelectorAll(".leaflet-marker-icon")).map(
@@ -102,6 +113,15 @@ async (arg = []) => {
           baseline.backgroundImage === after.backgroundImage &&
           baseline.backgroundPosition === after.backgroundPosition &&
           JSON.stringify(baseline.iconSize) === JSON.stringify(after.iconSize)
+        : null,
+    // Colour / class contract (lead m04384): the derived inner <i> keeps the
+    // author's class and computed colour after the glyph swap.
+    innerKeepsAuthor:
+      baseline?.inner && after?.inner
+        ? baseline.inner.color === after.inner.color &&
+          baseline.inner.cls
+            .split(/\s+/).filter(Boolean)
+            .every(c => after.inner.cls.split(/\s+/).includes(c))
         : null,
   };
 };

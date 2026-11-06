@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from pathlib import Path
 
 import folium
@@ -25,6 +26,7 @@ from conftest import (
     use_raw_page,
 )
 from folium import Element
+from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -178,6 +180,12 @@ class TestLayerControlBrowser:
             assert written["derivedMatchesAuthor"], (
                 f"derived chassis drifted from author: {written}"
             )
+            assert written["innerKeepsAuthor"] is not None, (
+                f"author inner <i> not captured: {written}"
+            )
+            assert written["innerKeepsAuthor"], (
+                f"glyph swap lost the author inner <i> class/colour: {written}"
+            )
             assert written["icons"], "no marker icons read"
             assert all(icon["hasGlyph"] for icon in written["icons"]), (
                 f"not every marker carries the glyph after the write: {written}"
@@ -192,6 +200,12 @@ class TestLayerControlBrowser:
             )
             assert reset["derivedMatchesAuthor"], (
                 f"Reset did not restore the author icon pixel-identical: {reset}"
+            )
+            assert reset["innerKeepsAuthor"] is not None, (
+                f"author inner <i> not captured at reset: {reset}"
+            )
+            assert reset["innerKeepsAuthor"], (
+                f"Reset lost the author inner <i> class/colour: {reset}"
             )
             assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
                 f"Reset did not restore the author icon: {reset}"
@@ -1043,6 +1057,135 @@ class TestLayerControlBrowser:
                     assert panes_after[cls] == panes_before[cls], (
                         f"pane {cls} bled: {panes_before[cls]} != {panes_after[cls]}"
                     )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_fill_two_layers_keep_their_own_color_across_reload(
+        self, browser, tmp_path
+    ):
+        """A persisted solid fill survives a page reload, per layer, with no decay.
+
+        The write is persisted to localStorage and re-applied by the attach
+        sweep on the next load. The failure this guards is not "the color came
+        back wrong" (a wrong color is loud) but "the color silently decayed to
+        the author default" — a reload can drop a layer back to its original
+        fill while the row still reads the user's color, which is the quiet
+        regression. Two layers are set to distinct solid fills, then the page
+        reloads and every pane's path fill/stroke must be byte-identical to its
+        pre-reload snapshot (and no pane may decay to the default blue).
+        """
+
+        def poly(name: str) -> folium.GeoJson:
+            """One polygon layer with a numeric field so the fill row exists."""
+            return folium.GeoJson(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {"value": i},
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": [
+                                        [
+                                            [119.28 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.06],
+                                            [119.32 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.10],
+                                            [119.28 + i * 0.01, 26.06],
+                                        ]
+                                    ],
+                                },
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                ),
+                name=name,
+            )
+
+        first = poly("IsoLayerA")
+        second = poly("IsoLayerB")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="fill_reload_iso"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Set A red, B blue through the real user write path.
+            a_red = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerA", "color": "#ff0000"},
+            )
+            assert a_red.get("ok"), f"write A failed: {a_red}"
+            b_blue = page.evaluate(
+                _js("LayerControl/fill_two_layer_isolation"),
+                {"targetLayer": "IsoLayerB", "color": "#0000ff"},
+            )
+            assert b_blue.get("ok"), f"write B failed: {b_blue}"
+            panes_before = {
+                p["cls"]: (p["fills"], p["strokes"]) for p in b_blue["panes"]
+            }
+            assert len(panes_before) >= 2, f"pane groups before reload: {b_blue}"
+
+            # Reload; the attach sweep must re-apply the persisted fill.
+            # Wait for the real signal — both colours present in the persisted
+            # record — rather than sleeping on the 100ms write debounce. A fixed
+            # sleep is either flaky (too short when the CI box is loaded) or
+            # wasteful, and this test guards persistence: it must not guess.
+            deadline = time.monotonic() + 5
+            persisted = None
+            while time.monotonic() < deadline:
+                persisted = page.evaluate(_js("LayerControl/read_persisted_record"))
+                stored = json.dumps(persisted) if persisted else ""
+                if "#ff0000" in stored and "#0000ff" in stored:
+                    break
+                time.sleep(0.05)
+            else:
+                raise AssertionError(
+                    f"fill never reached storage within 5s: {persisted}"
+                )
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            panel_ready(page)
+            # No write path is driven here: this snapshot is read-only, so any
+            # restored color came from the attach sweep, not from us.
+            after = page.evaluate(_js("LayerControl/fill_reload_read"))
+            assert after.get("ok"), f"read after reload failed: {after}"
+            panes_after = {p["cls"]: (p["fills"], p["strokes"]) for p in after["panes"]}
+            assert len(panes_after) >= 2, f"pane groups after reload: {after}"
+
+            # Every pane must be byte-identical to its pre-reload snapshot.
+            for cls in panes_before:
+                assert cls in panes_after, (
+                    f"pane {cls} missing after reload: {sorted(panes_after)}"
+                )
+                assert panes_after[cls] == panes_before[cls], (
+                    f"pane {cls} changed across reload: {panes_before[cls]} != {panes_after[cls]}",
+                )
+
+            # The anti-decay guard: no pane may carry the default blue fill
+            # unless it did so before the reload.
+            for cls, (fills, _) in panes_after.items():
+                assert (
+                    "#3388ff" not in fills
+                    or "#3388ff" in panes_before.get(cls, ([], []))[0]
+                ), (f"pane {cls} decayed to default blue after reload: {fills}",)
+            # The record itself must survive the reload: the colours above come
+            # from localStorage, so a record that lost a layer would leave the
+            # attach sweep nothing to re-apply even while the panes look right.
+            stored_after = page.evaluate(_js("LayerControl/read_persisted_record"))
+            assert stored_after, "the persisted record vanished across the reload"
+            assert len(stored_after.get("layers") or {}) >= 2, (
+                f"a layer dropped out of the persisted record: {stored_after}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_unregister_layer_in_browser(self, browser, tmp_path):
@@ -4994,11 +5137,24 @@ class TestLayerControlBrowser:
             panel_ready(page)
             item = page.query_selector(".foliplus-layer-item")
             assert item is not None, "no layer row rendered"
+            # Register a one-shot signal: the fitBounds `moveend` is the
+            # deterministic "animation settled" marker. The mask is drawn
+            # synchronously *before* fitBounds (drawFocusMask), so by this
+            # moveend the post-fitBounds viewport is live and the mask is
+            # still shown — registerAutoCancel dismisses it only 1050ms
+            # after this same moveend. Reading right at the signal removes
+            # the fixed-sleep race against that dismiss window.
+            page.evaluate(snippet("LayerControl/arm_fit_settled"))
             item.dispatch_event("dblclick")
-            # fitBounds animates for 600ms; registerAutoCancel gives a
-            # 1050ms grace period after the animation. Read inside that
-            # window so the mask is still live.
-            page.wait_for_timeout(1100)
+            try:
+                page.wait_for_function(
+                    snippet("LayerControl/fit_settled"), timeout=5000
+                )
+            except TimeoutError:
+                pytest.fail(
+                    "fitBounds did not settle (__fitSettled) within 5s — "
+                    "the focus mask read window raced; probe was not run"
+                )
             result = page.evaluate(_js("LayerControl/focus_mask_covers_viewport"))
             assert result is not None, "focus_mask_covers_viewport failed"
             assert "error" not in result, f"probe error: {result}"

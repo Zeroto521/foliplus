@@ -7,6 +7,7 @@ import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import {
   GLYPHS,
   GLYPH_NAMES,
+  isGlyphName,
   resolveGlyph,
 } from "#control/LayerControl/ui/style/glyph.js";
 import {
@@ -188,7 +189,7 @@ describe("buildMarkerIcon", () => {
     // The inner slot is OUR glyph, not the author's <i>.
     expect(div.querySelector(".foliplus-marker-glyph")).not.toBeNull();
     expect(div.querySelector(".foliplus-marker-glyph")?.innerHTML).toContain("<svg");
-    expect(div.innerHTML).not.toContain("fa fa-map-marker");
+    expect(div.innerHTML).toContain("fa fa-map-marker");
     // The shadow presence is identical (both true here).
     const shadow = derived.createShadow?.();
     expect(!!shadow).toBe(!!author.createShadow?.());
@@ -213,6 +214,31 @@ describe("buildMarkerIcon", () => {
     expect(buildMarkerIcon({ author, glyph: "circle" })).toBe(author);
   });
 
+  it("carries the author inner <i> class and colour into the glyph", () => {
+    const author = makeAuthorIcon();
+    author.createIcon = vi.fn(() => {
+      const div = document.createElement("div");
+      div.className = "awesome-marker";
+      div.innerHTML = '<i class="fa icon-white" style="color: rgb(255, 255, 255)"></i>';
+      return div;
+    });
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const div = derived.createIcon();
+    const inner = div.querySelector("i");
+    // Our class is added, the author class survives (lead m04384).
+    expect(inner.className).toContain("foliplus-marker-glyph");
+    expect(inner.className).toContain("fa");
+    expect(inner.className).toContain("icon-white");
+    // The author's inline colour is carried (and set explicitly).
+    expect(inner.style.color).toBe("rgb(255, 255, 255)");
+  });
+
+  it("defaults the glyph colour to white when the author has none", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector("i")?.style.color).toBe("rgb(255, 255, 255)");
+  });
   it("falls back to the circle glyph for an unknown name", () => {
     const author = makeAuthorIcon();
     const derived = buildMarkerIcon({ author, glyph: "nope" }) as any;
@@ -234,7 +260,17 @@ describe("resolveGlyph", () => {
   it("falls back to the circle glyph for an unknown name", () => {
     expect(resolveGlyph("nope")).toBe(resolveGlyph("circle"));
   });
+
+  it("keeps the alias asymmetry: aliases resolve but never persist", () => {
+    // resolveGlyph accepts the legacy alias at runtime...
+    expect(resolveGlyph("pin")).toBe("map-pin");
+    // ...but isGlyphName — the persistence read gate — rejects it, so an
+    // alias can never reach disk. Locking the asymmetry (lead m04384).
+    expect(isGlyphName("pin")).toBe(false);
+    expect(isGlyphName("map-pin")).toBe(true);
+  });
 });
+
 describe("buildIconRow", () => {
   let manager: LayerController;
   let ui: LayerUI;
