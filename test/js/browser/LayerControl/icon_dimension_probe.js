@@ -120,7 +120,8 @@ async (arg = []) => {
       baseline?.inner && after?.inner
         ? baseline.inner.color === after.inner.color &&
           baseline.inner.cls
-            .split(/\s+/).filter(Boolean)
+            .split(/\s+/)
+            .filter(Boolean)
             .every(c => after.inner.cls.split(/\s+/).includes(c))
         : null,
   };

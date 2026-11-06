@@ -14,7 +14,7 @@
 - `HeatmapControl` / `MeasureControl`: a declared `filter=` seeds the first render; the user's own filter wins from then on ([#805](https://github.com/Zeroto521/foliplus/pull/805))
 - `HeatmapControl` / `MeasureControl`: `zoom_range={"min": 8, "max": 12}` shows the control only while the map's zoom is inside the range; an unusable declaration warns once and is treated as undeclared ([#842](https://github.com/Zeroto521/foliplus/pull/842))
 - `LayerControl`: layers group into folders that survive reloads; a folder can be deleted from its row menu (its layers move back to the root), and an emptied folder's stale key is cleared from the section header ([#898](https://github.com/Zeroto521/foliplus/pull/898), [#905](https://github.com/Zeroto521/foliplus/pull/905), [#911](https://github.com/Zeroto521/foliplus/pull/911), [#930](https://github.com/Zeroto521/foliplus/pull/930))
-- `LayerControl`: a layer can carry one icon glyph, picked from a 32-glyph grid; the marker keeps its author chassis (sprite, size, anchor) and Reset restores the author's icon ([#932](https://github.com/Zeroto521/foliplus/pull/932))
+- `LayerControl`: a layer can carry one icon glyph, picked from a 32-glyph grid; the marker keeps its author chassis (sprite, size, anchor) and Reset restores the author's icon — the icon dimension is a whole-layer single glyph (no field mapping), and a persisted legacy `icon` record is validated against the glyph set and downgraded to no icon if invalid ([#932](https://github.com/Zeroto521/foliplus/pull/932))
 
 ### Changed
 

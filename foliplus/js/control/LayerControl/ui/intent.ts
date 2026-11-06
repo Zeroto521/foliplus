@@ -17,7 +17,6 @@ import {
   ICON_KIND,
   INTENT,
   type IconIntent,
-  type IconKind,
   type IntentKey,
   LIVE,
   type LayerInfo,
@@ -90,4 +89,4 @@ export {
   seedIntentMap,
   setIntent,
 };
-export type { IconIntent, IconKind, IntentKey };
+export type { IconIntent, IntentKey };

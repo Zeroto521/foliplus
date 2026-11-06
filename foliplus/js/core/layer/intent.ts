@@ -228,8 +228,8 @@ type LayerIntent = {
    *  first write like `authorOpacityBase` — a re-read would feed the leaf its
    *  own last write, compounding every keystroke. */
   size?: number;
-  /** The marker-icon config: a categorical field plus per-category icon
-   *  sources. Absent = the author's icons stay. */
+  /** The marker-icon override: one glyph name for every marker leaf;
+   *  absent = the author's icons stay. */
   icon?: IconIntent;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
@@ -270,9 +270,9 @@ type PersistedLayerState = {
    *  only). LayerControl owns the write — a self-managed dimension, see
    *  ui/style/size.ts. */
   size?: number;
-  /** The marker-icon config the user set in the style panel (a categorical
-   *  field plus per-category icon sources). LayerControl owns the write —
-   *  a self-managed dimension, see ui/style/icon.ts. */
+  /** The marker-icon override the user set in the style panel (one glyph
+   *  name for every marker leaf). LayerControl owns the write — a
+   *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
@@ -384,7 +384,6 @@ export type {
   AnnotationConfig,
   FillMode,
   FillValueConfig,
-  IconKind,
   IconIntent,
   IntentKey,
   IntentRow,

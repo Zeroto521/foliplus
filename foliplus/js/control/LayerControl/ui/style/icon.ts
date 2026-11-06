@@ -124,9 +124,7 @@ const buildMarkerIcon = (opts: {
     const authorClass = authorInner?.className ?? "";
     const authorColor = authorInner ? (authorInner as HTMLElement).style.color : "";
     const markerColor = authorColor || "#fff";
-    div.innerHTML =
-      `<i class="foliplus-marker-glyph${authorClass ? " " + authorClass : ""}"` +
-      ` style="color:${markerColor}">${svg}</i>`;
+    div.innerHTML = `<i class="foliplus-marker-glyph${authorClass ? ` ${authorClass}` : ""}" style="color:${markerColor}">${svg}</i>`;
     return div;
   };
   return derived;
