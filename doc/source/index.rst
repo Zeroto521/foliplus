@@ -81,6 +81,12 @@ Features
 
 .. toctree::
    :maxdepth: 1
+   :caption: Guides
+
+   layer_icons
+
+.. toctree::
+   :maxdepth: 1
    :caption: API Reference
 
    api
