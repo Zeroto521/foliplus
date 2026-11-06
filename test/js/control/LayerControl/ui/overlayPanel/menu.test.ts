@@ -1230,4 +1230,38 @@ describe("LayerUI menu", () => {
   });
 
   // ─────────────────── checkbox dblclick / Enter ─────────────────────
+
+  describe("delete-folder menu entry rendering", () => {
+    const registerLayer = (id: string, name: string, role: string, folder?: string) => {
+      manager.registerLayer({
+        id,
+        name,
+        role: role as "overlay" | "base",
+        ...(folder ? { folder } : {}),
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as never);
+    };
+    const actionsFor = (item: HTMLElement) =>
+      Array.from(item.querySelectorAll(".foliplus-layer-more-menu button")).map(
+        b => (b as HTMLElement).dataset.action,
+      );
+
+    it("renders the delete-folder entry last for a row whose layer has a folder", () => {
+      registerLayer("folder1", "Roads", "overlay", "My Folder");
+      const item = findItem(ui, "folder1");
+      ui.openMoreMenu(item);
+      const actions = actionsFor(item);
+      expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+      // The folder entry sits before the destructive delete-layer divider.
+      expect(actions.indexOf(CONST.ACTION.DELETE_FOLDER)).toBeLessThan(
+        actions.indexOf(CONST.ACTION.DELETE_LAYER),
+      );
+    });
+
+    it("does not render the delete-folder entry for a root layer", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(actionsFor(item)).not.toContain(CONST.ACTION.DELETE_FOLDER);
+    });
+  });
 });
