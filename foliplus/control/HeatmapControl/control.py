@@ -1,20 +1,14 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from foliplus._config_schema import FieldSpec
 from foliplus._declaration import normalise_zoom_range, normalize_declared_filter
 from foliplus._typing import ControlPosition, Fraction, PositiveInt
 from foliplus._validate import Bound, validate
 from foliplus.BaseControl import BaseControl
+from foliplus.control.HeatmapControl.const import AGG, LABEL_FORMAT, METHOD
 from foliplus.locale import LocaleConfig
-
-METHOD = Literal["jenks", "quantile", "equal", "heads"]
-AGG = Literal["count", "sum", "avg", "min", "max"]
-LABEL_FORMAT = Annotated[
-    Literal["auto", "int", "comma", "percent"],
-    FieldSpec(name="NumberStyle", note="Number format for hexagon value labels."),
-]
 
 
 class HeatmapControl(BaseControl):
