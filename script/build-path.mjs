@@ -87,7 +87,41 @@ const testPathAliases = root => ({
  * `const.js`, `icon.js`, or `config-schema.js` — resolves through esbuild's
  * alias table and bundles into the component.
  */
-const SHARED_MODULE_PREFIXES = ["common", "core", "ui"];
+/**
+ * The namespace-rewrite table the shared-module plugin applies: a shared
+ * `#<prefix>/…` specifier becomes `<dir>/…` under `window.foliplus.<prefix>`.
+ * Derived from ALIAS_TO_REL so the plugin cannot drift from the alias table —
+ * the onResolve filter already matches via SHARED_SPEC_REGEX_SOURCE; these
+ * rules are the onLoad rewrite that must stay in lockstep with it.
+ */
+// DERIVED, not hand-written. A shared prefix is an alias that is ALSO
+// published on the shared runtime namespace (window.foliplus.<dir>). Two
+// aliases are deliberately NOT shared prefixes:
+//   - #control — each component bundles its own namespace; no non-control
+//     layer may reach it, so it must never route to the shared bundle.
+//   - #foliplus — resolves to foliplus/js (basename "js"), a root alias,
+//     not a directory under the shared namespace.
+// Renaming a tier is therefore a one-line change to ALIAS_TO_REL: the
+// shared-import regex, the plugin rewrite rules and the package.json imports
+// all derive from it.
+const SHARED_MODULE_PREFIXES = SHARED_ALIASES.filter(
+  spec => spec !== "#control" && ALIAS_TO_REL[spec].split("/").pop() !== "js",
+).map(spec => ALIAS_TO_REL[spec].split("/").pop());
+
+/**
+ * namespacePrefixRules — the shared `#<prefix>/` rewrite table: prefix ->
+ * `<dir>/`. Derived from ALIAS_TO_REL; the shared-module plugin reads this
+ * instead of hand-rolled .replace() lines, so a tier rename cannot leave the
+ * onResolve filter (SHARED_SPEC_REGEX_SOURCE) and the onLoad rewrite out of
+ * sync.
+ */
+const namespacePrefixRules = () =>
+  Object.fromEntries(
+    SHARED_MODULE_PREFIXES.map(prefix => [
+      prefix,
+      `${ALIAS_TO_REL[`#${prefix}`].slice(ALIAS_TO_REL[`#${prefix}`].lastIndexOf("/") + 1)}/`,
+    ]),
+  );
 
 /**
  * Exact `#…` specs that are shared but don't fall under a shared prefix.
@@ -128,6 +162,7 @@ export {
   PACKAGE_IMPORTS,
   SHARED_MODULE_EXACTS,
   SHARED_MODULE_PREFIXES,
+  namespacePrefixRules,
   SHARED_SPEC_REGEX_SOURCE,
   pathAliases,
   repoRoot,

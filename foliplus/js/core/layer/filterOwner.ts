@@ -19,6 +19,26 @@ import {
   filtersEqual,
 } from "./filter.js";
 
+/** Per-source store routing for an owner whose committed filter lives in a
+ *  per-source map (the Heatmap filters one source layer at a time) rather
+ *  than a single value (the Measure has one filter for its one row). When the
+ *  host supplies a slot, the owner's getFilter / isOwned / setFilter read and
+ *  write the slot's store instead of the internal single-filter state, and the
+ *  slot's store equality is the write authority — so the owner becomes a pure
+ *  orchestrator over a store it does not own. A host that mutates its store
+ *  outside the owner (a per-source restore, a factory reset) stays consistent
+ *  because the owner reads the slot live. */
+interface FilterOwnerSlot {
+  /** Read the active source's committed filter (undefined = none). */
+  read(): LayerFilter | undefined;
+  /** Write the active source's committed filter. Returns whether the store
+   *  changed — the store's equality is authoritative, so a no-op write is
+   *  detectable even when the owner already compared values. */
+  write(filter: LayerFilter | undefined): boolean;
+  /** Write the ownership flag. */
+  writeOwned(owned: boolean): void;
+}
+
 /** The variant bits a control supplies. The owner supplies the orchestration;
  *  the host supplies the domain (normalize), the carrier write (apply), and
  *  the optional side effects (publish / persist / clearPersist / dimensions /
@@ -42,6 +62,10 @@ interface FilterOwnerHost {
   /** kept / total in the owner's own unit — a hex cell, a feature leaf, or a
    *  measurement item are all valid, so the unit is never inferred here. */
   counts?(): { kept: number; total: number };
+  /** Per-source store routing (the Heatmap). Absent = the owner holds a single
+   *  committed value (the Measure). When present, the slot is the owner's
+   *  single source of truth and the internal current/owned state is bypassed. */
+  slot?: FilterOwnerSlot;
 }
 
 /** The shared filter controller one control builds. */
@@ -74,25 +98,35 @@ const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
   let current: LayerFilter = undefined;
   let owned = false;
   let declared: LayerFilter = undefined;
+  const slot = host.slot;
 
   const owner: FilterOwner = {
     setFilter(filter: LayerFilter | undefined): boolean {
       const next = host.normalize(filter);
-      const unchanged = filtersEqual(next, current);
+      // The slot's store equality is authoritative (a per-source write can be
+      // a no-op for a store the owner has never seen). Without a slot the
+      // single-value comparison is the owner's.
+      const unchanged = slot ? !slot.write(next) : filtersEqual(next, current);
       // A write that changes nothing is a no-op once the user owns the slot.
       // Clearing a slot that already holds nothing is also not a choice to
       // remember (the panel's Clear is disabled in that state) — the
       // declaration may still seed. Every other write is the user taking the
       // slot, including re-affirming the filter the declaration seeded.
-      if (unchanged && (owned || next === undefined)) return false;
+      // Slot mode keeps the host store's contract instead: an unchanged
+      // per-source write is a complete no-op — it never re-takes ownership
+      // (the Heatmap's storeFilter early-return), because the store's own
+      // equality already answered the "did the user say anything new?"
+      // question. The single-value mode is the Measure's rule above.
+      if (unchanged && (slot || owned || next === undefined)) return false;
       current = next;
       owned = true;
+      if (slot) slot.writeOwned(true);
       host.persist?.(next, true);
       host.apply(next);
       host.publish?.(next);
       return true;
     },
-    getFilter: () => current,
+    getFilter: () => (slot ? slot.read() : current),
     isOwned: () => owned,
     declared: () => declared,
     setDeclaration(value) {
@@ -100,11 +134,21 @@ const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
     },
     restore(filter, touched) {
       owned = touched;
+      if (slot) {
+        slot.write(touched ? filter : declared);
+        slot.writeOwned(touched);
+        return;
+      }
       current = touched ? filter : declared;
     },
     reset() {
       host.clearPersist?.();
       owned = false;
+      if (slot) {
+        slot.write(undefined);
+        slot.writeOwned(false);
+        return;
+      }
       if (current === declared) return;
       current = declared;
       host.publish?.(current);
@@ -112,7 +156,7 @@ const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
     filterModel() {
       return {
         dimensions: host.dimensions?.() ?? [],
-        filter: current,
+        filter: slot ? slot.read() : current,
         ...(host.counts ? host.counts() : { kept: 0, total: 0 }),
       };
     },
@@ -121,4 +165,4 @@ const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
 };
 
 export { createFilterOwner };
-export type { FilterOwner, FilterOwnerHost };
+export type { FilterOwner, FilterOwnerHost, FilterOwnerSlot };
