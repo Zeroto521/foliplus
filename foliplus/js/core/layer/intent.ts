@@ -324,7 +324,10 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.BORDER_VALUE]: isFillValueConfig,
-  [INTENT.BORDER_MODE]: value => value === FILL_MODE.SOLID || value === FILL_MODE.VALUE,
+  [INTENT.BORDER_MODE]: value =>
+    value === FILL_MODE.SOLID ||
+    value === FILL_MODE.VALUE ||
+    value === FILL_MODE.ORIGINAL,
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
   // A finite number only: Infinity cannot reach the leaf, and a non-finite

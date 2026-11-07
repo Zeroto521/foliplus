@@ -230,7 +230,11 @@ const borderValueForUi = (
   layerId: string,
   fields: readonly string[],
 ): FillValueConfig => {
-  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.BORDER_VALUE));
+  const stored = resolvedValue(
+    ui,
+    layerId,
+    getIntent(ui, layerId, INTENT.BORDER_VALUE),
+  );
   if (stored) return stored;
   const derived = resolvedValue(ui, layerId, effectiveFillValue(ui, layerId));
   if (derived) return derived;

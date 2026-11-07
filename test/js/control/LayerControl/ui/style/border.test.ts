@@ -2087,11 +2087,11 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     const dim = getDimension(DIM.BORDER)!;
-    dim.write(ui, "vec1", { mode: "value", value: countRamp() });
+    dim.write!(ui, "vec1", { mode: "value", value: countRamp() });
     expect(getIntent(ui, "vec1", "borderMode")).toBe("value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
     // Follow: write mode undefined clears the mode intent, keeps the value.
-    dim.write(ui, "vec1", { mode: undefined });
+    dim.write!(ui, "vec1", { mode: undefined });
     expect(getIntent(ui, "vec1", "borderMode")).toBeUndefined();
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
