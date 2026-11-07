@@ -524,11 +524,10 @@ class HeatmapManager {
       // The write-through binding reads live state (layerFilters +
       // filtersTouched) at save time, so a plain signal is enough.
       persist: () => this.saveConfig(),
-      clearPersist: () => this.clearSavedConfig(),
       dimensions: () => {
         const snapshot = this.cachedSnapshot;
         const field = pickFilterField(snapshot, this.effectiveField());
-        const range = snapshot?.ranges[field] ?? [0, 0];
+        const range = snapshot!.ranges[field];
         return [{ kind: "range", field, range, step: filterStep(range) }];
       },
       // The filtered unit is the heatmap's own output — hex cells, not source
@@ -542,7 +541,6 @@ class HeatmapManager {
       slot: {
         read: () => this.layerFilters.get(this.selectedLayerId!),
         write: next => storeFilter(this.layerFilters, this.selectedLayerId!, next),
-        readOwned: () => this.filtersTouched,
         writeOwned: owned => {
           this.filtersTouched = owned;
         },

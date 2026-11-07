@@ -35,8 +35,6 @@ interface FilterOwnerSlot {
    *  changed — the store's equality is authoritative, so a no-op write is
    *  detectable even when the owner already compared values. */
   write(filter: LayerFilter | undefined): boolean;
-  /** Read the ownership flag (a declaration may not re-seed). */
-  readOwned(): boolean;
   /** Write the ownership flag. */
   writeOwned(owned: boolean): void;
 }
@@ -129,7 +127,7 @@ const createFilterOwner = (host: FilterOwnerHost): FilterOwner => {
       return true;
     },
     getFilter: () => (slot ? slot.read() : current),
-    isOwned: () => (slot ? slot.readOwned() : owned),
+    isOwned: () => owned,
     declared: () => declared,
     setDeclaration(value) {
       declared = value;

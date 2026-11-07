@@ -211,7 +211,6 @@ const makeSlotHost = (): {
   slot: {
     read: () => LayerFilter | undefined;
     write: (f: LayerFilter | undefined) => boolean;
-    readOwned: () => boolean;
     writeOwned: (o: boolean) => void;
     written: Array<LayerFilter | undefined>;
     ownedWritten: boolean[];
@@ -269,7 +268,6 @@ const makeSlotHost = (): {
         stored = next;
         return true;
       },
-      readOwned: () => owned,
       writeOwned(o) {
         ownedWritten.push(o);
         owned = o;
@@ -289,7 +287,6 @@ const makeSlotHost = (): {
         stored = next;
         return true;
       },
-      readOwned: () => owned,
       writeOwned: o => {
         ownedWritten.push(o);
         owned = o;
@@ -317,9 +314,6 @@ describe("createFilterOwner — per-source slot routing", () => {
     expect(owner.isOwned()).toBe(true);
     expect(applied).toEqual([filter(["marker"])]);
     expect(persisted).toEqual([{ filter: filter(["marker"]), owned: true }]);
-    // getFilter/isOwned read the slot live, not a cached owner copy.
-    slot.writeOwned(false);
-    expect(owner.isOwned()).toBe(false);
   });
 
   it("an unchanged slot write is a complete no-op (never re-takes ownership)", () => {
