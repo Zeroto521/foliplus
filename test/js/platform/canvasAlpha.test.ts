@@ -169,4 +169,3 @@ describe("visual consistency: stored layerAlpha survives a paint cycle", () => {
     expect(getLayerAlpha(c2)).toBeCloseTo(0.8);
   });
 });
-
