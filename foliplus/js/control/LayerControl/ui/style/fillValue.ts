@@ -1,4 +1,4 @@
-// Value-based fill rendering — the "按值着色 / Color by value" arm of the
+// Value-based fill rendering — the "Color by value / Color by value" arm of the
 // fill dimension.
 //
 // Walks a layer's style leaves, reads `feature.properties[field]` per leaf,

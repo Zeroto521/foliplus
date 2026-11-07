@@ -57,6 +57,7 @@ import {
   numberInput,
   readOnlyValue,
 } from "#ui/index.js";
+import { STYLE_MODE } from "#ui/styleVocabulary.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
@@ -1090,14 +1091,14 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       ? [
           {
             value: FILL_MODE.ORIGINAL,
-            label: ui.T("style_mode_original"),
+            label: ui.T(STYLE_MODE.ORIGINAL),
             title: ui.T("style_fill_per_feature_note"),
           },
         ]
       : []),
-    { value: FILL_MODE.SOLID, label: ui.T("style_mode_single") },
+    { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
     ...(fields.length > 0
-      ? [{ value: FILL_MODE.VALUE, label: ui.T("style_mode_by_value") }]
+      ? [{ value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) }]
       : []),
   ];
 
