@@ -451,7 +451,11 @@ const checkListenerRegistrations = (
 
 describe("allow-list entries name real files", () => {
   it("every pinned path resolves to an existing file under foliplus/js/", () => {
-    for (const list of [BARE_ADD_EVENT_LISTENER, L_DOM_EVENT_ON, MAP_ON_ALLOW_LISTENER]) {
+    for (const list of [
+      BARE_ADD_EVENT_LISTENER,
+      L_DOM_EVENT_ON,
+      MAP_ON_ALLOW_LISTENER,
+    ]) {
       for (const e of list) {
         expect(
           existsSync(resolve(ROOT, "foliplus/js", e.f)),
