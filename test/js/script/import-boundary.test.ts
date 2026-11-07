@@ -1,6 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { describe, expect, it } from "vitest";
+// The bottom tier's directory is not re-spelled here: it must equal the
+// shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
+// rename lands in build-path and this test's TIER stays honest (red here
+// until TIER follows).
+import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
@@ -32,12 +37,6 @@ import { describe, expect, it } from "vitest";
 // (directory and alias in one entry) and the rules/tests follow.
 const REPO_ROOT = resolve(".");
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
-
-// The bottom tier's directory is not re-spelled here: it must equal the
-// shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
-// rename lands in build-path and this test's TIER stays honest (red here
-// until TIER follows).
-import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 
 // ── Layer classification ──────────────────────────────────────
 // TIER maps each tier to its directory AND its #alias segment. Step 2 renames

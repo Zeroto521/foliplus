@@ -176,11 +176,8 @@ const globalNamespacePlugin = sourceRoot => ({
     );
     build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, args => {
       const spec = args.path;
-      const rel = spec
-        // Rewrite the shared `#<prefix>/` namespaces via the derived table
-        // (build-path.namespacePrefixRules) so a tier rename cannot leave this
-        // onLoad rewrite out of sync with the onResolve filter above.
-        ...Object.entries(namespacePrefixRules()).reduce(
+      const rel = Object.entries(namespacePrefixRules())
+        .reduce(
           (acc, [prefix, dir]) => acc.replace(new RegExp(`^#${prefix}/`), dir),
           spec,
         )

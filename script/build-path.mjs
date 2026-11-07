@@ -104,9 +104,9 @@ const testPathAliases = root => ({
 // Renaming a tier is therefore a one-line change to ALIAS_TO_REL: the
 // shared-import regex, the plugin rewrite rules and the package.json imports
 // all derive from it.
-const SHARED_MODULE_PREFIXES = SHARED_ALIASES
-  .filter(spec => spec !== "#control" && ALIAS_TO_REL[spec].split("/").pop() !== "js")
-  .map(spec => ALIAS_TO_REL[spec].split("/").pop());
+const SHARED_MODULE_PREFIXES = SHARED_ALIASES.filter(
+  spec => spec !== "#control" && ALIAS_TO_REL[spec].split("/").pop() !== "js",
+).map(spec => ALIAS_TO_REL[spec].split("/").pop());
 
 /**
  * namespacePrefixRules — the shared `#<prefix>/` rewrite table: prefix ->
@@ -117,7 +117,10 @@ const SHARED_MODULE_PREFIXES = SHARED_ALIASES
  */
 const namespacePrefixRules = () =>
   Object.fromEntries(
-    SHARED_MODULE_PREFIXES.map(prefix => [prefix, `${ALIAS_TO_REL[`#${prefix}`].slice(ALIAS_TO_REL[`#${prefix}`].lastIndexOf("/") + 1)}/`]),
+    SHARED_MODULE_PREFIXES.map(prefix => [
+      prefix,
+      `${ALIAS_TO_REL[`#${prefix}`].slice(ALIAS_TO_REL[`#${prefix}`].lastIndexOf("/") + 1)}/`,
+    ]),
   );
 
 /**
