@@ -20,6 +20,7 @@ from pathlib import Path
 
 import folium
 import pytest
+from conftest import feature_collection
 
 from foliplus import LayerControl
 from foliplus.control.LayerControl._layer_declaration import (
@@ -28,7 +29,7 @@ from foliplus.control.LayerControl._layer_declaration import (
     declared_zoom_range,
 )
 
-_EMPTY = json.dumps({"type": "FeatureCollection", "features": []})
+_EMPTY = json.dumps(feature_collection())
 
 
 def _render(*layers: folium.Layer) -> str:
@@ -47,9 +48,7 @@ def _conf(html: str) -> dict:
 
 
 def _geo(name: str = "Declared", **options: object) -> folium.GeoJson:
-    return folium.GeoJson(
-        {"type": "FeatureCollection", "features": []}, name=name, **options
-    )
+    return folium.GeoJson(feature_collection(), name=name, **options)
 
 
 def test_declared_zoom_reaches_conf():

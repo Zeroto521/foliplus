@@ -14,21 +14,22 @@
 import { describe, expect, it } from "vitest";
 import { drawHexagon } from "#control/HeatmapControl/render.js";
 import type { HexFeature } from "#control/HeatmapControl/type.js";
+import { loadFeature } from "../fixture.js";
 
-const makeFeat = (i: number): HexFeature => ({
-  type: "Feature",
-  geometry: {
-    type: "Polygon",
-    coordinates: [
-      [
-        [119.3 + i * 0.0001, 26.08],
-        [119.31 + i * 0.0001, 26.09],
-        [119.3 + i * 0.0001, 26.08],
-      ],
-    ],
-  },
-  properties: { centroid: [26.08, 119.3 + i * 0.0001], value: i, fillColor: "#ff0000" },
-});
+const baseFeature = loadFeature("common", "hexagon_fuzhou") as unknown as HexFeature;
+
+const makeFeat = (i: number): HexFeature => {
+  const feature = structuredClone(baseFeature);
+  feature.geometry.coordinates[0] = feature.geometry.coordinates[0].map(
+    ([lng, lat]) => [lng + i * 0.0001, lat],
+  );
+  feature.properties = {
+    centroid: [26.08, 119.3 + i * 0.0001],
+    value: i,
+    fillColor: "#ff0000",
+  };
+  return feature;
+};
 
 const makeCtx = () => {
   const canvas = document.createElement("canvas");

@@ -14,11 +14,19 @@ dismissal). Escape closes the popup only — the drawer and the row panel stay.
 
 from __future__ import annotations
 
+import copy
 import json
 
 import folium
 import pytest
-from conftest import _js, make_browser_page, panel_ready, snippet, use_page
+from conftest import (
+    _js,
+    load_geojson,
+    make_browser_page,
+    panel_ready,
+    snippet,
+    use_page,
+)
 
 from foliplus import HeatmapControl, LayerControl
 
@@ -51,28 +59,7 @@ def _make_page(browser, tmp_path):
     # A second control on the map gives a real press target outside the layer
     # panel (the "press elsewhere ends the rename" invariant).
     HeatmapControl().add_to(m)
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
+    data = load_geojson("common", "polygons_fuzhou_3offset")
     folium.GeoJson(json.dumps(data), name="Polygon data").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "style_dropdown")
 
@@ -209,34 +196,15 @@ class TestStyleDrawerDropdownBrowser:
 
 def _make_geometry_page(browser, tmp_path, locale):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    features = [
-        {
-            "type": "Feature",
-            "properties": {
-                "score": 10 + i,
-                # A data-driven label wider than the 160px control cell: the
-                # open list has to stop at the cell, not grow past the panel.
-                "population_density_2020_index": 100 + i,
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.06],
-                    ]
-                ],
-            },
+    data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+    for i, feat in enumerate(data["features"]):
+        feat["properties"] = {
+            "score": 10 + i,
+            # A data-driven label wider than the 160px control cell: the
+            # open list has to stop at the cell, not grow past the panel.
+            "population_density_2020_index": 100 + i,
         }
-        for i in range(3)
-    ]
-    folium.GeoJson(
-        json.dumps({"type": "FeatureCollection", "features": features}),
-        name="Polygon data",
-    ).add_to(m)
+    folium.GeoJson(json.dumps(data), name="Polygon data").add_to(m)
     LayerControl(locale=locale).add_to(m)
     return make_browser_page(
         browser, tmp_path, m.get_root().render(), f"geometry_{locale}"

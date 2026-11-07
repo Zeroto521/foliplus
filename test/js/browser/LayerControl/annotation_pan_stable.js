@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const ctrl = window.__layerCtrl;
   const mgr = ctrl && ctrl.mgr.annotation;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
@@ -14,8 +14,11 @@
     m.feature = { properties: { name } };
     return m;
   };
-  g.mainLayer.addLayer(mk(26.08, 119.3, "alpha"));
-  g.mainLayer.addLayer(mk(26.09, 119.31, "beta"));
+  for (const f of fixtures.points.features) {
+    g.mainLayer.addLayer(
+      mk(f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties.name),
+    );
+  }
   mgr.setConfig("__pan_stable__", { show: true, field: "name", format: "auto" });
   mgr.renderLabels("__pan_stable__");
 

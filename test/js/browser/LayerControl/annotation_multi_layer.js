@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const ctrl = window.__layerCtrl;
   const mgr = ctrl && ctrl.mgr.annotation;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
@@ -10,22 +10,16 @@
       name,
       panes: [{ name: `${id}_pane` }],
     });
-    for (const [lat, lng, text] of points) {
-      const m = L.marker([lat, lng]);
-      m.feature = { properties: { name: text } };
+    for (const f of points.features) {
+      const m = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+      m.feature = { properties: f.properties };
       g.mainLayer.addLayer(m);
     }
     mgr.setConfig(id, { show: true, field: "name", format: "auto" });
     mgr.renderLabels(id);
   };
-  build("__ml_a__", "MLA", [
-    [26.08, 119.3, "alpha"],
-    [26.09, 119.31, "beta"],
-  ]);
-  build("__ml_b__", "MLB", [
-    [26.1, 119.32, "gamma"],
-    [26.11, 119.33, "delta"],
-  ]);
+  build("__ml_a__", "MLA", fixtures.pointsA);
+  build("__ml_b__", "MLB", fixtures.pointsB);
   // enforceOrder is debounced; run it now so each layer's pane — and its
   // annotation pane — gets the z that places it in the stack.
   ctrl.mgr.enforceOrder();

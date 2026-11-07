@@ -8,6 +8,9 @@ import re
 import folium
 from conftest import (
     _js,
+    leaflet_path,
+    leaflet_points,
+    load_geojson,
     panel_ready,
     use_page,
 )
@@ -23,7 +26,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/add_label_sets_pane"))
+            result = page.evaluate(
+                _js("LayerControl/add_label_sets_pane"),
+                {"point": leaflet_points("common", "point_1193_2608")[0]},
+            )
             assert result is not None
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
@@ -32,7 +38,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """Enabling labels draws text onto the shared annotation canvas."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            result = page.evaluate(
+                _js("LayerControl/annotation_canvas_draws"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             assert result is not None, "annotation manager or LayerAPI not found"
             assert result["canvas"] is True, f"canvas not created: {result}"
             assert result["opaque"] > 0, "canvas has no drawn pixels"
@@ -49,24 +58,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result["bOpaque"] == 0, "second (hidden) label was drawn"
             assert not errors, f"JS errors: {errors}"
 
-    @staticmethod
-    def _declared_annotation_layer(
-        name, annotation, coords, text="12345678901234567890"
-    ):
-        """A point layer whose foliplus namespace declares its label defaults."""
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"name": text},
-                "geometry": {"type": "Point", "coordinates": [lng, lat]},
-            }
-            for lat, lng in coords
-        ]
-        return folium.GeoJson(
-            json.dumps({"type": "FeatureCollection", "features": features}),
-            name=name,
-            foliplus={"label": annotation},
-        )
+    # _declared_annotation_layer inherited from LayerControlBrowserBase
 
     def test_annotation_declared_color_and_size_reach_the_canvas(
         self, browser, tmp_path
@@ -216,7 +208,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            page.evaluate(_js("LayerControl/annotation_canvas_draws"))
+            page.evaluate(
+                _js("LayerControl/annotation_canvas_draws"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             result = page.evaluate(_js("LayerControl/annotation_click_through"))
             assert result is not None and result["canvas"] is True, result
             assert result["pointerEvents"] == "none", result
@@ -250,7 +245,15 @@ class TestLabelBrowser(LayerControlBrowserBase):
             page,
             errors,
         ):
-            result = page.evaluate(_js("LayerControl/label_canvas_click_through"))
+            result = page.evaluate(
+                _js("LayerControl/label_canvas_click_through"),
+                {
+                    "polygon": leaflet_path("LayerControl", "polygon_fuzhou_viewport"),
+                    "marker": [26.1, 119.3],
+                    "polyClick": [26.15, 119.35],
+                    "markerClick": [26.1, 119.3],
+                },
+            )
             assert result is not None, "LayerAPI not found"
             assert result["ready"] is True, f"fixture not ready: {result}"
             assert result["labelPointerEvents"] == "none", result
@@ -322,7 +325,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """Panning must not drift the labels: the canvas cancels mapPane's move."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_pan_stable"))
+            result = page.evaluate(
+                _js("LayerControl/annotation_pan_stable"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             assert result is not None and result["canvas"] is True, result
             assert result["beforeLeft"] == result["afterLeft"], result
             assert result["beforeTop"] == result["afterTop"], result
@@ -332,7 +338,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """Hiding a layer drops its labels; showing it brings them back."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_hidden_layer"))
+            result = page.evaluate(
+                _js("LayerControl/annotation_hidden_layer"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             assert result is not None, result
             assert result["before"] > 0, result
             assert result["hidden"] == 0, result
@@ -349,7 +358,13 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
+            result = page.evaluate(
+                _js("LayerControl/annotation_multi_layer"),
+                {
+                    "pointsA": load_geojson("common", "points_fuzhou_alpha_beta"),
+                    "pointsB": load_geojson("common", "points_fuzhou_gamma_delta"),
+                },
+            )
             assert result is not None and result["canvas"] is True, result
             # One pane + one canvas per labeled layer — not a shared canvas.
             assert result["canvasCount"] == 2, result

@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Berlin",
+        "street": "Pariser Platz",
+        "city": "Berlin",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.405,
+          52.52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Berlin",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.4,
+          52.5
+        ]
+      }
+    }
+  ]
+}

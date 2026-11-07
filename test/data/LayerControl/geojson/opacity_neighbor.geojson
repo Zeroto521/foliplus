@@ -1,0 +1,13 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "neighbor", "value": 1},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.57, 26.1], [119.57, 26.11], [119.58, 26.11], [119.57, 26.1]]]
+      }
+    }
+  ]
+}

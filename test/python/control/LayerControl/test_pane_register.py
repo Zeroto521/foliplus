@@ -20,6 +20,9 @@ from conftest import (
     assert_config_value,
     assert_locale,
     heatmap_ready,
+    leaflet_path,
+    leaflet_points,
+    load_geojson,
     make_browser_page,
     panel_ready,
     read_css,
@@ -81,7 +84,20 @@ class TestLayerPaneRegisterBrowser:
     @staticmethod
     def _facts(page, spec: dict) -> dict:
         page.evaluate(_js("LayerControl/set_probe"), spec)
-        return page.evaluate(_js("LayerControl/probe_pane_facts"))
+        return page.evaluate(
+            _js("LayerControl/probe_pane_facts"),
+            {
+                "addPoint": load_geojson("LayerControl", "point_11934_2611")[
+                    "features"
+                ][0],
+                "clusterPoint": [26.16, 119.2],
+                "groupPoint": [26.15, 119.22],
+                "featurePolygon": leaflet_path(
+                    "LayerControl", "polygon_fuzhou_pane_probe"
+                ),
+                "featurePoint": [26.08, 119.28],
+            },
+        )
 
     # ── Materialize at registration ───────────────────────────────
 
@@ -98,7 +114,13 @@ class TestLayerPaneRegisterBrowser:
             page,
             errors,
         ):
-            r = page.evaluate(_js("LayerControl/register_immediate_pane"))
+            r = page.evaluate(
+                _js("LayerControl/register_immediate_pane"),
+                {
+                    "marker": leaflet_points("common", "point_1193_2608")[0],
+                    "line": leaflet_path("LayerControl", "line_fuzhou_horizontal"),
+                },
+            )
         assert r is not None, "LayerAPI missing"
         # A marker-bearing layer synthesizes its own shadow pane alongside the
         # base pane, so the pane set is two names — base first, shadow below.
@@ -189,7 +211,7 @@ class TestLayerPaneRegisterBrowser:
         from folium.plugins import MarkerCluster
 
         mc = MarkerCluster(name="Probe Cluster")
-        for lat, lng in ([26.10, 119.25], [26.12, 119.27], [26.14, 119.29]):
+        for lat, lng in leaflet_points("LayerControl", "points_cluster_3offset"):
             folium.Marker([lat, lng], name="c").add_to(mc)
         with use_page(self._probe, browser, tmp_path, mc, slug="p3") as (page, _):
             r = self._facts(page, {"id": mc.get_name(), "add": "cluster-addmarker"})
@@ -271,7 +293,13 @@ class TestLayerPaneRegisterBrowser:
         per-layer fallback pane; runtime-added markers inherit it. This is
         the C-tier contract — register to get the pane carrier."""
         with use_page(self._probe, browser, tmp_path, slug="p6b") as (page, _):
-            page.evaluate(_js("LayerControl/setup_tp_fg"))
+            page.evaluate(
+                _js("LayerControl/setup_tp_fg"),
+                {
+                    "polygon": leaflet_path("LayerControl", "polygon_fuzhou_tp"),
+                    "marker": [26.33, 119.23],
+                },
+            )
             r = self._facts(page, {"id": "__tp_fg__", "add": "group-addmarker"})
         assert all(h["pane"].startswith("foliplus-pane-") for h in r["homes"])
         assert not any(h["shared"] for h in r["homes"])
@@ -347,7 +375,10 @@ class TestLayerPaneRegisterBrowser:
         both renderers; hiding/pointer-events:none on the label pane keeps
         the SVG data clickable underneath."""
         with use_page(self._probe, browser, tmp_path, slug="p10") as (page, _):
-            r = page.evaluate(_js("LayerControl/probe_mixed_renderer"))
+            r = page.evaluate(
+                _js("LayerControl/probe_mixed_renderer"),
+                {"polygon": leaflet_path("LayerControl", "polygon_mixed_renderer")},
+            )
         assert r["pathPane"] == "__probe_mixed_data__"
         assert r["labelCanvasPane"] == "__probe_mixed_label__"
         assert abs(r["pathEff"] - 0.4) < 0.02

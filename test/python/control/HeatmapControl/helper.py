@@ -7,7 +7,14 @@ import re
 from pathlib import Path
 
 import folium
-from conftest import _js, heatmap_ready, make_browser_page, snippet
+from conftest import (
+    _js,
+    feature_collection,
+    heatmap_ready,
+    make_browser_page,
+    point_feature,
+    snippet,
+)
 
 from foliplus import HeatmapControl
 from foliplus._cdn_loader import load_cdn
@@ -89,18 +96,7 @@ def _make_page(
     coords = [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]
     for i, (lat, lng) in enumerate(coords[:num_layers]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
-        gj = json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {"val": lat},
-                        "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                    }
-                ],
-            }
-        )
+        gj = json.dumps(feature_collection(point_feature(lng, lat, {"val": lat})))
         folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
 
@@ -140,7 +136,7 @@ def _make_autofield_page(
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     fg = folium.FeatureGroup(name="Points", show=True)
     for feat in features:
-        gj = json.dumps({"type": "FeatureCollection", "features": [feat]})
+        gj = json.dumps(feature_collection(feat))
         folium.GeoJson(gj).add_to(fg)
     fg.add_to(m)
 

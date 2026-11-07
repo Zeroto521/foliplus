@@ -8,6 +8,11 @@ import {
   midpoint,
   vertexMean,
 } from "#core/geo/index.js";
+import { loadGeometry } from "../fixture.js";
+
+const squareRing = (
+  loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon
+).coordinates[0];
 
 beforeEach(() => {
   globalThis.turf = {
@@ -89,12 +94,7 @@ describe("geo.midpoint", () => {
 
 describe("geo.vertexMean", () => {
   it("averages vertex lat/lng", () => {
-    const c = vertexMean([
-      { lng: 0, lat: 0 },
-      { lng: 0, lat: 10 },
-      { lng: 10, lat: 10 },
-      { lng: 10, lat: 0 },
-    ]);
+    const c = vertexMean(squareRing.slice(0, -1).map(([lng, lat]) => ({ lng, lat })));
     expect(c).toEqual({ lat: 5, lng: 5 });
   });
 });
@@ -111,63 +111,28 @@ describe("geo.area", () => {
   });
 
   it("closes the ring and calls turf.area", () => {
-    const a = area([
-      { lng: 0, lat: 0 },
-      { lng: 0, lat: 10 },
-      { lng: 10, lat: 10 },
-    ]);
+    const ring = squareRing.slice(0, 3);
+    const a = area(ring.map(([lng, lat]) => ({ lng, lat })));
     expect(a).toBe(5_000_000);
-    expect(turf.polygon).toHaveBeenCalledWith([
-      [
-        [0, 0],
-        [0, 10],
-        [10, 10],
-        [0, 0],
-      ],
-    ]);
+    expect(turf.polygon).toHaveBeenCalledWith([[...ring, ring[0]]]);
   });
 });
 
 describe("geo.areaCentroid", () => {
   it("computes the shoelace centroid of a Polygon", () => {
     // Unit square: shoelace centroid is the geometric center.
-    const c = areaCentroid({
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [0, 1],
-          [1, 1],
-          [1, 0],
-          [0, 0],
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("common", "polygon_unit_square_1") as GeoJSON.Polygon,
+    );
     expect(c).toEqual({ lat: 0.5, lng: 0.5 });
   });
 
   it("subtracts holes from the outer ring (signed shoelace)", () => {
     // 10×10 square with a 2×2 hole in the upper-right quadrant.
     // Signed-area centroid of the resulting annulus is NOT the square's center.
-    const c = areaCentroid({
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [0, 10],
-          [10, 10],
-          [10, 0],
-          [0, 0],
-        ],
-        [
-          [8, 8],
-          [9, 8],
-          [9, 9],
-          [8, 9],
-          [8, 8],
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("common", "polygon_square_10_hole_2") as GeoJSON.Polygon,
+    );
     // 96-area annulus; centroid shifted toward the lower-left of the outer
     // ring because the hole eats from the upper-right.
     expect(c.lng).toBeLessThan(5);
@@ -177,44 +142,18 @@ describe("geo.areaCentroid", () => {
   it("returns (0,0) for a Polygon whose signed area cancels to zero", () => {
     // Three collinear vertices: the shoelace sum is zero (no enclosed area),
     // so the degenerate guard falls through to the origin sentinel.
-    const c = areaCentroid({
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [1, 0],
-          [2, 0],
-          [0, 0],
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("core", "polygon_degenerate_collinear") as GeoJSON.Polygon,
+    );
     expect(c).toEqual({ lat: 0, lng: 0 });
   });
 
   it("returns (0,0) for a MultiPolygon whose parts are all degenerate", () => {
     // Two degenerate polygons: both have zero signed area, so `totalArea`
     // stays zero and the fallback origin is returned.
-    const c = areaCentroid({
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [
-            [0, 0],
-            [1, 0],
-            [2, 0],
-            [0, 0],
-          ],
-        ],
-        [
-          [
-            [5, 5],
-            [6, 5],
-            [7, 5],
-            [5, 5],
-          ],
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("core", "multipolygon_degenerate") as GeoJSON.MultiPolygon,
+    );
     expect(c).toEqual({ lat: 0, lng: 0 });
   });
 
@@ -223,27 +162,9 @@ describe("geo.areaCentroid", () => {
     // under the old `(i + 1) % ring.length` indexing when the modulo hit 0.
     // The guard treats such rings as no-ops, so the centroid still comes from
     // the remaining valid rings.
-    const c = areaCentroid({
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [], // empty ring — must be skipped, not contribute NaN
-          [
-            [0, 0],
-            [0, 10],
-            [10, 10],
-            [10, 0],
-            [0, 0],
-          ],
-        ],
-        [
-          [
-            [0, 0],
-            [1, 0],
-          ], // 2-vertex ring — also skipped
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("core", "multipolygon_empty_ring") as GeoJSON.MultiPolygon,
+    );
     expect(c).toEqual({ lat: 5, lng: 5 });
   });
 
@@ -252,29 +173,9 @@ describe("geo.areaCentroid", () => {
     // centroid sits near the big square's center, not at the midpoint of
     // the two bounding boxes (which would be turf.centerOfMass's convex
     // shortcut on MultiPolygon).
-    const c = areaCentroid({
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [
-            [0, 0],
-            [0, 10],
-            [10, 10],
-            [10, 0],
-            [0, 0],
-          ],
-        ],
-        [
-          [
-            [20, 0],
-            [20, 1],
-            [21, 1],
-            [21, 0],
-            [20, 0],
-          ],
-        ],
-      ],
-    });
+    const c = areaCentroid(
+      loadGeometry("common", "multipolygon_weighted") as GeoJSON.MultiPolygon,
+    );
     // Weighted average: (100 * 5 + 1 * 20.5) / 101, y symmetric at (100*5 + 1*0.5)/101.
     expect(c.lng).toBeCloseTo((100 * 5 + 20.5) / 101, 5);
     expect(c.lat).toBeCloseTo((100 * 5 + 0.5) / 101, 5);

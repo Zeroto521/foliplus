@@ -11,9 +11,14 @@ import folium
 import pytest
 from conftest import (
     _js,
+    feature_collection,
     heatmap_ready,
+    leaflet_path,
+    leaflet_points,
+    load_geojson,
     make_browser_page,
     panel_ready,
+    point_feature,
     render,
     snippet,
     use_page,
@@ -166,7 +171,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
     def test_add_graph_sets_pane(self, browser, tmp_path):
         """addGraph sets pane on the layer and calls register."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/add_graph_sets_pane"))
+            result = page.evaluate(
+                _js("LayerControl/add_graph_sets_pane"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
@@ -175,7 +183,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
     def test_clear_all_unregisters(self, browser, tmp_path):
         """clearAll clears content and unregisters the layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/clear_all_unregisters"))
+            result = page.evaluate(
+                _js("LayerControl/clear_all_unregisters"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
@@ -192,7 +203,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
             page,
             errors,
         ):
-            result = page.evaluate(_js("LayerControl/geojson_group_pins_children_pane"))
+            result = page.evaluate(
+                _js("LayerControl/geojson_group_pins_children_pane"),
+                load_geojson("LayerControl", "line_polygon_panes"),
+            )
             assert result is not None, "LayerAPI not found"
             assert result["paneExists"], f"declared pane was never created: {result}"
             assert result["groupPane"] == "__geojson_pane__", result
@@ -256,7 +270,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/unregister_layer_flow"))
+            result = page.evaluate(
+                _js("LayerControl/unregister_layer_flow"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None
             assert result["before"] is True
             assert result["after"] is False
@@ -307,14 +324,20 @@ class TestPanelBrowser(LayerControlBrowserBase):
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """pinLateContent moves Markers to per-layer panes."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/migrate_marker_pane"))
+            result = page.evaluate(
+                _js("LayerControl/migrate_marker_pane"),
+                {"point": leaflet_points("common", "point_1193_2608")[0]},
+            )
             assert result is not None
             assert result["pane"] == "__test_marker_pane_graph__"
 
     def test_migrate_layers_path_pane(self, browser, tmp_path):
         """pinLateContent moves Path layers to the target pane."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/migrate_path_pane"))
+            result = page.evaluate(
+                _js("LayerControl/migrate_path_pane"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None
             assert result["pane"] == "__test_path_pane_graph__"
 
@@ -1042,21 +1065,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"val": 26.08},
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [119.30, 26.08],
-                            },
-                        }
-                    ],
-                }
-            )
+            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
         ).add_to(fg)
         fg.add_to(m)
         LayerControl().add_to(m)
@@ -1434,25 +1443,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             self._make_page,
             browser,
             tmp_path,
-            folium.GeoJson(
-                {
-                    "type": "Feature",
-                    "properties": {},
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [121.4, 31.2],
-                                [121.5, 31.2],
-                                [121.5, 31.3],
-                                [121.4, 31.3],
-                                [121.4, 31.2],
-                            ]
-                        ],
-                    },
-                },
-                name="Polygons",
-            ),
+            folium.GeoJson(load_geojson("common", "shanghai_polygon"), name="Polygons"),
             folium.Marker([26.08, 119.30], name="Points"),
         ) as (page, errors):
             # GeoJSON's layer is resolved after its addTo fires layeradd →
@@ -1503,7 +1494,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
         `foliplus-pane-*` name during migration.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/migrate_container_clean_options"))
+            result = page.evaluate(
+                _js("LayerControl/migrate_container_clean_options"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None
             assert result["leafPane"] == "__clean_graph__", (
                 f"Leaf layer not migrated: {result['leafPane']}"
@@ -1524,7 +1518,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
         drag order and persist the accidental order via saveOrder.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/register_idempotent_keeps_order"))
+            result = page.evaluate(
+                _js("LayerControl/register_idempotent_keeps_order"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None, "LayerAPI not found"
             assert not result["moved"], (
                 f"Re-register reordered layers: {result['orderBefore']} -> {result['orderAfter']}"
@@ -1538,7 +1535,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
         registered layer should insert a single DOM item instead.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            result = page.evaluate(_js("LayerControl/render_initial_list_incremental"))
+            result = page.evaluate(
+                _js("LayerControl/render_initial_list_incremental"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             assert result is not None, "LayerAPI not found"
             # After the initial attachUI render (1 call), dynamic registrations
             # must not trigger additional full rebuilds.
@@ -2014,7 +2014,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 state="attached",
                 timeout=5000,
             )
-            arm = page.evaluate(_js("LayerControl/native_gate_arm"))
+            arm = page.evaluate(
+                _js("LayerControl/native_gate_arm"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert arm.get("error") is None, f"setup failed: {arm}"
             mid = page.evaluate(_js("LayerControl/native_gate_mid"))
             assert mid["cbType"] == "checkbox", f"not a checkbox: {mid}"
@@ -2102,7 +2105,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(self._make_page, browser, tmp_path, fg) as (page, _):
             page.evaluate(_js("LayerControl/open_panel"))
@@ -2133,7 +2136,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """Double-clicking an overlay draws the dashed rect + inverse mask."""
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(self._make_page, browser, tmp_path, fg, slug="focus_overlay") as (
             page,
@@ -2171,7 +2174,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         # so ``fitBounds`` must zoom out to fit it.
         fg = folium.FeatureGroup(name="Wide", overlay=True, show=True)
         folium.Polygon(
-            locations=[[20, 110], [40, 110], [40, 130], [20, 130], [20, 110]],
+            locations=leaflet_path("LayerControl", "polygon_world_box"),
         ).add_to(fg)
         m = folium.Map(location=[26.08, 119.30], zoom_start=16)
         LayerControl().add_to(m)
@@ -2238,7 +2241,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page, browser, tmp_path, fg, slug="focus_rect_ants"
@@ -2285,7 +2288,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page, browser, tmp_path, fg, slug="geom_focus_ants"
@@ -2336,7 +2339,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page, browser, tmp_path, fg, slug="geom_focus_zoom_lock"
@@ -2391,7 +2394,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page,
@@ -2463,7 +2466,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page,
@@ -2510,7 +2513,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         )
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page,
@@ -2605,7 +2608,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         )
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg)
         with use_page(
             self._make_page,
@@ -3198,29 +3201,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Features", overlay=True, show=True)
         folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"name": "Zone A", "value": 42},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.29, 26.07],
-                                        [119.31, 26.07],
-                                        [119.31, 26.09],
-                                        [119.29, 26.09],
-                                        [119.29, 26.07],
-                                    ]
-                                ],
-                            },
-                        }
-                    ],
-                }
-            ),
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
             name="GeoJson",
             layer_name="GeoJson",
             popup=folium.GeoJsonPopup(
@@ -3281,7 +3262,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         # hover, and its shadow pane hosts the seeded probe element.
         fg_polygon = folium.FeatureGroup(name="Zones", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
         ).add_to(fg_polygon)
         fg_marker = folium.FeatureGroup(name="Points", overlay=True, show=True)
         folium.Marker([26.05, 119.25], name="P1", tooltip="Tooltip text").add_to(

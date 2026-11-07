@@ -13,7 +13,13 @@ import {
 } from "#control/HeatmapControl/ui.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
-import { makeConfig, makeCtrl, makeManager, makeManagerOn } from "./fixture.js";
+import {
+  loadGeometry,
+  makeConfig,
+  makeCtrl,
+  makeManager,
+  makeManagerOn,
+} from "./fixture.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -1873,17 +1879,7 @@ describe("redrawHeatmap — edge cases", () => {
   function makeFeature(centroid: [number, number] | null) {
     return {
       properties: { centroid, fillColor: "#fff" },
-      geometry: {
-        coordinates: [
-          [
-            [0, 0],
-            [1, 0],
-            [1, 1],
-            [0, 1],
-            [0, 0],
-          ],
-        ],
-      },
+      geometry: loadGeometry("common", "polygon_unit_square_1") as GeoJSON.Polygon,
     } as never;
   }
 
@@ -1993,17 +1989,7 @@ describe("computeBounds", () => {
     m.cachedFeatures = [
       {
         properties: { centroid: [0, 0] },
-        geometry: {
-          coordinates: [
-            [
-              [0, 0],
-              [1, 0],
-              [1, 1],
-              [0, 1],
-              [0, 0],
-            ],
-          ],
-        },
+        geometry: loadGeometry("common", "polygon_unit_square_1"),
       },
     ] as never;
     const bounds = m.computeBounds();

@@ -1,0 +1,10 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Alpha", "kind": "city"},
+      "geometry": {"type": "Point", "coordinates": [119.30, 26.08]}
+    }
+  ]
+}

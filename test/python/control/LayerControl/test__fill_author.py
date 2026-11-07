@@ -22,7 +22,15 @@ import json
 import branca.colormap as branca_cm
 import folium
 import pytest
-from conftest import _js, make_browser_page, panel_ready, use_page
+from conftest import (
+    _js,
+    feature_collection,
+    load_geojson,
+    make_browser_page,
+    panel_ready,
+    point_feature,
+    use_page,
+)
 
 from foliplus import LayerControl
 
@@ -69,17 +77,8 @@ def _collection(
         }
         if color is not None:
             props["__folium_color"] = color
-        features.append(
-            {
-                "type": "Feature",
-                "properties": props,
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [119.30 + i * 0.01, 26.08],
-                },
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
+        features.append(point_feature(119.30 + i * 0.01, 26.08, props))
+    return feature_collection(*features)
 
 
 def _geo(
@@ -345,7 +344,7 @@ def test_invalid_json_string_is_ignored():
 
 
 def test_missing_features_list_is_ignored():
-    layer = folium.GeoJson({"type": "FeatureCollection"})
+    layer = folium.GeoJson(feature_collection())
     assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
 
 
@@ -844,27 +843,13 @@ def _scale() -> branca_cm.LinearColormap:
 
 def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
     colors = [str(scale(score))[:7] for score in _SCORES]
-    features = [
-        {
-            "type": "Feature",
-            "properties": {"__folium_color": color, "cat": f"c{i}", "score": score},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.06],
-                    ]
-                ],
-            },
-        }
-        for i, (color, score) in enumerate(zip(colors, _SCORES, strict=True))
-    ]
+    data = load_geojson("common", "polygons_fuzhou_6offset")
+    for i, (feat, color, score) in enumerate(
+        zip(data["features"], colors, _SCORES, strict=True)
+    ):
+        feat["properties"] = {"__folium_color": color, "cat": f"c{i}", "score": score}
     return folium.GeoJson(
-        json.dumps({"type": "FeatureCollection", "features": features}),
+        json.dumps(data),
         name="Facility Points",
         style_function=lambda f: {
             "fillColor": f["properties"]["__folium_color"],
@@ -1076,27 +1061,11 @@ class TestFillAuthorBrowser:
         dash, and not a guessed classification.
         """
         colors = ["#%06x" % (i * 0x111111) for i in range(12)]
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"__folium_color": color, "score": float(i)},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i, color in enumerate(colors)
-        ]
+        data = load_geojson("common", "polygons_fuzhou_12offset")
+        for i, (feat, color) in enumerate(zip(data["features"], colors, strict=True)):
+            feat["properties"] = {"__folium_color": color, "score": float(i)}
         layer = folium.GeoJson(
-            json.dumps({"type": "FeatureCollection", "features": features}),
+            json.dumps(data),
             name="Facility Points",
             style_function=lambda f: {
                 "fillColor": f["properties"]["__folium_color"],
@@ -1134,27 +1103,11 @@ class TestFillAuthorBrowser:
 
 
 def _declared_layer() -> folium.GeoJson:
-    features = [
-        {
-            "type": "Feature",
-            "properties": {"score": score},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.06],
-                    ]
-                ],
-            },
-        }
-        for i, score in enumerate(_DECLARED_SCORES)
-    ]
+    data = load_geojson("common", "polygons_fuzhou_6offset")
+    for feat, score in zip(data["features"], _DECLARED_SCORES, strict=True):
+        feat["properties"] = {"score": score}
     return folium.GeoJson(
-        json.dumps({"type": "FeatureCollection", "features": features}),
+        json.dumps(data),
         name=_DECLARED_NAME,
         style_function=lambda _feature: {
             "fillColor": "#808080",
@@ -1164,9 +1117,9 @@ def _declared_layer() -> folium.GeoJson:
         foliplus={
             "fill": {
                 "field": "score",
+                "scheme": "Blues",
                 "method": "equal",
                 "classes": 3,
-                "scheme": "Reds",
             }
         },
     )

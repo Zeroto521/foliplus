@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.28, 26.06], [119.32, 26.06], [119.32, 26.10], [119.28, 26.10], [119.28, 26.06]]]}},
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.29, 26.06], [119.33, 26.06], [119.33, 26.10], [119.29, 26.10], [119.29, 26.06]]]}},
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.3, 26.06], [119.34, 26.06], [119.34, 26.10], [119.3, 26.10], [119.3, 26.06]]]}},
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.31, 26.06], [119.35, 26.06], [119.35, 26.10], [119.31, 26.10], [119.31, 26.06]]]}},
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.32, 26.06], [119.36, 26.06], [119.36, 26.10], [119.32, 26.10], [119.32, 26.06]]]}},
+    {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[119.33, 26.06], [119.37, 26.06], [119.37, 26.10], [119.33, 26.10], [119.33, 26.06]]]}}
+  ]
+}

@@ -13,7 +13,8 @@
 //   add:       "<tag>"             runtime mutation to apply before fact 3
 //   native:    "<tag>"             native setter to exercise for fact 4
 // }
-() => {
+fixtures => {
+  fixtures = fixtures || {};
   const spec = window.__probe;
   delete window.__probe;
   const map = window.map;
@@ -78,12 +79,8 @@
   }
   if (spec.build === "featuregroup") {
     layer = L.featureGroup([
-      L.polygon([
-        [26.05, 119.25],
-        [26.09, 119.25],
-        [26.07, 119.3],
-      ]),
-      L.marker([26.08, 119.28]),
+      L.polygon(fixtures.featurePolygon),
+      L.marker(fixtures.featurePoint),
     ]);
     layer.addTo(map);
   }
@@ -133,21 +130,16 @@
   // ── fact 3: runtime-created DOM ─────────────────────────────────
   const ADD_OPS = {
     "geojson-addpoint": l => {
-      const f = {
-        type: "Feature",
-        properties: {},
-        geometry: { type: "Point", coordinates: [119.34, 26.11] },
-      };
-      l.addData(f);
+      l.addData(fixtures.addPoint);
       return l.getLayers().at(-1);
     },
     "cluster-addmarker": l => {
-      const mk = L.marker([26.16, 119.2]);
+      const mk = L.marker(fixtures.clusterPoint);
       l.addLayer(mk);
       return mk;
     },
     "group-addmarker": l => {
-      const mk = L.marker([26.15, 119.22]);
+      const mk = L.marker(fixtures.groupPoint);
       l.addLayer(mk);
       return mk;
     },
