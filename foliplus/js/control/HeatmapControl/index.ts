@@ -15,7 +15,6 @@ class HeatmapControl extends defineControl({
 }) {
   /** Backing store for the lazy `mgr` accessor. */
   private manager: HeatmapManager | null = null;
-  schemeDropdown: HTMLElement | null;
   schemePicker: import("#ui/index.js").SchemePicker | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -31,10 +30,7 @@ class HeatmapControl extends defineControl({
   declare schemeBar: HTMLElement;
   declare schemeBarInner: HTMLElement;
   declare schemeSelectHidden: HTMLSelectElement;
-  declare closeSchemeDropdown: (event: Event) => void;
-  declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
-  schemeBarCleanup: (() => void) | null = null;
   schemePickerOverlayUnregister: (() => void) | null = null;
   schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
@@ -42,10 +38,8 @@ class HeatmapControl extends defineControl({
 
   constructor(options?: L.ControlOptions) {
     super(options);
-    this.schemeDropdown = null;
     this.schemePicker = null;
     this.expandHookDone = false;
-    this.schemeBarCleanup = null;
     this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.toggleDropdown = null;
@@ -115,7 +109,7 @@ class HeatmapControl extends defineControl({
         ["resolve-manager", () => void this.mgr],
         ["detach-scan", () => this.initScanCleanup?.()],
         // The shared scheme picker is destroyed here (permanent teardown);
-        // schemeBarCleanup only closes the dropdown for data-clear reuse.
+        // the picker's close() only closes the dropdown for data-clear reuse.
         ["detach-scheme-picker", () => this.schemePickerCleanup?.()],
         ["detach-map-sync", () => this.manager?.mapCleanup?.()],
         [
@@ -148,7 +142,7 @@ class HeatmapControl extends defineControl({
         // clearHeatmapCanvas retires the overlay entry and can raise; the
         // overlay's own destroy is queued after it so the canvas and pane are
         // released either way. It also closes the picker's dropdown through
-        // schemeBarCleanup — a no-op once the picker above was destroyed.
+        // close() on the picker — a no-op once it was destroyed.
         ["clear-canvas", () => this.manager?.clearHeatmapCanvas()],
         ["destroy-overlay", () => this.manager?.overlay.destroy()],
       ],
@@ -167,12 +161,10 @@ class HeatmapControl extends defineControl({
     mgr?.removeContentChangeListener?.();
     this.manager = null;
     this.initScanCleanup = null;
-    this.schemeBarCleanup = null;
     this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.observer = null;
     // Drop UI references to the removed DOM so a re-add starts clean.
-    this.schemeDropdown = null;
     this.schemePicker = null;
     this.expandHookDone = false;
   }

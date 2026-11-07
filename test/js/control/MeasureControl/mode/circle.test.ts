@@ -158,14 +158,14 @@ describe("CircleMode — start drawing flow", () => {
       clickHandler({ latlng: { lat: 31.21, lng: 121.51 } });
       vi.runAllTimers();
 
-      expect(manager.measurements.length).toBe(1);
-      expect(manager.measurements[0].radius).toBeGreaterThan(0);
+      expect(manager.store.all().length).toBe(1);
+      expect(manager.store.all()[0].radius).toBeGreaterThan(0);
       expect(manager.store.add).toHaveBeenCalled();
 
       // Exercise the start-path onDelete captured by attachCircleUI so the
       // store.remove line is covered.
       expect(capturedCircleOpts).toBeDefined();
-      const circleId = manager.measurements[0].id;
+      const circleId = manager.store.all()[0].id;
       manager.store.remove.mockClear();
       capturedCircleOpts.onDelete();
       expect(manager.store.remove).toHaveBeenCalledWith(circleId);
@@ -189,11 +189,11 @@ describe("CircleMode — restore wiring", () => {
     expect(manager.editHandles.size).toBe(1);
     expect(typeof manager.editHandles.get("c_wire").dispose).toBe("function");
     // Verify the onDelete callback works by calling it directly
-    manager.measurements.push({ id: "c_wire", type: "circle" });
+    manager.store.all().push({ id: "c_wire", type: "circle" });
     // The onDelete callback is inside attachCircleUI's closure.
     // We can verify the data model by checking that the restore
     // doesn't modify measurements (it only rebuilds layers).
-    expect(manager.measurements.length).toBe(1);
+    expect(manager.store.all().length).toBe(1);
   });
 });
 
@@ -213,7 +213,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       radius: 5000,
       area: Math.PI * 5000 * 5000,
     };
-    manager.measurements = [data];
+    manager.store.hydrate([data]);
 
     CircleMode.restore(manager, data);
 
@@ -249,7 +249,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
       clickHandler({ latlng: { lat: 31.01, lng: 121.01 } });
       vi.runAllTimers();
 
-      expect(manager.measurements.length).toBe(1);
+      expect(manager.store.all().length).toBe(1);
 
       // finishCircle creates: circle(1) + ripple(2) + radiusNode.
       // The preview center (phase-0 click) is circleMarker call #1;
@@ -262,7 +262,7 @@ describe("CircleMode — drag persistence (onEnd)", () => {
 
       capturedCircleOpts.onEnd();
 
-      const saved = manager.measurements[0];
+      const saved = manager.store.all()[0];
       expect(saved.radius).toBe(12000);
       expect(saved.area).toBe(Math.PI * 12000 * 12000);
       expect(saved.target).toEqual({ lng: 123, lat: 31 });

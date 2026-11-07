@@ -33,7 +33,7 @@
 // rest of the declaration survives), and a declaration that names a ramp but
 // no usable field is dropped whole rather than painted as a misleading solid
 // face.
-import { CLASS_COUNT, isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
 import type { FillValueConfig } from "#core/layer/intent.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
@@ -242,7 +242,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
         invalid,
         layerId,
         "method",
-        `invalid fill.method ${JSON.stringify(data.method)} (expected jenks/quantile/equal/heads)`,
+        `invalid fill.method ${JSON.stringify(data.method)} (expected ${METHOD_ORDER.join("/")})`,
       );
     }
   }
