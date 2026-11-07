@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import folium
 import pytest
 from conftest import (
@@ -580,3 +582,123 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert result["handedOver"]["second"]["focusedClass"] is True, (
                 "the clicked row must carry the cursor, got " + str(result)
             )
+
+    @staticmethod
+    def _icon_marker_layer() -> folium.GeoJson:
+        """A marker layer with one categorical field across eight points.
+
+        The icon dimension owns the marker icon axis; the eight distinct
+        category values are what the derived symbol mapping walks (one symbol
+        per category, capped by the legend budget constant).
+        """
+        return folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"kind": f"c{i}"},
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [119.28 + i * 0.01, 26.08],
+                            },
+                        }
+                        for i in range(8)
+                    ],
+                }
+            ),
+            name="Icon markers",
+        )
+
+    def test_style_icon_dimension_swaps_marker_dom_class(self, browser, tmp_path):
+        """The icon row drives real markers: one whole-layer glyph swap.
+
+        The vitest layer proves setIcon receives the derived icon descriptor;
+        this crosses into the real Leaflet runtime to prove the marker's DOM
+        element actually carries `.foliplus-marker-glyph` for every marker on
+        the layer after one grid pick, that the derived chassis (className /
+        backgroundImage / backgroundPosition / iconSize) is pixel-identical to
+        the author baseline, and that Reset drops it back to the author icon.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="style_icon_dimension",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            before = page.evaluate(_js("LayerControl/icon_dimension_probe"), [])
+            assert before["panel"] and before["iconRow"], before
+            assert all(not icon["hasGlyph"] for icon in before["icons"]), (
+                f"markers already carry a glyph before the write: {before}"
+            )
+
+            # P3-22: a wrong FA glyph name renders as a 0-width tofu. Open the
+            # grid and assert every glyph cell's icon paints at a real width.
+            grid = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), ["@readGrid"]
+            )
+            assert grid["gridOpen"], f"grid did not open: {grid}"
+            assert grid["cellCount"] == 40, f"expected 40 glyph cells: {grid}"
+            bad = [w for w in grid["widths"] if w["width"] <= 0]
+            assert not bad, f"glyph cells render at zero width (tofu): {bad}"
+
+            written = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), ["map-pin"]
+            )
+            # Task #932 step 1: a plain L.Icon.Default author (this fixture)
+            # takes the dedicated divIcon branch — the marker DOM carries the
+            # foliplus-marker-default class + the glyph shell, and Leaflet's
+            # default 25x41 / [12,41] anchor is pinned. The old
+            # derivedMatchesAuthor contract (chassis pixel-identical to the
+            # author's <img>) does NOT hold here — Default is replaced by a
+            # DivIcon by design.
+            assert "foliplus-marker-default" in written["derived"]["cls"].split(), (
+                f"default branch did not set foliplus-marker-default: {written}"
+            )
+            assert (
+                written["derived"]["inner"]
+                and "foliplus-marker-glyph"
+                in written["derived"]["inner"]["cls"].split()
+            ), f"default branch lost the glyph inner shell: {written}"
+            assert written["derived"]["iconSize"] == [25, 41], (
+                f"default branch did not pin the 25x41 size: {written}"
+            )
+            # Leaflet offsets the icon element from the anchor: a [12,41]
+            # anchor on a 25x41 icon shifts the element -12px / -41px. The
+            # glyph must sit on the point, not below it (the pre-932 偏下 bug).
+            assert written["derived"]["anchor"] == {
+                "left": "-12px",
+                "top": "-41px",
+            }, f"default branch did not pin the [12,41] anchor: {written}"
+            assert written["icons"], "no marker icons read"
+            assert all(icon["hasGlyph"] for icon in written["icons"]), (
+                f"not every marker carries the glyph after the write: {written}"
+            )
+            # All markers share the SAME whole-layer glyph: one FontAwesome
+            # element class set, no inline SVG payload anywhere.
+            classes = {icon["glyphClass"] for icon in written["icons"]}
+            assert len(classes) == 1, f"glyph class is not uniform: {written}"
+            glyph_class = next(iter(classes))
+            assert "fa-solid" in glyph_class, f"not a FA glyph: {written}"
+            assert "foliplus-marker-glyph" in glyph_class, written
+
+            reset = page.evaluate(
+                _js("LayerControl/icon_dimension_probe"), [None, True]
+            )
+            assert reset["derivedMatchesAuthor"], (
+                f"Reset did not restore the author icon pixel-identical: {reset}"
+            )
+            # After Reset the marker is the author's real <img> again — a
+            # plain L.Icon.Default author has no inner <i> to carry, so the
+            # colour contract only applies when the author supplied one.
+            if reset["innerKeepsAuthor"] is not None:
+                assert reset["innerKeepsAuthor"], (
+                    f"Reset lost the author inner <i> class/colour: {reset}"
+                )
+            assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
+                f"Reset did not restore the author icon: {reset}"
+            )
+            assert not errors, errors
