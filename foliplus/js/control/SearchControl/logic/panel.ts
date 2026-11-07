@@ -9,7 +9,7 @@
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { bindFloatingWheel } from "#common/floating.js";
+import { bindFloatingTouch, bindFloatingWheel } from "#common/floating.js";
 import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
@@ -125,6 +125,7 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     // here means one listener per element lifecycle — no stacking per
     // renderResults, and no stale flag to reset when a new element is made.
     bindFloatingWheel(ctrl.panelWrap);
+    bindFloatingTouch(ctrl.panelWrap);
   }
 
   ctrl.panelWrap.innerHTML = "";
