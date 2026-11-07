@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "gamma"},
+      "geometry": {"type": "Point", "coordinates": [119.32, 26.1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "delta"},
+      "geometry": {"type": "Point", "coordinates": [119.33, 26.11]}
+    }
+  ]
+}

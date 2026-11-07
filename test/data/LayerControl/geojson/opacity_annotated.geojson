@@ -1,0 +1,13 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "annotated", "value": 1},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.55, 26.1], [119.55, 26.11], [119.56, 26.11], [119.55, 26.1]]]
+      }
+    }
+  ]
+}

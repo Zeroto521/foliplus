@@ -1,0 +1,19 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Berlin",
+        "country": "Germany"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.405,
+          52.52
+        ]
+      }
+    }
+  ]
+}

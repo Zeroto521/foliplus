@@ -1,0 +1,28 @@
+{
+  "geocoding": {
+    "version": "0.2",
+    "query": {
+      "text": "Berlin"
+    }
+  },
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.405,
+          52.52
+        ]
+      },
+      "properties": {
+        "id": "1",
+        "gid": "g1",
+        "name": "Berlin",
+        "label": "Berlin, Germany",
+        "country": "Germany"
+      }
+    }
+  ]
+}

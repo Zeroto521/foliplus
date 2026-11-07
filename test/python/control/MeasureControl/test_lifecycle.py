@@ -8,7 +8,7 @@ re-add cycles and life without a LayerControl.
 from __future__ import annotations
 
 import folium
-from conftest import _js, make_browser_page, use_page
+from conftest import _js, leaflet_path, leaflet_points, make_browser_page, use_page
 
 from foliplus import MeasureControl
 
@@ -102,7 +102,13 @@ class TestMeasureLifecycleBrowser:
     def test_clear_all_empties_layers(self, browser, tmp_path):
         """destroy() empties content and unregisters."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate(_js("MeasureControl/add_layers"))
+            page.evaluate(
+                _js("MeasureControl/add_layers"),
+                {
+                    "line": leaflet_path("common", "line_fuzhou_diag"),
+                    "point": leaflet_points("common", "point_1193_2608")[0],
+                },
+            )
             page.wait_for_timeout(500)
             page.evaluate(_js("MeasureControl/clear_layers"))
             page.wait_for_timeout(500)
@@ -137,7 +143,10 @@ class TestMeasureModeBrowser:
     def test_add_graph_adds_content(self, browser, tmp_path):
         """mainLayer.addLayer() auto-registers the layer."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate(_js("MeasureControl/add_polyline_to_main_layer"))
+            page.evaluate(
+                _js("MeasureControl/add_polyline_to_main_layer"),
+                {"line": leaflet_path("common", "line_fuzhou_diag")},
+            )
             page.wait_for_timeout(500)
             registered = page.evaluate(_js("MeasureControl/read_layers_registered"))
             assert registered, "addLayer should auto-register"
@@ -146,7 +155,13 @@ class TestMeasureModeBrowser:
     def test_remove_graph_removes_single_item(self, browser, tmp_path):
         """mainLayer.removeLayer removes a single layer without affecting others."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate(_js("MeasureControl/remove_single_layer"))
+            page.evaluate(
+                _js("MeasureControl/remove_single_layer"),
+                {
+                    "line": leaflet_path("common", "line_fuzhou_diag"),
+                    "point": leaflet_points("common", "point_1193_2608")[0],
+                },
+            )
             page.wait_for_timeout(500)
             registered = page.evaluate(_js("MeasureControl/read_window_test"))
             assert registered, "layer should remain registered after removing one item"
@@ -190,7 +205,13 @@ class TestMeasureModeBrowser:
         """Clicking the CLEAR tool button removes all measurements and layers."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             # Add some content
-            page.evaluate(_js("MeasureControl/add_layers_and_measurements"))
+            page.evaluate(
+                _js("MeasureControl/add_layers_and_measurements"),
+                {
+                    "line": leaflet_path("common", "line_fuzhou_diag"),
+                    "point": leaflet_points("common", "point_1193_2608")[0],
+                },
+            )
             page.wait_for_timeout(200)
             # Click CLEAR button
             page.evaluate(_js("MeasureControl/click_clear_button"))

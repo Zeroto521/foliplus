@@ -4,7 +4,7 @@ import * as downloadMod from "#common/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";
 import { MarkerMode } from "#control/MeasureControl/mode/index.js";
-import { makeControlEnv } from "../../fixture.js";
+import { loadGeometry, makeControlEnv } from "./fixture.js";
 
 // This file asserts on bare locale-key strings (identity T/_): the export
 // hint text is built by key concatenation, so scoped lookups would wrap the
@@ -740,7 +740,7 @@ describe("Export.toWKT — unknown type", () => {
     // default branch and returns an empty string.
     const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
       type: "Feature",
-      geometry: { type: "MultiPoint", coordinates: [[119.3, 26.08]] },
+      geometry: loadGeometry("common", "multipoint_1193_2608"),
       properties: {},
     } as GeoJSON.Feature);
     try {

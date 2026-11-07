@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import _js, use_page
+from conftest import _js, leaflet_path, use_page
 
 from foliplus import MeasureControl
 
@@ -171,7 +171,10 @@ class TestExportFocusBrowser:
             page.on("pageerror", lambda e: errors.append(str(e)))
 
             # Set up three carriers and activate focus on the canvas layer.
-            state = page.evaluate(_js("ExportControl/focus_three_carriers"))
+            state = page.evaluate(
+                _js("ExportControl/focus_three_carriers"),
+                {"polygon": leaflet_path("ExportControl", "polygon_far_west_box")},
+            )
             assert state is not None and "error" not in state, state
             assert state["focusLayer"] == "__focus_canvas__", state
 
@@ -240,7 +243,10 @@ class TestExportFocusBrowser:
 
             # Set up carriers with a blue polygon (distinguishable from
             # the red background).
-            state = page.evaluate(_js("ExportControl/setup_display_none_test"))
+            state = page.evaluate(
+                _js("ExportControl/setup_display_none_test"),
+                {"polygon": leaflet_path("ExportControl", "polygon_far_west_box")},
+            )
             assert state is not None and "error" not in state, state
 
             # Hide the polygon's SVG path via display:none.
@@ -310,7 +316,10 @@ class TestExportFocusBrowser:
             page.on("pageerror", lambda e: errors.append(str(e)))
 
             # Set up carriers with a blue polygon.
-            state = page.evaluate(_js("ExportControl/setup_display_none_test"))
+            state = page.evaluate(
+                _js("ExportControl/setup_display_none_test"),
+                {"polygon": leaflet_path("ExportControl", "polygon_far_west_box")},
+            )
             assert state is not None and "error" not in state, state
 
             # Set visibility:hidden on the polygon's SVG path.
@@ -384,7 +393,10 @@ class TestExportFocusBrowser:
             assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
 
             # Set up finalized line + preview line.
-            state = page.evaluate(_js("ExportControl/setup_preview_finalized"))
+            state = page.evaluate(
+                _js("ExportControl/setup_preview_finalized"),
+                {"line": leaflet_path("ExportControl", "line_fuzhou_measure")},
+            )
             assert state is not None and "error" not in state, state
             assert state["finalized"] is True, state
             assert state["preview"] is True, state
@@ -462,7 +474,10 @@ class TestExportFocusBrowser:
             assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
 
             # Set up only a finalized line (no preview).
-            state = page.evaluate(_js("ExportControl/setup_finalized_only"))
+            state = page.evaluate(
+                _js("ExportControl/setup_finalized_only"),
+                {"line": leaflet_path("ExportControl", "line_fuzhou_measure")},
+            )
             assert state is not None and "error" not in state, state
             assert state["finalized"] is True, state
             assert state["preview"] is False, state

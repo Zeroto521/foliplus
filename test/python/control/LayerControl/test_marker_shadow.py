@@ -7,6 +7,7 @@ import re
 import folium
 from conftest import (
     _js,
+    leaflet_path,
     make_browser_page,
     use_page,
 )
@@ -76,7 +77,10 @@ class TestMarkerShadowCarrierBrowser:
         when the icon is DOM-last in its pane (``icon-moved-last`` scenario).
         """
         with use_page(self._probe, browser, tmp_path) as (page, errors):
-            r = page.evaluate(_js("LayerControl/marker_shadow_carrier"))
+            r = page.evaluate(
+                _js("LayerControl/marker_shadow_carrier"),
+                {"polygon": leaflet_path("LayerControl", "polygon_fuzhou_shadow_band")},
+            )
             assert r is not None, "LayerAPI missing"
             assert "scen1" in {s["scenarioId"] for s in r["states"]}
             # The shadow pane is a foliplus pane one step below its layer's
@@ -115,7 +119,10 @@ class TestMarkerShadowCarrierBrowser:
         so elementFromPoint skips it by construction.)
         """
         with use_page(self._probe, browser, tmp_path) as (page, errors):
-            r = page.evaluate(_js("LayerControl/marker_shadow_carrier"))
+            r = page.evaluate(
+                _js("LayerControl/marker_shadow_carrier"),
+                {"polygon": leaflet_path("LayerControl", "polygon_fuzhou_shadow_band")},
+            )
             assert r is not None, "LayerAPI missing"
             scen3 = [s for s in r["states"] if s["scenarioId"] == "scen3"]
             assert len(scen3) == 1, f"expected 1 feed-red state, got {len(scen3)}"
@@ -145,7 +152,10 @@ class TestMarkerShadowCarrierBrowser:
         actual fillOpacity for reporting.
         """
         with use_page(self._probe, browser, tmp_path) as (page, errors):
-            r = page.evaluate(_js("LayerControl/marker_shadow_carrier"))
+            r = page.evaluate(
+                _js("LayerControl/marker_shadow_carrier"),
+                {"polygon": leaflet_path("LayerControl", "polygon_fuzhou_shadow_band")},
+            )
             assert r is not None, "LayerAPI missing"
             polys = [s for s in r["states"] if s["scenarioId"].startswith("poly")]
             assert len(polys) == 2, f"expected 2 polygon states, got {len(polys)}"
@@ -182,7 +192,10 @@ class TestMarkerShadowCarrierBrowser:
         both inside their panes and never re-parents them.
         """
         with use_page(self._probe, browser, tmp_path) as (page, errors):
-            r = page.evaluate(_js("LayerControl/marker_shadow_carrier"))
+            r = page.evaluate(
+                _js("LayerControl/marker_shadow_carrier"),
+                {"polygon": leaflet_path("LayerControl", "polygon_fuzhou_shadow_band")},
+            )
             assert r is not None, "LayerAPI missing"
             zoom_labels = {"zoom-min", "zoom-max-ish"}
             zoom_states = [s for s in r["states"] if s["label"] in zoom_labels]

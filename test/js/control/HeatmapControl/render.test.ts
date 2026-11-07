@@ -8,6 +8,7 @@ import {
   resolveLabelStyle,
 } from "#control/HeatmapControl/render.js";
 import type { HexFeature } from "#control/HeatmapControl/type.js";
+import { loadFeature } from "./fixture.js";
 
 const makeCtx = () => {
   const canvas = document.createElement("canvas");
@@ -39,20 +40,11 @@ const makeMap = () => ({
   latLngToContainerPoint: vi.fn(() => ({ x: 100, y: 200 })),
 });
 
-/** A hexagon ring in GeoJSON [lng, lat] order. */
+/** A hexagon feature in GeoJSON [lng, lat] order, loaded from its fixture. */
+const baseFeature = loadFeature("common", "hexagon_fuzhou") as unknown as HexFeature;
+
 const makeFeat = (overrides: Partial<HexFeature> = {}): HexFeature => ({
-  type: "Feature",
-  geometry: {
-    type: "Polygon",
-    coordinates: [
-      [
-        [119.3, 26.08],
-        [119.31, 26.09],
-        [119.3, 26.08],
-      ],
-    ],
-  },
-  properties: { centroid: [26.08, 119.3], value: 42, fillColor: "#ff0000" },
+  ...structuredClone(baseFeature),
   ...overrides,
 });
 

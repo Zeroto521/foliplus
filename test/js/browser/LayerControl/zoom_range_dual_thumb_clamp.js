@@ -1,4 +1,4 @@
-async () => {
+async data => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const ui = ctrl.mgr.ui;
@@ -14,16 +14,7 @@ async () => {
   // One layer per direction: after a clamp the pair is stacked, so a second
   // direction from the same row would start on an already-merged range.
   const register = id => {
-    const geo = L.geoJson({
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          properties: { name: "p1" },
-          geometry: { type: "Point", coordinates: [119.3, 26.08] },
-        },
-      ],
-    });
+    const geo = L.geoJson(data);
     api.registerLayer({ id, name: id.toUpperCase(), layer: geo });
     return geo;
   };

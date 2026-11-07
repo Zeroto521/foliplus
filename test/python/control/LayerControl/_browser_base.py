@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 
 import folium
 from conftest import (
     _js,
+    feature_collection,
+    load_geojson,
     make_browser_page,
     panel_ready,
+    point_feature,
     render,
 )
 
@@ -62,30 +66,7 @@ class LayerControlBrowserBase:
     def _ramp_layer() -> folium.GeoJson:
         """A polygon layer with a numeric property, for the fill ramp arm."""
         return folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"value": 10 + i},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.28 + i * 0.01, 26.06],
-                                        [119.32 + i * 0.01, 26.06],
-                                        [119.32 + i * 0.01, 26.10],
-                                        [119.28 + i * 0.01, 26.10],
-                                        [119.28 + i * 0.01, 26.06],
-                                    ]
-                                ],
-                            },
-                        }
-                        for i in range(3)
-                    ],
-                }
-            ),
+            json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
             name="Polygon data",
         )
 
@@ -95,31 +76,11 @@ class LayerControlBrowserBase:
         so the style panel opens on the by-value arm and the method select
         is present. A plain layer with only a numeric property falls to the
         solid arm (no declared ramp), which has no method select."""
+        data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+        for i, feat in enumerate(data["features"]):
+            feat["properties"] = {"score": 10 + i}
         return folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"score": 10 + i},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.28 + i * 0.01, 26.06],
-                                        [119.32 + i * 0.01, 26.06],
-                                        [119.32 + i * 0.01, 26.10],
-                                        [119.28 + i * 0.01, 26.10],
-                                        [119.28 + i * 0.01, 26.06],
-                                    ]
-                                ],
-                            },
-                        }
-                        for i in range(3)
-                    ],
-                }
-            ),
+            json.dumps(data),
             name="Declared polygon data",
             style_function=lambda _f: {
                 "fillColor": "#808080",
@@ -157,16 +118,9 @@ class LayerControlBrowserBase:
         name, annotation, coords, text="12345678901234567890"
     ):
         """A point layer whose foliplus namespace declares its label defaults."""
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"name": text},
-                "geometry": {"type": "Point", "coordinates": [lng, lat]},
-            }
-            for lat, lng in coords
-        ]
+        features = [point_feature(lng, lat, {"name": text}) for lat, lng in coords]
         return folium.GeoJson(
-            json.dumps({"type": "FeatureCollection", "features": features}),
+            json.dumps(feature_collection(*features)),
             name=name,
             foliplus={"label": annotation},
         )

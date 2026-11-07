@@ -29,6 +29,7 @@ from conftest import (
     _js,
     _prefetch_cdn_cache,
     heatmap_ready,
+    load_geojson,
     make_browser_page,
     panel_ready,
     snippet,
@@ -54,51 +55,18 @@ _WARN_PRELUDE = """
 
 def _polygon_layer() -> folium.GeoJson:
     """Overlay layer with a numeric property, for the style drawer's ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _points_group() -> folium.FeatureGroup:
     """One point layer, so the heatmap auto-selects it and opens its config."""
     fg = folium.FeatureGroup(name="Points", show=True)
-    gj = json.dumps(
-        {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": 1.0 + i},
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [119.30 + i * 0.01, 26.08],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+    folium.GeoJson(json.dumps(load_geojson("common", "points_fuzhou_3offset"))).add_to(
+        fg
     )
-    folium.GeoJson(gj).add_to(fg)
     return fg
 
 
@@ -519,29 +487,10 @@ class TestPickerCloseBrowser:
 
 def _ramp_layer() -> folium.GeoJson:
     """A polygon layer with a numeric property, for the fill ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _layer_map(**ctrl_kwargs) -> folium.Map:
