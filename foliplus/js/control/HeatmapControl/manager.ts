@@ -15,13 +15,15 @@ import {
 } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
+  type FilterOwner,
   type LayerFilter,
   type LayerFilterModel,
   type LayerSnapshot,
   NO_FEATURE_TREE_KINDS,
-  buildFilterModel,
+  createFilterOwner,
   dropFilterForField,
   filterKey,
+  filterStep,
   normalizeFilter,
   parsePersistedFilter,
   pickFilterField,
@@ -209,6 +211,12 @@ class HeatmapManager {
    *  A declaration seeds only while this is false; the factory Reset clears
    *  it so the declaration returns with the rest of the defaults. */
   declare filtersTouched: boolean;
+  /** The shared filter controller — one orchestration path (normalize →
+   *  store → apply → publish) for every setFilter / restore / reset call.
+   *  The Heatmap's committed filter is per-source, so the owner routes its
+   *  reads/writes through a slot over {@link layerFilters}; the slot is the
+   *  single source of truth and the owner never keeps a second copy. */
+  declare filterOwner: FilterOwner;
   declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
@@ -487,6 +495,57 @@ class HeatmapManager {
     this.cachedSnapshot = null;
     this.cachedSnapshotLayerId = null;
     this.layerFilters = new Map();
+    // The shared filter controller: one orchestration path (normalize →
+    // store → apply → publish) for every setFilter call, routed through a
+    // slot over the per-source store. The slot is the single source of truth
+    // (getFilter/isOwned read it live), so a per-source restore, a field
+    // change, or a factory reset that mutates `layerFilters` / `filtersTouched`
+    // directly stays consistent with the owner. The render-coupled publish
+    // (SettledOperation → renderHexagons → LAYER_FILTER_CHANGE →
+    // throwIfFailed) is the host's `apply`: the owner calls it after persist,
+    // exactly where the old setFilter ran the render tail.
+    this.filterOwner = createFilterOwner({
+      normalize: filter => {
+        // The snapshot is the validation baseline — build it here, cached
+        // after the first call, so the steady path is free.
+        this.getSelectedPoints();
+        return normalizeFilter(filter, this.cachedSnapshot);
+      },
+      // The filter is part of the agg key — drop the agg cache. cachedPoints
+      // and cachedBins survive: filtering changes neither geometry nor point
+      // identity, so the bins are reused and no h3 call runs.
+      apply: () => {
+        this.cachedAgg = null;
+        const operation = new SettledOperation(this.events);
+        this.renderHexagons(operation);
+        operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+        operation.throwIfFailed();
+      },
+      // The write-through binding reads live state (layerFilters +
+      // filtersTouched) at save time, so a plain signal is enough.
+      persist: () => this.saveConfig(),
+      dimensions: () => {
+        const snapshot = this.cachedSnapshot;
+        const field = pickFilterField(snapshot, this.effectiveField());
+        const range = snapshot!.ranges[field];
+        return [{ kind: "range", field, range, step: filterStep(range) }];
+      },
+      // The filtered unit is the heatmap's own output — hex cells, not source
+      // points: a filter that drops points inside a cell keeps the cell. The
+      // bins cache is the unfiltered cell set; the drawn features are what the
+      // committed filter kept.
+      counts: () => ({
+        kept: this.cachedFeatures?.length ?? 0,
+        total: this.cachedBins?.bins.size ?? 0,
+      }),
+      slot: {
+        read: () => this.layerFilters.get(this.selectedLayerId!),
+        write: next => storeFilter(this.layerFilters, this.selectedLayerId!, next),
+        writeOwned: owned => {
+          this.filtersTouched = owned;
+        },
+      },
+    });
     this.renderAll = false;
     this.hasScanned = false;
 
@@ -983,21 +1042,15 @@ class HeatmapManager {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return null;
     this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
-    // The filtered unit is the heatmap's own output — hex cells, not source
-    // points: a filter that drops points inside a cell keeps the cell. The
-    // bins cache is the unfiltered cell set; the drawn features are what the
-    // committed filter kept.
-    const total = this.cachedBins?.bins.size ?? 0;
-    const kept = this.cachedFeatures?.length ?? 0;
-    // The popup repeats the aggregation field `field=` chose as a read-only
-    // Field row (caption from the panel's shared vocabulary), so the filter
-    // reads unambiguously. The field is never re-editable here.
-    return buildFilterModel(
-      this.cachedSnapshot,
-      this.layerFilters.get(sourceId),
-      this.effectiveField(),
-      { kept, total },
-    );
+    const snapshot = this.cachedSnapshot;
+    if (!snapshot || snapshot.numericFields.length === 0) return null;
+    // The owner is the single read path: dimensions (the range rail bound to
+    // the aggregation field), the committed filter (the slot's per-source
+    // value), and kept/total in the heatmap's own unit (hex cells, not source
+    // points: a filter that drops points inside a cell keeps the cell; the
+    // bins cache is the unfiltered cell set, the drawn features are what the
+    // committed filter kept).
+    return this.filterOwner.filterModel();
   }
   /** Write path for the filter panel. Validates the incoming atom against
    *  the current snapshot (unknown field or non-atom → no filter; range
@@ -1015,31 +1068,15 @@ class HeatmapManager {
   setFilter(filter: LayerFilter | undefined) {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
-    // The panel may write before any render ran (open → drag). The snapshot
-    // is the validation baseline, so build it here — cached after the first
-    // call, so the steady path is free.
-    this.getSelectedPoints();
-    if (
-      !storeFilter(
-        this.layerFilters,
-        sourceId,
-        normalizeFilter(filter, this.cachedSnapshot),
-      )
-    ) {
-      return;
-    }
-    // The user owns the filter slot from here on, including when the write
-    // cleared it: a declaration must not resurrect itself on the next load.
-    this.filtersTouched = true;
-    this.saveConfig();
-    // The filter is part of the agg key — drop the agg cache. cachedPoints
-    // and cachedBins survive: filtering changes neither geometry nor point
-    // identity, so the bins are reused and no h3 call runs.
-    this.cachedAgg = null;
-    const operation = new SettledOperation(this.events);
-    this.renderHexagons(operation);
-    operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
-    operation.throwIfFailed();
+    // The owner is the single write path: it normalizes (the snapshot is the
+    // validation baseline — build it here, cached after the first call so the
+    // steady path is free), routes the store write through the slot (the
+    // slot's store equality is authoritative — a no-op needs no re-render),
+    // persists, and runs the render-coupled publish tail (SettledOperation →
+    // renderHexagons → LAYER_FILTER_CHANGE → throwIfFailed). The owner
+    // returns false exactly when the old direct storeFilter early-returned,
+    // so the caller's shape is unchanged.
+    this.filterOwner.setFilter(filter);
   }
 
   /** One warning per declared-filter problem: the seed runs again on every
