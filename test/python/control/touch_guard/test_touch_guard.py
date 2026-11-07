@@ -48,16 +48,20 @@ def touch_browser(browser):
 def _page(touch_browser, html: str, name: str = "page"):
     """Write `html` to a temp file and open it on the touch context."""
     import tempfile
+
     d = Path(tempfile.mkdtemp())
     hp = d / f"{name}.html"
     hp.write_text(_inject_window_map(html), encoding="utf-8")
     page = touch_browser.new_page()
     errors: list[str] = []
-    page.on("console", lambda m: (
-        errors.append(m.text)
-        if m.type == "error" and not m.text.startswith("Failed to load resource")
-        else None
-    ))
+    page.on(
+        "console",
+        lambda m: (
+            errors.append(m.text)
+            if m.type == "error" and not m.text.startswith("Failed to load resource")
+            else None
+        ),
+    )
     page.goto(f"file://{hp}", wait_until="domcontentloaded")
     return page, errors
 
@@ -65,10 +69,16 @@ def _page(touch_browser, html: str, name: str = "page"):
 def _touch_drag(page, x, y0, y1, steps=10):
     """Drive a CDP touch drag from (x, y0) to (x, y1)."""
     cdp = page.context.new_cdp_session(page)
-    cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y0}]})
+    cdp.send(
+        "Input.dispatchTouchEvent",
+        {"type": "touchStart", "touchPoints": [{"x": x, "y": y0}]},
+    )
     for i in range(1, steps + 1):
         yy = y0 + (y1 - y0) * i / steps
-        cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": yy}]})
+        cdp.send(
+            "Input.dispatchTouchEvent",
+            {"type": "touchMove", "touchPoints": [{"x": x, "y": yy}]},
+        )
         time.sleep(0.02)
     cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
 
@@ -97,8 +107,12 @@ class TestTouchGuardBrowser:
         page.evaluate(snippet("touch_guard/seed_search_history"))
         page.reload(wait_until="domcontentloaded")
         page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-        page.evaluate("document.querySelector('.foliplus-search .foliplus-toggle-btn')?.click()")
-        page.wait_for_selector(".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000)
+        page.evaluate(
+            "document.querySelector('.foliplus-search .foliplus-toggle-btn')?.click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000
+        )
         page.wait_for_timeout(400)
         rect = page.evaluate(
             f"({snippet('common/element_rect')})('.foliplus-search-result-panel')"
@@ -107,7 +121,12 @@ class TestTouchGuardBrowser:
             f"({snippet('common/read_scroll_top')})('.foliplus-search-result-panel')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 100)
+        _touch_drag(
+            page,
+            rect["x"] + rect["w"] / 2,
+            rect["y"] + rect["h"] / 2,
+            rect["y"] + rect["h"] / 2 - 100,
+        )
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
@@ -126,8 +145,12 @@ class TestTouchGuardBrowser:
         html = m.get_root().render()
         page, errors = _page(touch_browser, html, "dropdown")
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-        page.evaluate("document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()")
-        page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000)
+        page.evaluate(
+            "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+        )
         page.wait_for_timeout(200)
         ok = page.evaluate(snippet("touch_guard/open_enum_dropdown"))
         assert ok is True, "could not open filter dropdown"
@@ -139,7 +162,12 @@ class TestTouchGuardBrowser:
             f"({snippet('common/read_scroll_top')})('.foliplus-dropdown-list')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 80)
+        _touch_drag(
+            page,
+            rect["x"] + rect["w"] / 2,
+            rect["y"] + rect["h"] / 2,
+            rect["y"] + rect["h"] / 2 - 80,
+        )
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
@@ -152,29 +180,60 @@ class TestTouchGuardBrowser:
 
     def test_layer_style_panel_touch_drag(self, touch_browser, tmp_path):
         """The LayerControl style panel body must not pan the map on touch."""
-        layer = folium.GeoJson(json.dumps({
-            "type": "FeatureCollection", "features": [
-                {"type": "Feature", "properties": {"value": 1},
-                 "geometry": {"type": "Polygon", "coordinates": [[[119.30, 26.08], [119.31, 26.08], [119.31, 26.09], [119.30, 26.09], [119.30, 26.08]]]}}
-            ]
-        }), name="Polygon data")
+        layer = folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"value": 1},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.30, 26.08],
+                                        [119.31, 26.08],
+                                        [119.31, 26.09],
+                                        [119.30, 26.09],
+                                        [119.30, 26.08],
+                                    ]
+                                ],
+                            },
+                        }
+                    ],
+                }
+            ),
+            name="Polygon data",
+        )
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         layer.add_to(m)
         html = m.get_root().render()
         page, errors = _page(touch_browser, html, "style")
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-        page.evaluate("document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()")
-        page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000)
+        page.evaluate(
+            "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+        )
         page.wait_for_timeout(200)
         # Open the ⋮ → Style panel on the first overlay row (shared snippet).
         page.evaluate(snippet("touch_guard/open_layer_style_panel"))
-        page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+        page.wait_for_selector(
+            ".foliplus-layer-style-panel", state="visible", timeout=5000
+        )
         rect = page.evaluate(
             f"({snippet('common/element_rect')})('.foliplus-layer-style-panel .foliplus-panel-content')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 80)
+        _touch_drag(
+            page,
+            rect["x"] + rect["w"] / 2,
+            rect["y"] + rect["h"] / 2,
+            rect["y"] + rect["h"] / 2 - 80,
+        )
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
@@ -195,14 +254,18 @@ class TestTouchGuardBrowser:
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         fg = folium.FeatureGroup(name="Points 0", show=True)
-        gj = json.dumps({
-            "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "properties": {"val": 26.08},
-                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-            }],
-        })
+        gj = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"val": 26.08},
+                        "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
+                    }
+                ],
+            }
+        )
         folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
         HeatmapControl().add_to(m)
@@ -215,18 +278,28 @@ class TestTouchGuardBrowser:
             semi = html.find(";", idx)
             html = html[: semi + 1] + stub + html[semi + 1 :]
         page, errors = _page(touch_browser, html, "heatmap")
-        page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
-        page.evaluate("document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()")
         page.wait_for_selector(
-            ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+        )
+        page.evaluate(
+            "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()"
+        )
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
         )
         page.wait_for_timeout(300)
         rect = page.evaluate(
             f"({snippet('common/element_rect')})('.foliplus-heatmap-ctrl .foliplus-panel-content')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2,
-                    rect["y"] + rect["h"] / 2 - 80)
+        _touch_drag(
+            page,
+            rect["x"] + rect["w"] / 2,
+            rect["y"] + rect["h"] / 2,
+            rect["y"] + rect["h"] / 2 - 80,
+        )
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
