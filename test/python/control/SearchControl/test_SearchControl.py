@@ -9,8 +9,13 @@ from conftest import (
     assert_config_block,
     assert_config_value,
     assert_locale,
+    assert_map_unchanged,
     make_browser_page,
+    map_center_zoom,
     render_control,
+    snippet,
+    snippet_fn,
+    touch_drag,
     use_page,
 )
 
@@ -768,3 +773,46 @@ class TestSearchControlPlacementBrowser:
                 "panel spills outside the viewport after resize"
             )
             assert not errors, errors
+
+
+class TestSearchPanelTouchBrowser:
+    """A touch drag over the result panel scrolls it instead of the map."""
+
+    def test_touch_drag_over_the_result_panel_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        SearchControl(mode="addr").add_to(m)
+        html = m.get_root().render()
+        with use_page(make_browser_page, touch_browser, tmp_path, html, "search") as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            # 25 history entries overflow the panel, so it can actually scroll.
+            page.evaluate(snippet("SearchControl/seed_search_history"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            page.evaluate(
+                "document.querySelector('.foliplus-search .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(400)
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})('.foliplus-search-result-panel')"
+            )
+            scrolled = f"({snippet_fn('common/read_scroll_top')})('.foliplus-search-result-panel')"
+            st0 = page.evaluate(scrolled)
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 100,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
+            assert page.evaluate(scrolled) != st0
+            assert not errors, f"JS errors: {errors}"
