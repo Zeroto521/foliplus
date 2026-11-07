@@ -237,6 +237,33 @@ describe("filterStore — invariants", () => {
     expect(store.getFilter("L1", "filter")).toBeUndefined();
   });
 
+  it("reset hands a value that lost its ownership flag back to the surface, not to the void", () => {
+    // Guard the touched/value pairing. The store only ever writes the two
+    // together, so the only way to observe a value with touched=false is to
+    // seed it directly — which is exactly the regression worth pinning: if the
+    // write path ever drops the flag, reset must still hand the surface its
+    // stored value rather than silently clearing to undefined.
+    window.localStorage.setItem(
+      FILTER_STORE_KEY,
+      JSON.stringify({
+        version: 1,
+        layers: {
+          L1: { sources: { filter: { touched: false, value: enumFilter("marker") } } },
+        },
+      }),
+    );
+    const applied: LayerFilter[] = [];
+    const store = createFilterStore();
+    store.register("filter", {
+      ...makeEnumHost(["marker"]),
+      apply: f => applied.push(f),
+    });
+
+    store.reset("L1", "filter");
+
+    expect(applied).toEqual([enumFilter("marker")]);
+  });
+
   it("filterModel carries the host dimensions and kept/total when the host provides them", () => {
     const store = createFilterStore();
     store.register("filter", {
