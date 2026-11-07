@@ -114,30 +114,23 @@ const createFilterStore = (): FilterStore => {
     saveRecord(FILTER_STORE_KEY, record);
   };
 
-  const layerOf = (
-    record: PersistedRecord,
-    layerId: string,
-  ): PersistedLayers[string] => {
-    const existing = record.layers[layerId];
-    if (existing) return existing;
-    const created = { sources: {} };
-    record.layers[layerId] = created;
-    return created;
-  };
-
+  /** Read one source entry WITHOUT mutating the record. Reads must never
+   *  write: a partial or corrupt record (a layer with no sources map yet) has
+   *  to read back as un-owned rather than throw or get "fixed" as a side
+   *  effect. Callers that intend to change the entry go through commit. */
   const sourceOf = (
     record: PersistedRecord,
     layerId: string,
     name: string,
-  ): PersistedSource => {
-    const layer = layerOf(record, layerId);
-    const existing = layer.sources[name];
-    if (existing) return existing;
-    const created = { touched: false, value: undefined as LayerFilter };
-    layer.sources[name] = created;
-    return created;
-  };
+  ): PersistedSource =>
+    record.layers[layerId]?.sources?.[name] ?? {
+      touched: false,
+      value: undefined as LayerFilter,
+    };
 
+  /** Attach and persist one source entry. Unlike the read path (`sourceOf`),
+   *  a write has to place the entry into the record — a missing layer or source
+   *  is created here, explicitly, so persistence stays a write-side concern. */
   const commit = (
     layerId: string,
     name: string,
@@ -145,9 +138,9 @@ const createFilterStore = (): FilterStore => {
     touched: boolean,
   ): void => {
     const record = readRecord();
-    const entry = sourceOf(record, layerId, name);
-    entry.value = next;
-    entry.touched = touched;
+    const layer = record.layers[layerId] ?? { sources: {} };
+    record.layers[layerId] = layer;
+    layer.sources[name] = { touched, value: next };
     writeRecord(record);
   };
 
