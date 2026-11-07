@@ -50,8 +50,9 @@ describe("style vocabulary single source", () => {
       for (const m of s.matchAll(/(?:ui\.T|\bt)\(\s*"([^"]+)"\s*\)/g)) {
         const key = m[1] as string;
         const fk = `LayerControl.${key}`;
-        if (!(fk in LOCALE_EN)) missing.push(`${relative(JS_ROOT, p)}: ${key} (en)`);
-        if (!(fk in LOCALE_ZH)) missing.push(`${relative(JS_ROOT, p)}: ${key} (zh)`);
+        const line = s.slice(0, m.index ?? 0).split("\n").length;
+        if (!(fk in LOCALE_EN)) missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing en)`);
+        if (!(fk in LOCALE_ZH)) missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing zh)`);
       }
     }
     expect(missing).toEqual([]);
