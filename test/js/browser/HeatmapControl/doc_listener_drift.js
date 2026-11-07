@@ -42,10 +42,10 @@ async () => {
   const closed = [];
   const added = [];
   for (let i = 0; i < 2; i++) {
-    if (ctrl.schemeDropdown) {
+    if (ctrl.schemePicker?.getDropdown()) {
       throw new Error(`scheme dropdown was already open before cycle ${i}`);
     }
-    ctrl.toggleSchemeDropdown();
+    ctrl.schemePicker?.toggle();
     open.push(window.__probeDocSum().total);
     map.removeControl(ctrl);
     await quiesce();

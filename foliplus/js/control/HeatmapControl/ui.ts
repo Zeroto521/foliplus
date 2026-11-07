@@ -44,11 +44,7 @@ interface HeatmapControlUI {
   ctrl: HTMLElement;
   /** Shared scheme picker instance. */
   schemePicker: SchemePicker | null;
-  /** Kept for backward compat — mirrors the picker's dropdown element. */
-  schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
-  /** Kept for backward compat — the picker's destroy function. */
-  schemeBarCleanup: (() => void) | null;
   /** Unregister for the scheme picker's overlay-registry entry. */
   schemePickerOverlayUnregister: (() => void) | null;
   /** Destroy the scheme picker (called by HeatmapControl.destroy()). */
@@ -67,10 +63,6 @@ interface HeatmapControlUI {
   schemeBar: HTMLElement;
   schemeBarInner: HTMLElement;
   schemeSelectHidden: HTMLSelectElement;
-  /** Kept for backward compat — delegated to the picker's close(). */
-  closeSchemeDropdown: (event: Event) => void;
-  /** Kept for backward compat — delegated to the picker's toggle(). */
-  toggleSchemeDropdown: () => void;
 }
 
 /** Clamp a manager scheme to the configured list. A value persisted under an
@@ -226,18 +218,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ctrl.mgr.renderHexagons();
       persist(ctrl);
     },
-    onToggle: (open, dropdown) => {
-      ctrl.schemeDropdown = open ? dropdown : null;
-    },
   });
 
   // The picker owns its trigger click/keyboard handlers and focus management;
   // outside-click dismissal is the consumer's per-map overlay-registry entry
-  // (common must not import core). We only need to expose the delegates for
-  // backward compat with tests and the HeatmapControl class.
-  // schemeBarCleanup: transient reset (close dropdown) — called by
-  // clearHeatmapCanvas when data is cleared. The picker stays alive.
-  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
+  // (common must not import core).
   ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
     id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
     isOpen: () => ctrl.schemePicker?.getDropdown() != null,
@@ -257,12 +242,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.selectScheme = (idx: number) => {
     const name = (ctrl.config.schemes ?? [])[idx];
     if (name) ctrl.schemePicker?.selectScheme(name);
-  };
-  ctrl.closeSchemeDropdown = (_event: Event) => {
-    ctrl.schemePicker?.close();
-  };
-  ctrl.toggleSchemeDropdown = () => {
-    ctrl.schemePicker?.toggle();
   };
 
   ctrl.aggSelect.onchange = () => {

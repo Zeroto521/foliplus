@@ -8,7 +8,7 @@ import { createPersisted, loadVersioned, saveVersioned } from "#common/storage.j
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
-import { type SearchControlCtx, canonicalQuery } from "./util.js";
+import { type SearchControlCtx } from "./util.js";
 
 /** Dedup key. Type is part of it: typing "120,32" in addr mode yields a
  * geocode result whose key string can collide with a coord entry's, and those
@@ -73,31 +73,30 @@ const loadHistory = (ctrl: SearchControlCtx): SearchHistoryEntry[] =>
     }),
   );
 
-/** Parse and migrate one history payload; [] for a corrupt or non-array store. */
+/** Parse one history payload into current-format rows; [] for a corrupt,
+ *  non-array, or all-legacy store. Old-version rows are dropped, not migrated. */
 const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[] => {
   if (!Array.isArray(data)) return [];
-  // Drop non-object rows ([null], strings, numbers) that a corrupted store
-  // can produce; reading `row.type` on them would throw.
-  const rows = data.filter(row => row != null && typeof row === "object");
-  // Migrate stored entries to the current format, supplying the defaults that
-  // older versions never wrote.
-  const migrated = rows.map(e => {
-    const type = e.type === MODE.COORD || e.type === MODE.ADDR ? e.type : MODE.ADDR;
-    return {
-      query: canonicalQuery(e.query ?? "", type),
-      type,
-      coordDisplay: e.coordDisplay ?? (type === MODE.COORD ? (e.label ?? "") : ""),
-      addrDisplay: e.addrDisplay ?? (type === MODE.ADDR ? (e.label ?? "") : ""),
-      lng: e.lng ?? 0,
-      lat: e.lat ?? 0,
-      ts: e.ts ?? Date.now(),
-      count: e.count ?? 1,
-    };
-  });
-  // Collapse entries a raw-input key created before this fix (e.g. "120,32" +
-  // "120, 32"). No trimming here — the cap applies when an entry is added, so
-  // stale rows from an older version are shown rather than dropped on load.
-  return mergeHistoryEntries(migrated);
+  // Old-version tolerance removed: only complete current-format rows are
+  // kept; partial or legacy rows (older bare-array shape, label-field rows,
+  // missing fields) are dropped as old data rather than migrated. Non-object
+  // rows ([null], strings, numbers) a corrupted store can produce are dropped
+  // too — reading `row.type` on them would throw.
+  const rows = data.filter(
+    (row): row is SearchHistoryEntry =>
+      row != null &&
+      typeof row === "object" &&
+      typeof row.query === "string" &&
+      (row.type === MODE.COORD || row.type === MODE.ADDR) &&
+      typeof row.coordDisplay === "string" &&
+      typeof row.addrDisplay === "string" &&
+      typeof row.lng === "number" &&
+      typeof row.lat === "number" &&
+      typeof row.ts === "number" &&
+      typeof row.count === "number",
+  );
+  // Collapse any same-key duplicates the store still holds.
+  return mergeHistoryEntries(rows);
 };
 
 const saveHistory = (ctrl: SearchControlCtx, entries: SearchHistoryEntry[]): void => {

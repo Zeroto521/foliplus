@@ -141,7 +141,7 @@ describe("DistanceMode — restore registers overlay cleanup", () => {
       segments: [],
       totalDistance: 0,
     };
-    manager.measurements = [data];
+    manager.store.hydrate([data]);
     DistanceMode.restore(manager, data);
 
     expect(capturedDistanceOpts).toBeDefined();
@@ -158,7 +158,7 @@ describe("DistanceMode — restore registers overlay cleanup", () => {
     // onDelete removes the measurement and persists.
     (manager.store.remove as Mock).mockClear();
     capturedDistanceOpts.onDelete();
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
     expect(manager.store.remove).toHaveBeenCalled();
   });
 });
@@ -309,7 +309,7 @@ describe("DistanceMode — finish saves measurement", () => {
     dblHandler({ latlng: { lat: 32, lng: 122 } });
 
     expect(manager.store.add).toHaveBeenCalled();
-    const saved = manager.measurements[0] as MeasureData;
+    const saved = manager.store.all()[0] as MeasureData;
     expect(saved.type).toBe("distance");
     expect(saved.points).toHaveLength(3);
     expect(saved.totalDistance).toBeGreaterThan(0);
@@ -326,7 +326,7 @@ describe("DistanceMode — finish saves measurement", () => {
     (manager.store.remove as Mock).mockClear();
     capturedDistanceOpts.onDelete();
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
   });
 
   it("registers the overlay cleanup and leaves _cleanup as a no-op", () => {
