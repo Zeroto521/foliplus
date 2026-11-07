@@ -4,7 +4,7 @@ import {
   createInlineEditInput,
   removeInlineEditInput,
   updateItemLabel,
-} from "#common/dom.js";
+} from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { notifyDeltas } from "../apply.js";
 import { INTENT, setIntent } from "../intent.js";

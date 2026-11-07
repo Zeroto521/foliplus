@@ -25,11 +25,11 @@ export {
   numberInput,
   selectInput,
 } from "./form.js";
-export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
-export type { Placement, PlacementOpts, Rect, SurfaceSize } from "./placement.js";
+export { clamp, computePlacement, intersect, isDegenerate } from "#platform/placement.js";
+export type { Placement, PlacementOpts, Rect, SurfaceSize } from "#platform/placement.js";
 export { createSchemePicker } from "./schemePicker.js";
 export type { SchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export type { SliderOptions } from "./slider.js";
-export { SLIDER } from "./sliderVocabulary.js";
+export { SLIDER_CLASS_NAMES } from "./sliderClassNames.js";

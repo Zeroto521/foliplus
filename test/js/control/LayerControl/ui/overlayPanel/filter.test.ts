@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { SLIDER } from "#ui/index.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
+import { SLIDER_CLASS_NAMES } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -286,8 +286,8 @@ describe("LayerUI filter panel", () => {
       const field = panel.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const fieldRow = field.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
-      expect(fieldRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+      const fieldRow = field.closest(`.${PANEL_CLASS_NAMES.FORM_ROW}`) as HTMLElement;
+      expect(fieldRow.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_field"),
       );
       expect(
@@ -296,7 +296,7 @@ describe("LayerUI filter panel", () => {
       // Row 2 is the condition row: the shared "Range" caption beside the
       // slider — never a component's own word for the control.
       const sliderRow = fieldRow.nextElementSibling as HTMLElement;
-      expect(sliderRow.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+      expect(sliderRow.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_range"),
       );
       // Range row: the shared Slider — two real thumbs, not stacked range
@@ -304,7 +304,7 @@ describe("LayerUI filter panel", () => {
       const host = panel.querySelector(
         `.${CONST.CLASSES.FILTER_SLIDER}`,
       ) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`);
       expect(thumbs).toHaveLength(2);
       expect(panel.querySelector("input[type=range]")).toBeNull();
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
@@ -372,7 +372,7 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
     });
@@ -454,8 +454,8 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      expect(host.classList.contains(SLIDER.DISABLED)).toBe(true);
-      const thumb = host.querySelector(`.${SLIDER.THUMB}`) as HTMLElement;
+      expect(host.classList.contains(SLIDER_CLASS_NAMES.DISABLED)).toBe(true);
+      const thumb = host.querySelector(`.${SLIDER_CLASS_NAMES.THUMB}`) as HTMLElement;
       expect(thumb.getAttribute("aria-disabled")).toBe("true");
     });
 
@@ -581,8 +581,8 @@ describe("LayerUI filter panel", () => {
         true,
       );
       expect(fieldCell.textContent).not.toContain("Type");
-      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
-      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+      const row = fieldCell.closest(`.${PANEL_CLASS_NAMES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_enum"),
       );
       // The control group and its trigger share that same accessible name.
@@ -1000,9 +1000,9 @@ describe("LayerUI filter panel", () => {
       const fieldCell = item.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
-      const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+      const row = fieldCell.closest(`.${PANEL_CLASS_NAMES.FORM_ROW}`) as HTMLElement;
       // The caption stays panel-owned across the rebuild.
-      expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+      expect(row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent).toBe(
         ui.T("filter_enum"),
       );
       spy.mockRestore();
@@ -1025,7 +1025,7 @@ describe("LayerUI filter panel", () => {
     /** The slider.test.ts pointer recipe: jsdom reports 0×0 rects, the
      *  pointer paths need a rail with a measurable box. */
     const stubTrack = (host: HTMLElement): HTMLElement => {
-      const track = host.querySelector(`.${SLIDER.TRACK}`) as HTMLElement;
+      const track = host.querySelector(`.${SLIDER_CLASS_NAMES.TRACK}`) as HTMLElement;
       track.getBoundingClientRect = () =>
         ({
           left: 0,
@@ -1110,7 +1110,7 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const maxThumb = host.querySelectorAll(`.${SLIDER.THUMB}`)[1];
+      const maxThumb = host.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`)[1];
       maxThumb.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "ArrowLeft",
@@ -1144,7 +1144,7 @@ describe("LayerUI filter panel", () => {
       const host = panel.querySelector(
         `.${CONST.CLASSES.FILTER_SLIDER}`,
       ) as HTMLElement;
-      host.querySelectorAll(`.${SLIDER.THUMB}`)[1].dispatchEvent(
+      host.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`)[1].dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "ArrowLeft",
           bubbles: true,
@@ -1219,7 +1219,7 @@ describe("LayerUI filter panel", () => {
 
       expect(owner.filter).toBeUndefined();
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
     });
@@ -1378,7 +1378,7 @@ describe("LayerUI filter panel", () => {
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const thumbs = panel.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = panel.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
@@ -1398,7 +1398,7 @@ describe("LayerUI filter panel", () => {
       });
       ui.openFilterPanel(item);
       expect(
-        (item.querySelectorAll(`.${SLIDER.THUMB}`)[0] as HTMLElement).getAttribute(
+        (item.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`)[0] as HTMLElement).getAttribute(
           "aria-valuenow",
         ),
       ).toBe("15");
@@ -1408,7 +1408,7 @@ describe("LayerUI filter panel", () => {
       owner.filterSetter(undefined);
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
 
-      const thumbs = item.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = item.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
     });
@@ -1419,7 +1419,7 @@ describe("LayerUI filter panel", () => {
       registerPoints("pnt", oldOwner);
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
-      const staleThumb = item.querySelectorAll(`.${SLIDER.THUMB}`)[0];
+      const staleThumb = item.querySelectorAll(`.${SLIDER_CLASS_NAMES.THUMB}`)[0];
 
       // The entry under the same id is swapped (re-registration): the panel's
       // identity is the entry it opened against, so this must close rather
@@ -1589,8 +1589,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
     expect(result.textContent).toBe("67% (2 of 3) kept");
     // A standard FORM_ROW: right-aligned Result label + one control cell.
-    const row = result.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
-    expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
+    const row = result.closest(`.${PANEL_CLASS_NAMES.FORM_ROW}`) as HTMLElement;
+    expect(row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent).toBe(
       "LayerControl.filter_result_label",
     );
     // No second ratio / progress track anywhere in the panel.

@@ -1,7 +1,7 @@
 // Unit tests for HeatmapControl/render — the pure canvas draw helpers.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
 import {
   drawHexLabel,
   drawHexagon,

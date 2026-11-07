@@ -4,7 +4,7 @@
 // the plan needs.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { NUMBER_FORMAT } from "#common/format.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
 import { LABEL_SIZE } from "#ui/index.js";
 import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
 import * as CONST from "#control/LayerControl/const.js";

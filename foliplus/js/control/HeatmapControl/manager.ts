@@ -34,12 +34,12 @@ import {
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { createLogger } from "#common/log.js";
-import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
-import type { CanvasLabelStyle, Logger } from "#common/type.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { type Debounced, debounce } from "#platform/debounce.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { createLogger } from "#platform/log.js";
+import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
+import type { CanvasLabelStyle, Logger } from "#platform/type.js";
 import {
   BORDER_WEIGHT,
   clampBorderWeight,

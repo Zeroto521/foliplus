@@ -27,10 +27,10 @@ import {
 } from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
-import { finalize, finalizeEach } from "#common/finalize.js";
-import * as Storage from "#common/storage.js";
-import { throttleRaf } from "#common/throttle.js";
-import type { Logger } from "#common/type.js";
+import { finalize, finalizeEach } from "#platform/finalize.js";
+import * as Storage from "#platform/storage.js";
+import { throttleRaf } from "#platform/throttle.js";
+import type { Logger } from "#platform/type.js";
 import { mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";

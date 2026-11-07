@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { DIM } from "#core/layer/index.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -235,7 +235,7 @@ describe("buildSizeRow", () => {
 
   it("labels the row through the scoped translator", () => {
     const row = buildSizeRow(ui, "overlay1")!;
-    const labelText = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)?.textContent;
+    const labelText = row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)?.textContent;
     expect(labelText).toBe("LayerControl.style_size");
     expect(sizeInput(row).getAttribute("aria-label")).toBe("LayerControl.style_size");
   });
@@ -563,7 +563,7 @@ describe("panel integration", () => {
   let ui: LayerUI;
 
   const rows = (row: HTMLElement) =>
-    Array.from(row.querySelectorAll<HTMLElement>(`div.${PANEL_CLASS.FORM_ROW}`)).filter(
+    Array.from(row.querySelectorAll<HTMLElement>(`div.${PANEL_CLASS_NAMES.FORM_ROW}`)).filter(
       el => el.querySelector("input") !== null,
     );
 

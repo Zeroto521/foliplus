@@ -34,7 +34,7 @@ import {
   isFiniteNumber,
   leafPropertyValue,
 } from "#core/ramp.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";

@@ -2,8 +2,8 @@
 // HeatmapControl's template and LayerControl's style drawer both need the
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */
@@ -121,7 +121,7 @@ const selectInput = (opts: {
 
 /** Two controls sharing one form-control cell (border / label color+size). */
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
-  dom.el("div", { class: PANEL_CLASS.FORM_INLINE }, ...children);
+  dom.el("div", { class: PANEL_CLASS_NAMES.FORM_INLINE }, ...children);
 
 /** One FORM_ROW: a right-aligned label plus a single control cell. The
  *  color+number combo rows (label color+size, fill color+opacity, border
@@ -134,9 +134,9 @@ const formRow = (
 ): HTMLElement =>
   dom.el(
     "div",
-    { class: `${PANEL_CLASS.FORM_ROW}${rowClass ? ` ${rowClass}` : ""}` },
-    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, labelText),
-    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, control),
+    { class: `${PANEL_CLASS_NAMES.FORM_ROW}${rowClass ? ` ${rowClass}` : ""}` },
+    dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, labelText),
+    dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, control),
   );
 
 /** Live number input: apply in-range values on every keystroke; on commit

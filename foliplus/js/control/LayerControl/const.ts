@@ -1,5 +1,5 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
-import { NUMBER_FORMAT } from "#common/format.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 /** Timing / delay constants. */

@@ -115,7 +115,7 @@ export default [
       // Runs here (with `parserOptions.project`) rather than in the base
       // config because the rule needs the TS program to resolve imports
       // across the codebase. Without the program, the resolver can't
-      // follow `#common/*` or `#core/*` aliases and fires on every export.
+      // follow `#platform/*` or `#core/*` aliases and fires on every export.
       //
       // The rule reads `.eslintrc.json` for its ignore patterns (a
       // flat-config limitation — see eslint-plugin-import#3079); the

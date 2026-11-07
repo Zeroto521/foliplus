@@ -1,8 +1,8 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { createPanelControl } from "#core/leaflet/index.js";
-import { finalize } from "#common/finalize.js";
-import { bindControlZoomRange } from "#common/zoomRange.js";
+import { finalize } from "#platform/finalize.js";
+import { bindControlZoomRange } from "#ui/zoomRange.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";

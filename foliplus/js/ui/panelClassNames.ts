@@ -9,7 +9,7 @@
 // The keys mirror the DOM vocabulary: form-row/label/control/inline,
 // toggle switch/slider, section divider, button row, panel button, read-only,
 // hidden, and the panel header/close/title/icon chrome.
-const PANEL_CLASS = {
+const PANEL_CLASS_NAMES = {
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",
   FORM_CONTROL: "foliplus-form-control",
@@ -27,4 +27,4 @@ const PANEL_CLASS = {
   ICON: "foliplus-header-icon",
 } as const;
 
-export { PANEL_CLASS };
+export { PANEL_CLASS_NAMES };

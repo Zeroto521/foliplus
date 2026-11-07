@@ -30,10 +30,10 @@ module.exports = {
   importOrder: [
     "^#core/",
     "^#foliplus/",
-    "^#common/",
     "^#ui/",
     "^#control/",
     "^#script/",
+    "^#platform/",
     "^[.]",
   ],
   importOrderSeparation: false,

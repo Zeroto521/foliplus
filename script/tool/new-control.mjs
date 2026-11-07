@@ -263,12 +263,12 @@ class ${name}(BaseControl):
 `,
   );
 
-  // Import order matches .prettierrc.cjs: #core → #foliplus → #common.
+  // Import order matches .prettierrc.cjs: #core → #foliplus → #platform.
   files.set(
     `foliplus/js/control/${name}/index.ts`,
     `import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#platform/locale.js";
 
 // ==================== Runtime Guard ====================
 createControlEnv(CONFIG);

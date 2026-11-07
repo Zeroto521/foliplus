@@ -3,12 +3,12 @@
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar
 // (cssvar.js) directly instead of reading them from the runtime global.
-import { cssVar } from "#common/cssvar.js";
-import { dom } from "#common/dom.js";
-import { ICON_CLOSE } from "#common/icon.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { isPortalOf } from "#common/portalRoot.js";
-import { throttleRaf } from "#common/throttle.js";
+import { cssVar } from "#platform/cssvar.js";
+import { dom } from "#platform/dom.js";
+import { ICON_CLOSE } from "#platform/icon.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
+import { isPortalOf } from "#platform/portalRoot.js";
+import { throttleRaf } from "#platform/throttle.js";
 import { closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
@@ -19,7 +19,7 @@ const CLASSES = {
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
   TOOL_BAR: "foliplus-tool-bar",
-  PANEL_HEADER: PANEL_CLASS.HEADER,
+  PANEL_HEADER: PANEL_CLASS_NAMES.HEADER,
 };
 
 /**
@@ -292,11 +292,11 @@ const createPanelHeader = (opts: {
   header.appendChild(
     dom.el(
       "span",
-      { class: opts.titleClass ?? PANEL_CLASS.TITLE },
+      { class: opts.titleClass ?? PANEL_CLASS_NAMES.TITLE },
       dom.el(
         "span",
         {
-          class: opts.iconClass ?? PANEL_CLASS.ICON,
+          class: opts.iconClass ?? PANEL_CLASS_NAMES.ICON,
           "aria-hidden": "true",
         },
         { html: opts.iconSvg },

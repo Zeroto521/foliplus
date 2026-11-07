@@ -17,8 +17,8 @@
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
-import { createLogger } from "#common/log.js";
-import { throttleRaf } from "#common/throttle.js";
+import { createLogger } from "#platform/log.js";
+import { throttleRaf } from "#platform/throttle.js";
 import type { LayerUI } from "../surface.js";
 
 /** The author's full vector style bag. Every field is always populated on

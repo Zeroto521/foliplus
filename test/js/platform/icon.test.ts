@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as ICON from "#common/icon.js";
+import * as ICON from "#platform/icon.js";
 
 describe("ICON_LOADING", () => {
   it("is an SVG string", () => {

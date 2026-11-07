@@ -423,7 +423,7 @@ export default [
       ],
 
       // Relative path depth: one level (`./`, `../`) is fine; two+ (`../../`
-      // and above) means the caller should reach for an alias (`#common/…`,
+      // and above) means the caller should reach for an alias (`#platform/…`,
       // `#core/…`, `#foliplus/…`, `#script/…`). Deeper relatives mean the
       // module tree is out of shape — the alias is the source of truth for
       // where a shared module lives. Source-only: tests reach up to
@@ -437,7 +437,7 @@ export default [
             {
               group: ["../../*"],
               message:
-                "Use a path alias (#common/…, #core/…, #foliplus/…, #script/…) instead of walking up two+ levels.",
+                "Use a path alias (#platform/…, #core/…, #foliplus/…, #script/…) instead of walking up two+ levels.",
             },
           ],
         },

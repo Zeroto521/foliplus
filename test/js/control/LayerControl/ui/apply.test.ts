@@ -8,7 +8,7 @@ import {
   carrierTargetOf,
   contentPanesOf,
 } from "#core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import {

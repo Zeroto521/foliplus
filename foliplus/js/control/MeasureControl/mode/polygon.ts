@@ -4,7 +4,7 @@ import {
   unbindMapEvents,
 } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { stopEvent } from "#common/dom.js";
+import { stopEvent } from "#platform/dom.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachPolygonUI } from "../ui/index.js";

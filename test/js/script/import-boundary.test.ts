@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 //
 // Four layers, one direction: platform -> ui -> core -> control/<Feature>. A
 // layer may import itself and the layers below it, never the ones above.
-//   - platform (today "common/"): host primitives only — DOM, storage,
+//   - platform (now "platform/"): host primitives only — DOM, storage,
 //     fetch, locale, cssvar, rafLoop, fullscreen. No product semantics.
 //   - ui: foliplus chrome — appearance primitives (panelChrome, panelField,
 //     icon, panelClassName, canvasLabel) plus the stateful interaction
@@ -36,7 +36,7 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 // ── Layer classification ──────────────────────────────────────
 // TIER maps each tier to its directory AND its #alias segment. Step 2 renames
 // the bottom tier (common -> platform) by changing this one value.
-const TIER = { platform: "common", ui: "ui", core: "core" } as const;
+const TIER = { platform: "platform", ui: "ui", core: "core" } as const;
 type Tier = keyof typeof TIER;
 type Layer = Tier | "control" | "root";
 
@@ -107,7 +107,7 @@ const ALLOWED: ReadonlyArray<{
   // Type-only config-schema imports: the schema is the shared contract
   // between Python and JS, and these are erased at compile time.
   {
-    file: "common/format.ts",
+    file: "platform/format.ts",
     spec: "#foliplus/config-schema.js",
     reason: "type-only NumberStyle contract, erased at compile time",
   },

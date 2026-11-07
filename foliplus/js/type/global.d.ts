@@ -28,7 +28,7 @@ import type {
 } from "#core/layer/type.js";
 import type { ModeManager as CoreModeManager } from "#core/mode.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
-import type { LocaleTables } from "#common/locale.js";
+import type { LocaleTables } from "#platform/locale.js";
 
 // ── Inline CDN typings (no usable @types) ───────────────────────
 

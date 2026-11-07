@@ -1,7 +1,7 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureHint } from "#core/hint.js";
-import { createIconButton, dom } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
+import { createIconButton, dom } from "#platform/dom.js";
+import * as Icons from "#platform/icon.js";
 import { locateMe, removeMarker } from "./logic.js";
 
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).

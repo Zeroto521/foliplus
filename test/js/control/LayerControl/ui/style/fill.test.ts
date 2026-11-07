@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import { dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -377,7 +377,7 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
-    const labelText = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent;
+    const labelText = row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`)!.textContent;
     const select = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
@@ -1503,7 +1503,7 @@ describe("buildFillRow", () => {
     const modeRow = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement;
-    expect(modeRow.classList.contains(PANEL_CLASS.FORM_ROW)).toBe(true);
+    expect(modeRow.classList.contains(PANEL_CLASS_NAMES.FORM_ROW)).toBe(true);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
     ).not.toBeNull();
@@ -1515,7 +1515,7 @@ describe("buildFillRow", () => {
 
   it("the mode row renders the locale key's translated value", () => {
     const row = buildFillRow(ui, "overlay1");
-    const label = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
+    const label = row.querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill_mode");
   });
@@ -1644,8 +1644,8 @@ describe("buildFillRow", () => {
       `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
     ) as HTMLSelectElement;
     const label = method
-      .closest(`.${PANEL_CLASS.FORM_ROW}`)!
-      .querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
+      .closest(`.${PANEL_CLASS_NAMES.FORM_ROW}`)!
+      .querySelector(`.${PANEL_CLASS_NAMES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_method");
     expect(triggerOf(method).getAttribute("aria-label")).toBe(
@@ -2906,7 +2906,7 @@ describe("fill row — original colors", () => {
     // readOnlyBox; if fill.ts dropped either class, this real-panel DOM check
     // fails — the primitive-only test in ui/panelField.test.ts cannot see the
     // fill.ts delegation.
-    expect(colorsBoxOf(row).classList.contains(PANEL_CLASS.READONLY)).toBe(true);
+    expect(colorsBoxOf(row).classList.contains(PANEL_CLASS_NAMES.READONLY)).toBe(true);
   });
 
   it("states the column, the colors and the count as readouts", () => {
@@ -2969,7 +2969,7 @@ describe("fill row — original colors", () => {
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
-      expect(box.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
+      expect(box.classList.contains(PANEL_CLASS_NAMES.READONLY)).toBe(true);
       expect(box.getAttribute("aria-disabled")).toBe("true");
     }
   });

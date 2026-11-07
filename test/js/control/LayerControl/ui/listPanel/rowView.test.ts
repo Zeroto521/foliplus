@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
-import * as Icons from "#common/icon.js";
+import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";

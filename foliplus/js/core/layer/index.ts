@@ -161,3 +161,4 @@ export type {
   SnapshotPoint,
   ZArgs,
 } from "./type.js";
+export { drawAlpha, getLayerAlpha, setLayerAlpha, withCanvasLayerAlpha, withLayerAlpha } from "./canvasAlpha.js";

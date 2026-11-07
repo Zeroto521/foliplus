@@ -8,8 +8,8 @@ import {
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
 import * as coreLayer from "#foliplus/core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import * as Storage from "#common/storage.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
+import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   LayerController,

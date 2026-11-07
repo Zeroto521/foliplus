@@ -37,13 +37,13 @@ import {
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
+} from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 import {
   type SchemePicker,
   bindLiveColor,

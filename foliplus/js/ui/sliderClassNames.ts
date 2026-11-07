@@ -5,7 +5,7 @@
 // reads the map's container at import time). The primitive and its tests
 // import this module directly.
 
-const SLIDER = {
+const SLIDER_CLASS_NAMES = {
   ROOT: "foliplus-slider",
   TRACK: "foliplus-slider-track",
   RAIL: "foliplus-slider-rail",
@@ -25,4 +25,4 @@ const SLIDER = {
   DISABLED: "is-disabled",
 } as const;
 
-export { SLIDER };
+export { SLIDER_CLASS_NAMES };

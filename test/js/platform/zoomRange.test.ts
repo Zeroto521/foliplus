@@ -5,7 +5,7 @@ import {
   intersectsMapZoom,
   isZoomRange,
   readZoomRange,
-} from "#common/zoomRange.js";
+} from "#ui/zoomRange.js";
 
 type FakeMap = {
   zoom: number;

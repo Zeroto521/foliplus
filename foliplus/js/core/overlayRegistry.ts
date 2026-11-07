@@ -22,7 +22,7 @@
 // entry and as the deterministic fallback when two open entries contain the
 // same target. Registration order is never the order surfaces are consulted.
 import { isInsideOverlay } from "#core/overlay.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("Overlay");
 

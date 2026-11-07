@@ -8,9 +8,17 @@
 // Cleanup paths (destroy / onUnload / post-detach) legitimately see an
 // undefined or torn-down namespace and stay on `map.foliplus?.` — the
 // accessor is for the "runtime must be live" call sites only.
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");
+
+/** Ensure the foliplus runtime is loaded before component init. */
+const requireRuntime = (componentName: string): void => {
+  const log = createLogger(componentName);
+  if (!window.foliplus) {
+    throw new Error(log.msg("foliplus runtime not found, plugin disabled."));
+  }
+};
 
 /** Read the per-map foliplus namespace. Throws when the runtime hasn't
  *  seeded it — a programming error, since every control reaches the
@@ -27,4 +35,4 @@ const requireFoliplus = (map: L.Map): MapFoliplus => {
   return ns;
 };
 
-export { requireFoliplus };
+export { requireFoliplus, requireRuntime };

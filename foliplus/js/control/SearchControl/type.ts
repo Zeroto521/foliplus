@@ -4,8 +4,8 @@
 import type { SuggestItem } from "#core/geocode/index.js";
 import type { ListCursor } from "#core/interaction/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
-import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/debounce.js";
+import type { Cache } from "#platform/cache.js";
+import type { Debounced } from "#platform/debounce.js";
 import { type MODE, type SearchSource } from "./const.js";
 
 /** Search type: coordinate pair or address keyword. */

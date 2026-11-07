@@ -31,7 +31,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
-import { finalizeEach } from "#common/finalize.js";
+import { finalizeEach } from "#platform/finalize.js";
 import type { AnnotationManager } from "../annotation/index.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";

@@ -39,18 +39,18 @@ describe("esbuildCfgFor", () => {
     expect(dev.keepNames).toBe(true);
   });
 
-  it("declares the three #common / #core / #foliplus path aliases", () => {
-    // The alias table is what lets the sources import `#common/format` etc.
+  it("declares the three #platform / #core / #foliplus path aliases", () => {
+    // The alias table is what lets the sources import `#platform/format` etc.
     // A missing entry breaks the build with an unhelpful ERR_PACKAGE_IMPORT_
     // NOT_DEFINED, so the keys are pinned here.
     const cfg = esbuildCfgFor({ dev: false, root: ROOT });
     expect(Object.keys(cfg.alias)).toEqual(
-      expect.arrayContaining(["#common", "#core", "#foliplus"]),
+      expect.arrayContaining(["#platform", "#core", "#foliplus"]),
     );
   });
 
   it("attaches the version placeholder for the runtime console log", () => {
-    // The runtime console.log in foliplus-common.min.js reads
+    // The runtime console.log in foliplus-platform.min.js reads
     // `[foliplus] foliplus@<version>`. `__FOLIPLUS_VERSION__` is the esbuild
     // define that fills the placeholder; if it is missing the bundle
     // renders the literal identifier and the log is a lie.

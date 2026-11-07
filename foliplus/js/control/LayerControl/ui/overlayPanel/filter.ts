@@ -43,10 +43,10 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { formatNumber } from "#platform/format.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import { buttonRow, finishSlidersIn, panelButton, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -195,9 +195,9 @@ const buildResultRow = (ui: LayerUI): { row: HTMLElement; result: HTMLElement } 
   });
   const row = dom.el(
     "div",
-    { class: PANEL_CLASS.FORM_ROW },
-    dom.el("span", { class: PANEL_CLASS.FORM_LABEL }, ui.T("filter_result_label")),
-    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, result),
+    { class: PANEL_CLASS_NAMES.FORM_ROW },
+    dom.el("span", { class: PANEL_CLASS_NAMES.FORM_LABEL }, ui.T("filter_result_label")),
+    dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, result),
   );
   return { row, result };
 };

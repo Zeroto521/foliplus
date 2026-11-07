@@ -9,18 +9,18 @@
 // The class names come from common/panelClassName.ts (the single source), so the
 // vocabulary cannot drift between the style panel, the filter panel and the
 // heatmap template.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 
 /** Section divider — the hairline between panel sections.
  *  Defaults to <hr>; pass "div" where the caller's layout relies on the
  *  block element (a grid row that must not carry the hr UA margin). */
 const sectionDivider = (tag: "hr" | "div" = "hr"): HTMLElement =>
-  dom.el(tag, { class: PANEL_CLASS.SECTION_DIVIDER });
+  dom.el(tag, { class: PANEL_CLASS_NAMES.SECTION_DIVIDER });
 
 /** Button row — a flex row holding one or more panel buttons. */
 const buttonRow = (...children: HTMLElement[]): HTMLElement =>
-  dom.el("div", { class: PANEL_CLASS.BTN_ROW }, ...children);
+  dom.el("div", { class: PANEL_CLASS_NAMES.BTN_ROW }, ...children);
 
 /** Panel button — the shared panel action button (Reset / Clear).
  *  type defaults to "button" so it never submits a form it isn't in. */
@@ -33,7 +33,7 @@ const panelButton = (opts: {
     "button",
     {
       type: opts.type ?? "button",
-      class: [PANEL_CLASS.PANEL_BTN, opts.className].filter(Boolean).join(" "),
+      class: [PANEL_CLASS_NAMES.PANEL_BTN, opts.className].filter(Boolean).join(" "),
       "aria-label": opts.label,
     },
     opts.label,
@@ -50,7 +50,7 @@ const closeButton = (opts: {
     "button",
     {
       type: "button",
-      class: [PANEL_CLASS.CLOSE_BTN, opts.className].filter(Boolean).join(" "),
+      class: [PANEL_CLASS_NAMES.CLOSE_BTN, opts.className].filter(Boolean).join(" "),
       title: opts.title,
       "aria-label": opts.title,
     },

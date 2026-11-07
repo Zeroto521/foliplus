@@ -8,8 +8,8 @@
 // MeasureControl and SearchControl import this from #core/locationMarker.js.
 import { reverseGeocode } from "#core/geocode/index.js";
 import { setPopupCloseTitle } from "#core/leafletAdapter.js";
-import { buildPopupEl } from "#common/dom.js";
-import * as SVGs from "#common/icon.js";
+import { buildPopupEl } from "#platform/dom.js";
+import * as SVGs from "#platform/icon.js";
 
 const PIN: {
   SIZE: [number, number];

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import { Cache } from "#foliplus/common/cache.js";
+import { Cache } from "#foliplus/platform/cache.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { AUTOCOMPLETE, MODE, ZOOM } from "#control/SearchControl/const.js";
 import {

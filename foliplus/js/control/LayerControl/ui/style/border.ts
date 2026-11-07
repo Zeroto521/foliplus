@@ -23,8 +23,8 @@
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import {
   BORDER_WEIGHT,
   bindLiveColor,
@@ -298,8 +298,8 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
   return dom.el(
     "div",
     { class: target.rowClass },
-    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, target.label),
-    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, inlineControls(...parts)),
+    dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, target.label),
+    dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, inlineControls(...parts)),
   );
 };
 
@@ -356,7 +356,7 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
   return buildBorderRowShell({
-    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+    rowClass: `${PANEL_CLASS_NAMES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
     color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
     weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,

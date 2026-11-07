@@ -2,7 +2,7 @@
 // id + overrides, or a declarative custom provider) to a concrete
 // `GeocodeProvider`. Pure lookup — no mutable global state.
 import type { ProviderConfig } from "#foliplus/config-schema.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import { createNominatim } from "./nominatim.js";
 import { createPelias } from "./pelias.js";
 import { createPhoton } from "./photon.js";

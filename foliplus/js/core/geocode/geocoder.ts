@@ -10,8 +10,8 @@
 // set by provider-aware controls) and finally to Nominatim.
 import { getMapCrsType } from "#core/geo/coord.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
-import { Cache } from "#common/cache.js";
-import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { Cache } from "#platform/cache.js";
+import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#platform/fetch.js";
 import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";

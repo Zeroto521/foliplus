@@ -12,7 +12,7 @@ import {
   createPersisted,
   loadVersioned,
   saveVersioned,
-} from "#common/storage.js";
+} from "#platform/storage.js";
 import * as CONST from "./const.js";
 
 /** Central store for all measurements. Owns the array, the id counter, the

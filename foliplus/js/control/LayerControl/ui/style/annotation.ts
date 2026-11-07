@@ -16,10 +16,10 @@
 // the gate would be exactly the drift the gate invariant forbids.
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -153,9 +153,9 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // number — comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
-    { class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
-    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui._("foliplus.label_format")),
-    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, formatDropdown.element),
+    { class: `${PANEL_CLASS_NAMES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
+    dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, ui._("foliplus.label_format")),
+    dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, formatDropdown.element),
   );
   syncFormatRow(
     fields,
@@ -172,28 +172,28 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     { class: CONST.CLASSES.STYLE_BODY },
     dom.el(
       "div",
-      { class: PANEL_CLASS.FORM_ROW },
-      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_label_field")),
-      dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, fieldDropdown.element),
+      { class: PANEL_CLASS_NAMES.FORM_ROW },
+      dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, ui.T("style_label_field")),
+      dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, fieldDropdown.element),
     ),
     formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,
     dom.el(
       "div",
-      { class: PANEL_CLASS.FORM_ROW },
+      { class: PANEL_CLASS_NAMES.FORM_ROW },
       dom.el(
         "label",
-        { class: PANEL_CLASS.FORM_LABEL },
+        { class: PANEL_CLASS_NAMES.FORM_LABEL },
         ui._("foliplus.label_collide"),
       ),
       dom.el(
         "div",
-        { class: PANEL_CLASS.FORM_CONTROL },
+        { class: PANEL_CLASS_NAMES.FORM_CONTROL },
         dom.el(
           "label",
-          { class: PANEL_CLASS.TOGGLE_SWITCH },
+          { class: PANEL_CLASS_NAMES.TOGGLE_SWITCH },
           collideToggle,
-          dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
+          dom.el("span", { class: PANEL_CLASS_NAMES.TOGGLE_SLIDER }),
         ),
       ),
     ),
@@ -205,18 +205,18 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     { class: CONST.CLASSES.STYLE_LABEL_SECTION },
     dom.el(
       "div",
-      { class: PANEL_CLASS.FORM_ROW },
-      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui._("foliplus.label")),
+      { class: PANEL_CLASS_NAMES.FORM_ROW },
+      dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, ui._("foliplus.label")),
       dom.el(
         "div",
-        { class: PANEL_CLASS.FORM_CONTROL },
+        { class: PANEL_CLASS_NAMES.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
         // label should all flip the checkbox — the switch is one <label>.
         dom.el(
           "label",
-          { class: PANEL_CLASS.TOGGLE_SWITCH },
+          { class: PANEL_CLASS_NAMES.TOGGLE_SWITCH },
           showToggle,
-          dom.el("span", { class: PANEL_CLASS.TOGGLE_SLIDER }),
+          dom.el("span", { class: PANEL_CLASS_NAMES.TOGGLE_SLIDER }),
         ),
       ),
     ),

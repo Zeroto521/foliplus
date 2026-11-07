@@ -6,8 +6,8 @@
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -56,7 +56,7 @@ const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | nu
   const hasColor = !!setters.borderColor;
   const hasWeight = !!setters.borderWeight;
   const row = buildBorderRowShell({
-    rowClass: PANEL_CLASS.FORM_ROW,
+    rowClass: PANEL_CLASS_NAMES.FORM_ROW,
     label: ui.T("border"),
     color: values.borderColor,
     weight:

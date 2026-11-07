@@ -12,8 +12,8 @@
 // Heatmap + LayerControl shared field/classes/scheme rows) depends on the
 // `common/form.ts` ones, so those stay in common and ui/ only adds what a
 // panel needs and core never imports.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 
 /** One read-only value box: the form-control frame with no interaction.
  *  `aria-disabled` defaults to true — the box cannot be opened, toggled or
@@ -32,7 +32,7 @@ const readOnlyValue = (
   dom.el(
     "div",
     {
-      class: ["foliplus-input-skin", PANEL_CLASS.READONLY, opts.className]
+      class: ["foliplus-input-skin", PANEL_CLASS_NAMES.READONLY, opts.className]
         .filter(Boolean)
         .join(" "),
       "aria-disabled":

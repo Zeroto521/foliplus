@@ -2,11 +2,11 @@
 // Pure logic, no CONFIG / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
-import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
-import { dom } from "#common/dom.js";
-import { finalize } from "#common/finalize.js";
-import { createLogger } from "#common/log.js";
-import { throttleRaf } from "#common/throttle.js";
+import { withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { dom } from "#platform/dom.js";
+import { finalize } from "#platform/finalize.js";
+import { createLogger } from "#platform/log.js";
+import { throttleRaf } from "#platform/throttle.js";
 import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { type PaneManager } from "./PaneManager.js";
 import {

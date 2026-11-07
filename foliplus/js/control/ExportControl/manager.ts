@@ -4,8 +4,8 @@
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { GeoBounds } from "#core/geo/index.js";
 import { type ModeManager, ensureModes } from "#core/mode.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { type RafLoop } from "#common/rafLoop.js";
+import { createScopedTranslator } from "#platform/locale.js";
+import { type RafLoop } from "#platform/rafLoop.js";
 import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";

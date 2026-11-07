@@ -9,8 +9,8 @@
 // (write / reset / valueSource); commitOpacityPct stays a thin delegate that
 // also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS_NAMES } from "#ui/panelClassNames.js";
 import { Slider, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
@@ -102,9 +102,9 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
   return dom.el(
     "div",
-    { class: PANEL_CLASS.FORM_ROW },
-    dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_opacity")),
-    dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
+    { class: PANEL_CLASS_NAMES.FORM_ROW },
+    dom.el("label", { class: PANEL_CLASS_NAMES.FORM_LABEL }, ui.T("style_opacity")),
+    dom.el("div", { class: PANEL_CLASS_NAMES.FORM_CONTROL }, host),
   );
 };
 

@@ -24,7 +24,7 @@
 //     is pinned into it, never after.
 //
 // No CONFIG / translator dependency: core/layer, not a component dir.
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import {
   type LayerCarrierProbe,
@@ -1051,7 +1051,7 @@ const detectCapabilities = (
   // one style write per pane covers every child. `opts.canvas` covers the
   // createCanvas shape, whose canvas element sits inside its own dedicated
   // pane. Since R11 the canvas face bakes layerAlpha into its draws
-  // (`#common/canvasAlpha`); the capability still reports `"pane"` because
+  // (`#core/layer/canvasAlpha`); the capability still reports `"pane"` because
   // that is the honest "we own this face" tier — the bake-vs-CSS mechanism
   // distinction belongs to a separate capabilities shape (`"baked"`/
   // `"redraw"`), not something this detector invents.

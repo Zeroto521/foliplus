@@ -1,6 +1,6 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureHint } from "#core/hint.js";
-import { createIconButton, dom } from "#common/dom.js";
+import { createIconButton, dom } from "#platform/dom.js";
 import { FULLSCREEN_CHANGE } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";

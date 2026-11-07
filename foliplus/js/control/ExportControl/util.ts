@@ -1,4 +1,4 @@
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#platform/locale.js";
 import * as CONST from "./const.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
