@@ -129,6 +129,7 @@ export type {
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
+  FillMode,
   FillValueConfig,
   IntentKey,
   IntentRow,

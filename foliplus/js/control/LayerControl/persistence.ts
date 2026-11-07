@@ -176,6 +176,13 @@ const PARSE_OVERRIDE: Record<
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
+  borderValue: data => parseFillValue(data.borderValue),
+  borderMode: data =>
+    data.borderMode === FILL_MODE.SOLID ||
+    data.borderMode === FILL_MODE.VALUE ||
+    data.borderMode === FILL_MODE.ORIGINAL
+      ? data.borderMode
+      : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
