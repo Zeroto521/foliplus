@@ -1,4 +1,3 @@
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
 import { sliderOf } from "#ui/index.js";
@@ -27,21 +26,22 @@ describe("opacityToPct clamp boundary (via OPACITY_DIMENSION.row)", () => {
   const rowValue = (layerId: string): number => {
     const row = getDimension(DIM.OPACITY)!.row!(ui, layerId) as HTMLElement;
     const host = row.querySelector(".foliplus-slider") as HTMLElement;
-    return sliderOf(host)!.value;
+    const value = sliderOf(host)!.value;
+    return Array.isArray(value) ? value[0] : value;
   };
 
   it("clamps a corrupt persisted opacity above 1 to 100", () => {
-    setIntent(ui, "overlay1", DIM.OPACITY, 1.5 as never);
+    setIntent(ui, "overlay1", DIM.OPACITY, 1.5);
     expect(rowValue("overlay1")).toBe(100);
   });
 
   it("clamps a corrupt persisted opacity below 0 to 0", () => {
-    setIntent(ui, "overlay1", DIM.OPACITY, -0.5 as never);
+    setIntent(ui, "overlay1", DIM.OPACITY, -0.5);
     expect(rowValue("overlay1")).toBe(0);
   });
 
   it("renders a user opacity intent at its percentage", () => {
-    setIntent(ui, "overlay1", DIM.OPACITY, 0.35 as never);
+    setIntent(ui, "overlay1", DIM.OPACITY, 0.35);
     expect(rowValue("overlay1")).toBe(35);
   });
 

@@ -1,10 +1,9 @@
-
 import { describe, expect, it } from "vitest";
 import { appendResetFooter } from "#control/LayerControl/ui/style/frame.js";
 import type { LayerUI } from "#control/LayerControl/ui/surface.js";
 
 const makeUI = (label = "Reset"): LayerUI =>
-  ({ T: (key: string) => (key === "style_reset" ? label : key) } as unknown as LayerUI);
+  ({ T: (key: string) => (key === "style_reset" ? label : key) }) as unknown as LayerUI;
 
 describe("appendResetFooter", () => {
   it("appends a section divider then a reset button row", () => {
@@ -21,7 +20,9 @@ describe("appendResetFooter", () => {
   it("labels the reset button from ui.T and marks it a plain button", () => {
     const content = document.createElement("div");
     appendResetFooter(makeUI("Reset styles"), content);
-    const btn = content.querySelector("button.foliplus-style-reset-btn") as HTMLButtonElement;
+    const btn = content.querySelector(
+      "button.foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
     expect(btn).not.toBeNull();
     expect(btn.textContent).toBe("Reset styles");
     expect(btn.getAttribute("aria-label")).toBe("Reset styles");
@@ -31,7 +32,9 @@ describe("appendResetFooter", () => {
   it("uses the shared panel button vocabulary", () => {
     const content = document.createElement("div");
     appendResetFooter(makeUI(), content);
-    const btn = content.querySelector("button.foliplus-style-reset-btn") as HTMLButtonElement;
+    const btn = content.querySelector(
+      "button.foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
     expect(btn.classList.contains("foliplus-panel-btn")).toBe(true);
   });
 });
