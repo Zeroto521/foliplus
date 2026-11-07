@@ -1,1 +1,1 @@
-(sel) => document.querySelector(sel).scrollTop
+sel => document.querySelector(sel).scrollTop;

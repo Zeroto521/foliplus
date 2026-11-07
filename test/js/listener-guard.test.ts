@@ -673,7 +673,6 @@ describe("the listener allow-list guard still bites", () => {
   });
 });
 
-
 describe("floating touch containment", () => {
   // A touch drag over a floating surface must never reach Leaflet's map
   // handlers (they would pan/zoom the map instead of scrolling the panel).
@@ -693,8 +692,7 @@ describe("floating touch containment", () => {
   //   control/SearchControl/logic/panel.ts  Search result root panelWrap
   it("every floating mount binds the touch containment", () => {
     const files = globSync("foliplus/js/**/*.ts", { cwd: ROOT });
-    const countOf = (src: string, re: RegExp): number =>
-      (src.match(re) ?? []).length;
+    const countOf = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
     const touchByFile = new Map<string, number>();
     const mountUsers: string[] = [];
     for (const f of files) {

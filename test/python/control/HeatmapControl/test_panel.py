@@ -35,7 +35,17 @@ import json
 
 import folium
 import pytest
-from conftest import _js, heatmap_ready, make_browser_page, snippet, use_page
+from conftest import (
+    _js,
+    assert_map_unchanged,
+    heatmap_ready,
+    make_browser_page,
+    map_center_zoom,
+    snippet,
+    snippet_fn,
+    touch_drag,
+    use_page,
+)
 
 from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
@@ -654,4 +664,42 @@ class TestClassesRowGeometryBrowser:
             assert data["methodFillsControl"], data
             assert data["classesAtSecondary"], data
             assert data["noOverlap"], data
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestHeatmapPanelTouchBrowser:
+    """A touch drag over the fold-panel body scrolls it, not the map."""
+
+    def test_touch_drag_over_the_fold_panel_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        # The fold panel comes from the shared createPanelControl factory, which
+        # binds the touch containment on the scrollable panel-content body.
+        with use_page(_make_page, touch_browser, tmp_path, num_layers=1) as (
+            page,
+            errors,
+        ):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            assert _panel_open(page) is True
+            page.wait_for_timeout(300)
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})"
+                "('.foliplus-heatmap-ctrl .foliplus-panel-content')"
+            )
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 80,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
             assert not errors, f"JS errors: {errors}"
