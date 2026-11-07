@@ -19,7 +19,7 @@
 // script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
+import { SHARED_SPEC_REGEX_SOURCE, namespacePrefixRules } from "../build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
@@ -177,9 +177,13 @@ const globalNamespacePlugin = sourceRoot => ({
     build.onLoad({ filter: /.*/, namespace: "foliplus-shared" }, args => {
       const spec = args.path;
       const rel = spec
-        .replace(/^#core\//, "core/")
-        .replace(/^#common\//, "common/")
-        .replace(/^#ui\//, "ui/")
+        // Rewrite the shared `#<prefix>/` namespaces via the derived table
+        // (build-path.namespacePrefixRules) so a tier rename cannot leave this
+        // onLoad rewrite out of sync with the onResolve filter above.
+        ...Object.entries(namespacePrefixRules()).reduce(
+          (acc, [prefix, dir]) => acc.replace(new RegExp(`^#${prefix}/`), dir),
+          spec,
+        )
         .replace(/^#foliplus\//, "");
       const sourcePath = resolve(sourceRoot, rel);
       const ns = sharedGlobalNamespace(spec);
