@@ -1,4 +1,4 @@
-// Value-based stroke rendering — the "按值描边 / Stroke by value" arm of
+// Value-based stroke rendering — the "按值着色 / Stroke by value" arm of
 // the border dimension.
 //
 // Walks a layer's style leaves, reads `feature.properties[field]` per leaf,

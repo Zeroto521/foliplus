@@ -51,6 +51,7 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#ui/index.js";
+import { STYLE_MODE } from "#ui/styleVocabulary.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, clearIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -636,9 +637,9 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   // directly (no separate value field); it falls back to Solid when the
   // fill is single-color or original.
   const options = [
-    { value: "follow", label: ui.T("style_mode_follow_fill") },
-    { value: FILL_MODE.SOLID, label: ui.T("style_mode_single") },
-    { value: FILL_MODE.VALUE, label: ui.T("style_mode_by_value") },
+    { value: "follow", label: ui.T(STYLE_MODE.FOLLOW_FILL) },
+    { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
+    { value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) },
   ];
   const modeRow = buildModeRow({
     label: ui.T("style_border_mode"),
