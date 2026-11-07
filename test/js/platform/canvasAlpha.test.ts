@@ -117,7 +117,6 @@ describe("withCanvasLayerAlpha", () => {
   });
 });
 
-
 // Visual-consistency notes + assertions for the R11 bake path.
 //
 // CSS whole-element opacity and per-draw `globalAlpha` are the same visual
