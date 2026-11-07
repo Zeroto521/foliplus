@@ -29,6 +29,7 @@
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
 - `LayerControl`: a pinned row panel scrolls inside its height cap instead of overflowing ([#878](https://github.com/Zeroto521/foliplus/pull/878))
 - `LayerControl`: hovering the style drawer keeps its owner row highlighted instead of dropping the highlight ([#883](https://github.com/Zeroto521/foliplus/pull/883))
+- `LayerControl`: a pre-v4 record's legacy top-level `annotations` label segment is no longer read (**Breaking**: a label config that only it carried is dropped on load) ([#949](https://github.com/Zeroto521/foliplus/pull/949))
 
 ### Removed
 

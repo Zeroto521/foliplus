@@ -325,7 +325,6 @@ describe("LayerIntentStore — loadFromPersisted ↔ parseLayerState + PARSE_OVE
     const store = new LayerIntentStore();
     store.loadFromPersisted({
       renamedNames: { a: "Renamed" },
-      annotations: { a: ann({ field: "legacy" }), b: ann() },
       layers: {
         a: {
           overrides: ["visible", "fillColor"],
@@ -342,9 +341,6 @@ describe("LayerIntentStore — loadFromPersisted ↔ parseLayerState + PARSE_OVE
     expect(store.get("a", "visible")).toBe(true);
     expect(store.get("a", "fillColor")).toBe("#123456");
     expect(store.dumpProvenance().a).toEqual(["visible", "fillColor"]);
-    // legacy annotation for b (no layers entry)
-    expect(store.get("b", "annotation")).toEqual(ann());
-    expect(store.dumpProvenance().b).toBeUndefined();
   });
 
   it("drops a value whose LIVE check fails even when the marker is present", () => {
