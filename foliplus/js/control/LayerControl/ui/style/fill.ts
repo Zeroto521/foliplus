@@ -1090,7 +1090,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       ? [
           {
             value: FILL_MODE.ORIGINAL,
-            label: ui.T("style_fill_per_feature"),
+            label: ui.T("style_mode_original"),
             title: ui.T("style_fill_per_feature_note"),
           },
         ]

@@ -88,4 +88,3 @@ const buildModeRow = (spec: {
 };
 
 export { buildModeRow };
-export type { ModeRow, ModeRowOption };
