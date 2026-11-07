@@ -41,14 +41,21 @@ describe("bundle.yaml single job / two tracks", () => {
     expect(jobKeys).toEqual(["bundle"]);
   });
 
-  it("gates every baseline reader on pull_request", () => {
-    const baselineSteps = stepStarts
-      .map((_, i) => stepAt(i))
-      .filter(s => s.includes("bundle-size-check"));
-    expect(baselineSteps.length).toBeGreaterThanOrEqual(3); // capture/report/enforce
-    for (const s of baselineSteps) {
-      expect(s).toContain(PR_GATE);
+  it("gates every baseline reader on pull_request or merge_group", () => {
+    const capture = stepContaining("--emit=base-sizes.json");
+    const report = stepContaining("--report=bundle-report.md");
+    const enforce = stepContaining("--baseline=base-sizes.json --enforce");
+    expect(capture).toBeDefined();
+    expect(enforce).toBeDefined();
+    for (const step of [capture, enforce]) {
+      expect(step).toContain(
+        "if: ${{ github.event.pull_request || github.event.merge_group }}",
+      );
     }
+    expect(report).toContain("if: ${{ github.event.pull_request }}");
+    expect(capture).toContain("FOLIPLUS_BASE:");
+    expect(capture).toContain("github.event.merge_group.base_sha");
+    expect(capture).toContain("format('origin/{0}', github.base_ref)");
   });
 
   it("gates the treemap artifact, sticky comment, and treemap link on PR", () => {
@@ -57,14 +64,12 @@ describe("bundle.yaml single job / two tracks", () => {
     expect(stepContaining("Link treemap report")).toContain(PR_GATE);
   });
 
-  it("runs the Codecov upload on both tracks (no event gate)", () => {
+  it("runs the Codecov upload on both tracks (fail-soft on PR and merge_group)", () => {
     const upload = stepContaining("codecov-bundle-upload.mjs");
     expect(upload).toBeDefined();
     expect(upload).not.toMatch(/^ {8}if:/m);
-    // Fail-open on PR (an outage must not block the sticky table or merge),
-    // hard-fail on a main push (the whole point is landing the baseline).
     expect(upload).toContain(
-      "continue-on-error: ${{ github.event_name == 'pull_request' }}",
+      "continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
     );
   });
 
