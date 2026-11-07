@@ -81,13 +81,18 @@ const testPathAliases = root => ({
  * Shared-module prefixes — the `#…` namespaces where ANY import routes to
  * the shared global namespace (`window.foliplus.common` / `window.foliplus.core` / `window.foliplus.ui`).
  *
+ * Derived from `SHARED_ALIASES` so the two cannot drift: adding or removing a
+ * shared alias here changes the prefix set with it, and the import-scan /
+ * global-namespace-plugin consumers read through the same single source.
  * Deliberately narrower than `SHARED_ALIASES`: `#foliplus` is an alias but
- * NOT a shared prefix. Only `#foliplus/BaseControl.js` is shared (see
- * `SHARED_MODULE_EXACTS`); every other `#foliplus/*` — a component's own
- * `const.js`, `icon.js`, or `config-schema.js` — resolves through esbuild's
- * alias table and bundles into the component.
+ * NOT a shared prefix (only `#foliplus/BaseControl.js` is shared — see
+ * `SHARED_MODULE_EXACTS`; every other `#foliplus/*` bundles into the
+ * component), and `#control` is never shared (components bundle their own
+ * const/icon/config-schema).
  */
-const SHARED_MODULE_PREFIXES = ["common", "core", "ui"];
+const SHARED_MODULE_PREFIXES = SHARED_ALIASES
+  .map(spec => spec.slice(1))
+  .filter(spec => spec !== "control" && spec !== "foliplus");
 
 /**
  * Exact `#…` specs that are shared but don't fall under a shared prefix.
