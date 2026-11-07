@@ -41,6 +41,8 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   /* Entrance: subtle fade + slide-down, plays once when the menu mounts.
      The two former 0.15s entrances (dropdown + scheme picker) were identical;
      the tokens are the single duration/easing both use now. */
