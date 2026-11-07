@@ -192,6 +192,12 @@
     flex: 1;
     overflow-x: hidden;
     overflow-y: auto;
+    /* A touch drag over the panel body scrolls the body, never pans the
+       map (Leaflet touch handlers on the container). overscroll-behavior
+       stops boundary chaining; touch-action: pan-y scrolls vertically and
+       refuses to hand the gesture to the map. */
+    overscroll-behavior: contain;
+    touch-action: pan-y;
     /* A flex item's default min-height is auto, which lets the content's
        intrinsic height size the item and push the card past the
        --foliplus-panel-max-height cap. The content is the one scroll

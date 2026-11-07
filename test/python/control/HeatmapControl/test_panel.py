@@ -416,14 +416,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # _hexbin_panel_ready picks the first layer; clear it so the
             # placeholder prompt is the visible state again.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  select.value = "";
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/clear_hexbin_layer"))
             page.wait_for_timeout(300)
 
             # No layer picked: the prompt is the muted placeholder ink.
@@ -439,15 +432,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # Pick a real layer: the trigger leaves the muted ink for the
             # value ink, and the placeholder class goes away.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  const option = [...select.options].find(option => option.value);
-                  select.value = option.value;
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/pick_hexbin_layer"))
             page.wait_for_timeout(300)
             after = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
             assert after["ok"], after
