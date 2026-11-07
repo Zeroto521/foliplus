@@ -85,6 +85,7 @@
   "LayerControl.style_mode_single": "单一颜色",
   "LayerControl.style_mode_by_value": "按值着色",
   "LayerControl.style_mode_original": "原始配色",
+  "LayerControl.style_mode_follow_fill": "同填充",
   "LayerControl.style_fill_per_feature": "原始配色",
   "LayerControl.style_fill_per_feature_note": "在 geopandas.GeoDataFrame.explore 中按要素逐条设置的颜色。编辑填充会覆盖它；重置可恢复。",
   "LayerControl.style_fill_original_continuous": "原始 · 连续",

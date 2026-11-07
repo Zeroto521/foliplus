@@ -85,6 +85,7 @@
   "LayerControl.style_mode_single": "Single Color",
   "LayerControl.style_mode_by_value": "Color by Value",
   "LayerControl.style_mode_original": "Original Colors",
+  "LayerControl.style_mode_follow_fill": "Same as Fill",
   "LayerControl.style_fill_per_feature": "Original Colors",
   "LayerControl.style_fill_per_feature_note": "Colors set per feature by geopandas.GeoDataFrame.explore. Editing the fill overrides them; Reset restores them.",
   "LayerControl.style_fill_original_continuous": "Original · continuous",
