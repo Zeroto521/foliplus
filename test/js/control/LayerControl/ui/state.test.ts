@@ -1227,7 +1227,7 @@ describe("event-driven row refresh", () => {
         }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,
@@ -1258,7 +1258,7 @@ describe("event-driven row refresh", () => {
         }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,
@@ -1270,7 +1270,7 @@ describe("event-driven row refresh", () => {
       // visible flip gives that projection a CHANGE to deliver.
       seedIntentMap(ui, "opacity", { overlay1: 0.4 });
       seedIntentMap(ui, "visible", { overlay1: false });
-      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillRamp", "visible"]);
+      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillValue", "visible"]);
       ensureEvents(ui.c.map).on(EVENTS.LAYER_CHANGE, () => {
         throw new Error("change boom");
       });
@@ -1288,7 +1288,7 @@ describe("event-driven row refresh", () => {
         scale: () => ({ mode: () => ({ colors: () => ["#a00000", "#ff7f00"] }) }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,

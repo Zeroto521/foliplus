@@ -408,30 +408,41 @@ describe("LayerPersistence", () => {
     });
   });
 
-  describe("fillRamp / fillMode", () => {
-    it("migrates a pre-rename fillMode: the stored literal is now value", () => {
-      // The value-based arm's stored mode spelling changed ("ramp" → "value").
-      // A record written before the rename must load as the new literal, and
-      // the write path stamps only "value" from here on.
+  describe("fillValue / fillMode", () => {
+    it("rejects the pre-rename fillMode literal (no compatibility migration)", () => {
+      // The stored mode spelling changed ("ramp" → "value"), but the lead
+      // chose to drop the migration branch entirely: a pre-rename record
+      // reads with the mode treated as absent (no arm claim), and the value
+      // config alone stays valid for the next write.
       seedStorage({
         version: RECORD_VERSION,
         layers: {
           a: {
             fillMode: "ramp",
-            fillRamp: {
+            fillValue: {
               field: "price",
               method: "quantile",
               classes: 5,
               scheme: "Reds",
             },
-            overrides: ["fillRamp", "fillMode"],
+            overrides: ["fillValue", "fillMode"],
           },
         },
       });
-      expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "value",
-        fillRamp: { field: "price", method: "quantile", classes: 5, scheme: "Reds" },
-        overrides: ["fillRamp", "fillMode"],
+      const loaded = makePersistence().load().layers.a;
+      // The mode segment is dropped (absent), so the arm falls back to the
+      // derived "solid" default rather than claiming the renamed "value".
+      // parseFillValue keeps the kindless shape (kind: undefined for numeric),
+      // and the invalid mode marker is dropped from overrides with it.
+      expect(loaded).toEqual({
+        fillValue: {
+          kind: undefined,
+          field: "price",
+          method: "quantile",
+          classes: 5,
+          scheme: "Reds",
+        },
+        overrides: ["fillValue"],
       });
     });
 
@@ -448,25 +459,26 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("migrates a pre-rename mode literal on a bare fillMode record", () => {
+    it("rejects a pre-rename mode literal on a bare fillMode record", () => {
       seedStorage({
         version: RECORD_VERSION,
         layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
       });
-      expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "value",
-        overrides: ["fillMode"],
-      });
+      // The renamed "value" is the only value-arm literal now; "ramp" reads
+      // as an invalid mode (absent), so the record keeps no mode claim.
+      // With the only marker invalid, the layer state has no overrides and no
+      // annotation, so parseLayerState returns null — the layer reads absent.
+      expect(makePersistence().load().layers.a).toBeUndefined();
     });
 
-    it("writes only the new literal after migrating a pre-rename record", () => {
-      // A pre-rename record loads as "value"; the write path must stamp only
-      // "value" and never write the old literal back. The last assertion checks
-      // the serialized record, so a field-level pass can't be faked by some
-      // other branch re-stamping "ramp" elsewhere in the record.
+    it("never writes the old literal back", () => {
+      // The write path stamps only "value" (or the derived solid) — "ramp" is
+      // not a legal literal anymore, so no code path may emit it. The last
+      // assertion checks the serialized record, so a field-level pass can't be
+      // faked by some branch re-stamping "ramp" elsewhere in the record.
       seedStorage({
         version: RECORD_VERSION,
-        layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
+        layers: { a: { fillMode: "value", overrides: ["fillMode"] } },
       });
       const loaded = makePersistence().load();
       expect(loaded.layers.a?.fillMode).toBe("value");
@@ -493,19 +505,19 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               field: "  price  ",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
       expect(makePersistence().load().layers.a).toEqual({
-        fillRamp: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
-        overrides: ["fillRamp"],
+        fillValue: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillValue"],
       });
     });
 
@@ -518,13 +530,13 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               field: "  price  ",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
@@ -535,7 +547,7 @@ describe("LayerPersistence", () => {
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      expect(lastRecord(save).layers.a?.fillRamp?.field).toBe("  price  ");
+      expect(lastRecord(save).layers.a?.fillValue?.field).toBe("  price  ");
       save.mockRestore();
       vi.useRealTimers();
     });
@@ -548,23 +560,23 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               kind: "numeric",
               field: "price",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
       const loaded = makePersistence().load().layers.a;
       expect(loaded).toEqual({
-        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
-        overrides: ["fillRamp"],
+        fillValue: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillValue"],
       });
-      expect(loaded!.fillRamp!.kind).toBeUndefined();
+      expect(loaded!.fillValue!.kind).toBeUndefined();
     });
 
     it("drops a ramp whose kind this client cannot build", () => {
@@ -576,14 +588,14 @@ describe("LayerPersistence", () => {
           version: RECORD_VERSION,
           layers: {
             a: {
-              fillRamp: {
+              fillValue: {
                 kind,
                 field: "price",
                 method: "equal",
                 classes: 3,
                 scheme: "Reds",
               },
-              overrides: ["fillRamp"],
+              overrides: ["fillValue"],
             },
           },
         });
@@ -602,7 +614,7 @@ describe("LayerPersistence", () => {
       for (const bad of bads) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: bad, overrides: ["fillValue"] } },
         });
         // The marker has no surviving value, so the layer entry is dropped
         // rather than kept as an empty object.
@@ -616,8 +628,8 @@ describe("LayerPersistence", () => {
           version: RECORD_VERSION,
           layers: {
             a: {
-              fillRamp: { field: "price", method: "equal", classes, scheme: "Reds" },
-              overrides: ["fillRamp"],
+              fillValue: { field: "price", method: "equal", classes, scheme: "Reds" },
+              overrides: ["fillValue"],
             },
           },
         });
@@ -629,7 +641,7 @@ describe("LayerPersistence", () => {
       for (const bad of [null, undefined, "Reds", 7, [], [1, 2, 3]]) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: bad, overrides: ["fillValue"] } },
         });
         expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
       }
@@ -671,7 +683,7 @@ describe("LayerPersistence", () => {
         expect(isFillValueConfig(config), JSON.stringify(config)).toBe(ok);
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: config, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: config, overrides: ["fillValue"] } },
         });
         const loaded = makePersistence().load();
         expect(
@@ -719,9 +731,9 @@ describe("LayerPersistence", () => {
         layers: {
           a: {
             fillMode: "value",
-            fillRamp: { field: "", method: "equal", classes: 3, scheme: "Reds" },
+            fillValue: { field: "", method: "equal", classes: 3, scheme: "Reds" },
             fillOpacity: 0.5,
-            overrides: ["fillMode", "fillRamp", "fillOpacity"],
+            overrides: ["fillMode", "fillValue", "fillOpacity"],
           },
         },
       });

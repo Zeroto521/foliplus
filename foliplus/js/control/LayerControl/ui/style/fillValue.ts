@@ -86,10 +86,10 @@ const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillValueConfig | undefined,
+  value: FillValueConfig | undefined,
 ): FillMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ??
-  (ramp !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
+  (value !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
 
 /** Apply a value-based fill to one layer.
  *
@@ -107,7 +107,7 @@ const resolveFillMode = (
 const applyValueFill = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillValueConfig,
+  value: FillValueConfig,
   /** Resolve a stored config's field against the layer's current fields.
    *  The caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing: a stored field the
@@ -120,7 +120,7 @@ const applyValueFill = (
    *  it a declared value fill would be dropped by folium's `resetStyle` on the first
    *  hover, leaving the author's flat face under a by-value panel. */
   liveRamp: () => FillValueConfig | undefined = () =>
-    getIntent(ui, layerId, INTENT.FILL_RAMP),
+    getIntent(ui, layerId, INTENT.FILL_VALUE),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
@@ -146,10 +146,10 @@ const applyValueFill = (
   const values: number[] = [];
   const categories: string[] = [];
   const collected: CollectedLeaf[] = [];
-  const category = ramp.kind === "category";
+  const category = value.kind === "category";
   const seenCategories = new Set<string>();
   walkFillLeaves(layer, leaf => {
-    const read = leafPropertyValue(leaf, ramp.field);
+    const read = leafPropertyValue(leaf, value.field);
     if (category) {
       const text = categoryLabel(read);
       // buildCategoryRamp maps DISTINCT labels to colors in first-seen
@@ -161,9 +161,9 @@ const applyValueFill = (
       }
       collected.push({ leaf, value: undefined, category: text });
     } else {
-      const value = isFiniteNumber(read) ? read : undefined;
-      if (value !== undefined) values.push(value);
-      collected.push({ leaf, value, category: undefined });
+      const leafValue = isFiniteNumber(read) ? read : undefined;
+      if (leafValue !== undefined) values.push(leafValue);
+      collected.push({ leaf, value: leafValue, category: undefined });
     }
   });
 
@@ -184,9 +184,9 @@ const applyValueFill = (
   let categoryScale: ReturnType<typeof buildCategoryRamp> | null = null;
   try {
     if (category) {
-      categoryScale = buildCategoryRamp(categories, ramp.scheme);
+      categoryScale = buildCategoryRamp(categories, value.scheme);
     } else {
-      built = buildRamp(values, ramp);
+      built = buildRamp(values, value);
     }
   } catch (err) {
     log.warn("value-based fill:", err);
@@ -204,7 +204,7 @@ const applyValueFill = (
   // ── Pass 2: write per-leaf + pin ──
   // Iterating the collection instead of re-walking the tree: the two passes
   // then share one leaf order and no shared state.
-  for (const { leaf, value, category: leafCategory } of collected) {
+  for (const { leaf, value: leafValue, category: leafCategory } of collected) {
     const opacity = readOpacity();
     const write: Record<string, unknown> = {};
     if (opacity !== undefined) write.fillOpacity = opacity;
@@ -212,8 +212,8 @@ const applyValueFill = (
       ? catScale !== null && leafCategory !== undefined
         ? (catScale.colors.get(leafCategory) ?? catScale.other)
         : undefined
-      : scale !== null && value !== undefined
-        ? colorFor(scale, value)
+      : scale !== null && leafValue !== undefined
+        ? colorFor(scale, leafValue)
         : undefined;
     if (paint !== undefined) {
       // The value ramp owns this leaf's color, so `fill` is lit and the author's
@@ -245,9 +245,9 @@ const applyValueFill = (
       if (resolveFillMode(ui, layerId, currentRamp) !== FILL_MODE.VALUE) return null;
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
-      if (!sameValueConfig(currentRamp, ramp)) return null;
+      if (!sameValueConfig(currentRamp, value)) return null;
       const op = readOpacity();
-      const curVal = leafPropertyValue(leaf, ramp.field);
+      const curVal = leafPropertyValue(leaf, value.field);
       if (category && catScale !== null) {
         const label = categoryLabel(curVal);
         if (label !== undefined) {

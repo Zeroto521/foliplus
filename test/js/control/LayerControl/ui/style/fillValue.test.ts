@@ -1,4 +1,4 @@
-// Unit tests for fillRamp — value-based fill rendering.
+// Unit tests for fillValue — value-based fill rendering.
 //
 // The mutual exclusion logic (Solid ↔ value) is covered in fill.test.ts
 // through the FILL_DIMENSION descriptor; applyValueFill is tested here
@@ -19,7 +19,7 @@ const mockGetIntent = vi.fn(
 
 vi.mock("#control/LayerControl/ui/intent.js", () => ({
   INTENT: {
-    FILL_RAMP: "fillRamp",
+    FILL_VALUE: "fillValue",
     FILL_OPACITY: "fillOpacity",
     FILL_MODE: "fillMode",
   },
@@ -448,7 +448,7 @@ describe("applyValueFill", () => {
     // the leaf fell back to the author's face until the next apply.
     installChroma(["#111111"]);
     const layer = makeFeatureLayer([{ properties: { count: 5 } }]);
-    intentValues = { fillRamp: makeRamp({ field: "gone" }) };
+    intentValues = { fillValue: makeRamp({ field: "gone" }) };
     const resolveStored = (stored: FillValueConfig): FillValueConfig => ({
       ...stored,
       field: "count",
@@ -477,7 +477,7 @@ describe("applyValueFill", () => {
     // instead of a silent stale-color bug.
     installChroma(["#111111"]);
     const ramp = makeRamp();
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
     applyValueFill(makeUI(layer), "overlay1", ramp);
@@ -487,7 +487,7 @@ describe("applyValueFill", () => {
     // The user picks another class count: the live config no longer matches the
     // breaks this apply cached, so the pin yields to folium's restore until the
     // next scheduler tick repaints.
-    intentValues = { fillRamp: makeRamp({ classes: 5 }) };
+    intentValues = { fillValue: makeRamp({ classes: 5 }) };
     expect(pinGetterOf(0)()).toBeNull();
   });
 
@@ -651,10 +651,10 @@ describe("applyValueFill", () => {
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillRamp: ramp, fillMode: "solid" };
+    intentValues = { fillValue: ramp, fillMode: "solid" };
     expect(pinGetterOf()()).toBeNull();
 
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     expect(pinGetterOf()()!.fillColor).toBe("#ff0000");
   });
 
@@ -680,7 +680,7 @@ describe("applyValueFill", () => {
       ["classes", 5],
       ["scheme", DEFAULT_SCHEMES[1]],
     ]) {
-      intentValues = { fillRamp: { ...ramp, [key]: value } };
+      intentValues = { fillValue: { ...ramp, [key]: value } };
       expect(pinGetterOf()()).toBeNull();
     }
   });
@@ -691,7 +691,7 @@ describe("applyValueFill", () => {
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     const result = pinGetterOf()();
     expect(result).not.toBeNull();
     expect(result!.fillColor).toBeDefined();
@@ -716,7 +716,7 @@ describe("applyValueFill", () => {
     expect(colorOf(0)).toBe("#ff0000");
     expect(colorOf(1)).toBe("#00ff00");
     expect(colorOf(2)).toBe("#0000ff");
-    intentValues = { fillRamp: makeRamp() };
+    intentValues = { fillValue: makeRamp() };
     expect(pinGetterOf()()).not.toBeNull();
   });
 
@@ -731,7 +731,7 @@ describe("applyValueFill", () => {
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = {
-      fillRamp: { ...ramp, kind: "categorical" } as unknown as FillValueConfig,
+      fillValue: { ...ramp, kind: "categorical" } as unknown as FillValueConfig,
     };
     expect(pinGetterOf()()).toBeNull();
   });
@@ -744,7 +744,7 @@ describe("applyValueFill", () => {
     // Build with no opacity, then choose one afterwards.
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillRamp: ramp, fillOpacity: 0.4 };
+    intentValues = { fillValue: ramp, fillOpacity: 0.4 };
     expect(pinGetterOf()()!.fillOpacity).toBe(0.4);
   });
 
@@ -758,7 +758,7 @@ describe("applyValueFill", () => {
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
     features[0].properties.value = NaN;
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     expect(pinGetterOf()()).toBeNull();
   });
 
@@ -774,7 +774,7 @@ describe("applyValueFill", () => {
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
     features[0].properties.value = NaN;
-    intentValues = { fillRamp: ramp, fillOpacity: 0.3 };
+    intentValues = { fillValue: ramp, fillOpacity: 0.3 };
     const out = pinGetterOf()();
     expect(out).not.toBeNull();
     expect(out!.fillColor).toBe("#3388ff");
@@ -851,7 +851,7 @@ describe("applyValueFill", () => {
     );
 
     layer.leaves[0].feature.properties.kind = "mystery";
-    intentValues = { fillRamp: makeRamp({ kind: "category", field: "kind" }) };
+    intentValues = { fillValue: makeRamp({ kind: "category", field: "kind" }) };
     const out = pinGetterOf()();
     expect(out).not.toBeNull();
     expect(out!.fillColor).toBe("#999");
@@ -887,7 +887,7 @@ describe("applyValueFill", () => {
     const ramp = makeRamp({ kind: "category", field: "kind" });
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     const out = pinGetterOf()();
     expect(out).not.toBeNull();
     // One distinct label takes palette[0] (first-seen order).
@@ -958,7 +958,7 @@ describe("applyValueFill", () => {
     const ramp = makeRamp({ kind: "category", field: "kind" });
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillRamp: ramp };
+    intentValues = { fillValue: ramp };
     // Leaf 0 is an in-domain label; leaf 1 is a number — categoryLabel reads
     // "no label", so its pin getter yields null rather than a fallback color.
     expect(pinGetterOf(1)()).toBeNull();

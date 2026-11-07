@@ -10,5 +10,5 @@
   mm.setMode("marker");
   click([26.01, 119.3]);
   mm.setMode(null);
-  return mm.measurements.map(m => m.type);
+  return mm.store.all().map(m => m.type);
 };
