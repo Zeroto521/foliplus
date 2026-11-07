@@ -595,27 +595,6 @@ class MeasureManager {
     this.scheduleLabelPlan();
   }
 
-  // ── Persistence (compatibility shell over MeasureStore) ──
-  // Browser tests and legacy call sites read `mgr.measurements` /
-  // call `saveMeasurements()` directly; new code should use `mgr.store`.
-
-  /** Live measurements array. Reads return the store's backing array; writes
-   *  hydrate the store in place (used by tests + legacy seed paths). Mutating
-   *  the returned array directly does NOT persist — use store.add/remove/update. */
-  get measurements(): MeasureData[] {
-    return this.store.all();
-  }
-  set measurements(data: MeasureData[]) {
-    this.store.hydrate(data);
-  }
-
-  /** Persist all measurements to localStorage and refresh the count column. */
-  saveMeasurements() {
-    this.store.persist();
-    // Runtime content changed — refresh the attributes panel timestamp.
-    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-  }
-
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
    * The id is persisted with the measurement and exported (CSV / GeoJSON). */
   nextMeasurementId(type: string): string {
@@ -625,10 +604,6 @@ class MeasureManager {
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
     this.store.hydrate(this.store.load());
-    // Older persisted measurements may lack an `id`. Assign one before rebuild
-    // so later onUpdate / onDelete paths (which match by id) resolve to the right
-    // measurement and exports carry a stable id.
-    if (this.store.assignMissingIds()) this.store.persist();
     this.store.all().forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });

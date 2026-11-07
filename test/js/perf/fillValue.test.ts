@@ -160,7 +160,7 @@ describe("fillValue.perf @6k", { timeout: 300_000 }, () => {
   it("one setStyle per leaf per tick on both arms - the write is not the difference", () => {
     installChromaStub(6);
     const solidIntent = { fillColor: "#ff0000" };
-    const valueIntent = { fillRamp: valueConfig() };
+    const valueIntent = { fillValue: valueConfig() };
     for (let i = 0; i < WARMUP; i++) {
       intents = solidIntent;
       applyFillToLayer(ui, "overlay1");

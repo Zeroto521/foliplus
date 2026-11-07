@@ -7,5 +7,5 @@
   click([26.09, 119.31]);
   map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
   mm.setMode(null);
-  return mm.measurements.map(m => m.type);
+  return mm.store.all().map(m => m.type);
 };

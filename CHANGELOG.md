@@ -29,11 +29,13 @@
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
 - `LayerControl`: a pinned row panel scrolls inside its height cap instead of overflowing ([#878](https://github.com/Zeroto521/foliplus/pull/878))
 - `LayerControl`: hovering the style drawer keeps its owner row highlighted instead of dropping the highlight ([#883](https://github.com/Zeroto521/foliplus/pull/883))
+- `LayerControl`: a pre-v4 record's legacy top-level `annotations` label segment is no longer read (**Breaking**: a label config that only it carried is dropped on load) ([#949](https://github.com/Zeroto521/foliplus/pull/949))
 
 ### Removed
 
 - `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
 - Package: folium 0.14 is no longer supported (**Breaking**) — the `foliplus={...}` layer declaration needs folium >= 0.15, the first release whose `GeoJson` forwards an unknown keyword into `options` instead of raising `TypeError` ([#790](https://github.com/Zeroto521/foliplus/pull/790), [#792](https://github.com/Zeroto521/foliplus/pull/792))
+- `HeatmapControl` / `MeasureControl` / `SearchControl`: the backward-compat layer is gone and old saved records are dropped on load, not migrated (**Breaking**) ([#945](https://github.com/Zeroto521/foliplus/pull/945))
 
 ### Fixed
 

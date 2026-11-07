@@ -129,8 +129,8 @@ describe("MarkerMode — start + click", () => {
     )?.[1];
     clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
 
-    expect(manager.measurements.length).toBe(1);
-    expect(manager.measurements[0].type).toBe("marker");
+    expect(manager.store.all().length).toBe(1);
+    expect(manager.store.all()[0].type).toBe("marker");
     expect(manager.store.add).toHaveBeenCalled();
     expect(window.L.marker).toHaveBeenCalled();
   });
@@ -177,7 +177,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
-      manager.measurements = [data];
+      manager.store.hydrate([data]);
       MarkerMode.restore(manager, data);
 
       // restore creates the pin (L.marker #1) then the del icon (L.marker #2).
@@ -250,7 +250,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
-      manager.measurements = [data];
+      manager.store.hydrate([data]);
       MarkerMode.restore(manager, data);
       const pin = (window.L.marker as any).mock.results[0].value;
       enableDrag(manager);
@@ -331,7 +331,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
-      manager.measurements = [data];
+      manager.store.hydrate([data]);
       MarkerMode.restore(manager, data);
 
       const pin = (window.L.marker as any).mock.results[0].value;
@@ -525,7 +525,7 @@ describe("MarkerMode — start + click", () => {
       const manager = makeManagerMock() as any;
       manager.isEditMode = true;
       manager.store.persist.mockImplementation(() => {
-        localStorage.setItem(KEY, JSON.stringify(manager.measurements));
+        localStorage.setItem(KEY, JSON.stringify(manager.store.all()));
       });
       const data: MeasureData = {
         id: "m_flush",
@@ -534,7 +534,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
-      manager.measurements = [data];
+      manager.store.hydrate([data]);
       MarkerMode.restore(manager, data);
       const pin = (window.L.marker as any).mock.results[0].value;
       enableDrag(manager);
@@ -574,7 +574,7 @@ describe("MarkerMode — start + click", () => {
       const manager = makeManagerMock() as any;
       manager.isEditMode = true;
       manager.store.persist.mockImplementation(() => {
-        localStorage.setItem(KEY, JSON.stringify(manager.measurements));
+        localStorage.setItem(KEY, JSON.stringify(manager.store.all()));
       });
       const data: MeasureData = {
         id: "m_restore",
@@ -583,7 +583,7 @@ describe("MarkerMode — start + click", () => {
         lat: 31,
         address: "Old",
       };
-      manager.measurements = [data];
+      manager.store.hydrate([data]);
       MarkerMode.restore(manager, data);
       const pin = (window.L.marker as any).mock.results[0].value;
       enableDrag(manager);
@@ -602,7 +602,7 @@ describe("MarkerMode — start + click", () => {
       const saved = JSON.parse(localStorage.getItem(KEY)!);
       expect(saved.find((e: any) => e.id === "m_restore")?.lat).toBe(37.5);
       const m2 = makeManagerMock() as any;
-      m2.measurements = saved;
+      m2.store.hydrate(saved);
       const restored = saved.find((e: any) => e.id === "m_restore");
       MarkerMode.restore(m2, restored);
       expect(window.L.latLng).toHaveBeenCalledWith(37.5, -122.5);
@@ -620,7 +620,7 @@ describe("MarkerMode — start + click", () => {
       lat: 31,
       address: "Old",
     };
-    manager.measurements = [data];
+    manager.store.hydrate([data]);
     MarkerMode.restore(manager, data);
 
     const del = (window.L.marker as any).mock.results[1].value; // del icon
@@ -634,7 +634,7 @@ describe("MarkerMode — start + click", () => {
         preventDefault: vi.fn(),
       },
     });
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
     expect(manager.layers.removeLayer).toHaveBeenCalled();
   });
 
@@ -659,7 +659,7 @@ describe("MarkerMode — start + click", () => {
         preventDefault: vi.fn(),
       },
     });
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
   });
 
   it("refreshes placed-marker popup content when the address is set", () => {
@@ -673,7 +673,7 @@ describe("MarkerMode — start + click", () => {
     clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
 
     const pin = (window.L.marker as any).mock.results[0].value;
-    manager.measurements[0].address = "Resolved";
+    manager.store.all()[0].address = "Resolved";
     const onPopupOpen = pin.on.mock.calls.find(
       ([ev]: [string]) => ev === "popupopen",
     )?.[1];

@@ -70,8 +70,7 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
 /** Persist the per-layer label config — it rides the record's `layers`
  *  section (`layers[id].annotation`), so the same writer that saves
  *  visibility / opacity / zoom range now saves it. The legacy top-level
- *  `annotations` segment has no live source anymore: it passes through on
- *  every write, read only as the fallback when the new key is absent. */
+ *  `annotations` segment no longer exists. */
 const persistStyleLabel = (ui: LayerUI): void => {
   saveState(ui);
 };

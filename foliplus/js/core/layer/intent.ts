@@ -137,7 +137,7 @@ type LayerOverride =
   | "visible"
   | "fillColor"
   | "fillOpacity"
-  | "fillRamp"
+  | "fillValue"
   | "fillMode"
   | "borderColor"
   | "borderWeight"
@@ -190,7 +190,7 @@ type LayerIntent = {
   fillOpacity?: number;
   /** The value-based fill config when the layer is painted by a field.
    *  Kept when the active arm is solid — the mode switch back restores it. */
-  fillRamp?: FillValueConfig;
+  fillValue?: FillValueConfig;
   /** Which fill arm the user chose: a single color, a value ramp, or the
    *  layer author's own per-feature colors. Absent means solid — the arm that
    *  predates the ramp. */
@@ -223,7 +223,7 @@ type PersistedLayerState = {
   /** The value-based fill config the user set (field / method / classes /
    *  scheme). The ramp arm owns the color; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
-  fillRamp?: FillValueConfig;
+  fillValue?: FillValueConfig;
   /** Which fill arm is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
   fillMode?: FillMode;
@@ -245,10 +245,7 @@ type PersistedLayerState = {
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
-   *  for is still an entry here). Readers fall back to the legacy
-   *  top-level `annotations[id]` segment when this key is absent
-   *  (write-new / read-old tolerance; the old segment is passed through
-   *  untouched, never migrated). */
+   *  for is still an entry here). */
   annotation?: AnnotationConfig;
   overrides: LayerOverride[];
 };
@@ -266,11 +263,9 @@ type IntentRow = {
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
  *  `PersistedRecord` (order / removed / foldedRoles stay outside the
- *  store); annotation config rides both the legacy top-level segment and
- *  `layers[id].annotation`. */
+ *  store); annotation config rides `layers[id].annotation`. */
 type LoadSource = {
   renamedNames?: Record<string, string>;
-  annotations?: Record<string, unknown>;
   layers?: Record<string, PersistedLayerState>;
 };
 
@@ -281,7 +276,7 @@ const INTENT = {
   VISIBLE: "visible",
   FILL_COLOR: "fillColor",
   FILL_OPACITY: "fillOpacity",
-  FILL_RAMP: "fillRamp",
+  FILL_VALUE: "fillValue",
   FILL_MODE: "fillMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
@@ -301,7 +296,7 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
-  [INTENT.FILL_RAMP]: isFillValueConfig,
+  [INTENT.FILL_VALUE]: isFillValueConfig,
   [INTENT.FILL_MODE]: value =>
     value === FILL_MODE.SOLID ||
     value === FILL_MODE.VALUE ||
@@ -327,7 +322,7 @@ const STYLE_KEYS = {
   visible: INTENT.VISIBLE,
   fillColor: INTENT.FILL_COLOR,
   fillOpacity: INTENT.FILL_OPACITY,
-  fillRamp: INTENT.FILL_RAMP,
+  fillValue: INTENT.FILL_VALUE,
   fillMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,

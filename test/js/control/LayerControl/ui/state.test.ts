@@ -849,11 +849,11 @@ describe("label config seed — read order (write-new / read-old)", () => {
     vi.clearAllMocks();
   });
 
-  it("layers[id].annotation wins over the legacy segment; legacy alone still seeds", () => {
-    // The compat contract in one round trip: a record carrying BOTH keys
-    // for the same id reads the current one, an id only the legacy segment
-    // knows (a v2 record) still seeds, and neither side is migrated into
-    // the other by the read.
+  it("reads the label config from layers[id].annotation only (dual-key removal)", () => {
+    // The dual-key removal in one round trip: a record carrying BOTH keys
+    // for the same id reads the current one, an id only the legacy top-level
+    // `annotations` segment knows (a v2 record) no longer seeds — the legacy
+    // segment is dropped as invalid, nothing is migrated.
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify({
@@ -883,11 +883,7 @@ describe("label config seed — read order (write-new / read-old)", () => {
       field: "new",
       format: "comma",
     });
-    expect(getIntent(ui, "legacyOnly", "annotation")).toEqual({
-      show: true,
-      field: "l",
-      format: "int",
-    });
+    expect(getIntent(ui, "legacyOnly", "annotation")).toBeUndefined();
     expect(getIntent(ui, "withOverride", "annotation")).toEqual({
       show: true,
       field: "p",
@@ -1231,7 +1227,7 @@ describe("event-driven row refresh", () => {
         }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,
@@ -1262,7 +1258,7 @@ describe("event-driven row refresh", () => {
         }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,
@@ -1274,7 +1270,7 @@ describe("event-driven row refresh", () => {
       // visible flip gives that projection a CHANGE to deliver.
       seedIntentMap(ui, "opacity", { overlay1: 0.4 });
       seedIntentMap(ui, "visible", { overlay1: false });
-      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillRamp", "visible"]);
+      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillValue", "visible"]);
       ensureEvents(ui.c.map).on(EVENTS.LAYER_CHANGE, () => {
         throw new Error("change boom");
       });
@@ -1292,7 +1288,7 @@ describe("event-driven row refresh", () => {
         scale: () => ({ mode: () => ({ colors: () => ["#a00000", "#ff7f00"] }) }),
       } as never;
       const leaves = attachFeatures([1, 5, 9]);
-      seedIntentMap(ui, "fillRamp", {
+      seedIntentMap(ui, "fillValue", {
         overlay1: {
           field: "value",
           method: METHOD.EQUAL,
@@ -1538,9 +1534,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(states.overlay1 && Object.keys(states.overlay1)).toEqual(["overrides"]);
   });
 
-  it("skips legacy annotation entries that are not objects", () => {
-    // The legacy `annotations` segment passes through unparsed, so a corrupt
-    // entry must not seed an intent.
+  it("skips annotation configs that are not objects", () => {
+    // The annotation config rides `layers[id].annotation`; a corrupt entry
+    // must not seed an intent, and an id with only a bad config drops out.
     const bare = {
       intentStore: makeStore(),
       listPanel: { foldedRoles: new Set<string>(), checkedCount: {} },
@@ -1551,11 +1547,13 @@ describe("ui/state intentStore and per-layer state persistence", () => {
               order: null,
               foldedRoles: [],
               renamedNames: {},
-              annotations: {
-                nullish: null,
-                valid: { show: true, field: "name", format: "auto" },
+              layers: {
+                nullish: { overrides: [], annotation: null },
+                valid: {
+                  overrides: [],
+                  annotation: { show: true, field: "name", format: "auto" },
+                },
               },
-              layers: {},
             }) as never,
         },
       },
@@ -1578,7 +1576,6 @@ describe("ui/state intentStore and per-layer state persistence", () => {
               order: null,
               foldedRoles: [],
               renamedNames: {},
-              annotations: {},
               layers: {
                 overlay1: { overrides: ["visible"], visible: "yes" },
               },
@@ -1667,7 +1664,6 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         order: null,
         foldedRoles: ["Overlay"],
         renamedNames: {},
-        annotations: {},
         layers: {
           overlay1: {
             opacity: 0.35,
@@ -1697,7 +1693,6 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         order: null,
         foldedRoles: [],
         renamedNames: {},
-        annotations: {},
         layers: {
           overlay1: {
             borderColor: "#0000ff",
