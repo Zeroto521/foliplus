@@ -83,10 +83,12 @@ const isGlyphPainted = (content: string): boolean =>
   content !== "none" && content !== "normal" && content !== "";
 
 /** Runtime availability probe: does the loaded FontAwesome stylesheet actually
- *  paint `fa-<name>`? Builds a detached `<i class="fa-solid fa-<name>">` and
- *  reads `getComputedStyle(el, "::before").content`; a real FA class gives a
- *  glyph codepoint, a missing one gives "none"/"normal"/"". Results are cached
- *  in a Map — the CSS is static, so one probe per name ever.
+ *  paint `fa-<name>`? Builds a hidden `<i class="fa-solid fa-<name>">`, attaches
+ *  it (a detached element reads ::before content as "" even when the rule
+ *  exists — see the note in the body), reads
+ *  `getComputedStyle(el, "::before").content`, then removes it. A real FA
+ *  class gives a glyph codepoint, a missing one gives "none"/"normal"/"".
+ *  Results are cached in a Map — the CSS is static, so one probe per name ever.
  *
  *  jsdom (vitest) has no external stylesheet, so every name probes "none" —
  *  single tests must stub `getComputedStyle` (or `glyphAvailable`) to model
@@ -99,10 +101,29 @@ const glyphAvailable = (name: string): boolean => {
     availabilityCache.set(name, false);
     return false;
   }
+  // A *detached* <i> reads ::before content as "" in Chromium even when the
+  // loaded FontAwesome stylesheet declares the rule — the ::before
+  // pseudo-element only computes against an attached element (verified by a
+  // live browser probe, 2026-11-07: detached "" vs attached "\uf276"). The
+  // old probe never attached, so in the real browser suite every name probed
+  // unavailable and the icon dimension silently degraded to the author icon.
+  // Attach (hidden, so no layout flash) then remove immediately; the probe is
+  // read-only and cached, so this runs once per name ever.
   const probe = document.createElement("i");
   probe.className = `fa-solid fa-${name}`;
   probe.style.display = "none";
-  const content = getComputedStyle(probe, "::before").content;
+  const host = document.body ?? document.documentElement;
+  if (!host) {
+    availabilityCache.set(name, false);
+    return false;
+  }
+  host.appendChild(probe);
+  let content: string;
+  try {
+    content = getComputedStyle(probe, "::before").content;
+  } finally {
+    probe.remove();
+  }
   const available = isGlyphPainted(content);
   availabilityCache.set(name, available);
   return available;
