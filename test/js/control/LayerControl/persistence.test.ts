@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isFillValueConfig } from "#core/layer/intent.js";
+import { FILL_MODE, isFillValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
@@ -1539,5 +1539,38 @@ describe("LayerPersistence", () => {
       save.mockRestore();
       vi.useRealTimers();
     });
+  });
+});
+
+describe("borderMode value domain", () => {
+  // The border mode is a closed domain (solid / value / original). The parser
+  // must keep a legal literal and drop anything else — a corrupt stored value
+  // cannot leak a broken border mode through provenance.
+  it("accepts solid / value / original borderMode literals", () => {
+    for (const mode of [
+      FILL_MODE.SOLID,
+      FILL_MODE.VALUE,
+      FILL_MODE.ORIGINAL,
+    ] as const) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderMode: mode, overrides: ["borderMode"] } },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        borderMode: mode,
+        overrides: ["borderMode"],
+      });
+    }
+  });
+
+  it("drops a borderMode outside the domain rather than leaking it", () => {
+    // The parser returns null for a bad literal and the marker is dropped
+    // with it; with only that marker invalid the layer has no overrides and
+    // reads absent — same contract as the fillMode "ramp" case.
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: { a: { borderMode: "ramp", overrides: ["borderMode"] } },
+    });
+    expect(makePersistence().load().layers.a).toBeUndefined();
   });
 });
