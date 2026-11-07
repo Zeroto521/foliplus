@@ -655,3 +655,58 @@ describe("the listener allow-list guard still bites", () => {
     expect(callsIn("ui.m.map.on('click', fn)", MAP_ON_RE)).toBe(0);
   });
 });
+
+
+describe("floating touch containment", () => {
+  // A touch drag over a floating surface must never reach Leaflet's map
+  // handlers (they would pan/zoom the map instead of scrolling the panel).
+  // bindFloatingTouch (common/floating.ts) is the one mechanism. Today it has
+  // no unified entry (mountFloating does not call it), so each floating mount
+  // wires it explicitly. The guard enumerates every mount:
+  //   A. Engine mounts (mountFloating callers) are auto-scanned — a new engine
+  //      user that forgets to bind goes red immediately.
+  //   B. Each mount file is pinned to an exact bindFloatingTouch count —
+  //      deleting any one of them goes red.
+  // Counts use the raw source (bindFloatingTouch( appears only at real call
+  // sites in the production tree — never in a comment or string), so a stray
+  // comment cannot fake a wiring. The pin is the exemption table (each entry
+  // carries its reason):
+  //   ui/listbox.ts          engine root list, via mountFloating
+  //   core/leaflet/panel.ts  panel-factory roots content, panelContent
+  //   control/SearchControl/logic/panel.ts  Search result root panelWrap
+  it("every floating mount binds the touch containment", () => {
+    const files = globSync("foliplus/js/**/*.ts", { cwd: ROOT });
+    const countOf = (src: string, re: RegExp): number =>
+      (src.match(re) ?? []).length;
+    const touchByFile = new Map<string, number>();
+    const mountUsers: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      const t = countOf(src, /bindFloatingTouch\(/g);
+      if (t > 0) touchByFile.set(f.replace(/^foliplus\/js\//, ""), t);
+      if (countOf(src, /mountFloating\(/g) > 0) mountUsers.push(f);
+    }
+    // A. The shared engine mount must be paired with the touch containment
+    // in the same file.
+    for (const f of mountUsers) {
+      const src = readFileSync(f, "utf8");
+      expect(
+        countOf(src, /bindFloatingTouch\(/g) > 0,
+        `${f} mounts a floating layer (mountFloating) but never binds touch`,
+      ).toBe(true);
+    }
+    // B. Per-mount pin: each floating-root file binds exactly its count.
+    expect(
+      touchByFile.get("core/leaflet/panel.ts"),
+      "panel factory binds its two floating roots (content, panelContent)",
+    ).toBe(2);
+    expect(
+      touchByFile.get("control/SearchControl/logic/panel.ts"),
+      "the Search result panel binds its floating root (panelWrap)",
+    ).toBe(1);
+    expect(
+      touchByFile.get("ui/listbox.ts"),
+      "listbox engine binds its floating root (list) exactly once",
+    ).toBe(1);
+  });
+});

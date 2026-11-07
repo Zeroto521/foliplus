@@ -25,7 +25,7 @@ from pathlib import Path
 
 import folium
 import pytest
-from conftest import _inject_window_map, _install_cdn_route
+from conftest import _inject_window_map, _install_cdn_route, snippet
 
 from foliplus import LayerControl, SearchControl
 
@@ -48,20 +48,16 @@ def touch_browser(browser):
 def _page(touch_browser, html: str, name: str = "page"):
     """Write `html` to a temp file and open it on the touch context."""
     import tempfile
-
     d = Path(tempfile.mkdtemp())
     hp = d / f"{name}.html"
     hp.write_text(_inject_window_map(html), encoding="utf-8")
     page = touch_browser.new_page()
     errors: list[str] = []
-    page.on(
-        "console",
-        lambda m: (
-            errors.append(m.text)
-            if m.type == "error" and not m.text.startswith("Failed to load resource")
-            else None
-        ),
-    )
+    page.on("console", lambda m: (
+        errors.append(m.text)
+        if m.type == "error" and not m.text.startswith("Failed to load resource")
+        else None
+    ))
     page.goto(f"file://{hp}", wait_until="domcontentloaded")
     return page, errors
 
@@ -69,24 +65,16 @@ def _page(touch_browser, html: str, name: str = "page"):
 def _touch_drag(page, x, y0, y1, steps=10):
     """Drive a CDP touch drag from (x, y0) to (x, y1)."""
     cdp = page.context.new_cdp_session(page)
-    cdp.send(
-        "Input.dispatchTouchEvent",
-        {"type": "touchStart", "touchPoints": [{"x": x, "y": y0}]},
-    )
+    cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y0}]})
     for i in range(1, steps + 1):
         yy = y0 + (y1 - y0) * i / steps
-        cdp.send(
-            "Input.dispatchTouchEvent",
-            {"type": "touchMove", "touchPoints": [{"x": x, "y": yy}]},
-        )
+        cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": yy}]})
         time.sleep(0.02)
     cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
 
 
 def _map_center_zoom(page):
-    return page.evaluate(
-        "() => { const c = window.map.getCenter(); return [c.lat, c.lng, window.map.getZoom()]; }"
-    )
+    return page.evaluate(snippet("common/read_map_center_zoom"))
 
 
 def _assert_map_unchanged(before, after):
@@ -106,44 +94,25 @@ class TestTouchGuardBrowser:
         page, errors = _page(touch_browser, html, "search")
         page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
         # Seed 25 addr history entries so the panel overflows and scrolls.
-        page.evaluate("""() => {
-            const KEY = "foliplus_search_" + document.querySelector(".folium-map").id;
-            const items = [];
-            for (let i = 0; i < 25; i++) {
-                items.push({ query: "Shanghai addr " + i, type: "addr",
-                    coordDisplay: "121.4700, 31.2300", addrDisplay: "Shanghai addr " + i,
-                    lng: 121.47, lat: 31.23, ts: 1000 + i, count: 1 });
-            }
-            localStorage.setItem(KEY, JSON.stringify({ version: 2, entries: items }));
-        }""")
+        page.evaluate(snippet("touch_guard/seed_search_history"))
         page.reload(wait_until="domcontentloaded")
         page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
-        page.evaluate(
-            "document.querySelector('.foliplus-search .foliplus-toggle-btn')?.click()"
-        )
-        page.wait_for_selector(
-            ".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000
-        )
+        page.evaluate("document.querySelector('.foliplus-search .foliplus-toggle-btn')?.click()")
+        page.wait_for_selector(".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000)
         page.wait_for_timeout(400)
-        rect = page.evaluate("""() => {
-            const r = document.querySelector(".foliplus-search-result-panel").getBoundingClientRect();
-            return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }""")
+        rect = page.evaluate(
+            f"({snippet('common/element_rect')})('.foliplus-search-result-panel')"
+        )
         st0 = page.evaluate(
-            "document.querySelector('.foliplus-search-result-panel').scrollTop"
+            f"({snippet('common/read_scroll_top')})('.foliplus-search-result-panel')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(
-            page,
-            rect["x"] + rect["w"] / 2,
-            rect["y"] + rect["h"] / 2,
-            rect["y"] + rect["h"] / 2 - 100,
-        )
+        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 100)
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
         st1 = page.evaluate(
-            "document.querySelector('.foliplus-search-result-panel').scrollTop"
+            f"({snippet('common/read_scroll_top')})('.foliplus-search-result-panel')"
         )
         assert st1 != st0, (st0, st1)
         assert not errors, f"JS errors: {errors}"
@@ -157,134 +126,55 @@ class TestTouchGuardBrowser:
         html = m.get_root().render()
         page, errors = _page(touch_browser, html, "dropdown")
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-        page.evaluate(
-            "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
-        )
-        page.wait_for_selector(
-            ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
-        )
+        page.evaluate("document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()")
+        page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000)
         page.wait_for_timeout(200)
-        ok = page.evaluate("""async () => {
-            const api = window.map.foliplus && window.map.foliplus.LayerAPI;
-            if (!api) return false;
-            const ID = "__touch_probe__";
-            const VALUES = ["a","b","c","d","e","f","g","h","i","j","k","l"];
-            let filter;
-            const model = () => ({
-                dimensions: [{ kind: "enum", field: "kind", label: "Kind", multi: true,
-                    options: VALUES.map(v => ({ value: v, label: v.toUpperCase() })) }],
-                filter, kept: VALUES.length, total: VALUES.length,
-            });
-            api.registerLayer({ id: ID, name: "Touch scroll", layer: L.layerGroup(),
-                filterProvider: model, filterSetter: next => { filter = next; } });
-            await new Promise(r => setTimeout(r, 30));
-            const row = document.querySelector(`.foliplus-layer-item[data-layer-id="${ID}"]`);
-            if (!row) return false;
-            row.querySelector(".foliplus-layer-more-btn")?.click();
-            await new Promise(r => setTimeout(r, 30));
-            const menuItem = row.querySelector('.foliplus-layer-more-menu [data-action="filter-layer"]');
-            if (!menuItem) return false;
-            menuItem.click();
-            await new Promise(r => setTimeout(r, 40));
-            const panel = row.querySelector(".foliplus-layer-filter-panel");
-            const trigger = panel && panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
-            if (!trigger) return false;
-            if (trigger.getAttribute("aria-expanded") !== "true") { trigger.click(); await new Promise(r => setTimeout(r, 40)); }
-            return true;
-        }""")
+        ok = page.evaluate(snippet("touch_guard/open_enum_dropdown"))
         assert ok is True, "could not open filter dropdown"
         page.wait_for_selector(".foliplus-dropdown-list", state="visible", timeout=5000)
-        rect = page.evaluate("""() => {
-            const r = document.querySelector(".foliplus-dropdown-list").getBoundingClientRect();
-            return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }""")
+        rect = page.evaluate(
+            f"({snippet('common/element_rect')})('.foliplus-dropdown-list')"
+        )
         st0 = page.evaluate(
-            "document.querySelector('.foliplus-dropdown-list').scrollTop"
+            f"({snippet('common/read_scroll_top')})('.foliplus-dropdown-list')"
         )
         before = _map_center_zoom(page)
-        _touch_drag(
-            page,
-            rect["x"] + rect["w"] / 2,
-            rect["y"] + rect["h"] / 2,
-            rect["y"] + rect["h"] / 2 - 80,
-        )
+        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 80)
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
         # The list itself scrolls (12 options overflow the capped height).
         st1 = page.evaluate(
-            "document.querySelector('.foliplus-dropdown-list').scrollTop"
+            f"({snippet('common/read_scroll_top')})('.foliplus-dropdown-list')"
         )
         assert st1 != st0, (st0, st1)
         assert not errors, f"JS errors: {errors}"
 
     def test_layer_style_panel_touch_drag(self, touch_browser, tmp_path):
         """The LayerControl style panel body must not pan the map on touch."""
-        layer = folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"value": 1},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.30, 26.08],
-                                        [119.31, 26.08],
-                                        [119.31, 26.09],
-                                        [119.30, 26.09],
-                                        [119.30, 26.08],
-                                    ]
-                                ],
-                            },
-                        }
-                    ],
-                }
-            ),
-            name="Polygon data",
-        )
+        layer = folium.GeoJson(json.dumps({
+            "type": "FeatureCollection", "features": [
+                {"type": "Feature", "properties": {"value": 1},
+                 "geometry": {"type": "Polygon", "coordinates": [[[119.30, 26.08], [119.31, 26.08], [119.31, 26.09], [119.30, 26.09], [119.30, 26.08]]]}}
+            ]
+        }), name="Polygon data")
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         layer.add_to(m)
         html = m.get_root().render()
         page, errors = _page(touch_browser, html, "style")
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-        page.evaluate(
-            "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
-        )
-        page.wait_for_selector(
-            ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
-        )
+        page.evaluate("document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()")
+        page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000)
         page.wait_for_timeout(200)
         # Open the ⋮ → Style panel on the first overlay row (shared snippet).
-        page.evaluate("""() => {
-            const row = document.querySelector(".foliplus-layer-item[data-layer-type=overlay]");
-            if (!row) return false;
-            row.querySelector(".foliplus-layer-more-btn").click();
-            const menu = row.querySelector(".foliplus-layer-more-menu.open");
-            if (!menu) return false;
-            const item = menu.querySelector('button[data-action="style-layer"]');
-            if (!item) return false;
-            item.click();
-            return !!row.querySelector(".foliplus-layer-style-panel");
-        }""")
-        page.wait_for_selector(
-            ".foliplus-layer-style-panel", state="visible", timeout=5000
+        page.evaluate(snippet("touch_guard/open_layer_style_panel"))
+        page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+        rect = page.evaluate(
+            f"({snippet('common/element_rect')})('.foliplus-layer-style-panel .foliplus-panel-content')"
         )
-        rect = page.evaluate("""() => {
-            const r = document.querySelector(".foliplus-layer-style-panel .foliplus-panel-content").getBoundingClientRect();
-            return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }""")
         before = _map_center_zoom(page)
-        _touch_drag(
-            page,
-            rect["x"] + rect["w"] / 2,
-            rect["y"] + rect["h"] / 2,
-            rect["y"] + rect["h"] / 2 - 80,
-        )
+        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2, rect["y"] + rect["h"] / 2 - 80)
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
@@ -305,24 +195,18 @@ class TestTouchGuardBrowser:
 
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         fg = folium.FeatureGroup(name="Points 0", show=True)
-        gj = json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {"val": 26.08},
-                        "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-                    }
-                ],
-            }
-        )
+        gj = json.dumps({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {"val": 26.08},
+                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
+            }],
+        })
         folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)
         HeatmapControl().add_to(m)
         html = m.get_root().render()
-        from conftest import snippet
-
         stub = snippet("HeatmapControl/h3_stub").strip()
         for _name, url in load_cdn("HeatmapControl"):
             html = html.replace(f'<script src="{url}"></script>', "")
@@ -331,31 +215,18 @@ class TestTouchGuardBrowser:
             semi = html.find(";", idx)
             html = html[: semi + 1] + stub + html[semi + 1 :]
         page, errors = _page(touch_browser, html, "heatmap")
+        page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
+        page.evaluate("document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()")
         page.wait_for_selector(
-            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-        )
-        page.evaluate(
-            "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()"
-        )
-        page.wait_for_selector(
-            ".foliplus-heatmap-ctrl.foliplus-is-expanded",
-            state="attached",
-            timeout=5000,
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
         )
         page.wait_for_timeout(300)
-        rect = page.evaluate("""() => {
-            const r = document.querySelector(
-                ".foliplus-heatmap-ctrl .foliplus-panel-content"
-            ).getBoundingClientRect();
-            return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }""")
-        before = _map_center_zoom(page)
-        _touch_drag(
-            page,
-            rect["x"] + rect["w"] / 2,
-            rect["y"] + rect["h"] / 2,
-            rect["y"] + rect["h"] / 2 - 80,
+        rect = page.evaluate(
+            f"({snippet('common/element_rect')})('.foliplus-heatmap-ctrl .foliplus-panel-content')"
         )
+        before = _map_center_zoom(page)
+        _touch_drag(page, rect["x"] + rect["w"] / 2, rect["y"] + rect["h"] / 2,
+                    rect["y"] + rect["h"] / 2 - 80)
         page.wait_for_timeout(300)
         after = _map_center_zoom(page)
         _assert_map_unchanged(before, after)
