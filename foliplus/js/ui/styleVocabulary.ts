@@ -1,13 +1,12 @@
-// ui/styleVocabulary — 样式着色的受控词表（locale key 单源）。
+// ui/styleVocabulary — single source of the style-mode locale keys.
 //
-// 面板凡表达"着色来源"的文案必须引用这里的 key 常量，禁止内联串；
-// 中文/英文文案只存在于 foliplus/locale/<component>/<lang>.json，这里不重复。
-// 守卫测试断言：① foliplus/js 不出现非受控的中文着色文案字面量（见 guard 测试内 FORBIDDEN 清单），
-// ② 所有被引用的 t()/ui.T() locale key 在 zh/en 两份 JSON 中都存在，
-// ③ STYLE_MODE 四个 key 在 zh/en 两份 JSON 中都定义且有值（缺翻译即红）。
+// Panels that express a coloring source must reference the key constants here;
+// no inline strings. The zh/en text lives only in foliplus/locale/<component>/<lang>.json.
+// Guard tests assert: (1) no CJK characters in foliplus/js .ts sources,
+// (2) every referenced t()/ui.T() locale key exists in both zh and en,
+// (3) STYLE_MODE keys are defined and non-empty in both zh and en.
 //
-// 与 sliderVocabulary 同级：纯字符串常量、无任何 foliplus runtime import，
-// 面板及其测试直接导入本模块（sliderVocabulary 的历史遗留注释见 #900）。
+// Pure string constants, no foliplus runtime import (same tier as sliderVocabulary).
 
 const STYLE_MODE = {
   ORIGINAL: "style_mode_original",
@@ -16,4 +15,7 @@ const STYLE_MODE = {
   FOLLOW_FILL: "style_mode_follow_fill",
 } as const;
 
-export { STYLE_MODE };
+// The mode values a style panel may carry (border/fill row values).
+const STYLE_MODES = ["original", "single", "by_value", "follow"] as const;
+
+export { STYLE_MODE, STYLE_MODES };
