@@ -32,7 +32,7 @@
 // This module is intentionally decoupled from the intent store: the caller
 // (the border dimension's write path) owns where the stroke config and the
 // active-arm mode live, and supplies the live readers. The engine paints
-// exactly what it is asked to — a stored `borderRamp` / `borderMode`
+// exactly what it is asked to — a stored `borderValue` / `borderMode`
 // pair is a later slice (it needs new LayerOverride keys, which touch
 // persistence.ts, which #932 is actively editing).
 import { DIM } from "#core/layer/index.js";

@@ -163,7 +163,7 @@ const authoredBorder = (
 const BORDER_INTENT_KEYS: readonly IntentKey[] = [
   INTENT.BORDER_COLOR,
   INTENT.BORDER_WEIGHT,
-  INTENT.BORDER_RAMP,
+  INTENT.BORDER_VALUE,
   INTENT.BORDER_MODE,
 ];
 
@@ -175,38 +175,38 @@ const borderSchemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
 /** Unregister for the picker's overlay-registry entry (one per UI). */
 const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
 
-/** The border's value ramp — the config the stroke classifies by.
+/** The border's value config — the config the stroke classifies by.
  *
- *  C8 derivation: an explicit border ramp the user stored wins; otherwise
- *  the border follows the fill's own value ramp (effectiveFillValue), so a
+ *  C8 derivation: an explicit border value the user stored wins; otherwise
+ *  the border follows the fill's own value config (effectiveFillValue), so a
  *  fill-only classification paints the same value domain on both faces. The
- *  derived arm is the same rule resolveStrokeMode applies (mode or (ramp ?
+ *  derived arm is the same rule resolveStrokeMode applies (mode or (value ?
  *  value : solid)), so the row and the paint path cannot disagree about
  *  which arm is active when only the fill side was configured. */
-const effectiveBorderRamp = (
+const effectiveBorderValue = (
   ui: LayerUI,
   layerId: string,
 ): FillValueConfig | undefined =>
-  getIntent(ui, layerId, INTENT.BORDER_RAMP) ?? effectiveFillValue(ui, layerId);
+  getIntent(ui, layerId, INTENT.BORDER_VALUE) ?? effectiveFillValue(ui, layerId);
 
 /** The arm the border row shows and the stroke paints.
  *
- *  mode or (ramp ? value : solid) — the shared stroke resolver, so a
- *  borderMode intent and a derived fill ramp agree on what the engine does.
+ *  mode or (value ? value : solid) — the shared stroke resolver, so a
+ *  borderMode intent and a derived fill value agree on what the engine does.
  *  A stored mode always wins; a mode-less border defers to whether a value
- *  ramp exists (own, derived from fill, or a declared fill value). */
+ *  value exists (own, derived from fill, or a declared fill value). */
 const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
   resolveStrokeMode(
     getIntent(ui, layerId, INTENT.BORDER_MODE),
-    effectiveBorderRamp(ui, layerId),
+    effectiveBorderValue(ui, layerId),
   );
 
-/** Whether a value ramp is actually in force on the border face. The value
- *  arm is active exactly when the derived mode is value and a ramp exists;
+/** Whether a value config is actually in force on the border face. The value
+ *  arm is active exactly when the derived mode is value and a value exists;
  *  anything else paints the solid path. */
 const borderValueActive = (ui: LayerUI, layerId: string): boolean =>
   effectiveBorderMode(ui, layerId) === FILL_MODE.VALUE &&
-  effectiveBorderRamp(ui, layerId) !== undefined;
+  effectiveBorderValue(ui, layerId) !== undefined;
 
 /** The seed field for a first user border classification: the fill's own
  *  seed column when it is a numeric field of this layer, else the first
@@ -221,8 +221,8 @@ const borderSeedField = (
 };
 
 /** The config the border value detail displays and writes from. The chain
- *  mirrors fill's valueForUi: the stored border ramp, then the derived fill
- *  ramp, then a seeded default. A stored field the current data no longer
+ *  mirrors fill's valueForUi: the stored border value, then the derived fill
+ *  value, then a seeded default. A stored field the current data no longer
  *  offers is resolved through the shared resolveField rule — the same rule
  *  the paint side uses, so the row and the map cannot disagree. */
 const borderValueForUi = (
@@ -230,7 +230,7 @@ const borderValueForUi = (
   layerId: string,
   fields: readonly string[],
 ): FillValueConfig => {
-  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.BORDER_RAMP));
+  const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.BORDER_VALUE));
   if (stored) return stored;
   const derived = resolvedValue(ui, layerId, effectiveFillValue(ui, layerId));
   if (derived) return derived;
@@ -263,7 +263,7 @@ const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
         scheme: value.scheme,
       };
 
-/** Write the border mode intent, seeding the border ramp when the user
+/** Write the border mode intent, seeding the border value when the user
  *  switches to the by-value arm and none is stored yet. */
 const writeBorderMode = (
   ui: LayerUI,
@@ -271,8 +271,8 @@ const writeBorderMode = (
   mode: FillMode | undefined,
 ): boolean => {
   if (mode === undefined) {
-    // Follow fill: drop the border's own mode arm so the derived fill ramp
-    // decides. The ramp stays (a solid border keeps its independent ramp
+    // Follow fill: drop the border's own mode arm so the derived fill value
+    // decides. The value stays (a solid border keeps its independent value
     // for the next by-value switch).
     getDimension(DIM.BORDER)!.write!(ui, layerId, { mode: undefined });
     return true;
@@ -282,7 +282,7 @@ const writeBorderMode = (
     if (fields.length === 0) return false;
     getDimension(DIM.BORDER)!.write!(ui, layerId, {
       mode,
-      ramp: persistedBorderValue(borderValueForUi(ui, layerId, fields)),
+      value: persistedBorderValue(borderValueForUi(ui, layerId, fields)),
     });
     return true;
   }
@@ -304,7 +304,7 @@ const writeBorderValue = (
   });
   getDimension(DIM.BORDER)!.write!(ui, layerId, {
     mode: FILL_MODE.VALUE,
-    ramp: next,
+    value: next,
   });
   return next;
 };
@@ -326,19 +326,19 @@ const writeBorderValue = (
  *  the walk is the single writer of a border style — the commits only record
  *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
-  // Value arm: when the derived border mode is 'value' and a ramp exists,
+  // Value arm: when the derived border mode is 'value' and a value exists,
   // delegate the whole face to the stroke engine. The engine owns the
   // per-leaf classification, the merged author+value write, and the
   // highlight pin — this function only derives the live config so the
   // pin's getter and a later fill-only repaint agree with this paint.
-  const ramp = effectiveBorderRamp(ui, layerId);
+  const value = effectiveBorderValue(ui, layerId);
   if (borderValueActive(ui, layerId)) {
     applyValueStroke(
       ui,
       layerId,
-      resolvedValue(ui, layerId, ramp)!,
+      resolvedValue(ui, layerId, value)!,
       stored => resolvedValue(ui, layerId, stored)!,
-      () => effectiveBorderRamp(ui, layerId),
+      () => effectiveBorderValue(ui, layerId),
       () => effectiveBorderMode(ui, layerId),
       getIntent(ui, layerId, INTENT.BORDER_WEIGHT),
     );
@@ -575,7 +575,7 @@ const disposeBorderRow = (ui: LayerUI): void => {
 };
 
 /** The border mode the row's select shows: 'follow' when no borderMode
- *  intent is stored (the arm defers to the derived fill ramp), else the
+ *  intent is stored (the arm defers to the derived fill value), else the
  *  stored solid/value arm. */
 const displayBorderMode = (ui: LayerUI, layerId: string): string => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
@@ -628,10 +628,13 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     block.append(buildSolidBorderDetail(ui, layerId));
     return block;
   }
+  // Follow Fill semantics: the border uses the fill's by-value result
+  // directly (no separate value field); it falls back to Solid when the
+  // fill is single-color or original.
   const options = [
-    { value: "follow", label: ui.T("style_border_follow") },
-    { value: FILL_MODE.SOLID, label: ui.T("style_fill_single") },
-    { value: FILL_MODE.VALUE, label: ui.T("style_fill_by_value") },
+    { value: "follow", label: ui.T("style_mode_follow_fill") },
+    { value: FILL_MODE.SOLID, label: ui.T("style_mode_single") },
+    { value: FILL_MODE.VALUE, label: ui.T("style_mode_by_value") },
   ];
   const modeRow = buildModeRow({
     label: ui.T("style_border_mode"),
@@ -676,14 +679,14 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
   const fields = numericFields(ui, layerId);
-  const ramp = borderValueForUi(ui, layerId, fields);
+  const value = borderValueForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
     schemes: DEFAULT_SCHEMES,
-    value: ramp.scheme,
+    value: value.scheme,
     colorScale: getColorScale,
-    numClasses: ramp.classes,
+    numClasses: value.classes,
     portal: true,
     resolveHost: () => fullscreenSurface(ui.c.map.getContainer()),
     onSurfaceChange: onFullscreenSurfaceChange,
@@ -778,7 +781,11 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     `.${CONST.CLASSES.STYLE_BORDER_DETAIL}`,
   ) as HTMLElement | null;
   select.onchange = () => {
-    const previous = effectiveBorderMode(ui, layerId);
+    // Compare against the DISPLAY mode (what the select shows), not the
+    // derived effective mode: a follow state where the fill is by-value
+    // already paints by value (effective='value') but the select shows
+    // 'follow' — clicking 'value' must still write the explicit arm.
+    const previous = displayBorderMode(ui, layerId);
     const raw = select.value;
     const next: FillMode | undefined = raw === "follow" ? undefined : (raw as FillMode);
     if (next === previous) return;
@@ -804,7 +811,7 @@ const BORDER_DIMENSION = registerDimension<{
   color: string;
   weight: number;
   mode: FillMode;
-  ramp?: FillValueConfig;
+  value?: FillValueConfig;
 }>({
   key: DIM.BORDER,
   gate: layerCanBorder,
@@ -812,25 +819,25 @@ const BORDER_DIMENSION = registerDimension<{
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return undefined;
     const author = authoredBorder(ui, layerId);
-    const ramp = effectiveBorderRamp(ui, layerId);
+    const value = effectiveBorderValue(ui, layerId);
     return {
       color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
       weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
       mode: effectiveBorderMode(ui, layerId),
-      ramp: ramp === undefined ? undefined : resolvedValue(ui, layerId, ramp),
+      value: value === undefined ? undefined : resolvedValue(ui, layerId, value),
     };
   },
   row: buildBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    const { color, weight, mode, ramp } = patch;
+    const { color, weight, mode, value } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
     if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
-    if (ramp !== undefined) writes.push([INTENT.BORDER_RAMP, ramp]);
+    if (value !== undefined) writes.push([INTENT.BORDER_VALUE, value]);
     // 'mode' present with an undefined value means 'follow fill': clear the
-    // stored border mode so the derived fill ramp decides the arm.
+    // stored border mode so the derived fill value decides the arm.
     if ("mode" in patch) {
       if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
       else clearIntent(ui, layerId, INTENT.BORDER_MODE);
@@ -839,7 +846,7 @@ const BORDER_DIMENSION = registerDimension<{
     scheduleBorderApply(ui, layerId);
   },
   /** Cohesive reset: cancel trailing apply, clear all border overrides
-   *  (color/weight/mode/ramp), save, restore the author's stroke face from
+   *  (color/weight/mode/value), save, restore the author's stroke face from
    *  the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId, ui);
@@ -854,7 +861,7 @@ const BORDER_DIMENSION = registerDimension<{
     if (
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_RAMP) ||
+      ui.intentStore.isUserSet(layerId, INTENT.BORDER_VALUE) ||
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_MODE)
     ) {
       return "user";
@@ -870,9 +877,9 @@ const BORDER_DIMENSION = registerDimension<{
     when: (ui, layerId) =>
       getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
-      getIntent(ui, layerId, INTENT.BORDER_RAMP) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_MODE) !== undefined ||
-      effectiveBorderRamp(ui, layerId) !== undefined,
+      effectiveBorderValue(ui, layerId) !== undefined,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
@@ -880,23 +887,14 @@ const BORDER_DIMENSION = registerDimension<{
 export {
   applyBorderToLayer,
   authoredBorder,
-  bindBorderDetail,
   bindBorderRow,
   bindBorderRowShell,
   BORDER_DIMENSION,
-  borderValueActive,
   buildBorderRow,
   buildBorderRowShell,
-  buildSolidBorderDetail,
   commitBorderColor,
   commitBorderWeight,
-  displayBorderMode,
   disposeBorderRow,
-  effectiveBorderMode,
-  effectiveBorderRamp,
   layerCanBorder,
-  renderBorderDetail,
   resetLayerBorder,
-  writeBorderMode,
-  writeBorderValue,
 };

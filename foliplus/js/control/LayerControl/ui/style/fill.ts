@@ -1095,9 +1095,9 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
           },
         ]
       : []),
-    { value: FILL_MODE.SOLID, label: ui.T("style_fill_single") },
+    { value: FILL_MODE.SOLID, label: ui.T("style_mode_single") },
     ...(fields.length > 0
-      ? [{ value: FILL_MODE.VALUE, label: ui.T("style_fill_by_value") }]
+      ? [{ value: FILL_MODE.VALUE, label: ui.T("style_mode_by_value") }]
       : []),
   ];
 
@@ -1514,8 +1514,6 @@ const FILL_DIMENSION = registerDimension<{
 
 export {
   buildValueDetail,
-  categoryFields,
-  displayFillMode,
   effectiveFillValue,
   numericFields,
   resolvedValue,
