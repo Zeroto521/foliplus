@@ -111,7 +111,7 @@ export function initMocks() {
 export function makeManagerMock(): MeasureManager {
   const editHandles: Map<string, any> = new Map();
   // Backing array so add/remove/update mutate the same live list the tests
-  // assert against via manager.measurements (compatibility getter path).
+  // assert against via manager.store.all() (compatibility getter path).
   const measurements: any[] = [];
   const env = makeEnv();
   return {
@@ -140,7 +140,6 @@ export function makeManagerMock(): MeasureManager {
       mainLayer: { addLayer: vi.fn(l => l) },
     },
     nextMeasurementId: vi.fn(() => "test-id"),
-    saveMeasurements: vi.fn(),
     clearActiveMode: vi.fn(),
     cleanMapEvents: vi.fn(),
     registerEditOverlayCloser: vi.fn(() => () => {}),
@@ -209,13 +208,6 @@ export function makeManagerMock(): MeasureManager {
     })(),
     currentMode: null,
     isEditMode: false,
-    get measurements() {
-      return measurements;
-    },
-    set measurements(v: any[]) {
-      measurements.length = 0;
-      measurements.push(...v);
-    },
     editHandles,
   } as unknown as MeasureManager;
 }

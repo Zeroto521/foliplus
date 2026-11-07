@@ -178,7 +178,7 @@ describe("PolygonMode — finish saves centroid", () => {
     dblHandler({ latlng: { lat: 32, lng: 120 } });
 
     expect(manager.store.add).toHaveBeenCalled();
-    const saved = manager.measurements[0] as MeasureData;
+    const saved = manager.store.all()[0] as MeasureData;
     expect(saved.center).toBeDefined();
     expect(typeof saved.center!.lng).toBe("number");
     expect(typeof saved.center!.lat).toBe("number");
@@ -198,7 +198,7 @@ describe("PolygonMode — finish saves centroid", () => {
     storeRemove.mockClear();
     capturedPolygonOpts.onDelete();
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
   });
 });
 
@@ -308,7 +308,7 @@ describe("PolygonMode — restore", () => {
       segments: [],
       area: 0,
     };
-    manager.measurements = [data];
+    manager.store.hydrate([data]);
     PolygonMode.restore(manager, data);
 
     expect(capturedPolygonOpts).toBeDefined();
@@ -327,7 +327,7 @@ describe("PolygonMode — restore", () => {
     manager.store.remove.mockClear();
     capturedPolygonOpts.onDelete();
     expect(manager.store.remove).toHaveBeenCalledWith(data.id);
-    expect(manager.measurements.length).toBe(0);
+    expect(manager.store.all().length).toBe(0);
   });
 });
 

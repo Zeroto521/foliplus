@@ -1029,25 +1029,22 @@ describe("SearchControl history — versioned envelope", () => {
       expect(loadHistory(ctx())).toEqual(entries);
     });
 
-    it("reads the legacy bare-array shape and still runs the row migration", () => {
-      // Pre-envelope shape: bare array of partial entries, exactly what
-      // loadHistoryRows migrates today — the envelope reader must not change
-      // that path.
-      window.localStorage.setItem(
-        HISTORY.STORAGE_KEY,
-        JSON.stringify([
-          { type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 },
-        ]),
-      );
-      const [entry] = loadHistory(ctx());
-      expect(entry.query).toBe("");
-      expect(entry.type).toBe(MODE.ADDR);
-      expect(entry.addrDisplay).toBe("Paris");
-      expect(entry.coordDisplay).toBe("");
-      expect(entry.lng).toBe(0);
-      expect(entry.lat).toBe(0);
-      expect(entry.ts).toBe(1000);
-      expect(entry.count).toBe(1);
+    it("reads the legacy bare-array shape when the rows are complete", () => {
+      // Pre-envelope shape: a bare array of complete current-format rows. The
+      // envelope is an optional wrapper — C7 drops partial rows, not complete
+      // ones, so a bare array of well-formed entries still loads.
+      const row: SearchHistoryEntry = {
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "Paris",
+        lng: 0,
+        lat: 0,
+        ts: 1000,
+        count: 1,
+      };
+      window.localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify([row]));
+      expect(loadHistory(ctx())).toEqual([row]);
     });
 
     it("returns [] for a corrupt envelope (entries missing)", () => {
@@ -1099,20 +1096,26 @@ describe("SearchControl history — versioned envelope", () => {
       expect(loadHistory(ctx())).toEqual(entries);
     });
 
-    it("an old bare-array record is transparently re-wrapped on the next save", () => {
-      window.localStorage.setItem(
-        HISTORY.STORAGE_KEY,
-        JSON.stringify([
-          { type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0, ts: 1000 },
-        ]),
-      );
-      // Read: legacy shape is unwrapped, then re-persisted as the new envelope.
+    it("a bare-array record of complete rows is re-wrapped on the next save", () => {
+      const row: SearchHistoryEntry = {
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "Paris",
+        lng: 0,
+        lat: 0,
+        ts: 1000,
+        count: 1,
+      };
+      window.localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify([row]));
+      // Read: bare shape is unwrapped, then re-persisted as the new envelope.
       const loaded = loadHistory(ctx());
       saveHistory(ctx(), loaded);
       const stored = JSON.parse(window.localStorage.getItem(HISTORY.STORAGE_KEY)!);
       expect(stored.version).toBe(RECORD_VERSION);
       expect(Array.isArray(stored.entries)).toBe(true);
       expect(stored.entries).toHaveLength(1);
+      expect(stored.entries[0]).toEqual(row);
     });
   });
 
@@ -1171,8 +1174,17 @@ describe("SearchControl history — versioned envelope", () => {
   });
   describe("loadHistory / saveHistory — legacy bare-array rows", () => {
     /** Rows a post-scoped build writes, under the per-map key. */
-    const scopedRows = [
-      { type: MODE.ADDR, addrDisplay: "Scoped", lng: 1.0, lat: 50.0 },
+    const scopedRows: SearchHistoryEntry[] = [
+      {
+        query: "",
+        type: MODE.ADDR,
+        coordDisplay: "",
+        addrDisplay: "Scoped",
+        lng: 1.0,
+        lat: 50.0,
+        ts: 1,
+        count: 1,
+      },
     ];
 
     /** Write partial entries as an older version would have stored them. */
@@ -1180,32 +1192,19 @@ describe("SearchControl history — versioned envelope", () => {
       localStorage.setItem(HISTORY.STORAGE_KEY, JSON.stringify(entries));
     };
 
-    it("fills defaults for fields older versions never wrote", () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(1234567);
+    it("drops partial rows an older version wrote instead of filling defaults", () => {
+      // C7: old-version tolerance removed — a row missing any current-format
+      // field is old data and is dropped, not defaulted.
       store([{ type: MODE.ADDR, addrDisplay: "Paris", lng: 0, lat: 0 }]);
-      const [entry] = loadHistory(ctx());
-      expect(entry).toEqual({
-        query: "",
-        type: MODE.ADDR,
-        coordDisplay: "",
-        addrDisplay: "Paris",
-        lng: 0,
-        lat: 0,
-        ts: 1234567,
-        count: 1,
-      });
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("leaves the display fields empty when a coord entry has no label", () => {
+    it("drops a partial coord entry with no display fields", () => {
       store([{ query: "120, 32", type: MODE.COORD, ts: 1000 }]);
-      const [entry] = loadHistory(ctx());
-      expect(entry.query).toBe("120,32");
-      expect(entry.coordDisplay).toBe("");
-      expect(entry.addrDisplay).toBe("");
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("falls back to the older entry's display when the newest one is empty", () => {
+    it("drops partial rows whose display fields are missing", () => {
       store([
         {
           query: "120,32",
@@ -1215,39 +1214,17 @@ describe("SearchControl history — versioned envelope", () => {
         },
         { query: "120,32", type: MODE.COORD, coordDisplay: "", ts: 900 },
       ]);
-      const [entry] = loadHistory(ctx());
-      expect(entry.coordDisplay).toBe("120.000000, 32.000000");
-      expect(entry.count).toBe(2);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("drops null and non-object rows instead of crashing", () => {
+    it("drops null, non-object, and partial rows instead of crashing", () => {
       store([null, "text", 42, { type: MODE.ADDR, ts: 1000 }] as unknown as object[]);
-      const [entry] = loadHistory(ctx());
-      expect(entry).toEqual({
-        query: "",
-        type: MODE.ADDR,
-        coordDisplay: "",
-        addrDisplay: "",
-        lng: 0,
-        lat: 0,
-        ts: 1000,
-        count: 1,
-      });
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("downgrades a row with no usable fields to a defaulted addr entry", () => {
+    it("drops a row with no usable fields", () => {
       store([{}]);
-      const [entry] = loadHistory(ctx());
-      expect(entry).toEqual({
-        query: "",
-        type: MODE.ADDR,
-        coordDisplay: "",
-        addrDisplay: "",
-        lng: 0,
-        lat: 0,
-        ts: expect.any(Number),
-        count: 1,
-      });
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("loads empty array when nothing is stored", () => {
@@ -1289,7 +1266,18 @@ describe("SearchControl history — versioned envelope", () => {
 
     it("reads history from the scoped key only", () => {
       store(scopedRows);
-      const otherRows = [{ type: MODE.ADDR, addrDisplay: "Other", lng: 9, lat: 9 }];
+      const otherRows: SearchHistoryEntry[] = [
+        {
+          query: "",
+          type: MODE.ADDR,
+          coordDisplay: "",
+          addrDisplay: "Other",
+          lng: 9,
+          lat: 9,
+          ts: 1,
+          count: 1,
+        },
+      ];
       localStorage.setItem("foliplus_search_map-other", JSON.stringify(otherRows));
       expect(loadHistory(ctx()).map(e => e.addrDisplay)).toEqual(
         scopedRows.map(r => r.addrDisplay),
@@ -1298,7 +1286,18 @@ describe("SearchControl history — versioned envelope", () => {
 
     it("keeps history separate per map container", () => {
       const rowsA = [scopedRows[0]];
-      const rowsB = [{ type: MODE.ADDR, addrDisplay: "Tokyo", lng: 0, lat: 0 }];
+      const rowsB: SearchHistoryEntry[] = [
+        {
+          query: "",
+          type: MODE.ADDR,
+          coordDisplay: "",
+          addrDisplay: "Tokyo",
+          lng: 0,
+          lat: 0,
+          ts: 1,
+          count: 1,
+        },
+      ];
       localStorage.setItem("foliplus_search_map-a", JSON.stringify(rowsA));
       localStorage.setItem("foliplus_search_map-b", JSON.stringify(rowsB));
       // The container id feeds the scoped key directly; a second map must not
@@ -1318,7 +1317,9 @@ describe("SearchControl history — versioned envelope", () => {
       expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("migrates old entries with label field to new format", () => {
+    it("drops old label-field rows instead of migrating them", () => {
+      // C7: label was an old-format display field; rows carrying it are old
+      // data and are dropped, not rewritten into coordDisplay/addrDisplay.
       localStorage.setItem(
         HISTORY.STORAGE_KEY,
         JSON.stringify([
@@ -1340,16 +1341,7 @@ describe("SearchControl history — versioned envelope", () => {
           },
         ]),
       );
-      const loaded = loadHistory(ctx());
-      expect(loaded).toHaveLength(2);
-      expect(loaded[0].query).toBe("Paris");
-      expect(loaded[0].addrDisplay).toBe("Paris, France");
-      expect(loaded[0].coordDisplay).toBe("");
-      expect(loaded[0].count).toBe(1);
-      expect(loaded[1].query).toBe("121.47,31.23");
-      expect(loaded[1].coordDisplay).toBe("121.4700, 31.2300");
-      expect(loaded[1].addrDisplay).toBe("");
-      expect(loaded[1].count).toBe(1);
+      expect(loadHistory(ctx())).toEqual([]);
     });
 
     it("saves an empty array when history is cleared", () => {
@@ -1371,9 +1363,11 @@ describe("SearchControl history — versioned envelope", () => {
       expect(loadHistory(ctx())).toEqual([]);
     });
 
-    it("collapses legacy coord duplicates that a raw-input key created", () => {
-      // Before the fix the history key was the raw input, so whitespace or a
-      // full-width comma produced two entries that display identically.
+    it("keeps complete rows with non-canonical coord keys distinct", () => {
+      // C7: the load path no longer canonicalizes legacy raw-input keys, so
+      // complete rows with distinct key strings stay distinct (only exact
+      // type:query duplicates merge). Old rows with partial fields were already
+      // dropped, but complete rows are kept verbatim.
       localStorage.setItem(
         HISTORY.STORAGE_KEY,
         JSON.stringify([
@@ -1410,15 +1404,11 @@ describe("SearchControl history — versioned envelope", () => {
         ]),
       );
       const loaded = loadHistory(ctx());
-      expect(loaded).toHaveLength(1);
-      expect(loaded[0].query).toBe("120,32");
-      expect(loaded[0].count).toBe(4);
-      // Empty display fields fall back to an older entry's value
-      expect(loaded[0].addrDisplay).toBe("Hangzhou, China");
-      expect(loaded[0].coordDisplay).toBe("120.000000, 32.000000");
+      expect(loaded).toHaveLength(3);
+      expect(loaded.map(e => e.query)).toEqual(["120, 32", "120，32", "120,32"]);
     });
 
-    it("canonicalizes a legacy coord key only when it parses as coordinates", () => {
+    it("keeps a coord key exactly as stored (no load-time canonicalization)", () => {
       localStorage.setItem(
         HISTORY.STORAGE_KEY,
         JSON.stringify([
@@ -1446,8 +1436,8 @@ describe("SearchControl history — versioned envelope", () => {
       );
       const loaded = loadHistory(ctx());
       expect(loaded).toHaveLength(2);
-      expect(loaded[0].query).toBe("121.47,31.23");
-      // Address queries are never rewritten
+      expect(loaded[0].query).toBe("121.47 , 31.23");
+      // Address queries are never rewritten either.
       expect(loaded.find(e => e.type === "addr")?.query).toBe("Paris");
     });
 
