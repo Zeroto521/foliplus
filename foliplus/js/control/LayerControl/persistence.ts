@@ -33,7 +33,7 @@ type LiveState = {
 /** Compatibility version of the persisted record: bumped only when the stored
  *  shape needs migrating, or when an old record would otherwise read with a
  *  different meaning. Adding an optional field whose absence keeps the old
- *  behavior does not bump it — `fillRamp` / `fillMode` keep this at 3, an old
+ *  behavior does not bump it — `fillValue` / `fillMode` keep this at 3, an old
  *  record still reads as solid, and a value record without a mode reads as value
  *  through the compatibility branch. So does a rename-free internal refactor
  *  or a UI-only change.
@@ -51,10 +51,10 @@ type LiveState = {
  *  and round-trip tests with it.
  *
  *  2 → 3: the label config moved into `layers[id].annotation` (a style
- *  dimension of the layer, not a parallel segment), which needs a
- *  compatibility read, so it did bump. v2 records still read — their
- *  `annotations[id]` entries are the fallback when the new key is absent, and
- *  the segment is passed through on every write untouched.
+ *  dimension of the layer, not a parallel segment). There is deliberately no
+ *  compatibility read: the legacy top-level `annotations` segment is
+ *  dropped, not read (no compatibility migration), so a v2 record still loads
+ *  but its label config is discarded, and the next write stamps v3.
  *
  *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
  *  no compatibility read: the field rename is a breaking change accepted for
@@ -68,7 +68,6 @@ const emptyRecord = (): PersistedRecord => ({
   removed: [],
   foldedRoles: [],
   renamedNames: {},
-  annotations: {},
   layers: {},
 });
 
@@ -167,19 +166,13 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
-  fillRamp: data => parseFillValue(data.fillRamp),
-  fillMode: data => {
-    // Migrate a pre-rename record: the value-based arm is the same paint,
-    // only the stored literal changed ("ramp" → "value"). The write path
-    // always stamps "value", so the migration is idempotent — reading the
-    // same record twice yields "value" both times.
-    if (data.fillMode === "ramp") return FILL_MODE.VALUE;
-    return data.fillMode === FILL_MODE.SOLID ||
-      data.fillMode === FILL_MODE.VALUE ||
-      data.fillMode === FILL_MODE.ORIGINAL
+  fillValue: data => parseFillValue(data.fillValue),
+  fillMode: data =>
+    data.fillMode === FILL_MODE.SOLID ||
+    data.fillMode === FILL_MODE.VALUE ||
+    data.fillMode === FILL_MODE.ORIGINAL
       ? data.fillMode
-      : null;
-  },
+      : null,
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
@@ -191,12 +184,10 @@ const PARSE_OVERRIDE: Record<
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
 /** One stored label (annotation) config: an object, color-normalized the
- *  same way in the new `layers[id].annotation` key and the legacy
- *  `annotations[id]` segment so both read paths hand the seed identical
- *  shapes. Field-level coercion (size clamps, format enums, collide)
- *  belongs to the reader that applies it — `applyStyleLabelState` — the
- *  same split the legacy segment always had; this keeps a non-object from
- *  reaching the config map, nothing more. */
+ *  same way in `layers[id].annotation`. Field-level coercion (size clamps,
+ *  format enums, collide) belongs to the reader that applies it —
+ *  `applyStyleLabelState`; this keeps a non-object from reaching the config
+ *  map, nothing more. */
 const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
   const cfg = asObject(raw);
   if (!cfg) return null;
@@ -293,17 +284,6 @@ const parseRecord = (raw: unknown): PersistedRecord => {
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
   }
-  // The legacy label segment, read for tolerance (v2 records) and passed
-  // through on every write. Entries belonging to a DELETED id are dropped
-  // here rather than written back: `removed` is one-way and the segment is
-  // never rewritten by a live source, so without this read-side prune a
-  // v2 config would resurrect behind `layers[id].annotation`'s absence on
-  // the next load. This prunes the read, not storage — no migration.
-  for (const [id, config] of Object.entries(asObject(data.annotations) ?? {})) {
-    if (record.removed.includes(id)) continue;
-    const cfg = parseAnnotationConfig(config);
-    if (cfg) record.annotations[id] = cfg;
-  }
   for (const [id, rawState] of Object.entries(asObject(data.layers) ?? {})) {
     if (record.removed.includes(id)) continue;
     const state = parseLayerState(rawState);
@@ -319,12 +299,8 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  Named per dimension rather than keyed generically: PersistedRecord is a
  *  literal type, so adding a field without adding it here is a compile error.
  *
- *  `annotations` has no live source anymore — the label config writes through
- *  `layers[id].annotation`. The stored segment passes through (write-new /
- *  read-old, no migration), MINUS ids the write itself records as deleted:
- *  deletion is not migration, and a zombie config must not outlive its layer
- *  on disk either. `parseRecord` prunes the same ids on read, so a
- *  record written before this prune still loads clean. */
+ *  The label config writes through `layers[id].annotation`; the legacy
+ *  `annotations` segment no longer exists, so it is not copied through. */
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => {
   const removed = fields.removed ? fields.removed() : record.removed;
   const dropRemoved = <T>(entries: Record<string, T>): Record<string, T> =>
@@ -336,7 +312,6 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
-    annotations: dropRemoved(record.annotations),
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };
 };

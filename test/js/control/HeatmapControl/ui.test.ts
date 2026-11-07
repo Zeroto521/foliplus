@@ -11,6 +11,7 @@ import { dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
+  type HeatmapControlUI,
   bindControls,
   initScan,
   rebuildLayerDropdown,
@@ -27,6 +28,11 @@ function setup(config: ComponentConfig = makeConfig()) {
   bindControls(ctrl, panel);
   return { m, ctrl, panel };
 }
+
+/** The picker's currently-open dropdown element, or null when closed.
+ *  `schemeDropdown` was removed (C3): consumers read the picker directly. */
+const openDropdown = (ctrl: HeatmapControlUI): HTMLElement | null =>
+  ctrl.schemePicker?.getDropdown() ?? null;
 
 const fire = (el: HTMLElement, type: string) =>
   el.dispatchEvent(new Event(type, { bubbles: true }));
@@ -47,16 +53,13 @@ afterEach(() => {
 describe("bindControls — lifecycle hooks", () => {
   it("installs every listener cleanup and callback onto the state", () => {
     const { ctrl } = setup();
-    // schemeBarCleanup is registered here, unconditionally. The other three are
-    // only wired when the dropdown is opened. Declaring all of them on the
-    // control class in index.ts makes a missing assignment a compile error;
+    // The picker owns its close/destroy lifecycle; the control only keeps the
+    // permanent destroy hook and the shared-picker callbacks. Declaring them on
+    // the control class in index.ts makes a missing assignment a compile error;
     // this covers the runtime half.
-    expect(ctrl.schemeBarCleanup).toBeTypeOf("function");
     expect(ctrl.schemePickerCleanup).toBeTypeOf("function");
     expect(ctrl.toggleDropdown).toBeTypeOf("function");
     expect(ctrl.selectScheme).toBeTypeOf("function");
-    // Two distinct cleanup closures — close (transient) vs destroy (permanent).
-    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.schemePickerCleanup);
   });
 });
 
@@ -313,7 +316,7 @@ describe("bindControls — change handlers", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const bars = () =>
-      Array.from(ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-bar"));
+      Array.from(openDropdown(ctrl)!.querySelectorAll(".foliplus-scheme-picker-bar"));
     expect(bars().length).toBe(3);
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
@@ -503,8 +506,8 @@ describe("bindControls — scheme dropdown", () => {
   it("scheme bar click opens the dropdown with one item per config scheme", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    expect(ctrl.schemeDropdown!.children.length).toBe(3);
+    expect(openDropdown(ctrl)).not.toBeNull();
+    expect(openDropdown(ctrl)!.children.length).toBe(3);
     expect(ctrl.schemeBar.classList.contains(CONST.CLASSES.SCHEME_BAR_OPEN)).toBe(true);
   });
 
@@ -516,16 +519,16 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(
-      ctrl.schemeDropdown!.classList.contains("foliplus-scheme-picker-portal"),
+      openDropdown(ctrl)!.classList.contains("foliplus-scheme-picker-portal"),
     ).toBe(true);
-    expect(ctrl.schemeDropdown!.parentElement).toBe(document.body);
+    expect(openDropdown(ctrl)!.parentElement).toBe(document.body);
   });
 
   it("clicking the scheme bar again closes the dropdown", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     expect(ctrl.schemeBar.classList.contains(CONST.CLASSES.SCHEME_BAR_OPEN)).toBe(
       false,
     );
@@ -536,21 +539,21 @@ describe("bindControls — scheme dropdown", () => {
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
+    const items = openDropdown(ctrl)!.querySelectorAll(".foliplus-scheme-picker-item");
     (items[1] as HTMLElement).click();
     expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeSelectHidden.value).toBe("Blues");
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
 
   it("outside click closes the open dropdown", () => {
     const { ctrl } = setup();
-    ctrl.toggleSchemeDropdown();
-    expect(ctrl.schemeDropdown).not.toBeNull();
+    ctrl.schemePicker?.toggle();
+    expect(openDropdown(ctrl)).not.toBeNull();
     document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     expect(ctrl.schemeBar.classList.contains(CONST.CLASSES.SCHEME_BAR_OPEN)).toBe(
       false,
     );
@@ -581,8 +584,8 @@ describe("bindControls — scheme dropdown", () => {
     // scheme list to force the fallback focus branch.
     m.scheme = "NoSuchScheme";
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
+    expect(openDropdown(ctrl)).not.toBeNull();
+    const items = openDropdown(ctrl)!.querySelectorAll(".foliplus-scheme-picker-item");
     expect(items.length).toBe(3);
   });
 
@@ -590,18 +593,18 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl } = setup(makeConfig({ schemes: undefined }));
     expect(ctrl.schemeSelectHidden.options.length).toBe(0);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    expect(ctrl.schemeDropdown!.children.length).toBe(0);
+    expect(openDropdown(ctrl)).not.toBeNull();
+    expect(openDropdown(ctrl)!.children.length).toBe(0);
   });
 
-  it("closeSchemeDropdown delegate closes the open dropdown", () => {
+  it("picker close() closes the open dropdown", () => {
     const { ctrl } = setup();
-    ctrl.toggleSchemeDropdown();
-    expect(ctrl.schemeDropdown).not.toBeNull();
+    ctrl.schemePicker?.toggle();
+    expect(openDropdown(ctrl)).not.toBeNull();
 
-    ctrl.closeSchemeDropdown(new MouseEvent("click"));
+    ctrl.schemePicker?.close();
 
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
   });
 
@@ -611,7 +614,7 @@ describe("bindControls — scheme dropdown", () => {
     setupObserver(ctrl);
     ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.schemeDropdown).not.toBeNull();
+    expect(openDropdown(ctrl)).not.toBeNull();
 
     // The header and the close button collapse through this class change; the
     // portalled list is not inside the panel, so nothing else would remove it.
@@ -619,7 +622,7 @@ describe("bindControls — scheme dropdown", () => {
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     expect(document.querySelector(".foliplus-scheme-picker-portal")).toBeNull();
     expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
     ctrl.observer?.disconnect();
@@ -638,11 +641,11 @@ describe("bindControls — scheme dropdown", () => {
     for (let i = 0; i < 3; i += 1) {
       ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
       ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(ctrl.schemeDropdown).not.toBeNull();
+      expect(openDropdown(ctrl)).not.toBeNull();
       ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
       ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
       await new Promise(resolve => setTimeout(resolve, 0));
-      expect(ctrl.schemeDropdown).toBeNull();
+      expect(openDropdown(ctrl)).toBeNull();
     }
 
     const live =
@@ -654,17 +657,17 @@ describe("bindControls — scheme dropdown", () => {
 
   it("schemePickerCleanup destroys the picker and clears the control reference", () => {
     const { ctrl } = setup();
-    ctrl.toggleSchemeDropdown();
+    ctrl.schemePicker?.toggle();
     expect(ctrl.schemePicker).not.toBeNull();
 
     ctrl.schemePickerCleanup?.();
 
     expect(ctrl.schemePicker).toBeNull();
-    expect(ctrl.schemeDropdown).toBeNull();
+    expect(openDropdown(ctrl)).toBeNull();
     // destroy(), not close(): the trigger no longer carries the combobox state.
     expect(ctrl.schemeBar.hasAttribute("aria-expanded")).toBe(false);
     expect(ctrl.schemeBar.hasAttribute("aria-controls")).toBe(false);
-    // The compat delegates stay null-safe after the picker is gone.
+    // The remaining shared-picker callbacks stay null-safe after the picker is gone.
     expect(() => ctrl.toggleDropdown?.()).not.toThrow();
   });
 });
@@ -1020,9 +1023,9 @@ describe("scheme trigger accessible name", () => {
   });
 });
 
-// closeSchemeDropdown — covered by schemePicker.test.ts (outside-click tests)
+// picker close()/toggle() delegates — covered by schemePicker.test.ts
 
-// toggleSchemeDropdown — covered by schemePicker.test.ts (trigger click tests)
+// (trigger click / outside-click tests live in schemePicker.test.ts)
 
 describe("buildLayerListItems — null extraBody tolerance", () => {
   beforeEach(() => {

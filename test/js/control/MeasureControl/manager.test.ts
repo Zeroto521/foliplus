@@ -81,9 +81,9 @@ describe("MeasureManager — persistence", () => {
     const opts = (
       map.foliplus.LayerAPI.createLayers.mock.calls as unknown as unknown[][]
     )[0][0] as { featureCountProvider: () => number };
-    manager.measurements = [{}, {}, {}] as any;
+    manager.store.hydrate([{}, {}, {}]);
     expect(opts.featureCountProvider()).toBe(3);
-    manager.measurements = [] as any;
+    manager.store.hydrate([]);
     expect(opts.featureCountProvider()).toBe(0);
   });
 
@@ -103,12 +103,12 @@ describe("MeasureManager — persistence", () => {
     });
 
     // Mixed measurements → per-mode counts match the store.
-    manager.measurements = [
+    manager.store.hydrate([
       { id: "1", type: CONST.MEASURE_MODE.MARKER },
       { id: "2", type: CONST.MEASURE_MODE.MARKER },
       { id: "3", type: CONST.MEASURE_MODE.DISTANCE },
       { id: "4", type: CONST.MEASURE_MODE.POLYGON },
-    ] as any;
+    ]);
     expect(opts.metaProvider()).toEqual({
       [manager.T("tool_marker")]: 2,
       [manager.T("tool_distance")]: 1,
@@ -117,31 +117,23 @@ describe("MeasureManager — persistence", () => {
     });
   });
 
-  it("restoreMeasurements stabilizes persisted measurements missing an id", () => {
+  it("restoreMeasurements leaves an id-less persisted measurement as-is (no id backfill)", () => {
     const { manager } = makeManager();
-    // Seed localStorage with a legacy measurement that predates the id field.
-    // restoreMeasurements must assign one before rebuilding so later
-    // onUpdate/onDelete paths (which match by id) resolve correctly.
+    // C5 removed the legacy id backfill: an old record that predates the id
+    // field is loaded unchanged (its id stays undefined) rather than getting
+    // a generated one. Later onUpdate/onDelete paths that match by id simply
+    // won't resolve such a row — the old data is not migrated.
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify([{ type: "marker", lng: 121, lat: 31 }]),
     );
     manager.restoreMeasurements();
-    const m = manager.measurements[0];
-    expect(m.id).toBeDefined();
-    expect(typeof m.id).toBe("string");
-    // The stabilized id is persisted back to localStorage.
+    const m = manager.store.all()[0];
+    expect(m.id).toBeUndefined();
+    // The unchanged record is not re-persisted with a fabricated id.
     const persisted = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(persisted.version).toBe(CONST.RECORD_VERSION);
-    expect(persisted.items[0].id).toBe(m.id);
-  });
-
-  it("saveMeasurements persists to storage", () => {
-    const { manager } = makeManager();
-    manager.measurements = [{ id: 1, type: "marker" }];
-    const spy = vi.spyOn(manager, "saveMeasurements");
-    manager.saveMeasurements();
-    expect(spy).toHaveBeenCalled();
+    expect(Array.isArray(persisted)).toBe(true);
+    expect(persisted[0].id).toBeUndefined();
   });
 });
 
@@ -171,10 +163,10 @@ describe("MeasureManager — mode switching", () => {
 
   it("clearAll clears layers and measurements", () => {
     const { manager, layers } = makeManager();
-    manager.measurements = [{ id: 1 }];
+    manager.store.hydrate([{ id: 1 }]);
     manager.clearAll();
     expect(layers.clearLayers).toHaveBeenCalled();
-    expect(manager.measurements).toHaveLength(0);
+    expect(manager.store.all()).toHaveLength(0);
   });
 
   it("stays hidden after arming until it has a real cursor position", () => {
@@ -589,7 +581,7 @@ describe("MeasureManager — applyEditMode", () => {
 
   it("setMode EDIT enters edit mode when off", () => {
     const { manager } = makeManager();
-    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.store.hydrate([{ id: "m1", type: "marker" }]);
     manager.setMode(CONST.MEASURE_MODE.EDIT);
     expect(manager.isEditMode).toBe(true);
   });
@@ -603,7 +595,7 @@ describe("MeasureManager — applyEditMode", () => {
 
   it("setMode EDIT cancels an active drawing mode (mutual exclusivity)", () => {
     const { manager } = makeManager();
-    manager.measurements = [{ id: "m1", type: "marker" }];
+    manager.store.hydrate([{ id: "m1", type: "marker" }]);
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
 
@@ -615,7 +607,7 @@ describe("MeasureManager — applyEditMode", () => {
 
   it("setMode EDIT does not enter edit mode when there is nothing to edit", () => {
     const { manager } = makeManager();
-    manager.measurements = [];
+    manager.store.hydrate([]);
 
     manager.setMode(CONST.MEASURE_MODE.EDIT);
 
@@ -697,7 +689,7 @@ describe("MeasureManager — persistence edge cases", () => {
 describe("MeasureManager — global events", () => {
   it("onUnload clears active mode and layers without wiping measurements", () => {
     const { manager, map, layers } = makeManager();
-    manager.measurements = [{ id: 1, type: "marker" }];
+    manager.store.hydrate([{ id: 1, type: "marker" }]);
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     // onUnload is bound via this.map.on("unload", ...). Leaflet fires all
     // bound handlers on unload, so invoke every "unload" handler the manager
@@ -711,7 +703,7 @@ describe("MeasureManager — global events", () => {
     expect(layers.clearLayers).toHaveBeenCalled();
     expect(layers.unregister).toHaveBeenCalled();
     expect(layers.removeLayer).not.toHaveBeenCalled();
-    expect(manager.measurements).toHaveLength(1);
+    expect(manager.store.all()).toHaveLength(1);
   });
 
   it("Escape keydown calls clearActiveMode when mode is active", () => {
@@ -1778,8 +1770,8 @@ describe("MeasureManager — persistence guarantees", () => {
     expect(items[0].id).toBe("m1");
 
     const m2 = makeManager();
-    expect(m2.manager.measurements).toHaveLength(1);
-    expect(m2.manager.measurements[0].id).toBe("m1");
+    expect(m2.manager.store.all()).toHaveLength(1);
+    expect(m2.manager.store.all()[0].id).toBe("m1");
   });
 
   it("onUnload flushes a mutation still pending on the rAF queue", () => {
@@ -2784,5 +2776,101 @@ describe("MeasureManager — filter contract (enum arm)", () => {
       // component-owned caption here is the defect the contract prevents.
       expect(dim).not.toHaveProperty("label");
     });
+  });
+});
+
+// ── F4 regression: the shared filter owner must reproduce the hand-rolled
+// setFilter behaviour byte-for-byte. These rows are the contract the old
+// MeasureManager.setFilter held; if the owner ever drifts, they fail here
+// (and in the equivalent filterOwner.test.ts unit rows).
+describe("MeasureManager — filter owner equivalence (F4)", () => {
+  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("a no-op write is skipped once the slot is owned", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // First write takes the slot.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
+    const model = opts.filterProvider();
+    expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(model.kept).toBe(1);
+    // Repeating the identical write changes nothing: no extra apply/publish.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(opts.filterProvider().filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).measureFilter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+  });
+
+  it("clearing an already-empty slot is not a choice to remember", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // With no ownership and an empty slot, a clear write is a no-op: the
+    // declaration may still seed.
+    opts.filterSetter(undefined);
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+  });
+
+  it("an out-of-domain write on an empty slot is a no-op (old behaviour)", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // The old setFilter normalized first: a write whose values are all
+    // outside the domain collapses to "no filter", which equals the current
+    // empty slot — so it is a no-op, not a choice to remember. The owner
+    // reproduces this byte-for-byte.
+    opts.filterSetter(filter(["bogus"]));
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(opts.filterProvider().filter).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+  });
+
+  it("an out-of-domain write on an owned slot clears it and persists", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // Once the user owns the slot, a write that normalizes to "no filter" is
+    // a real change: it clears the committed filter and persists that state.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
+    opts.filterSetter(filter(["bogus"]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(opts.filterProvider().filter).toBeUndefined();
+    const saved = JSON.parse(
+      window.localStorage.getItem(storageKey(manager)) as string,
+    );
+    expect(saved.filter).toBeUndefined();
+    expect(saved.filtersTouched).toBe(true);
+  });
+
+  it("the declaration does not resurrect after a clear write", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // The declaration seeds the filter...
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    // ...a clear write takes the slot with no filter...
+    opts.filterSetter(undefined);
+    expect((manager as any).filtersTouched).toBe(true);
+    expect((manager as any).measureFilter).toBeUndefined();
+    // ...and the declaration must not come back.
+    expect(opts.filterProvider().filter).toBeUndefined();
   });
 });

@@ -8,7 +8,6 @@ import {
   computeBreaks,
 } from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
-import { bareFieldName } from "#core/label/index.js";
 import { safeColorScale } from "#core/palette.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
@@ -28,8 +27,8 @@ const getH3Res = (zoom: number): number => {
 
 /** Read a numeric field off a point marker (foliplus data contract).
  *  Supported field syntax: "value", "options.value", and a bare
- *  `feature.properties` key. A legacy `"properties.<key>"` id is accepted
- *  and stripped so older saved configs keep working. */
+ *  `feature.properties` key. A stored `"properties.<key>"` id is no
+ *  longer special-cased: it resolves as a literal property key (dropped). */
 const readMarkerField = (
   marker: L.Marker | L.CircleMarker,
   field: string | null,
@@ -38,8 +37,7 @@ const readMarkerField = (
   const extended = marker as HeatmapPointMarker;
   if (field === "value") return extended.value;
   if (field === "options.value") return extended.options?.value;
-  const key = bareFieldName(field);
-  return marker.feature?.properties?.[key];
+  return marker.feature?.properties?.[field];
 };
 
 /** Bin points by H3 resolution. Geometry only — the h3 call lives here and

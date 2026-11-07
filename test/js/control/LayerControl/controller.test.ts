@@ -2904,15 +2904,14 @@ describe("LayerController", () => {
   });
 
   it("deleteLayer prunes every persisted section that keys by layer id", () => {
-    // `order`, `renamedNames` and `annotations` all survive a plain
-    // unregister, and all three must die on a delete. `order` is the one that
+    // `order` and `renamedNames` both survive a plain
+    // unregister, and both must die on a delete. `order` is the one that
     // needs care — saveOrder re-inserts any stored id that is not registered
     // yet, so the id has to leave the stored order itself or it comes straight
     // back as a pending position.
     seedStorage({
       order: ["overlay1", "base1"],
       renamedNames: { overlay1: "Renamed", base1: "Base" },
-      annotations: { overlay1: { show: true, field: "name", format: "auto" } },
       layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
     });
     const m = new LayerController(map, [
@@ -2953,13 +2952,11 @@ describe("LayerController", () => {
       order: string[] | null;
       removed: string[];
       renamedNames: Record<string, string>;
-      annotations: Record<string, unknown>;
       layers: Record<string, unknown>;
     };
     expect(record.order).toEqual(["base1"]);
     expect(record.removed).toEqual(["overlay1"]);
     expect(record.renamedNames).toEqual({ base1: "Base" });
-    expect(record.annotations).toEqual({});
     expect(record.layers).toEqual({});
   });
 
