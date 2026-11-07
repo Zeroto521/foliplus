@@ -32,7 +32,9 @@ const readOnlyValue = (
   dom.el(
     "div",
     {
-      class: [PANEL_CLASS.READONLY, opts.className].filter(Boolean).join(" "),
+      class: ["foliplus-input-skin", PANEL_CLASS.READONLY, opts.className]
+        .filter(Boolean)
+        .join(" "),
       "aria-disabled":
         opts.ariaDisabled === undefined ? "true" : String(opts.ariaDisabled),
       ...(opts.role ? { role: opts.role } : {}),

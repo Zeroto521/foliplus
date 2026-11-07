@@ -5,7 +5,6 @@ import type { SuggestItem } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
-import { MODE } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
@@ -60,14 +59,5 @@ const parseCoord = (raw: string): { lng: number; lat: number } | null => {
   return { lng, lat };
 };
 
-/** Canonicalize an entry's history key: coord entries key on the parsed
- * longitude/latitude, so "120,32" and "120, 32" resolve to one entry. Anything
- * that does not parse is returned unchanged. */
-const canonicalQuery = (query: string, type: SearchType): string => {
-  if (type !== MODE.COORD) return query;
-  const parsed = parseCoord(query);
-  return parsed ? `${parsed.lng},${parsed.lat}` : query;
-};
-
-export { canonicalQuery, parseCoord };
+export { parseCoord };
 export type { SearchControlCtx };

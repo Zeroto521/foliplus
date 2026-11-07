@@ -135,6 +135,53 @@ class TestLayerControlBrowser:
         )
 
     @staticmethod
+    def _declared_ramp_layer() -> folium.GeoJson:
+        """A polygon layer with a declared value fill (numeric property),
+        so the style panel opens on the by-value arm and the method select
+        is present. A plain layer with only a numeric property falls to the
+        solid arm (no declared ramp), which has no method select."""
+        return folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"score": 10 + i},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.28 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.06],
+                                    ]
+                                ],
+                            },
+                        }
+                        for i in range(3)
+                    ],
+                }
+            ),
+            name="Declared polygon data",
+            style_function=lambda _f: {
+                "fillColor": "#808080",
+                "fillOpacity": 0.8,
+                "color": "none",
+            },
+            foliplus={
+                "fill": {
+                    "field": "score",
+                    "method": "equal",
+                    "classes": 3,
+                    "scheme": "Reds",
+                }
+            },
+        )
+
+    @staticmethod
     def _open_style_ramp(page) -> None:
         """Expand the control, wait for its init pass, then open ⋮ → Style."""
         page.evaluate(_js("LayerControl/open_panel"))

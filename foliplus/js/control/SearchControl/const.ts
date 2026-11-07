@@ -45,9 +45,10 @@ const HISTORY = {
 };
 
 /** Version stamp for the persisted history record (positive integer,
- * incremented only when the record shape changes). Readers accept
- * older/unknown values and never migrate (a legacy bare array is read as-is
- * and re-wrapped on the next save). */
+ * incremented only when the record shape changes). The envelope is read
+ * structurally: complete current-format rows are kept, and anything else
+ * (older partial rows, a legacy bare array of partial rows, corrupt shapes)
+ * is dropped as old data rather than migrated in place. */
 const RECORD_VERSION = 1;
 
 export { AUTOCOMPLETE, CLASSES, HISTORY, RECORD_VERSION, MODE, PARAM, SOURCE, ZOOM };

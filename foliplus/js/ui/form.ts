@@ -68,7 +68,7 @@ const numberInput = (opts: {
 }): HTMLElement =>
   dom.el("input", {
     type: "number",
-    class: `foliplus-form-number-input${opts.className ? ` ${opts.className}` : ""}`,
+    class: `foliplus-input-skin foliplus-form-number-input${opts.className ? ` ${opts.className}` : ""}`,
     min: String(opts.min),
     max: String(opts.max),
     step: String(opts.step ?? 1),
@@ -99,7 +99,7 @@ const selectInput = (opts: {
   options: readonly SelectOption[];
 }): HTMLSelectElement => {
   const select = dom.el("select", {
-    class: `foliplus-form-select${opts.className ? ` ${opts.className}` : ""}`,
+    class: `foliplus-input-skin foliplus-form-select${opts.className ? ` ${opts.className}` : ""}`,
     "aria-label": opts.ariaLabel,
   }) as HTMLSelectElement;
   for (const option of opts.options) {

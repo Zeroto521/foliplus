@@ -1,1 +1,1 @@
-() => window.__measureManager.measurements.length;
+() => window.__measureManager.store.all().length;

@@ -176,10 +176,8 @@ function makeCtrl(
     T: createScopedTranslator(config),
     _: createTranslator(config),
     ctrl: document.createElement("div"),
-    schemeDropdown: null,
     schemePicker: null,
     expandHookDone: false,
-    schemeBarCleanup: null,
     schemePickerOverlayUnregister: null,
     schemePickerCleanup: null,
     toggleDropdown: null,
@@ -196,8 +194,6 @@ function makeCtrl(
     schemeBar: document.createElement("div"),
     schemeBarInner: document.createElement("div"),
     schemeSelectHidden: document.createElement("select"),
-    closeSchemeDropdown: () => undefined,
-    toggleSchemeDropdown: () => undefined,
   };
 }
 

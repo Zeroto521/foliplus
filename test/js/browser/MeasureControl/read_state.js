@@ -20,7 +20,7 @@ opts => {
   const optionEls = () =>
     Array.from(document.querySelectorAll(".foliplus-dropdown-option"));
   return {
-    stored: mm.measurements.map(m => m.type),
+    stored: mm.store.all().map(m => m.type),
     visible: mm.visibleMeasurements().map(m => m.type),
     filter: mm.measureFilter || null,
     options: optionEls().map(el => el.getAttribute("data-value")),

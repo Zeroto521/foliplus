@@ -1,1 +1,1 @@
-() => window.__measureManager.measurements[0].area;
+() => window.__measureManager.store.all()[0].area;

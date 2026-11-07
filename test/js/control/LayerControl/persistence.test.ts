@@ -13,7 +13,6 @@ const emptyRecord = (): PersistedRecord => ({
   removed: [],
   foldedRoles: [],
   renamedNames: {},
-  annotations: {},
   layers: {},
 });
 
@@ -52,7 +51,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
@@ -61,7 +59,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
     });
@@ -78,7 +75,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: {
           a: {
             visible: false,
@@ -93,11 +89,11 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual(record);
     });
 
-    it("reads a v2 record's legacy label segment (write-new / read-old)", () => {
+    it("drops a v2 record's legacy label segment (dual-key removal)", () => {
       // RECORD_VERSION 2 → 3 moved the label config into
-      // `layers[id].annotation`. A v2 record must still read: the legacy
-      // segment is the fallback, the version is re-stamped as the current
-      // shape in the loaded record, and nothing migrates the segment itself.
+      // `layers[id].annotation`. The legacy top-level `annotations` segment
+      // is no longer read — a v2-only entry is dropped as invalid, and the
+      // version is re-stamped as the current shape in the loaded record.
       seedStorage({
         version: 2,
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -105,9 +101,7 @@ describe("LayerPersistence", () => {
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-      });
+      expect("annotations" in rec).toBe(false);
       expect(rec.layers).toEqual({});
     });
 
@@ -141,10 +135,9 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("keeps both label segments intact, new key preferred by the reader", () => {
-      // Write-new / read-old: the legacy segment passes through byte-for-
-      // byte, `layers[id].annotation` is the current key, and the reader
-      // (the label seed) picks the new one — each side owns its own order.
+    it("keeps the current key and drops the legacy segment (dual-key removal)", () => {
+      // The legacy segment passes through no longer — `layers[id].annotation`
+      // is the only label key, and the reader (the label seed) reads it.
       seedStorage({
         version: RECORD_VERSION,
         annotations: { both: { show: false, field: "old" } },
@@ -159,16 +152,15 @@ describe("LayerPersistence", () => {
         overrides: [],
         annotation: { show: true, field: "new" },
       });
-      expect(rec.annotations.both).toEqual({ show: false, field: "old" });
+      expect("annotations" in rec).toBe(false);
     });
 
-    it("prunes a deleted id from both label segments on read", () => {
+    it("prunes a deleted id from the label segment on read", () => {
       // Deletion is not migration: the write side drops the ids it records
       // as removed, and the read side does the same — so a record written
       // before either prune still loads without resurrecting the config.
       seedStorage({
         removed: ["gone"],
-        annotations: { gone: { show: true }, kept: { show: false } },
         layers: {
           gone: { overrides: [], annotation: { show: true } },
           kept: { overrides: [], annotation: { show: false } },
@@ -176,7 +168,6 @@ describe("LayerPersistence", () => {
       });
 
       const rec = makePersistence().load();
-      expect(rec.annotations).toEqual({ kept: { show: false } });
       expect(rec.layers).toEqual({
         kept: { overrides: [], annotation: { show: false } },
       });
@@ -191,17 +182,9 @@ describe("LayerPersistence", () => {
       // deleteLayer prunes an id that is actually gone.
       seedStorage({
         order: ["a", "ghost", "b", "gone"],
-        annotations: {
-          a: { show: true, field: "name", format: "auto" },
-          ghost: { show: true, field: "x", format: "int" },
-        },
       });
 
       expect(makePersistence().load().order).toEqual(["a", "ghost", "b", "gone"]);
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-        ghost: { show: true, field: "x", format: "int" },
-      });
     });
 
     it("keeps intent and renames for ids that are not registered yet", () => {
@@ -266,23 +249,26 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().removed).toEqual([]);
     });
 
-    it("drops annotation entries that are not plain objects", () => {
+    it("drops annotation configs that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
       // a corrupted record must not leak into the config as a valid object.
+      // The annotation config rides `layers[id].annotation`, so a non-object
+      // value drops the whole layer entry (no overrides, no annotation).
       seedStorage({
-        annotations: {
-          a: { show: true, field: "name", format: "auto" },
-          ghost: { show: true, field: "x", format: "int" },
-          b: null,
-          c: "not-object",
-          d: ["array"],
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "name", format: "auto" },
+          },
+          b: { overrides: [], annotation: null },
+          c: { overrides: [], annotation: "not-object" },
+          d: { overrides: [], annotation: ["array"] },
         },
       });
       const p = makePersistence();
 
-      expect(p.load().annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-        ghost: { show: true, field: "x", format: "int" },
+      expect(p.load().layers).toEqual({
+        a: { overrides: [], annotation: { show: true, field: "name", format: "auto" } },
       });
     });
 
@@ -293,45 +279,115 @@ describe("LayerPersistence", () => {
       // hex (either case) is left alone — normalizeHexColor only expands the
       // short form.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", color: "#fff" },
-          b: { show: true, field: "n", format: "auto", color: "#ABC" },
-          c: { show: true, field: "n", format: "auto", color: "#ff0000" },
-          d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#fff" },
+          },
+          b: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ABC" },
+          },
+          c: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ff0000" },
+          },
+          d: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#FF0000" },
+          },
         },
       });
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "n", format: "auto", color: "#ffffff" },
-        b: { show: true, field: "n", format: "auto", color: "#aabbcc" },
-        c: { show: true, field: "n", format: "auto", color: "#ff0000" },
-        d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+      const layers = makePersistence().load().layers;
+      expect(layers.a?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ffffff",
+      });
+      expect(layers.b?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#aabbcc",
+      });
+      expect(layers.c?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ff0000",
+      });
+      expect(layers.d?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#FF0000",
       });
     });
 
     it("leaves a non-hex annotation color alone", () => {
-      // The annotations section has no isHexColor gate (unlike layers), so
+      // The annotation config has no isHexColor gate (unlike layers), so
       // values the UI would not have written still round-trip unchanged —
       // the write side is equally permissive, and both consumers (canvas
       // fillStyle, color input) tolerate a bad value by falling back to
       // their default.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", color: "red" },
-          b: { show: true, field: "n", format: "auto", color: "#ffff" },
-          c: { show: true, field: "n", format: "auto", color: "123" },
-          d: { show: true, field: "n", format: "auto", color: 42 },
-          e: { show: true, field: "n", format: "auto", color: null },
-          f: { show: true, field: "n", format: "auto" },
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "red" },
+          },
+          b: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ffff" },
+          },
+          c: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "123" },
+          },
+          d: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: 42 },
+          },
+          e: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: null },
+          },
+          f: { overrides: [], annotation: { show: true, field: "n", format: "auto" } },
         },
       });
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "n", format: "auto", color: "red" },
-        b: { show: true, field: "n", format: "auto", color: "#ffff" },
-        c: { show: true, field: "n", format: "auto", color: "123" },
-        d: { show: true, field: "n", format: "auto", color: 42 },
-        e: { show: true, field: "n", format: "auto", color: null },
-        f: { show: true, field: "n", format: "auto" },
+      const layers = makePersistence().load().layers;
+      expect(layers.a?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "red",
       });
+      expect(layers.b?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ffff",
+      });
+      expect(layers.c?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "123",
+      });
+      expect(layers.d?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: 42,
+      });
+      expect(layers.e?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: null,
+      });
+      expect(layers.f?.annotation).toEqual({ show: true, field: "n", format: "auto" });
     });
 
     it("passes unknown annotation fields through (future dims, e.g. position)", () => {
@@ -340,9 +396,6 @@ describe("LayerPersistence", () => {
       // survives a round-trip, so a future reader finds it where the writer
       // left it. Field rules live in `coerceAnnotationFields`, not here.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", position: "below", anchor: 42 },
-        },
         layers: {
           b: {
             overrides: [],
@@ -351,35 +404,45 @@ describe("LayerPersistence", () => {
         },
       });
       const rec = makePersistence().load();
-      expect(rec.annotations.a).toMatchObject({ position: "below", anchor: 42 });
       expect(rec.layers.b?.annotation).toMatchObject({ position: "center" });
     });
   });
 
-  describe("fillRamp / fillMode", () => {
-    it("migrates a pre-rename fillMode: the stored literal is now value", () => {
-      // The value-based arm's stored mode spelling changed ("ramp" → "value").
-      // A record written before the rename must load as the new literal, and
-      // the write path stamps only "value" from here on.
+  describe("fillValue / fillMode", () => {
+    it("rejects the pre-rename fillMode literal (no compatibility migration)", () => {
+      // The stored mode spelling changed ("ramp" → "value"), but the lead
+      // chose to drop the migration branch entirely: a pre-rename record
+      // reads with the mode treated as absent (no arm claim), and the value
+      // config alone stays valid for the next write.
       seedStorage({
         version: RECORD_VERSION,
         layers: {
           a: {
             fillMode: "ramp",
-            fillRamp: {
+            fillValue: {
               field: "price",
               method: "quantile",
               classes: 5,
               scheme: "Reds",
             },
-            overrides: ["fillRamp", "fillMode"],
+            overrides: ["fillValue", "fillMode"],
           },
         },
       });
-      expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "value",
-        fillRamp: { field: "price", method: "quantile", classes: 5, scheme: "Reds" },
-        overrides: ["fillRamp", "fillMode"],
+      const loaded = makePersistence().load().layers.a;
+      // The mode segment is dropped (absent), so the arm falls back to the
+      // derived "solid" default rather than claiming the renamed "value".
+      // parseFillValue keeps the kindless shape (kind: undefined for numeric),
+      // and the invalid mode marker is dropped from overrides with it.
+      expect(loaded).toEqual({
+        fillValue: {
+          kind: undefined,
+          field: "price",
+          method: "quantile",
+          classes: 5,
+          scheme: "Reds",
+        },
+        overrides: ["fillValue"],
       });
     });
 
@@ -396,25 +459,26 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("migrates a pre-rename mode literal on a bare fillMode record", () => {
+    it("rejects a pre-rename mode literal on a bare fillMode record", () => {
       seedStorage({
         version: RECORD_VERSION,
         layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
       });
-      expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "value",
-        overrides: ["fillMode"],
-      });
+      // The renamed "value" is the only value-arm literal now; "ramp" reads
+      // as an invalid mode (absent), so the record keeps no mode claim.
+      // With the only marker invalid, the layer state has no overrides and no
+      // annotation, so parseLayerState returns null — the layer reads absent.
+      expect(makePersistence().load().layers.a).toBeUndefined();
     });
 
-    it("writes only the new literal after migrating a pre-rename record", () => {
-      // A pre-rename record loads as "value"; the write path must stamp only
-      // "value" and never write the old literal back. The last assertion checks
-      // the serialized record, so a field-level pass can't be faked by some
-      // other branch re-stamping "ramp" elsewhere in the record.
+    it("never writes the old literal back", () => {
+      // The write path stamps only "value" (or the derived solid) — "ramp" is
+      // not a legal literal anymore, so no code path may emit it. The last
+      // assertion checks the serialized record, so a field-level pass can't be
+      // faked by some branch re-stamping "ramp" elsewhere in the record.
       seedStorage({
         version: RECORD_VERSION,
-        layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
+        layers: { a: { fillMode: "value", overrides: ["fillMode"] } },
       });
       const loaded = makePersistence().load();
       expect(loaded.layers.a?.fillMode).toBe("value");
@@ -441,19 +505,19 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               field: "  price  ",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
       expect(makePersistence().load().layers.a).toEqual({
-        fillRamp: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
-        overrides: ["fillRamp"],
+        fillValue: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillValue"],
       });
     });
 
@@ -466,13 +530,13 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               field: "  price  ",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
@@ -483,7 +547,7 @@ describe("LayerPersistence", () => {
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      expect(lastRecord(save).layers.a?.fillRamp?.field).toBe("  price  ");
+      expect(lastRecord(save).layers.a?.fillValue?.field).toBe("  price  ");
       save.mockRestore();
       vi.useRealTimers();
     });
@@ -496,23 +560,23 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillRamp: {
+            fillValue: {
               kind: "numeric",
               field: "price",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillRamp"],
+            overrides: ["fillValue"],
           },
         },
       });
       const loaded = makePersistence().load().layers.a;
       expect(loaded).toEqual({
-        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
-        overrides: ["fillRamp"],
+        fillValue: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillValue"],
       });
-      expect(loaded!.fillRamp!.kind).toBeUndefined();
+      expect(loaded!.fillValue!.kind).toBeUndefined();
     });
 
     it("drops a ramp whose kind this client cannot build", () => {
@@ -524,14 +588,14 @@ describe("LayerPersistence", () => {
           version: RECORD_VERSION,
           layers: {
             a: {
-              fillRamp: {
+              fillValue: {
                 kind,
                 field: "price",
                 method: "equal",
                 classes: 3,
                 scheme: "Reds",
               },
-              overrides: ["fillRamp"],
+              overrides: ["fillValue"],
             },
           },
         });
@@ -550,7 +614,7 @@ describe("LayerPersistence", () => {
       for (const bad of bads) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: bad, overrides: ["fillValue"] } },
         });
         // The marker has no surviving value, so the layer entry is dropped
         // rather than kept as an empty object.
@@ -564,8 +628,8 @@ describe("LayerPersistence", () => {
           version: RECORD_VERSION,
           layers: {
             a: {
-              fillRamp: { field: "price", method: "equal", classes, scheme: "Reds" },
-              overrides: ["fillRamp"],
+              fillValue: { field: "price", method: "equal", classes, scheme: "Reds" },
+              overrides: ["fillValue"],
             },
           },
         });
@@ -577,7 +641,7 @@ describe("LayerPersistence", () => {
       for (const bad of [null, undefined, "Reds", 7, [], [1, 2, 3]]) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: bad, overrides: ["fillValue"] } },
         });
         expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
       }
@@ -619,7 +683,7 @@ describe("LayerPersistence", () => {
         expect(isFillValueConfig(config), JSON.stringify(config)).toBe(ok);
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillRamp: config, overrides: ["fillRamp"] } },
+          layers: { a: { fillValue: config, overrides: ["fillValue"] } },
         });
         const loaded = makePersistence().load();
         expect(
@@ -667,9 +731,9 @@ describe("LayerPersistence", () => {
         layers: {
           a: {
             fillMode: "value",
-            fillRamp: { field: "", method: "equal", classes: 3, scheme: "Reds" },
+            fillValue: { field: "", method: "equal", classes: 3, scheme: "Reds" },
             fillOpacity: 0.5,
-            overrides: ["fillMode", "fillRamp", "fillOpacity"],
+            overrides: ["fillMode", "fillValue", "fillOpacity"],
           },
         },
       });
@@ -695,7 +759,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
@@ -704,7 +767,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
     });
@@ -719,7 +781,6 @@ describe("LayerPersistence", () => {
           order: ["a", "b"],
           foldedRoles: ["OVERLAYS"],
           renamedNames: { a: "A2" },
-          annotations: { a: { show: true, field: "name", format: "auto" } },
           layers: { a: { visible: false, overrides: ["visible"] } },
         });
         expect(makePersistence().load().version).toBe(RECORD_VERSION);
@@ -728,7 +789,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load().version).toBe(RECORD_VERSION);
@@ -761,7 +821,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       const p = makePersistence();
@@ -775,7 +834,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1194,8 +1252,7 @@ describe("LayerPersistence", () => {
 
       // Four schedules, one write: there is a single timer for the whole
       // record, so no dimension needs its own debounce bookkeeping. The
-      // legacy `annotations` segment has no live source — it passes through
-      // as whatever storage holds (empty here).
+      // legacy `annotations` segment no longer exists.
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
@@ -1203,7 +1260,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1218,7 +1274,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       vi.useFakeTimers();
@@ -1234,7 +1289,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1350,7 +1404,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: [],
         renamedNames: {},
-        annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
 

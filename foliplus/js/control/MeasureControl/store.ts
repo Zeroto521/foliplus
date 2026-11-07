@@ -2,8 +2,7 @@
 //
 // Encapsulates the measurements array, id counter, persistence (localStorage),
 // and LAYER_ITEM_COUNT_CHANGE emission. Call sites (modes, ui, export) go
-// through this store instead of poking mgr.measurements + saveMeasurements
-// directly, mirroring LayerControl's persistence.ts convention: one store
+// through this store, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -17,10 +16,8 @@ import {
 import * as CONST from "./const.js";
 
 /** Central store for all measurements. Owns the array, the id counter, the
- * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Manager
- * exposes a thin compatibility shell (`.measurements` getter/setter,
- * `.saveMeasurements()`) over this so browser tests and legacy call sites keep
- * working while new code uses the typed API (add/remove/update/all). */
+ * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Callers
+ * use the typed API (add/remove/update/all/clear) — no direct Storage access. */
 class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
@@ -89,21 +86,6 @@ class MeasureStore {
    *  place so callers holding an `all()` reference stay on the same object. */
   hydrate(data: MeasureData[]): void {
     this.list.splice(0, this.list.length, ...data);
-  }
-
-  /** Restore an id onto a measurement that came back from storage without one
-   *  (older versions persisted measurements without an id). Returns true if
-   *  any measurement gained an id — the caller then persists so the id is
-   *  durable and later onUpdate / onDelete lookups resolve to the right row. */
-  assignMissingIds(): boolean {
-    let assigned = false;
-    for (const m of this.list) {
-      if (!m.id) {
-        m.id = this.nextId(m.type);
-        assigned = true;
-      }
-    }
-    return assigned;
   }
 
   /** Persist current list to localStorage and emit LAYER_ITEM_COUNT_CHANGE so

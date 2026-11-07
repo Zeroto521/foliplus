@@ -67,14 +67,7 @@
 .foliplus-style-fill-readonly {
   display: flex;
   align-items: center;
-  height: var(--foliplus-ctrl-size);
-  box-sizing: border-box;
   padding: 0 var(--foliplus-space-sm);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
-  background: var(--foliplus-input-bg);
-  color: var(--foliplus-text-primary);
-  font-size: var(--foliplus-font-size-sm);
   cursor: default;
 }
 

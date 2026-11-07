@@ -11,9 +11,10 @@ import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   type FilterEnumDimension,
+  type FilterOwner,
   type LayerFilter,
   type LayerFilterModel,
-  filtersEqual,
+  createFilterOwner,
   isLayerInPanes,
   matchesValues,
   parsePersistedFilter,
@@ -128,19 +129,30 @@ class MeasureManager {
   private editHandles: Map<string, EditHandle> = new Map();
   /** Central store for measurement data + persistence + count emission. */
   readonly store: MeasureStore;
+  /** The shared filter controller — one orchestration path (normalize →
+   *  store → apply → publish) for every setFilter / restore / reset call.
+   *  The owner is the single source of the committed filter and the
+   *  ownership flag; the fields below are test-visible views over it. */
+  private filterOwner: FilterOwner;
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
-  private measureFilter: LayerFilter = undefined;
+  private get measureFilter(): LayerFilter {
+    return this.filterOwner.getFilter();
+  }
   /** Whether the user owns the filter slot (see the filter record's
    *  `filtersTouched` — the same ownership signal HeatmapControl uses). The
    *  Python declaration seeds only while this is false; the CLEAR mode's
    *  factory Reset deletes the record and clears it, so the declaration
    *  returns with the factory defaults. */
-  filtersTouched = false;
+  get filtersTouched(): boolean {
+    return this.filterOwner.isOwned();
+  }
   /** The Python declaration normalised once at construction — the value a
    *  Clear re-seeds from (without re-normalising, so an unusable declaration
    *  still warns exactly once). */
-  private declaredStartFilter: LayerFilter = undefined;
+  private get declaredStartFilter(): LayerFilter {
+    return this.filterOwner.declared();
+  }
 
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
    *  hides/shows a whole measurement through these, never through a redraw. */
@@ -213,12 +225,25 @@ class MeasureManager {
     // declaration is the starting condition. The declaration is normalised
     // once here (a Clear re-seeds from it without re-normalising, so an
     // unusable declaration warns exactly once).
-    this.declaredStartFilter = this.declaredMeasureFilter();
+    this.filterOwner = createFilterOwner({
+      normalize: filter => this.normalizeMeasureFilter(filter),
+      apply: () => this.applyFilterVisibility(),
+      publish: () =>
+        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }),
+      persist: () => this.saveMeasureFilter(),
+      clearPersist: () => Storage.removeRecord(this.filterStorageKey, this.config.name),
+      dimensions: () => [this.filterDimension()],
+      counts: () => this.filterCounts(),
+    });
+    // The record's explicit `filtersTouched` flag is the ownership signal —
+    // the same rule HeatmapControl applies to its SavedConfig. A touched
+    // record wins (including one that says "cleared"); otherwise the Python
+    // declaration is the starting condition. The declaration is normalised
+    // once here (a Clear re-seeds from it without re-normalising, so an
+    // unusable declaration warns exactly once).
+    this.filterOwner.setDeclaration(this.declaredMeasureFilter());
     const filterState = this.loadFilterState();
-    this.filtersTouched = filterState.touched;
-    this.measureFilter = this.filtersTouched
-      ? filterState.filter
-      : this.declaredStartFilter;
+    this.filterOwner.restore(filterState.filter, filterState.touched);
     // The config defaults were read above — snapshot them before any runtime
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
@@ -344,19 +369,20 @@ class MeasureManager {
     return matchesValues({ type: measurement.type }, this.measureFilter);
   }
 
-  /** The model the shared filter panel renders for this layer. */
-  filterModel(): LayerFilterModel {
+  /** kept/total in the owner's unit — measurement items, never rendered
+   *  leaves. The unit is the owner's to report; the controller never infers. */
+  private filterCounts(): { kept: number; total: number } {
     this.pruneItemLeaves();
     let kept = 0;
     for (const measurement of this.store.all()) {
       if (this.itemMatchesFilter(measurement)) kept += 1;
     }
-    return {
-      dimensions: [this.filterDimension()],
-      filter: this.measureFilter,
-      kept,
-      total: this.store.count(),
-    };
+    return { kept, total: this.store.count() };
+  }
+
+  /** The model the shared filter panel renders for this layer. */
+  filterModel(): LayerFilterModel {
+    return this.filterOwner.filterModel();
   }
 
   /** Measurements whose leaves are rendered — the export view. Reads the
@@ -370,23 +396,11 @@ class MeasureManager {
   }
 
   /** Panel write path: keep the filter, persist it, repaint only visibility
-   *  (no redraw), then re-plan labels and notify the row. */
+   *  (no redraw), then re-plan labels and notify the row. The orchestration
+   *  (normalize → store → apply → publish) is the owner's; the control adds
+   *  only the label re-plan that follows a visibility change. */
   setFilter(filter: LayerFilter): void {
-    const next = this.normalizeMeasureFilter(filter);
-    const unchanged = filtersEqual(next, this.measureFilter);
-    // A write that changes nothing is a no-op once the user owns the slot.
-    // Clearing a slot that already holds nothing is also not a choice to
-    // remember (the panel's Clear is disabled in that state anyway) — the
-    // declaration may still seed. Every other write is the user taking the
-    // slot, including re-affirming the filter the declaration seeded.
-    if (unchanged && (this.filtersTouched || next === undefined)) return;
-    this.measureFilter = next;
-    // Any panel write — including the panel's Clear (undefined) — is the
-    // user taking the slot. The declaration must not resurrect itself.
-    this.filtersTouched = true;
-    this.saveMeasureFilter();
-    this.applyFilterVisibility();
-    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    if (!this.filterOwner.setFilter(filter)) return;
     this.requestLabelPlan();
   }
 
@@ -573,37 +587,12 @@ class MeasureManager {
    *  returns to the declaration, and the current filter is set to the
    *  declaration — both in this session and on reload. */
   private clearFilter(): void {
-    Storage.removeRecord(this.filterStorageKey, this.config.name);
-    this.filtersTouched = false;
-    if (this.measureFilter === this.declaredStartFilter) return;
-    this.measureFilter = this.declaredStartFilter;
-    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    this.filterOwner.reset();
   }
 
   /** Explicit label re-plan entry point for filter-driven visibility changes. */
   requestLabelPlan(): void {
     this.scheduleLabelPlan();
-  }
-
-  // ── Persistence (compatibility shell over MeasureStore) ──
-  // Browser tests and legacy call sites read `mgr.measurements` /
-  // call `saveMeasurements()` directly; new code should use `mgr.store`.
-
-  /** Live measurements array. Reads return the store's backing array; writes
-   *  hydrate the store in place (used by tests + legacy seed paths). Mutating
-   *  the returned array directly does NOT persist — use store.add/remove/update. */
-  get measurements(): MeasureData[] {
-    return this.store.all();
-  }
-  set measurements(data: MeasureData[]) {
-    this.store.hydrate(data);
-  }
-
-  /** Persist all measurements to localStorage and refresh the count column. */
-  saveMeasurements() {
-    this.store.persist();
-    // Runtime content changed — refresh the attributes panel timestamp.
-    this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
   /** Generate a unique measurement id, e.g. "foliplus_measure_marker_1699..._1".
@@ -615,10 +604,6 @@ class MeasureManager {
   /** Restore all persisted measurements from localStorage and rebuild their UI. */
   restoreMeasurements() {
     this.store.hydrate(this.store.load());
-    // Older persisted measurements may lack an `id`. Assign one before rebuild
-    // so later onUpdate / onDelete paths (which match by id) resolve to the right
-    // measurement and exports carry a stable id.
-    if (this.store.assignMissingIds()) this.store.persist();
     this.store.all().forEach(m => {
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });

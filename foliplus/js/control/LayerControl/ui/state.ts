@@ -20,13 +20,11 @@ import type { LayerUI } from "./surface.js";
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
   ui.listPanel.foldedRoles = new Set(state.foldedRoles);
-  // Intent values + provenance sink into the store. Read order is the compat
-  // contract: the current `layers[id].annotation` key WINS, the legacy
-  // top-level `annotations` segment is the fallback underneath (write-new /
-  // read-old).
+  // Intent values + provenance sink into the store. The label config is read
+  // from `layers[id].annotation` only — the legacy top-level `annotations`
+  // segment was dropped.
   ui.intentStore.loadFromPersisted({
     renamedNames: state.renamedNames,
-    annotations: state.annotations,
     layers: state.layers,
   });
 };

@@ -905,7 +905,7 @@ describe("LayerUI style panel — fill color", () => {
     // and still paints the ramp, so the descriptor must say "value" rather than
     // the stored mode's solid fallback — or the panel would claim solid while
     // the map is painted by value.
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "equal",
       classes: 3,
@@ -914,7 +914,7 @@ describe("LayerUI style panel — fill color", () => {
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
       mode: "value",
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      value: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
     });
 
     // An explicit solid mode wins over a stored ramp config — the config is
@@ -1592,7 +1592,7 @@ describe("buildFillRow", () => {
 
   it("renders the ramp detail when a stored config says ramp", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "equal",
       classes: 4,
@@ -1629,7 +1629,7 @@ describe("buildFillRow", () => {
     // class count is announced by the count select's own aria label, so the
     // pair stays distinguishable to a screen reader.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "equal",
       classes: 4,
@@ -2029,14 +2029,14 @@ describe("replayFillState", () => {
         layers: {
           overlay1: {
             fillMode: "value",
-            fillRamp: {
+            fillValue: {
               kind: "numeric",
               field: "count",
               method: "equal",
               classes: 3,
               scheme: "Reds",
             },
-            overrides: ["fillMode", "fillRamp"],
+            overrides: ["fillMode", "fillValue"],
           },
         },
       }),
@@ -2060,7 +2060,7 @@ describe("replayFillState", () => {
     expect(getIntent(fixture.manager.ui!, "overlay1", "fillMode")).toBe("value");
     // The redundant default never reaches the apply path.
     expect(
-      getIntent(fixture.manager.ui!, "overlay1", "fillRamp")?.kind,
+      getIntent(fixture.manager.ui!, "overlay1", "fillValue")?.kind,
     ).toBeUndefined();
     // Each leaf got the color of its own value class, not the author's.
     const colors = rampLayer.leaves.map(
@@ -2073,7 +2073,7 @@ describe("replayFillState", () => {
     const fixture = initWithRampedLayer([1, 5, 9]);
     installChroma(["#111111", "#222222", "#333333"]);
     setIntent(fixture.ui, "overlay1", "fillMode", "value");
-    setIntent(fixture.ui, "overlay1", "fillRamp", {
+    setIntent(fixture.ui, "overlay1", "fillValue", {
       field: "count",
       method: "equal",
       classes: 3,
@@ -2129,7 +2129,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   it("fillMode=ramp paints by value and ignores the stored solid color", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
 
     applyFillToLayer(ui, "overlay1");
 
@@ -2140,7 +2140,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // The pre-fillMode record shape: the config's presence alone selects the
     // arm, so a persisted record written before fillMode existed still paints.
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
 
     applyFillToLayer(ui, "overlay1");
 
@@ -2154,11 +2154,11 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // resolution the row showed that field while the map degraded to the
     // author's face.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", { ...VALUE, field: "gone" });
+    setIntent(ui, "overlay1", "fillValue", { ...VALUE, field: "gone" });
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
       mode: "value",
-      ramp: { field: "count" },
+      value: { field: "count" },
     });
 
     applyFillToLayer(ui, "overlay1");
@@ -2172,7 +2172,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // mid-teardown) the list is empty and the stored name resolves to the
     // empty field rather than throwing.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", { ...VALUE, kind: "category" });
+    setIntent(ui, "overlay1", "fillValue", { ...VALUE, kind: "category" });
     (ui.c.layerRegistry.get("overlay1") as { layer: unknown }).layer = null;
     vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("value");
@@ -2181,7 +2181,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   it("fillMode=solid never reads the ramp config", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillMode", "solid");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
 
     applyFillToLayer(ui, "overlay1");
 
@@ -2202,7 +2202,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("the ramp arm carries the user's solid-mode opacity", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     setIntent(ui, "overlay1", "fillOpacity", 0.25);
 
     applyFillToLayer(ui, "overlay1");
@@ -2216,7 +2216,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("the ramp arm omits the opacity when the user never set one", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
 
     applyFillToLayer(ui, "overlay1");
 
@@ -2232,7 +2232,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // skip the walk: a skipped walk leaves the previous arm's color on the
     // map. The ramp config stays stored for the next switch.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     applyFillToLayer(ui, "overlay1");
     expect(paintedColors()).toEqual(COLORS);
 
@@ -2246,7 +2246,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
         fill: true,
       });
     }
-    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(VALUE);
+    expect(getIntent(ui, "overlay1", "fillValue")).toEqual(VALUE);
   });
 
   it("an opacity-only solid apply after a ramp restores the author's color", () => {
@@ -2254,7 +2254,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // author's too — otherwise the ramp's color would sit under the user's
     // opacity.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     applyFillToLayer(ui, "overlay1");
 
     setIntent(ui, "overlay1", "fillMode", "solid");
@@ -2274,7 +2274,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("a color-only solid apply after a ramp preserves the author's opacity", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     applyFillToLayer(ui, "overlay1");
 
     setIntent(ui, "overlay1", "fillMode", "solid");
@@ -2292,7 +2292,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // Both directions: the inactive config is never deleted, only ignored, so
     // the ramp comes back exactly where it left off.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     applyFillToLayer(ui, "overlay1");
     expect(paintedColors()).toEqual(COLORS);
 
@@ -2302,7 +2302,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
     applyFillToLayer(ui, "overlay1");
     expect(paintedColors()).toEqual(COLORS);
-    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(VALUE);
+    expect(getIntent(ui, "overlay1", "fillValue")).toEqual(VALUE);
   });
 
   it("a ramp arm on a color basemap paints nothing rather than the stored solid", () => {
@@ -2319,13 +2319,13 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     });
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillMode", "value");
-    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp", VALUE);
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillValue", VALUE);
 
     applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
 
     expect(ui.currentColor).not.toBe("#ff0000");
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
-    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp")).toEqual(VALUE);
+    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillValue")).toEqual(VALUE);
   });
 
   it("FILL_DIMENSION.write selects the ramp arm and paints on the next frame", () => {
@@ -2334,14 +2334,14 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
     FILL_DIMENSION.write!(ui, "overlay1", {
       mode: "value",
-      ramp: VALUE,
+      value: VALUE,
       opacity: 0.4,
     });
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBe("value");
-    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(VALUE);
+    expect(getIntent(ui, "overlay1", "fillValue")).toEqual(VALUE);
     expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(true);
-    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "fillValue")).toBe(true);
     expect(schedule).toHaveBeenCalled();
 
     flushStyleDimApply(FACE.FILL, "overlay1");
@@ -2355,14 +2355,14 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // the ramp arm is active must not delete the stored ramp, which is what a
     // mode switch back restores.
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
 
     FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
     expect(getIntent(ui, "overlay1", "fillMode")).toBe("value");
-    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(VALUE);
+    expect(getIntent(ui, "overlay1", "fillValue")).toEqual(VALUE);
   });
 
   it("a solid switch leaves the author's face in force on mouseout", () => {
@@ -2370,7 +2370,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     // next-time state, not evidence the arm is active), so the getter a ramp
     // apply registered is still reachable. The solid arm has to take the leaf
     // back, or the next mouseout would repaint the ramp over the author's
-    // face. The getter's own mode check is asserted in fillRamp.test.ts.
+    // face. The getter's own mode check is asserted in fillValue.test.ts.
     const handlers: Array<() => void> = [];
     const leaf = {
       options: { fillColor: "#112233", fillOpacity: 0.6, fill: false },
@@ -2383,7 +2383,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     };
     rampLayer.leaves[0] = leaf as never;
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     applyFillToLayer(ui, "overlay1");
 
     // folium's mouseout restores the author's face; the ramp's getter repays
@@ -2409,16 +2409,16 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("reset clears both the ramp config and the mode", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", VALUE);
+    setIntent(ui, "overlay1", "fillValue", VALUE);
     setIntent(ui, "overlay1", "fillOpacity", 0.25);
 
     resetLayerFill(ui, "overlay1");
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillValue")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(false);
-    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(false);
+    expect(ui.intentStore.isUserSet("overlay1", "fillValue")).toBe(false);
   });
 });
 
@@ -2516,7 +2516,7 @@ describe("fill mode row — solid ↔ color by value", () => {
     switchMode(block, "value");
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBe("value");
-    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual({
+    expect(getIntent(ui, "overlay1", "fillValue")).toEqual({
       kind: "numeric",
       field: "count",
       method: CONST.FILL_VALUE.METHOD_DEFAULT,
@@ -2557,7 +2557,7 @@ describe("fill mode row — solid ↔ color by value", () => {
     switchMode(block, "solid");
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBe("solid");
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "count" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "count" });
     // The solid arm is back: swatch + opacity, no ramp controls.
     expect(
       details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
@@ -2579,7 +2579,7 @@ describe("fill mode row — solid ↔ color by value", () => {
 
     expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillValue")).toBeUndefined();
   });
 
   it("a color basemap keeps the single-swatch row (solid only)", () => {
@@ -2617,7 +2617,7 @@ describe("fill mode row — solid ↔ color by value", () => {
       (select.querySelector('option[value="value"]') as HTMLOptionElement).disabled,
     ).toBe(false);
     switchMode(block, "value");
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "count" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "count" });
   });
 
   it("shows the stored ramp as solid when the layer has no numeric field", () => {
@@ -2629,7 +2629,7 @@ describe("fill mode row — solid ↔ color by value", () => {
       leaf.feature.properties = { name: "a" };
     }
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
@@ -2656,7 +2656,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     installChroma(["#111111", "#222222", "#333333"]);
     ({ ui } = initWithValues());
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
@@ -2685,14 +2685,14 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     select.value = "score";
     select.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "score" });
   });
 
   it("shows the first field when the stored field is no longer offered", () => {
     // Options come from the current data; a stored field that disappeared
     // cannot stay selected, or the select would render blank.
     ui.runtimeStore.setFields("overlay1", [{ name: "score", numeric: true }]);
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
@@ -2716,7 +2716,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     method.value = "equal";
     method.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ method: "equal" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ method: "equal" });
   });
 
   it("class count select writes the chosen count and offers the shared range", () => {
@@ -2735,7 +2735,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     classes.value = "5";
     classes.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 5 });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ classes: 5 });
   });
 
   it("shared scheme picker selection writes the scheme (strip only, no name)", () => {
@@ -2755,7 +2755,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     expect(item).not.toBeNull();
     item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ scheme: "Reds" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ scheme: "Reds" });
     expect(trigger.title).toBe("Reds");
   });
 
@@ -3211,7 +3211,7 @@ describe("fill row — original colors", () => {
     // The seed is the user's own classification: the shared six classes on
     // jenks/Viridis over the column the author actually drew — never the
     // author's color count, so a 43-color palette cannot collapse to 9.
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
       field: "score",
       method: "jenks",
       classes: CLASS_COUNT.DEFAULT,
@@ -3236,7 +3236,7 @@ describe("fill row — original colors", () => {
     select.value = "value";
     select.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
       field: "score",
       classes: 5,
     });
@@ -3252,7 +3252,7 @@ describe("fill row — original colors", () => {
     select.value = "value";
     select.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
       classes: CLASS_COUNT.DEFAULT,
     });
   });
@@ -3267,7 +3267,7 @@ describe("fill row — original colors", () => {
     select.value = "value";
     select.dispatchEvent(new Event("change", { bubbles: true }));
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "score" });
   });
 
   it("leaves the by-value arm out when the layer offers no numeric field", () => {
@@ -3373,7 +3373,7 @@ describe("fill ramp persistence and reset", () => {
 
   it("reopening the panel shows the stored arm and replays the ramp", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       // Equal interval: no simple-statistics dependency in jsdom.
       method: "equal",
@@ -3400,7 +3400,7 @@ describe("fill ramp persistence and reset", () => {
 
   it("reset clears both arms' intents and the panel opens solid", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
@@ -3412,7 +3412,7 @@ describe("fill ramp persistence and reset", () => {
     resetLayerFill(ui, "overlay1");
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillValue")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
 
@@ -3424,16 +3424,16 @@ describe("fill ramp persistence and reset", () => {
   it("clearIntent on the ramp keeps the solid arm untouched", () => {
     setIntent(ui, "overlay1", "fillMode", "solid");
     setIntent(ui, "overlay1", "fillColor", "#123456");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
       scheme: "Blues",
     } as never);
 
-    clearIntent(ui, "overlay1", "fillRamp");
+    clearIntent(ui, "overlay1", "fillValue");
 
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillValue")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#123456");
     const block = openPanel(ui);
     expect(modeSelect(block).value).toBe("solid");
@@ -3459,7 +3459,7 @@ describe("fill mode switch after the layer's fields changed", () => {
     select.dispatchEvent(new Event("change"));
 
     expect(getIntent(fixture.ui, "overlay1", "fillMode")).toBeUndefined();
-    expect(getIntent(fixture.ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(fixture.ui, "overlay1", "fillValue")).toBeUndefined();
   });
 });
 
@@ -3633,7 +3633,7 @@ describe("fill row — original colors option", () => {
     const { ui } = initWithPerFeatureLayer();
     // The pre-fillMode record shape: a stored config and no mode means the
     // user already classified, so the row reads by-value rather than original.
-    setIntent(ui, "feature1", "fillRamp", {
+    setIntent(ui, "feature1", "fillValue", {
       field: "count",
       method: "jenks",
       classes: 3,
@@ -3803,7 +3803,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
       mode: "value",
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      value: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
     });
     expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
   });
@@ -3917,7 +3917,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     });
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
-      ramp: { classes: 12 },
+      value: { classes: 12 },
     });
 
     const row = buildFillRow(ui, "overlay1");
@@ -3938,7 +3938,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     classes.dispatchEvent(new Event("change", { bubbles: true }));
 
     // The declaration itself is untouched; only the user's record converges.
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 9 });
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ classes: 9 });
 
     // Same panel, same row: the trigger label, its tooltip and the open list
     // all state the committed count. Leaving the declared count's presentation
@@ -3980,7 +3980,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // dimension has.
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
       mode: "value",
-      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+      value: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
     });
     expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
   });
@@ -4087,7 +4087,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // A different palette so the paint proves which config won.
     installChroma(["#aaaaaa", "#bbbbbb", "#cccccc"]);
     setIntent(ui, "overlay1", "fillMode", "value");
-    setIntent(ui, "overlay1", "fillRamp", {
+    setIntent(ui, "overlay1", "fillValue", {
       field: "count",
       method: "equal",
       classes: 3,
@@ -4102,7 +4102,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ) as HTMLSelectElement;
     expect(method.value).toBe("equal");
     // The user's record is what the panel reads, not the declaration.
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
       scheme: "Blues",
     });
   });
@@ -4127,7 +4127,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
   it("a declared mode=solid ignores a ramp given beside it", () => {
     const { ui } = declaredRampFixture({
       mode: "solid",
-      ramp: { field: "count" },
+      value: { field: "count" },
     });
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
@@ -4217,7 +4217,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // declared ramp is still the arm the panel and the map show.
     expect(modeSelect(row()).value).toBe("value");
     expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
-    expect(getIntent(ui, "feature1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "feature1", "fillValue")).toBeUndefined();
     const rampColors = ["#111111", "#222222", "#333333"];
     expect(
       layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
@@ -4358,7 +4358,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       expect(after.classes).toBe("4");
       // A reconnect replays the author's declaration; it must not be mistaken
       // for a user pick, or Reset would stop returning to the declaration.
-      const intentKeys = ["fillColor", "fillOpacity", "fillMode", "fillRamp"] as const;
+      const intentKeys = ["fillColor", "fillOpacity", "fillMode", "fillValue"] as const;
       for (const key of intentKeys) {
         expect(getIntent(ui, "overlay1", key)).toBeUndefined();
       }
@@ -4406,10 +4406,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("keeps the user's intent across a reconnect — intent outranks the declaration", () => {
       const { manager, ui, rampLayer } = declaredRampFixture({
-        ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+        value: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
       });
       setIntent(ui, "overlay1", "fillMode", "value");
-      setIntent(ui, "overlay1", "fillRamp", {
+      setIntent(ui, "overlay1", "fillValue", {
         kind: "numeric",
         field: "count",
         method: "equal",
@@ -4431,9 +4431,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // declaration: the panel reports the user's ramp, not the declared one.
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
         mode: "value",
-        ramp: { method: "equal", classes: 4, scheme: "Blues" },
+        value: { method: "equal", classes: 4, scheme: "Blues" },
       });
-      expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 4 });
+      expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ classes: 4 });
       expect(
         paintedColors(rampLayer).filter(color => color !== undefined),
       ).toHaveLength(3);
@@ -4522,7 +4522,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
         mode: "value",
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        value: { kind: "category", field: "cat", scheme: "Set3" },
       });
       // Distinct labels forest/water/urban take colors 0/1/2; the repeated
       // forest reuses color 0, never a fourth palette entry.
@@ -4581,7 +4581,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
         mode: "value",
-        ramp: {
+        value: {
           kind: "category",
           field: "cat",
           scheme: CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT,
@@ -4676,7 +4676,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         scheme: "Set3",
       });
       setIntent(ui, "overlay1", "fillMode", "value");
-      setIntent(ui, "overlay1", "fillRamp", {
+      setIntent(ui, "overlay1", "fillValue", {
         kind: "category",
         field: "cat",
         method: "jenks",
@@ -4693,14 +4693,14 @@ describe("declared fill — foliplus={'fill': ...}", () => {
           layers: {
             overlay1: {
               fillMode: "value",
-              fillRamp: {
+              fillValue: {
                 kind: "category",
                 field: "cat",
                 method: "jenks",
                 classes: 6,
                 scheme: "Set3",
               },
-              overrides: ["fillMode", "fillRamp"],
+              overrides: ["fillMode", "fillValue"],
             },
           },
         }),
@@ -4715,7 +4715,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       expect(reloaded.layer.leaves[0].setStyle).toHaveBeenCalledWith(
         expect.objectContaining({ fillColor: "#111111" }),
       );
-      expect(getIntent(reloaded.ui, "overlay1", "fillRamp")).toMatchObject({
+      expect(getIntent(reloaded.ui, "overlay1", "fillValue")).toMatchObject({
         kind: "category",
         field: "cat",
         scheme: "Set3",
@@ -4736,7 +4736,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // paints: the fallback scans the layer properties.
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
         mode: "value",
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        value: { kind: "category", field: "cat", scheme: "Set3" },
       });
       expect(painted(layer)).toEqual(["#111111", "#222222"]);
     });
@@ -4752,7 +4752,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       // fields) is the A2 follow-up, so the row-level assertion is covered there.
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
         mode: "value",
-        ramp: { kind: "category", field: "cat", scheme: "Set3" },
+        value: { kind: "category", field: "cat", scheme: "Set3" },
       });
     });
   });
