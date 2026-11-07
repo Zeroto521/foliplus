@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  merge_group:
   # Manual dispatch runs the main-push track (upload-only) from any ref —
   # used to exercise/verify the baseline path before a merge, and to
   # re-upload a baseline on demand.
@@ -49,10 +50,13 @@ jobs:
       # `-a` (not `-R`): it preserves symlinks and modes across the handoff —
       # node_modules trees are full of both on Linux runners.
       - name: Capture base sizes
-        if: ${{ github.event.pull_request }}
+        if: ${{ github.event.pull_request || github.event.merge_group }}
+        env:
+          FOLIPLUS_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+          FOLIPLUS_BASE_REF: ${{ github.base_ref || '' }}
         run: |
-          git fetch --no-tags origin "${{ github.base_ref }}"
-          git worktree add --detach /tmp/base "origin/${{ github.base_ref }}"
+          if [ -n "$FOLIPLUS_BASE_REF" ]; then git fetch --no-tags origin "$FOLIPLUS_BASE_REF"; fi
+          git worktree add --detach /tmp/base "$FOLIPLUS_BASE"
           cp -a node_modules /tmp/base/node_modules
           (
             cd /tmp/base
@@ -103,7 +107,7 @@ jobs:
       # (do not paper it over). Token is the same GHA secret the coverage
       # uploads already use — no new plaintext credentials.
       - name: Codecov Bundle Analysis
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
@@ -135,6 +139,6 @@ jobs:
       # same baseline, so this is a re-read of the same numbers, not a
       # re-measure. A push has no base to enforce against, hence the gate.
       - name: Enforce threshold
-        if: ${{ github.event.pull_request }}
+        if: ${{ github.event.pull_request || github.event.merge_group }}
         run: |
           node script/build/bundle-size-check.mjs --baseline=base-sizes.json --enforce
