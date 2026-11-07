@@ -16,7 +16,7 @@ const NUMBER_FORMAT = {
 /**
  * Format a number for display.
  * @param val Value to format
- * @param style 'auto' (compact: en 1.2K, zh 1.2万 — locale-native units),
+ * @param style 'auto' (compact: en 1.2K, zh 1.2×10^4 — locale-native units),
  *              'comma' (thousands separator: 6,000),
  *              'int' (plain integer, no grouping: 6000),
  *              'percent' (fraction × 100: 0.35 → 35% — for 0..1 values)
@@ -74,7 +74,7 @@ const formatNumber = (
   // auto: compact notation for large values, with fractional digits trimmed
   // once the integer part reaches 3 digits. Compact notation already renders
   // below its unit boundary without a grouping separator — zh < 10000 has no
-  // 万 unit, so 6000 comes out as "6000", not "6,000", which is exactly right
+  // ten-thousand unit, so 6000 comes out as "6000", not "6,000", which is exactly right
   // for zh/ja 4-digit grouping. No special fallback is needed.
   const nf = fmt(1);
   const intStr = nf
