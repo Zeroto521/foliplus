@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import { DIM } from "#core/layer/const.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { DIM } from "#core/layer/const.js";
 import type { FillValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -29,8 +29,8 @@ import {
   commitFillColor,
 } from "#control/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
-import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { pinnedGetterCount } from "#control/LayerControl/ui/style/pin.js";
+import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { resolveStrokeMode } from "#control/LayerControl/ui/style/strokeValue.js";
 import {
   FACE,
@@ -1928,7 +1928,12 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   // value-detail helpers (borderValueForUi, borderSeedField, writeBorderMode,
   // writeBorderValue, borderDetailMode, renderBorderDetail, bindBorderDetail,
   // bindBorderValueDetail, convergeBorderClassesRow).
-  const openBorderRow = (manager: LayerController, ui: LayerUI, id: string, leaves: ReturnType<typeof makeFeatureLeaf>[]) => {
+  const openBorderRow = (
+    manager: LayerController,
+    ui: LayerUI,
+    id: string,
+    leaves: ReturnType<typeof makeFeatureLeaf>[],
+  ) => {
     registerFeatureLayer(manager, ui, id, leaves);
     const block = buildBorderRow(ui, id) as HTMLElement;
     document.body.appendChild(block);
@@ -1936,7 +1941,9 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     return block;
   };
   const modeSelectOf = (block: HTMLElement) =>
-    block.querySelector(".foliplus-style-border-mode-select") as HTMLSelectElement | null;
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
   const changeSelect = (sel: HTMLSelectElement | null, value: string) => {
     expect(sel).not.toBeNull();
     sel!.value = value;
