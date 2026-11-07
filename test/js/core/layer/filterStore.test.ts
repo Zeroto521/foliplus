@@ -160,6 +160,21 @@ describe("filterStore — invariants", () => {
     window.localStorage.clear();
   });
 
+  it("a single-source measure-shaped slot restores from the declaration and resets back to it", () => {
+    const store = createFilterStore();
+    store.register("measure", makeEnumHost(["distance", "time"]));
+    const declared = enumFilter("distance");
+    // Never owned: the declaration seeds.
+    expect(store.restore("L1", "measure", declared)).toEqual(declared);
+    // A user write takes the slot.
+    expect(store.setFilter("L1", "measure", enumFilter("time"))).toBe(true);
+    expect(store.isOwned("L1", "measure")).toBe(true);
+    // A panel reset returns to un-owned; the declaration seeds again on the next restore.
+    store.reset("L1", "measure");
+    expect(store.isOwned("L1", "measure")).toBe(false);
+    expect(store.getFilter("L1", "measure")).toBeUndefined();
+    expect(store.restore("L1", "measure", declared)).toEqual(declared);
+  });
   it("setFilter on an unregistered source is a no-op that writes nothing", () => {
     const store = createFilterStore();
     expect(store.setFilter("L1", "ghost", enumFilter("marker"))).toBe(false);
