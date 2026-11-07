@@ -90,6 +90,12 @@ const testPathAliases = root => ({
  * component), and `#control` is never shared (components bundle their own
  * const/icon/config-schema).
  */
+// `#control` and `#foliplus` are excluded because neither publishes to the
+// shared `window.foliplus` namespace: `#control/<Name>/*` always bundles into
+// the component (never externalized), and `#foliplus` is shared only for
+// `BaseControl.js` via `SHARED_MODULE_EXACTS` — every other `#foliplus/*`
+// bundles too. The three surviving prefixes are exactly the namespaces
+// `global-namespace-plugin.mjs` routes to `window.foliplus.<prefix>`.
 const SHARED_MODULE_PREFIXES = SHARED_ALIASES
   .map(spec => spec.slice(1))
   .filter(spec => spec !== "control" && spec !== "foliplus");
