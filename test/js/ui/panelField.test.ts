@@ -36,7 +36,7 @@ describe("ui/panelField read-only value", () => {
     expect(box.classList.contains("foliplus-style-fill-readonly")).toBe(true);
     // The two classes are joined in order (semantic first, frame second).
     expect(box.outerHTML).toBe(
-      '<div class="foliplus-readonly foliplus-style-fill-readonly" aria-disabled="true"><span>score</span></div>',
+      '<div class="foliplus-input-skin foliplus-readonly foliplus-style-fill-readonly" aria-disabled="true"><span>score</span></div>',
     );
   });
 
@@ -66,7 +66,8 @@ describe("ui/panelField read-only value", () => {
 
   it("emits only the READONLY class when no caller class is given", () => {
     const box = readOnlyValue({}, "3");
-    expect(box.classList.length).toBe(1);
+    expect(box.classList.length).toBe(2);
+    expect(box.classList.contains("foliplus-input-skin")).toBe(true);
     expect(box.classList.contains("foliplus-readonly")).toBe(true);
   });
 
@@ -75,7 +76,7 @@ describe("ui/panelField read-only value", () => {
     expect(box.classList.contains("foliplus-readonly")).toBe(true);
     expect(box.classList.contains("")).toBe(false);
     // The filter(Boolean) keeps a trailing space from joining into a class.
-    expect(box.className).toBe("foliplus-readonly");
+    expect(box.className).toBe("foliplus-input-skin foliplus-readonly");
   });
 
   it("renders multiple children in order", () => {

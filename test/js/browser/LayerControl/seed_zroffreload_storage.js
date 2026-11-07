@@ -15,7 +15,6 @@
   record.order = record.order || null;
   record.foldedRoles = record.foldedRoles || [];
   record.renamedNames = record.renamedNames || {};
-  record.annotations = record.annotations || {};
   record.layers = record.layers || {};
   record.layers[id] = {
     zoomRange: [3, 12],

@@ -13,7 +13,6 @@ const emptyRecord = (): PersistedRecord => ({
   removed: [],
   foldedRoles: [],
   renamedNames: {},
-  annotations: {},
   layers: {},
 });
 
@@ -52,7 +51,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
@@ -61,7 +59,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
     });
@@ -78,7 +75,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: {
           a: {
             visible: false,
@@ -93,11 +89,11 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual(record);
     });
 
-    it("reads a v2 record's legacy label segment (write-new / read-old)", () => {
+    it("drops a v2 record's legacy label segment (dual-key removal)", () => {
       // RECORD_VERSION 2 → 3 moved the label config into
-      // `layers[id].annotation`. A v2 record must still read: the legacy
-      // segment is the fallback, the version is re-stamped as the current
-      // shape in the loaded record, and nothing migrates the segment itself.
+      // `layers[id].annotation`. The legacy top-level `annotations` segment
+      // is no longer read — a v2-only entry is dropped as invalid, and the
+      // version is re-stamped as the current shape in the loaded record.
       seedStorage({
         version: 2,
         annotations: { a: { show: true, field: "name", format: "auto" } },
@@ -105,9 +101,7 @@ describe("LayerPersistence", () => {
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-      });
+      expect("annotations" in rec).toBe(false);
       expect(rec.layers).toEqual({});
     });
 
@@ -141,10 +135,9 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("keeps both label segments intact, new key preferred by the reader", () => {
-      // Write-new / read-old: the legacy segment passes through byte-for-
-      // byte, `layers[id].annotation` is the current key, and the reader
-      // (the label seed) picks the new one — each side owns its own order.
+    it("keeps the current key and drops the legacy segment (dual-key removal)", () => {
+      // The legacy segment passes through no longer — `layers[id].annotation`
+      // is the only label key, and the reader (the label seed) reads it.
       seedStorage({
         version: RECORD_VERSION,
         annotations: { both: { show: false, field: "old" } },
@@ -159,16 +152,15 @@ describe("LayerPersistence", () => {
         overrides: [],
         annotation: { show: true, field: "new" },
       });
-      expect(rec.annotations.both).toEqual({ show: false, field: "old" });
+      expect("annotations" in rec).toBe(false);
     });
 
-    it("prunes a deleted id from both label segments on read", () => {
+    it("prunes a deleted id from the label segment on read", () => {
       // Deletion is not migration: the write side drops the ids it records
       // as removed, and the read side does the same — so a record written
       // before either prune still loads without resurrecting the config.
       seedStorage({
         removed: ["gone"],
-        annotations: { gone: { show: true }, kept: { show: false } },
         layers: {
           gone: { overrides: [], annotation: { show: true } },
           kept: { overrides: [], annotation: { show: false } },
@@ -176,7 +168,6 @@ describe("LayerPersistence", () => {
       });
 
       const rec = makePersistence().load();
-      expect(rec.annotations).toEqual({ kept: { show: false } });
       expect(rec.layers).toEqual({
         kept: { overrides: [], annotation: { show: false } },
       });
@@ -191,17 +182,9 @@ describe("LayerPersistence", () => {
       // deleteLayer prunes an id that is actually gone.
       seedStorage({
         order: ["a", "ghost", "b", "gone"],
-        annotations: {
-          a: { show: true, field: "name", format: "auto" },
-          ghost: { show: true, field: "x", format: "int" },
-        },
       });
 
       expect(makePersistence().load().order).toEqual(["a", "ghost", "b", "gone"]);
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-        ghost: { show: true, field: "x", format: "int" },
-      });
     });
 
     it("keeps intent and renames for ids that are not registered yet", () => {
@@ -266,23 +249,26 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().removed).toEqual([]);
     });
 
-    it("drops annotation entries that are not plain objects", () => {
+    it("drops annotation configs that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
       // a corrupted record must not leak into the config as a valid object.
+      // The annotation config rides `layers[id].annotation`, so a non-object
+      // value drops the whole layer entry (no overrides, no annotation).
       seedStorage({
-        annotations: {
-          a: { show: true, field: "name", format: "auto" },
-          ghost: { show: true, field: "x", format: "int" },
-          b: null,
-          c: "not-object",
-          d: ["array"],
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "name", format: "auto" },
+          },
+          b: { overrides: [], annotation: null },
+          c: { overrides: [], annotation: "not-object" },
+          d: { overrides: [], annotation: ["array"] },
         },
       });
       const p = makePersistence();
 
-      expect(p.load().annotations).toEqual({
-        a: { show: true, field: "name", format: "auto" },
-        ghost: { show: true, field: "x", format: "int" },
+      expect(p.load().layers).toEqual({
+        a: { overrides: [], annotation: { show: true, field: "name", format: "auto" } },
       });
     });
 
@@ -293,45 +279,115 @@ describe("LayerPersistence", () => {
       // hex (either case) is left alone — normalizeHexColor only expands the
       // short form.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", color: "#fff" },
-          b: { show: true, field: "n", format: "auto", color: "#ABC" },
-          c: { show: true, field: "n", format: "auto", color: "#ff0000" },
-          d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#fff" },
+          },
+          b: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ABC" },
+          },
+          c: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ff0000" },
+          },
+          d: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#FF0000" },
+          },
         },
       });
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "n", format: "auto", color: "#ffffff" },
-        b: { show: true, field: "n", format: "auto", color: "#aabbcc" },
-        c: { show: true, field: "n", format: "auto", color: "#ff0000" },
-        d: { show: true, field: "n", format: "auto", color: "#FF0000" },
+      const layers = makePersistence().load().layers;
+      expect(layers.a?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ffffff",
+      });
+      expect(layers.b?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#aabbcc",
+      });
+      expect(layers.c?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ff0000",
+      });
+      expect(layers.d?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#FF0000",
       });
     });
 
     it("leaves a non-hex annotation color alone", () => {
-      // The annotations section has no isHexColor gate (unlike layers), so
+      // The annotation config has no isHexColor gate (unlike layers), so
       // values the UI would not have written still round-trip unchanged —
       // the write side is equally permissive, and both consumers (canvas
       // fillStyle, color input) tolerate a bad value by falling back to
       // their default.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", color: "red" },
-          b: { show: true, field: "n", format: "auto", color: "#ffff" },
-          c: { show: true, field: "n", format: "auto", color: "123" },
-          d: { show: true, field: "n", format: "auto", color: 42 },
-          e: { show: true, field: "n", format: "auto", color: null },
-          f: { show: true, field: "n", format: "auto" },
+        layers: {
+          a: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "red" },
+          },
+          b: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "#ffff" },
+          },
+          c: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: "123" },
+          },
+          d: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: 42 },
+          },
+          e: {
+            overrides: [],
+            annotation: { show: true, field: "n", format: "auto", color: null },
+          },
+          f: { overrides: [], annotation: { show: true, field: "n", format: "auto" } },
         },
       });
-      expect(makePersistence().load().annotations).toEqual({
-        a: { show: true, field: "n", format: "auto", color: "red" },
-        b: { show: true, field: "n", format: "auto", color: "#ffff" },
-        c: { show: true, field: "n", format: "auto", color: "123" },
-        d: { show: true, field: "n", format: "auto", color: 42 },
-        e: { show: true, field: "n", format: "auto", color: null },
-        f: { show: true, field: "n", format: "auto" },
+      const layers = makePersistence().load().layers;
+      expect(layers.a?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "red",
       });
+      expect(layers.b?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "#ffff",
+      });
+      expect(layers.c?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: "123",
+      });
+      expect(layers.d?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: 42,
+      });
+      expect(layers.e?.annotation).toEqual({
+        show: true,
+        field: "n",
+        format: "auto",
+        color: null,
+      });
+      expect(layers.f?.annotation).toEqual({ show: true, field: "n", format: "auto" });
     });
 
     it("passes unknown annotation fields through (future dims, e.g. position)", () => {
@@ -340,9 +396,6 @@ describe("LayerPersistence", () => {
       // survives a round-trip, so a future reader finds it where the writer
       // left it. Field rules live in `coerceAnnotationFields`, not here.
       seedStorage({
-        annotations: {
-          a: { show: true, field: "n", format: "auto", position: "below", anchor: 42 },
-        },
         layers: {
           b: {
             overrides: [],
@@ -351,7 +404,6 @@ describe("LayerPersistence", () => {
         },
       });
       const rec = makePersistence().load();
-      expect(rec.annotations.a).toMatchObject({ position: "below", anchor: 42 });
       expect(rec.layers.b?.annotation).toMatchObject({ position: "center" });
     });
   });
@@ -707,7 +759,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
@@ -716,7 +767,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
     });
@@ -731,7 +781,6 @@ describe("LayerPersistence", () => {
           order: ["a", "b"],
           foldedRoles: ["OVERLAYS"],
           renamedNames: { a: "A2" },
-          annotations: { a: { show: true, field: "name", format: "auto" } },
           layers: { a: { visible: false, overrides: ["visible"] } },
         });
         expect(makePersistence().load().version).toBe(RECORD_VERSION);
@@ -740,7 +789,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load().version).toBe(RECORD_VERSION);
@@ -773,7 +821,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       const p = makePersistence();
@@ -787,7 +834,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
-        annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1189,8 +1235,7 @@ describe("LayerPersistence", () => {
 
       // Four schedules, one write: there is a single timer for the whole
       // record, so no dimension needs its own debounce bookkeeping. The
-      // legacy `annotations` segment has no live source — it passes through
-      // as whatever storage holds (empty here).
+      // legacy `annotations` segment no longer exists.
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
@@ -1198,7 +1243,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1213,7 +1257,6 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       vi.useFakeTimers();
@@ -1229,7 +1272,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
-        annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       save.mockRestore();
@@ -1345,7 +1387,6 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: [],
         renamedNames: {},
-        annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
 

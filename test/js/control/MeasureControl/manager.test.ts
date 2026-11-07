@@ -2778,3 +2778,99 @@ describe("MeasureManager — filter contract (enum arm)", () => {
     });
   });
 });
+
+// ── F4 regression: the shared filter owner must reproduce the hand-rolled
+// setFilter behaviour byte-for-byte. These rows are the contract the old
+// MeasureManager.setFilter held; if the owner ever drifts, they fail here
+// (and in the equivalent filterOwner.test.ts unit rows).
+describe("MeasureManager — filter owner equivalence (F4)", () => {
+  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("a no-op write is skipped once the slot is owned", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // First write takes the slot.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
+    const model = opts.filterProvider();
+    expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(model.kept).toBe(1);
+    // Repeating the identical write changes nothing: no extra apply/publish.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(opts.filterProvider().filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).measureFilter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+  });
+
+  it("clearing an already-empty slot is not a choice to remember", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // With no ownership and an empty slot, a clear write is a no-op: the
+    // declaration may still seed.
+    opts.filterSetter(undefined);
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+  });
+
+  it("an out-of-domain write on an empty slot is a no-op (old behaviour)", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // The old setFilter normalized first: a write whose values are all
+    // outside the domain collapses to "no filter", which equals the current
+    // empty slot — so it is a no-op, not a choice to remember. The owner
+    // reproduces this byte-for-byte.
+    opts.filterSetter(filter(["bogus"]));
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(opts.filterProvider().filter).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey(manager))).toBeNull();
+  });
+
+  it("an out-of-domain write on an owned slot clears it and persists", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // Once the user owns the slot, a write that normalizes to "no filter" is
+    // a real change: it clears the committed filter and persists that state.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect((manager as any).filtersTouched).toBe(true);
+    opts.filterSetter(filter(["bogus"]));
+    expect((manager as any).filtersTouched).toBe(true);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(opts.filterProvider().filter).toBeUndefined();
+    const saved = JSON.parse(
+      window.localStorage.getItem(storageKey(manager)) as string,
+    );
+    expect(saved.filter).toBeUndefined();
+    expect(saved.filtersTouched).toBe(true);
+  });
+
+  it("the declaration does not resurrect after a clear write", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    // The declaration seeds the filter...
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    // ...a clear write takes the slot with no filter...
+    opts.filterSetter(undefined);
+    expect((manager as any).filtersTouched).toBe(true);
+    expect((manager as any).measureFilter).toBeUndefined();
+    // ...and the declaration must not come back.
+    expect(opts.filterProvider().filter).toBeUndefined();
+  });
+});

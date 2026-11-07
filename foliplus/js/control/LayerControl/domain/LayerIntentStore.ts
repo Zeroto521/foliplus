@@ -281,17 +281,12 @@ class LayerIntentStore {
   }
 
   /** Fill the store from a parsed persistence record's intent half.
-   *  Read order is the compat contract: `layers[id].annotation` wins over
-   *  the legacy top-level `annotations` segment. */
+   *  The label config is read from `layers[id].annotation` only — the legacy
+   *  top-level `annotations` segment was dropped. */
   loadFromPersisted(source: LoadSource): void {
     this.clearAll();
     for (const [id, name] of Object.entries(source.renamedNames ?? {})) {
       this.setValue(id, "name", name);
-    }
-    for (const [id, raw] of Object.entries(source.annotations ?? {})) {
-      if (raw != null) {
-        this.setValue(id, "annotation", raw as NonNullable<LayerIntent["annotation"]>);
-      }
     }
     for (const [id, entry] of Object.entries(source.layers ?? {})) {
       if (entry.annotation) this.setValue(id, "annotation", entry.annotation);

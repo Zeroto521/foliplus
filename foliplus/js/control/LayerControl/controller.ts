@@ -1450,7 +1450,7 @@ class LayerController implements LayerAPI {
    * still — nothing about generic teardown can say the id is retired.
    *
    * Everything pruned here is scheduled on the one shared debounce, so the
-   * whole record — removed, order, annotations, names, per-layer intent — leaves
+   * whole record — removed, order, names, per-layer intent — leaves
    * in a single flush rather than in one write per dimension.
    *
    * @param {string} id - The layer ID previously passed to registerLayer().
@@ -1558,9 +1558,8 @@ class LayerController implements LayerAPI {
     //
     // The label config needs no schedule here: it rides `layers[id]`
     // (the live config is gone via `annotation.destroyLayer` above), and the
-    // legacy `annotations` segment is pruned on READ for ids in `removed`
-    // (parseRecord), so a v2 entry cannot resurrect behind the new key's
-    // absence.
+    // legacy `annotations` segment no longer exists, so a v2 entry cannot
+    // resurrect behind the new key's absence.
     const { orderDropped, intentDropped, nameCleared } = this.domain.deleteEntry(id, {
       clearName: true,
     });

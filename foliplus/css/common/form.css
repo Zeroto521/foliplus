@@ -74,18 +74,30 @@
   }
 }
 
+/* Shared input skin: every panel input (select, number, readonly box) gets
+   the same height, frame, radius, ink, type size and box model from one rule
+   so they cannot drift. Differences (width, padding, cursor, arrow,
+   transition, layout, text-align) stay on the per-control classes below.
+   Font size is md here because the lead ruled the input controls unify to md
+   (14px): select was already md, number/readonly were sm — the mismatch is
+   exactly the reported "icon row text differs from other inputs". The select
+   keeps its own background shorthand (input-bg + arrow) which lays over the
+   shared background-color; same token, no drift. */
+.foliplus-input-skin {
+  height: var(--foliplus-ctrl-size);
+  font-size: var(--foliplus-font-size-md);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background-color: var(--foliplus-input-bg);
+  color: var(--foliplus-text-primary);
+  box-sizing: border-box;
+}
+
 /* Compact integer / weight field beside a color swatch. */
 .foliplus-form-number-input {
   width: var(--foliplus-form-secondary-width);
-  height: var(--foliplus-ctrl-size);
-  font-size: var(--foliplus-font-size-sm);
   padding: 0 var(--foliplus-size-6);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
-  background: var(--foliplus-input-bg);
-  color: var(--foliplus-text-primary);
   outline: none;
-  box-sizing: border-box;
   text-align: center;
   transition: var(--foliplus-transition-input);
 
@@ -103,19 +115,13 @@
    right padding keeps localized option text clear of the arrow glyph. */
 .foliplus-form-select {
   width: 100%;
-  height: var(--foliplus-ctrl-size);
-  font-size: var(--foliplus-font-size-md);
   padding: 0 var(--foliplus-space-xxl) 0 var(--foliplus-space-md);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
   background: var(--foliplus-input-bg)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E")
     no-repeat right var(--foliplus-space-md) center;
   background-size: var(--foliplus-size-8) var(--foliplus-size-6);
-  color: var(--foliplus-text-primary);
   cursor: pointer;
   outline: none;
-  box-sizing: border-box;
   appearance: none;
   transition: var(--foliplus-transition-input);
 }
