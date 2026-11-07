@@ -5,6 +5,7 @@
 // (cssvar.js) directly instead of reading them from the runtime global.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { bindFloatingTouch } from "#common/floating.js";
 import { ICON_CLOSE } from "#common/icon.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
 import { isPortalOf } from "#common/portalRoot.js";
@@ -462,6 +463,9 @@ const createRowPanel = (opts: {
     iconClass: opts.iconClass,
   });
   const content = dom.el("div", { class: "foliplus-panel-content" });
+  // Touch over the scrollable panel body must not reach the map container
+  // (Leaflet touch handlers would pan the map).
+  bindFloatingTouch(content);
   panel.appendChild(header);
   panel.appendChild(content);
   return { panel, header, content };
@@ -707,6 +711,9 @@ const createPanelControl = (opts: {
   header.setAttribute("aria-label", opts.panelTitle);
   panelWrap.appendChild(header);
   const panelContent = dom.el("div", { class: "foliplus-panel-content" });
+  // Touch over the scrollable panel body must not reach the map container
+  // (Leaflet touch handlers would pan the map).
+  bindFloatingTouch(panelContent);
   panelWrap.appendChild(panelContent);
   ctrl.appendChild(panelWrap);
   container.appendChild(ctrl);

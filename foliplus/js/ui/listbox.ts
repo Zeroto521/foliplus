@@ -22,7 +22,12 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { dom } from "#common/dom.js";
-import { type Floating, bindFloatingWheel, mountFloating } from "#common/floating.js";
+import {
+  type Floating,
+  bindFloatingTouch,
+  bindFloatingWheel,
+  mountFloating,
+} from "#common/floating.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
@@ -698,6 +703,7 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   // does not cover it. Stop propagation only: the list's own overflow-y scroll
   // still works. Bound once (not per mount) so inline mode is covered too.
   bindFloatingWheel(list);
+  bindFloatingTouch(list);
   spec.trigger.setAttribute("aria-haspopup", "listbox");
   spec.trigger.setAttribute("aria-expanded", "false");
   spec.trigger.setAttribute("aria-controls", listId);
