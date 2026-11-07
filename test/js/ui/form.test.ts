@@ -64,7 +64,7 @@ describe("colorInput / numberInput / inlineControls", () => {
     expect(num.value).toBe("11");
 
     const bareNum = numberInput({ value: 8, min: 1, max: 10 }) as HTMLInputElement;
-    expect(bareNum.className).toBe("foliplus-form-number-input");
+    expect(bareNum.className).toBe("foliplus-input-skin foliplus-form-number-input");
     expect(bareNum.step).toBe("1");
 
     const row = inlineControls(color, num);
@@ -260,7 +260,7 @@ describe("selectInput", () => {
     });
 
     expect(select.tagName).toBe("SELECT");
-    expect(select.className).toBe("foliplus-form-select extra");
+    expect(select.className).toBe("foliplus-input-skin foliplus-form-select extra");
     expect(select.getAttribute("aria-label")).toBe("pick");
     expect(Array.from(select.options).map(o => o.value)).toEqual(["a", "b"]);
     expect(select.options[1].disabled).toBe(true);

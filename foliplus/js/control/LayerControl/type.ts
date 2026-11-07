@@ -57,12 +57,6 @@ type PersistedRecord = {
   foldedRoles: string[];
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
-  /** Layer id → annotation config (show/field/format) — the LEGACY segment,
-   *  superseded by `layers[id].annotation`. Kept for read tolerance: old
-   *  records are read from here when the new key is absent, and every write
-   *  passes the stored segment through unchanged (write-new / read-old, no
-   *  migration — the segment dies when the record does). */
-  annotations: Record<string, unknown>;
   /** Layer id → the user's per-layer intent. Empty means the user changed
    *  nothing, so every layer falls back to its declared default. */
   layers: Record<string, PersistedLayerState>;

@@ -107,6 +107,53 @@ class TestLayerControlBrowser:
         )
 
     @staticmethod
+    def _declared_ramp_layer() -> folium.GeoJson:
+        """A polygon layer with a declared value fill (numeric property),
+        so the style panel opens on the by-value arm and the method select
+        is present. A plain layer with only a numeric property falls to the
+        solid arm (no declared ramp), which has no method select."""
+        return folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"score": 10 + i},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.28 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.06],
+                                    ]
+                                ],
+                            },
+                        }
+                        for i in range(3)
+                    ],
+                }
+            ),
+            name="Declared polygon data",
+            style_function=lambda _f: {
+                "fillColor": "#808080",
+                "fillOpacity": 0.8,
+                "color": "none",
+            },
+            foliplus={
+                "fill": {
+                    "field": "score",
+                    "method": "equal",
+                    "classes": 3,
+                    "scheme": "Reds",
+                }
+            },
+        )
+
+    @staticmethod
     def _open_style_ramp(page) -> None:
         """Expand the control, wait for its init pass, then open ⋮ → Style."""
         page.evaluate(_js("LayerControl/open_panel"))
@@ -6116,6 +6163,51 @@ class TestLayerControlBrowser:
             assert state["dropdownPresent"], (
                 f"scrolling must re-pin the portalled list, not close it: {state}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_input_skin_computed_parity(self, browser, tmp_path):
+        """The LayerControl style-panel inputs resolve one computed skin
+        from .foliplus-input-skin.
+
+        The method select and label-size number must both resolve the same
+        height, frame, radius, ink, type size and box model (the Heatmap layer
+        select has its own test in test_panel.py). jsdom never loads the
+        stylesheet cascade, so only a browser can prove the parity: a missing
+        foliplus-input-skin on a call site reads UA defaults (e.g.
+        height: auto) and fails here.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._declared_ramp_layer(),
+            slug="input_skin",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            # The layer declares a value fill, so the panel opens on the
+            # by-value arm and the method select is present; the probe reveals
+            # the label body under its toggle before reading the label-size
+            # number.
+            data = page.evaluate(_js("LayerControl/read_input_skin"))
+            assert data["lc"]["ok"], f"method/number not found: {data}"
+            t = data["tokens"]
+            assert t["ctrlSize"], f"ctrl-size token unresolved: {data}"
+            assert t["borderThin"], f"border-thin token unresolved: {data}"
+            assert t["radiusSm"], f"radius-sm token unresolved: {data}"
+            assert t["fontSizeMd"], f"font-size-md token unresolved: {data}"
+            assert t["inputBg"], f"input-bg token unresolved: {data}"
+            assert t["textPrimary"], f"text-primary token unresolved: {data}"
+            for name, got in (
+                ("method", data["lc"]["method"]),
+                ("number", data["lc"]["number"]),
+            ):
+                assert got["height"] == t["ctrlSize"], (name, data)
+                assert got["borderTopWidth"] == t["borderThin"], (name, data)
+                assert got["borderRadius"] == t["radiusSm"], (name, data)
+                assert got["backgroundColor"] == t["inputBg"], (name, data)
+                assert got["fontSize"] == t["fontSizeMd"], (name, data)
+                assert got["color"] == t["textPrimary"], (name, data)
+                assert got["boxSizing"] == "border-box", (name, data)
             assert not errors, f"JS errors: {errors}"
 
     def test_style_scheme_portal_outside_press_still_dismisses(self, browser, tmp_path):

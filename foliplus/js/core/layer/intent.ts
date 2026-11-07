@@ -263,10 +263,7 @@ type PersistedLayerState = {
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
-   *  for is still an entry here). Readers fall back to the legacy
-   *  top-level `annotations[id]` segment when this key is absent
-   *  (write-new / read-old tolerance; the old segment is passed through
-   *  untouched, never migrated). */
+   *  for is still an entry here). */
   annotation?: AnnotationConfig;
   overrides: LayerOverride[];
 };
@@ -284,11 +281,9 @@ type IntentRow = {
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
  *  `PersistedRecord` (order / removed / foldedRoles stay outside the
- *  store); annotation config rides both the legacy top-level segment and
- *  `layers[id].annotation`. */
+ *  store); annotation config rides `layers[id].annotation`. */
 type LoadSource = {
   renamedNames?: Record<string, string>;
-  annotations?: Record<string, unknown>;
   layers?: Record<string, PersistedLayerState>;
 };
 
