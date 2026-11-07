@@ -174,7 +174,7 @@ class TestLayerControlRendering:
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
 
-    def test_annotation_locale_keys(self):
+    def test_label_locale_keys(self):
         """Style-panel locale keys exist in both en and zh.
 
         The container (``style_*``) and the annotation-only dimension
