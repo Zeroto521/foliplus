@@ -4,9 +4,10 @@
 // contracts at the Leaflet-object level.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  GLYPH_NAMES,
+  PICKER_GLYPHS,
+  glyphAvailable,
   glyphHtml,
-  isGlyphName,
+  isGlyphSyntax,
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
@@ -33,6 +34,20 @@ beforeEach(() => {
   (window.L as any).Icon = { Default: class {} };
   (window.L as any).DivIcon = TestDivIcon;
   (window.L as any).divIcon = vi.fn((options: any) => new TestDivIcon(options));
+  // jsdom has no FontAwesome stylesheet, so getComputedStyle(..).content is
+  // "none" and glyphAvailable probes every name unavailable. Stub it to a
+  // glyph codepoint by default so the render tests exercise the paint path;
+  // the dedicated unavailable test flips the flag back to "none".
+  (window as any).__glyphProbePainted = true;
+  vi.spyOn(window, "getComputedStyle").mockImplementation(
+    (el: Element, pseudo?: string | null) =>
+      ({
+        content:
+          (window as any).__glyphProbePainted && pseudo === "::before"
+            ? '"\\f00a"'
+            : "none",
+      }) as CSSStyleDeclaration,
+  );
 });
 afterEach(() => {
   vi.clearAllMocks();
@@ -193,6 +208,17 @@ describe("authorGlyphName", () => {
     const plain = makeMarker({ options: {} });
     expect(authorGlyphName(makeMarkerGroup(plain))).toBeNull();
   });
+  it("stops walking after the first recognized glyph (short-circuit)", () => {
+    const withGlyph = makeMarker({ options: { icon: "star" } });
+    const after = makeMarker({ options: { icon: "heart" } });
+    // The second recognized leaf is never read: the walk returns at the first.
+    expect(authorGlyphName(makeMarkerGroup(withGlyph, after))).toBe("star");
+  });
+  it("skips a non-icon leaf and keeps walking", () => {
+    const poly = { options: {} };
+    const withGlyph = makeMarker({ options: { icon: "star" } });
+    expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toBe("star");
+  });
 });
 
 describe("buildMarkerIcon", () => {
@@ -272,9 +298,25 @@ describe("buildMarkerIcon", () => {
     expect(inner.style.color).toBe("rgb(255, 255, 255)");
   });
 
-  it("keeps the author icon for a name outside the set (no substitute glyph)", () => {
+  it("keeps the author icon for a syntactically invalid name (no substitute glyph)", () => {
+    // "nope!" is invalid syntax: resolveGlyph returns null, so the author icon
+    // stays. (A valid-but-unpainted name is the availability branch's job.)
     const author = makeAuthorIcon();
-    expect(buildMarkerIcon({ author, glyph: "nope" })).toBe(author);
+    expect(buildMarkerIcon({ author, glyph: "nope!" })).toBe(author);
+  });
+  it("keeps the author icon and warns once when the stylesheet does not paint the glyph", () => {
+    // A syntactically valid name the loaded FA CSS does not paint: honest
+    // degradation to the author icon, with a single warn per name.
+    (window as any).__glyphProbePainted = false;
+    const author = makeAuthorIcon();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(buildMarkerIcon({ author, glyph: "map-location-dot" })).toBe(author);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    // Second encounter of the same name warns no more (cache + warned set).
+    expect(buildMarkerIcon({ author, glyph: "map-location-dot" })).toBe(author);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+    (window as any).__glyphProbePainted = true;
   });
 
   it("takes a Leaflet default icon down a dedicated divIcon branch", () => {
@@ -293,20 +335,60 @@ describe("buildMarkerIcon", () => {
 });
 
 describe("glyphSource", () => {
-  it("resolves a known name to itself and renders a FontAwesome element", () => {
+  it("resolves a syntactically valid name to itself and renders a FontAwesome element", () => {
     expect(resolveGlyph("star")).toBe("star");
     const html = glyphHtml("star");
     expect(html).toContain('class="foliplus-marker-glyph fa-solid fa-star"');
   });
-  it("returns null for a name outside the set — never a substitute icon", () => {
-    expect(resolveGlyph("nope")).toBeNull();
-    expect(resolveGlyph("pin")).toBeNull();
-    expect(resolveGlyph("map-marker")).toBeNull();
+  it("accepts any syntactically valid name — the grid is not a whitelist", () => {
+    // A valid FA6 name outside the 40-slot grid round-trips: resolveGlyph
+    // keeps it, isGlyphSyntax admits it. Only syntax is the gate.
+    expect(resolveGlyph("map-location-dot")).toBe("map-location-dot");
+    expect(isGlyphSyntax("map-location-dot")).toBe(true);
+    expect(isGlyphSyntax("star")).toBe(true);
+    expect(isGlyphSyntax("circle-info")).toBe(true);
   });
-  it("gates persistence on the same set (no alias asymmetry to maintain)", () => {
-    expect(isGlyphName("map-pin")).toBe(true);
-    expect(isGlyphName("pin")).toBe(false);
-    expect(isGlyphName("map-marker")).toBe(false);
-    expect(GLYPH_NAMES).toContain("star");
+  it("rejects a syntactically invalid name", () => {
+    // Empty, too long, bad characters, leading/trailing/double hyphens.
+    expect(isGlyphSyntax("")).toBe(false);
+    expect(isGlyphSyntax("Map-Pin")).toBe(false); // uppercase
+    expect(isGlyphSyntax("map_pin")).toBe(false); // underscore
+    expect(isGlyphSyntax("map pin")).toBe(false); // space
+    expect(isGlyphSyntax("-pin")).toBe(false); // leading hyphen
+    expect(isGlyphSyntax("pin-")).toBe(false); // trailing hyphen
+    expect(isGlyphSyntax("a--b")).toBe(false); // double hyphen
+    expect(isGlyphSyntax("a".repeat(65))).toBe(false); // too long
+    expect(resolveGlyph("nope-!")).toBeNull();
+  });
+  it("reports availability by the loaded stylesheet paint", () => {
+    // Default stub paints ::before; a real FA class gives a codepoint.
+    (window as any).__glyphProbePainted = true;
+    expect(glyphAvailable("star")).toBe(true);
+    // Flip to "none" for a fresh name: the stylesheet does not paint it.
+    (window as any).__glyphProbePainted = false;
+    expect(glyphAvailable("nonexistent")).toBe(false);
+  });
+  it("reports unavailable when there is no document (Leaflet-free DOM)", () => {
+    // The no-document arm of glyphAvailable — a non-browser context has no
+    // stylesheet to probe, so every name is unavailable. vi.stubGlobal
+    // handles jsdom's getter-only document property.
+    vi.stubGlobal("document", undefined);
+    try {
+      expect(glyphAvailable("no-doc-probe")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("caches a probe result so a second read never re-queries", () => {
+    const spy = vi.mocked(window.getComputedStyle);
+    (window as any).__glyphProbePainted = true;
+    glyphAvailable("cached-star");
+    const callsAfterFirst = spy.mock.calls.length;
+    glyphAvailable("cached-star");
+    expect(spy.mock.calls.length).toBe(callsAfterFirst);
+  });
+  it("keeps the 40-slot shortcut grid", () => {
+    expect(PICKER_GLYPHS).toContain("star");
+    expect(PICKER_GLYPHS.length).toBe(40);
   });
 });

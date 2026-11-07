@@ -38,4 +38,10 @@ export {
   isIconLeaf,
   resetIconLeaves,
 } from "./markerIcon.js";
-export { GLYPH_NAMES, glyphHtml, isGlyphName, resolveGlyph } from "./glyphSource.js";
+export {
+  PICKER_GLYPHS,
+  glyphAvailable,
+  glyphHtml,
+  isGlyphSyntax,
+  resolveGlyph,
+} from "./glyphSource.js";

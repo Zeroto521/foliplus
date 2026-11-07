@@ -26,7 +26,20 @@
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { glyphHtml, isGlyphName, resolveGlyph } from "./glyphSource.js";
+import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { createLogger } from "#common/log.js";
+import {
+  glyphAvailable,
+  glyphHtml,
+  isGlyphSyntax,
+  resolveGlyph,
+} from "./glyphSource.js";
+
+const log = createLogger("icon-dimension");
+/** Glyph names already warned as unavailable — warn once per name, not per
+ *  leaf walk. The CSS is static, so a second encounter of the same name is
+ *  the same fact. */
+const warnedGlyphs = new Set<string>();
 
 /** The leaf probe for the icon axis: a runtime `setIcon` (a marker). Same
  *  guard as the capability probe — a throwing getter answers nothing. */
@@ -51,12 +64,15 @@ const captureAuthorIcon = (leaf: object): void => {
 const defaultIconProto = (): unknown => {
   // jsdom always defines the Leaflet global, so the no-L arm is a
   // Leaflet-free-DOM guard, not a state this flow produces.
-  /* v8 ignore next -- Leaflet-free DOM only */
+  /* v8 ignore start -- Leaflet-free DOM only: this flow always runs with a
+   * Leaflet global and a present Icon.Default.prototype; both arms are
+   * guards for a DOM we never reach. */
   if (typeof L === "undefined") return undefined;
   return (
     (L as { Icon?: { Default?: { prototype?: unknown } } }).Icon?.Default?.prototype ??
     undefined
   );
+  /* v8 ignore stop */
 };
 
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
@@ -92,9 +108,22 @@ const buildMarkerIcon = (opts: {
     author instanceof L.Icon.Default ||
     author.createIcon?.() instanceof HTMLImageElement;
   const glyph = resolveGlyph(opts.glyph);
-  // A name outside the set renders nothing of ours: keep the author icon
-  // (honest degradation, never a substituted symbol).
+  // An invalid (non-syntax) name renders nothing of ours: keep the author
+  // icon (honest degradation, never a substituted symbol).
   if (!glyph) return opts.author;
+  // A syntactically valid name the loaded FA stylesheet does not paint is
+  // also an honest degradation — warn once per name (the CSS is static, so
+  // the availability probe is cached) and keep the author's original icon
+  // rather than render a blank tofu. */
+  if (!glyphAvailable(glyph)) {
+    if (!warnedGlyphs.has(glyph)) {
+      warnedGlyphs.add(glyph);
+      log.warn(
+        `glyph "${glyph}" is not in the loaded FontAwesome stylesheet — keeping the author icon`,
+      );
+    }
+    return opts.author;
+  }
   if (isDefaultIcon) {
     return L.divIcon({
       className: "foliplus-marker-default",
@@ -150,6 +179,7 @@ const applyIconToLeaves = (layer: L.Layer, glyph: string): void => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
+    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
     const derived = buildMarkerIcon({ author, glyph });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
@@ -168,17 +198,13 @@ const resetIconLeaves = (layer: L.Layer): void => {
       // Leaflet's Icon.Default creates an <img> and _createImg REUSES the
       // existing element when the marker already has one. An <img> that
       // carries our glyph would be returned unchanged, so _initIcon sees
-      // `icon === this._icon` and never swaps — the glyph would survive
+      // the glyph element as already attached and never swaps — the glyph would survive
       // Reset. Detach the glyph-laden element first so createIcon(null)
       // builds a fresh author <img> instead of reusing it.
-      const marker = leaf as L.Marker & {
-        _icon?: HTMLElement | null;
-        _shadow?: HTMLElement | null;
-        _removeIcon?: () => void;
-        _removeShadow?: () => void;
-      };
-      marker._removeIcon?.();
-      marker._removeShadow?.();
+      // The private icon-detach hooks live behind the single
+      // Leaflet adapter (core/leafletAdapter.detachMarkerIcons) — this module
+      // must not name them.
+      detachMarkerIcons(leaf);
       leaf.setIcon(captured as Parameters<L.Marker["setIcon"]>[0]);
     }
     authorIcon.delete(leaf);
@@ -197,7 +223,7 @@ const authorGlyphName = (layer: L.Layer): string | null => {
     if (!isIconLeaf(leaf)) return;
     const own = (leaf as { options?: { icon?: { options?: { icon?: unknown } } } })
       .options?.icon?.options?.icon;
-    if (isGlyphName(own)) found = own;
+    if (isGlyphSyntax(own)) found = own;
   });
   return found;
 };

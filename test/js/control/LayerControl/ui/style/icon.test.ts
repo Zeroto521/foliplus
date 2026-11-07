@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
-import { GLYPH_NAMES } from "#core/leaflet/glyphSource.js";
+import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -38,6 +38,26 @@ class TestDivIcon {
 // The shared stub's divIcon factory returns a bare {}; the lead's branch
 // produces a real L.DivIcon, so point the factory at our class here.
 (window.L as any).divIcon = vi.fn((options: any) => new TestDivIcon(options));
+// jsdom has no FontAwesome stylesheet, so getComputedStyle(..).content is
+// "none" and glyphAvailable probes every glyph unavailable. Stub it to a
+// glyph codepoint by default so the render/reset tests exercise the paint
+// path; a dedicated test flips the flag to model an unavailable name.
+(window as any).__glyphProbePainted = true;
+beforeEach(() => {
+  vi.spyOn(window, "getComputedStyle").mockImplementation(
+    (el: Element, pseudo?: string | null) =>
+      ({
+        content:
+          (window as any).__glyphProbePainted && pseudo === "::before"
+            ? '"\\f00a"'
+            : "none",
+      }) as CSSStyleDeclaration,
+  );
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  (window as any).__glyphProbePainted = true;
+});
 
 // A marker leaf: the layer type the icon dimension owns. It carries a
 // runtime `setIcon` (the duck-type the capability probe keys on) and an
@@ -264,6 +284,10 @@ describe("buildIconRow", () => {
       })(),
     );
     const group = makeMarkerGroup(marker, poly as any);
+    // "map-marker" is an FA4 name: syntactically valid but NOT painted by the
+    // FA6 stylesheet, so the availability probe degrades to the author-original
+    // label (the honest fallback, not a rendered tofu).
+    (window as any).__glyphProbePainted = false;
     const { manager: m8, ui: u8 } = initFixture({
       data: [{ id: "mix3", name: "MIX3", role: "overlay", layer: group }, BASE_LAYER],
     });
@@ -347,6 +371,9 @@ describe("buildIconRow", () => {
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "map-marker" };
     const marker = makeMarker({ type: "school" }, author);
+    // FA4 name, syntactically valid, not painted by FA6 -> availability probe
+    // degrades to the author-original label (the honest fallback).
+    (window as any).__glyphProbePainted = false;
     const { manager: m6, ui: u6 } = fixtureWithMarkers([marker]);
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const row = buildIconRow(u6, "overlay1")!;
@@ -379,12 +406,12 @@ describe("buildIconRow", () => {
     const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
     expect(grid).not.toBeNull();
     const cells = grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
-    expect(cells.length).toBe(GLYPH_NAMES.length);
+    expect(cells.length).toBe(PICKER_GLYPHS.length);
     // Choose a glyph: it writes the intent and closes.
     (cells[0] as HTMLElement).click();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
+    expect(intent).toEqual({ kind: "glyph", value: PICKER_GLYPHS[0] });
   });
 
   it("re-renders the trigger to show the selected glyph", () => {
@@ -406,7 +433,7 @@ describe("buildIconRow", () => {
     (cells[0] as HTMLElement).click();
     // The trigger now previews the chosen glyph (not the static label) —
     // the renderTrigger callback wired into cell.onclick must have run.
-    expect(nameBox.textContent).toBe(GLYPH_NAMES[0]);
+    expect(nameBox.textContent).toBe(PICKER_GLYPHS[0]);
     expect(glyphBox.querySelector(".foliplus-marker-glyph")).not.toBeNull();
   });
 
@@ -447,7 +474,7 @@ describe("buildIconRow", () => {
     const cells = [
       ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
     ] as HTMLElement[];
-    expect(cells.length).toBe(GLYPH_NAMES.length);
+    expect(cells.length).toBe(PICKER_GLYPHS.length);
 
     // Focus the first cell and move right + down. ArrowRight wraps to the
     // next row at the 8-column boundary; ArrowDown moves one full row.
@@ -475,7 +502,7 @@ describe("buildIconRow", () => {
     grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
-    expect(intent).toEqual({ kind: "glyph", value: GLYPH_NAMES[0] });
+    expect(intent).toEqual({ kind: "glyph", value: PICKER_GLYPHS[0] });
   });
 
   it("clamps keyboard navigation at the grid edges", () => {
@@ -554,6 +581,52 @@ describe("buildIconRow", () => {
       grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
     }).not.toThrow();
     expect(document.activeElement).toBe(cells[0]);
+  });
+
+  it("trigger toggles the grid: a second click closes, a third reopens", () => {
+    // The trigger click handler closes when open and opens when closed. The
+    // `if (grid) return` guard in open() is the close/open toggle's other
+    // half: an already-open grid is never built twice.
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
+    trigger.click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    trigger.click();
+    expect(row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_GRID}`).length).toBe(1);
+  });
+
+  it("focusIndex clamps an out-of-range index (no focus, no throw)", () => {
+    // The `if (index >= 0 && index < cells.length)` guard in focusIndex: a
+    // clamped movement to a negative/overflow index is a no-op, not a throw.
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+    cells[0].focus();
+    // Home already at 0; ArrowLeft clamps at 0, focus stays on cell 0.
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Home" }));
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "ArrowLeft" }),
+    );
+    expect(document.activeElement).toBe(cells[0]);
+    // Focus off-grid: the index guard skips focus entirely.
+    (document.activeElement as HTMLElement).blur();
+    expect(() => {
+      grid.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }),
+      );
+    }).not.toThrow();
   });
 });
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {

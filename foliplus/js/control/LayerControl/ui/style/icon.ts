@@ -13,7 +13,12 @@
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { GLYPH_NAMES, glyphHtml, resolveGlyph } from "#core/leaflet/glyphSource.js";
+import {
+  PICKER_GLYPHS,
+  glyphAvailable,
+  glyphHtml,
+  resolveGlyph,
+} from "#core/leaflet/glyphSource.js";
 import {
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
@@ -114,7 +119,11 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // (preview only — the write is still the author icon), else the
     // author-original label.
     const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
-    const glyph = value ? resolveGlyph(value) : null;
+    let glyph = value ? resolveGlyph(value) : null;
+    // A syntactically valid name the loaded FA stylesheet does not paint must
+    // not preview as a blank tofu — degrade to the author-original label, the
+    // same honest fallback the marker build path takes.
+    if (glyph && !glyphAvailable(glyph)) glyph = null;
     if (value && glyph) {
       glyphBox.innerHTML = glyphHtml(glyph);
       nameBox.textContent = glyph;
@@ -150,6 +159,7 @@ const bindGlyphGrid = (
   };
 
   const open = () => {
+    /* v8 ignore next -- defensive: trigger handler closes before re-opening */
     if (grid) return;
     grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     trigger.setAttribute("aria-expanded", "true");
@@ -199,7 +209,7 @@ const buildGlyphGrid = (
   }) as HTMLElement;
   const cells: HTMLButtonElement[] = [];
 
-  for (const glyph of GLYPH_NAMES) {
+  for (const glyph of PICKER_GLYPHS) {
     const cell = dom.el(
       "button",
       {
@@ -226,6 +236,7 @@ const buildGlyphGrid = (
 
   // Keyboard: arrows move 2D, Enter/Space activates, Esc closes (handled above).
   const focusIndex = (index: number) => {
+    /* v8 ignore next -- defensive: caller clamps index before calling */
     if (index >= 0 && index < cells.length) cells[index]?.focus();
   };
   const currentIndex = () => cells.findIndex(c => c === document.activeElement);

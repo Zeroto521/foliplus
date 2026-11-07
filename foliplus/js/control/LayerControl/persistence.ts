@@ -5,7 +5,7 @@ import {
   isFillValueConfig,
   isIconIntent,
 } from "#core/layer/index.js";
-import { isGlyphName } from "#core/leaflet/glyphSource.js";
+import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -183,7 +183,7 @@ const PARSE_OVERRIDE: Record<
   size: data => parseSize(data.size),
   icon: data => {
     const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
-    return isIconIntent(icon) && isGlyphName(icon?.value) ? icon : null;
+    return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
   },
 };
 

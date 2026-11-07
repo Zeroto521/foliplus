@@ -195,9 +195,10 @@ type LayerOverride =
 /** The marker-icon override: one glyph for every marker leaf in the layer.
  *  A single value (not a per-category mapping) — the icon dimension is a
  *  whole-layer choice, no field, no per-category assignment. The value is a
- *  glyph name from the panel's FA vocabulary (`GLYPH_NAMES` in
- *  core/leaflet/glyphSource.ts); `resolveGlyph` maps it to the FontAwesome class name,
- *  or null when the set has dropped that name (then the author icon stays). */
+ *  glyph name accepted on syntax alone (any valid FA6 name; `PICKER_GLYPHS`
+ *  in core/leaflet/glyphSource.ts is only the panel's shortcut grid, not a
+ *  whitelist); `resolveGlyph` maps it to the FontAwesome class name, or null
+ *  when the name is syntactically invalid (then the author icon stays). */
 type IconIntent = {
   kind: IconKind;
   value: string;
