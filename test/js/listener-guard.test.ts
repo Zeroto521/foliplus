@@ -203,7 +203,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "the ONE outside-press + Escape dismissal primitive (task-32): document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
+      "the ONE outside-press + Escape dismissal primitive: document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
   },
   {
     f: "platform/floating.ts",

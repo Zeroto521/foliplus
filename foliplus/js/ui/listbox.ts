@@ -21,8 +21,6 @@
 //
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
-import { bindDismiss } from "./dismiss.js";
-import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,
@@ -31,6 +29,9 @@ import {
 } from "#platform/floating.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import { throttleRaf } from "#platform/throttle.js";
+import { bindDismiss } from "./dismiss.js";
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import type { DropdownSurface } from "./type.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {
@@ -73,11 +74,6 @@ type ListboxRowShape = {
  *  the covering surface changed. Consumers pass common/fullscreen's
  *  dropdownSurface(scope); builders that create listboxes on a consumer's
  *  behalf (core/rampForm, core/label) forward it untouched. */
-interface DropdownSurface {
-  resolveHost?: (() => HTMLElement | null) | null;
-  onSurfaceChange?: ((cb: () => void) => () => void) | null;
-}
-
 /**
  * Dismiss ownership. Phase 1 (S-A..S-E): the engine is the ONLY implementation
  * of outside-press / Escape / one-at-a-time, so its "local" port is a single
@@ -753,4 +749,3 @@ const createListbox = (spec: ListboxSpec): Listbox => {
 };
 
 export { createListbox };
-export type { DropdownSurface };

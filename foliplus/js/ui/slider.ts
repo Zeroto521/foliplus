@@ -13,63 +13,16 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { SLIDER_CLASS } from "./sliderClassName.js";
 import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
 import { createLogger } from "#platform/log.js";
+import { SLIDER_CLASS } from "./sliderClassName.js";
+import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
 
 const log = createLogger("LayerControl");
 
 /** One thumb (number) or a range (min/max pair). */
-type SliderValue = number | [number, number];
-
-/** A readout dot on the rail. Its ring reports coverage: accent where the
- *  selected span reaches it, gray where it does not. */
-interface SliderMark {
-  at: number;
-  tone?: "limit" | "current";
-}
-
-/** The "where am I" readout under the rail (map zoom, playback position...).
- *  Not a value: it never moves a thumb. */
-interface SliderCurrent {
-  at: number;
-  text: string;
-  /** Hide the label when it would sit closer than this (percentage points)
-   *  to either end, where the limit's own number already says it. */
-  hideGapPct?: number;
-}
-
-interface SliderOptions {
-  min: number;
-  max: number;
-  /** Value step. Defaults to 1. */
-  step?: number;
-  value: SliderValue;
-  /** Accessible name for the control (single) or its group (range). */
-  label: string;
-  /** Accessible names for the two thumbs of a range. */
-  labels?: [string, string];
-  /** Rendered value, also the aria-valuetext. Defaults to a rounded number. */
-  format?: (value: number) => string;
-  /** Dots on the rail, in value units. */
-  marks?: SliderMark[];
-  /** The two fixed numbers under the rail's ends. */
-  values?: { min: string; max: string };
-  /** The moving readout under the rail, if this row has one. */
-  current?: SliderCurrent | null;
-  /** Live value while dragging / arrowing. */
-  input?: (value: SliderValue) => void;
-  /** Settled value: pointer release, or a keyboard step. */
-  change?: (value: SliderValue) => void;
-  /** Renders the control inert: no pointer, no keyboard, aria-disabled. */
-  disabled?: boolean;
-  /** Id of a description element, announced with the control (and, for a
-   *  range, with the group). */
-  describedBy?: string;
-}
-
 const INSTANCES = new WeakMap<HTMLElement, Slider>();
 
 /** The slider rendered inside *host*, if any. */
@@ -949,4 +902,3 @@ class Slider {
 }
 
 export { Slider, finishSlidersIn, sliderOf };
-export type { SliderOptions };

@@ -23,9 +23,11 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
-import { type DropdownSurface, createListbox } from "./listbox.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
+import { createListbox } from "./listbox.js";
+import { applyOptionRowA11y } from "./optionRow.js";
+import type { Dropdown, DropdownSurface } from "./type.js";
 
 const log = createLogger("dropdown");
 
@@ -68,23 +70,6 @@ interface DropdownOptions extends DropdownSurface {
   selectedLabel?: (labels: readonly string[]) => string;
   onChange?: (value: string, values: readonly string[]) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
-}
-
-interface Dropdown {
-  element: HTMLElement;
-  trigger: HTMLButtonElement;
-  getList(): HTMLElement | null;
-  isOpen(): boolean;
-  getValue(): string;
-  getValues(): readonly string[];
-  setValue(value: string): void;
-  setValues(values: readonly string[]): void;
-  refresh(): void;
-  setHint(text: string): void;
-  open(): void;
-  close(opts?: { restoreFocus?: boolean }): void;
-  toggle(): void;
-  destroy(): void;
 }
 
 interface InternalState {
@@ -401,5 +386,4 @@ const activateRow = (state: InternalState, index: number): void => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { createDropdown, dropdownOf };
-export type { Dropdown, DropdownSurface };
+export { applyOptionRowA11y, createDropdown, dropdownOf };
