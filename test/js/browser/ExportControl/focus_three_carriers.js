@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   // Set up three non-overlapping carriers for the focus-state survival gate:
   // (1) a red GeoJson polygon in a foliplus layer pane (SVG vector),
   // (2) a marker (div-icon, NOT in a foliplus pane),
@@ -26,15 +26,12 @@
 
   // --- Carrier 1: red GeoJson polygon (SVG vector in a foliplus pane) ---
   // Center at [26.08, 104.30] (~15 degrees west of map center).
-  const poly = new L.Polygon(
-    [
-      [26.085, 104.295],
-      [26.085, 104.305],
-      [26.075, 104.305],
-      [26.075, 104.295],
-    ],
-    { color: "red", fillColor: "rgb(230,30,30)", fillOpacity: 0.8, weight: 2 },
-  );
+  const poly = new L.Polygon(fixtures.polygon, {
+    color: "red",
+    fillColor: "rgb(230,30,30)",
+    fillOpacity: 0.8,
+    weight: 2,
+  });
   const vectorGroup = api.createLayers({
     id: "__focus_vector__",
     name: "Focus Vector",

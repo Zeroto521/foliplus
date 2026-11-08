@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const mg = api.createLayers({
@@ -6,10 +6,7 @@
     name: "CleanCont",
     panes: [{ name: "__clean_graph__" }],
   });
-  const poly = L.polyline([
-    [26.08, 119.3],
-    [26.09, 119.31],
-  ]);
+  const poly = L.polyline(fixtures.line);
   mg.mainLayer.addLayer(poly);
   // Leaf layer must be in the graph pane
   const leafPane = poly.options.pane;

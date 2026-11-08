@@ -145,7 +145,8 @@ const applyValuePaint = (
   resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
    *  or the author's declared value fill when the user has not chosen one. */
-  liveRamp: () => FillValueConfig | undefined = () => decl.readValueConfig(ui, layerId),
+  liveValue: () => FillValueConfig | undefined = () =>
+    decl.readValueConfig(ui, layerId),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
@@ -228,7 +229,7 @@ const applyValuePaint = (
     }
     const paint = category
       ? catScale !== null && leafCategory !== undefined
-        ? (catScale.colors.get(leafCategory) ?? catScale.other)
+        ? catScale.colors.get(leafCategory)
         : undefined
       : scale !== null && leafValue !== undefined
         ? colorFor(scale, leafValue)
@@ -248,20 +249,20 @@ const applyValuePaint = (
     }
 
     pinStyleOnHighlight(leaf, decl.dim, () => {
-      const stored = liveRamp();
+      const stored = liveValue();
       if (!stored) return null;
       // Resolve the live record exactly as the paint did, or a stale field
       // name compares unequal to the resolved config and the replay drops the
       // value color on the first mouseout.
-      const currentRamp = resolveStored(stored);
+      const currentValue = resolveStored(stored);
       // The arm changed since the cache was built: the flat commit owns the
       // leaf now, and this getter must not replay a color the active mode
       // does not own (a mode switch back to flat that leaves the value config
       // stored would otherwise re-apply the value fill on every mouseout).
-      if (!decl.isValueActive(ui, layerId, currentRamp)) return null;
+      if (!decl.isValueActive(ui, layerId, currentValue)) return null;
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
-      if (!sameValueConfig(currentRamp, value)) return null;
+      if (!sameValueConfig(currentValue, value)) return null;
       const op = readOpacity();
       const curVal = leafPropertyValue(leaf, value.field);
       if (category && catScale !== null) {

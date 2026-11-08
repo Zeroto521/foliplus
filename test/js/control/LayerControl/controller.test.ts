@@ -273,7 +273,7 @@ describe("LayerController", () => {
     // Labelable overlay: the registration edge declares the
     // `role: "label"` spec, the surface materializes it, and the
     // ordering pass prices it through the same `zFor` ladder as every other
-    // PaneHandle (role annotation = one step above the slot) — no
+    // PaneHandle (role label = one step above the slot) — no
     // name-keyed spot-write in enforceOrder anymore.
     const panes = new Map<string, HTMLElement>();
     const realGetPane = map.getPane;
@@ -306,7 +306,7 @@ describe("LayerController", () => {
   it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
     // An unregister is a teardown, not a delete: the `layers` live source
     // re-reads `configEntries` on every flush, so dropping the config here
-    // would wipe `layers[id].annotation` from storage the next time any
+    // would wipe `layers[id].label` from storage the next time any
     // dimension saves — a label-only layer would lose its section for good.
     const m = new LayerController(map, [
       {
@@ -320,7 +320,7 @@ describe("LayerController", () => {
       },
     ]);
     m.map.hasLayer.mockReturnValue(true);
-    m.annotation.setConfig("keepcfg", {
+    m.label.setConfig("keepcfg", {
       show: true,
       field: "n",
       color: "#ffffff",
@@ -338,19 +338,19 @@ describe("LayerController", () => {
     } as unknown as LayerUI;
 
     expect(m.unregisterLayer("keepcfg")).toBe(true);
-    expect(m.annotation.hasConfig("keepcfg")).toBe(true);
+    expect(m.label.hasConfig("keepcfg")).toBe(true);
 
     saveState(m.ui!);
     const fields = schedule.mock.calls.at(-1)![0] as {
-      layers: () => Record<string, { annotation?: { show?: boolean } }>;
+      layers: () => Record<string, { label?: { show?: boolean } }>;
     };
-    expect(fields.layers().keepcfg.annotation).toEqual(
+    expect(fields.layers().keepcfg.label).toEqual(
       expect.objectContaining({ show: true }),
     );
   });
 
-  it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
-    // `withAnnotationSpec` appends the probe's spec only when nobody has
+  it("keeps a foreign label spec as declared instead of re-probing over it", () => {
+    // `withLabelSpec` appends the probe's spec only when nobody has
     // declared one: a caller that owns its own `role: "label"` pane
     // keeps that name — the probe must not stack a second label pane next
     // to it, and the capability reads whichever spec came in.
@@ -364,17 +364,17 @@ describe("LayerController", () => {
         options: {},
         feature: { properties: { name: "x" } },
       } as unknown as L.Layer,
-      paneSpecs: [{ role: "label", order: 1, name: "custom-annotation-pane" }],
+      paneSpecs: [{ role: "label", order: 1, name: "custom-label-pane" }],
     });
 
     const li = manager.layerRegistry.get("foreignAnn")!;
     const names = manager.surfaceFor(li).paneNames;
-    expect(names).toContain("custom-annotation-pane");
+    expect(names).toContain("custom-label-pane");
     expect(names.some(name => name.startsWith(CONST.LABEL_PANE_PREFIX))).toBe(false);
-    expect(manager.surfaceFor(li).capabilities.annotation).toBe("pane");
+    expect(manager.surfaceFor(li).capabilities.label).toBe("pane");
   });
 
-  it("skips the label-pane slot when the layer has no annotation pane", () => {
+  it("skips the label-pane slot when the layer has no label pane", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
@@ -570,10 +570,10 @@ describe("LayerController", () => {
     delete (window as any)["fb_b"];
   });
 
-  it("routes AnnotationManager's pane wiring through the surface", () => {
+  it("routes LabelManager's pane wiring through the surface", () => {
     // The label pane is the surface's (declared `role: "label"` spec
     // from the registration edge, materialized and class-stamped by
-    // PaneManager); AnnotationManager only mounts canvases into it. This
+    // PaneManager); LabelManager only mounts canvases into it. This
     // test drives the real chain end-to-end: surfaceFor declares the pane,
     // renderLabels mounts the canvas, unregisterLayer unmounts the canvas
     // while the declared pane survives for a re-registration of the id.
@@ -604,7 +604,7 @@ describe("LayerController", () => {
     // panel call surfaceFor before a label can render); drive it explicitly
     // here so the declaration is on the record before renderLabels.
     m.surfaceFor(m.layerRegistry.get("lbl")!);
-    m.annotation.setConfig("lbl", {
+    m.label.setConfig("lbl", {
       show: true,
       field: "name",
       color: "",
@@ -615,8 +615,8 @@ describe("LayerController", () => {
     // renderLabels ends in refreshLayer (the per-layer repaint) — stubbed
     // here because this fixture's map has no projection; the pane wiring
     // under test happens before it.
-    vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
-    m.annotation.renderLabels("lbl");
+    vi.spyOn(m.label as any, "refreshLayer").mockImplementation(() => {});
+    m.label.renderLabels("lbl");
 
     const paneName = `${CONST.LABEL_PANE_PREFIX}lbl`;
     const pane = paneRegistry[paneName];
@@ -1014,7 +1014,7 @@ describe("LayerController", () => {
     // own script, so the registration lands with `layer: null` and the real
     // object reaches the map through `layeradd` later. No registry write
     // covers that arrival, so without this emit a bus-only consumer (the
-    // annotation manager repainting labels) would watch a layer appear and
+    // label manager repainting labels) would watch a layer appear and
     // never hear about it.
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
@@ -2918,7 +2918,7 @@ describe("LayerController", () => {
       { id: "overlay1", name: "O", role: "overlay", layer: { options: {} } },
       { id: "base1", name: "B", role: "base", layer: { options: {} } },
     ]);
-    m.annotation.setConfig("overlay1", {
+    m.label.setConfig("overlay1", {
       show: true,
       field: "name",
       color: "#e74c3c",
@@ -5631,7 +5631,7 @@ it("a moveLayerUp whose rebuild signal destroys the control announces nothing", 
 });
 
 describe("retireEntry finalization", () => {
-  it("unloads the annotation even when the row step throws", () => {
+  it("unloads the label even when the row step throws", () => {
     document.body.innerHTML = "";
     window.localStorage.clear();
     const { manager, ui } = initFixture({
@@ -5640,7 +5640,7 @@ describe("retireEntry finalization", () => {
         { id: "base1", name: "OSM", role: "base" },
       ],
     });
-    const unload = vi.spyOn(manager.annotation, "unloadLayer");
+    const unload = vi.spyOn(manager.label, "unloadLayer");
     const container = (ui as unknown as { uiContainer: HTMLElement }).uiContainer;
     const original = container.querySelector.bind(container);
     let armed = true;
@@ -5680,7 +5680,7 @@ describe("retireEntry finalization", () => {
     manager.map.removeLayer.mockImplementation(() => {
       throw new Error("map boom");
     });
-    vi.spyOn(manager.annotation, "unloadLayer").mockImplementation(() => {
+    vi.spyOn(manager.label, "unloadLayer").mockImplementation(() => {
       throw new Error("labels stuck");
     });
 
@@ -5693,7 +5693,7 @@ describe("retireEntry finalization", () => {
       expect.any(Error),
     );
     expect(warn).toHaveBeenCalledWith(
-      'retire step "unload-annotation" threw',
+      'retire step "unload-label" threw',
       expect.any(Error),
     );
     warn.mockRestore();
@@ -5811,7 +5811,7 @@ describe("destroy finalization", () => {
     });
     const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
     const unbind = vi.spyOn(manager.ui!, "unbindEvents");
-    vi.spyOn(manager.annotation, "destroy").mockImplementation(() => {
+    vi.spyOn(manager.label, "destroy").mockImplementation(() => {
       throw new Error("labels stuck");
     });
 
@@ -5820,7 +5820,7 @@ describe("destroy finalization", () => {
     // The steps behind the failure still ran.
     expect(unbind).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      'destroy step "destroy-annotation" threw',
+      'destroy step "destroy-label" threw',
       expect.any(Error),
     );
     // Last step, and the one consumers depend on: a half-destroyed manager

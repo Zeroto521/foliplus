@@ -26,12 +26,12 @@ describe("LayerIntentStore — get/set/clear/mark/unmark", () => {
     expect(store.isUserSet("a", "fillColor")).toBe(true);
   });
 
-  it("set on name/annotation does not mark provenance", () => {
+  it("set on name/label does not mark provenance", () => {
     const store = new LayerIntentStore();
     store.set("a", "name", "Renamed");
-    store.set("a", "annotation", ann());
+    store.set("a", "label", ann());
     expect(store.get("a", "name")).toBe("Renamed");
-    expect(store.get("a", "annotation")).toEqual(ann());
+    expect(store.get("a", "label")).toEqual(ann());
     expect(store.dumpProvenance()).toEqual({});
   });
 
@@ -93,17 +93,17 @@ describe("LayerIntentStore — get/set/clear/mark/unmark", () => {
     expect(store.ids()).toEqual([]);
   });
 
-  it("dropRow clears style dims + provenance but keeps name/annotation", () => {
+  it("dropRow clears style dims + provenance but keeps name/label", () => {
     const store = new LayerIntentStore();
     store.set("a", "visible", false);
     store.set("a", "fillColor", "#0f0");
     store.set("a", "name", "Keep");
-    store.set("a", "annotation", ann());
+    store.set("a", "label", ann());
     store.dropRow("a");
     expect(store.get("a", "visible")).toBeUndefined();
     expect(store.get("a", "fillColor")).toBeUndefined();
     expect(store.get("a", "name")).toBe("Keep");
-    expect(store.get("a", "annotation")).toEqual(ann());
+    expect(store.get("a", "label")).toEqual(ann());
     expect(store.dumpProvenance()).toEqual({});
   });
 
@@ -116,7 +116,7 @@ describe("LayerIntentStore — get/set/clear/mark/unmark", () => {
     expect(store.hasLive("a", "opacity")).toBe(false);
   });
 
-  it("clear on name/annotation skips the provenance half (non-override)", () => {
+  it("clear on name/label skips the provenance half (non-override)", () => {
     const store = new LayerIntentStore();
     store.set("a", "name", "Renamed");
     store.set("a", "fillColor", "#f00");
@@ -127,7 +127,7 @@ describe("LayerIntentStore — get/set/clear/mark/unmark", () => {
     expect(store.isUserSet("a", "fillColor")).toBe(true);
     expect(store.ids()).toEqual(["a"]);
 
-    store.clear("a", "annotation");
+    store.clear("a", "label");
     store.clear("a", "fillColor");
     expect(store.ids()).toEqual([]);
   });
@@ -285,19 +285,19 @@ describe("LayerIntentStore — toPersisted ↔ buildLayerStates field-level", ()
     expect(out.b).toBeUndefined();
   });
 
-  it("annotation rider joins even with empty overrides; live map wins over seed", () => {
+  it("label rider joins even with empty overrides; live map wins over seed", () => {
     const store = new LayerIntentStore();
-    store.setValue("a", "annotation", ann({ field: "seed" }));
+    store.setValue("a", "label", ann({ field: "seed" }));
     store.setValue("a", "name", "Renamed");
     const live = { a: ann({ field: "live" }) };
     const out = store.toPersisted(live);
     expect(out.a).toEqual({
       overrides: [],
-      annotation: ann({ field: "live" }),
+      label: ann({ field: "live" }),
     });
   });
 
-  it("skips a row that has neither live declared overrides nor annotation", () => {
+  it("skips a row that has neither live declared overrides nor label", () => {
     const store = new LayerIntentStore();
     store.setValue("a", "name", "OnlyName");
     const out = store.toPersisted();
@@ -332,12 +332,12 @@ describe("LayerIntentStore — loadFromPersisted ↔ parseLayerState + PARSE_OVE
           // fillColor listed but missing → still seeded as marker? parseLayerState
           // drops such a marker; this asserts the load half for a well-formed entry.
           fillColor: "#123456",
-          annotation: ann({ field: "new" }),
+          label: ann({ field: "new" }),
         },
       },
     });
     expect(store.get("a", "name")).toBe("Renamed");
-    expect(store.get("a", "annotation")).toEqual(ann({ field: "new" }));
+    expect(store.get("a", "label")).toEqual(ann({ field: "new" }));
     expect(store.get("a", "visible")).toBe(true);
     expect(store.get("a", "fillColor")).toBe("#123456");
     expect(store.dumpProvenance().a).toEqual(["visible", "fillColor"]);
@@ -377,7 +377,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
   const oldBuild = (
     intents: Record<string, Record<string, unknown>>,
     provenance: Record<string, string[]>,
-    annotations: Record<string, unknown>,
+    labels: Record<string, unknown>,
   ) => {
     const LIVE: Record<string, (v: unknown) => boolean> = {
       visible: v => typeof v === "boolean",
@@ -391,13 +391,13 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
     const states: Record<string, PersistedLayerState> = {};
     const ids = new Set([
       ...Object.keys(provenance),
-      ...Object.keys(annotations),
+      ...Object.keys(labels),
       ...Object.keys(intents),
     ]);
     for (const id of ids) {
       const declared = (provenance[id] ?? []).filter(o => LIVE[o]?.(intents[id]?.[o]));
-      const annotation = annotations[id];
-      if (declared.length === 0 && !annotation) continue;
+      const label = labels[id];
+      if (declared.length === 0 && !label) continue;
       const state: PersistedLayerState = { overrides: declared as any };
       for (const o of declared) {
         const value = intents[id]?.[o];
@@ -405,7 +405,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
           (state as Record<string, unknown>)[o] = value;
         }
       }
-      if (annotation) (state as { annotation?: unknown }).annotation = annotation;
+      if (label) (state as { label?: unknown }).label = label;
       states[id] = state;
     }
     return states;
@@ -416,7 +416,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       name: "visible only",
       intents: { a: { visible: false } },
       provenance: { a: ["visible"] },
-      annotations: {},
+      labels: {},
     },
     {
       name: "style bundle + name rider",
@@ -443,31 +443,31 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
           "zoomRange",
         ],
       },
-      annotations: {},
+      labels: {},
     },
     {
-      name: "annotation-only row",
+      name: "label-only row",
       intents: {},
       provenance: {},
-      annotations: { a: ann() },
+      labels: { a: ann() },
     },
     {
       name: "marker with missing value filtered",
       intents: { a: { visible: true } },
       provenance: { a: ["visible", "opacity"] },
-      annotations: {},
+      labels: {},
     },
     {
       name: "value without marker not written",
       intents: { a: { visible: true, opacity: 0.5 } },
       provenance: { a: ["visible"] },
-      annotations: {},
+      labels: {},
     },
     {
-      name: "legacy + new annotation (new wins)",
-      intents: { a: { annotation: ann({ field: "new" }) } },
+      name: "legacy + new label (new wins)",
+      intents: { a: { label: ann({ field: "new" }) } },
       provenance: {},
-      annotations: { a: ann({ field: "legacy" }) },
+      labels: { a: ann({ field: "legacy" }) },
     },
     {
       name: "multi-layer mix",
@@ -477,7 +477,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
         c: { fillOpacity: 0 },
       },
       provenance: { a: ["visible"], c: ["fillOpacity"] },
-      annotations: { d: ann() },
+      labels: { d: ann() },
     },
   ];
 
@@ -493,9 +493,9 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       for (const [id, ov] of Object.entries(sc.provenance)) {
         store.seedProvenance(id, ov as LayerOverride[]);
       }
-      // annotation seed lives on the store for the old intents side; the
-      // live map is the annotations arg (old buildLayerStates input).
-      const liveAnn = sc.annotations as Record<string, never>;
+      // label seed lives on the store for the old intents side; the
+      // live map is the labels arg (old buildLayerStates input).
+      const liveAnn = sc.labels as Record<string, never>;
       const viaStore = store.toPersisted(liveAnn);
       const viaOld = oldBuild(sc.intents as any, sc.provenance as any, liveAnn);
       expect(viaStore).toEqual(viaOld);

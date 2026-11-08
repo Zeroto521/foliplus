@@ -6,12 +6,12 @@
 // Build shape: createLayers with two panes (data + label), add a polygon
 // leaf to the data pane (LayerFactory.addLayer pins a Path leaf to the
 // pane's renderer via ensureVector), and hand-draw on a canvas appended
-// to the label pane (the AnnotationManager shape).
+// to the label pane (the LabelManager shape).
 //
 // Note: passing a GeoJSON *group* to addLayer does NOT pin its child paths
 // to the declared pane — LayerFactory.addLayer only sets options.pane on
 // the top-level layer. A Path leaf pins correctly. (A known limitation.)
-() => {
+fixtures => {
   const api = window.map.foliplus.LayerAPI;
   const mg = api.createLayers({
     id: "__probe_mixed__",
@@ -21,12 +21,7 @@
       { name: "__probe_mixed_label__", isLabel: true },
     ],
   });
-  const poly = L.polygon([
-    [119.26, 26.04],
-    [119.34, 26.04],
-    [119.34, 26.12],
-    [119.26, 26.12],
-  ]);
+  const poly = L.polygon(fixtures.polygon);
   mg.addLayer(poly, "__probe_mixed_data__");
   const labelPane = window.map.getPane("__probe_mixed_label__");
   const canvas = document.createElement("canvas");
@@ -36,7 +31,7 @@
   canvas.style.height = "200px";
   canvas.style.position = "absolute";
   canvas.className = "probe-label-canvas";
-  // Decoration, not a hit surface — AnnotationCanvas declares the same.
+  // Decoration, not a hit surface — LabelCanvas declares the same.
   canvas.style.pointerEvents = "none";
   labelPane.appendChild(canvas);
   const ctx = canvas.getContext("2d");

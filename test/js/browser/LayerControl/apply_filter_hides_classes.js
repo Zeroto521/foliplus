@@ -7,7 +7,7 @@
 // win over a Leaflet inline style would leave one of these computed displays
 // non-none. Each probe layer is filtered to a range that excludes every leaf's
 // value (all leaves carry value 1, the committed range is [2, 5]).
-async () => {
+async fixtures => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return null;
   const mgr = ctrl.mgr;
@@ -23,29 +23,8 @@ async () => {
     return leaf;
   };
   const probes = [
-    [
-      "__flt_poly__",
-      "Fl Poly",
-      mk(
-        L.polygon([
-          [26.08, 119.3],
-          [26.09, 119.3],
-          [26.08, 119.31],
-        ]),
-        1,
-      ),
-    ],
-    [
-      "__flt_line__",
-      "Fl Line",
-      mk(
-        L.polyline([
-          [26.08, 119.3],
-          [26.09, 119.31],
-        ]),
-        1,
-      ),
-    ],
+    ["__flt_poly__", "Fl Poly", mk(L.polygon(fixtures.poly), 1)],
+    ["__flt_line__", "Fl Line", mk(L.polyline(fixtures.line), 1)],
     [
       "__flt_circle__",
       "Fl Circle",
@@ -62,20 +41,7 @@ async () => {
         1,
       ),
     ],
-    [
-      "__flt_group__",
-      "Fl Group",
-      L.layerGroup([
-        mk(
-          L.polygon([
-            [26.1, 119.31],
-            [26.11, 119.31],
-            [26.1, 119.32],
-          ]),
-          1,
-        ),
-      ]),
-    ],
+    ["__flt_group__", "Fl Group", L.layerGroup([mk(L.polygon(fixtures.groupPoly), 1)])],
   ];
 
   const walk = (node, out) => {

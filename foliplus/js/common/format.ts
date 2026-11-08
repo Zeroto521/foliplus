@@ -3,7 +3,7 @@
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { intlLocale } from "#common/locale.js";
 
-/** Label number-format presets shared by annotation and delegated style panels.
+/** Label number-format presets shared by label and delegated style panels.
  *  Named rather than raw string literals so locale keys and dropdown options
  *  stay aligned with `NumberStyle`. */
 const NUMBER_FORMAT = {
@@ -96,7 +96,7 @@ const LAT_LNG_PRECISION = 6;
  *  digits to 0 — 'comma' otherwise inherits the one-decimal default and turns
  *  6000 into "6,000.0" on the map. `auto` already trims its own decimals.
  *
- *  Shared by the canvas hex labels (HeatmapControl) and the DOM annotation
+ *  Shared by the canvas hex labels (HeatmapControl) and the DOM label
  *  labels (LayerControl): the same feature must not read two ways depending on
  *  which control drew it. */
 const formatLabelNumber = (

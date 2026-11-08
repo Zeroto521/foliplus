@@ -16,10 +16,10 @@ import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
-import { ANNOTATION_DIMENSION } from "#control/LayerControl/ui/style/annotation.js";
 import { BORDER_DIMENSION } from "#control/LayerControl/ui/style/border.js";
 import { DELEGATED_DIM_ORDER } from "#control/LayerControl/ui/style/delegated.js";
 import { FILL_DIMENSION } from "#control/LayerControl/ui/style/fill.js";
+import { LABEL_DIMENSION } from "#control/LayerControl/ui/style/labelDimension.js";
 import { OPACITY_DIMENSION } from "#control/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
@@ -55,15 +55,15 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(getDimension("opacity")).toBe(OPACITY_DIMENSION);
   });
 
-  it("getDimension returns the annotation descriptor", () => {
+  it("getDimension returns the label descriptor", () => {
     // The Label section's dimension: registered like every other built-in,
     // its `gate` IS `layerCanLabel` (what the ⋮ menu imports), and its
     // `value` hands back the resolved per-layer config.
-    expect(getDimension("annotation")).toBe(ANNOTATION_DIMENSION);
-    expect(ANNOTATION_DIMENSION.key).toBe("annotation");
+    expect(getDimension("label")).toBe(LABEL_DIMENSION);
+    expect(LABEL_DIMENSION.key).toBe("label");
     expect(
-      ANNOTATION_DIMENSION.value(
-        { c: { annotation: { getConfig: () => ({ show: true }) } } } as never,
+      LABEL_DIMENSION.value(
+        { c: { label: { getConfig: () => ({ show: true }) } } } as never,
         "x",
       ),
     ).toEqual({ show: true });
@@ -129,7 +129,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind !== "none")
       .map(d => d.key)
       .sort();
-    expect(replaying).toEqual(["annotation", "border", "fill", "icon", "size"]);
+    expect(replaying).toEqual(["border", "fill", "icon", "label", "size"]);
     // Every face of the coalescer is claimed by exactly one frame policy —
     // a face nobody schedules would strand late leaves; a face claimed
     // twice would fight over one queue slot.
@@ -300,14 +300,14 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
   };
 
   it("collects the descriptors whose gate passes, in the caller's declared order", () => {
-    // One gate pass, caller-declared order: the annotation panel passes
+    // One gate pass, caller-declared order: the label panel passes
     // DIM_ORDER / LABEL_DIM_ORDER, the delegated drawer its own slice.
     mockSurfaceFor({
       fill: "native",
       stroke: "native",
       opacity: "pane",
       zoomRange: "pane",
-      annotation: "none",
+      label: "none",
     });
     const rows = gatedRows(ui, "overlay1", DIM_ORDER);
     expect(rows.map(d => d.key)).toEqual(["fill", "border", "opacity", "zoomRange"]);
@@ -319,7 +319,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       stroke: "none",
       opacity: "pane",
       zoomRange: "none",
-      annotation: "none",
+      label: "none",
     });
     const rows = gatedRows(ui, "overlay1", DIM_ORDER);
     expect(rows.map(d => d.key)).toEqual(["opacity"]);
@@ -331,14 +331,14 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       stroke: "none",
       opacity: "none",
       zoomRange: "none",
-      annotation: "none",
+      label: "none",
     });
     expect(gatedRows(ui, "overlay1", DIM_ORDER)).toEqual([]);
   });
 
   it("delegated slice equals panel sweep minus the vector-only dims", () => {
     // Single implementation, two consumers. The delegated drawer's sweep
-    // (DELEGATED_DIM_ORDER) must return exactly the rows the annotation
+    // (DELEGATED_DIM_ORDER) must return exactly the rows the label
     // panel's Layer sweep (DIM_ORDER) renders for the same keys — the old
     // hand-rolled `if (key === "fill" || key === "border") continue` loop,
     // expressed as one gate pass. This equivalence is what the sink pins.
@@ -347,7 +347,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       stroke: "native",
       opacity: "pane",
       zoomRange: "pane",
-      annotation: "none",
+      label: "none",
     });
     const layerRows = gatedRows(ui, "overlay1", DIM_ORDER);
     const delegatedRows = gatedRows(ui, "overlay1", DELEGATED_DIM_ORDER);

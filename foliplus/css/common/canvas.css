@@ -1,6 +1,6 @@
 /* ── LayerFactory surface overlay (canvas / color) ──
    Generic class stamped on every canvas element LayerFactory creates — the
-   heatmap's canvas, the solid-color basemap's face, annotation labels. Lives
+   heatmap's canvas, the solid-color basemap's face, label canvas. Lives
    in common so any consumer of the surface API gets the overlay positioning
    and the visibility toggle without depending on another component's
    stylesheet. `.hidden` here is the core LayerFactory toggle (canvas element),

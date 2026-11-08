@@ -174,10 +174,10 @@ class TestLayerControlRendering:
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
 
-    def test_annotation_locale_keys(self):
+    def test_label_locale_keys(self):
         """Style-panel locale keys exist in both en and zh.
 
-        The container (``style_*``) and the annotation-only dimension
+        The container (``style_*``) and the label-only dimension
         (``style_label_field`` / ``_no_data``) stay component-scoped.
         ``test_locale.py`` covers the cross-table key set.
 
@@ -526,7 +526,7 @@ class TestLayerControlRendering:
             if "layer-item:hover .foliplus-layer-count" in html[max(0, i - 60) : i + 60]
         ]
         assert not count_hover, (
-            "count must not brighten on hover (annotation, not a control)"
+            "count must not brighten on hover (label, not a control)"
         )
 
         # Toggle button SVG inherits color

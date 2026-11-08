@@ -25,7 +25,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { format, resolveConfig } from "prettier";
 import { fileURLToPath, pathToFileURL } from "url";
-import { help, parseArgs } from "../../../script/args.mjs";
+import { help, parseArgs } from "#script/args.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..", "..");

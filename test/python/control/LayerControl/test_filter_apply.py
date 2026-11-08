@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 import folium
-from conftest import _js, make_browser_page, use_page
+from conftest import _js, leaflet_path, make_browser_page, use_page
 
 from foliplus import LayerControl
 
@@ -42,7 +42,18 @@ class TestFilterApplyBrowser:
     def test_filter_hides_every_paint_element(self, browser, tmp_path):
         """One layer per class filtered; every enumerated element is hidden."""
         with use_page(self._probe, browser, tmp_path) as (page, errors):
-            r = page.evaluate(_js("LayerControl/apply_filter_hides_classes"))
+            r = page.evaluate(
+                _js("LayerControl/apply_filter_hides_classes"),
+                {
+                    "poly": leaflet_path(
+                        "LayerControl", "polygon_fuzhou_triangle_small"
+                    ),
+                    "line": leaflet_path("common", "line_fuzhou_diag"),
+                    "groupPoly": leaflet_path(
+                        "LayerControl", "polygon_fuzhou_triangle_group"
+                    ),
+                },
+            )
             assert r is not None, "LayerAPI/manager or runtimeStore missing"
             assert r["hasVisibleDomOf"], (
                 "visibleDomOf not on window.foliplus.core.layer"
