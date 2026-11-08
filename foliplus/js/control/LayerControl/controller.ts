@@ -161,7 +161,7 @@ interface EnforceOrderResult {
  *  compact concatenation instead of `JSON.stringify` — same equality, no
  *  intermediate array per surface per pass. */
 const capabilityKey = (caps: LayerCapabilities): string =>
-  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.zoomRange}|${caps.visibility}|${caps.annotation}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.icon}|${caps.zoomRange}|${caps.visibility}|${caps.annotation}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub

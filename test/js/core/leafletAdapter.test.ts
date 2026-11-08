@@ -294,6 +294,7 @@ describe("source pins", () => {
     expect(Object.keys(adapter).sort()).toEqual([
       "attributionEntries",
       "destroyPane",
+      "detachMarkerIcons",
       "getRendererContainer",
       "getRendererFor",
       "hasAttachedPath",
