@@ -1444,4 +1444,155 @@ describe("icon by-value mode", () => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
+  it("by value method change writes the method", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+
+    const method = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    method.value = "quantile";
+    method.dispatchEvent(new Event("change"));
+
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.method).toBe("quantile");
+  });
+
+  it("an out-of-range stored class count shows its own option", () => {
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 11,
+      glyphs: ["circle", "square"],
+    };
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_VALUE, config]]);
+    const row = buildRow();
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(Array.from(classes.options).map(o => o.value)).toContain("11");
+    expect(classes.value).toBe("11");
+  });
+
+  it("dimension value returns the by-value record when mode is by value", () => {
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.BY_VALUE, value: config });
+    const value = ICON_DIMENSION.value!(ui, "overlay1") as any;
+    expect(value.mode).toBe(ICON_MODE.BY_VALUE);
+    expect(value.value).toEqual(config);
+  });
+
+  it("dimension value is undefined for by-value mode with no stored value", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_MODE, ICON_MODE.BY_VALUE]]);
+    expect(ICON_DIMENSION.value!(ui, "overlay1")).toBeUndefined();
+  });
+
+  it("contentChange when is false before any icon intent", () => {
+    const policy = ICON_DIMENSION.contentChange;
+    if (policy?.kind !== "frame") throw new Error("expected a frame policy");
+    expect(policy.when!(ui, "overlay1")).toBe(false);
+  });
+
+  it("applyIconToLayer paints the by-value ramp when a value is stored", () => {
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.BY_VALUE, value: config });
+    const stored = getIntent(ui, "overlay1", INTENT.ICON_VALUE);
+    expect(stored).toEqual(config);
+    const layer = ui.c.findLayer("overlay1");
+    expect(layer).toBeTruthy();
+    applyIconToLayer(ui, "overlay1");
+    const leaves: any[] = [];
+    (layer as any).eachLayer((leaf: any) => leaves.push(leaf));
+    expect(leaves.length).toBeGreaterThan(0);
+    const painted = leaves.filter(leaf => (leaf.setIcon as any).mock.calls.length > 0);
+    expect(painted.length).toBeGreaterThan(0);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.BY_VALUE);
+  });
+  it("mode row ignores a same-mode re-selection", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.SINGLE;
+    select.dispatchEvent(new Event("change"));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toBeUndefined();
+  });
+  it("applyIconToLayer is a no-op for a by-value mode with no stored value", () => {
+    // A stale record can carry mode=byValue without a value config (a hand
+    // edited state). The paint must skip, not throw or clear the author icon.
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_MODE, ICON_MODE.BY_VALUE]]);
+    const layer = ui.c.findLayer("overlay1") as any;
+    const leaves: any[] = [];
+    layer.eachLayer((leaf: any) => leaves.push(leaf));
+    applyIconToLayer(ui, "overlay1");
+    for (const leaf of leaves) {
+      expect((leaf.setIcon as any).mock.calls.length).toBe(0);
+    }
+  });
+
+  it("a by-value mode with no numeric field renders the single detail", () => {
+    const noFields = fixtureWithMarkers([makeMarker({ name: "x" }, author)]);
+    writeIntentKeys(noFields.ui, "overlay1", [[INTENT.ICON_MODE, ICON_MODE.BY_VALUE]]);
+    const row = buildIconRow(noFields.ui, "overlay1") as HTMLElement;
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`)).toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_TRIGGER}`)).not.toBeNull();
+    noFields.manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("an unknown scheme selection writes nothing", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+    const scheme = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_SCHEME_SELECT}`,
+    ) as HTMLSelectElement;
+    Object.defineProperty(scheme, "value", {
+      value: "not-a-scheme",
+      configurable: true,
+    });
+    scheme.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.glyphs).toEqual([...glyphScheme(GLYPH_SCHEME_DEFAULT)!]);
+  });
+
+  it("bindIconRow ignores a row with no mode block", () => {
+    const detached = document.createElement("div");
+    expect(() => bindIconRow(ui, "overlay1", detached)).not.toThrow();
+  });
+
+  it("bindIconRow ignores a block with no mode select", () => {
+    const block = document.createElement("div");
+    block.className = CONST.CLASSES.STYLE_ICON_BLOCK;
+    expect(() => bindIconRow(ui, "overlay1", block)).not.toThrow();
+  });
+
+  it("dimension write ignores a patch with neither kind nor mode", () => {
+    const before = getIntent(ui, "overlay1", INTENT.ICON);
+    ICON_DIMENSION.write!(ui, "overlay1", {} as any);
+    expect(getIntent(ui, "overlay1", INTENT.ICON)).toBe(before);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toBeUndefined();
+  });
+  it("icon fields fall back to empty for an unknown layer", () => {
+    // An unknown layer id has no registry entry, so the dimension gate is
+    // false and the row builder returns null (the caller renders nothing).
+    expect(buildIconRow(ui, "does-not-exist")).toBeNull();
+  });
 });

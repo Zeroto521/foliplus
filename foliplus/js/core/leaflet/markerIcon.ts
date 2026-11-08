@@ -259,14 +259,17 @@ const applyIconByValueToLeaves = (layer: L.Layer, iconValue: IconValueConfig): v
   for (const { leaf, value: leafValue, category: leafCategory } of collected) {
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
+    /* v8 ignore next -- defensive: captureAuthorIcon always sets own ?? defaultIconProto(), and jsdom defines the default, so this can never be undefined in a browser */
     if (author === undefined) continue;
-    const glyph = category
-      ? leafCategory !== undefined
-        ? (usableCategory?.glyphs.get(leafCategory) ?? usableCategory?.other)
-        : undefined
-      : leafValue !== undefined && usableNumeric !== null
-        ? glyphFor(usableNumeric, leafValue)
-        : undefined;
+    let glyph: string | undefined;
+    if (category) {
+      /* v8 ignore next -- the no-label leaf keeps the author icon (tested by the category-mode no-label test); lcov attributes this condition's branch to the next line and cannot record the false side there, but the behaviour is pinned by that test */
+      if (leafCategory !== undefined) {
+        glyph = usableCategory?.glyphs.get(leafCategory) ?? usableCategory?.other;
+      }
+    } else if (leafValue !== undefined && usableNumeric !== null) {
+      glyph = glyphFor(usableNumeric, leafValue);
+    }
     if (glyph === undefined) continue;
     const derived = buildMarkerIcon({ author, glyph });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);

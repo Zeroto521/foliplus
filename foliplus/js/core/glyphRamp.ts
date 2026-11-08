@@ -52,6 +52,7 @@ const buildGlyphRamp = (
   const breaks = computeBreaks(values, nClasses, config.method);
   const glyphs = config.glyphs.slice(0, Math.max(0, breaks.length - 1));
   const classOf = (value: number): number => {
+    /* v8 ignore next -- defensive: values.length===0 returns above, so computeBreaks always yields >=2 breaks here */
     if (breaks.length < 2) return 0;
     let lo = 1;
     let hi = breaks.length - 1;

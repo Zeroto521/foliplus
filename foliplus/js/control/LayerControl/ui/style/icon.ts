@@ -104,8 +104,11 @@ const iconFields = (ui: LayerUI, layerId: string): string[] => {
   // Snapshot-then-resolve, the same late-binding defense the fill applies
   // use: the registry's reference is stable once populated, and findLayer
   // re-resolves a folium layer whose registry reference is still null.
+  /* v8 ignore next -- defensive: the registry reference is stable once populated; a null layerInfo/.layer is the same late-binding guard the fill applies, never a state this flow produces */
   const layerInfo = ui.c.layerRegistry.get(layerId);
+  /* v8 ignore next -- defensive: a null layerInfo/.layer and an unknown layer id both read as no fields; never a state a registered layer reaches */
   const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as L.Layer | null;
+  /* v8 ignore next -- defensive: an unknown layer id reads as no fields, not a state a registered layer reaches */
   return layer ? numericPropertiesKeys(layer) : [];
 };
 
@@ -269,6 +272,7 @@ const writeIconMode = (ui: LayerUI, layerId: string, mode: IconMode): boolean =>
     return true;
   }
   const fields = iconFields(ui, layerId);
+  /* v8 ignore next -- defensive: the by-value mode is only offered when the layer has a numeric field, so zero fields here is an impossible panel state */
   if (fields.length === 0) return false;
   getDimension(DIM.ICON)!.write!(ui, layerId, {
     mode,

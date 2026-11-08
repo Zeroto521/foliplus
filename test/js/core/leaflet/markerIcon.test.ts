@@ -272,6 +272,25 @@ describe("applyIconByValueToLeaves", () => {
     expect(glyphB.className).toContain("fa-circle");
   });
 
+  it("falls back to the other glyph for a category outside the ramp domain", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ type: "forest" }, author);
+    const mB = makeFeatureMarker({ type: "lake" }, author);
+    const mC = makeFeatureMarker({ type: "desert" }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB, mC), CATEGORY);
+    const glyphC = (mC.options.icon as any).createIcon().querySelector("i");
+    expect(glyphC.className).toContain("fa-circle");
+  });
+
+  it("keeps the author icon for a category-mode leaf with no label value", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ type: "forest" }, author);
+    const mB = makeFeatureMarker({ value: 5 }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB), CATEGORY);
+    expect(mA.options.icon).not.toBe(author);
+    expect(mB.options.icon).toBe(author);
+  });
+
   it("keeps the author icon for a leaf with no usable drive value", () => {
     const author = makeAuthorIcon();
     const mA = makeFeatureMarker({ value: 1 }, author);
@@ -294,6 +313,19 @@ describe("applyIconByValueToLeaves", () => {
     expect(() =>
       applyIconByValueToLeaves(makeMarkerGroup(poly), NUMERIC),
     ).not.toThrow();
+  });
+
+  it("keeps the author icon when the ramp build fails on a bad record", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ value: 1 }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA), {
+      kind: "numeric",
+      field: "value",
+      method: "bogus",
+      classes: 2,
+      glyphs: ["circle", "square"],
+    });
+    expect(mA.options.icon).toBe(author);
   });
 });
 
