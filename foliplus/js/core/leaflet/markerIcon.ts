@@ -168,8 +168,11 @@ const buildMarkerIcon = (opts: {
     // Empty string means "no author paint" (awesome-markers leaves the glyph
     // uncolored), so normalise empties to undefined and fall through with ??.
     const inlineColor = authorInlineColor || undefined;
-    const iconColor =
-      opts.color ?? inlineColor ?? (authorIconColor || undefined) ?? "#fff";
+    // Normalise an empty author iconColor to undefined so a declared-but-empty
+    // value falls through to the default (a non-nullish empty string must not
+    // win over the default).
+    const authorIconColorVal = authorIconColor === "" ? undefined : authorIconColor;
+    const iconColor = opts.color ?? inlineColor ?? authorIconColorVal ?? "#fff";
     // Drop the author's own icon-font classes (fa / fas / fa-star /
     // glyphicon-*) so only the paint classes survive and our FA glyph is the
     // one thing painting.
