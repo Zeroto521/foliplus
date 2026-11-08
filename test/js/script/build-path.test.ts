@@ -25,6 +25,10 @@ import {
 } from "#script/build-path.mjs";
 
 const ROOT = resolve(".");
+// ALIAS_TO_REL is a plain JS object from build-path.mjs; index it through a
+// string-keyed record so TS does not complain about dynamic alias lookups
+// (the guard test legitimately walks every alias with a string key).
+const ALIAS_DIRS = ALIAS_TO_REL as Record<string, string>;
 
 describe("build-path.mjs", () => {
   it("resolves foliplus/js under the project root", () => {
@@ -173,8 +177,8 @@ describe("build-path.mjs", () => {
     // tier rename cannot leave the shared-import regex and the plugin rewrite
     // table pointing at a namespace nobody publishes.
     const expected = SHARED_ALIASES.filter(
-      spec => spec !== "#control" && ALIAS_TO_REL[spec].split("/").pop() !== "js",
-    ).map(spec => ALIAS_TO_REL[spec].split("/").pop());
+      spec => spec !== "#control" && ALIAS_DIRS[spec].split("/").pop() !== "js",
+    ).map(spec => ALIAS_DIRS[spec].split("/").pop());
     expect([...SHARED_MODULE_PREFIXES].sort()).toEqual([...expected].sort());
     expect(SHARED_MODULE_PREFIXES).not.toContain("foliplus");
     expect(SHARED_MODULE_PREFIXES).not.toContain("control");
@@ -184,7 +188,7 @@ describe("build-path.mjs", () => {
     const rules = namespacePrefixRules();
     expect(Object.keys(rules).sort()).toEqual([...SHARED_MODULE_PREFIXES].sort());
     for (const prefix of SHARED_MODULE_PREFIXES) {
-      const dir = ALIAS_TO_REL["#" + prefix].split("/").pop();
+      const dir = ALIAS_DIRS["#" + prefix].split("/").pop();
       expect(rules[prefix]).toBe(dir + "/");
     }
     // The rewrite is keyed by the alias segment, not the directory name: a
