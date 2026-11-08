@@ -23,6 +23,7 @@ import {
 import {
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
+  authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 import { dom } from "#common/dom.js";
@@ -93,6 +94,14 @@ const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
   if (!layer) return null;
   return authorGlyphNameOnLayer(layer);
 };
+/** The author's FontAwesome family prefix for the layer (see authorGlyphPrefixOnLayer).
+ *  Returns null when the layer declares no prefix — callers then fall back to
+ *  the panel's fa-solid family. */
+const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return null;
+  return authorGlyphPrefixOnLayer(layer);
+};
 /** Build the icon row: a trigger showing the current glyph (or the author's
  *  original, labelled 「原始」) plus a grid picker popup. The popup is a
  *  simple absolute-positioned grid anchored to the trigger; Esc / outside
@@ -120,20 +129,40 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // Covered: the user's glyph. Uncovered: the author's recognized glyph
     // (preview only — the write is still the author icon), else the
     // author-original label.
-    const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
-    let glyph = value ? resolveGlyph(value) : null;
-    // A syntactically valid name the loaded FA stylesheet does not paint must
-    // not preview as a blank tofu — degrade to the author-original label, the
-    // same honest fallback the marker build path takes.
-    if (glyph && !glyphAvailable(glyph)) glyph = null;
-    if (value && glyph) {
+    const userGlyph = currentGlyph(ui, layerId);
+    const authorName = userGlyph ? null : authorGlyphName(ui, layerId);
+    const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
+    const value = userGlyph ?? authorName ?? null;
+    const glyph = value ? resolveGlyph(value) : null;
+    // The user's picked/persisted glyph renders in the panel's fa-solid family;
+    // an author-declared glyph renders under the author's own prefix
+    // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
+    // a name the map actually draws is never reported unavailable.
+    const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
+    if (value && glyph && available) {
+      // The name is syntactically valid AND the loaded stylesheet paints it:
+      // the happy path — show the glyph and its name.
       glyphBox.innerHTML = glyphHtml(glyph);
       nameBox.textContent = glyph;
       trigger.title = value;
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
+    } else if (value) {
+      // A name we cannot render: either the stylesheet does not paint it (a
+      // syntactically valid but unsupported name) or it fails glyph syntax.
+      // Never silently show "Original" or a blank tofu — surface the actual
+      // name in an explicit unavailable state (dashed-outline circle preview)
+      // with a title/aria-label explaining the fallback.
+      glyphBox.innerHTML = `<span class="${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}" aria-hidden="true"></span>`;
+      nameBox.textContent = value;
+      const hint = ui.T("style_icon_unavailable").replace("{name}", value);
+      trigger.title = hint;
+      trigger.setAttribute("aria-label", hint);
+      trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
       glyphBox.innerHTML = "";
       nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     }
   };
   renderTrigger();
