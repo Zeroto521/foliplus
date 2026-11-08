@@ -588,9 +588,9 @@ def test_docstring_declares_an_unknown_name_rejects_the_whole_list() -> None:
     assert "reported once" in _FLAT.lower()
 
 
-def test_docstring_declares_the_range_arm_as_warned_and_ignored() -> None:
-    """A mapping is the other arm: warned once and treated as undeclared."""
-    assert "a mapping (the range arm)" in _FLAT.lower()
+def test_docstring_declares_the_range_branch_as_warned_and_ignored() -> None:
+    """A mapping is the other branch: warned once and treated as undeclared."""
+    assert "a mapping (the range branch)" in _FLAT.lower()
     assert "``HeatmapControl``" in _FLAT
     assert "treated as" in _FLAT.lower()
     assert "undeclared" in _FLAT.lower()
