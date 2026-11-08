@@ -217,7 +217,7 @@ class MeasureManager {
     // declaration warns exactly once); the store serves it as the starting
     // condition until the user takes the slot.
     this.filterStore = ensureFilterStore(this.map);
-    this.filterStore.register("measure", {
+    this.filterStore.registerHost(this.layerId, "measure", {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>

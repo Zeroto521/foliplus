@@ -5,7 +5,7 @@
 // own its own storage key, its own ownership flag and its own reset path, so
 // adding a surface meant re-wiring persistence by hand. This module is the
 // single home for that state: one storage key, one record indexed by layer
-// id, one `sources` map keyed by surface name, and one reset entry point.
+// id, one source map keyed by (layerId, name), and one reset entry point.
 //
 // A surface registers the variant bits it owns — how to normalize a candidate
 // into its domain, where to write the committed filter (the carrier), and the
@@ -49,6 +49,14 @@ interface PersistedRecord {
 
 const RECORD_VERSION = 1;
 
+/** Composite host key. The store is a per-map singleton shared by every
+ *  control, so a surface is identified by its owning layer AND its name: two
+ *  heatmap controls on the same map can each register a source named
+ *  "points", and the name alone would let the second registration overwrite
+ *  the first. A NUL can never appear in a layer id or a source name, so it is
+ *  a collision-free separator. */
+const keyOf = (layerId: string, name: string): string => `${layerId}\u0000${name}`;
+
 /** The variant bits a surface supplies. The store owns the orchestration
  *  (normalize -> compare -> store -> apply -> publish) and the persistence;
  *  the surface owns its domain. None of these callbacks may read or write
@@ -73,12 +81,13 @@ interface FilterSourceHost {
 /** A filter store bound to one layer. Register a surface, then read and write
  *  its filter through the store; reset clears one source or the whole layer. */
 interface FilterStore {
-  /** Register (or re-register) a surface's variant bits. Idempotent by name:
-   *  re-registering replaces the host and keeps the stored value, so a control
-   *  rebuild does not drop what the user set. */
-  register(name: string, host: FilterSourceHost): void;
-  /** The registered surface names, in registration order. */
-  sources(): readonly string[];
+  /** Register (or re-register) a surface's variant bits for one layer. Keyed
+   *  by (layerId, name), so two surfaces sharing a name on different layers
+   *  never collide; re-registering the same (layerId, name) replaces the host
+   *  idempotently (a control rebuild) and keeps the stored value. */
+  registerHost(layerId: string, name: string, host: FilterSourceHost): void;
+  /** The registered source names for one layer, in registration order. */
+  sources(layerId: string): readonly string[];
   /** Panel write path: normalize -> compare -> store -> apply -> publish.
    *  Returns whether the write was applied (false = a no-op the caller may
    *  skip its own side effects for). */
@@ -87,9 +96,18 @@ interface FilterStore {
   getFilter(layerId: string, name: string): LayerFilter | undefined;
   /** Whether the user owns the slot (the declaration may not re-seed). */
   isOwned(layerId: string, name: string): boolean;
-  /** Seed a source from a persisted record, or from its declaration when the
-   *  user never owned the slot. */
-  restore(layerId: string, name: string, declared: LayerFilter): LayerFilter;
+  /** Recover a persisted filter without normalising or applying it — the draw
+   *  is the render path's job. Distinct from `setFilter` (a user operation:
+   *  normalize + apply + ownership); `restore` writes value + touched=true
+   *  and nothing else. Used by the old-record migration, where the stored
+   *  filters are genuine user-saved state that must survive the move from the
+   *  component's own key into this store. */
+  restore(layerId: string, name: string, filter: LayerFilter): void;
+  /** Read one source: the user's committed value when they took the slot,
+   *  else `declared`. Read-only — never writes, never touches the record
+   *  (a partial or corrupt record has to read back as un-owned rather than
+   *  get "fixed" as a side effect). */
+  resolve(layerId: string, name: string, declared: LayerFilter): LayerFilter;
   /** Capture a surface's Python-declared starting filter. Not persisted — a
    *  declaration is a construction-time constant, and persisting it would let
    *  a stale one win over a newer control config. `reset(layerId, name)`
@@ -108,8 +126,9 @@ interface FilterStore {
 }
 
 const createFilterStore = (): FilterStore => {
-  /** name -> host, per registration order. One registry serves every layer;
-   *  the per-layer state lives in the persisted record. */
+  /** (layerId, name) -> host, per registration order. One registry serves
+   *  every layer and every control; the per-layer state lives in the
+   *  persisted record. */
   const hosts = new Map<string, FilterSourceHost>();
   /** layerId -> source -> declaration. In-memory only (see setDeclaration). */
   const declarations = new Map<string, Map<string, LayerFilter>>();
@@ -167,12 +186,26 @@ const createFilterStore = (): FilterStore => {
   };
 
   const store: FilterStore = {
-    register(name, host) {
-      hosts.set(name, host);
+    registerHost(layerId, name, host) {
+      const key = keyOf(layerId, name);
+      if (hosts.has(key)) {
+        // A control rebuild re-registers the same (layerId, name); the host
+        // object is fresh but the stored value must survive. This is the
+        // idempotent-overwrite contract, not an error.
+        console.debug(`[filterStore] re-register host ${layerId}/${name}`);
+      }
+      hosts.set(key, host);
     },
-    sources: () => [...hosts.keys()],
+    sources: layerId => {
+      const names: string[] = [];
+      const prefix = `${layerId}\u0000`;
+      for (const key of hosts.keys()) {
+        if (key.startsWith(prefix)) names.push(key.slice(prefix.length));
+      }
+      return names;
+    },
     setFilter(layerId, name, filter) {
-      const host = hosts.get(name);
+      const host = hosts.get(keyOf(layerId, name));
       if (!host) return false;
       const current = store.getFilter(layerId, name);
       const owned = store.isOwned(layerId, name);
@@ -197,7 +230,14 @@ const createFilterStore = (): FilterStore => {
     isOwned(layerId, name) {
       return sourceOf(readRecord(), layerId, name).touched;
     },
-    restore(layerId, name, declared) {
+    restore(layerId, name, filter) {
+      // Recover a persisted filter verbatim: value + ownership, no normalize,
+      // no apply. The render path owns the draw; `setFilter` is the user op
+      // that both normalizes and applies. The declaration is left untouched —
+      // a restored user value wins over it, exactly as it did on disk.
+      commit(layerId, name, filter, true);
+    },
+    resolve(layerId, name, declared) {
       const entry = sourceOf(readRecord(), layerId, name);
       // A slot the user never took shows the declaration; a slot they took
       // shows what they set, even across a reload.
@@ -226,7 +266,7 @@ const createFilterStore = (): FilterStore => {
         declarations.delete(layerId);
         return;
       }
-      const host = hosts.get(source);
+      const host = hosts.get(keyOf(layerId, source));
       const entry = layer.sources[source];
       if (!entry) return;
       delete layer.sources[source];
@@ -254,7 +294,7 @@ const createFilterStore = (): FilterStore => {
       host?.publish?.(declared);
     },
     filterModel(layerId, name) {
-      const host = hosts.get(name);
+      const host = hosts.get(keyOf(layerId, name));
       const filter = store.getFilter(layerId, name);
       const dimensions = host?.dimensions?.() ?? [];
       const counts = host?.counts?.() ?? { kept: 0, total: 0 };
