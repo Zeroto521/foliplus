@@ -29,6 +29,7 @@ from conftest import (
     _js,
     _prefetch_cdn_cache,
     heatmap_ready,
+    load_geojson,
     make_browser_page,
     panel_ready,
     snippet,
@@ -54,51 +55,18 @@ _WARN_PRELUDE = """
 
 def _polygon_layer() -> folium.GeoJson:
     """Overlay layer with a numeric property, for the style drawer's ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _points_group() -> folium.FeatureGroup:
     """One point layer, so the heatmap auto-selects it and opens its config."""
     fg = folium.FeatureGroup(name="Points", show=True)
-    gj = json.dumps(
-        {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": 1.0 + i},
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [119.30 + i * 0.01, 26.08],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+    folium.GeoJson(json.dumps(load_geojson("common", "points_fuzhou_3offset"))).add_to(
+        fg
     )
-    folium.GeoJson(gj).add_to(fg)
     return fg
 
 
@@ -519,29 +487,10 @@ class TestPickerCloseBrowser:
 
 def _ramp_layer() -> folium.GeoJson:
     """A polygon layer with a numeric property, for the fill ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _layer_map(**ctrl_kwargs) -> folium.Map:
@@ -708,13 +657,10 @@ def scrollbar_browser(browser):
     sync_playwright() would trip "Sync API inside the asyncio loop".
     """
     _prefetch_cdn_cache()
-    real = browser.browser_type.launch(
+    with browser.browser_type.launch(
         headless=True, ignore_default_args=["--hide-scrollbars"]
-    )
-    try:
+    ) as real:
         yield _CdnBrowserProxy(real)
-    finally:
-        real.close()
 
 
 def _make_strip_page(browser, tmp_path, dpr: int, schemes: list[str] | None = None):
@@ -844,16 +790,16 @@ class TestSchemeStripAlignmentBrowser:
     def test_heatmap_strips_match_with_a_layout_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_heatmap_strips_clip_at_the_scrollport_when_lane_exceeds_inset(
@@ -866,43 +812,40 @@ class TestSchemeStripAlignmentBrowser:
         exceeds it. This asserts the true invariant: the strip stops at the
         scrollport right edge, shorter than the trigger by (lane - inset).
         """
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_heatmap_strips_match_without_a_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(
-            scrollbar_browser, tmp_path, dpr, FITTING_SCHEMES
-        )
-        try:
+        with use_page(
+            _make_strip_page, scrollbar_browser, tmp_path, dpr, FITTING_SCHEMES
+        ) as (page, errors):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert not sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_style_drawer_strips_match_with_a_layout_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_layer_list(page)
             sample = _measure(page, LAYER_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

@@ -12,6 +12,7 @@ Guidelines
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -30,6 +31,10 @@ import pytest
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser
+
+# GeoJSON fixtures live under test/data/<scope>/geojson/<name>.geojson
+# (shared ones under test/data/common/geojson/).
+_GEOJSON_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 # ── JS snippet reader (browser tests) ──
@@ -52,6 +57,60 @@ def snippet(path: str) -> str:
     return (Path(__file__).resolve().parent.parent / f"js/snippet/{path}.js").read_text(
         encoding="utf-8"
     )
+
+
+# ── GeoJSON fixture reader (test/data) ──
+
+
+def geojson_path(scope: str, name: str) -> Path:
+    """Path to a GeoJSON fixture, e.g. ``geojson_path("common", "point_1193_2608")``."""
+    return _GEOJSON_DATA_DIR / scope / "geojson" / f"{name}.geojson"
+
+
+def load_geojson(scope: str, name: str) -> Any:
+    """Load a GeoJSON fixture as a Python object."""
+    return json.loads(geojson_path(scope, name).read_text(encoding="utf-8"))
+
+
+def geojson_text(scope: str, name: str) -> str:
+    """Read a GeoJSON fixture as raw text."""
+    return geojson_path(scope, name).read_text(encoding="utf-8")
+
+
+def leaflet_points(scope: str, name: str) -> list[list[float]]:
+    """Every Point feature's ``[lat, lng]`` for Leaflet layer constructors."""
+    return [
+        [feat["geometry"]["coordinates"][1], feat["geometry"]["coordinates"][0]]
+        for feat in load_geojson(scope, name)["features"]
+    ]
+
+
+def leaflet_path(scope: str, name: str, feature: int = 0) -> list[list[float]]:
+    """First ring/line's ``[lat, lng]`` pairs for a Leaflet path constructor."""
+    geom = load_geojson(scope, name)["features"][feature]["geometry"]
+    coords = geom["coordinates"]
+    if geom["type"] == "MultiPolygon":
+        ring = coords[0][0]
+    elif geom["type"] == "Polygon":
+        ring = coords[0]
+    else:
+        ring = coords
+    return [[lat, lng] for lng, lat in ring]
+
+
+def feature_collection(*features: Any) -> dict[str, Any]:
+    """Wrap features in a FeatureCollection."""
+    return {"type": "FeatureCollection", "features": list(features)}
+
+
+def point_feature(
+    lng: float, lat: float, properties: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Build a Point Feature from the common template."""
+    feat = copy.deepcopy(load_geojson("common", "point_feature"))
+    feat["properties"] = properties or {}
+    feat["geometry"]["coordinates"] = [lng, lat]
+    return feat
 
 
 # ── CDN cache (browser tests) ──
@@ -865,14 +924,15 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
     probe = _Flaky95Probe(worker_id, _HEALTH_SAMPLE_N)
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        if _BROWSER_MODE == "shared":
-            proxy = _SharedContextBrowserProxy(browser, probe)
-        else:
-            proxy = _CdnBrowserProxy(browser, probe)
-        yield proxy
-        probe.close()
-        browser.close()
+        with pw.chromium.launch(headless=True) as browser:
+            if _BROWSER_MODE == "shared":
+                proxy = _SharedContextBrowserProxy(browser, probe)
+            else:
+                proxy = _CdnBrowserProxy(browser, probe)
+            try:
+                yield proxy
+            finally:
+                probe.close()
 
 
 @pytest.fixture

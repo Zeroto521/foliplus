@@ -12,7 +12,7 @@ import {
   runUpload,
   uploadStats,
 } from "#script/build/codecov-bundle-upload.mjs";
-import { runCli, trapExit } from "../../fixture.js";
+import { runCli, trapExit } from "../fixture.js";
 
 let tmp = "";
 afterEach(() => {

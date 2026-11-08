@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   // Set up carriers for the display:none reverse gate:
   // (1) a BLUE GeoJson polygon in a foliplus layer pane (SVG vector),
   // (2) a red marker (div-icon),
@@ -14,15 +14,12 @@
   if (!api) return { error: "no LayerAPI" };
 
   // --- Carrier 1: blue GeoJson polygon (SVG vector in a foliplus pane) ---
-  const poly = new L.Polygon(
-    [
-      [26.085, 104.295],
-      [26.085, 104.305],
-      [26.075, 104.305],
-      [26.075, 104.295],
-    ],
-    { color: "rgb(0,0,230)", fillColor: "rgb(0,0,230)", fillOpacity: 0.8, weight: 2 },
-  );
+  const poly = new L.Polygon(fixtures.polygon, {
+    color: "rgb(0,0,230)",
+    fillColor: "rgb(0,0,230)",
+    fillOpacity: 0.8,
+    weight: 2,
+  });
   const vectorGroup = api.createLayers({
     id: "__displaynone_vector__",
     name: "DisplayNone Vector",

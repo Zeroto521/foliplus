@@ -7,14 +7,11 @@
 // decided; this one asserts that the decision now precedes the map add, which
 // is the whole promise of the step. Read the DOM (and the public
 // `getLayerPanes`), not the manager's private records.
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
-  const marker = L.marker([26.08, 119.3]);
-  const poly = L.polyline([
-    [26.05, 119.25],
-    [26.09, 119.25],
-  ]);
+  const marker = L.marker(fixtures.marker);
+  const poly = L.polyline(fixtures.line);
   const fg = L.featureGroup([marker, poly]);
   api.registerLayer({ id: "__immediate_pane__", name: "Immediate", layer: fg });
 

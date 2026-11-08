@@ -38,9 +38,12 @@ import pytest
 from conftest import (
     _js,
     assert_map_unchanged,
+    feature_collection,
     heatmap_ready,
+    load_geojson,
     make_browser_page,
     map_center_zoom,
+    point_feature,
     snippet,
     snippet_fn,
     touch_drag,
@@ -255,16 +258,7 @@ def _dropdown_make_page(browser, tmp_path, *, pseudo: bool = False):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
-        features = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": lat},
-                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                }
-            ],
-        }
+        features = feature_collection(point_feature(lng, lat, {"val": lat}))
         folium.GeoJson(json.dumps(features)).add_to(fg)
         fg.add_to(m)
     LayerControl().add_to(m)
@@ -493,51 +487,18 @@ class TestHeatmapDropdownPanelBrowser:
 
 def _polygon_layer() -> folium.GeoJson:
     """Overlay layer with a numeric property, for the style drawer's ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _points_group() -> folium.FeatureGroup:
     """One point layer, so the heatmap auto-selects it and opens its config."""
     fg = folium.FeatureGroup(name="Points", show=True)
-    gj = json.dumps(
-        {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": 1.0 + i},
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [119.30 + i * 0.01, 26.08],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+    folium.GeoJson(json.dumps(load_geojson("common", "points_fuzhou_3offset"))).add_to(
+        fg
     )
-    folium.GeoJson(gj).add_to(fg)
     return fg
 
 
@@ -602,16 +563,7 @@ def _make_geometry_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
-        features = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": lat},
-                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                }
-            ],
-        }
+        features = feature_collection(point_feature(lng, lat, {"val": lat}))
         folium.GeoJson(json.dumps(features)).add_to(fg)
         fg.add_to(m)
     LayerControl().add_to(m)

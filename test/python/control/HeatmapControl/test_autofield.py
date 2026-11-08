@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import _js, use_page
+from conftest import _js, load_geojson, use_page
 
 from .helper import _make_autofield_page
 
@@ -19,18 +19,7 @@ class TestHeatmapFieldSelectionBrowser:
         ``properties.*`` fields exist for GeoJSON markers, so the first
         property key is returned.
         """
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"population": 100, "density": 50},
-                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-            },
-            {
-                "type": "Feature",
-                "properties": {"population": 200, "density": 30},
-                "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
-            },
-        ]
+        features = load_geojson("HeatmapControl", "autofield_priority")["features"]
         with use_page(_make_autofield_page, tmp_path, browser, features, agg="sum") as (
             page,
             errors,
@@ -84,18 +73,7 @@ class TestHeatmapFieldSelectionBrowser:
 
     def test_single_field(self, browser, tmp_path):
         """Single-field layer resolves that field directly."""
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"elevation": 300},
-                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-            },
-            {
-                "type": "Feature",
-                "properties": {"elevation": 150},
-                "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
-            },
-        ]
+        features = load_geojson("HeatmapControl", "autofield_single")["features"]
         with use_page(_make_autofield_page, tmp_path, browser, features, agg="avg") as (
             page,
             errors,
@@ -146,13 +124,7 @@ class TestHeatmapFieldSelectionBrowser:
         label; without it the row would be a blank select. It is hidden until
         a numeric field exists instead.
         """
-        features = [
-            {
-                "type": "Feature",
-                "properties": {"name": "Alpha", "kind": "city"},
-                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-            },
-        ]
+        features = load_geojson("HeatmapControl", "autofield_text_only")["features"]
         with use_page(_make_autofield_page, tmp_path, browser, features, agg="sum") as (
             page,
             errors,

@@ -162,6 +162,29 @@ const layerIcon = (layer: LeafInternals): HTMLElement | null => layer._icon ?? n
  *  hit targets, so the interactive passes must not see them. */
 const layerShadow = (layer: LeafInternals): HTMLElement | null => layer._shadow ?? null;
 
+/** Detach a marker's icon + drop-shadow DOM before `setIcon` swaps them.
+ *
+ *  `Marker._removeIcon` / `_removeShadow` are Leaflet private methods that
+ *  unpin the marker's `<img>` / shadow element and null the `_icon` /
+ *  `_shadow` back-references. The icon dimension calls this before restoring
+ *  the author's icon: `Icon.Default._createImg` REUSES the existing
+ *  `<img>` when the marker already has one, so an element still carrying a
+ *  swapped glyph would be returned unchanged and `_initIcon` would see it
+ *  already attached — the glyph would survive Reset. Detaching first makes
+ *  `createIcon(null)` build a fresh author `<img>`. Missing hooks are a
+ *  no-op (a DivIcon or shadowless marker simply has none).
+ *
+ *  This is the only place foliplus calls `_removeIcon` / `_removeShadow`;
+ *  a Leaflet upgrade is a one-file problem here, not a grep across the tree. */
+const detachMarkerIcons = (marker: L.Marker): void => {
+  const m = marker as L.Marker & {
+    _removeIcon?: () => void;
+    _removeShadow?: () => void;
+  };
+  m._removeIcon?.();
+  m._removeShadow?.();
+};
+
 /** The DOM nodes a leaf draws itself with — marker icon, SVG path, DivOverlay
  *  container. A given layer populates exactly one of them.
  *
@@ -301,6 +324,7 @@ export {
   layerElements,
   layerIcon,
   layerShadow,
+  detachMarkerIcons,
   layerMap,
   layerUrl,
   primeControlMap,

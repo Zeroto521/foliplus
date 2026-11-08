@@ -9,7 +9,7 @@ keeps the labels the user saw when they pressed Export.
 from __future__ import annotations
 
 import folium
-from conftest import _js, panel_ready, use_page
+from conftest import _js, load_geojson, panel_ready, use_page
 
 from .helper import (
     _install_canvas_hook,
@@ -167,7 +167,10 @@ class TestExportCompositeBrowser:
                 ),
             )
 
-            state = page.evaluate(_js("ExportControl/label_canvas_in_export"))
+            state = page.evaluate(
+                _js("ExportControl/label_canvas_in_export"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             assert state is not None and state["canvas"] is True, state
             assert state["opaqueBefore"] > 0, state
             assert state["sample"] is not None, state
@@ -700,7 +703,10 @@ class TestExportLabelCanvasBrowser:
                 lambda m: warnings.append(m.text) if m.type == "warning" else None,
             )
 
-            state = page.evaluate(_js("ExportControl/label_canvas_in_export"))
+            state = page.evaluate(
+                _js("ExportControl/label_canvas_in_export"),
+                {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
+            )
             assert state is not None and state["canvas"] is True, state
             assert state["opaqueBefore"] > 0, state
 

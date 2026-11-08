@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "housenumber": 42,
+        "name": "A",
+        "country": "C"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [1, 2]
+      }
+    }
+  ]
+}

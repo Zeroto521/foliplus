@@ -1,4 +1,4 @@
-async () => {
+async data => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const ui = ctrl.mgr.ui;
@@ -11,16 +11,7 @@ async () => {
     await new Promise(resolve => requestAnimationFrame(resolve));
   }
 
-  const geo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "p1" },
-        geometry: { type: "Point", coordinates: [119.3, 26.08] },
-      },
-    ],
-  });
+  const geo = L.geoJson(data);
   api.registerLayer({ id: "zr_close", name: "ZRClose", layer: geo });
   ctrl.mgr.enforceOrder();
   // The order pass is debounced; wait for the row before opening its panel,

@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const mg = api.createLayers({
@@ -6,10 +6,7 @@
     name: "PaneTest",
     panes: [{ name: "__pane_test_graph__" }, { name: "__pane_test_label__" }],
   });
-  const poly = L.polyline([
-    [26.08, 119.3],
-    [26.09, 119.31],
-  ]);
+  const poly = L.polyline(fixtures.line);
   mg.mainLayer.addLayer(poly);
   return {
     pane: poly.options.pane,

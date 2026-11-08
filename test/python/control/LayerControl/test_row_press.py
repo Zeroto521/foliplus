@@ -18,11 +18,20 @@ below its anchor, and it flips upward when the space below is the tight side.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
 import folium
-from conftest import _js, make_browser_page, panel_ready, snippet, use_page
+from conftest import (
+    _js,
+    leaflet_path,
+    load_geojson,
+    make_browser_page,
+    panel_ready,
+    snippet,
+    use_page,
+)
 
 from foliplus import LayerControl
 
@@ -194,30 +203,10 @@ class TestRowPressScopeBrowser:
 
 
 def _layer() -> folium.GeoJson:
-    features = [
-        {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.06],
-                        [119.32 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.10],
-                        [119.28 + i * 0.01, 26.06],
-                    ]
-                ],
-            },
-        }
-        for i in range(3)
-    ]
-    return folium.GeoJson(
-        json.dumps({"type": "FeatureCollection", "features": features}),
-        name="Polygon data",
-        show=True,
-    )
+    data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+    for feat in data["features"]:
+        feat["properties"] = {}
+    return folium.GeoJson(json.dumps(data), name="Polygon data", show=True)
 
 
 def _make_page(browser, tmp_path):
@@ -299,14 +288,11 @@ class TestRowHoverCarveoutBrowser:
 def _make_layout_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     LayerControl().add_to(m)
+    base_polygon = leaflet_path("LayerControl", "polygon_row_layout")
     for i in range(n_layers):
         fg = folium.FeatureGroup(name=f"Layer {i:02d}", overlay=True, show=True)
         folium.Polygon(
-            [
-                [26.05 + i * 0.01, 119.27],
-                [26.06 + i * 0.01, 119.33],
-                [26.04 + i * 0.01, 119.30],
-            ],
+            [[lat + i * 0.01, lng] for lat, lng in base_polygon],
             color="#0000ff",
             weight=2,
             fill=True,

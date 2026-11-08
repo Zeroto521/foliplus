@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const api = map.foliplus.LayerAPI;
@@ -127,14 +127,11 @@
     styleProvider: () => ({ labelShow: true }),
   });
   managed.register();
+  managed.addLayer(L.polyline(fixtures.managedLine), "op-probe-graph");
   managed.addLayer(
-    L.polyline([
-      [26.08, 119.5],
-      [26.09, 119.51],
-    ]),
-    "op-probe-graph",
+    L.circleMarker(fixtures.managedPoint, { radius: 5 }),
+    "op-probe-node",
   );
-  managed.addLayer(L.circleMarker([26.085, 119.505], { radius: 5 }), "op-probe-node");
   const managedOpened = setOpacityViaSlider("op_managed");
   const graphPaneEl = map.getPane("op-probe-graph");
   const nodePaneEl = map.getPane("op-probe-node");
@@ -144,29 +141,9 @@
   // labelable field to render the label section, which hosts the opacity row).
   // style: { fillOpacity: 0 } makes it hollow — the pane CSS opacity must not
   // fill it back in (0 × 0.4 = 0, not 0.4).
-  const hollowGeo = L.geoJson(
-    {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          properties: { name: "hollow", value: 1 },
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [119.45, 26.07],
-                [119.45, 26.08],
-                [119.46, 26.08],
-                [119.45, 26.07],
-              ],
-            ],
-          },
-        },
-      ],
-    },
-    { style: { fillOpacity: 0, color: "#000", weight: 2 } },
-  );
+  const hollowGeo = L.geoJson(fixtures.hollow, {
+    style: { fillOpacity: 0, color: "#000", weight: 2 },
+  });
   api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
   ctrl.mgr.enforceOrder();
   const hollowPane = paneOf(hollowGeo);
@@ -182,48 +159,10 @@
   // label pane is deliberately excluded from CSS (baking would
   // double-compound) and the label canvas carries the layerAlpha. A neighbor
   // layer's label pane is unaffected (per-layer pane, not shared).
-  const annotatedGeo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "annotated", value: 1 },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [119.55, 26.1],
-              [119.55, 26.11],
-              [119.56, 26.11],
-              [119.55, 26.1],
-            ],
-          ],
-        },
-      },
-    ],
-  });
+  const annotatedGeo = L.geoJson(fixtures.annotated);
   api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
   // A neighbor layer with its own label, so we can assert isolation.
-  const neighborGeo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "neighbor", value: 1 },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [119.57, 26.1],
-              [119.57, 26.11],
-              [119.58, 26.11],
-              [119.57, 26.1],
-            ],
-          ],
-        },
-      },
-    ],
-  });
+  const neighborGeo = L.geoJson(fixtures.neighbor);
   api.registerLayer({
     id: "op_annotated_nb",
     name: "AnnotatedNb",

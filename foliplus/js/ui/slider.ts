@@ -17,7 +17,7 @@ import { dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
 import { createLogger } from "#common/log.js";
-import { SLIDER } from "#ui/sliderVocabulary.js";
+import { SLIDER_CLASS } from "#common/sliderClassName.js";
 
 const log = createLogger("LayerControl");
 
@@ -80,7 +80,7 @@ const sliderOf = (host: Element | null): Slider | undefined =>
  *  Ending a session commits only when the pointer actually moved, so an
  *  untouched control does not gain a user override. */
 const finishSlidersIn = (root: ParentNode): void => {
-  root.querySelectorAll(`.${SLIDER.ROOT}`).forEach(host => {
+  root.querySelectorAll(`.${SLIDER_CLASS.ROOT}`).forEach(host => {
     if (host instanceof HTMLElement) INSTANCES.get(host)?.finish();
   });
 };
@@ -146,7 +146,7 @@ const ensureBubble = (): HTMLElement => {
   let el = bubbleEl;
   if (!el) {
     el = dom.el("div", {
-      class: SLIDER.BUBBLE,
+      class: SLIDER_CLASS.BUBBLE,
       "aria-hidden": "true",
     });
     el.hidden = true;
@@ -240,24 +240,24 @@ class Slider {
     if (this.range) this.values.sort((a, b) => a - b);
 
     this.root = host;
-    host.classList.add(SLIDER.ROOT);
+    host.classList.add(SLIDER_CLASS.ROOT);
     host.dataset.mode = this.range ? "range" : "single";
     if (this.range) {
       host.setAttribute("role", "group");
       host.setAttribute("aria-label", this.opts.label);
     }
 
-    this.track = dom.el("div", { class: SLIDER.TRACK });
-    this.rail = dom.el("div", { class: SLIDER.RAIL });
-    this.fill = dom.el("div", { class: SLIDER.FILL });
+    this.track = dom.el("div", { class: SLIDER_CLASS.TRACK });
+    this.rail = dom.el("div", { class: SLIDER_CLASS.RAIL });
+    this.fill = dom.el("div", { class: SLIDER_CLASS.FILL });
     this.rail.appendChild(this.fill);
-    this.marksLayer = dom.el("div", { class: SLIDER.MARKS });
-    this.valuesRow = dom.el("div", { class: SLIDER.VALUES });
+    this.marksLayer = dom.el("div", { class: SLIDER_CLASS.MARKS });
+    this.valuesRow = dom.el("div", { class: SLIDER_CLASS.VALUES });
     this.track.append(this.rail, this.marksLayer);
 
     this.values.forEach((_, index) => {
       const thumb = dom.el("div", {
-        class: SLIDER.THUMB,
+        class: SLIDER_CLASS.THUMB,
         role: "slider",
         tabindex: "0",
         "data-index": String(index),
@@ -388,7 +388,7 @@ class Slider {
 
   /** Mirror the ARIA state onto the thumbs and the group. */
   private applyAria(): void {
-    this.root.classList.toggle(SLIDER.DISABLED, this.disabled);
+    this.root.classList.toggle(SLIDER_CLASS.DISABLED, this.disabled);
     const described = this.opts.describedBy;
     this.thumbs.forEach(thumb => {
       thumb.tabIndex = this.disabled ? -1 : 0;
@@ -494,8 +494,8 @@ class Slider {
     this.valuesRow.replaceChildren();
     if (!this.opts.values) return;
     this.valuesRow.append(
-      dom.el("span", { class: SLIDER.VALUE_MIN }, this.opts.values.min),
-      dom.el("span", { class: SLIDER.VALUE_MAX }, this.opts.values.max),
+      dom.el("span", { class: SLIDER_CLASS.VALUE_MIN }, this.opts.values.min),
+      dom.el("span", { class: SLIDER_CLASS.VALUE_MAX }, this.opts.values.max),
     );
     this.renderCurrent();
   }
@@ -505,7 +505,7 @@ class Slider {
     this.currentEl = null;
     const current = this.opts.current;
     if (!current || !this.opts.values) return;
-    const label = dom.el("span", { class: SLIDER.VALUE_CURRENT }, current.text);
+    const label = dom.el("span", { class: SLIDER_CLASS.VALUE_CURRENT }, current.text);
     this.currentEl = label;
     this.valuesRow.appendChild(label);
   }
@@ -514,7 +514,9 @@ class Slider {
     this.marksLayer.replaceChildren();
     this.dotEls = (this.opts.marks ?? []).map(mark => {
       const dot = dom.el("span", {
-        class: SLIDER.DOT + (mark.tone === "current" ? ` ${SLIDER.DOT_CURRENT}` : ""),
+        class:
+          SLIDER_CLASS.DOT +
+          (mark.tone === "current" ? ` ${SLIDER_CLASS.DOT_CURRENT}` : ""),
         "data-at": String(mark.at),
         "aria-hidden": "true",
       });
@@ -555,7 +557,7 @@ class Slider {
     for (const dot of this.dotEls) {
       const at = Number(dot.dataset.at);
       dot.style.left = `${this.visualPct(at)}%`;
-      dot.classList.toggle(SLIDER.DOT_COVERED, at >= lo && at <= hi);
+      dot.classList.toggle(SLIDER_CLASS.DOT_COVERED, at >= lo && at <= hi);
     }
 
     if (this.currentEl && this.opts.current) {
@@ -564,7 +566,7 @@ class Slider {
       const gap = current.hideGapPct ?? 0;
       const nearEnd =
         gap > 0 && (this.pct(current.at) < gap || this.pct(current.at) > 100 - gap);
-      this.currentEl.classList.toggle(SLIDER.LABEL_HIDDEN, nearEnd);
+      this.currentEl.classList.toggle(SLIDER_CLASS.LABEL_HIDDEN, nearEnd);
     }
 
     if (this.active >= 0) this.updateBubble();
@@ -618,7 +620,7 @@ class Slider {
     } catch {
       // Pointer capture is an optimisation; the element listeners still fire.
     }
-    this.thumbs[index].classList.add(SLIDER.DRAGGING);
+    this.thumbs[index].classList.add(SLIDER_CLASS.DRAGGING);
     this.thumbs[index].focus({ preventScroll: true });
     // A press on a stacked pair is ambiguous and waits for the first movement:
     // applying the press position would move one thumb off the stack and turn
@@ -636,7 +638,7 @@ class Slider {
     const drag = this.drag;
     if (!drag) return;
     this.drag = null;
-    this.thumbs[drag.index]?.classList.remove(SLIDER.DRAGGING);
+    this.thumbs[drag.index]?.classList.remove(SLIDER_CLASS.DRAGGING);
     this.hideBubble();
     if (commit && drag.dirty) this.emit("change");
   }

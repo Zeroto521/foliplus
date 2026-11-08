@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const ctrl = window.__layerCtrl;
   const mgr = ctrl && ctrl.mgr.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
@@ -9,12 +9,9 @@
     name: "Vis",
     panes: [{ name: "__vis_pane__" }],
   });
-  for (const [lat, lng, text] of [
-    [26.08, 119.3, "alpha"],
-    [26.09, 119.31, "beta"],
-  ]) {
-    const m = L.marker([lat, lng]);
-    m.feature = { properties: { name: text } };
+  for (const f of fixtures.points.features) {
+    const m = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+    m.feature = { properties: f.properties };
     g.mainLayer.addLayer(m);
   }
   mgr.setConfig("__vis__", { show: true, field: "name", format: "auto" });
