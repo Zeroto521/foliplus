@@ -29,6 +29,7 @@ import {
 import { dom } from "#common/dom.js";
 import { bindDismiss } from "#ui/dismiss.js";
 import { formRow } from "#ui/index.js";
+import { nextOptionId } from "#ui/optionRow.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -250,6 +251,7 @@ const buildGlyphGrid = (
         role: "gridcell",
         title: glyph,
         "data-glyph": glyph,
+        id: nextOptionId("icon-cell"),
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
       { html: glyphHtml(glyph) },
@@ -278,6 +280,9 @@ const buildGlyphGrid = (
     mode: "roving",
     cols: GLYPH_GRID_COLS,
     roles: { list: "grid", item: "gridcell" },
+    // Cells carry their own role/id from the shared id source below; the
+    // cursor only paints focus + aria-activedescendant.
+    paintOptionContract: false,
     // Enter/Space on a focused cell commits + closes (the cell's click).
     onActivate: (_, el) => (el as HTMLButtonElement).click(),
   });

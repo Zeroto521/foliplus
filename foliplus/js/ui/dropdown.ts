@@ -25,7 +25,8 @@
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
-import { type DropdownSurface, applyOptionA11y, createListbox } from "./listbox.js";
+import { type DropdownSurface, createListbox } from "./listbox.js";
+import { applyOptionRowA11y } from "./optionRow.js";
 
 const log = createLogger("dropdown");
 
@@ -401,5 +402,5 @@ const activateRow = (state: InternalState, index: number): void => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { applyOptionA11y, createDropdown, dropdownOf };
+export { applyOptionRowA11y, createDropdown, dropdownOf };
 export type { Dropdown, DropdownSurface };
