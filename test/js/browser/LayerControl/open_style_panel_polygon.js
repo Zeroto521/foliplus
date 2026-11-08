@@ -1,5 +1,5 @@
 // Opens the ⋮ → Style panel of the polygon row specifically: the point group
-// sorts first in this fixture and has no fill arm the ramp trigger needs.
+// sorts first in this fixture and has no fill mode the ramp trigger needs.
 () => {
   const rows = [
     ...document.querySelectorAll(".foliplus-layer-item[data-layer-type=overlay]"),

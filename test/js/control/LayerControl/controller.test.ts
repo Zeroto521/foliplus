@@ -1036,7 +1036,7 @@ describe("LayerController", () => {
   });
 
   it("onLayerAdd stays silent when no pending entry can claim the arriving layer", () => {
-    // The other arm: a registration that already carries its layer is not
+    // The other branch: a registration that already carries its layer is not
     // "late", so an unrelated add must not manufacture a change — and a
     // pending entry whose resolved object is a *different* layer must not
     // claim it either.
@@ -2634,7 +2634,7 @@ describe("LayerController", () => {
     const fresh = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
 
-    // Default "redraw" arm: CSS live + layerAlpha stored.
+    // Default "redraw" branch: CSS live + layerAlpha stored.
     expect(fresh.style.opacity).toBe("0.4");
     expect(getLayerAlpha(fresh)).toBeCloseTo(0.4);
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);

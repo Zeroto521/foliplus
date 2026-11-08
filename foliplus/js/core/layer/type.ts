@@ -231,6 +231,12 @@ interface RegisterLayerOpts {
    *  field carries the author's display spelling — the grouping identity is
    *  `normalizeFolderName(folder)`. */
   folder?: string | null;
+  /** Author's declared filter (CONFIG `data[].filter`, normalised by Python's
+   *  `normalise_layer_filter` to the shared filter AST). This is the declared
+   *  default that becomes the layer's initial committed filter; the controller
+   *  keeps the `filter` slot in sync with the write-through. Absent means the
+   *  author did not declare one. */
+  filter?: LayerFilter | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -265,7 +271,7 @@ interface RegisterLayerOpts {
    *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
    *      the CSS so the two never compound. Default; heatmap uses this.
-   *  Drawers must always read layerAlpha via the shared helper so both arms
+   *  Drawers must always read layerAlpha via the shared helper so both paths
    *  of the dual path render the same pixels. */
   opacityBake?: "commit" | "redraw";
   canvas?: HTMLCanvasElement | null;

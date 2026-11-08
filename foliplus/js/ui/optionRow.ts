@@ -35,7 +35,13 @@ const applyOptionRowA11y = (opts: OptionRowA11y): void => {
 /** The single id source for option rows that need an aria-activedescendant
  *  target. Prefix distinguishes surfaces (listbox picker rows vs
  *  SearchControl result rows) so ids stay unique per surface while flowing
- *  from one generator. */
+ *  from one generator.
+ *
+ *  The counter is module-level and intentionally NEVER reset: ids must stay
+ *  unique across every surface for the lifetime of the page, because
+ *  aria-activedescendant points at a row by id and a recycled id could point
+ *  at a stale row. Do not "fix" this into a per-surface counter - that would
+ *  reintroduce the two-source id drift this module exists to remove. */
 const nextOptionId = (prefix: string): string =>
   `foliplus-${prefix}-${String(++optionIdCounter)}`;
 
