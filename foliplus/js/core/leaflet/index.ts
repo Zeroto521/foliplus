@@ -39,6 +39,7 @@ export {
   isIconLeaf,
   resetIconLeaves,
 } from "./markerIcon.js";
+export type { AuthorGlyph } from "./markerIcon.js";
 export {
   PICKER_GLYPHS,
   glyphAvailable,

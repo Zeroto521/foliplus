@@ -1942,7 +1942,11 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
         clientY: 7,
         button: 0,
       } as MouseEventInit);
-    track.dispatchEvent(pointer("pointerdown", 25));
+    // Grab the lower thumb itself: the committed band [10,20] spans x 0..50,
+    // and a press in that segment now pans the pair (the pan feature's grab
+    // region). The echo-suppression contract is what this test covers, so it
+    // drags the handle instead of the band.
+    track.dispatchEvent(pointer("pointerdown", 0));
     track.dispatchEvent(pointer("pointermove", 25));
     track.dispatchEvent(pointer("pointerup", 25));
 
