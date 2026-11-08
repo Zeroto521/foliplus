@@ -5,7 +5,7 @@
 //   [ listed folders (folderOrder) in list order, unlisted folders by anchor,
 //     root layers (no folder) in anchor order ].
 //
-// The design is frozen at .foliplus/design/folder-order.md (task-64 rev2):
+// The design is frozen at .foliplus/design/folder-order.md (rev 2):
 //   - identity key = (section, normalize(name)); normalize = NFC → whitespace
 //     fold → trim → casefold (locale-independent).
 //   - displayName = first-seen original (trim only) — never used for
