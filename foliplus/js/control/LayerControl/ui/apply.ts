@@ -40,9 +40,8 @@ import {
   HIDDEN,
   PANE_ROLE,
   carrierTargetOf,
-  getLayerAlpha,
-  setLayerAlpha,
 } from "#core/layer/index.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's

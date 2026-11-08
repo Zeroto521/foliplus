@@ -2,7 +2,7 @@
 // and value labels. No `this` dependency: map and style values are passed
 // in explicitly.
 import type { HexFeature } from "./type.js";
-import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
+import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { formatLabelNumber } from "#platform/format.js";

@@ -24,7 +24,6 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { type DropdownSurface, createListbox } from "./listbox.js";
-import { applyOptionRowA11y } from "./optionRow.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
 
