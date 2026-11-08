@@ -15,7 +15,4 @@ const STYLE_MODE = {
   BY_VALUE: "style_mode_by_value",
 } as const;
 
-// The mode values a style panel may carry (border/fill row values).
-const STYLE_MODES = ["original", "single", "by_value"] as const;
-
-export { STYLE_MODE, STYLE_MODES };
+export { STYLE_MODE };
