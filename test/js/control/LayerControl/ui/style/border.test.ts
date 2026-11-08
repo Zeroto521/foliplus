@@ -1669,13 +1669,13 @@ describe("content-change replay", () => {
   });
 });
 
-// ── C1–C8: value-based stroke wiring (spec §5) ──────────────────────────────────────────────
+// ── C1–C7: value-based stroke wiring (spec §5) ──────────────────────────────────────────────
 //
 // These exercise the WIRING, not the engine (strokeValue.test.ts owns the
 // engine): applyBorderToLayer must dispatch to applyValueStroke when the
-// derived border mode is 'value', and the border row must expose the
-// three-state mode select. The layer fixture is a group-like parent whose
-// feature leaves carry `feature.properties.count` so numericFields resolves.
+// border mode is 'value', and the border row must expose the mode select.
+// The layer fixture is a group-like parent whose feature leaves carry
+// `feature.properties.count` so numericFields resolves.
 
 /** Install a chroma stub returning a fixed color list — the same shape the
  *  engine tests use, so a ramp build is deterministic. */
@@ -1747,7 +1747,7 @@ const registerFeatureLayer = (
   ui.runtimeStore.setFields(id, [{ name: "count", numeric: true }]);
 };
 
-describe("value-stroke wiring (C1–C8)", () => {
+describe("value-stroke wiring (C1–C7)", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
@@ -1767,10 +1767,9 @@ describe("value-stroke wiring (C1–C8)", () => {
 
   // C1: same value domain on fill and stroke — with the same classify +
   // palette, a value-classified fill and a value-classified border paint the
-  // same value the same color on both faces. applyBorderToLayer derives its
-  // ramp from the fill's when no border ramp is stored (C8's derivation), so
-  // this also pins that the derived border ramp paints the same color the
-  // fill arm produced.
+  // same value the same color on both faces. The border owns its value config
+  // independently (no cross-face derivation): both faces carry the same
+  // explicit config, so the same classify must produce the same color.
   it("C1 paints the same value domain the same color on fill and stroke", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
@@ -1780,8 +1779,9 @@ describe("value-stroke wiring (C1–C8)", () => {
     applyFillToLayer(ui, "vec1");
     const fillColors = leaves.map(l => l.options.fillColor);
 
-    // Then the border, with no explicit border ramp: C8 derivation says it
-    // follows the fill ramp, so the same classify must paint the same color.
+    // Then the border, with its own explicit value config + value mode.
+    setIntent(ui, "vec1", "borderValue", countRamp());
+    setIntent(ui, "vec1", "borderMode", "value");
     applyBorderToLayer(ui, "vec1");
 
     // The stroke write is a per-leaf setStyle with the value color.
@@ -1900,24 +1900,9 @@ describe("value-stroke wiring (C1–C8)", () => {
     });
   });
 
-  // C8: fill-only — no explicit border ramp — the border derives the fill
-  // ramp and paints the same color the fill arm painted.
-  it("C8 a fill-only classification paints the border with the same color", () => {
-    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
-    registerFeatureLayer(manager, ui, "vec1", leaves);
-    setIntent(ui, "vec1", "fillValue", countRamp());
-
-    // No border intent at all: the fill paints, then the border derives it.
-    applyFillToLayer(ui, "vec1");
-    const fillColors = leaves.map(l => l.options.fillColor);
-
-    applyBorderToLayer(ui, "vec1");
-
-    leaves.forEach((leaf, idx) => {
-      const strokeCall = leaf.setStyle.mock.calls.at(-1)?.[0];
-      expect(strokeCall).toMatchObject({ color: fillColors[idx], stroke: true });
-    });
-  });
+  // C8 removed: the border no longer derives the fill ramp (the "follow
+  // fill" cross-face rule is gone). A fill-only classification paints the
+  // border nothing — the border paints only its own explicit config.
 });
 
 describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
@@ -1967,10 +1952,11 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("T1 seeds a numeric value config and shows the value detail when the user picks by value", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Follow arm (default): the block carries the three-state select and a solid detail.
+    // Original arm (default on a polygon border): the block carries the
+    // mode select and a solid detail; no value field rows are shown.
     const select = modeSelectOf(block);
     expect(select).not.toBeNull();
-    expect(select!.value).toBe("follow");
+    expect(select!.value).toBe("original");
     expect(block.querySelector(".foliplus-style-border-detail")).not.toBeNull();
     expect(block.querySelector(".foliplus-style-fill-field-select")).toBeNull();
 
@@ -1992,16 +1978,15 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Display arm is still follow (no mode intent), so the detail is solid,
+    // Display arm is original (no mode intent), so the detail is solid,
     // but the stored config is the seed for a later value switch.
     changeSelect(modeSelectOf(block), "value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
-  it("T3 derives the seed from the fill value when no border value is stored", () => {
+  it("T3 seeds a numeric value config from the first numeric field", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
-    setIntent(ui, "vec1", "fillValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
     changeSelect(modeSelectOf(block), "value");
     const seeded = getIntent(ui, "vec1", "borderValue");
@@ -2031,7 +2016,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(seeded).toMatchObject({ field: "count" });
   });
 
-  it("T5 follow mode clears the border mode intent", () => {
+  it("T5 original mode clears the border mode intent", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderMode", "value");
@@ -2039,9 +2024,9 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const block = openBorderRow(manager, ui, "vec1", leaves);
     const select = modeSelectOf(block);
     expect(select!.value).toBe("value");
-    changeSelect(select, "follow");
+    changeSelect(select, "original");
     expect(getIntent(ui, "vec1", "borderMode")).toBeUndefined();
-    // The value config survives a follow switch (it stays stored for reuse).
+    // The value config survives an original switch (it stays stored for reuse).
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
@@ -2097,9 +2082,9 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     dim.write!(ui, "vec1", { mode: "value", value: countRamp() });
     expect(getIntent(ui, "vec1", "borderMode")).toBe("value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
-    // Follow: write mode undefined clears the mode intent, keeps the value.
-    dim.write!(ui, "vec1", { mode: undefined });
-    expect(getIntent(ui, "vec1", "borderMode")).toBeUndefined();
+    // Write mode present writes it; mode undefined is a no-op (no follow arm).
+    dim.write!(ui, "vec1", { mode: "solid" });
+    expect(getIntent(ui, "vec1", "borderMode")).toBe("solid");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 

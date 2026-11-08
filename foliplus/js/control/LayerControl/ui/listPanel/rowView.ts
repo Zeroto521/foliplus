@@ -42,8 +42,8 @@ interface RowCell {
   /** The type icon's markup, or "" when nothing should be painted. */
   typeSvg: string;
   typeLabel: string;
-  /** Short type word for the row tooltip only, never the attrs panel's
-   *  long type wording. */
+  /** Short type word for the row tooltip only (点/Point), never the attrs
+   *  panel's "点图层/Point Layer" wording. */
   titleTypeLabel?: string;
   /** True when the row's owner reports a committed filter (kept < total). */
   filtered?: boolean;
@@ -162,8 +162,8 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
   const typeLabel = ui.T(type.key);
-  // Row tooltips say the short type word (Point, Map) for a base row; the
-  // attrs panel keeps the long type wording (Point Layer, Tile Map). The base
+  // Row tooltips say 点/Point and 地图/Map for a base row; the attrs panel
+  // keeps the long 点图层/Point Layer and 瓦片底图/Tile Map labels. The base
   // row's pair is type_tile_map + type_tile_map_short so both words name the
   // row itself without borrowing the color row's vocabulary. `type.key` is
   // dynamic, so the short keys are listed in the locale guard's supplement.
@@ -171,7 +171,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // The filter belongs to the row whose capability declares it: the funnel
   // and count report that owner's own unit (Heatmap = hex cells, a point
   // layer = features). The column stays compact ("2.5K"); the hover title is
-  // the full report ("2,500 / 6,000 filtered · Point"), never the layer name.
+  // the full report ("2,500 / 6,000 filtered · 点"), never the layer name.
   const filterModel =
     typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
   const filtered = Boolean(filterModel?.filter);

@@ -27,6 +27,7 @@ import {
   CAP_TIER,
   DIM,
   FILL_MODE,
+  GEOM_TYPE,
   type FillMode,
   type FillValueConfig,
 } from "#core/layer/index.js";
@@ -51,16 +52,11 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#ui/index.js";
-import { STYLE_MODE } from "#ui/styleVocabulary.js";
+import { STYLE_MODE } from "#ui/styleModeKeys.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { INTENT, type IntentKey, clearIntent, getIntent } from "../intent.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import {
-  buildValueDetail,
-  effectiveFillValue,
-  numericFields,
-  resolvedValue,
-} from "./fill.js";
+import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -178,24 +174,22 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
 
 /** The border's value config — the config the stroke classifies by.
  *
- *  C8 derivation: an explicit border value the user stored wins; otherwise
- *  the border follows the fill's own value config (effectiveFillValue), so a
- *  fill-only classification paints the same value domain on both faces. The
- *  derived arm is the same rule resolveStrokeMode applies (mode or (value ?
- *  value : solid)), so the row and the paint path cannot disagree about
- *  which arm is active when only the fill side was configured. */
+ *  The border owns its value independently of the fill face: no cross-face
+ *  derivation (the former C8 cross-face rule is gone). A line layer's
+ *  border paints by its own value config; a polygon/point layer's border is
+ *  only the outline and never classifies by value (two states only). */
 const effectiveBorderValue = (
   ui: LayerUI,
   layerId: string,
 ): FillValueConfig | undefined =>
-  getIntent(ui, layerId, INTENT.BORDER_VALUE) ?? effectiveFillValue(ui, layerId);
+  getIntent(ui, layerId, INTENT.BORDER_VALUE);
 
 /** The arm the border row shows and the stroke paints.
  *
- *  mode or (value ? value : solid) — the shared stroke resolver, so a
- *  borderMode intent and a derived fill value agree on what the engine does.
- *  A stored mode always wins; a mode-less border defers to whether a value
- *  value exists (own, derived from fill, or a declared fill value). */
+ *  mode or (value ? value : solid) — the shared stroke resolver. A stored
+ *  mode always wins; a mode-less border defers to whether an own value
+ *  exists. No fill-side fallback: the border never inherits the fill's
+ *  config. */
 const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
   resolveStrokeMode(
     getIntent(ui, layerId, INTENT.BORDER_MODE),
@@ -203,8 +197,8 @@ const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
   );
 
 /** Whether a value config is actually in force on the border face. The value
- *  arm is active exactly when the derived mode is value and a value exists;
- *  anything else paints the solid path. */
+ *  arm is active exactly when the mode is value and a value exists; anything
+ *  else paints the solid path. */
 const borderValueActive = (ui: LayerUI, layerId: string): boolean =>
   effectiveBorderMode(ui, layerId) === FILL_MODE.VALUE &&
   effectiveBorderValue(ui, layerId) !== undefined;
@@ -222,10 +216,11 @@ const borderSeedField = (
 };
 
 /** The config the border value detail displays and writes from. The chain
- *  mirrors fill's valueForUi: the stored border value, then the derived fill
- *  value, then a seeded default. A stored field the current data no longer
- *  offers is resolved through the shared resolveField rule — the same rule
- *  the paint side uses, so the row and the map cannot disagree. */
+ *  mirrors fill's valueForUi: the stored border value, then a seeded default.
+ *  No fill-side derivation — the border owns its value independently. A
+ *  stored field the current data no longer offers is resolved through the
+ *  shared resolveField rule — the same rule the paint side uses, so the row
+ *  and the map cannot disagree. */
 const borderValueForUi = (
   ui: LayerUI,
   layerId: string,
@@ -237,8 +232,6 @@ const borderValueForUi = (
     getIntent(ui, layerId, INTENT.BORDER_VALUE),
   );
   if (stored) return stored;
-  const derived = resolvedValue(ui, layerId, effectiveFillValue(ui, layerId));
-  if (derived) return derived;
   return {
     kind: "numeric",
     field: borderSeedField(ui, layerId, fields),
@@ -273,15 +266,8 @@ const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
 const writeBorderMode = (
   ui: LayerUI,
   layerId: string,
-  mode: FillMode | undefined,
+  mode: FillMode,
 ): boolean => {
-  if (mode === undefined) {
-    // Follow fill: drop the border's own mode arm so the derived fill value
-    // decides. The value stays (a solid border keeps its independent value
-    // for the next by-value switch).
-    getDimension(DIM.BORDER)!.write!(ui, layerId, { mode: undefined });
-    return true;
-  }
   if (mode === FILL_MODE.VALUE) {
     const fields = numericFields(ui, layerId);
     if (fields.length === 0) return false;
@@ -579,18 +565,38 @@ const disposeBorderRow = (ui: LayerUI): void => {
   borderSchemePickerByUi.delete(ui);
 };
 
-/** The border mode the row's select shows: 'follow' when no borderMode
- *  intent is stored (the arm defers to the derived fill value), else the
- *  stored solid/value arm. */
-const displayBorderMode = (ui: LayerUI, layerId: string): string => {
+/** The border mode the row's select shows. The default is "original"
+ *  (the author's own stroke). A stored "by_value" on a polygon/point layer —
+ *  where the border is only the outline and never classifies by value — reads
+ *  as the illegal value and falls back to "original"; no compatibility
+ *  migration is performed. */
+const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
-  return stored ?? "follow";
+  if (stored === undefined) return FILL_MODE.ORIGINAL;
+  if (stored === FILL_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
+    return FILL_MODE.ORIGINAL;
+  }
+  return stored;
+};
+
+/** Whether the border face can paint by value: the border is the element's
+ *  own primary colour only on a line. Polygon/point borders are the outline
+ *  and never classify by value (two states only: original + single). */
+const borderCarriesValue = (ui: LayerUI, layerId: string): boolean =>
+  geometryKindOf(ui, layerId) === GEOM_TYPE.LINE;
+
+/** The geometry category of a border-capable layer, resolved from the
+ *  surface (never a layer-name/type-string guess). */
+const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return null;
+  return ui.c.surfaceFor(layerInfo).geometryType();
 };
 
 /** Render the detail slot for the active border arm into the block's
  *  detail element. Called on open and after every mode switch. */
 /** The detail arm the border block renders for the current display mode:
- *  'follow' and 'solid' both show the solid controls; only an explicit
+ *  'original' and 'solid' both show the solid controls; only an explicit
  *  'value' choice shows the value controls. */
 const borderDetailMode = (ui: LayerUI, layerId: string): FillMode =>
   displayBorderMode(ui, layerId) === FILL_MODE.VALUE
@@ -620,9 +626,14 @@ const renderBorderDetail = (
   }
 };
 
-/** Build the border row block: the three-state mode select (follow fill /
- *  solid / by value) plus the active arm's detail slot. A layer with no
- *  numeric field has no mode select and only owns the solid controls. */
+/** Build the border row block: the mode select (three states for a line,
+ *  two for polygon/point) plus the active arm's detail slot. A layer with no
+ *  numeric field has no mode select and only owns the solid controls.
+ *
+ *  The three-state vocabulary applies only where the border IS the element's
+ *  primary colour (a line). A polygon/point border is the outline and offers
+ *  only original + single; the by_value arm would duplicate the fill's own
+ *  value config on the same face. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = numericFields(ui, layerId);
   const block = dom.el("div", {
@@ -633,13 +644,13 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     block.append(buildSolidBorderDetail(ui, layerId));
     return block;
   }
-  // Follow Fill semantics: the border uses the fill's by-value result
-  // directly (no separate value field); it falls back to Solid when the
-  // fill is single-color or original.
+  const carriesValue = borderCarriesValue(ui, layerId);
   const options = [
-    { value: "follow", label: ui.T(STYLE_MODE.FOLLOW_FILL) },
+    { value: FILL_MODE.ORIGINAL, label: ui.T(STYLE_MODE.ORIGINAL) },
     { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
-    { value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) },
+    ...(carriesValue
+      ? [{ value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) }]
+      : []),
   ];
   const modeRow = buildModeRow({
     label: ui.T("style_border_mode"),
@@ -786,13 +797,12 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     `.${CONST.CLASSES.STYLE_BORDER_DETAIL}`,
   ) as HTMLElement | null;
   select.onchange = () => {
-    // Compare against the DISPLAY mode (what the select shows), not the
-    // derived effective mode: a follow state where the fill is by-value
-    // already paints by value (effective='value') but the select shows
-    // 'follow' — clicking 'value' must still write the explicit arm.
+    // Compare against the DISPLAY mode (what the select shows), so a
+    // polygon/point layer whose stored mode reads as original again does not
+    // re-write the same arm.
     const previous = displayBorderMode(ui, layerId);
     const raw = select.value;
-    const next: FillMode | undefined = raw === "follow" ? undefined : (raw as FillMode);
+    const next = raw as FillMode;
     if (next === previous) return;
     if (!writeBorderMode(ui, layerId, next)) return;
 
@@ -841,12 +851,9 @@ const BORDER_DIMENSION = registerDimension<{
     if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
     if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
     if (value !== undefined) writes.push([INTENT.BORDER_VALUE, value]);
-    // 'mode' present with an undefined value means 'follow fill': clear the
-    // stored border mode so the derived fill value decides the arm.
-    if ("mode" in patch) {
-      if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
-      else clearIntent(ui, layerId, INTENT.BORDER_MODE);
-    }
+    // 'mode' present writes the explicit arm; an omitted mode leaves the
+    // stored border mode alone (no cross-face derivation exists any more).
+    if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleBorderApply(ui, layerId);
   },

@@ -175,8 +175,9 @@ const CLASSES = {
   STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",
   /** Border mode block: the mode row plus the active arm's detail rows —
    *  the same block/detail shape as the fill mode block, so the two rows
-   *  read identically. The mode select is three-state (follow fill / solid /
-   *  by value) and the detail rows reuse the STYLE_FILL_* control classes
+   *  read identically. The mode select is three-state on a line (original /
+   *  single / by value) and two-state on polygon/point (original / single),
+   *  and the detail rows reuse the STYLE_FILL_* control classes
    *  (they describe the control shape, not the dimension). */
   STYLE_BORDER_MODE_SELECT: "foliplus-style-border-mode-select",
   STYLE_BORDER_DETAIL: "foliplus-style-border-detail",
