@@ -1237,7 +1237,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("canvas layers with opacityBake 'redraw' keep CSS on the slider commit", () => {
-    // Heatmap arm (default): CSS live feedback, bake deferred to redraw.
+    // Heatmap mode (default): CSS live feedback, bake deferred to redraw.
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -1254,14 +1254,14 @@ describe("LayerUI style panel", () => {
 
     sliderOf(host)!.setValue(40);
 
-    // CSS arm for live feedback; layerAlpha is stored for the next redraw.
+    // CSS mode for live feedback; layerAlpha is stored for the next redraw.
     expect(li.canvas!.style.opacity).toBe("0.4");
     expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
     expect(li.opacity).toBe(0.4);
   });
 
   it("canvas layers with opacityBake 'commit' bake and clear CSS", () => {
-    // Color-face arm: bake on the commit itself, CSS cleared.
+    // Color-face mode: bake on the commit itself, CSS cleared.
     manager.registerLayer({
       id: "color1",
       name: "Color",
@@ -1283,7 +1283,7 @@ describe("LayerUI style panel", () => {
     expect(li.opacity).toBe(0.4);
   });
 
-  it("commit arm fires onOpacity when the layer registered one (branch cover)", () => {
+  it("commit mode fires onOpacity when the layer registered one (branch cover)", () => {
     const onOpacity = vi.fn();
     manager.registerLayer({
       id: "color2",

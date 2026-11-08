@@ -265,7 +265,7 @@ interface RegisterLayerOpts {
    *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
    *      the CSS so the two never compound. Default; heatmap uses this.
-   *  Drawers must always read layerAlpha via the shared helper so both arms
+   *  Drawers must always read layerAlpha via the shared helper so both paths
    *  of the dual path render the same pixels. */
   opacityBake?: "commit" | "redraw";
   canvas?: HTMLCanvasElement | null;

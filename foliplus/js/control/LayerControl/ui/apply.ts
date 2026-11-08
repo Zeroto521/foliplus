@@ -275,7 +275,7 @@ const dispatchStateOp = (
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
-      // R11: layer alpha for self-drawn canvases. Two arms, one helper
+      // R11: layer alpha for self-drawn canvases. Two branches, one helper
       // (`#common/canvasAlpha`), switched by `opacityBake`:
       //
       //   "commit"  — bake layerAlpha and redraw on the slider commit.

@@ -177,13 +177,13 @@ class LayerControl(BaseControl):
     +=============+=================================================+====================================================================================================================================================================+
     | ``field``   | required — naming one turns value-based fill on | the numeric or categorical feature property to classify                                                                                                            |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``kind``    | inferred from the layer's own values            | the arm (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops the declaration |
+    | ``kind``    | inferred from the layer's own values            | the variant (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops it          |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``method``  | ``jenks``                                       | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)                                                                                           |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``classes`` | ``6``                                           | number of classes, an integer from 2 to 9 (the panel's maximum)                                                                                                    |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``scheme``  | ``Viridis`` (``Set3`` for a category arm)       | palette name (the style panel's own candidates)                                                                                                                    |
+    | ``scheme``  | ``Viridis`` (``Set3`` for a category variant)   | palette name (the style panel's own candidates)                                                                                                                    |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
     How a ``fill`` declaration is resolved:
