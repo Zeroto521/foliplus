@@ -4,6 +4,7 @@ import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import indexSource from "#control/LayerControl/ui/index?raw";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
 import {
@@ -956,5 +957,26 @@ describe("icon dimension descriptor", () => {
     m2?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+  });
+});
+
+describe("icon rehydrate drift guard", () => {
+  it("replays icon on attach alongside border/fill/size", () => {
+    // The attach replay block in ui/index.ts walks every layer the user
+    // touched and re-applies the stored style dimensions. If icon is missing
+    // from that sequence, a persisted glyph is written on first load but
+    // never repainted — the user picks an icon, reloads, and the marker
+    // falls back to the default. Pin icon into the same block as the other
+    // dimensions so this cannot regress silently.
+    const replayBlock = indexSource.slice(
+      indexSource.indexOf("applyBorderToLayer(this, layerId);"),
+      indexSource.indexOf("} // author-declared fills") !== -1
+        ? indexSource.indexOf("} // author-declared fills")
+        : indexSource.indexOf("applySizeToLayer(this, layerId);") + 80,
+    );
+    expect(replayBlock).toContain("applyBorderToLayer(this, layerId);");
+    expect(replayBlock).toContain("replayFillState(this, layerId);");
+    expect(replayBlock).toContain("applySizeToLayer(this, layerId);");
+    expect(replayBlock).toContain("applyIconToLayer(this, layerId);");
   });
 });
