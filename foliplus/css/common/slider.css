@@ -78,6 +78,22 @@
     left var(--foliplus-transition-fast),
     width var(--foliplus-transition-fast);
 }
+/* The middle segment (between the thumbs) pans the pair: the track shows a
+   grab cursor while the pointer sits in it and grabbing while a pan runs.
+   The fill itself stays pointer-events: none, so a press there still lands on
+   the track (the single hit-test in onTrackDown) — the cursor is painted on
+   the track, not the fill. */
+.foliplus-slider-track.can-pan {
+  cursor: grab;
+}
+.foliplus-slider-track.is-panning {
+  cursor: grabbing;
+}
+/* A pan rewrites left/width on every frame; kill the transition so the fill
+   follows the pointer instead of lagging behind it. */
+.foliplus-slider-track.is-panning .foliplus-slider-fill {
+  transition: none;
+}
 
 /* ── Marks ──────────────────────────────────────────────────────────
    A zero-height layer on the rail's centre line: its left/right edges are
