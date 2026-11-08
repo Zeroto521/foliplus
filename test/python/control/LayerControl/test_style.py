@@ -1660,7 +1660,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
 
-    def test_style_fill_ramp_paints_the_map_by_value(self, browser, tmp_path):
+    def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
         """The by-value arm repaints the map, and solid flattens it back.
 
         The ramp arm maps each polygon's numeric property to a color, so the
@@ -1676,7 +1676,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             browser,
             tmp_path,
             self._ramp_layer(),
-            slug="style_fill_ramp_paints_map",
+            slug="style_fill_value_paints_map",
         ) as (page, errors):
             self._open_style_ramp(page)
 

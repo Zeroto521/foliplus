@@ -62,10 +62,10 @@ const applyValueFill = (
   /** The config the highlight pin replays on mouseout: the live fillValue
    *  intent, or the author's declared value fill when the user has not
    *  chosen one. */
-  liveRamp: () => FillValueConfig | undefined = () =>
+  liveValue: () => FillValueConfig | undefined = () =>
     FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
-  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveRamp);
+  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
 };
 
 export { applyValueFill, resolveFillMode };
