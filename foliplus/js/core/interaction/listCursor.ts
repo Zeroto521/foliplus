@@ -294,8 +294,10 @@ class ListCursor {
   private applyRovingTabindex(): void {
     const list = this.items();
     list.forEach((el, i) => {
-      if (!el.id) el.id = nextId("foliplus-opt");
-      el.setAttribute("role", this.itemRole);
+      if (this.paintOptionContract) {
+        if (!el.id) el.id = nextId("foliplus-opt");
+        el.setAttribute("role", this.itemRole);
+      }
       if (this.mode === "roving") {
         el.tabIndex =
           this._index === -1 ? (i === 0 ? 0 : -1) : i === this._index ? 0 : -1;
@@ -310,7 +312,7 @@ class ListCursor {
     list.forEach((el, i) => {
       const on = i === this._index;
       el.classList.toggle(this.activeClass, on);
-      if (this.itemRole === "option") {
+      if (this.paintOptionContract && this.itemRole === "option") {
         el.setAttribute("aria-selected", on ? "true" : "false");
       }
     });

@@ -674,6 +674,59 @@ describe("buildIconRow", () => {
     removeSpy.mockRestore();
   });
 });
+
+describe("glyph grid cell contract (id single-source + role kept)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = fixtureWithMarkers([
+      makeMarker({ type: "school" }, makeAuthorIcon()),
+      makeMarker({ type: "hospital" }, makeAuthorIcon()),
+    ]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("gives every cell a single-source id and keeps gridcell role", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const cells = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    expect(cells.length).toBeGreaterThan(0);
+    cells.forEach(cell => {
+      // id comes from the shared ui/optionRow source, never foliplus-opt-.
+      expect(cell.id).toMatch(/^foliplus-icon-cell-\d+$/);
+      // the grid role survives the cursor (paintOptionContract: false).
+      expect(cell.getAttribute("role")).toBe("gridcell");
+    });
+    // roving tabindex: exactly one cell is the tab stop.
+    const tabStops = [...cells].filter(c => c.tabIndex === 0);
+    expect(tabStops.length).toBe(1);
+  });
+
+  it("marks the current glyph cell with aria-current, not aria-selected", () => {
+    writeIntentKeys(ui, "overlay1", [[DIM.ICON, { kind: "glyph", value: "star" }]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const cells = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    const current = [...cells].find(c => c.getAttribute("data-glyph") === "star")!;
+    expect(current.getAttribute("aria-current")).toBe("true");
+    expect(current.hasAttribute("aria-selected")).toBe(false);
+  });
+});
+
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
   let ui: LayerUI;
