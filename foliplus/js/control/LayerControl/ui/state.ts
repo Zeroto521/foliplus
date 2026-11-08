@@ -21,7 +21,7 @@ const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
   ui.listPanel.foldedRoles = new Set(state.foldedRoles);
   // Intent values + provenance sink into the store. The label config is read
-  // from `layers[id].annotation` only — the legacy top-level `annotations`
+  // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.
   ui.intentStore.loadFromPersisted({
     renamedNames: state.renamedNames,
@@ -56,8 +56,8 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI) => {
-  const annotations = Object.fromEntries(ui.c.label.configEntries());
-  return ui.intentStore.toPersisted(annotations);
+  const labels = Object.fromEntries(ui.c.label.configEntries());
+  return ui.intentStore.toPersisted(labels);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the

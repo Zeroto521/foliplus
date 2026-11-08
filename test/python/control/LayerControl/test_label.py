@@ -1,4 +1,4 @@
-"""Browser tests for foliplus.LayerControl — annotation & label canvas."""
+"""Browser tests for foliplus.LayerControl — label & label canvas."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from ._browser_base import LayerControlBrowserBase
 
 
 class TestLabelBrowser(LayerControlBrowserBase):
-    """Browser-level interaction checks — annotation & label canvas."""
+    """Browser-level interaction checks — label & label canvas."""
 
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
@@ -29,7 +29,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result["registered"] is True
 
     def test_label_canvas_draws(self, browser, tmp_path):
-        """Enabling labels draws text onto the shared annotation canvas."""
+        """Enabling labels draws text onto the shared label canvas."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/label_canvas_draws"))
@@ -73,7 +73,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
     ):
         """A declared color/size paints the real canvas, and Reset restores it.
 
-        Reads the annotation canvas pixels: the declared #00ff00 and size 24
+        Reads the label canvas pixels: the declared #00ff00 and size 24
         must be what is actually drawn (not merely what CONF/DOM says), a
         panel-equivalent override must repaint blue, Reset must show the
         declaration again, and a persisted override must survive a reload.
@@ -221,10 +221,10 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result is not None and result["canvas"] is True, result
             assert result["pointerEvents"] == "none", result
             assert result["decorationClass"] is True, (
-                "annotation canvas must carry foliplus-canvas-layer"
+                "label canvas must carry foliplus-canvas-layer"
             )
             assert result["hitIsCanvas"] is False, (
-                "annotation canvas intercepted the click"
+                "label canvas intercepted the click"
             )
             assert not errors, f"JS errors: {errors}"
 
@@ -344,7 +344,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
 
         The pane goes through ``PaneManager.ensurePane`` (the single entry
         point for owned panes), so it carries the base ``foliplus-layer-pane``
-        class alongside the annotation role marker — that is what makes the
+        class alongside the label role marker — that is what makes the
         pane's interaction rules in focus.css apply without a special case.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -363,15 +363,15 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result["annB"] == result["layerB"] + 1, result
             assert result["annA"] == result["layerA"] + 1, result
             assert result["annB"] > result["annA"], result
-            # Both panes carry the base layer class plus the annotation role.
+            # Both panes carry the base layer class plus the label role.
             for which in ("A", "B"):
                 classes = result[f"paneClasses{which}"]
                 assert classes is not None, result
                 assert classes["layer"] is True, (
-                    f"annotation pane must carry foliplus-layer-pane: {result}"
+                    f"label pane must carry foliplus-layer-pane: {result}"
                 )
-                assert classes["annotation"] is True, (
-                    f"annotation pane must carry foliplus-label-pane: {result}"
+                assert classes["label"] is True, (
+                    f"label pane must carry foliplus-label-pane: {result}"
                 )
             assert not errors, f"JS errors: {errors}"
 

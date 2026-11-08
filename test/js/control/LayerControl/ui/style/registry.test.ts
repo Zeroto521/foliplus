@@ -55,12 +55,12 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(getDimension("opacity")).toBe(OPACITY_DIMENSION);
   });
 
-  it("getDimension returns the annotation descriptor", () => {
+  it("getDimension returns the label descriptor", () => {
     // The Label section's dimension: registered like every other built-in,
     // its `gate` IS `layerCanLabel` (what the ⋮ menu imports), and its
     // `value` hands back the resolved per-layer config.
-    expect(getDimension("annotation")).toBe(LABEL_DIMENSION);
-    expect(LABEL_DIMENSION.key).toBe("annotation");
+    expect(getDimension("label")).toBe(LABEL_DIMENSION);
+    expect(LABEL_DIMENSION.key).toBe("label");
     expect(
       LABEL_DIMENSION.value(
         { c: { label: { getConfig: () => ({ show: true }) } } } as never,
@@ -129,7 +129,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind !== "none")
       .map(d => d.key)
       .sort();
-    expect(replaying).toEqual(["annotation", "border", "fill", "size"]);
+    expect(replaying).toEqual(["border", "fill", "label", "size"]);
     // Every face of the coalescer is claimed by exactly one frame policy —
     // a face nobody schedules would strand late leaves; a face claimed
     // twice would fight over one queue slot.

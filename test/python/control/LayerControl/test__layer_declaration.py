@@ -3,7 +3,7 @@
 A layer declares its own defaults rather than the control: the dict is a folium
 passthrough onto layer.options, and each key is read by whichever side owns it.
 ``zoom_range`` is normalised by Python into CONF so the visibility policy reads
-one fact; ``label`` stays a JS-side namespace that the annotation manager reads
+one fact; ``label`` stays a JS-side namespace that the label manager reads
 off the layer. These tests assert the shipped payload, the layer channel that
 carries it, and the warnings a misspelled or malformed declaration produces; the
 policy itself is covered by the JS projection tests.

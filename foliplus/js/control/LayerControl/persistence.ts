@@ -50,7 +50,7 @@ type LiveState = {
  *  meaning — ship the old-version read path, an unknown-future-version policy,
  *  and round-trip tests with it.
  *
- *  2 → 3: the label config moved into `layers[id].annotation` (a style
+ *  2 → 3: the label config moved into `layers[id].label` (a style
  *  dimension of the layer, not a parallel segment). There is deliberately no
  *  compatibility read: the legacy top-level `annotations` segment is
  *  dropped, not read (no compatibility migration), so a v2 record still loads
@@ -59,8 +59,14 @@ type LiveState = {
  *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
  *  no compatibility read: the field rename is a breaking change accepted for
  *  this release, so an old v3 record still loads but its fold state is
- *  dropped, and the next write stamps v4. */
-const RECORD_VERSION = 4;
+ *  dropped, and the next write stamps v4.
+ *
+ *  4 → 5: `layers[id].annotation` was renamed to `layers[id].label` (the label
+ *  config's on-wire key). There is deliberately no compatibility read: the
+ *  field rename is a breaking change accepted for this release, so an old v4
+ *  record still loads but its label config is dropped, and the next write
+ *  stamps v5. */
+const RECORD_VERSION = 5;
 
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
@@ -184,7 +190,7 @@ const PARSE_OVERRIDE: Record<
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
 /** One stored label (label) config: an object, color-normalized the
- *  same way in `layers[id].annotation`. Field-level coercion (size clamps,
+ *  same way in `layers[id].label`. Field-level coercion (size clamps,
  *  format enums, collide) belongs to the reader that applies it —
  *  `applyStyleLabelState`; this keeps a non-object from reaching the config
  *  map, nothing more. */
@@ -231,9 +237,9 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       out.overrides.push(override);
     }
   }
-  const annotation = parseLabelConfig(data.annotation);
-  if (annotation) out.annotation = annotation;
-  return out.overrides.length > 0 || out.annotation ? out : null;
+  const label = parseLabelConfig(data.label);
+  if (label) out.label = label;
+  return out.overrides.length > 0 || out.label ? out : null;
 };
 
 /**
@@ -299,7 +305,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  Named per dimension rather than keyed generically: PersistedRecord is a
  *  literal type, so adding a field without adding it here is a compile error.
  *
- *  The label config writes through `layers[id].annotation`; the legacy
+ *  The label config writes through `layers[id].label`; the legacy
  *  `annotations` segment no longer exists, so it is not copied through. */
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => {
   const removed = fields.removed ? fields.removed() : record.removed;

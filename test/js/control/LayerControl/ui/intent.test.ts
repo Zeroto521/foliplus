@@ -49,12 +49,12 @@ describe("LayerIntent helpers", () => {
     expect(u.intentStore.dumpIntents()).toEqual({});
   });
 
-  it("dropIntent clears style dims but keeps name and annotation", () => {
+  it("dropIntent clears style dims but keeps name and label", () => {
     const u = ui();
     setIntent(u, "a", "visible", false);
     setIntent(u, "a", "opacity", 0.3);
     setIntent(u, "a", "name", "Keep");
-    setIntent(u, "a", "annotation", {
+    setIntent(u, "a", "label", {
       show: true,
       field: "name",
       format: "auto",
@@ -65,7 +65,7 @@ describe("LayerIntent helpers", () => {
     expect(getIntent(u, "a", "visible")).toBeUndefined();
     expect(getIntent(u, "a", "opacity")).toBeUndefined();
     expect(getIntent(u, "a", "name")).toBe("Keep");
-    expect(getIntent(u, "a", "annotation")).toBeDefined();
+    expect(getIntent(u, "a", "label")).toBeDefined();
   });
 
   it("dropIntent removes the record when only style dims were present", () => {
@@ -82,7 +82,7 @@ describe("LayerIntent helpers", () => {
     setIntent(u, "a", "borderWeight", 0);
     setIntent(u, "a", "zoomRange", [0, 18]);
     setIntent(u, "a", "name", "N");
-    setIntent(u, "a", "annotation", {
+    setIntent(u, "a", "label", {
       show: false,
       field: "count",
       format: "auto",
@@ -94,7 +94,7 @@ describe("LayerIntent helpers", () => {
     expect(hasIntentValue(u, "a", "borderWeight")).toBe(true); // 0 is a live value
     expect(hasIntentValue(u, "a", "zoomRange")).toBe(true);
     expect(hasIntentValue(u, "a", "name")).toBe(true);
-    expect(hasIntentValue(u, "a", "annotation")).toBe(true);
+    expect(hasIntentValue(u, "a", "label")).toBe(true);
     expect(hasIntentValue(u, "a", "opacity")).toBe(false);
     expect(hasIntentValue(u, "b", "visible")).toBe(false);
     expect(hasIntentValue(u, "a", "fillOpacity")).toBe(false);

@@ -849,7 +849,7 @@ describe("label config seed — read order (write-new / read-old)", () => {
     vi.clearAllMocks();
   });
 
-  it("reads the label config from layers[id].annotation only (dual-key removal)", () => {
+  it("reads the label config from layers[id].label only (dual-key removal)", () => {
     // The dual-key removal in one round trip: a record carrying BOTH keys
     // for the same id reads the current one, an id only the legacy top-level
     // `annotations` segment knows (a v2 record) no longer seeds — the legacy
@@ -865,12 +865,12 @@ describe("label config seed — read order (write-new / read-old)", () => {
         layers: {
           both: {
             overrides: [],
-            annotation: { show: true, field: "new", format: "comma" },
+            label: { show: true, field: "new", format: "comma" },
           },
           withOverride: {
             overrides: ["opacity"],
             opacity: 0.5,
-            annotation: { show: true, field: "p" },
+            label: { show: true, field: "p" },
           },
         },
       }),
@@ -878,13 +878,13 @@ describe("label config seed — read order (write-new / read-old)", () => {
     const { ui } = initFixture();
     loadPersistedState(ui);
 
-    expect(getIntent(ui, "both", "annotation")).toEqual({
+    expect(getIntent(ui, "both", "label")).toEqual({
       show: true,
       field: "new",
       format: "comma",
     });
-    expect(getIntent(ui, "legacyOnly", "annotation")).toBeUndefined();
-    expect(getIntent(ui, "withOverride", "annotation")).toEqual({
+    expect(getIntent(ui, "legacyOnly", "label")).toBeUndefined();
+    expect(getIntent(ui, "withOverride", "label")).toEqual({
       show: true,
       field: "p",
     });
@@ -1534,8 +1534,8 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(states.overlay1 && Object.keys(states.overlay1)).toEqual(["overrides"]);
   });
 
-  it("skips annotation configs that are not objects", () => {
-    // The label config rides `layers[id].annotation`; a corrupt entry
+  it("skips label configs that are not objects", () => {
+    // The label config rides `layers[id].label`; a corrupt entry
     // must not seed an intent, and an id with only a bad config drops out.
     const bare = {
       intentStore: makeStore(),
@@ -1548,10 +1548,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
               foldedRoles: [],
               renamedNames: {},
               layers: {
-                nullish: { overrides: [], annotation: null },
+                nullish: { overrides: [], label: null },
                 valid: {
                   overrides: [],
-                  annotation: { show: true, field: "name", format: "auto" },
+                  label: { show: true, field: "name", format: "auto" },
                 },
               },
             }) as never,
@@ -1559,8 +1559,8 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
     loadPersistedState(bare);
-    expect(getIntent(bare, "nullish", "annotation")).toBeUndefined();
-    expect(getIntent(bare, "valid", "annotation")).toBeDefined();
+    expect(getIntent(bare, "nullish", "label")).toBeUndefined();
+    expect(getIntent(bare, "valid", "label")).toBeDefined();
   });
 
   it("ignores an override whose stored value has the wrong type", () => {
@@ -1729,7 +1729,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
             borderWeight: 4,
             opacity: 0.35,
             zoomRange: [3, 12] as [number, number],
-            annotation: { show: true, field: "name", format: "auto" },
+            label: { show: true, field: "name", format: "auto" },
             name: "Renamed",
           },
         },
@@ -1759,7 +1759,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(entry).toBeDefined();
     expect(Object.keys(entry!).sort()).toEqual(
       [
-        "annotation",
+        "label",
         "borderColor",
         "borderWeight",
         "fillColor",

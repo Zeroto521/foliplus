@@ -520,9 +520,9 @@ describe("LayerUI style panel", () => {
     // The label config rides the `layers` section now (`layers[id].
     // label`) — the legacy top-level `annotations` source is gone.
     const fields = saveAnnotations.mock.calls.at(-1)![0] as {
-      layers: () => Record<string, { annotation?: Record<string, unknown> }>;
+      layers: () => Record<string, { label?: Record<string, unknown> }>;
     };
-    expect(fields.layers().overlay1.annotation).toEqual(
+    expect(fields.layers().overlay1.label).toEqual(
       expect.objectContaining({ show: true }),
     );
     expect(manager.label.getConfig("overlay1").show).toBe(true);
@@ -561,7 +561,7 @@ describe("LayerUI style panel", () => {
     expect(manager.label.getConfig("overlay1").collide).toBe(false);
   });
 
-  it("annotation body order is field → color/size → format → collide", () => {
+  it("label body order is field → color/size → format → collide", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
@@ -581,7 +581,7 @@ describe("LayerUI style panel", () => {
     ]);
   });
 
-  it("annotation color and size inputs are live and clamp on commit", () => {
+  it("label color and size inputs are live and clamp on commit", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const renderLabels = vi.spyOn(manager.label, "renderLabels");
@@ -608,7 +608,7 @@ describe("LayerUI style panel", () => {
     expect(size.value).toBe("32");
   });
 
-  it("annotation panel falls back when config color/size are empty", () => {
+  it("label panel falls back when config color/size are empty", () => {
     manager.label.setConfig("overlay1", {
       ...CONST.DEFAULT_LABEL,
       show: true,
@@ -649,7 +649,7 @@ describe("LayerUI style panel", () => {
   it("normalizes non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: { show: true, field: 42, format: 7 } as any,
     });
 
@@ -1046,7 +1046,7 @@ describe("LayerUI style panel", () => {
     // empty result is what keeps a reload from re-seeding the shadow.
     expect(manager.label.configEntries()).toHaveLength(0);
     const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(rec.layers.overlay1?.annotation).toBeUndefined();
+    expect(rec.layers.overlay1?.label).toBeUndefined();
   });
 
   it("renders the labels a layer declares, with no panel interaction", () => {
@@ -1065,7 +1065,7 @@ describe("LayerUI style panel", () => {
   it("leaves labels off when the declaration says show: false", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     (li.layer as any).options.foliplus = {
-      annotation: { field: "count", show: false },
+      label: { field: "count", show: false },
     };
 
     const render = vi.spyOn(manager.label, "renderLabels").mockImplementation(() => []);
@@ -1996,7 +1996,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── persisted state ───────────────────
 
   it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.label, "setConfig");
@@ -2016,7 +2016,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState falls back for non-typed stored color/size", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: {
         show: true,
         field: "count",
@@ -2039,7 +2039,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState normalizes a stored short hex color and clamps size", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: {
         show: true,
         field: "count",
@@ -2071,7 +2071,7 @@ describe("LayerUI style panel", () => {
       field: "",
       format: NUMBER_FORMAT.AUTO,
     } as any);
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.label, "setConfig");
@@ -2087,7 +2087,7 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState renders a shown config that names no field", () => {
     // `field: ""` means "never picked", not "nothing to show" — a shown config
     // must still render (renderLabels resolves the layer's default pick).
-    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } as any });
+    seedIntentMap(ui, "label", { overlay1: { show: true, field: "" } as any });
     const renderLabels = vi.spyOn(manager.label, "renderLabels");
 
     ui.applyStyleLabelState();
@@ -2096,7 +2096,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips configs that are switched off", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       overlay1: { show: false, field: "count" } as any,
     });
     const renderLabels = vi.spyOn(manager.label, "renderLabels");
@@ -2111,7 +2111,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
-    seedIntentMap(ui, "annotation", {
+    seedIntentMap(ui, "label", {
       ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.label, "setConfig");
@@ -2125,7 +2125,7 @@ describe("LayerUI style panel", () => {
     expect(renderLabels).not.toHaveBeenCalled();
   });
 
-  it("applyStyleLabelState skips an intent that carries no annotation", () => {
+  it("applyStyleLabelState skips an intent that carries no label", () => {
     // An id present in `ui.intentStore` for a different dimension (e.g. a rename)
     // must not be treated as a label seed.
     seedIntentMap(ui, "name", { overlay1: "Renamed" });
@@ -2211,7 +2211,7 @@ describe("LayerUI style panel", () => {
     expect(toggle.checked).toBe(true);
   });
 
-  it("the debounced annotation save invokes the config getter", () => {
+  it("the debounced label save invokes the config getter", () => {
     vi.useFakeTimers();
     try {
       const saveAnnotations = vi.spyOn(manager.persistence, "schedule");
@@ -2236,16 +2236,16 @@ describe("LayerUI style panel", () => {
       vi.advanceTimersByTime(200);
 
       expect(saveAnnotations).toHaveBeenCalled();
-      // Label config rides `layers[id].annotation`; the layers source
+      // Label config rides `layers[id].label`; the layers source
       // re-reads every live dimension at flush, and this test touched only
       // the label one.
       const fields = saveAnnotations.mock.calls.at(-1)![0] as {
-        layers: () => Record<string, { annotation?: Record<string, unknown> }>;
+        layers: () => Record<string, { label?: Record<string, unknown> }>;
       };
       expect(fields.layers()).toEqual({
         overlay1: {
           overrides: [],
-          annotation: {
+          label: {
             show: true,
             field: "count",
             color: CONST.DEFAULT_LABEL.color,
@@ -2260,7 +2260,7 @@ describe("LayerUI style panel", () => {
     }
   });
 
-  it("annotation format labels fall back to the raw key when the translator returns empty", () => {
+  it("label format labels fall back to the raw key when the translator returns empty", () => {
     const item = findItem(ui, "overlay1");
     const realUnderscore = ui._;
     ui._ = (key: string) =>
@@ -3888,7 +3888,7 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(".foliplus-style-label-color-input")).not.toBeNull();
   });
 
-  it("omits the opacity row for a surface that cannot carry it (annotation)", () => {
+  it("omits the opacity row for a surface that cannot carry it (label)", () => {
     // Same duck, but the label panel (not delegated). The field/format/
     // collide rows must still render.
     manager.registerLayer({
@@ -4502,7 +4502,7 @@ describe("LayerUI style panel — zoom range", () => {
     expect(zoomRowOf(panel)).not.toBeNull();
   });
 
-  it("gives an annotation layer a zoom row when only opacity is unavailable", () => {
+  it("gives an label layer a zoom row when only opacity is unavailable", () => {
     // Same split, label flavour: the panel still offers the zoom range.
     manager.registerLayer({
       id: "annotOnly",
@@ -4717,7 +4717,7 @@ describe("style utility guards", () => {
     expect(ui.c.label.getConfig("overlay1")!.show).toBe(true);
   });
 
-  it("annotation panel setup tolerates missing color/size inputs", () => {
+  it("label panel setup tolerates missing color/size inputs", () => {
     // Covers `if (colorEl)` and `if (sizeEl)` false sides in the panel setup.
     // We mock querySelector to return null for the color/size selectors so the
     // setup code skips the live-binding step.

@@ -13,7 +13,7 @@ coords => {
     };
   const id = row.getAttribute("data-layer-id");
   const canvas = document.querySelector(".foliplus-label-canvas");
-  if (!canvas) return { error: "no annotation canvas" };
+  if (!canvas) return { error: "no label canvas" };
   const ctx = canvas.getContext("2d");
   const raf = () =>
     new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));

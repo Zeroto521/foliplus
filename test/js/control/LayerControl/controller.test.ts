@@ -306,7 +306,7 @@ describe("LayerController", () => {
   it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
     // An unregister is a teardown, not a delete: the `layers` live source
     // re-reads `configEntries` on every flush, so dropping the config here
-    // would wipe `layers[id].annotation` from storage the next time any
+    // would wipe `layers[id].label` from storage the next time any
     // dimension saves — a label-only layer would lose its section for good.
     const m = new LayerController(map, [
       {
@@ -342,14 +342,14 @@ describe("LayerController", () => {
 
     saveState(m.ui!);
     const fields = schedule.mock.calls.at(-1)![0] as {
-      layers: () => Record<string, { annotation?: { show?: boolean } }>;
+      layers: () => Record<string, { label?: { show?: boolean } }>;
     };
-    expect(fields.layers().keepcfg.annotation).toEqual(
+    expect(fields.layers().keepcfg.label).toEqual(
       expect.objectContaining({ show: true }),
     );
   });
 
-  it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
+  it("keeps a foreign label spec as declared instead of re-probing over it", () => {
     // `withLabelSpec` appends the probe's spec only when nobody has
     // declared one: a caller that owns its own `role: "label"` pane
     // keeps that name — the probe must not stack a second label pane next
@@ -374,7 +374,7 @@ describe("LayerController", () => {
     expect(manager.surfaceFor(li).capabilities.label).toBe("pane");
   });
 
-  it("skips the label-pane slot when the layer has no annotation pane", () => {
+  it("skips the label-pane slot when the layer has no label pane", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
@@ -5631,7 +5631,7 @@ it("a moveLayerUp whose rebuild signal destroys the control announces nothing", 
 });
 
 describe("retireEntry finalization", () => {
-  it("unloads the annotation even when the row step throws", () => {
+  it("unloads the label even when the row step throws", () => {
     document.body.innerHTML = "";
     window.localStorage.clear();
     const { manager, ui } = initFixture({

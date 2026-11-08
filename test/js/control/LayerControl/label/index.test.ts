@@ -506,7 +506,7 @@ describe("LabelManager — config", () => {
   });
 });
 
-describe("LabelManager — author-declared annotation", () => {
+describe("LabelManager — author-declared label", () => {
   const pageCollideOff = (fn: () => void) => {
     const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
     (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
@@ -543,7 +543,7 @@ describe("LabelManager — author-declared annotation", () => {
     try {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "retired" } } },
+        options: { foliplus: { icon: { field: "retired" } } },
       } as unknown as L.Layer;
       const mgr = new LabelManager({ map, layerFind: () => layer });
 
@@ -738,7 +738,7 @@ describe("LabelManager — author-declared annotation", () => {
     expect(cfg.show).toBe(false);
   });
 
-  it("reads nothing when foliplus carries no annotation", () => {
+  it("reads nothing when foliplus carries no label", () => {
     // `foliplus` is a namespace folium and third-party layers share, so a layer
     // can carry other dimensions (`icon`, label typography) with nothing declared
     // for this control. The declaration is absent, not empty — every key stays at
@@ -1360,7 +1360,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     vi.useRealTimers();
   });
 
-  it("replays an opacity set before the annotation pane existed", () => {
+  it("replays an opacity set before the label pane existed", () => {
     // Opacity is stored while the layer has no labelable content yet — no
     // label spec, no pane. The pane appears only when the layer gains
     // that content, and the value must land on it at that point.
@@ -1426,7 +1426,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
 
     const pane = panes.get(`${CONST.LABEL_PANE_PREFIX}overlay1`);
-    expect(pane, "the annotation pane was created").toBeTruthy();
+    expect(pane, "the label pane was created").toBeTruthy();
     // R11: the label pane does NOT take CSS opacity — the label canvas
     // bakes layerAlpha into its draws. CSS here would double-compound.
     expect(pane!.style.opacity).toBe("");

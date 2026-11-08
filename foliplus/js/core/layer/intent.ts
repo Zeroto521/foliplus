@@ -163,7 +163,7 @@ type LayerOverride =
  *     the value rides `layers[id]` under that key. Disk-shape growth is a
  *     separate, explicit task.
  *  2. A *label-only* field (position, …) belongs on {@link LabelConfig}
- *     instead: it nests under `layers[id].annotation`, needs no provenance
+ *     instead: it nests under `layers[id].label`, needs no provenance
  *     entry, and flows through the tolerant label parse untouched —
  *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
  *     and the renderer consume it.
@@ -207,7 +207,7 @@ type LayerIntent = {
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
    *  the seed applies still lives in LabelManager (`configEntries`). */
-  annotation?: LabelConfig;
+  label?: LabelConfig;
 };
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
@@ -246,7 +246,7 @@ type PersistedLayerState = {
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
    *  for is still an entry here). */
-  annotation?: LabelConfig;
+  label?: LabelConfig;
   overrides: LayerOverride[];
 };
 
@@ -263,7 +263,7 @@ type IntentRow = {
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
  *  `PersistedRecord` (order / removed / foldedRoles stay outside the
- *  store); label config rides `layers[id].annotation`. */
+ *  store); label config rides `layers[id].label`. */
 type LoadSource = {
   renamedNames?: Record<string, string>;
   layers?: Record<string, PersistedLayerState>;
@@ -284,7 +284,7 @@ const INTENT = {
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
   NAME: "name",
-  LABEL: "annotation",
+  LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
 
 type IntentKey = keyof LayerIntent;

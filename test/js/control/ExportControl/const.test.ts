@@ -18,13 +18,13 @@ describe("export canvas whitelists", () => {
     layerPane.className = "foliplus-layer-pane";
     const vendorCanvas = document.createElement("canvas");
     vendorCanvas.className = "vendor-overlay";
-    const annotationPane = document.createElement("div");
-    annotationPane.className = "foliplus-label-pane";
+    const labelPane = document.createElement("div");
+    labelPane.className = "foliplus-label-pane";
     const label = document.createElement("canvas");
     label.className = "foliplus-label-canvas";
     layerPane.append(vendorCanvas);
-    annotationPane.append(label);
-    mapPane.append(layerPane, annotationPane);
+    labelPane.append(label);
+    mapPane.append(layerPane, labelPane);
     document.body.appendChild(mapPane);
 
     // Pane walk: any canvas a vendor layer mounts in its own pane.

@@ -1369,7 +1369,7 @@ class LayerController implements LayerAPI {
         // empty layer and registers it again comes back with the name and the
         // settings the user chose. Tear down the label RENDERING state; the
         // label config stays — it is part of that surviving intent (a flush after
-        // this point must not erase `layers[id].annotation` from storage).
+        // this point must not erase `layers[id].label` from storage).
         ["unload-label", () => this.label.unloadLayer(id)],
       ],
       // Every failure is reported, not just the one handed to the caller: a

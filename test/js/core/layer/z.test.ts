@@ -38,7 +38,7 @@ describe("zFor slots", () => {
     expect(zFor({ index: 1, count: 3, order: 2 })).toBe(slot + 2);
   });
 
-  it("prices an annotation pane one step above its layer, not at its own order", () => {
+  it("prices an label pane one step above its layer, not at its own order", () => {
     expect(LABEL_Z_OFFSET).toBe(1);
     const slot = zFor({ index: 1, count: 3 });
     expect(zFor({ index: 1, count: 3, paneRole: "label" })).toBe(slot + 1);

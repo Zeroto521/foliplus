@@ -182,3 +182,12 @@ describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP", () =>
     expect(CONST.CLASSES.FOCUS_BASEMAP).toBe("foliplus-focus-basemap");
   });
 });
+
+describe("annotation→label vocabulary guard", () => {
+  it("DIM.LABEL and INTENT.LABEL are the literal 'label'", async () => {
+    const { DIM } = await import("#foliplus/core/layer/const.js");
+    const { INTENT } = await import("#foliplus/core/layer/intent.js");
+    expect(DIM.LABEL).toBe("label");
+    expect(INTENT.LABEL).toBe("label");
+  });
+});

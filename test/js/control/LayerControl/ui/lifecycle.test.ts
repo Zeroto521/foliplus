@@ -741,7 +741,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
     }
   });
 
-  it("a label field arriving late upgrades the annotation capability before the label frame", () => {
+  it("a label field arriving late upgrades the label capability before the label frame", () => {
     const children: any[] = [];
     ({ manager, ui, map } = withGroup(children));
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);

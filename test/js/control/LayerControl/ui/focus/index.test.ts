@@ -2608,7 +2608,7 @@ describe("dismissFocus finalization", () => {
     // Step 5 of the teardown, before the pane restores: this is the failure that
     // used to skip every visual removal and leave the map dimmed.
     vi.spyOn(ui.c.label, "setFocusFilter").mockImplementation(() => {
-      throw new Error("annotation teardown failed");
+      throw new Error("label teardown failed");
     });
     const mask = {} as L.Polygon;
     ui.focusController.focusMask = mask;

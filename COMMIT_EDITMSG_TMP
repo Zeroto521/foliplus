@@ -1,0 +1,8 @@
+refactor(LayerControl): finish annotation→label vocabulary rename incl persistence key
+
+- Rename persistence key layers[id].annotation → layers[id].label, bump RECORD_VERSION 4→5 (no compat read, v4 label config dropped, mirror 3→4)
+- Rename runtime values DIM.LABEL / INTENT.LABEL to "label"; on-wire field label?: LabelConfig
+- Rename ExportControl annotation_canvas_* probes → label_canvas_* (JS + Python + tests)
+- Rename remaining annotation-canvas concept prose in LayerControl Python tests
+- Add v4→v5 migration test + DIM.LABEL/INTENT.LABEL vocabulary guard
+- Fix sorted-order expectation in registry.test.ts (label sorts after fill alphabetically)

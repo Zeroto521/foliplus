@@ -562,7 +562,7 @@ class LabelManager {
    *  cache — but KEEP its config: an unregister is a teardown, not a
    *  delete, and the stored label intent has to survive it. The `layers`
    *  live source re-reads `configEntries` on every flush, so dropping the
-   *  config here would erase `layers[id].annotation` from storage on the
+   *  config here would erase `layers[id].label` from storage on the
    *  next save — a label-only layer would lose its section entirely. */
   unloadLayer(id: string): void {
     this.clearLabels(id);

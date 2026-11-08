@@ -264,8 +264,8 @@ class LayerIntentStore {
       const declared = row
         ? [...row.provenance].filter(override => this.hasLive(id, override))
         : [];
-      const annotation = liveAnnotations[id];
-      if (declared.length === 0 && !annotation) continue;
+      const label = liveAnnotations[id];
+      if (declared.length === 0 && !label) continue;
       const state: PersistedLayerState = { overrides: declared };
       for (const override of declared) {
         const value = this.get(id, override);
@@ -274,14 +274,14 @@ class LayerIntentStore {
           (state as Record<LayerOverride, unknown>)[override] = value;
         }
       }
-      if (annotation) state.annotation = annotation;
+      if (label) state.label = label;
       states[id] = state;
     }
     return states;
   }
 
   /** Fill the store from a parsed persistence record's intent half.
-   *  The label config is read from `layers[id].annotation` only — the legacy
+   *  The label config is read from `layers[id].label` only — the legacy
    *  top-level `annotations` segment was dropped. */
   loadFromPersisted(source: LoadSource): void {
     this.clearAll();
@@ -289,7 +289,7 @@ class LayerIntentStore {
       this.setValue(id, "name", name);
     }
     for (const [id, entry] of Object.entries(source.layers ?? {})) {
-      if (entry.annotation) this.setValue(id, "annotation", entry.annotation);
+      if (entry.label) this.setValue(id, "label", entry.label);
       this.seedProvenance(id, entry.overrides);
       for (const override of entry.overrides) {
         const value = entry[override];

@@ -115,7 +115,7 @@ const DIM = {
   SIZE: "size",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
-  LABEL: "annotation",
+  LABEL: "label",
 } as const;
 
 /** Capability-tier names — how a surface honestly carries a write

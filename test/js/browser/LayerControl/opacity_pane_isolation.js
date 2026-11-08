@@ -244,7 +244,7 @@
   ctrl.mgr.label.renderLabels("op_annotated_nb");
 
   const annotatedGeoPane = paneOf(annotatedGeo);
-  const annotationPane = map.getPane("foliplus-label-op_annotated");
+  const labelPane = map.getPane("foliplus-label-op_annotated");
   const neighborAnnotationPane = map.getPane("foliplus-label-op_annotated_nb");
 
   // Set opacity to 0.
@@ -255,7 +255,7 @@
 
   // R11: the label canvas bakes layerAlpha; read it back from the shared
   // helper (same one the drawers use). Pane CSS is NOT the label carrier.
-  const labelCanvas = annotationPane ? annotationPane.querySelector("canvas") : null;
+  const labelCanvas = labelPane ? labelPane.querySelector("canvas") : null;
   const bakeApi = window.foliplus?.common?.canvasAlpha;
   const annotatedLabelBakeAlpha =
     labelCanvas && bakeApi ? bakeApi.getLayerAlpha(labelCanvas) : null;
@@ -302,14 +302,12 @@
     // Case D: geometry pane takes CSS; label pane is excluded from CSS
     // and the label canvas bakes layerAlpha (R11). Neighbor untouched.
     annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
-    annotatedAnnotationPaneOpacity: annotationPane
-      ? annotationPane.style.opacity
-      : null,
+    annotatedAnnotationPaneOpacity: labelPane ? labelPane.style.opacity : null,
     annotatedLabelBakeAlpha,
     neighborAnnotationPaneOpacity: neighborAnnotationPane
       ? neighborAnnotationPane.style.opacity
       : null,
-    annotationPaneExists: !!annotationPane,
+    labelPaneExists: !!labelPane,
     neighborAnnotationPaneExists: !!neighborAnnotationPane,
   };
 };

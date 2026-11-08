@@ -1674,7 +1674,7 @@ describe("executor: the branches behind the gates", () => {
         },
         layers: [],
         findLayer: vi.fn(() => null),
-        annotation: null,
+        label: null,
         surfaceFor: vi.fn(() => ({
           capabilities: { opacity: "none", zoomRange: "none" },
           paneNames: [],

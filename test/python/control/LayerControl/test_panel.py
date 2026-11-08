@@ -1246,7 +1246,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         layer to add/remove; their visibility carrier is the canvas element's
         HIDDEN class. The executor's write of that class is the write that
         rides the bus alongside the native branch's map-membership writes —
-        without it, subscribers (annotation, controller) would see canvas
+        without it, subscribers (label, controller) would see canvas
         layers appear/disappear silently. A repeated setVisible that does
         not flip the class must not re-emit.
         """
