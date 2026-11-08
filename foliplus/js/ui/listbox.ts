@@ -30,6 +30,7 @@ import {
 } from "#common/floating.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
+import { bindDismiss } from "./dismiss.js";
 
 /** The three ARIA attributes shared by every option row. The engine paints
  *  the exact trio the dropdown and picker have always painted, so existing
@@ -519,18 +520,21 @@ const open = (state: InternalState): void => {
 
   if (!state.spec.inline) {
     if (state.spec.ownDismiss) {
-      // Dismiss on any press outside the control. Capture phase, so the press
-      // closes the popup before the element under it reacts.
-      const onOutsidePress = (event: Event): void => {
-        const target = event.target as Node | null;
-        if (!target) return;
-        const wrapper = state.trigger.parentElement;
-        if (wrapper?.contains(target) || state.list.contains(target)) return;
-        close(state, { restoreFocus: false });
-      };
-      document.addEventListener("pointerdown", onOutsidePress, true);
-      state.mountCleanup.push(() =>
-        document.removeEventListener("pointerdown", onOutsidePress, true),
+      // Outside press + Escape + focus return, as one primitive (the engine
+      // no longer keeps a private copy — icon.ts had a second one that got
+      // it wrong twice, and this is the root cause of the "outside press
+      // does not close the glyph popup" defect).
+      state.mountCleanup.push(
+        bindDismiss({
+          root: state.list,
+          trigger: state.trigger,
+          // A portalled list is not inside the trigger's wrapper, so the
+          // containment is wrapper + list (the historical ownDismiss rule).
+          containment: target =>
+            (state.trigger.parentElement?.contains(target) ?? false) ||
+            state.list.contains(target),
+          onClose: () => close(state, { restoreFocus: false }),
+        }),
       );
     }
 
@@ -547,22 +551,6 @@ const open = (state: InternalState): void => {
         observer.disconnect();
         followTrigger.cancel();
       });
-    }
-
-    if (state.spec.ownDismiss) {
-      // Escape belongs to the popup while it is open. The panel dispatcher (#783)
-      // listens on document *capture*, so this sits on window capture, which runs
-      // before any document capture listener and stops the event there.
-      const onEscapeCapture = (event: KeyboardEvent): void => {
-        if (event.key !== "Escape" || event.defaultPrevented) return;
-        event.preventDefault();
-        event.stopPropagation();
-        close(state, { restoreFocus: true });
-      };
-      window.addEventListener("keydown", onEscapeCapture, true);
-      state.mountCleanup.push(() =>
-        window.removeEventListener("keydown", onEscapeCapture, true),
-      );
     }
   }
 

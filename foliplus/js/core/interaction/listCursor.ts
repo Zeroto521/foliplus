@@ -40,6 +40,10 @@ type ListCursorOptions = {
   roles?: ListCursorRoles;
   /** Wrap at the ends. Default false. */
   loop?: boolean;
+  /** Grid columns. When set (>1) the cursor walks a 2D grid: ArrowLeft/
+   *  Right move one column, ArrowUp/Down one row, Home/End the first/last
+   *  cell. Omit (or 1) for the linear 1D walk — existing callers unchanged. */
+  cols?: number;
   onMove?: (index: number, el: HTMLElement | null) => void;
   onActivate?: (index: number, el: HTMLElement) => void;
 };
@@ -57,6 +61,7 @@ class ListCursor {
   private listRole: string;
   private itemRole: string;
   private loop: boolean;
+  private cols: number;
   private onMove: ListCursorOptions["onMove"];
   private onActivate: ListCursorOptions["onActivate"];
   private _index = -1;
@@ -71,6 +76,7 @@ class ListCursor {
     this.listRole = opts.roles?.list ?? "listbox";
     this.itemRole = opts.roles?.item ?? "option";
     this.loop = opts.loop ?? false;
+    this.cols = opts.cols ?? 1;
     this.onMove = opts.onMove;
     this.onActivate = opts.onActivate;
 
@@ -162,6 +168,12 @@ class ListCursor {
     // The one ownership rule: a control that natively consumes the key keeps
     // it. Shared with the central dispatcher, so a new native control bound
     // into this list is let through without a per-cursor copy.
+    // Grid mode is fully self-contained: the cells are the interactive
+    // surface and the cursor owns every arrow / Home / End / Enter / Space
+    // press (a focused cell is a button, but its Enter/Space activation is
+    // the cursor's, not the browser's — the grid may host an input that must
+    // keep its native keys, checked inside handleGridKey).
+    if (this.cols > 1) return this.handleGridKey(event);
     if (nativeConsumesKey(keyOwner(event), event.key)) return false;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -181,6 +193,66 @@ class ListCursor {
     if (event.key === "End") {
       event.preventDefault();
       this.set(this.items().length - 1);
+      return true;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      if (!this.current) return false;
+      event.preventDefault();
+      return this.activate();
+    }
+    return false;
+  }
+
+  /** 2D grid walk (cols > 1). ArrowLeft/Right one column (clamped per row),
+   *  ArrowUp/Down one row (clamped), Home/End the first/last cell. */
+  private handleGridKey(event: KeyboardEvent): boolean {
+    const items = this.items();
+    const n = items.length;
+    if (n === 0) return false;
+    // A native control inside the grid keeps its keys (an input, a slider).
+    // A focused cell is a button and the cursor owns its activation.
+    if (
+      nativeConsumesKey(keyOwner(event), event.key) &&
+      keyOwner(event) !== null &&
+      !items.includes(keyOwner(event) as HTMLElement)
+    ) {
+      return false;
+    }
+    // Sync with DOM focus: the user may have Tab'd to a cell without the
+    // cursor knowing. A focused cell wins; otherwise fall back to the cursor
+    // index (or 0 for the first move).
+    const focused = items.indexOf(document.activeElement as HTMLElement);
+    const index = focused >= 0 ? focused : this._index < 0 ? 0 : this._index;
+    const row = Math.floor(index / this.cols);
+    const col = index % this.cols;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      this.set(Math.min(n - 1, index + 1));
+      return true;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      if (col > 0) this.set(index - 1);
+      return true;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      this.set(Math.min(n - 1, index + this.cols));
+      return true;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (row > 0) this.set(index - this.cols);
+      return true;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      this.set(0);
+      return true;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      this.set(n - 1);
       return true;
     }
     if (event.key === "Enter" || event.key === " ") {
