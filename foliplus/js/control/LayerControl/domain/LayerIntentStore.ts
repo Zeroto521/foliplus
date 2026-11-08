@@ -66,7 +66,7 @@ class LayerIntentStore {
 
   /** Typed-presence check on the current value (0 / "" are live). An unknown
    *  override (future dimension) is treated as live so mark never drops a
-   *  new marker — matching the old `hasLiveValue` default arm. */
+   *  new marker — matching the old `hasLiveValue` default branch. */
   hasLive(id: string, override: LayerOverride): boolean {
     const live = LIVE[override];
     return live ? live(this.get(id, override)) : true;
