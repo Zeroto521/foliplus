@@ -47,6 +47,7 @@ import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import {
   BORDER_WEIGHT,
+  PANEL_CLASS,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
@@ -54,7 +55,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`

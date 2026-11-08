@@ -79,7 +79,7 @@ const testPathAliases = root => ({
 
 /**
  * Shared-module prefixes — the `#…` namespaces where ANY import routes to
- * the shared global namespace (`window.foliplus.common` / `window.foliplus.core` / `window.foliplus.ui`).
+ * the shared global namespace (`window.foliplus.platform` / `window.foliplus.core` / `window.foliplus.ui`).
  *
  * Deliberately narrower than `SHARED_ALIASES`: `#foliplus` is an alias but
  * NOT a shared prefix. Only `#foliplus/BaseControl.js` is shared (see
@@ -140,7 +140,7 @@ const SHARED_MODULE_EXACTS = ["#foliplus/BaseControl.js"];
  *     for the `onResolve` filter
  *
  * Matches:
- *   - `#common/…` and `#core/…` (prefix branch consumes the path)
+ *   - `#platform/…` and `#core/…` (prefix branch consumes the path)
  *   - `#foliplus/BaseControl.js` (exact branch, no path)
  *
  * Rejects:

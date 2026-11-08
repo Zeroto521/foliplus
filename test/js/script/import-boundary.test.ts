@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 import { describe, expect, it } from "vitest";
 // The bottom tier's directory is not re-spelled here: it must equal the
 // shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
@@ -172,6 +172,52 @@ const allowedFor = (rel: string): Map<string, string> => {
   return map;
 };
 
+// Resolve a #alias specifier to a repo-relative path (foliplus/js/...).
+// Unknown/relative specs return null. "spec" must be a "#"-prefixed specifier.
+const resolveTarget = (fromRel: string, spec: string): string | null => {
+  // Same-directory or parent-relative already use "."/".." — not # aliases.
+  if (!spec.startsWith("#")) return null;
+  const canonicalSpec = canonical(spec);
+  // #control/<Name>/... → foliplus/js/control/<Name>/...
+  const control = canonicalSpec.match(/^#control\/([A-Za-z0-9]+)\/(.+)$/);
+  if (control) return `foliplus/js/control/${control[1]}/${control[2]}`;
+  // #platform/#ui/#core/#foliplus/<rest> → foliplus/js/<tier>/<rest>
+  const tier = canonicalSpec.match(/^#(platform|ui|core|foliplus)\/(.+)$/);
+  if (tier) {
+    const rest = tier[2];
+    // #foliplus/<x> maps directly under foliplus/js/.
+    const base = tier[1] === "foliplus" ? "foliplus/js" : `foliplus/js/${tier[1]}`;
+    return `${base}/${rest}`;
+  }
+  return null;
+};
+
+// The barrel rule: which imports must go through a tier barrel.
+// ui/index.js and core/layer/index.js each own a namespace; a file outside the
+// barrel's directory importing a module inside it must use the barrel.
+const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
+  // The barrel's own re-exports are the barrel itself — never a violation.
+  const fromDir = dirname(fromRel);
+  // ui barrel: any file outside foliplus/js/ui/ importing #ui/<mod> (not index).
+  if (
+    canonicalSpec.startsWith("#ui/") &&
+    !canonicalSpec.startsWith("#ui/index.js") &&
+    !fromDir.startsWith("foliplus/js/ui")
+  ) {
+    return "cross-tier ui import must go through #ui/index.js";
+  }
+  // core/layer barrel: any file outside foliplus/js/core/layer/ importing
+  // #core/layer/<mod> (not index).
+  if (
+    canonicalSpec.startsWith("#core/layer/") &&
+    !canonicalSpec.startsWith("#core/layer/index.js") &&
+    !fromDir.startsWith("foliplus/js/core/layer")
+  ) {
+    return "cross-tier core/layer import must go through #core/layer/index.js";
+  }
+  return null;
+};
+
 // ── The rules ─────────────────────────────────────────────────
 // Each violation is [file, spec, rule]. The test asserts none exist.
 const collect = (): Array<[string, string, string]> => {
@@ -229,6 +275,36 @@ const collect = (): Array<[string, string, string]> => {
           ]);
         }
       }
+
+      // ── Rule 4: a same-directory import must be relative ("./x.js"), not an alias ──
+      // Two files in the same directory must use a relative specifier: an alias
+      // (e.g. #control/LayerControl/ui/focus/marqueeShape.js) that resolves to the
+      // same directory adds a layer of indirection with no benefit, and lets the
+      // directory be renamed without the call sites following.
+      if (spec.startsWith("#")) {
+        const fileDir = dirname(rel);
+        const target = resolveTarget(rel, spec);
+        if (target && dirname(target) === fileDir) {
+          problems.push([
+            rel.replace("foliplus/js/", ""),
+            spec,
+            "same-directory import must use a relative specifier",
+          ]);
+          continue;
+        }
+      }
+
+      // ── Rule 5: a cross-tier import must go through the tier barrel ──
+      // ui and core/layer each have an index.ts barrel. A file outside the
+      // barrel's directory importing a module inside it must use the barrel
+      // (e.g. #ui/index.js, #core/layer/index.js) — never the module path
+      // directly — so the barrel owns the namespace shape and a module rename
+      // does not ripple through call sites.
+      const barrelRule = barrelFor(rel, canonicalSpec);
+      if (barrelRule) {
+        problems.push([rel.replace("foliplus/js/", ""), spec, barrelRule]);
+        continue;
+      }
     }
   }
   return problems;
@@ -257,6 +333,34 @@ describe("JS import boundaries", () => {
   it("tiers depend only downward (platform -> ui -> core)", () => {
     const violations = collect().filter(v => v[2].includes(" imports outside "));
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
+  });
+
+  it("a same-directory import uses a relative specifier", () => {
+    const violations = collect().filter(
+      v => v[2] === "same-directory import must use a relative specifier",
+    );
+    expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
+  });
+
+  it("a cross-tier import goes through the tier barrel (ui, core/layer)", () => {
+    const violations = collect().filter(v => v[2].includes("must go through"));
+    expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
+  });
+
+  it("the tier-barrel rule is live, not vacuous (external consumers use the barrel)", () => {
+    const files = walk(JS_ROOT);
+    const externalUi = files
+      .map(f =>
+        f
+          .split("\\")
+          .join("/")
+          .replace(REPO_ROOT.split("\\").join("/") + "/", ""),
+      )
+      .filter(rel => !rel.startsWith("foliplus/js/ui/"))
+      .filter(rel =>
+        readFileSync(join(REPO_ROOT, rel), "utf-8").includes("#ui/index.js"),
+      );
+    expect(externalUi.length).toBeGreaterThan(0);
   });
 
   it("core consumes the ui chrome layer (the allowance is live, not vacuous)", () => {

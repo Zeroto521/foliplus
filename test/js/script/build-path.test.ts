@@ -70,8 +70,12 @@ describe("build-path.mjs", () => {
     // package.json cannot import this module for Node resolution, so the JSON
     // file remains the runtime source. This test is the drift check (#518
     // class): a hand-edit to either side fails here instead of at build time.
+    // Full equality (not toMatchObject): an alias ADDED to package.json without
+    // a build-path entry — or renamed on one side only — fails here too, so
+    // ALIAS_TO_REL is the one place a tier rename is made (#979 bound only
+    // build-path to import-boundary; this closes the package.json side).
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
-    expect(pkg.imports).toMatchObject(PACKAGE_IMPORTS);
+    expect(pkg.imports).toEqual(PACKAGE_IMPORTS);
     // The glob table derives from the same mapping the aliases do, so every
     // specifier appears in both shapes with the same target directory.
     expect(PACKAGE_IMPORTS["#platform/*"]).toBe("./foliplus/js/platform/*");

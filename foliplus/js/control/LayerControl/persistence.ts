@@ -5,10 +5,10 @@ import type {
   PersistedLayerState,
   PersistedRecord,
 } from "./type.js";
-import type { FolderOrder } from "#core/layer/folderOrder.js";
 import {
   FILL_MODE,
   type FillValueConfig,
+  type FolderOrder,
   isFillValueConfig,
   isIconIntent,
 } from "#core/layer/index.js";

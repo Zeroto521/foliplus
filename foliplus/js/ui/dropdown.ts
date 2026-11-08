@@ -402,5 +402,5 @@ const activateRow = (state: InternalState, index: number): void => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { applyOptionRowA11y, createDropdown, dropdownOf };
+export { createDropdown, dropdownOf };
 export type { Dropdown, DropdownSurface };

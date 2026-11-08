@@ -9,8 +9,7 @@ import { bindFloatingGestures } from "#platform/floating.js";
 import { ICON_CLOSE } from "#platform/icon.js";
 import { isPortalOf } from "#platform/portalRoot.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { closeButton, computePlacement } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
+import { PANEL_CLASS, closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {

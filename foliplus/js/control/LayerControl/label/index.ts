@@ -33,8 +33,12 @@ import { finalize } from "#platform/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { CanvasLabelStyle } from "#platform/type.js";
-import { resolveCanvasLabelStyle, withLabelPaint } from "#ui/canvasLabel.js";
-import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
+import {
+  clampLabelSize,
+  normalizeHexColor,
+  resolveCanvasLabelStyle,
+  withLabelPaint,
+} from "#ui/index.js";
 
 // The component's prefix, not the folder's: `Annotation` is an internal
 // subsystem name a user never sees, and every diagnostic from a mounted

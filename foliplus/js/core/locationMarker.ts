@@ -6,8 +6,8 @@
 // that common/ never imports from #core/, and adapter is the one module
 // allowed to hold private-field reaches. Callers in LocateControl,
 // MeasureControl and SearchControl import this from #core/locationMarker.js.
+import { setPopupCloseTitle } from "./leafletAdapter.js";
 import { reverseGeocode } from "#core/geocode/index.js";
-import { setPopupCloseTitle } from "#core/leafletAdapter.js";
 import { buildPopupEl } from "#platform/dom.js";
 import * as SVGs from "#platform/icon.js";
 

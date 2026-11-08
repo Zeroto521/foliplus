@@ -18,13 +18,6 @@ import {
   publish,
 } from "#core/event/index.js";
 import {
-  type FolderOrder,
-  type FolderSection,
-  deleteFolderFromOrder,
-  freezeSectionOrder,
-  normalizeFolderName,
-} from "#core/layer/folderOrder.js";
-import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateColorAPI,
@@ -32,6 +25,8 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   type FilterRangeDimension,
+  type FolderOrder,
+  type FolderSection,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
@@ -48,10 +43,13 @@ import {
   type RegisterLayerOpts,
   SurfaceIndex,
   countFeatureGeometry,
+  deleteFolderFromOrder,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
   findLayer,
+  freezeSectionOrder,
+  normalizeFolderName,
   visibleDomOf,
   walkLeaf,
   zFor,

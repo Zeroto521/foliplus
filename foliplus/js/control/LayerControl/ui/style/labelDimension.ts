@@ -26,6 +26,7 @@ import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
+  PANEL_CLASS,
   clampLabelSize,
   createDropdown,
   colorInput as formColorInput,
@@ -35,7 +36,6 @@ import {
   normalizeHexColor,
   selectInput,
 } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LabelConfig } from "#control/LayerControl/type.js";
 

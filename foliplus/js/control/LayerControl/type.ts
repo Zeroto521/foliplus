@@ -12,9 +12,11 @@
 import type { ProjectionDelta } from "./ui/apply.js";
 import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
-import type { FolderOrder } from "#core/layer/folderOrder.js";
-import type { PersistedLayerState } from "#core/layer/index.js";
-import type { LayerDimKey } from "#core/layer/type.js";
+import type {
+  FolderOrder,
+  LayerDimKey,
+  PersistedLayerState,
+} from "#core/layer/index.js";
 
 export type {
   LabelConfig,

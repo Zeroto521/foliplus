@@ -7,14 +7,14 @@
 // labels separately, so collision never crosses layers — and this class only
 // paints the slice it is handed.
 import { type PlannedLabel } from "./layout.js";
-import { setLayerAlpha, withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { setLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import type { CanvasLabelStyle } from "#platform/type.js";
 import {
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
-} from "#ui/canvasLabel.js";
+} from "#ui/index.js";
 
 /** One layer's label canvas. Painting is driven by the LabelManager, so
  *  there is nothing to schedule or listen for here. */

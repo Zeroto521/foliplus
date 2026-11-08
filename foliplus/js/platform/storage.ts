@@ -1,5 +1,5 @@
 // localStorage helpers for foliplus components.
-// Imported via `import * as Storage from "#platform/storage.js"`.
+// Imported as `#platform/storage.js` (a namespace import by components).
 // Stateless over window.localStorage, so it is safe to inline per-component.
 import { debounce } from "./debounce.js";
 import { createLogger } from "./log.js";

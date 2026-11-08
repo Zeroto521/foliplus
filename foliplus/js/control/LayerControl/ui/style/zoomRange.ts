@@ -25,8 +25,7 @@ import {
 } from "./registry.js";
 import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
-import { Slider, sliderOf } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
+import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.

@@ -9,8 +9,7 @@
 // the facade import this instead of each other).
 import type { LayerUI } from "../surface.js";
 import { METHOD } from "#core/classify.js";
-import type { LayerInfo } from "#core/layer/index.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { FillValueConfig, LayerInfo } from "#core/layer/index.js";
 
 type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
 

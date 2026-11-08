@@ -31,7 +31,7 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
-import { walkLeaf } from "#core/layer/walkLeaf.js";
+import { walkLeaf } from "#core/layer/index.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 

@@ -15,8 +15,12 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
-import { DIM } from "#core/layer/index.js";
-import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
+import {
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+} from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";

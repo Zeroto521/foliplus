@@ -3,6 +3,7 @@
 // register/unregister callbacks via dependency injection.
 import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { type PaneManager } from "./PaneManager.js";
+import { withCanvasLayerAlpha } from "./canvasAlpha.js";
 import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
@@ -28,7 +29,6 @@ import type {
   SurfaceHandle,
 } from "./type.js";
 import { zFor } from "./z.js";
-import { withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";

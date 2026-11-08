@@ -35,7 +35,7 @@
 // face.
 import * as CONST from "./const.js";
 import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { FillValueConfig } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");

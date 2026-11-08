@@ -32,9 +32,7 @@ import {
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 import { dom } from "#platform/dom.js";
-import { bindDismiss } from "#ui/dismiss.js";
-import { formRow } from "#ui/index.js";
-import { nextOptionId } from "#ui/optionRow.js";
+import { bindDismiss, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Grid columns for the glyph picker popup. */

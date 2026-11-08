@@ -143,6 +143,7 @@ export type {
 } from "./filterFeature.js";
 export type { Projection } from "./type.js";
 export type {
+  FillMode,
   LabelConfig,
   FillValueConfig,
   IconIntent,

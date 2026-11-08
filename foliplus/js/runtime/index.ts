@@ -5,13 +5,13 @@
  * into the shared header. Exposes:
  *   - foliplus.version - build version (`git describe`), same value as the artifact banner
  *   - foliplus.geocode / foliplus.reverseGeocode - global geocoding (bidirectional cache)
- *   - foliplus.core / foliplus.common.<module> - shared modules, registered
+ *   - foliplus.core / foliplus.platform.<module> - shared modules, registered
  *     automatically by script/build/build.mjs (see generateSharedRegistry) so new
- *     core/common modules need no manual wiring here.
+ *     core/platform modules need no manual wiring here.
  *   - foliplus.BaseControl - base class shared by all components.
  *   - foliplus.hint - module-level hint icon registry (per-map hint lives on map.foliplus)
  *
- * Component bundles externalize #core/* and #common/* imports to these globals
+ * Component bundles externalize #core/* and #platform/* imports to these globals
  * (see script/build/global-namespace-plugin.mjs), so shared code is included exactly
  * once instead of being inlined into every component.
  *

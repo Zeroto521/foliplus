@@ -41,7 +41,7 @@ import {
   publish,
 } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/index.js";
 import {
   type FilterOwner,
   type LayerFilter,

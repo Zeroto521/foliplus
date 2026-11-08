@@ -3,12 +3,9 @@
 // focused bounds, and the accent marching-ants rectangle hugging the shadow
 // edge. Both overlays ride the same SVG renderer so they share a pane.
 import type { LayerUI } from "../surface.js";
+import { type RectCorners, roundedRectOutline } from "./marqueeShape.js";
 import { FOCUS_Z, PANE_OWNER, walkLeaf } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import {
-  type RectCorners,
-  roundedRectOutline,
-} from "#control/LayerControl/ui/focus/marqueeShape.js";
 
 /**
  * Compute a layer's geographic bounds. Third-party layers may be custom

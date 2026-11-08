@@ -62,14 +62,17 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
-import { readFeatureFillColors } from "#core/layer/authorFill.js";
-import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import {
+  CAP_TIER,
+  DIM,
   FILL_MODE,
   type FillMode,
   type FillValueConfig,
+  type LayerInfo,
   type LayerOverride,
-} from "#core/layer/intent.js";
+  ROLE,
+  readFeatureFillColors,
+} from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {

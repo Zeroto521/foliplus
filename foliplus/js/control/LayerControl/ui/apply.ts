@@ -35,8 +35,14 @@ import {
   EVENTS,
   type SettledOperation,
 } from "#core/event/index.js";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
-import { CAP_TIER, HIDDEN, PANE_ROLE, carrierTargetOf } from "#core/layer/index.js";
+import {
+  CAP_TIER,
+  HIDDEN,
+  PANE_ROLE,
+  carrierTargetOf,
+  getLayerAlpha,
+  setLayerAlpha,
+} from "#core/layer/index.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's

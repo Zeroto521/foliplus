@@ -13,8 +13,7 @@ import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { mountFloating } from "#platform/floating.js";
-import { applyOptionRowA11y, nextOptionId } from "#ui/optionRow.js";
-import { computePlacement } from "#ui/placement.js";
+import { applyOptionRowA11y, computePlacement, nextOptionId } from "#ui/index.js";
 
 // listCursor lives on SearchControl but not on SearchControlState; panel.ts
 // only touches it at panel-lifecycle boundaries (destroy on teardown, refresh

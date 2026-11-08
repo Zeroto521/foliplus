@@ -50,8 +50,13 @@ import {
 import { dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
-import { buttonRow, finishSlidersIn, panelButton, sectionDivider } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
+import {
+  PANEL_CLASS,
+  buttonRow,
+  finishSlidersIn,
+  panelButton,
+  sectionDivider,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 

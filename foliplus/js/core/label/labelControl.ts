@@ -14,6 +14,7 @@ import {
   DEFAULT_LABEL_COLOR,
   type DropdownSurface,
   LABEL_SIZE,
+  PANEL_CLASS,
   bindLiveColor,
   bindLiveNumber,
   createDropdown,
@@ -22,7 +23,6 @@ import {
   numberInput as formNumberInput,
   inlineControls,
 } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
 
 /** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)

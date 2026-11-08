@@ -136,8 +136,8 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps leafletAdapter.js to foliplus.core.leafletAdapter", () => {
-    // A core-root single file, so the general rule must cover it: the #common
-    // fallback would build "foliplus.common.#core/leafletAdapter".
+    // A core-root single file, so the general rule must cover it: the #platform
+    // fallback would build "foliplus.platform.#core/leafletAdapter".
     expect(sharedGlobalNamespace("#core/leafletAdapter.js")).toBe(
       "foliplus.core.leafletAdapter",
     );
@@ -156,7 +156,7 @@ describe("sharedGlobalNamespace", () => {
     );
   });
 
-  it("maps common modules to foliplus.common.mod", () => {
+  it("maps platform modules to foliplus.platform.mod", () => {
     expect(sharedGlobalNamespace("#platform/dom.js")).toBe("foliplus.platform.dom");
     expect(sharedGlobalNamespace("#platform/storage.js")).toBe(
       "foliplus.platform.storage",
@@ -182,7 +182,7 @@ describe("sharedGlobalNamespace", () => {
 describe("sharedGlobalNamespace across the production tree", () => {
   it("gives every core-root single file a namespace that parses", () => {
     // A core-root single file the general rule misses would fall through to the
-    // #common fallback and come out as "foliplus.common.#core/<name>" — the shim
+    // #platform fallback and come out as "foliplus.platform.#core/<name>" — the shim
     // declaration `var foliplus_common_#core/<name>_shim = …` is not valid JS,
     // so esbuild fails the component bundle while build.mjs still prints a tick
     // for it. Walking the directory keeps a newly added file from shipping a

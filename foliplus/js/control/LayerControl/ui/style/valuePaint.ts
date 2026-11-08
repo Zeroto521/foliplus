@@ -46,7 +46,7 @@ import {
   styleDimOverAuthor,
   styleDimPayload,
 } from "./styleBag.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { FillValueConfig } from "#core/layer/index.js";
 import {
   buildCategoryRamp,
   buildRamp,

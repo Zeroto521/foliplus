@@ -11,8 +11,7 @@ import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
-import { BORDER_WEIGHT } from "#ui/index.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
+import { BORDER_WEIGHT, PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
