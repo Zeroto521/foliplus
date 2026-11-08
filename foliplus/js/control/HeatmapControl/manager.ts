@@ -645,6 +645,19 @@ class HeatmapManager {
     // consuming it would make the render self-trigger.
     this.onSourceContentChange = debounce(() => {
       if (!this.selectedLayerId) return;
+      // A clearLayers retires the source: the registry no longer carries the
+      // id, and the onLayerChange departed branch owns the single
+      // notification (it drops the record and emits exactly once). Rendering
+      // here would revalidate + emit a second time — the double notify this
+      // guard removes. addLayer/removeLayer keep the row registered, so they
+      // still flow through this content render. The lightweight LayerAPI stub
+      // has no registry to consult (isLayerControl false), so it always
+      // renders — the stub has no departure semantics to coordinate with.
+      const api = map.foliplus!.LayerAPI!;
+      const stillRegistered =
+        !api.isLayerControl ||
+        api.layers.some(info => info.id === this.selectedLayerId);
+      if (!stillRegistered) return;
       const operation = new SettledOperation(this.events);
       this.renderHexagons(operation, true);
       operation.throwIfFailed();

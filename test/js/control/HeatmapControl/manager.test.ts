@@ -2815,11 +2815,13 @@ const userWrite = (manager: any, filter: LayerFilter = USER_RANGE) => {
 const fsGet = (m: any, src: string) => m.filterStore.getFilter(m.layerId, src);
 /** Whether the source carries a filter (committed value or declaration). */
 const fsHas = (m: any, src: string) => fsGet(m, src) !== undefined;
-/** Count of sources carrying a filter (committed value or declaration). */
+/** Count of sources carrying a filter value (committed or declared).
+ *  Mirrors the old layerFilters.size: a slot the user owns but cleared
+ *  holds no value and does not count. */
 const fsSize = (m: any) =>
   m.filterStore
     .sources(m.layerId)
-    .filter((s: string) => m.filterStore.isOwned(m.layerId, s) || fsGet(m, s) !== undefined)
+    .filter((s: string) => fsGet(m, s) !== undefined)
     .length;
 
 
@@ -3157,7 +3159,11 @@ describe("HeatmapManager — filter contract (range arm)", () => {
 
     it("does not seed while a stored record owns the slot", () => {
       const manager = seedable(RANGE);
-      manager.filterStore.restore(manager.layerId, manager.selectedLayerId!, RANGE); // a persisted record owns the slot
+      // The stored record owns the slot with no value — the user cleared the
+      // filter (old semantics: filtersTouched flag set, no map entry). A
+      // restore with a VALUE would model the opposite (user set a filter),
+      // which seeding must also respect but this test pins the cleared case.
+      manager.filterStore.restore(manager.layerId, manager.selectedLayerId!, undefined);
 
       manager.seedDeclaredFilter();
 
@@ -3202,7 +3208,7 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       prepare(manager).seedDeclaredFilter();
 
       expect(fsGet(manager, "pts")).toEqual(USER_RANGE);
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(true);
+      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId!)).toBe(true);
     });
   });
 
@@ -4417,7 +4423,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m2.field).toBe("value");
       // The ownership flag and the per-source filter travel together: the
       // reloaded manager must not let the declaration overwrite either.
-      expect(m2.filterStore.isOwned(m2.layerId, m2.selectedLayerId)).toBe(true);
+      expect(m2.filterStore.isOwned(m2.layerId, m2.selectedLayerId!)).toBe(true);
       expect(fsGet(m2, "r1")).toEqual({
         kind: "atom",
         field: "value",

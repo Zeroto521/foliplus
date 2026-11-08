@@ -246,6 +246,15 @@ const createFilterStore = (): FilterStore => {
       for (const key of hosts.keys()) {
         if (key.startsWith(prefix)) names.push(key.slice(prefix.length));
       }
+      // A restored record carries source names that were never registered as
+      // hosts (a migration restores into the record before any host exists).
+      // Union those in so the record's sources stay visible — registration
+      // order first, then record-only names.
+      const record = readRecord();
+      const persisted = record.layers[layerId]?.sources ?? {};
+      for (const name of Object.keys(persisted)) {
+        if (!names.includes(name)) names.push(name);
+      }
       return names;
     },
     setFilter(layerId, name, filter) {
