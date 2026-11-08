@@ -1,4 +1,4 @@
-// common/portalRoot — which overlay owns a node that was mounted elsewhere.
+// platform/portalRoot — which overlay owns a node that was mounted elsewhere.
 //
 // A floating panel dismisses itself on a press that lands "outside" it. An
 // overlay may legitimately mount content on another host — the shared dropdown

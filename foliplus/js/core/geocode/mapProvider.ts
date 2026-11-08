@@ -10,8 +10,8 @@
 // All foliplus geocoding goes through this wrapper — the runtime geocoder and
 // component paths (e.g. SearchControl suggestions) — so the ~4 conversion
 // sites stay in one function instead of being repeated per consumer.
-import { fromWgs84, toWgs84 } from "#core/geo/coord.js";
 import type { GeocodeProvider } from "./type.js";
+import { fromWgs84, toWgs84 } from "#core/geo/coord.js";
 
 /** Wrap a WGS84 provider so its I/O coordinates adapt to the map CRS. */
 const withMapCRS = (provider: GeocodeProvider, map: L.Map): GeocodeProvider => {

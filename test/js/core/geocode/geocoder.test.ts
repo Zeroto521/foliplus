@@ -1,6 +1,6 @@
+import { loadGeoJSON } from "../fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
-import { loadGeoJSON } from "../fixture.js";
 
 // A minimal WGS84 map — toWgs84 passes coordinates through unchanged.
 const mockMap = {

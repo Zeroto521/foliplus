@@ -1,4 +1,9 @@
 // LayerControl UI — Overflow (⋮) menu.
+import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
+import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
+import { isFilterCapable } from "./filter.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { CAP_TIER, sectionOf } from "#core/layer/index.js";
 import {
@@ -7,15 +12,10 @@ import {
   attachPanel,
   createPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
+import { dom } from "#platform/dom.js";
+import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
-import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
-import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
-import { isFilterCapable } from "./filter.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.

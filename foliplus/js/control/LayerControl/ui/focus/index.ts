@@ -3,10 +3,6 @@
 // `pane.ts`, the disabled-state hints in `hint.ts`; this file re-exports
 // all three so the existing external import surface (`./focus/index.js`)
 // stays unchanged.
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
-import { type FinalizeStep, finalize } from "#common/finalize.js";
-import * as CONST from "#control/LayerControl/const.js";
 import {
   type ProjectionDeltaItem,
   applyProjectionAll,
@@ -21,6 +17,10 @@ import {
   hideOtherLayers,
   restoreHiddenLayers,
 } from "./pane.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
+import { type FinalizeStep, finalize } from "#platform/finalize.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {

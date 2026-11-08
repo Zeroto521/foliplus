@@ -33,11 +33,11 @@ const JS_DIR = resolve(process.cwd(), "foliplus/js");
 // Specifier → path, for the two shared-library aliases only.
 const ALIASES = new Map([
   ["#core/", resolve(JS_DIR, "core")],
-  ["#common/", resolve(JS_DIR, "common")],
+  ["#platform/", resolve(JS_DIR, "platform")],
 ]);
 
 // Every `from "…"` specifier across the production sources. A directory
-// barrel (`#core/index.js`, `#common/index.js`) is only an entry point when
+// barrel (`#core/index.js`, `#platform/index.js`) is only an entry point when
 // the bundler points at it; nothing bundles them, so an import of one
 // resolves to a namespace nobody publishes.
 const aliasedSpecifiers = (): Map<string, string[]> => {
@@ -57,7 +57,7 @@ const aliasedSpecifiers = (): Map<string, string[]> => {
           /from\s+["']([^"']+)["']/g,
         )) {
           const spec = match[1];
-          if (spec.startsWith("#core/") || spec.startsWith("#common/")) {
+          if (spec.startsWith("#core/") || spec.startsWith("#platform/")) {
             seen.set(spec, [...(seen.get(spec) ?? []), full]);
           }
         }
@@ -84,10 +84,10 @@ describe("runtimeTarget", () => {
     expect(runtimeTarget("core/event")).toBe("core.event");
   });
 
-  it("maps common subdirectories to common.<sub>", () => {
-    expect(runtimeTarget("common/dom")).toBe("common.dom");
-    expect(runtimeTarget("common/log")).toBe("common.log");
-    expect(runtimeTarget("common/engine/foo")).toBe("common.foo");
+  it("maps platform subdirectories to platform.<sub>", () => {
+    expect(runtimeTarget("platform/dom")).toBe("platform.dom");
+    expect(runtimeTarget("platform/log")).toBe("platform.log");
+    expect(runtimeTarget("platform/engine/foo")).toBe("platform.foo");
   });
 
   it("maps ui modules to ui.<mod>", () => {
@@ -136,8 +136,8 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps leafletAdapter.js to foliplus.core.leafletAdapter", () => {
-    // A core-root single file, so the general rule must cover it: the #common
-    // fallback would build "foliplus.common.#core/leafletAdapter".
+    // A core-root single file, so the general rule must cover it: the #platform
+    // fallback would build "foliplus.platform.#core/leafletAdapter".
     expect(sharedGlobalNamespace("#core/leafletAdapter.js")).toBe(
       "foliplus.core.leafletAdapter",
     );
@@ -156,10 +156,12 @@ describe("sharedGlobalNamespace", () => {
     );
   });
 
-  it("maps common modules to foliplus.common.mod", () => {
-    expect(sharedGlobalNamespace("#common/dom.js")).toBe("foliplus.common.dom");
-    expect(sharedGlobalNamespace("#common/storage.js")).toBe("foliplus.common.storage");
-    expect(sharedGlobalNamespace("#common/log.js")).toBe("foliplus.common.log");
+  it("maps platform modules to foliplus.platform.mod", () => {
+    expect(sharedGlobalNamespace("#platform/dom.js")).toBe("foliplus.platform.dom");
+    expect(sharedGlobalNamespace("#platform/storage.js")).toBe(
+      "foliplus.platform.storage",
+    );
+    expect(sharedGlobalNamespace("#platform/log.js")).toBe("foliplus.platform.log");
   });
 
   it("maps ui modules to foliplus.ui.mod", () => {
@@ -170,7 +172,7 @@ describe("sharedGlobalNamespace", () => {
     // The deleted `core/index.ts` barrel had an explicit mapping
     // (`foliplus.core.index`) that served no import. Left in place it was dead
     // code that also kept the barrel's name reachable from the build; with it
-    // gone the specifier falls through to the `#common/*` fallback, which strips
+    // gone the specifier falls through to the `#platform/*` fallback, which strips
     // the trailing `.js` and does not strip the leading alias. Either way the
     // result must not be a `foliplus.core.*` namespace.
     expect(sharedGlobalNamespace("#core/index.js")).not.toMatch(/^foliplus\.core\./);
@@ -180,7 +182,7 @@ describe("sharedGlobalNamespace", () => {
 describe("sharedGlobalNamespace across the production tree", () => {
   it("gives every core-root single file a namespace that parses", () => {
     // A core-root single file the general rule misses would fall through to the
-    // #common fallback and come out as "foliplus.common.#core/<name>" — the shim
+    // #platform fallback and come out as "foliplus.platform.#core/<name>" — the shim
     // declaration `var foliplus_common_#core/<name>_shim = …` is not valid JS,
     // so esbuild fails the component bundle while build.mjs still prints a tick
     // for it. Walking the directory keeps a newly added file from shipping a
@@ -224,7 +226,7 @@ describe("sharedGlobalNamespace across the production tree", () => {
   });
 
   it("is never called for a bare core or common domain barrel", () => {
-    // No production source imports `#core/index.js` or `#common/index.js`.
+    // No production source imports `#core/index.js` or `#platform/index.js`.
     // `core/index.ts` was a barrel nothing imported, so this handler never
     // ran for it. The four subdomain barrels (geo, geocode, layer, event)
     // are the intended shape — each one resolves to `foliplus.core.<sub>`.
@@ -432,7 +434,7 @@ describe("collectSources", () => {
 });
 
 describe("scanSharedImports", () => {
-  it("collects named imports from #core/#common/#foliplus", () => {
+  it("collects named imports from #core/#platform/#foliplus", () => {
     const fs = require("fs");
     const path = require("path");
     const os = require("os");
@@ -443,8 +445,8 @@ describe("scanSharedImports", () => {
       [
         'import { ensureHint, HINT_DURATION } from "#core/hint.js";',
         'import { BaseControl } from "#foliplus/BaseControl.js";',
-        'import { dom, createIconButton } from "#common/dom.js";',
-        'import { createTranslator } from "#common/locale.js";',
+        'import { dom, createIconButton } from "#platform/dom.js";',
+        'import { createTranslator } from "#platform/locale.js";',
       ].join("\n"),
       "utf-8",
     );
@@ -461,12 +463,14 @@ describe("scanSharedImports", () => {
       );
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
-      expect(used.has("#common/dom.js")).toBe(true);
-      expect(used.get("#common/dom.js")).toEqual(new Set(["dom", "createIconButton"]));
+      expect(used.has("#platform/dom.js")).toBe(true);
+      expect(used.get("#platform/dom.js")).toEqual(
+        new Set(["dom", "createIconButton"]),
+      );
       expect(used.has("#core/geo/index.js")).toBe(true);
       expect(used.get("#core/geo/index.js")).toEqual(new Set(["fromWgs84"]));
-      expect(used.has("#common/locale.js")).toBe(true);
-      expect(used.get("#common/locale.js")).toEqual(new Set(["createTranslator"]));
+      expect(used.has("#platform/locale.js")).toBe(true);
+      expect(used.get("#platform/locale.js")).toEqual(new Set(["createTranslator"]));
       expect(starUsed.size).toBe(0);
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
@@ -514,7 +518,7 @@ describe("scanSharedImports", () => {
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       [
-        'import * as Icons from "#common/icon.js";',
+        'import * as Icons from "#platform/icon.js";',
         "console.log(Icons.ICON_LOADING);",
         "console.log(Icons.ICON_CLOSE);",
       ].join("\n"),
@@ -523,8 +527,8 @@ describe("scanSharedImports", () => {
     try {
       const { used, starUsed } = scanSharedImports(base);
       expect(used.size).toBe(0);
-      expect(starUsed.has("#common/icon.js")).toBe(true);
-      expect(starUsed.get("#common/icon.js")).toEqual(
+      expect(starUsed.has("#platform/icon.js")).toBe(true);
+      expect(starUsed.get("#platform/icon.js")).toEqual(
         new Set(["ICON_LOADING", "ICON_CLOSE"]),
       );
     } finally {
@@ -597,7 +601,7 @@ describe("globalNamespacePlugin", () => {
     return handlers;
   };
 
-  it("resolves #core/#common/#foliplus imports to the shared namespace", () => {
+  it("resolves #core/#platform/#foliplus imports to the shared namespace", () => {
     const { onResolve } = setupPlugin([join(dir, "index.ts")]);
     expect(onResolve({ path: "#core/layer.js" })).toEqual({
       path: "#core/layer.js",
@@ -610,11 +614,11 @@ describe("globalNamespacePlugin", () => {
     // externalized component self-imports (#control/LayerControl/const.js,
     // #foliplus/config-schema.js) as empty shims, which then resolved to
     // `undefined` at runtime. The new filter is anchored and only accepts
-    // #common/*, #core/*, and the exact #foliplus/BaseControl.js.
+    // #platform/*, #core/*, and the exact #foliplus/BaseControl.js.
     const { onResolveOpts } = setupPlugin([join(dir, "index.ts")]);
     const filter = onResolveOpts!.filter;
     expect(filter.test("#core/layer.js")).toBe(true);
-    expect(filter.test("#common/dom.js")).toBe(true);
+    expect(filter.test("#platform/dom.js")).toBe(true);
     expect(filter.test("#core/layer/LayerFactory.js")).toBe(true);
     expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
     expect(filter.test("#control/LayerControl/const.js")).toBe(false);
@@ -681,18 +685,18 @@ describe("globalNamespacePlugin", () => {
   it("shims star-imported property usage via starUsed", () => {
     writeFileSync(
       join(dir, "index.ts"),
-      'import * as Storage from "#common/storage.js";\nStorage.loadRecord();\n',
+      'import * as Storage from "#platform/storage.js";\nStorage.loadRecord();\n',
       "utf-8",
     );
     const { onLoad } = setupPlugin([join(dir, "index.ts")]);
-    const result = onLoad({ path: "#common/storage.js" });
+    const result = onLoad({ path: "#platform/storage.js" });
     expect(result.contents).toContain("export const loadRecord =");
   });
 
   it("falls back to collectExports and returns empty for unknown files", () => {
     writeFileSync(join(dir, "index.ts"), "", "utf-8");
     const { onLoad } = setupPlugin([join(dir, "index.ts")]);
-    expect(onLoad({ path: "#common/nonexistent.js" })).toEqual({
+    expect(onLoad({ path: "#platform/nonexistent.js" })).toEqual({
       contents: "",
       loader: "js",
     });

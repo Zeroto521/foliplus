@@ -1,27 +1,6 @@
 // Value-based fill rendering and its editable "按值着色 / Color by value" UI — the
 // FILL declaration and the value mode's presentation share this file. The paint
 // engine (the shared by-value mode) lives in valuePaint.ts.
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
-import {
-  categoricalPropertiesKeys,
-  inferFieldKind,
-  numericPropertiesKeys,
-  resolveField,
-} from "#core/field.js";
-import { DIM } from "#core/layer/index.js";
-import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import {
-  dropdownSurface,
-  fullscreenSurface,
-  onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
-import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { authorFill, methodLabel } from "./fillAuthor.js";
@@ -29,6 +8,31 @@ import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import {
+  categoricalPropertiesKeys,
+  inferFieldKind,
+  numericPropertiesKeys,
+  resolveField,
+} from "#core/field.js";
+import {
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+} from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
+import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 
 const resolveFillMode = (
   ui: LayerUI,

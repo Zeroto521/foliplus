@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { rafLoop } from "#common/rafLoop.js";
+import { rafLoop } from "#platform/rafLoop.js";
 
 describe("rafLoop", () => {
   beforeEach(() => {

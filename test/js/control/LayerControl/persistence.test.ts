@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isFillValueConfig } from "#core/layer/intent.js";
-import * as Storage from "#common/storage.js";
+import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
 import type { PersistedRecord } from "#control/LayerControl/type.js";

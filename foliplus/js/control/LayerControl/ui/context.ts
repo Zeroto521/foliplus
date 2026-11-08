@@ -1,9 +1,9 @@
 // Shared pure helpers for LayerControl UI modules.
 // CONFIG / map are no longer read here — each module reads them off the
 // `LayerUI` state it receives (ui.config / ui.T / ui.c.map).
-import { type LayerInfo } from "#core/layer/index.js";
-import { updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
+import { type LayerInfo } from "#core/layer/index.js";
+import { updateItemLabel } from "#platform/dom.js";
 
 /** Does the browser consider this focus keyboard-visible?
  *

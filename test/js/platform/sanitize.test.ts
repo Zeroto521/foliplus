@@ -8,7 +8,7 @@
 // are namespace-agnostic.
 import { describe, expect, it } from "vitest";
 
-const mod = await import("#common/sanitize.js");
+const mod = await import("#core/sanitize.js");
 const { parseSVG, safeSVG } = mod;
 
 /** Re-parse through the same `innerHTML` sink the real callers use. */

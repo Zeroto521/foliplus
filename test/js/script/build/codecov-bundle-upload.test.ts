@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -12,7 +13,6 @@ import {
   runUpload,
   uploadStats,
 } from "#script/build/codecov-bundle-upload.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 let tmp = "";
 afterEach(() => {

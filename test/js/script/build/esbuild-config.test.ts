@@ -39,13 +39,13 @@ describe("esbuildCfgFor", () => {
     expect(dev.keepNames).toBe(true);
   });
 
-  it("declares the three #common / #core / #foliplus path aliases", () => {
-    // The alias table is what lets the sources import `#common/format` etc.
+  it("declares the three #platform / #core / #foliplus path aliases", () => {
+    // The alias table is what lets the sources import `#platform/format.js` etc.
     // A missing entry breaks the build with an unhelpful ERR_PACKAGE_IMPORT_
     // NOT_DEFINED, so the keys are pinned here.
     const cfg = esbuildCfgFor({ dev: false, root: ROOT });
     expect(Object.keys(cfg.alias)).toEqual(
-      expect.arrayContaining(["#common", "#core", "#foliplus"]),
+      expect.arrayContaining(["#platform", "#core", "#foliplus"]),
     );
   });
 
