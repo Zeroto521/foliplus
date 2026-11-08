@@ -272,6 +272,25 @@ describe("buildIconColorRow", () => {
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#ff0000");
   });
+  it("commits a valid color from the swatch input event", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    input.value = "#12abef";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBe("#12abef");
+  });
+  it("ignores an invalid hex from the swatch input event", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    // A color input coerces any value to a valid hex (or #000000), so the
+    // guard's invalid arm is only reachable when the input carries a
+    // non-hex string — exercise it by switching the input to text so the
+    // handler's /^#[0-9a-f]{6}$/ guard fires and the write is skipped.
+    input.type = "text";
+    input.value = "red";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+  });
 });
 
 describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => {
@@ -388,6 +407,42 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     vi.restoreAllMocks();
   });
 
+  it("reset with no author paint re-applies the user glyph", () => {
+    // An author that declares no iconColor (empty = no paint): reset must
+    // restore the author icon and re-apply the current user glyph so the
+    // glyph survives (the no-author-paint branch).
+    const noPaint = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "" }));
+    const { ui: uNoPaint, manager: mgr } = fixtureWithMarkers([noPaint]);
+    writeIntentKeys(uNoPaint, "overlay1", [
+      [INTENT.ICON, { kind: "glyph", value: "star" }],
+    ]);
+    commitIconColor(uNoPaint, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
+    resetLayerIconColor(uNoPaint, "overlay1");
+    flushIconColor("overlay1");
+    const div = noPaint.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-star");
+    mgr?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+  it("reset with no author paint and no user glyph restores the author icon", () => {
+    const noPaint = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "" }));
+    const { ui: uNoPaint, manager: mgr } = fixtureWithMarkers([noPaint]);
+    const authorBefore = noPaint.options.icon;
+    commitIconColor(uNoPaint, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
+    expect(noPaint.options.icon).not.toBe(authorBefore);
+    resetLayerIconColor(uNoPaint, "overlay1");
+    flushIconColor("overlay1");
+    expect(noPaint.options.icon).toBe(authorBefore);
+    mgr?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
   it("set Icon Color changes the glyph color only, NOT the chassis", () => {
     // Lead decision 3: the icon color dimension must NOT touch the pin chassis.
     // The derived icon's outer div (chassis) keeps the author's paint
@@ -425,5 +480,101 @@ describe("iconColor dimension — surface integration", () => {
       kind: "frame",
       face: FACE.ICON_COLOR,
     });
+  });
+});
+describe("iconColor dimension descriptor", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let school: any;
+  beforeEach(() => {
+    school = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "blue" }));
+    ({ manager, ui } = fixtureWithMarkers([school]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+  it("value returns the stored user color, else undefined", () => {
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toBeUndefined();
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ value: "#ff0000" });
+  });
+  it("write stores the color and schedules an apply", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: "#00ff00" });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBe("#00ff00");
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
+  });
+  it("write ignores a non-string value", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: undefined });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+  });
+  it("reset clears the persisted color", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    ICON_COLOR_DIMENSION.reset!(ui, "overlay1");
+    flushIconColor("overlay1");
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+  });
+  it("valueSource reports user after a write, author before", () => {
+    expect(ICON_COLOR_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    expect(ICON_COLOR_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+  it("contentChange when is true only once a color intent exists", () => {
+    const policy = ICON_COLOR_DIMENSION.contentChange;
+    if (policy.kind !== "frame") throw new Error("expected a frame policy");
+    expect(policy.when!(ui, "overlay1")).toBe(false);
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    expect(policy.when!(ui, "overlay1")).toBe(true);
+  });
+  it("row builds the swatch row for a capable carrier", () => {
+    const row = ICON_COLOR_DIMENSION.row(ui, "overlay1") as HTMLElement;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ICON_COLOR_ROW)).toBe(true);
+  });
+  it("contentChange run applies the stored color", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#00ff00"]]);
+    const policy = ICON_COLOR_DIMENSION.contentChange;
+    if (policy.kind !== "frame") throw new Error("expected a frame policy");
+    policy.run!(ui, "overlay1");
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
+    const div = school.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgb(0, 255, 0)");
+  });
+  it("apply is a no-op when findLayer returns null", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
+    applyIconColorToLayer(ui, "overlay1");
+    expect(school.setIcon).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+  it("valueSource reports none for an incapable carrier", () => {
+    const img = makeMarker({ type: "school" }, makeImgAuthor());
+    const { ui: uImg } = fixtureWithMarkers([img]);
+    expect(ICON_COLOR_DIMENSION.valueSource!(uImg, "overlay1")).toBe("none");
+  });
+  it("row falls back to #ffffff when neither the user nor author paints", () => {
+    const noPaint = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "" }));
+    const { ui: uNoPaint } = fixtureWithMarkers([noPaint]);
+    const row = buildIconColorRow(uNoPaint, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#ffffff");
+  });
+  it("commit on a multi-leaf layer walks every marker in one construction", () => {
+    const a = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "blue" }));
+    const b = makeMarker({ type: "hospital" }, makeAuthorIcon({ iconColor: "red" }));
+    const { ui: uMulti, manager: mgr } = fixtureWithMarkers([a, b]);
+    commitIconColor(uMulti, "overlay1", "#00ff00");
+    flushIconColor("overlay1");
+    expect(a.setIcon).toHaveBeenCalled();
+    expect(b.setIcon).toHaveBeenCalled();
+    mgr?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
   });
 });

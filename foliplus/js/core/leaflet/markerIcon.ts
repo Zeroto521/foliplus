@@ -163,8 +163,8 @@ const buildMarkerIcon = (opts: {
     // else white. options.markerColor is the CHASSIS color (the pin's
     // background), NOT a glyph source — never read it here. One derivation,
     // one paint — color and glyph never split.
-    const authorIconColor = (author as { options?: { iconColor?: string } })
-      .options?.iconColor;
+    const authorIconColor = (author as { options?: { iconColor?: string } }).options
+      ?.iconColor;
     // Empty string means "no author paint" (awesome-markers leaves the glyph
     // uncolored), so normalise empties to undefined and fall through with ??.
     const inlineColor = authorInlineColor || undefined;

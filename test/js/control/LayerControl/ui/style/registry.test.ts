@@ -129,14 +129,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind !== "none")
       .map(d => d.key)
       .sort();
-    expect(replaying).toEqual([
-      "border",
-      "fill",
-      "icon",
-      "iconColor",
-      "label",
-      "size",
-    ]);
+    expect(replaying).toEqual(["border", "fill", "icon", "iconColor", "label", "size"]);
     // Every face of the coalescer is claimed by exactly one frame policy —
     // a face nobody schedules would strand late leaves; a face claimed
     // twice would fight over one queue slot.

@@ -144,9 +144,7 @@ const hasIconColorLeaf = (node: unknown): boolean =>
   safeRead(
     () =>
       typeof (node as { setIcon?: unknown }).setIcon === "function" &&
-      canPaintGlyphOnIcon(
-        (node as { options?: { icon?: unknown } }).options?.icon,
-      ),
+      canPaintGlyphOnIcon((node as { options?: { icon?: unknown } }).options?.icon),
   ) === true;
 
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a

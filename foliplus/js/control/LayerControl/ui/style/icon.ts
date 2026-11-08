@@ -22,8 +22,8 @@ import {
 } from "#core/leaflet/glyphSource.js";
 import {
   type AuthorGlyph,
-  applyIconToLeaves,
   applyIconColorToLeaves,
+  applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,

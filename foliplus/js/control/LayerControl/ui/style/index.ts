@@ -41,8 +41,8 @@ import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.
 import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { resetLayerIcon } from "./icon.js";
-import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerIconColor } from "./iconColor.js";
+import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { bindSizeRow, resetLayerSize } from "./size.js";
