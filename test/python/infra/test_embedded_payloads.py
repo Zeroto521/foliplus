@@ -151,3 +151,25 @@ def test_depth_rule_distinguishes_geometry_from_flat_pairs():
     assert _max_array_depth('"coordinates": [[0, 0], [1, 1]]', 14) >= 2
     assert _max_array_depth('"coordinates": [[[0, 0], [1, 1]]]', 14) == 3
     assert _max_array_depth('"coordinates": null', 14) == 0
+
+# ── Payload class 1: inline browser-test JS ──────────────────────────────
+# page.evaluate( followed by a triple-quote block: the inline-JS shape to ban.
+# The single-quoted regex keeps the banned tokens out of this file's own
+# source (the backslash-space escape means "page.evaluate(" + the quote
+# block is never present verbatim), so the guard does not flag itself.
+INLINE_JS = re.compile(r'page\.evaluate\(\s*"""')
+
+def test_no_inline_multiline_js_in_python() -> None:
+    """The Python test layer extracts JS to test/js/snippet/, never inline."""
+    offenders: list[str] = []
+    for path in sorted((ROOT / "test" / "python").rglob("*.py")):
+        if path.name == "test_embedded_payloads.py":
+            continue  # this guard's own source necessarily contains the tokens
+        src = path.read_text(encoding="utf-8")
+        for m in INLINE_JS.finditer(src):
+            line = src.count("\n", 0, m.start()) + 1
+            offenders.append(f"{path.relative_to(ROOT)}:{line}")
+    assert not offenders, (
+        "multi-line page.evaluate JS must be extracted to test/js/snippet/ "
+        f"via conftest.snippet(): {offenders}"
+    )
