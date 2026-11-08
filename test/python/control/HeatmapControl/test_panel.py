@@ -43,6 +43,10 @@ from conftest import (
     make_browser_page,
     point_feature,
     snippet,
+    assert_map_unchanged,
+    map_center_zoom,
+    snippet_fn,
+    touch_drag,
     use_page,
 )
 
@@ -416,14 +420,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # _hexbin_panel_ready picks the first layer; clear it so the
             # placeholder prompt is the visible state again.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  select.value = "";
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/clear_hexbin_layer"))
             page.wait_for_timeout(300)
 
             # No layer picked: the prompt is the muted placeholder ink.
@@ -439,15 +436,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # Pick a real layer: the trigger leaves the muted ink for the
             # value ink, and the placeholder class goes away.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  const option = [...select.options].find(option => option.value);
-                  select.value = option.value;
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/pick_hexbin_layer"))
             page.wait_for_timeout(300)
             after = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
             assert after["ok"], after
@@ -627,4 +616,42 @@ class TestClassesRowGeometryBrowser:
             assert data["methodFillsControl"], data
             assert data["classesAtSecondary"], data
             assert data["noOverlap"], data
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestHeatmapPanelTouchBrowser:
+    """A touch drag over the fold-panel body scrolls it, not the map."""
+
+    def test_touch_drag_over_the_fold_panel_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        # The fold panel comes from the shared createPanelControl factory, which
+        # binds the touch containment on the scrollable panel-content body.
+        with use_page(_make_page, touch_browser, tmp_path, num_layers=1) as (
+            page,
+            errors,
+        ):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            assert _panel_open(page) is True
+            page.wait_for_timeout(300)
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})"
+                "('.foliplus-heatmap-ctrl .foliplus-panel-content')"
+            )
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 80,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
             assert not errors, f"JS errors: {errors}"

@@ -12,15 +12,19 @@ import pytest
 from conftest import (
     _js,
     feature_collection,
+    assert_map_unchanged,
     heatmap_ready,
     leaflet_path,
     leaflet_points,
     load_geojson,
     make_browser_page,
+    map_center_zoom,
     panel_ready,
     point_feature,
     render,
     snippet,
+    snippet_fn,
+    touch_drag,
     use_page,
     use_raw_page,
 )
@@ -3434,3 +3438,76 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "(expected 10 from the visible 'Low' layer's native max_zoom): "
                 f"{low_only}"
             )
+
+
+class TestStylePanelTouchBrowser:
+    """A touch drag over the style panel body scrolls it, not the map."""
+
+    def test_touch_drag_over_the_style_panel_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        layer = folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"value": 1},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.30, 26.08],
+                                        [119.31, 26.08],
+                                        [119.31, 26.09],
+                                        [119.30, 26.09],
+                                        [119.30, 26.08],
+                                    ]
+                                ],
+                            },
+                        }
+                    ],
+                }
+            ),
+            name="Polygon data",
+        )
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        layer.add_to(m)
+        html = m.get_root().render()
+        with use_page(make_browser_page, touch_browser, tmp_path, html, "style") as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(200)
+            # Open the row menu, then the Style panel on the first overlay row.
+            page.evaluate(snippet("LayerControl/open_layer_style_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})"
+                "('.foliplus-layer-style-panel .foliplus-panel-content')"
+            )
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 80,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
+            assert not errors, f"JS errors: {errors}"

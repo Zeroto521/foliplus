@@ -823,6 +823,52 @@ def use_raw_page(new_page_fn: Callable[[], Any], *args: Any, **kwargs: Any):
         page.close()
 
 
+def snippet_fn(path: str) -> str:
+    """Read a snippet that is a *function expression*, ready to be called.
+
+    Snippets are formatted by prettier as expression statements, so a
+    callable snippet ends with ``);`` or ``};``. Wrapping that in parentheses
+    for a call (``({source})(arg)``) is a syntax error, so drop the trailing
+    semicolon here:  ``page.evaluate(f"({snippet_fn('common/element_rect')})(sel)")``.
+    """
+    return snippet(path).strip().rstrip(";").rstrip()
+
+
+# ── Touch-surface helpers (browser tests) ──
+# A floating surface (panel body, dropdown list) that scrolls must keep its
+# touch drags away from Leaflet's map handlers, which would otherwise pan or
+# zoom the map. These helpers drive a real CDP touch drag and read the map back.
+
+
+def touch_drag(page: Page, x: float, y0: float, y1: float, steps: int = 10) -> None:
+    """Drag one finger from (x, y0) to (x, y1) over *page*."""
+    cdp = page.context.new_cdp_session(page)
+    cdp.send(
+        "Input.dispatchTouchEvent",
+        {"type": "touchStart", "touchPoints": [{"x": x, "y": y0}]},
+    )
+    for i in range(1, steps + 1):
+        yy = y0 + (y1 - y0) * i / steps
+        cdp.send(
+            "Input.dispatchTouchEvent",
+            {"type": "touchMove", "touchPoints": [{"x": x, "y": yy}]},
+        )
+        time.sleep(0.02)
+    cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+
+def map_center_zoom(page: Page) -> list[float]:
+    """Read [lat, lng, zoom] from the live Leaflet map."""
+    return page.evaluate(snippet("common/read_map_center_zoom"))
+
+
+def assert_map_unchanged(before: list[float], after: list[float]) -> None:
+    """A touch drag over a floating surface must not pan or zoom the map."""
+    assert abs(after[0] - before[0]) < 1e-5, (before, after)
+    assert abs(after[1] - before[1]) < 1e-5, (before, after)
+    assert after[2] == before[2], (before, after)
+
+
 # ── Fixtures ──
 
 
@@ -886,3 +932,18 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
         yield proxy
         probe.close()
         browser.close()
+
+
+@pytest.fixture
+def touch_browser(browser) -> Generator[Any, None, None]:
+    """A touch-enabled BrowserContext on the session browser.
+
+    The default ``browser`` fixture hands out contexts without touch support,
+    so Leaflet's touch handlers never fire and a touch-scroll test would pass
+    vacuously. This context reports ``has_touch`` so the CDP touch events reach
+    the control; it shares the session browser and the offline CDN route.
+    """
+    # BrowserContext is a context manager: leaving the block closes it.
+    with browser._browser.new_context(has_touch=True) as context:
+        _install_cdn_route(context)
+        yield context

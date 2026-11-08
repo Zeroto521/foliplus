@@ -25,6 +25,10 @@ from conftest import (
     make_browser_page,
     panel_ready,
     snippet,
+    assert_map_unchanged,
+    map_center_zoom,
+    snippet_fn,
+    touch_drag,
     use_page,
 )
 
@@ -284,4 +288,56 @@ class TestFillRowGeometryBrowser:
             assert field_list["right"] <= field_list["controlRight"] + 0.5, (
                 field_list,
             )
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestDropdownListTouchBrowser:
+    """A touch drag over an open dropdown list scrolls the list, not the map."""
+
+    def test_touch_drag_over_the_enum_dropdown_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        layer = folium.FeatureGroup(name="Touch scroll")
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        layer.add_to(m)
+        html = m.get_root().render()
+        with use_page(make_browser_page, touch_browser, tmp_path, html, "dropdown") as (
+            page,
+            errors,
+        ):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            page.evaluate(
+                "document.querySelector('.foliplus-layer-ctrl .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(200)
+            assert page.evaluate(snippet("LayerControl/open_enum_dropdown")) is True
+            page.wait_for_selector(
+                ".foliplus-dropdown-list", state="visible", timeout=5000
+            )
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})('.foliplus-dropdown-list')"
+            )
+            scrolled = (
+                f"({snippet_fn('common/read_scroll_top')})('.foliplus-dropdown-list')"
+            )
+            st0 = page.evaluate(scrolled)
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 80,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
+            # The list itself scrolls: 12 options overflow the capped height.
+            assert page.evaluate(scrolled) != st0
             assert not errors, f"JS errors: {errors}"
