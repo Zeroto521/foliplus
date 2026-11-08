@@ -395,6 +395,97 @@ def normalize_declared_filter(
     return None
 
 
+def normalise_layer_filter(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> dict[str, object] | None:
+    """Normalise one layer's {"filter": ...} declaration into the shared AST.
+
+    Unlike the Heatmap/Measure filter= kwarg (whose field is the control's
+    aggregation field), a per-layer declaration names its own field. Two
+    friendly forms, one AST:
+
+    - {"field": "pop", "min": 0, "max": 100} -> a between atom on 'pop'
+    - {"field": "cat", "values": ["A", "B"]}  -> an enum atom on 'cat'
+
+    Returns None for not-declared and declared-but-unusable - both mean
+    the layer starts unfiltered, never filtered-to-empty. owner names the
+    control and subject the layer, so every message and de-duplication
+    note is attributable; source points at the entry point the author
+    used. The field is the layer's own property name, so it is required here
+    (unlike the controls, where the aggregation field is a constructor
+    argument); a declaration without one warns once and is ignored.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or "foliplus['filter']"
+
+    def reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:filter:{reason}"
+        warn_foliplus(note, f"{where} declares {declared} {reason} - ignored")
+
+    if not isinstance(raw, Mapping):
+        reject(f"as {type(raw).__name__}; expected a mapping")
+        return None
+    field = raw.get("field")
+    if not isinstance(field, str) or not field.strip():
+        reject("without a non-empty 'field' string")
+        return None
+    extra = sorted(
+        (key for key in raw if key not in {"field", "min", "max", "values"}),
+        key=repr,
+    )
+    if extra:
+        reject(f"with unknown key(s) {extra}; expected field plus min/max or values")
+        return None
+    if "values" in raw:
+        if "min" in raw or "max" in raw:
+            reject("with both 'values' and min/max; choose one form")
+            return None
+        raw_values = raw["values"]
+        if not isinstance(raw_values, Sequence) or isinstance(raw_values, (str, bytes)):
+            reject(f"with 'values' as {type(raw_values).__name__}; expected a list")
+            return None
+        values: list[str] = []
+        for item in raw_values:
+            if not isinstance(item, str) or not item.strip():
+                reject(f"with a non-string 'values' entry {item!r}")
+                return None
+            if item not in values:
+                values.append(item)
+        if not values:
+            reject("with an empty 'values' list; that would mean no filter")
+            return None
+        return {"kind": "enum", "field": field, "values": values}
+    if "min" not in raw or "max" not in raw:
+        reject("needing both 'min' and 'max' (range) or 'values' (enum)")
+        return None
+    for key in ("min", "max"):
+        value = raw[key]
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, numbers.Real)
+            or not math.isfinite(value)
+        ):
+            reject(f"with a non-finite {key}={value!r}")
+            return None
+    low, high = raw["min"], raw["max"]
+    if low > high:
+        reject("with an inverted range (min > max)")
+        return None
+    return {
+        "kind": "atom",
+        "field": field,
+        "op": "between",
+        "range": [json_number(low), json_number(high)],
+    }
+
+
 # ── Folder declaration ───────────────────────────────────────────────────
 def normalise_folder(
     raw: object,
