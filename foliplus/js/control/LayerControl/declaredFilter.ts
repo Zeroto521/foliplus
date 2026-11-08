@@ -4,9 +4,11 @@
 // Python (`normalise_layer_filter`) into CONF `data[].filter`, carried on the
 // layer record's `filter` slot — the same slot the controller keeps in sync as
 // the committed filter, so the declared value IS the initial committed value.
-// This module only reads that AST and never re-validates the shape: a second
-// shape judgment here would be a second source for the same fact — the
-// dual-source the Python normaliser exists to prevent.
+// The trust boundary is CONF: the Python normaliser (not the JS reader) is the
+// one shape judgement, so this module only reads that AST and never
+// re-validates the shape — a second shape judgment here would be a second
+// source for the same fact, and the dual-source the Python normaliser exists
+// to prevent.
 //
 // Absent / `null` reads as "no declared filter" (`undefined`), the same state
 // as no filter (distinct from a filter that matches nothing, which is an empty

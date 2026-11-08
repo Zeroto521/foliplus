@@ -36,7 +36,7 @@ import re
 import sys
 import unicodedata
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from types import FrameType
 from typing import Any, Literal
@@ -247,7 +247,10 @@ def json_number(value: numbers.Real) -> int | float:
 
 
 def range_atom(
-    raw: Mapping[Any, Any], owner: str, bound_field: str | None
+    raw: Mapping[Any, Any],
+    owner: str,
+    bound_field: str | None,
+    report: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any] | None:
     """The min/max mapping form: {min: low, max: high} -> a between atom on bound_field.
 
@@ -259,6 +262,7 @@ def range_atom(
     JSON-native numbers (see ``json_number``): everything downstream of the
     AST is serialised, not interpreted.
     """
+    report = report or (lambda message, _reason: warn_filter(message))
     if "field" in raw:
         raise ValueError(
             f"{owner}: drop 'field' from filter= — the range is bound to the "
@@ -271,15 +275,18 @@ def range_atom(
         )
     unknown = sorted(str(key) for key in raw if key not in {"min", "max"})
     if unknown:
-        warn_filter(
+        key_list = ",".join(unknown)
+        report(
             f"{owner}: filter= has unknown key(s) {unknown}; expected only "
-            f"'min' and 'max'; ignored"
+            f"'min' and 'max'; ignored",
+            f"unknown-key:{key_list}",
         )
         return None
     if "min" not in raw or "max" not in raw:
-        warn_filter(
+        report(
             f"{owner}: filter= needs both 'min' and 'max'; "
-            f"got key(s) {sorted(str(key) for key in raw)}; ignored"
+            f"got key(s) {sorted(str(key) for key in raw)}; ignored",
+            "missing-bound",
         )
         return None
     for key in ("min", "max"):
@@ -289,14 +296,15 @@ def range_atom(
             or not isinstance(value, numbers.Real)
             or not math.isfinite(value)
         ):
-            warn_filter(
+            report(
                 f"{owner}: filter['{key}'] must be a finite number; "
-                f"got {value!r}; ignored"
+                f"got {value!r}; ignored",
+                f"non-finite:{key}",
             )
             return None
     low, high = raw["min"], raw["max"]
     if low > high:
-        warn_filter(f"{owner}: filter= is inverted (min > max); ignored")
+        report(f"{owner}: filter= is inverted (min > max); ignored", "inverted")
         return None
     return {
         "kind": "atom",
@@ -306,7 +314,12 @@ def range_atom(
     }
 
 
-def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any] | None:
+def enum_atom(
+    raw: Sequence[Any],
+    owner: str,
+    enum_field: str,
+    report: Callable[[str, str], None] | None = None,
+) -> dict[str, Any] | None:
     """The list form: a list of value names -> an enum atom.
 
     Value names are not validated here on purpose: the measurement-type
@@ -319,19 +332,22 @@ def enum_atom(raw: Sequence[Any], owner: str, enum_field: str) -> dict[str, Any]
     Duplicating the vocabulary here would be a second closed set to keep in
     step with the runtime's.
     """
+    report = report or (lambda message, _reason: warn_filter(message))
     values: list[str] = []
     for item in raw:
         if not isinstance(item, str) or not item.strip():
-            warn_filter(
+            report(
                 f"{owner}: filter= list entries must be non-empty strings; "
-                f"got {item!r}; ignored"
+                f"got {item!r}; ignored",
+                f"non-string-entry:{item!r}",
             )
             return None
         if item not in values:
             values.append(item)
     if not values:
-        warn_filter(
-            f"{owner}: filter= is an empty list, which would mean no filter; ignored"
+        report(
+            f"{owner}: filter= is an empty list, which would mean no filter; ignored",
+            "empty-values",
         )
         return None
     return {"kind": "enum", "field": enum_field, "values": values}
@@ -411,6 +427,15 @@ def normalise_layer_filter(
     - {"field": "pop", "min": 0, "max": 100} -> a between atom on 'pop'
     - {"field": "cat", "values": ["A", "B"]}  -> an enum atom on 'cat'
 
+    This reader owns the layer-form *shape* gate (a mapping with a non-empty
+    field string and exactly one form) and then delegates the value checks to
+    the shared validators :func:`range_atom` / :func:`enum_atom` — one
+    validator, two call sites (the control filter= kwarg and the per-layer
+    foliplus declaration), so the AST and its defect verdicts cannot drift
+    between the two entry points. The reporter passed down routes through
+    :func:`warn_foliplus` with the layer-attributable note, keeping the
+    layer form's "reported once per layer" contract.
+
     Returns None for not-declared and declared-but-unusable - both mean
     the layer starts unfiltered, never filtered-to-empty. owner names the
     control and subject the layer, so every message and de-duplication
@@ -425,65 +450,48 @@ def normalise_layer_filter(
     where = f"{owner}: {subject}" if subject else owner
     declared = source or "foliplus['filter']"
 
-    def reject(reason: str) -> None:
+    def reject(message: str, reason: str) -> None:
         note = f"{owner}:{subject or '-'}:filter:{reason}"
-        warn_foliplus(note, f"{where} declares {declared} {reason} - ignored")
+        warn_foliplus(note, f"{where} declares {declared} {message} - ignored")
 
     if not isinstance(raw, Mapping):
-        reject(f"as {type(raw).__name__}; expected a mapping")
+        reject(f"as {type(raw).__name__}; expected a mapping", "shape")
         return None
     field = raw.get("field")
     if not isinstance(field, str) or not field.strip():
-        reject("without a non-empty 'field' string")
+        reject("without a non-empty 'field' string", "field")
         return None
     extra = sorted(
         (key for key in raw if key not in {"field", "min", "max", "values"}),
         key=repr,
     )
     if extra:
-        reject(f"with unknown key(s) {extra}; expected field plus min/max or values")
+        reject(
+            f"with unknown key(s) {extra}; expected field plus min/max or values",
+            "unknown-key:" + ",".join(map(repr, extra)),
+        )
         return None
     if "values" in raw:
         if "min" in raw or "max" in raw:
-            reject("with both 'values' and min/max; choose one form")
+            reject("with both 'values' and min/max; choose one form", "both-forms")
             return None
         raw_values = raw["values"]
         if not isinstance(raw_values, Sequence) or isinstance(raw_values, (str, bytes)):
-            reject(f"with 'values' as {type(raw_values).__name__}; expected a list")
+            reject(
+                f"with 'values' as {type(raw_values).__name__}; expected a list",
+                "values-shape",
+            )
             return None
-        values: list[str] = []
-        for item in raw_values:
-            if not isinstance(item, str) or not item.strip():
-                reject(f"with a non-string 'values' entry {item!r}")
-                return None
-            if item not in values:
-                values.append(item)
-        if not values:
-            reject("with an empty 'values' list; that would mean no filter")
-            return None
-        return {"kind": "enum", "field": field, "values": values}
+        return enum_atom(raw_values, owner, field, report=reject)
     if "min" not in raw or "max" not in raw:
-        reject("needing both 'min' and 'max' (range) or 'values' (enum)")
+        reject("needing both 'min' and 'max' (range) or 'values' (enum)", "form")
         return None
-    for key in ("min", "max"):
-        value = raw[key]
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, numbers.Real)
-            or not math.isfinite(value)
-        ):
-            reject(f"with a non-finite {key}={value!r}")
-            return None
-    low, high = raw["min"], raw["max"]
-    if low > high:
-        reject("with an inverted range (min > max)")
-        return None
-    return {
-        "kind": "atom",
-        "field": field,
-        "op": "between",
-        "range": [json_number(low), json_number(high)],
-    }
+    return range_atom(
+        {key: raw[key] for key in ("min", "max")},
+        owner,
+        field,
+        report=reject,
+    )
 
 
 # ── Folder declaration ───────────────────────────────────────────────────
