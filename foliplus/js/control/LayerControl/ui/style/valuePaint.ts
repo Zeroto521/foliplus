@@ -265,7 +265,7 @@ const applyValuePaint = (
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameValueConfig(currentValue, value)) return null;
-      const liveScalar = readliveScalar();
+      const replayScalar = readliveScalar();
       const curVal = leafPropertyValue(leaf, value.field);
       if (category && catScale !== null) {
         const label = categoryLabel(curVal);
@@ -274,7 +274,7 @@ const applyValuePaint = (
           return styleDimPayload(
             {
               [decl.colorKey]: color,
-              ...(decl.liveScalar ? { [decl.liveScalar.key]: liveScalar } : {}),
+              ...(decl.liveScalar ? { [decl.liveScalar.key]: replayScalar } : {}),
             },
             decl.face,
           );
@@ -288,7 +288,7 @@ const applyValuePaint = (
         return styleDimPayload(
           {
             [decl.colorKey]: colorFor(scale, curVal),
-            ...(decl.liveScalar ? { [decl.liveScalar.key]: liveScalar } : {}),
+            ...(decl.liveScalar ? { [decl.liveScalar.key]: replayScalar } : {}),
           },
           decl.face,
         );
@@ -298,10 +298,10 @@ const applyValuePaint = (
       // top of it is the user's liveScalar. With none chosen there is nothing
       // to add, and null lets the restore stand instead of rewriting it.
       if (decl.liveScalar === null) return null;
-      if (liveScalar === undefined) return null;
+      if (replayScalar === undefined) return null;
       return styleDimOverAuthor(
         leaf,
-        { [decl.liveScalar.key]: liveScalar },
+        { [decl.liveScalar.key]: replayScalar },
         decl.face,
         false,
       );
