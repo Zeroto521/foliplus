@@ -6,6 +6,7 @@ import {
   isIconIntent,
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -127,7 +128,7 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
 const parseFillValue = (raw: unknown): FillValueConfig | null => {
   if (!isFillValueConfig(raw)) return null;
   return {
-    kind: raw.kind === "category" ? "category" : undefined,
+    kind: isCategoryKind(raw.kind) ? VALUE_KIND.CATEGORY : undefined,
     field: raw.field,
     method: raw.method,
     scheme: raw.scheme,
@@ -185,11 +186,11 @@ const PARSE_OVERRIDE: Record<
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
   borderValue: data => parseFillValue(data.borderValue),
-  borderMode: data =>
-    data.borderMode === FILL_MODE.SOLID ||
-    data.borderMode === FILL_MODE.VALUE ||
-    data.borderMode === FILL_MODE.ORIGINAL
-      ? data.borderMode
+  borderStyleMode: data =>
+    data.borderStyleMode === FILL_MODE.SOLID ||
+    data.borderStyleMode === FILL_MODE.VALUE ||
+    data.borderStyleMode === FILL_MODE.ORIGINAL
+      ? data.borderStyleMode
       : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),

@@ -37,6 +37,7 @@
  * scheduler tick rebuilds the cache.
  */
 import type { FillValueConfig } from "#core/layer/intent.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   buildCategoryRamp,
   buildRamp,
@@ -77,7 +78,7 @@ type CollectedLeaf = {
  *  cache. An explicit "numeric" is read as the same typing as absence — the
  *  persistence reader strips it, so the two spellings are one config. */
 const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
-  (a.kind ?? "numeric") === (b.kind ?? "numeric") &&
+  (a.kind ?? VALUE_KIND.NUMERIC) === (b.kind ?? VALUE_KIND.NUMERIC) &&
   a.field === b.field &&
   a.method === b.method &&
   a.classes === b.classes &&
@@ -174,7 +175,7 @@ const paintByValue = (
   const values: number[] = [];
   const categories: string[] = [];
   const collected: CollectedLeaf[] = [];
-  const category = value.kind === "category";
+  const category = isCategoryKind(value.kind);
   const seenCategories = new Set<string>();
   decl.walkLeaves(layer, leaf => {
     const read = leafPropertyValue(leaf, value.field);

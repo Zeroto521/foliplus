@@ -10,6 +10,7 @@ import {
 } from "#core/field.js";
 import { DIM } from "#core/layer/index.js";
 import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
@@ -99,9 +100,9 @@ const log = createLogger("foliplus");
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
 const persistedValue = (value: FillValueConfig): FillValueConfig =>
-  value.kind === "category"
+  isCategoryKind(value.kind)
     ? {
-        kind: "category",
+        kind: VALUE_KIND.CATEGORY,
         field: value.field,
         // method/classes are type-required (the union stays assignable to
         // the numeric ValueConfig) but unused at runtime on a category.
@@ -110,7 +111,7 @@ const persistedValue = (value: FillValueConfig): FillValueConfig =>
         scheme: value.scheme,
       }
     : {
-        kind: "numeric",
+        kind: VALUE_KIND.NUMERIC,
         field: value.field,
         method: value.method,
         classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
@@ -188,7 +189,7 @@ const resolvedValue = (
         ...value,
         field: resolveField(
           value.field,
-          (value.kind ?? "numeric") === "category"
+          isCategoryKind(value.kind)
             ? categoryFields(ui, layerId)
             : numericFields(ui, layerId),
         ),
@@ -249,10 +250,10 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
       return undefined;
     }
     config =
-      inferred === "category"
+      inferred === VALUE_KIND.CATEGORY
         ? {
             ...declared,
-            kind: "category",
+            kind: VALUE_KIND.CATEGORY,
             // An inferred categorical column needs a qualitative palette. The
             // author who named none gets the category default; a named scheme
             // is the author's choice and is kept verbatim on either mode.
@@ -261,7 +262,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
                 ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
                 : declared.scheme,
           }
-        : { ...declared, kind: "numeric" };
+        : { ...declared, kind: VALUE_KIND.NUMERIC };
   }
   // The declaration kind selects the candidate set: a category value fill
   // needs its column among the categorical fields, a numeric value fill among
@@ -269,7 +270,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
   const fields =
-    (config.kind ?? "numeric") === "category"
+    isCategoryKind(config.kind)
       ? categoryFields(ui, layerId)
       : numericFields(ui, layerId);
   return fields.includes(config.field) ? config : undefined;
@@ -312,7 +313,7 @@ const defaultValueConfig = (
   field: string,
   classes: number = CLASS_COUNT.DEFAULT,
 ): FillValueConfig => ({
-  kind: "numeric",
+  kind: VALUE_KIND.NUMERIC,
   field,
   method: CONST.FILL_VALUE.METHOD_DEFAULT,
   classes,

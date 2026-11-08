@@ -150,7 +150,7 @@ type LayerOverride =
   | "borderColor"
   | "borderWeight"
   | "borderValue"
-  | "borderMode"
+  | "borderStyleMode"
   | "opacity"
   | "zoomRange"
   | "size"
@@ -233,7 +233,7 @@ type LayerIntent = {
   /** Which border arm the user chose: solid, or by value. Absent defers to
    *  the fill arm mode (the border follows the fill by default - one ramp
    *  selection covers both faces). */
-  borderMode?: FillMode;
+  borderStyleMode?: FillMode;
   opacity?: number;
   zoomRange?: [number, number];
   /** The fixed pixel radius the user set (CircleMarker only). Frozen on
@@ -280,7 +280,7 @@ type PersistedLayerState = {
   borderValue?: FillValueConfig;
   /** Which border arm is active ("solid" | "value"); the inactive config is
    *  kept so a switch back restores it. Absent defers to the fill arm. */
-  borderMode?: FillMode;
+  borderStyleMode?: FillMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
@@ -333,7 +333,7 @@ const INTENT = {
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
   BORDER_VALUE: "borderValue",
-  BORDER_MODE: "borderMode",
+  BORDER_STYLE_MODE: "borderStyleMode",
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
@@ -359,7 +359,7 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.BORDER_VALUE]: isFillValueConfig,
-  [INTENT.BORDER_MODE]: value =>
+  [INTENT.BORDER_STYLE_MODE]: value =>
     value === FILL_MODE.SOLID ||
     value === FILL_MODE.VALUE ||
     value === FILL_MODE.ORIGINAL,
@@ -388,7 +388,7 @@ const STYLE_KEYS = {
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
   borderValue: INTENT.BORDER_VALUE,
-  borderMode: INTENT.BORDER_MODE,
+  borderStyleMode: INTENT.BORDER_STYLE_MODE,
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,

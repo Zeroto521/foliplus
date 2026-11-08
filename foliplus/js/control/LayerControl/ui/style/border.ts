@@ -166,7 +166,7 @@ const BORDER_INTENT_KEYS: readonly IntentKey[] = [
   INTENT.BORDER_COLOR,
   INTENT.BORDER_WEIGHT,
   INTENT.BORDER_VALUE,
-  INTENT.BORDER_MODE,
+  INTENT.BORDER_STYLE_MODE,
 ];
 
 /** The scheme picker owned by the open style panel's border value detail.
@@ -196,7 +196,7 @@ const effectiveBorderValue = (
  *  config. */
 const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
   resolveStrokeMode(
-    getIntent(ui, layerId, INTENT.BORDER_MODE),
+    getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE),
     effectiveBorderValue(ui, layerId),
   );
 
@@ -632,7 +632,7 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  as the illegal value and falls back to "original"; no compatibility
  *  migration is performed. */
 const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
-  const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
+  const stored = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
   // Same pre-mode record shape the fill side reads: a stored colour without a
   // mode means the user already painted the solid mode (the record written
   // before this mode existed, and a programmatic colour write). An absent
@@ -924,7 +924,7 @@ const BORDER_DIMENSION = registerDimension<{
     if (value !== undefined) writes.push([INTENT.BORDER_VALUE, value]);
     // 'mode' present writes the explicit mode; an omitted mode leaves the
     // stored border mode alone (no cross-face derivation exists any more).
-    if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
+    if (mode !== undefined) writes.push([INTENT.BORDER_STYLE_MODE, mode]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleBorderApply(ui, layerId);
   },
@@ -945,7 +945,7 @@ const BORDER_DIMENSION = registerDimension<{
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_VALUE) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_MODE)
+      ui.intentStore.isUserSet(layerId, INTENT.BORDER_STYLE_MODE)
     ) {
       return "user";
     }
@@ -961,7 +961,7 @@ const BORDER_DIMENSION = registerDimension<{
       getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
-      getIntent(ui, layerId, INTENT.BORDER_MODE) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined ||
       effectiveBorderValue(ui, layerId) !== undefined,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },

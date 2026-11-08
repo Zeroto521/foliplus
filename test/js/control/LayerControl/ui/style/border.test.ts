@@ -603,7 +603,7 @@ describe("bindBorderRow", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "vec1");
     bindBorderRow(ui, "vec1", row);
 
@@ -1106,7 +1106,7 @@ describe("buildBorderRow", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
 
     const row = buildBorderRow(ui, "vec1");
 
@@ -1137,7 +1137,7 @@ describe("buildBorderRow", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     setIntent(ui, "vec1", "borderColor", "#ff0000");
     setIntent(ui, "vec1", "borderWeight", 5.5);
 
@@ -1157,7 +1157,7 @@ describe("buildBorderRow", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: makeLeaf("#f00", 2) });
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
 
     const row = buildBorderRow(ui, "vec1");
 
@@ -1181,7 +1181,7 @@ describe("buildBorderRow", () => {
 
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "geo1", "borderMode", "solid");
+    setIntent(ui, "geo1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "geo1");
 
     expect(
@@ -1202,7 +1202,7 @@ describe("buildBorderRow", () => {
 
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(
@@ -1224,7 +1224,7 @@ describe("buildBorderRow", () => {
 
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(authoredBorder(ui, "vec1").color).toBe("notacolor");
@@ -1248,7 +1248,7 @@ describe("buildBorderRow", () => {
 
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(authoredBorder(ui, "vec1").color).toBe("oklch(0.5 0.1 100)");
@@ -1270,7 +1270,7 @@ describe("buildBorderRow", () => {
 
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "geo1", "borderMode", "solid");
+    setIntent(ui, "geo1", "borderStyleMode", "solid");
     const row = buildBorderRow(ui, "geo1");
 
     expect(
@@ -1339,12 +1339,12 @@ describe("buildBorderRow", () => {
     // solid).
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     setIntent(ui, "vec1", "borderColor", "#ff0000");
 
     // Switch to ORIGINAL: the row rebuilds and must show the author's green,
     // not the user's red.
-    setIntent(ui, "vec1", "borderMode", "original");
+    setIntent(ui, "vec1", "borderStyleMode", "original");
     const row = buildBorderRow(ui, "vec1");
     const swatch = row.querySelector(
       ".foliplus-style-border-color-input",
@@ -1637,7 +1637,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
     // Editable colour: the border row is read-only in ORIGINAL mode (the
     // author's own stroke); a stored "solid" mode is what makes it a picker.
-    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
     const frames: Array<() => void> = [];
     vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
       frames.push(cb);
@@ -1885,7 +1885,7 @@ describe("value-stroke wiring (C1–C7)", () => {
 
     // Then the border, with its own explicit value config + value mode.
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
     applyBorderToLayer(ui, "vec1");
 
     // The stroke write is a per-leaf setStyle with the value color.
@@ -1900,7 +1900,7 @@ describe("value-stroke wiring (C1–C7)", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
 
     applyBorderToLayer(ui, "vec1");
     expect(leaves[0].setStyle).toHaveBeenCalled();
@@ -1923,7 +1923,7 @@ describe("value-stroke wiring (C1–C7)", () => {
     setIntent(ui, "vec1", "fillValue", countRamp());
     setIntent(ui, "vec1", "fillOpacity", 0);
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
 
     applyFillToLayer(ui, "vec1");
     const fillColors = leaves.map(l => l.options.fillColor);
@@ -1954,7 +1954,7 @@ describe("value-stroke wiring (C1–C7)", () => {
     const leaf = makeFeatureLeaf(5);
     registerFeatureLayer(manager, ui, "vec1", [leaf]);
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
 
     applyBorderToLayer(ui, "vec1");
     // Pin registered.
@@ -1973,7 +1973,7 @@ describe("value-stroke wiring (C1–C7)", () => {
     const bad = makeFeatureLeaf(Number.NaN); // no finite value
     registerFeatureLayer(manager, ui, "vec1", [good, bad]);
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
 
     applyBorderToLayer(ui, "vec1");
 
@@ -2064,10 +2064,10 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(block.querySelector(".foliplus-style-border-detail")).not.toBeNull();
     expect(block.querySelector(".foliplus-style-fill-field-select")).toBeNull();
 
-    // Pick "by value": writes BORDER_MODE=value + seeds BORDER_VALUE from the
+    // Pick "by value": writes BORDER_STYLE_MODE=value + seeds BORDER_VALUE from the
     // numeric chain (borderValueForUi → seeded default, persistedBorderValue numeric).
     changeSelect(select, "value");
-    expect(getIntent(ui, "vec1", "borderMode")).toBe("value");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("value");
     const seeded = getIntent(ui, "vec1", "borderValue");
     expect(seeded).toMatchObject({ kind: "numeric", field: "count" });
     // The value detail now renders field / method / classes / scheme rows.
@@ -2123,13 +2123,13 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("T5 original mode clears the border mode intent", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
     setIntent(ui, "vec1", "borderValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
     const select = modeSelectOf(block);
     expect(select!.value).toBe("value");
     changeSelect(select, "original");
-    expect(getIntent(ui, "vec1", "borderMode")).toBe("original");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("original");
     // The value config survives an original switch (it stays stored for reuse).
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
@@ -2137,11 +2137,11 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("T6 solid mode writes the mode and keeps the value config", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
     setIntent(ui, "vec1", "borderValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
     changeSelect(modeSelectOf(block), "solid");
-    expect(getIntent(ui, "vec1", "borderMode")).toBe("solid");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("solid");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
@@ -2184,11 +2184,11 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     registerFeatureLayer(manager, ui, "vec1", leaves);
     const dim = getDimension(DIM.BORDER)!;
     dim.write!(ui, "vec1", { mode: "value", value: countRamp() });
-    expect(getIntent(ui, "vec1", "borderMode")).toBe("value");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
     // Write mode present writes it; mode undefined is a no-op (no follow arm).
     dim.write!(ui, "vec1", { mode: "solid" });
-    expect(getIntent(ui, "vec1", "borderMode")).toBe("solid");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("solid");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
@@ -2196,7 +2196,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
-    setIntent(ui, "vec1", "borderMode", "value");
+    setIntent(ui, "vec1", "borderStyleMode", "value");
     setIntent(ui, "vec1", "borderWeight", 6);
     applyBorderToLayer(ui, "vec1");
     leaves.forEach(leaf => {
@@ -2231,7 +2231,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("polygon layer: stored by_value reads back as original (illegal value rejected)", () => {
     const leaves = [makePolyLeaf(1), makePolyLeaf(5)];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    setIntent(ui, "poly1", "borderMode", "value");
+    setIntent(ui, "poly1", "borderStyleMode", "value");
     setIntent(ui, "poly1", "borderValue", countRamp());
     // displayBorderMode contract: illegal stored value on a non-line → ORIGINAL.
     // The row select must NOT show "value".
