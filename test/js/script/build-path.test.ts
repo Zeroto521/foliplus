@@ -1,13 +1,23 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { resolve } from "path";
 import { pathToFileURL } from "url";
 import { describe, expect, it } from "vitest";
 import {
+  ALIAS_TO_REL,
   PACKAGE_IMPORTS,
+  SHARED_ALIASES,
   SHARED_MODULE_EXACTS,
   SHARED_MODULE_PREFIXES,
   SHARED_SPEC_REGEX_SOURCE,
+  namespacePrefixRules,
   pathAliases,
   repoRoot,
   resolveJsRoot,
@@ -129,6 +139,70 @@ describe("build-path.mjs", () => {
       expect(() => repoRoot(url)).toThrow(/repoRoot: no package.json found above/);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+  it("ALIAS_TO_REL is the single source every consumer table derives from", () => {
+    // The four tables that used to each spell the alias->dir mapping by hand:
+    //   - package.json imports (Node resolution; cannot import this module)
+    //   - esbuild alias (pathAliases -- reads ALIAS_TO_REL)
+    //   - global-namespace-plugin prefix rewrite (namespacePrefixRules -- reads ALIAS_TO_REL)
+    //   - import-boundary TIER (reads SHARED_MODULE_PREFIXES -- reads ALIAS_TO_REL)
+    // A hand-edit to any one of them fails here instead of silently
+    // externalizing or mis-routing an import at build time.
+    expect(Object.keys(ALIAS_TO_REL)).toEqual([
+      "#common",
+      "#core",
+      "#ui",
+      "#control",
+      "#foliplus",
+      "#script",
+    ]);
+    // SHARED_ALIASES is exactly ALIAS_TO_REL minus #script (vitest-only).
+    expect([...SHARED_ALIASES].sort()).toEqual(
+      Object.keys(ALIAS_TO_REL)
+        .filter(k => k !== "#script")
+        .sort(),
+    );
+  });
+
+  it("SHARED_MODULE_PREFIXES derives from SHARED_ALIASES (not a hand-written list)", () => {
+    // #control and #foliplus are aliased but deliberately NOT shared
+    // prefixes: #control bundles per-component, #foliplus resolves to
+    // foliplus/js (basename "js", not a directory under the shared namespace).
+    // The derivation keeps the two in lockstep with the alias table, so a
+    // tier rename cannot leave the shared-import regex and the plugin rewrite
+    // table pointing at a namespace nobody publishes.
+    const expected = SHARED_ALIASES.filter(
+      spec => spec !== "#control" && ALIAS_TO_REL[spec].split("/").pop() !== "js",
+    ).map(spec => ALIAS_TO_REL[spec].split("/").pop());
+    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual([...expected].sort());
+    expect(SHARED_MODULE_PREFIXES).not.toContain("foliplus");
+    expect(SHARED_MODULE_PREFIXES).not.toContain("control");
+  });
+
+  it("namespacePrefixRules rewrites every shared prefix and only those", () => {
+    const rules = namespacePrefixRules();
+    expect(Object.keys(rules).sort()).toEqual([...SHARED_MODULE_PREFIXES].sort());
+    for (const prefix of SHARED_MODULE_PREFIXES) {
+      const dir = ALIAS_TO_REL["#" + prefix].split("/").pop();
+      expect(rules[prefix]).toBe(dir + "/");
+    }
+    // The rewrite is keyed by the alias segment, not the directory name: a
+    // shared spec "#common/dom.js" becomes "common/dom.js" under the source root.
+    expect(rules["common"]).toBe("common/");
+    expect(rules["core"]).toBe("core/");
+    expect(rules["ui"]).toBe("ui/");
+  });
+
+  it("every #alias target directory exists on disk", () => {
+    // A half-done rename (alias renamed, directory not, or vice versa) fails
+    // here with a clear message instead of a cryptic ERR_PACKAGE_IMPORT_*
+    // at test-import or build time.
+    for (const [spec, rel] of Object.entries(ALIAS_TO_REL)) {
+      expect(
+        existsSync(resolve(ROOT, rel)),
+        spec + " -> " + rel + ": target directory missing on disk",
+      ).toBe(true);
     }
   });
 });
