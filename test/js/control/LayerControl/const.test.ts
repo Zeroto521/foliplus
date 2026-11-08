@@ -133,7 +133,7 @@ describe("FOCUS", () => {
   });
 
   it("MASK_OPACITY matches the CSS token --foliplus-export-dim-color", () => {
-    // The two values must stay in sync — both dim selection boxes alike.
+    // The two values must stay in sync -- both dim selection boxes alike.
     // This is a gate, not a comment: if someone changes one and forgets
     // the other, this test goes red.
     const ROOT = resolve(__dirname, "../../../../");
@@ -183,7 +183,7 @@ describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP", () =>
   });
 });
 
-describe("annotation→label vocabulary guard", () => {
+describe("annotation to label vocabulary guard", () => {
   it("DIM.LABEL and INTENT.LABEL are the literal 'label'", async () => {
     const { DIM } = await import("#foliplus/core/layer/const.js");
     const { INTENT } = await import("#foliplus/core/layer/intent.js");

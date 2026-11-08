@@ -59,7 +59,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     @staticmethod
-    def _declared_label_layer(name, annotation, coords, text="12345678901234567890"):
+    def _declared_label_layer(name, label, coords, text="12345678901234567890"):
         """A point layer whose foliplus namespace declares its label defaults."""
         features = [
             {
@@ -72,7 +72,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
         return folium.GeoJson(
             json.dumps({"type": "FeatureCollection", "features": features}),
             name=name,
-            foliplus={"label": annotation},
+            foliplus={"label": label},
         )
 
     def test_label_declared_color_and_size_reach_the_canvas(self, browser, tmp_path):
