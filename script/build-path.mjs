@@ -159,7 +159,9 @@ const PACKAGE_IMPORTS = Object.fromEntries(
 );
 
 export {
+  ALIAS_TO_REL,
   PACKAGE_IMPORTS,
+  SHARED_ALIASES,
   SHARED_MODULE_EXACTS,
   SHARED_MODULE_PREFIXES,
   namespacePrefixRules,
