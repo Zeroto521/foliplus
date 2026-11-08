@@ -39,7 +39,7 @@ describe("esbuildCfgFor", () => {
     expect(dev.keepNames).toBe(true);
   });
 
-  it("declares the three #common / #core / #foliplus path aliases", () => {
+  it("declares the three #platform / #core / #foliplus path aliases", () => {
     // The alias table is what lets the sources import `#platform/format.js` etc.
     // A missing entry breaks the build with an unhelpful ERR_PACKAGE_IMPORT_
     // NOT_DEFINED, so the keys are pinned here.
