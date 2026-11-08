@@ -60,6 +60,12 @@ describe("more-menu button styles", () => {
   });
 });
 
+it("keeps the menu from stealing touch scroll (overscroll + touch-action)", () => {
+  const menu = blockOf(sharedMenuCss, ".foliplus-search-result-panel,");
+  expect(menu).toContain("overscroll-behavior: contain");
+  expect(menu).toContain("touch-action: pan-y");
+});
+
 describe("disabled menu entries", () => {
   it("gives a disabled menu item a not-allowed cursor", () => {
     // The more-menu entries are native buttons, so their disabled state is
