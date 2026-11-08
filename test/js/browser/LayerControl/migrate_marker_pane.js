@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const mg = api.createLayers({
@@ -6,7 +6,7 @@
     name: "MarkerPane",
     panes: [{ name: "__test_marker_pane_graph__" }],
   });
-  const mkr = L.marker([26.08, 119.3]);
+  const mkr = L.marker(fixtures.point);
   mg.mainLayer.addLayer(mkr);
   return { pane: mkr.options.pane };
 };

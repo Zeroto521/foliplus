@@ -155,7 +155,7 @@ describe("findLeaf", () => {
 
 describe("findNode", () => {
   const declared = (value: string, children: unknown[] = []) => ({
-    options: { foliplus: { annotation: { field: value } } },
+    options: { foliplus: { label: { field: value } } },
     eachLayer: (fn: (l: unknown) => void) => children.forEach(fn),
   });
 
@@ -164,8 +164,8 @@ describe("findNode", () => {
     const result = findNode(
       g,
       n =>
-        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
-          ?.foliplus?.annotation?.field,
+        (n as { options?: { foliplus?: { label?: { field: string } } } }).options
+          ?.foliplus?.label?.field,
     );
     expect(result).toBe("on-container");
   });
@@ -175,8 +175,8 @@ describe("findNode", () => {
     let visits = 0;
     const result = findNode(g, n => {
       visits += 1;
-      return (n as { options?: { foliplus?: { annotation?: { field: string } } } })
-        .options?.foliplus?.annotation?.field;
+      return (n as { options?: { foliplus?: { label?: { field: string } } } }).options
+        ?.foliplus?.label?.field;
     });
     expect(result).toBe("outer");
     expect(visits).toBe(1);
@@ -188,8 +188,8 @@ describe("findNode", () => {
     const result = findNode(
       g,
       n =>
-        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
-          ?.foliplus?.annotation?.field,
+        (n as { options?: { foliplus?: { label?: { field: string } } } }).options
+          ?.foliplus?.label?.field,
     );
     expect(result).toBe("on-child");
   });
@@ -202,8 +202,8 @@ describe("findNode", () => {
     let visits = 0;
     const result = findNode(g, n => {
       visits += 1;
-      return (n as { options?: { foliplus?: { annotation?: { field: string } } } })
-        .options?.foliplus?.annotation?.field;
+      return (n as { options?: { foliplus?: { label?: { field: string } } } }).options
+        ?.foliplus?.label?.field;
     });
     expect(result).toBe("hit");
     expect(visits).toBe(3); // g, miss, hit — after is never visited
@@ -214,8 +214,8 @@ describe("findNode", () => {
     const result = findNode(
       g,
       n =>
-        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
-          ?.foliplus?.annotation?.field,
+        (n as { options?: { foliplus?: { label?: { field: string } } } }).options
+          ?.foliplus?.label?.field,
       0,
       0,
     );

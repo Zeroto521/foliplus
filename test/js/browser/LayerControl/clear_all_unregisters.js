@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const mg = api.createLayers({
@@ -6,12 +6,7 @@
     name: "ClearTest",
     panes: [{ name: "__test_clear_graph__" }],
   });
-  mg.mainLayer.addLayer(
-    L.polyline([
-      [26.08, 119.3],
-      [26.09, 119.31],
-    ]),
-  );
+  mg.mainLayer.addLayer(L.polyline(fixtures.line));
   const beforeRegistered = mg.registered();
   mg.clearLayers();
   const afterRegistered = mg.registered();

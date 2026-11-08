@@ -30,7 +30,14 @@ from pathlib import Path
 
 import folium
 import pytest
-from conftest import _js, heatmap_ready, make_browser_page, use_page
+from conftest import (
+    _js,
+    feature_collection,
+    heatmap_ready,
+    make_browser_page,
+    point_feature,
+    use_page,
+)
 
 from foliplus import HeatmapControl
 
@@ -257,16 +264,7 @@ def _make_page(
         fg = folium.FeatureGroup(name=name, show=True)
         for lat in lats:
             gj = json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"val": lat},
-                            "geometry": {"type": "Point", "coordinates": [119.30, lat]},
-                        }
-                    ],
-                }
+                feature_collection(point_feature(119.30, lat, {"val": lat}))
             )
             folium.GeoJson(gj).add_to(fg)
         fg.add_to(m)

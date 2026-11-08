@@ -2,7 +2,7 @@
 // mock factory, a ControlEnv builder, and a CLI harness for scripts that
 // keep their argv/help/error handling at module top level.
 //
-// Seven pieces, all exported:
+// Eight pieces, all exported:
 //
 // - `installWindowLExtensions()` — called once from `setup.ts`. Extends the
 //   base `window.L` stub with the constructors/factories that individual test
@@ -39,6 +39,11 @@
 //   rule in `toolchain-guard.test.ts` requires every test file under
 //   `test/js/script/` to name a real module there, and a shared harness is
 //   not a test of a module.
+// - `loadGeoJSON(scope, name)` / `loadFeature(...)` / `loadGeometry(...)` —
+//   read a fixture from `test/data/<scope>/geojson/<name>.geojson` so tests
+//   never inline coordinates.
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import type { ControlEnv } from "#core/type.js";
@@ -52,6 +57,8 @@ import { LayerIntentStore } from "#control/LayerControl/domain/LayerIntentStore.
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 
 type Overrides = Record<string, unknown>;
+
+const DATA_DIR = resolve(__dirname, "../data");
 
 /** Build a ControlEnv for unit tests. `config` defaults to the live
  *  `window.CONFIG`; `translators` overrides the T/_ pair (identity for tests
@@ -466,6 +473,27 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     });
   }
   return base;
+}
+
+// ── GeoJSON fixtures (test/data) ──
+// Every static geometry lives under `test/data/<scope>/geojson/<name>.geojson`
+// (shared fixtures under `test/data/common/geojson/`). Tests read the file
+// instead of inlining coordinates, so one geometry has exactly one home.
+
+/** Load a whole GeoJSON document (Feature, FeatureCollection, or geometry). */
+export function loadGeoJSON<T = GeoJSON.GeoJsonObject>(scope: string, name: string): T {
+  const file = resolve(DATA_DIR, scope, "geojson", `${name}.geojson`);
+  return JSON.parse(readFileSync(file, "utf-8")) as T;
+}
+
+/** Load one Feature from a FeatureCollection fixture. */
+export function loadFeature(scope: string, name: string, index = 0): GeoJSON.Feature {
+  return loadGeoJSON<GeoJSON.FeatureCollection>(scope, name).features[index]!;
+}
+
+/** Load one geometry from a FeatureCollection fixture. */
+export function loadGeometry(scope: string, name: string, index = 0): GeoJSON.Geometry {
+  return loadFeature(scope, name, index).geometry;
 }
 
 /** Replace `process.exit` with a spy that throws `exit:<code>`. */

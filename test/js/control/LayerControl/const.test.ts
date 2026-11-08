@@ -133,7 +133,7 @@ describe("FOCUS", () => {
   });
 
   it("MASK_OPACITY matches the CSS token --foliplus-export-dim-color", () => {
-    // The two values must stay in sync — both dim selection boxes alike.
+    // The two values must stay in sync -- both dim selection boxes alike.
     // This is a gate, not a comment: if someone changes one and forgets
     // the other, this test goes red.
     const ROOT = resolve(__dirname, "../../../../");
@@ -180,5 +180,14 @@ describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP", () =>
 
   it("defines the focus-basemap class for active basemap visibility under focus", () => {
     expect(CONST.CLASSES.FOCUS_BASEMAP).toBe("foliplus-focus-basemap");
+  });
+});
+
+describe("annotation to label vocabulary guard", () => {
+  it("DIM.LABEL and INTENT.LABEL are the literal 'label'", async () => {
+    const { DIM } = await import("#foliplus/core/layer/const.js");
+    const { INTENT } = await import("#foliplus/core/layer/intent.js");
+    expect(DIM.LABEL).toBe("label");
+    expect(INTENT.LABEL).toBe("label");
   });
 });

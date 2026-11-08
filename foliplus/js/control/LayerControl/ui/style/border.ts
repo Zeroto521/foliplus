@@ -20,7 +20,7 @@
 //
 // UI chrome: shared `form.colorInput` + `numberInput` inside one FORM_ROW via
 // `inlineControls` — the same recipe as the delegated border row and the
-// annotation label row, so a border row reads identically whether the layer
+// label label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";

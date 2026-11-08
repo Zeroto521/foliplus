@@ -396,7 +396,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas
-      // down (annotation.unloadLayer runs before this event is emitted), and
+      // down (label.unloadLayer runs before this event is emitted), and
       // renderLabels for a gone layer rebuilds nothing — a replay here would
       // be a walk for its own sake.
       invalidateFieldCache(ui, payload.id);

@@ -1,10 +1,6 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
-  const panel = document.querySelector(".foliplus-panel-content");
-  // Track re-renders by watching innerHTML replacement
-  let innerHTMLSets = 0;
-  const origDesc = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
   // Count full-list rebuilds via ui.renderInitialList call
   let renderCalls = 0;
   const ui = api.ui;
@@ -21,24 +17,14 @@
     name: "Incr1",
     panes: [{ name: "__incr_g1__" }],
   });
-  mg1.mainLayer.addLayer(
-    L.polyline([
-      [26.08, 119.3],
-      [26.09, 119.31],
-    ]),
-  );
+  mg1.mainLayer.addLayer(L.polyline(fixtures.line));
   const afterFirst = renderCalls;
   const mg2 = api.createLayers({
     id: "__incr_2__",
     name: "Incr2",
     panes: [{ name: "__incr_g2__" }],
   });
-  mg2.mainLayer.addLayer(
-    L.polyline([
-      [26.08, 119.3],
-      [26.09, 119.31],
-    ]),
-  );
+  mg2.mainLayer.addLayer(L.polyline(fixtures.line));
   const afterSecond = renderCalls;
   return { afterFirst, afterSecond };
 };

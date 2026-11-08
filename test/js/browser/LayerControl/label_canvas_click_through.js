@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const DATA = "__ni_data_pane__";
@@ -8,12 +8,7 @@
     name: "LabelCanvas",
     panes: [{ name: DATA }, { name: LABEL, isLabel: true }],
   });
-  const poly = L.polygon([
-    [25.9, 119.1],
-    [26.3, 119.1],
-    [26.3, 119.5],
-    [25.9, 119.5],
-  ]);
+  const poly = L.polygon(fixtures.polygon);
   let polyClicked = false;
   poly.on("click", () => {
     polyClicked = true;
@@ -27,7 +22,7 @@
   // labels, which keep label.on("click", openOverlay) while their pane is
   // declared non-interactive.
   let labelMarkerClicked = false;
-  const labelMarker = L.marker([26.1, 119.3], {
+  const labelMarker = L.marker(fixtures.marker, {
     icon: L.divIcon({ className: "", html: "<b>t</b>", iconSize: [16, 16] }),
   });
   labelMarker.options.pane = LABEL;
@@ -49,7 +44,7 @@
     };
   }
   // A label canvas is one full-bleed element. It paints decoration rather
-  // than receiving hits, so it says so on itself — the shape AnnotationCanvas
+  // than receiving hits, so it says so on itself — the shape LabelCanvas
   // uses. Without that it would swallow every click meant for the data layer
   // underneath.
   const canvas = document.createElement("canvas");
@@ -61,7 +56,7 @@
   const container = window.map.getContainer().getBoundingClientRect();
   // Aim at a polygon point away from the marker (but still on-screen):
   // the polygon is the hit target, its click handler fires.
-  const polyPoint = window.map.latLngToContainerPoint([26.15, 119.35]);
+  const polyPoint = window.map.latLngToContainerPoint(fixtures.polyClick);
   const px = container.left + polyPoint.x;
   const py = container.top + polyPoint.y;
   const polyHit = document.elementFromPoint(px, py);
@@ -74,7 +69,7 @@
   // pointer-events:auto, which re-enables it inside the pane's
   // pointer-events:none. The marker's click handler must fire — this is
   // the mechanism MeasureControl's segment labels rely on.
-  const markerPoint = window.map.latLngToContainerPoint([26.1, 119.3]);
+  const markerPoint = window.map.latLngToContainerPoint(fixtures.markerClick);
   const mx = container.left + markerPoint.x;
   const my = container.top + markerPoint.y;
   const markerHit = document.elementFromPoint(mx, my);

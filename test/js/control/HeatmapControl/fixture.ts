@@ -7,6 +7,10 @@ import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 
+// Re-export the shared GeoJSON readers so sibling tests import from the
+// control's own fixture module instead of climbing to test/js.
+export { loadFeature, loadGeoJSON, loadGeometry } from "../fixture.js";
+
 /** A CONFIG with the heatmap fields the UI functions read, in English. */
 const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig => ({
   name: "HeatmapControl",

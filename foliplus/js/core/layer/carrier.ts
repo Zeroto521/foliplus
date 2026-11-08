@@ -181,7 +181,7 @@ const contentPanesOf = (
   shadowPanes: ReadonlySet<string>,
 ): string[] => panes.filter(name => !shadowPanes.has(name));
 
-/** Name of the pane that carries a layer's annotation labels.
+/** Name of the pane that carries a layer's label labels.
  *
  *  One name, both ends: the registration edge declares the
  *  `role: "label"` spec with it, and the exporter looks that pane up by
