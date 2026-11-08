@@ -1,3 +1,16 @@
+import * as CONST from "./const.js";
+import { readDeclaredFilter } from "./declaredFilter.js";
+import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
+import { LabelManager } from "./label/index.js";
+import { LayerPersistence } from "./persistence.js";
+import { collectDeltas } from "./ui/apply.js";
+import { type LayerUI } from "./ui/index.js";
+import {
+  type CursorRef,
+  cursorRef,
+  reconcileCursorByIdentity,
+} from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 import {
   EVENTS,
   type EventBus,
@@ -6,13 +19,6 @@ import {
   publish,
 } from "#core/event/index.js";
 import {
-  type FolderOrder,
-  type FolderSection,
-  deleteFolderFromOrder,
-  freezeSectionOrder,
-  normalizeFolderName,
-} from "#core/layer/folderOrder.js";
-import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateColorAPI,
@@ -20,6 +26,8 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   type FilterRangeDimension,
+  type FolderOrder,
+  type FolderSection,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
@@ -36,33 +44,23 @@ import {
   type RegisterLayerOpts,
   SurfaceIndex,
   countFeatureGeometry,
+  deleteFolderFromOrder,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
   findLayer,
+  freezeSectionOrder,
+  normalizeFolderName,
   visibleDomOf,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { finalize } from "#common/finalize.js";
-import { createLogger } from "#common/log.js";
-import type { Logger } from "#common/type.js";
+import { type Debounced, debounce } from "#platform/debounce.js";
+import { finalize } from "#platform/finalize.js";
+import { createLogger } from "#platform/log.js";
+import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
-import * as CONST from "./const.js";
-import { readDeclaredFilter } from "./declaredFilter.js";
-import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
-import { LabelManager } from "./label/index.js";
-import { LayerPersistence } from "./persistence.js";
-import { collectDeltas } from "./ui/apply.js";
-import { type LayerUI } from "./ui/index.js";
-import {
-  type CursorRef,
-  cursorRef,
-  reconcileCursorByIdentity,
-} from "./ui/listPanel/cursor.js";
-import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;

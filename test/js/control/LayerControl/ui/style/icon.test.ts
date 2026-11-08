@@ -1,3 +1,4 @@
+import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM, ICON_MODE } from "#core/layer/index.js";
 import {
@@ -25,7 +26,6 @@ import {
   writeIntentKeys,
 } from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
 
 // The shared L stub (test/js/setup.ts) defines no Icon key. The default-icon
 // panel test routes through the core markerIcon module, which reads

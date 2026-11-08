@@ -1,9 +1,9 @@
-// common/form — shared form-control builders for panel UIs.
+// ui/form — shared form-control builders for panel UIs.
 // HeatmapControl's template and LayerControl's style drawer both need the
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { PANEL_CLASS } from "./panelClassName.js";
+import { dom } from "#platform/dom.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */

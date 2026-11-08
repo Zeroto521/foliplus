@@ -4,7 +4,7 @@
 // owns the coordinate algorithm (`position`). These tests pin the lifecycle
 // invariants the listbox engine and the search panel rely on.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bindFloatingWheel, mountFloating } from "#common/floating.js";
+import { bindFloatingWheel, mountFloating } from "#platform/floating.js";
 
 describe("bindFloatingWheel", () => {
   it("unconditionally swallows a wheel over the root", () => {

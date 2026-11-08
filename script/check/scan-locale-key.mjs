@@ -22,9 +22,9 @@
  *   - Dynamic key construction (template literals, ternaries, map lookups)
  *   - Object property values that are keys
  */
+import { repoRoot } from "../build-path.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { repoRoot } from "../build-path.mjs";
 
 const ROOT =
   process.argv[2] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js");

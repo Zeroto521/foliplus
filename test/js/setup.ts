@@ -3,9 +3,9 @@
 // restore hook); do not cache or skip setup.
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
-import { afterAll, afterEach, beforeEach, vi } from "vitest";
 import { makeConfig } from "./config-fixture.js";
 import { installWindowLExtensions, resetState, restoreNativeFetch } from "./fixture.js";
+import { afterAll, afterEach, beforeEach, vi } from "vitest";
 
 // Several suites replace `globalThis.fetch` without restoring it. Reinstall the
 // native implementation on every setup pass (per test file) and in `afterEach`

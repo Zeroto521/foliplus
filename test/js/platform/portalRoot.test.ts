@@ -7,7 +7,7 @@ import {
   type OverlayEntry,
   ensureOverlayRegistry,
 } from "#core/overlayRegistry.js";
-import { isPortalOf, registerPortalRoot } from "#common/portalRoot.js";
+import { isPortalOf, registerPortalRoot } from "#platform/portalRoot.js";
 
 const node = (className?: string): HTMLElement => {
   const el = document.createElement("div");

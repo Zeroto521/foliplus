@@ -1,7 +1,7 @@
+import { makeControlEnv } from "../fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureStore } from "#control/MeasureControl/store.js";
-import { makeControlEnv } from "../fixture.js";
 
 // Mock Storage + ensureEvents so the store is tested in isolation — the store's
 // own contract is array + id + persist/emit, not the localStorage I/O (covered
@@ -17,7 +17,7 @@ const events = vi.hoisted(() => ({
   emit: vi.fn(),
 }));
 
-vi.mock("#common/storage.js", () => ({
+vi.mock("#platform/storage.js", () => ({
   loadRecord: storage.loadRecord,
   saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,

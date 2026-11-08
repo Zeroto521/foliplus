@@ -1,6 +1,6 @@
-// common/panelClassName — single source for panel class names.
+// ui/panelClassName — single source for panel class names.
 //
-// These names are shared across the common/ui/core layers (form rows are used
+// These names are shared across the platform/ui/core layers (form rows are used
 // by core/rampForm and core/label, affordances by the layer control panels and
 // the heatmap panel template), so they cannot live in ui/ — a class name is a
 // contract, and two copies have already drifted once (SearchControl's close

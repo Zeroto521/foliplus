@@ -4,7 +4,7 @@
   "packageManager": "npm@11.13.0",
   "type": "module",
   "imports": {
-    "#common/*": "./foliplus/js/common/*",
+    "#platform/*": "./foliplus/js/platform/*",
     "#core/*": "./foliplus/js/core/*",
     "#ui/*": "./foliplus/js/ui/*",
     "#control/*": "./foliplus/js/control/*",

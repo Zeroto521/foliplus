@@ -30,7 +30,7 @@ import { buildCategoryGlyphRamp, buildGlyphRamp, glyphFor } from "#core/glyphRam
 import type { IconValueConfig } from "#core/layer/intent.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import {
   glyphAvailable,
   glyphHtml,

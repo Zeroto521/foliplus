@@ -1,9 +1,4 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { ROLE, normalizeFolderName } from "#core/layer/index.js";
-import { dom, updateItemLabel } from "#common/dom.js";
-import { finishSlidersIn, sectionDivider } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
-import * as SVGs from "#control/LayerControl/icon.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -19,6 +14,11 @@ import {
 } from "./cursor.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
+import { ROLE, normalizeFolderName } from "#core/layer/index.js";
+import { dom, updateItemLabel } from "#platform/dom.js";
+import { finishSlidersIn, sectionDivider } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
+import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are

@@ -8,11 +8,6 @@
 // as the first per-layer dimension. The descriptor owns intent+persist
 // (write / reset / valueSource); commitOpacityPct stays a thin delegate that
 // also syncs the panel rail (UI chrome outside the descriptor).
-import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { Slider, sliderOf } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import {
   NO_DELTA,
   type ProjectionDelta,
@@ -29,6 +24,10 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  opacity: "none" (e.g. MarkerCluster, whose cluster icons live in a shared

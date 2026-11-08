@@ -1,4 +1,4 @@
-// common/sliderClassName — single source for slider class names.
+// ui/sliderClassName — single source for slider class names.
 //
 // Kept free of any foliplus runtime import: the primitive is usable without a
 // map, so its vocabulary cannot live in LayerControl/const.ts (that module
