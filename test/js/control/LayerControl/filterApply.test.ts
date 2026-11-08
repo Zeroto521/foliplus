@@ -318,9 +318,10 @@ describe("generic data-layer filter (controller wiring)", () => {
           { id: "plain", name: "Plain", role: "overlay", layer: polygonLayer() },
         ],
       });
-      expect(manager.layerRegistry.get("flt1")?.filter).toEqual(between("value", [2, 8]));
+      expect(manager.layerRegistry.get("flt1")?.filter).toEqual(
+        between("value", [2, 8]),
+      );
       expect(manager.layerRegistry.get("plain")?.filter).toBeUndefined();
     });
-
   });
 });

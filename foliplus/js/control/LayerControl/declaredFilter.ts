@@ -13,8 +13,8 @@
 // `and`/`or` node — still a filter).
 import type { LayerFilter } from "#core/layer/index.js";
 
-const readDeclaredFilter = (
-  layer: { readonly filter?: LayerFilter | null },
-): LayerFilter | undefined => layer.filter ?? undefined;
+const readDeclaredFilter = (layer: {
+  readonly filter?: LayerFilter | null;
+}): LayerFilter | undefined => layer.filter ?? undefined;
 
 export { readDeclaredFilter };
