@@ -484,9 +484,14 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
     if (target.colorReadOnly) {
       // The swatch keeps its swatch/hex chrome; only editability differs. Both
       // readOnly and disabled so no picker opens and no keyboard edit lands.
+      // READONLY is the shared no-edit class the unified hover rule in
+      // common/input.css excludes — the same channel the fill original arm's
+      // read-only box uses, so a disabled border swatch carries no hover or
+      // focus hint.
       input.readOnly = true;
       input.disabled = true;
       input.tabIndex = -1;
+      input.classList.add(PANEL_CLASS.READONLY);
     }
     parts.push(input);
   }
@@ -571,9 +576,13 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   // the user's to change, so the colour input renders disabled (the same
   // colorInput control the single-color arm uses). Weight stays editable.
   if (mode === FILL_MODE.ORIGINAL) {
-    const color = displayColor(
-      getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
-    );
+    // ORIGINAL owns no user color: the row must show the author's own stroke,
+    // never the color the user set in the single-color arm (that intent stays
+    // stored and takes effect only when the mode returns to solid). Reading
+    // INTENT.BORDER_COLOR here would show the user's color after a solid →
+    // original round-trip — the reported bug. Same source as the leaf restore
+    // path (restoreStyleDim / author face).
+    const color = displayColor(author.color);
     const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
     // Same colour control as the single-color arm (buildBorderRowShell ->
     // colorInput), only inert: the author's stroke is not the user's to change.
