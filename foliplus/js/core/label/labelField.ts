@@ -1,5 +1,5 @@
 // Shared label-field contract for the components that draw per-feature text:
-// LayerControl's annotation labels (DOM markers) and HeatmapControl's hex
+// LayerControl's label labels (DOM markers) and HeatmapControl's hex
 // labels (canvas). Both answer the same two questions — which fields a layer
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
@@ -138,7 +138,7 @@ const resolveSelectedField = (value: string, fields: LabelField[]): string =>
  * Normalize a field id to its bare `feature.properties` key.
  *
  * Older HeatmapControl configs and localStorage entries stored
- * `"properties.<key>"`. The annotation style panel and the shared field
+ * `"properties.<key>"`. The label style panel and the shared field
  * contract always used bare names — one form across the product. Call this
  * once on load / on any legacy value so the rest of the stack never sees
  * the prefix.

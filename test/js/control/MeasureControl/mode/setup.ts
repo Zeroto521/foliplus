@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import type { ControlEnv } from "#core/type.js";
 import { isDragSyntheticClick } from "#control/MeasureControl/edit.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../../../fixture.js";
+import { makeControlEnv } from "../fixture.js";
 
 /** Standalone env for tests that hit static mode methods (toGeoFeature,
  * getNameLabel) or call Util helpers that read env directly. */

@@ -939,7 +939,7 @@ describe("LayerUI menu", () => {
       (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
         opacity: "none",
         zoomRange: "none",
-        annotation: "none",
+        label: "none",
         relocatable: false as any,
       };
 

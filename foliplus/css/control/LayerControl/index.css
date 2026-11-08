@@ -7,9 +7,9 @@
    control.css    focusing pulse + checkbox + color picker
    map-state.css  tile hidden, drag-pulse keyframes, container bg
    rename.css     inline rename input
-   style.css      annotation style panel
+   style.css      label style panel
    Annotation labels have no module here: they are drawn on a canvas
-   (LayerControl/annotation/canvas.ts) from the shared --foliplus-label-* tokens.
+   (LayerControl/label/canvas.ts) from the shared --foliplus-label-* tokens.
    The entry's @import order IS the cascade order; esbuild and the
    build's expandEntry keep it verbatim. */
 @import "./focus.css";

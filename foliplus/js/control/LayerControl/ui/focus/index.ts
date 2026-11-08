@@ -126,7 +126,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   hideOtherLayers(ui);
   // Labels of the layers just hidden must leave the screen with them: the
   // canvas draws the spotlighted layer's labels only for the duration.
-  ui.c.annotation.setFocusFilter(layerId);
+  ui.c.label.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow — one O(panes) pass, not a per-leaf-element loop.
   bringFocusedLayerToFront(ui, layerInfo);
@@ -263,7 +263,7 @@ const dismissFocus = (ui: LayerUI): void => {
     ["clear-auto-cancel", () => clearAutoCancel(ui)],
     ["clear-row-highlight", () => clearFocusedRowHighlight(ui)],
     ["restore-hidden-layers", () => restoreHiddenLayers(ui)],
-    ["clear-focus-filter", () => ui.c.annotation.setFocusFilter(null)],
+    ["clear-focus-filter", () => ui.c.label.setFocusFilter(null)],
     // Each restore is named where the lift happened (`lift:*`, `restore-z:*`,
     // `surface:<id>`, `base-pane:<id>`), so a failure reports the pane, not a
     // position that shifts when a lift is added.

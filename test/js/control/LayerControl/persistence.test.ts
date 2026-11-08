@@ -91,7 +91,7 @@ describe("LayerPersistence", () => {
 
     it("drops a v2 record's legacy label segment (dual-key removal)", () => {
       // RECORD_VERSION 2 → 3 moved the label config into
-      // `layers[id].annotation`. The legacy top-level `annotations` segment
+      // `layers[id].label`. The legacy top-level `annotations` segment
       // is no longer read — a v2-only entry is dropped as invalid, and the
       // version is re-stamped as the current shape in the loaded record.
       seedStorage({
@@ -129,30 +129,63 @@ describe("LayerPersistence", () => {
       p.schedule({ order: () => ["a"] });
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      expect(lastRecord(save).version).toBe(4);
+      expect(lastRecord(save).version).toBe(RECORD_VERSION);
       expect(lastRecord(save).foldedRoles).toEqual([]);
       save.mockRestore();
       vi.useRealTimers();
     });
 
     it("keeps the current key and drops the legacy segment (dual-key removal)", () => {
-      // The legacy segment passes through no longer — `layers[id].annotation`
+      // The legacy segment passes through no longer — `layers[id].label`
       // is the only label key, and the reader (the label seed) reads it.
       seedStorage({
         version: RECORD_VERSION,
         annotations: { both: { show: false, field: "old" } },
         layers: {
-          // An annotation-only entry — empty `overrides` survives parse.
-          both: { overrides: [], annotation: { show: true, field: "new" } },
+          // An label-only entry — empty `overrides` survives parse.
+          both: { overrides: [], label: { show: true, field: "new" } },
         },
       });
 
       const rec = makePersistence().load();
       expect(rec.layers.both).toEqual({
         overrides: [],
-        annotation: { show: true, field: "new" },
+        label: { show: true, field: "new" },
       });
       expect("annotations" in rec).toBe(false);
+    });
+
+    it("drops a v4 record's annotation key and re-stamps v5 on write (4 → 5)", () => {
+      // RECORD_VERSION 4 → 5 renamed `layers[id].annotation` to
+      // `layers[id].label`. There is deliberately no compatibility read:
+      // the old key is ignored (label config dropped) while every other
+      // field survives, and the next write stamps v5.
+      seedStorage({
+        version: 4,
+        order: ["a"],
+        renamedNames: { a: "A2" },
+        layers: {
+          a: { overrides: [], annotation: { show: true, field: "name" } },
+        },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.layers).toEqual({});
+
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a"] });
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      const written = lastRecord(save);
+      expect(written.version).toBe(RECORD_VERSION);
+      expect(written.layers).toEqual({});
+      save.mockRestore();
+      vi.useRealTimers();
     });
 
     it("prunes a deleted id from the label segment on read", () => {
@@ -162,14 +195,14 @@ describe("LayerPersistence", () => {
       seedStorage({
         removed: ["gone"],
         layers: {
-          gone: { overrides: [], annotation: { show: true } },
-          kept: { overrides: [], annotation: { show: false } },
+          gone: { overrides: [], label: { show: true } },
+          kept: { overrides: [], label: { show: false } },
         },
       });
 
       const rec = makePersistence().load();
       expect(rec.layers).toEqual({
-        kept: { overrides: [], annotation: { show: false } },
+        kept: { overrides: [], label: { show: false } },
       });
     });
 
@@ -249,31 +282,31 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().removed).toEqual([]);
     });
 
-    it("drops annotation configs that are not plain objects", () => {
+    it("drops label configs that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
       // a corrupted record must not leak into the config as a valid object.
-      // The annotation config rides `layers[id].annotation`, so a non-object
-      // value drops the whole layer entry (no overrides, no annotation).
+      // The label config rides `layers[id].label`, so a non-object
+      // value drops the whole layer entry (no overrides, no label).
       seedStorage({
         layers: {
           a: {
             overrides: [],
-            annotation: { show: true, field: "name", format: "auto" },
+            label: { show: true, field: "name", format: "auto" },
           },
-          b: { overrides: [], annotation: null },
-          c: { overrides: [], annotation: "not-object" },
-          d: { overrides: [], annotation: ["array"] },
+          b: { overrides: [], label: null },
+          c: { overrides: [], label: "not-object" },
+          d: { overrides: [], label: ["array"] },
         },
       });
       const p = makePersistence();
 
       expect(p.load().layers).toEqual({
-        a: { overrides: [], annotation: { show: true, field: "name", format: "auto" } },
+        a: { overrides: [], label: { show: true, field: "name", format: "auto" } },
       });
     });
 
-    it("expands short hex annotation color to #rrggbb", () => {
-      // The annotation color is the label paint and also goes through the
+    it("expands short hex label color to #rrggbb", () => {
+      // The label color is the label paint and also goes through the
       // style panel's <input type=color>, so the same expansion applies as
       // to layers' fill/border: #rgb on disk becomes #rrggbb on read. Long
       // hex (either case) is left alone — normalizeHexColor only expands the
@@ -282,42 +315,42 @@ describe("LayerPersistence", () => {
         layers: {
           a: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "#fff" },
+            label: { show: true, field: "n", format: "auto", color: "#fff" },
           },
           b: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "#ABC" },
+            label: { show: true, field: "n", format: "auto", color: "#ABC" },
           },
           c: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "#ff0000" },
+            label: { show: true, field: "n", format: "auto", color: "#ff0000" },
           },
           d: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "#FF0000" },
+            label: { show: true, field: "n", format: "auto", color: "#FF0000" },
           },
         },
       });
       const layers = makePersistence().load().layers;
-      expect(layers.a?.annotation).toEqual({
+      expect(layers.a?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "#ffffff",
       });
-      expect(layers.b?.annotation).toEqual({
+      expect(layers.b?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "#aabbcc",
       });
-      expect(layers.c?.annotation).toEqual({
+      expect(layers.c?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "#ff0000",
       });
-      expect(layers.d?.annotation).toEqual({
+      expect(layers.d?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
@@ -325,8 +358,8 @@ describe("LayerPersistence", () => {
       });
     });
 
-    it("leaves a non-hex annotation color alone", () => {
-      // The annotation config has no isHexColor gate (unlike layers), so
+    it("leaves a non-hex label color alone", () => {
+      // The label config has no isHexColor gate (unlike layers), so
       // values the UI would not have written still round-trip unchanged —
       // the write side is equally permissive, and both consumers (canvas
       // fillStyle, color input) tolerate a bad value by falling back to
@@ -335,63 +368,63 @@ describe("LayerPersistence", () => {
         layers: {
           a: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "red" },
+            label: { show: true, field: "n", format: "auto", color: "red" },
           },
           b: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "#ffff" },
+            label: { show: true, field: "n", format: "auto", color: "#ffff" },
           },
           c: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: "123" },
+            label: { show: true, field: "n", format: "auto", color: "123" },
           },
           d: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: 42 },
+            label: { show: true, field: "n", format: "auto", color: 42 },
           },
           e: {
             overrides: [],
-            annotation: { show: true, field: "n", format: "auto", color: null },
+            label: { show: true, field: "n", format: "auto", color: null },
           },
-          f: { overrides: [], annotation: { show: true, field: "n", format: "auto" } },
+          f: { overrides: [], label: { show: true, field: "n", format: "auto" } },
         },
       });
       const layers = makePersistence().load().layers;
-      expect(layers.a?.annotation).toEqual({
+      expect(layers.a?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "red",
       });
-      expect(layers.b?.annotation).toEqual({
+      expect(layers.b?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "#ffff",
       });
-      expect(layers.c?.annotation).toEqual({
+      expect(layers.c?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: "123",
       });
-      expect(layers.d?.annotation).toEqual({
+      expect(layers.d?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: 42,
       });
-      expect(layers.e?.annotation).toEqual({
+      expect(layers.e?.label).toEqual({
         show: true,
         field: "n",
         format: "auto",
         color: null,
       });
-      expect(layers.f?.annotation).toEqual({ show: true, field: "n", format: "auto" });
+      expect(layers.f?.label).toEqual({ show: true, field: "n", format: "auto" });
     });
 
-    it("passes unknown annotation fields through (future dims, e.g. position)", () => {
-      // The annotation parse is shape-tolerant on purpose: a field the running
+    it("passes unknown label fields through (future dims, e.g. position)", () => {
+      // The label parse is shape-tolerant on purpose: a field the running
       // code does not know yet (label position, …) rides the same record and
       // survives a round-trip, so a future reader finds it where the writer
       // left it. Field rules live in `coerceAnnotationFields`, not here.
@@ -399,12 +432,12 @@ describe("LayerPersistence", () => {
         layers: {
           b: {
             overrides: [],
-            annotation: { show: false, field: "n", position: "center" },
+            label: { show: false, field: "n", position: "center" },
           },
         },
       });
       const rec = makePersistence().load();
-      expect(rec.layers.b?.annotation).toMatchObject({ position: "center" });
+      expect(rec.layers.b?.label).toMatchObject({ position: "center" });
     });
   });
 
@@ -467,7 +500,7 @@ describe("LayerPersistence", () => {
       // The renamed "value" is the only value-arm literal now; "ramp" reads
       // as an invalid mode (absent), so the record keeps no mode claim.
       // With the only marker invalid, the layer state has no overrides and no
-      // annotation, so parseLayerState returns null — the layer reads absent.
+      // label, so parseLayerState returns null — the layer reads absent.
       expect(makePersistence().load().layers.a).toBeUndefined();
     });
 

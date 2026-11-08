@@ -6,7 +6,7 @@
 // thin: build store + build view + wire up.
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
-// LayerPersistence and AnnotationManager — both LayerControl-local.
+// LayerPersistence and LabelManager — both LayerControl-local.
 import { hasLabelField } from "#core/label/index.js";
 import {
   INTENT,
@@ -32,13 +32,13 @@ import {
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import { finalizeEach } from "#common/finalize.js";
-import type { AnnotationManager } from "../annotation/index.js";
+import type { LabelManager } from "../label/index.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
- *  the label (annotation) pane when the layer's features expose a labelable
- *  field. This is the one probe behind `capabilities.annotation` — run on
+ *  the label (label) pane when the layer's features expose a labelable
+ *  field. This is the one probe behind `capabilities.label` — run on
  *  *every* surface resolution, so a live layer that gained its first
  *  labelable feature flips the declared specs on the next gate / menu /
  *  panel read and `matches` rebuilds the surface (pane and capability with
@@ -49,10 +49,7 @@ import type { LayerIntentStore } from "./LayerIntentStore.js";
  *  results), and a re-registration re-derives it fresh. A spec someone else
  *  already declared is theirs — the probe only appends what is absent and
  *  never removes a foreign declaration. */
-const withAnnotationSpec = (
-  layerInfo: LayerInfo,
-  layer: L.Layer | null,
-): PaneSpec[] => {
+const withLabelSpec = (layerInfo: LayerInfo, layer: L.Layer | null): PaneSpec[] => {
   const paneSpecs = layerInfo.paneSpecs ?? [];
   if (paneSpecs.some(spec => spec.role === PANE_ROLE.LABEL)) return paneSpecs;
   if (!layer || !hasLabelField(layer)) return paneSpecs;
@@ -73,11 +70,11 @@ class LayerOrchestration {
   private factory: LayerFactory;
   private order: LayerOrder;
   private persistence: LayerPersistence;
-  private annotation: AnnotationManager;
+  private label: LabelManager;
   private surfaceIndex: SurfaceIndex;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
-   *  annotation). Absent key = never touched. Provenance rides the same
+   *  label). Absent key = never touched. Provenance rides the same
    *  `IntentRow` beside the values. Domain-owned because it is the axis on
    *  which registerLayer (hidden → skip `map.addLayer`), deleteLayer (drop
    *  row + clear name), and persistence replay decide — not a view-only
@@ -100,7 +97,7 @@ class LayerOrchestration {
     factory: LayerFactory;
     order: LayerOrder;
     persistence: LayerPersistence;
-    annotation: AnnotationManager;
+    label: LabelManager;
     surfaceIndex: SurfaceIndex;
     getIntentStore: () => LayerIntentStore;
   }) {
@@ -113,7 +110,7 @@ class LayerOrchestration {
     this.factory = deps.factory;
     this.order = deps.order;
     this.persistence = deps.persistence;
-    this.annotation = deps.annotation;
+    this.label = deps.label;
     this.surfaceIndex = deps.surfaceIndex;
   }
 
@@ -232,7 +229,7 @@ class LayerOrchestration {
       kind: layerInfo.kind,
       custom: layerInfo.carrier.custom,
       paneName: layerInfo.paneName,
-      paneSpecs: withAnnotationSpec(layerInfo, layer),
+      paneSpecs: withLabelSpec(layerInfo, layer),
       canvas: Boolean(layerInfo.carrier.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,

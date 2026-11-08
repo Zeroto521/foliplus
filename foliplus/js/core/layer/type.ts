@@ -165,7 +165,7 @@ interface LayerCapabilities {
    *      here; declared so a future shape that cannot carry visibility can say
    *      so without another union change. */
   visibility: "native" | "pane" | "none";
-  /** Whether the layer can host a label (annotation) pane:
+  /** Whether the layer can host a label (label) pane:
    *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
@@ -179,7 +179,7 @@ interface LayerCapabilities {
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
    *  `matches` — the declaration changed, not merely a capability. */
-  annotation: "pane" | "none";
+  label: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
    *  cannot (a plugin that owns its own z) can say so without another shape
@@ -260,7 +260,7 @@ interface RegisterLayerOpts {
    *  The slider path must not regress: a full redraw of a ≥5k layer on every
    *  commit is jank, while a CSS style write is O(1).
    *    - "commit"  — bake layerAlpha and redraw on the slider commit itself.
-   *      Use when the redraw is cheap (color face: one fillRect; annotation
+   *      Use when the redraw is cheap (color face: one fillRect; label
    *      labels: a few hundred glyphs).
    *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
@@ -926,7 +926,7 @@ interface LayerAPI {
    *  inheriting the tuning the user arranged for the previous draw.
    *
    *  Unlike deleteLayer this does not unregister the layer, record it in
-   *  `removedIds`, or destroy its annotation config: the id stays
+   *  `removedIds`, or destroy its label config: the id stays
    *  registerable, so a component that cleared its own data can draw again.
    *  Reachable from an explicit user action alone — the component clear paths
    *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) —

@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const api = map.foliplus.LayerAPI;
@@ -127,14 +127,11 @@
     styleProvider: () => ({ labelShow: true }),
   });
   managed.register();
+  managed.addLayer(L.polyline(fixtures.managedLine), "op-probe-graph");
   managed.addLayer(
-    L.polyline([
-      [26.08, 119.5],
-      [26.09, 119.51],
-    ]),
-    "op-probe-graph",
+    L.circleMarker(fixtures.managedPoint, { radius: 5 }),
+    "op-probe-node",
   );
-  managed.addLayer(L.circleMarker([26.085, 119.505], { radius: 5 }), "op-probe-node");
   const managedOpened = setOpacityViaSlider("op_managed");
   const graphPaneEl = map.getPane("op-probe-graph");
   const nodePaneEl = map.getPane("op-probe-node");
@@ -144,29 +141,9 @@
   // labelable field to render the label section, which hosts the opacity row).
   // style: { fillOpacity: 0 } makes it hollow — the pane CSS opacity must not
   // fill it back in (0 × 0.4 = 0, not 0.4).
-  const hollowGeo = L.geoJson(
-    {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          properties: { name: "hollow", value: 1 },
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [119.45, 26.07],
-                [119.45, 26.08],
-                [119.46, 26.08],
-                [119.45, 26.07],
-              ],
-            ],
-          },
-        },
-      ],
-    },
-    { style: { fillOpacity: 0, color: "#000", weight: 2 } },
-  );
+  const hollowGeo = L.geoJson(fixtures.hollow, {
+    style: { fillOpacity: 0, color: "#000", weight: 2 },
+  });
   api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
   ctrl.mgr.enforceOrder();
   const hollowPane = paneOf(hollowGeo);
@@ -177,53 +154,15 @@
     if (child.options) hollowFillOpacity = child.options.fillOpacity;
   });
 
-  // ── Case D: annotation labels follow the layer's opacity via bake (R11) ──
+  // ── Case D: label labels follow the layer's opacity via bake (R11) ──
   // A data layer with labels on: the geometry pane keeps the CSS write; the
-  // annotation pane is deliberately excluded from CSS (baking would
+  // label pane is deliberately excluded from CSS (baking would
   // double-compound) and the label canvas carries the layerAlpha. A neighbor
-  // layer's annotation pane is unaffected (per-layer pane, not shared).
-  const annotatedGeo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "annotated", value: 1 },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [119.55, 26.1],
-              [119.55, 26.11],
-              [119.56, 26.11],
-              [119.55, 26.1],
-            ],
-          ],
-        },
-      },
-    ],
-  });
+  // layer's label pane is unaffected (per-layer pane, not shared).
+  const annotatedGeo = L.geoJson(fixtures.annotated);
   api.registerLayer({ id: "op_annotated", name: "Annotated", layer: annotatedGeo });
-  // A neighbor layer with its own annotation, so we can assert isolation.
-  const neighborGeo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "neighbor", value: 1 },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [119.57, 26.1],
-              [119.57, 26.11],
-              [119.58, 26.11],
-              [119.57, 26.1],
-            ],
-          ],
-        },
-      },
-    ],
-  });
+  // A neighbor layer with its own label, so we can assert isolation.
+  const neighborGeo = L.geoJson(fixtures.neighbor);
   api.registerLayer({
     id: "op_annotated_nb",
     name: "AnnotatedNb",
@@ -232,19 +171,19 @@
   ctrl.mgr.enforceOrder();
 
   // Enable labels on both layers.
-  ctrl.mgr.annotation.setConfig("op_annotated", {
-    ...ctrl.mgr.annotation.getConfig("op_annotated"),
+  ctrl.mgr.label.setConfig("op_annotated", {
+    ...ctrl.mgr.label.getConfig("op_annotated"),
     show: true,
   });
-  ctrl.mgr.annotation.renderLabels("op_annotated");
-  ctrl.mgr.annotation.setConfig("op_annotated_nb", {
-    ...ctrl.mgr.annotation.getConfig("op_annotated_nb"),
+  ctrl.mgr.label.renderLabels("op_annotated");
+  ctrl.mgr.label.setConfig("op_annotated_nb", {
+    ...ctrl.mgr.label.getConfig("op_annotated_nb"),
     show: true,
   });
-  ctrl.mgr.annotation.renderLabels("op_annotated_nb");
+  ctrl.mgr.label.renderLabels("op_annotated_nb");
 
   const annotatedGeoPane = paneOf(annotatedGeo);
-  const annotationPane = map.getPane("foliplus-label-op_annotated");
+  const labelPane = map.getPane("foliplus-label-op_annotated");
   const neighborAnnotationPane = map.getPane("foliplus-label-op_annotated_nb");
 
   // Set opacity to 0.
@@ -254,8 +193,8 @@
   ui.closeStylePanel(false);
 
   // R11: the label canvas bakes layerAlpha; read it back from the shared
-  // helper (same one the drawers use). Pane CSS is NOT the annotation carrier.
-  const labelCanvas = annotationPane ? annotationPane.querySelector("canvas") : null;
+  // helper (same one the drawers use). Pane CSS is NOT the label carrier.
+  const labelCanvas = labelPane ? labelPane.querySelector("canvas") : null;
   const bakeApi = window.foliplus?.common?.canvasAlpha;
   const annotatedLabelBakeAlpha =
     labelCanvas && bakeApi ? bakeApi.getLayerAlpha(labelCanvas) : null;
@@ -299,17 +238,15 @@
     // own style. 0 × 0.4 = 0, so the fill stays invisible.
     hollowPaneAfter,
     hollowFillOpacity,
-    // Case D: geometry pane takes CSS; annotation pane is excluded from CSS
+    // Case D: geometry pane takes CSS; label pane is excluded from CSS
     // and the label canvas bakes layerAlpha (R11). Neighbor untouched.
     annotatedGeoPaneOpacity: annotatedGeoPane ? annotatedGeoPane.style.opacity : null,
-    annotatedAnnotationPaneOpacity: annotationPane
-      ? annotationPane.style.opacity
-      : null,
+    annotatedAnnotationPaneOpacity: labelPane ? labelPane.style.opacity : null,
     annotatedLabelBakeAlpha,
     neighborAnnotationPaneOpacity: neighborAnnotationPane
       ? neighborAnnotationPane.style.opacity
       : null,
-    annotationPaneExists: !!annotationPane,
+    labelPaneExists: !!labelPane,
     neighborAnnotationPaneExists: !!neighborAnnotationPane,
   };
 };

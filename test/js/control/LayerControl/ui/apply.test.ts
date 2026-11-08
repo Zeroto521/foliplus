@@ -333,7 +333,7 @@ describe("executor: late-carrier replay", () => {
     map.createPane = vi.fn((name: string) => paneFor(name));
 
     // A layer whose features carry a labelable field — the declaration
-    // edge's probe (`hasLabelField`) hits, so the annotation spec rides
+    // edge's probe (`hasLabelField`) hits, so the label spec rides
     // the surface's pane list.
     const layer = paneCapableLayer({ feature: { properties: { name: "Depot" } } });
 
@@ -349,20 +349,20 @@ describe("executor: late-carrier replay", () => {
     vi.useRealTimers();
 
     // The structural claim of this cut: the declared pane is part of the
-    // face — the old `annotation.paneNameFor` side channel could never
+    // face — the old `label.paneNameFor` side channel could never
     // satisfy this, which is what makes the test red without the fix.
     const li = manager.layerRegistry.get("a1")!;
     expect(manager.surfaceFor(li).paneNames).toContain("foliplus-label-a1");
 
-    // Stored opacity: the first write covers every declared non-annotation
+    // Stored opacity: the first write covers every declared non-label
     // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
-    // AnnotationCanvas draws) so the two carriers never double-compound.
-    const applyAlpha = vi.spyOn(ui.c.annotation, "applyLayerAlpha");
+    // LabelCanvas draws) so the two carriers never double-compound.
+    const applyAlpha = vi.spyOn(ui.c.label, "applyLayerAlpha");
     setIntent(ui, "a1", "opacity", 0.3);
     ui.intentStore.seedProvenance("a1", ["opacity"]);
     applyProjection(ui, "a1");
     expect(paneFor("foliplus-label-a1").style.opacity).toBe("");
-    // The annotation manager received the bake write for this layer.
+    // The label manager received the bake write for this layer.
     expect(applyAlpha).toHaveBeenCalledWith("a1", 0.3);
 
     // Settled: value and carrier unchanged, so nothing is written again.
@@ -795,7 +795,7 @@ describe("executor: carrier dispatch", () => {
       // A zoomend (`applyProjectionAll`) that pushes a layer past its stored
       // zoom range is a real visibility flip — the layer leaves the map.
       // This is the executor's one notification channel; without the emit
-      // subscribers (annotation, controller) would never hear the sweep.
+      // subscribers (label, controller) would never hear the sweep.
       const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
@@ -1674,7 +1674,7 @@ describe("executor: the branches behind the gates", () => {
         },
         layers: [],
         findLayer: vi.fn(() => null),
-        annotation: null,
+        label: null,
         surfaceFor: vi.fn(() => ({
           capabilities: { opacity: "none", zoomRange: "none" },
           paneNames: [],

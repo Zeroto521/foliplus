@@ -1,4 +1,4 @@
-// Per-layer annotation label controls — the ⚙︎ drawer's "Label" section.
+// Per-layer label label controls — the ⚙︎ drawer's "Label" section.
 // Moved verbatim from ui/style.ts. Owns the field cache,
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
@@ -7,7 +7,7 @@ import { type LabelField, isNumericField } from "#core/label/index.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import type { AnnotationConfig } from "#control/LayerControl/type.js";
+import type { LabelConfig } from "#control/LayerControl/type.js";
 import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
@@ -18,7 +18,7 @@ import type { LayerUI } from "../surface.js";
 const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
   const cached = ui.runtimeStore.getFields(layerId);
   if (cached) return cached;
-  const fields = ui.c.annotation.collectFields(layerId);
+  const fields = ui.c.label.collectFields(layerId);
   ui.runtimeStore.setFields(layerId, fields);
   return fields;
 };
@@ -41,7 +41,7 @@ const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   // features can change (runtime createLayers) or whose row was just
   // dropped must lose both caches in one move.
   ui.runtimeStore.deleteSnapshot(layerId);
-  ui.c.annotation.invalidateResolvedField(layerId);
+  ui.c.label.invalidateResolvedField(layerId);
 };
 
 /** Rebuild this layer's label text from the tree it has *now*. Expensive:
@@ -51,8 +51,8 @@ const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
  *  No-op when the layer's labels are off, so a layer the user never labeled
  *  is never written. */
 const replayLabelState = (ui: LayerUI, layerId: string): void => {
-  if (!ui.c.annotation.getConfig(layerId).show) return;
-  ui.c.annotation.renderLabels(layerId);
+  if (!ui.c.label.getConfig(layerId).show) return;
+  ui.c.label.renderLabels(layerId);
 };
 
 /** Cache drop + label replay in one call — the composite the rare one-shot
@@ -68,7 +68,7 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Persist the per-layer label config — it rides the record's `layers`
- *  section (`layers[id].annotation`), so the same writer that saves
+ *  section (`layers[id].label`), so the same writer that saves
  *  visibility / opacity / zoom range now saves it. The legacy top-level
  *  `annotations` segment no longer exists. */
 const persistStyleLabel = (ui: LayerUI): void => {
@@ -81,12 +81,12 @@ const persistStyleLabel = (ui: LayerUI): void => {
 const applyPatch = (
   ui: LayerUI,
   layerId: string,
-  patch: Partial<AnnotationConfig>,
+  patch: Partial<LabelConfig>,
 ): void => {
-  const cfg = ui.c.annotation.getConfig(layerId);
+  const cfg = ui.c.label.getConfig(layerId);
   Object.assign(cfg, patch);
-  ui.c.annotation.setConfig(layerId, cfg);
-  ui.c.annotation.renderLabels(layerId);
+  ui.c.label.setConfig(layerId, cfg);
+  ui.c.label.renderLabels(layerId);
   persistStyleLabel(ui);
 };
 
@@ -98,30 +98,30 @@ const applyPatch = (
  *  by the user", where collide still comes from the page-level default.
  *  Same update order as applyPatch, minus the write. */
 const resetStyleLabel = (ui: LayerUI, layerId: string): void => {
-  ui.c.annotation.clearConfig(layerId);
-  ui.c.annotation.renderLabels(layerId);
+  ui.c.label.clearConfig(layerId);
+  ui.c.label.renderLabels(layerId);
   persistStyleLabel(ui);
 };
 
-/** Coerce one stored label config into a complete {@link AnnotationConfig}.
+/** Coerce one stored label config into a complete {@link LabelConfig}.
  *
  *  The single home of the per-field rules: persistence's tolerant parse only
  *  checks the object shape (and normalizes color), so every coercion — and
  *  the default of every future field, e.g. `position` — belongs here. The
  *  renderer consumes the result; nothing in between re-derives defaults. */
-const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
-  const cfg = (raw && typeof raw === "object" ? raw : {}) as Partial<AnnotationConfig>;
+const coerceAnnotationFields = (raw: unknown): LabelConfig => {
+  const cfg = (raw && typeof raw === "object" ? raw : {}) as Partial<LabelConfig>;
   return {
     show: !!cfg.show,
     field: typeof cfg.field === "string" ? cfg.field : "",
     color:
       typeof cfg.color === "string"
         ? normalizeHexColor(cfg.color)
-        : CONST.DEFAULT_ANNOTATION.color,
+        : CONST.DEFAULT_LABEL.color,
     size:
       typeof cfg.size === "number"
         ? clampLabelSize(cfg.size)
-        : CONST.DEFAULT_ANNOTATION.size,
+        : CONST.DEFAULT_LABEL.size,
     format: typeof cfg.format === "string" ? cfg.format : NUMBER_FORMAT.AUTO,
     // Absent in configs stored before the switch existed: default to on.
     collide: cfg.collide !== false,
@@ -130,7 +130,7 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
 
 /** Load persisted per-layer style (label) config and apply it.
  *
- *  `ui.intentStore` annotation is the *load-time snapshot*, so this is a seed, not a
+ *  `ui.intentStore` label is the *load-time snapshot*, so this is a seed, not a
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent.
@@ -143,23 +143,23 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
 const applyStyleLabelState = (ui: LayerUI): void => {
   const seedIds = ui.intentStore.ids();
   for (const id of seedIds) {
-    const raw = getIntent(ui, id, INTENT.ANNOTATION);
+    const raw = getIntent(ui, id, INTENT.LABEL);
     if (!raw) continue;
     if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
-    if (ui.c.annotation.hasConfig(id)) continue; // live state wins
+    if (ui.c.label.hasConfig(id)) continue; // live state wins
     const cfg = coerceAnnotationFields(raw);
-    ui.c.annotation.setConfig(id, cfg);
+    ui.c.label.setConfig(id, cfg);
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
-    if (cfg.show) ui.c.annotation.renderLabels(id);
-    else ui.c.annotation.clearLabels(id);
+    if (cfg.show) ui.c.label.renderLabels(id);
+    else ui.c.label.clearLabels(id);
   }
   for (const layerInfo of ui.c.layers) {
     const id = layerInfo.id;
-    if (ui.c.annotation.hasConfig(id)) continue; // live state wins
-    if (!ui.c.annotation.getConfig(id).show) continue;
+    if (ui.c.label.hasConfig(id)) continue; // live state wins
+    if (!ui.c.label.getConfig(id).show) continue;
     if (!layerHasLabelFields(ui, id)) continue;
-    ui.c.annotation.renderLabels(id);
+    ui.c.label.renderLabels(id);
   }
 };
 

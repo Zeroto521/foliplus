@@ -24,8 +24,7 @@
 import { dom } from "#common/dom.js";
 import {
   type Floating,
-  bindFloatingTouch,
-  bindFloatingWheel,
+  bindFloatingGestures,
   mountFloating,
 } from "#common/floating.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
@@ -698,12 +697,12 @@ const createListbox = (spec: ListboxSpec): Listbox => {
     ...(spec.multiple ? { "aria-multiselectable": "true" } : {}),
   }) as HTMLElement;
   list.hidden = true;
-  // A wheel over the open popup must not zoom the map. The popup is portalled
-  // out of the control container, so the container's disableScrollPropagation
-  // does not cover it. Stop propagation only: the list's own overflow-y scroll
-  // still works. Bound once (not per mount) so inline mode is covered too.
-  bindFloatingWheel(list);
-  bindFloatingTouch(list);
+  // Gesture containment: the popup must never pan or zoom the map beneath it.
+  // Non-inline mode is covered automatically by mountFloating (the unified
+  // entry); inline mode mounts inside the trigger's parent (CSS-anchored, no
+  // portal) so it binds here via the unified bindFloatingGestures entry.
+  // Either way one entry point — no caller remembers a raw touch/wheel bind.
+  if (spec.inline) bindFloatingGestures(list);
   spec.trigger.setAttribute("aria-haspopup", "listbox");
   spec.trigger.setAttribute("aria-expanded", "false");
   spec.trigger.setAttribute("aria-controls", listId);

@@ -38,4 +38,12 @@ module.exports = {
   ],
   importOrderSeparation: false,
   importOrderSortSpecifiers: true,
+  overrides: [
+    {
+      files: "*.geojson",
+      options: {
+        parser: "json",
+      },
+    },
+  ],
 };

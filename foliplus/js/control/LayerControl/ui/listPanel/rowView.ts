@@ -245,7 +245,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     } else {
       countCol.textContent = view.countText;
     }
-    // The count cell is annotation, but its sentence is the filtered fact:
+    // The count cell is label, but its sentence is the filtered fact:
     // mirror the row title so hover/AT read the same numbers. Set the
     // attribute only when it carries text: an empty title attribute would
     // swallow the row title on hover instead of letting it bubble.

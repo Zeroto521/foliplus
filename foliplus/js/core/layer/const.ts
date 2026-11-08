@@ -27,8 +27,8 @@ const HIDDEN = "hidden";
  *  LABEL_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus-pane-";
 
-/** Pane name prefix for a layer's annotation labels (LayerControl
- *  AnnotationManager). One pane per labeled layer, so its labels sit at that
+/** Pane name prefix for a layer's label labels (LayerControl
+ *  LabelManager). One pane per labeled layer, so its labels sit at that
  *  layer's place in the stack; LayerController.enforceOrder z-orders each
  *  pane just above its layer. Also read by ExportControl's renderer, which
  *  walks each layer's label pane right after its content so the exported
@@ -101,12 +101,12 @@ const KIND = {
  *  face is one flat fill, and a self-drawn canvas is imagery; none of the
  *  three exposes individual features. Defined here so a kind gate elsewhere
  *  reads one triple instead of restating it (HeatmapControl's point scan,
- *  AnnotationManager's label repaint). */
+ *  LabelManager's label repaint). */
 const NO_FEATURE_TREE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 /** Dimension-key names — the shared word face of `LayerDimension.key`,
  *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "size" |
- *  "border" | "zoomRange" | "annotation"). Owned by core so the style
+ *  "border" | "zoomRange" | "label"). Owned by core so the style
  *  registry and the capability contract read one definition; `LayerDimKey`
  *  in type.ts derives from it, so the vocabulary cannot drift. */
 const DIM = {
@@ -116,7 +116,7 @@ const DIM = {
   ICON: "icon",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
-  ANNOTATION: "annotation",
+  LABEL: "label",
 } as const;
 
 /** Capability-tier names — how a surface honestly carries a write

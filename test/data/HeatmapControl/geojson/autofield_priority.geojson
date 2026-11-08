@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "population": 100, "density": 50 },
+      "geometry": { "type": "Point", "coordinates": [119.3, 26.08] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "population": 200, "density": 30 },
+      "geometry": { "type": "Point", "coordinates": [119.31, 26.09] }
+    }
+  ]
+}
