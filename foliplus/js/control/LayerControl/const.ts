@@ -45,7 +45,7 @@ const FILL_VALUE = {
   /** The qualitative palette an *inferred* categorical fill falls back to when
    *  the author named no scheme. Only the inference path uses it: an explicit
    *  `kind: "category"` still hard-rejects without a scheme, and a declared
-   *  scheme (on either arm) is the author's choice and is kept verbatim. Set3
+   *  scheme (on either mode) is the author's choice and is kept verbatim. Set3
    *  is the qualitative default CATEGORY_SCHEMES offers. */
   CATEGORY_SCHEME_DEFAULT: "Set3",
 } as const;
@@ -182,15 +182,15 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
-  /** Fill mode block: the mode row plus the active arm's detail rows.
+  /** Fill mode block: the mode row plus the active mode's detail rows.
    *  The block is the row's DOM root; detail rows are separate FORM_ROWs so
    *  the label column stays aligned without indentation. */
   STYLE_FILL_BLOCK: "foliplus-style-fill-block",
   STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
   STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
-  /** The original-colors arm's read-only detail: the author's column, their
+  /** The original-colors mode's read-only detail: the author's column, their
    *  colors as one ordered gradient and their count, on the same
-   *  label/control grid the by-value arm uses. `READONLY` is the shared box
+   *  label/control grid the by-value mode uses. `READONLY` is the shared box
    *  frame (a form control without a chevron, focus or pointer affordance), so
    *  a readout lands on the same column edge as the select it replaces and
    *  carries no hover/active feedback. */
@@ -201,7 +201,7 @@ const CLASSES = {
   STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
   STYLE_FILL_ORIGINAL_METHOD: "foliplus-style-fill-original-method",
   STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
-  /** Ramp detail controls (color-by-value arm): field, method, class count
+  /** Ramp detail controls (color-by-value mode): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared
    *  picker trigger, the same controls the heatmap panel offers. */
   STYLE_FILL_FIELD_SELECT: "foliplus-style-fill-field-select",

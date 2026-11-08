@@ -62,7 +62,7 @@ const captureAuthorIcon = (leaf: object): void => {
 /** The Leaflet default-icon prototype a leaf with no explicit icon falls
  *  back to, or undefined in a Leaflet-free DOM. */
 const defaultIconProto = (): unknown => {
-  // jsdom always defines the Leaflet global, so the no-L arm is a
+  // jsdom always defines the Leaflet global, so the no-L branch is a
   // Leaflet-free-DOM guard, not a state this flow produces.
   /* v8 ignore start -- Leaflet-free DOM only: this flow always runs with a
    * Leaflet global and a present Icon.Default.prototype; both arms are
