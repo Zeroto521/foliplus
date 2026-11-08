@@ -88,7 +88,7 @@ const safeColorScale = (name: string, n: number): string[] => {
   }
 };
 
-/** Qualitative (category) schemes the category fill arm offers, with the
+/** Qualitative (category) schemes the category fill mode offers, with the
  *  discrete color count each ColorBrewer family defines. These are the
  *  canonical category palettes — a category fill is a flat set of names, so
  *  interpolating between endpoints would produce colors the brewer never
@@ -96,7 +96,7 @@ const safeColorScale = (name: string, n: number): string[] => {
  *
  *  The keys mirror `DEFAULT_SCHEMES`'s shape but are a separate vocabulary:
  *  a sequential scheme (Blues) is a *gradient*, which a categorical field
- *  must not use — the category arm paints distinct labels, and a gradient
+ *  must not use — the category mode paints distinct labels, and a gradient
  *  would make two adjacent categories nearly indistinguishable. */
 const CATEGORY_SCHEMES: Record<string, number> = {
   Set3: 12,

@@ -123,9 +123,9 @@ const computeBreaks = (
   const lo = sorted[0];
   const hi = sorted[n - 1];
 
-  // No `default` arm: the guard above already turned away everything outside
+  // No `default` branch: the guard above already turned away everything outside
   // the four names. Leaving it out is what makes a method added to METHOD
-  // without an arm here a *typecheck* error - computeBreaks would have no
+  // without a branch here a *typecheck* error - computeBreaks would have no
   // return on that path - instead of a runtime backstop nothing can reach.
   switch (method) {
     case METHOD.JENKS: {

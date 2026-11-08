@@ -596,22 +596,7 @@ class TestIconBrowser(LayerControlBrowserBase):
         per category, capped by the legend budget constant).
         """
         return folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"kind": f"c{i}"},
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [119.28 + i * 0.01, 26.08],
-                            },
-                        }
-                        for i in range(8)
-                    ],
-                }
-            ),
+            json.dumps(load_geojson("LayerControl", "icon_markers_8")),
             name="Icon markers",
         )
 

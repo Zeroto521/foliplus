@@ -62,7 +62,7 @@ const captureAuthorIcon = (leaf: object): void => {
 /** The Leaflet default-icon prototype a leaf with no explicit icon falls
  *  back to, or undefined in a Leaflet-free DOM. */
 const defaultIconProto = (): unknown => {
-  // jsdom always defines the Leaflet global, so the no-L arm is a
+  // jsdom always defines the Leaflet global, so the no-L branch is a
   // Leaflet-free-DOM guard, not a state this flow produces.
   /* v8 ignore start -- Leaflet-free DOM only: this flow always runs with a
    * Leaflet global and a present Icon.Default.prototype; both arms are
@@ -228,9 +228,28 @@ const authorGlyphName = (layer: L.Layer): string | null => {
   return found;
 };
 
+/** The author's FontAwesome family prefix (leaf.options.icon.options.prefix)
+ *  for the same first icon leaf authorGlyphName recognizes. The render path
+ *  (awesome-markers) paints `prefix + " " + icon`, so the availability probe
+ *  must use this prefix — probing the panel's fa-solid family would mismatch
+ *  an author who writes `prefix="fa"` (see glyphClassName). Returns null when
+ *  the author declares no prefix (callers fall back to the panel family). */
+const authorGlyphPrefix = (layer: L.Layer): string | null => {
+  let found: string | null = null;
+  walkLeaf(layer, leaf => {
+    if (found) return;
+    if (!isIconLeaf(leaf)) return;
+    const own = (leaf as { options?: { icon?: { options?: { prefix?: unknown } } } })
+      .options?.icon?.options?.prefix;
+    if (typeof own === "string" && own.length > 0) found = own;
+  });
+  return found;
+};
+
 export {
   applyIconToLeaves,
   authorGlyphName,
+  authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,

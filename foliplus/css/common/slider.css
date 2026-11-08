@@ -156,7 +156,10 @@
     box-shadow var(--foliplus-transition-fast);
 }
 /* Stacking: the upper thumb paints over the lower one when they meet, and
-   the thumb being dragged always wins. */
+   the thumb being dragged always wins. These are LOCAL z values inside the
+   slider's own stacking context (thumb vs thumb), deliberately not the
+   global --foliplus-z-index-* ladder -- promoting them would turn a
+   within-widget ordering into a page-wide one. */
 .foliplus-slider-thumb[data-index="1"] {
   z-index: 2;
 }
