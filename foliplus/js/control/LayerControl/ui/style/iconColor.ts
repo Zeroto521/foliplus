@@ -73,7 +73,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // The glyph is orthogonal: a user glyph wins, else the author's own
   // glyph name (the core falls back to the author icon's inner glyph), so a
   // color write never forces a glyph the author never drew.
-  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer);
+  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   applyIconColorToLeaves(layer, color, glyph);
 };
 /** Write the layer's color and replay the walk. */
@@ -97,7 +97,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   if (!layer) return;
   // Re-derive with the author paint: drop the color intent, then walk with
   // the current glyph so the glyph survives the color reset.
-  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer);
+  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   const authorColor = authorIconColor(ui, layerId);
   if (authorColor) {
     // Re-derive with the author paint and the current glyph — color and

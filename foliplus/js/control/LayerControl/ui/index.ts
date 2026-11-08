@@ -69,6 +69,7 @@ import {
   setVisibleIntent,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
+import { applyIconToLayer } from "./style/icon.js";
 import { applyIconColorToLayer } from "./style/iconColor.js";
 import {
   applyStyleLabelState,
@@ -315,6 +316,7 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
+      applyIconToLayer(this, layerId);
       applyIconColorToLayer(this, layerId);
     }
     // Author-declared fills are read-time defaults, not stored overrides, so
