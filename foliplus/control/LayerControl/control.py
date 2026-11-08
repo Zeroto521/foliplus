@@ -6,6 +6,7 @@ from branca.element import Element
 from folium.map import Layer
 
 from foliplus._config_schema import FieldSpec
+from foliplus._declaration import FILTER_KEY
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
@@ -386,7 +387,7 @@ class LayerControl(BaseControl):
                 entry["folder"] = folder
             filter_decl = declared_filter(item, item.layer_name)
             if filter_decl is not None:
-                entry["filter"] = filter_decl
+                entry[FILTER_KEY] = filter_decl
             data.append(entry)
 
         # A folder name shared by several layers is a grouping intent, not a
