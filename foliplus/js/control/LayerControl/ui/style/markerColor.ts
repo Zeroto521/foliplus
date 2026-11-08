@@ -7,7 +7,7 @@
 //
 // The write is a direct Leaflet call rather than a `setStyle` face, exactly
 // like the icon dimension: a marker's icon is `options.icon`, not a style
-// slice. `FACE.ICON` rides the same frame coalescer as `FACE.SIZE` (both are
+// slice. `FACE.MARKER_COLOR` rides the same frame coalescer as `FACE.SIZE` (both are
 // non-`setStyle` faces), so a burst of edits lands one walk. The colour and
 // the glyph are orthogonal and merge into ONE derived icon (a `setIcon`
 // replaces the whole icon object, so two successive writes would clobber the
@@ -18,7 +18,11 @@
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel row.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { applyMarkerColorToLeaves, resetIconLeaves } from "#core/leaflet/markerIcon.js";
+import {
+  applyMarkerColorToLeaves,
+  authorGlyphName as authorGlyphNameOnLayer,
+  resetIconLeaves,
+} from "#core/leaflet/markerIcon.js";
 import { colorInput } from "#ui/form.js";
 import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -66,13 +70,18 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
   if (typeof color !== "string") return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  const glyph = currentGlyph(ui, layerId);
+  // The glyph is orthogonal: a user glyph wins, else the author's own
+  // glyph name (the core falls back to the author icon's inner glyph), so a
+  // colour write never forces a glyph the author never drew.
+  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer);
   applyMarkerColorToLeaves(layer, color, glyph);
 };
 /** Write the layer's colour and replay the walk. */
 const commitMarkerColor = (ui: LayerUI, layerId: string, color: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR, color]]);
-  scheduleStyleDimApply(FACE.ICON, layerId, () => applyMarkerColorToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
+    applyMarkerColorToLayer(ui, layerId),
+  );
 };
 /** Reset the layer's marker colour to the author's paint and drop the
  *  persisted entry. The authored icons come from the core capture table, never
@@ -83,17 +92,24 @@ const commitMarkerColor = (ui: LayerUI, layerId: string, color: string): void =>
 const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (!ui.c.layerRegistry.has(layerId)) return;
   resetIntentKeys(ui, layerId, [INTENT.MARKER_COLOR]);
-  cancelStyleDimApply(FACE.ICON, layerId, ui);
+  cancelStyleDimApply(FACE.MARKER_COLOR, layerId, ui);
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   // Re-derive with the author paint: drop the colour intent, then walk with
   // the current glyph so the glyph survives the colour reset.
-  const glyph = currentGlyph(ui, layerId);
+  const glyph = currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer);
   const authorColor = authorMarkerColor(ui, layerId);
   if (authorColor) {
+    // Re-derive with the author paint and the current glyph — colour and
+    // glyph never split across two writes.
     applyMarkerColorToLeaves(layer, authorColor, glyph);
   } else {
+    // No author paint: restore the author icon, then re-apply a user glyph
+    // so resetting the colour never clears the glyph (orthogonal).
     resetIconLeaves(layer);
+    if (glyph) {
+      applyMarkerColorToLeaves(layer, "#ffffff", glyph);
+    }
   }
 };
 
@@ -133,7 +149,7 @@ const MARKER_COLOR_DIMENSION = registerDimension<{ value?: string }>({
     const color = patch.value;
     if (typeof color !== "string") return;
     writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR, color]]);
-    scheduleStyleDimApply(FACE.ICON, layerId, () =>
+    scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
       applyMarkerColorToLayer(ui, layerId),
     );
   },
@@ -144,7 +160,7 @@ const MARKER_COLOR_DIMENSION = registerDimension<{ value?: string }>({
   },
   contentChange: {
     kind: "frame",
-    face: FACE.ICON,
+    face: FACE.MARKER_COLOR,
     when: (ui, layerId) => getIntent(ui, layerId, INTENT.MARKER_COLOR) !== undefined,
     run: (ui, layerId) => applyMarkerColorToLayer(ui, layerId),
   },
