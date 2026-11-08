@@ -41,6 +41,13 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 // ── Layer classification ──────────────────────────────────────
 // TIER maps each tier to its directory AND its #alias segment. Step 2 renames
 // the bottom tier (common -> platform) by changing this one value.
+// The directories must equal the shared-module prefixes build-path derives
+// from ALIAS_TO_REL (asserted below), so a tier rename in build-path lands
+// here automatically and this test cannot police a directory the build no
+// longer has. The three tier NAMES are the stable identifiers of the
+// boundary matrix itself and are NOT derived — they are the matrix's own
+// vocabulary, and deriving them positionally from a filtered list (which
+// drops #control/#foliplus) would silently reorder ui/core.
 const TIER = { platform: "common", ui: "ui", core: "core" } as const;
 type Tier = keyof typeof TIER;
 // Single-source: the bottom tier's directory must be the one build-path
