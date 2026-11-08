@@ -10,9 +10,8 @@ import {
 } from "#core/geo/index.js";
 import { loadGeometry } from "../fixture.js";
 
-const squareRing = (
-  loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon
-).coordinates[0];
+const squareRing = (loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon)
+  .coordinates[0];
 
 beforeEach(() => {
   globalThis.turf = {

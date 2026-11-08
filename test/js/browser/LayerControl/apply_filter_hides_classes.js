@@ -23,16 +23,8 @@ async fixtures => {
     return leaf;
   };
   const probes = [
-    [
-      "__flt_poly__",
-      "Fl Poly",
-      mk(L.polygon(fixtures.poly), 1),
-    ],
-    [
-      "__flt_line__",
-      "Fl Line",
-      mk(L.polyline(fixtures.line), 1),
-    ],
+    ["__flt_poly__", "Fl Poly", mk(L.polygon(fixtures.poly), 1)],
+    ["__flt_line__", "Fl Line", mk(L.polyline(fixtures.line), 1)],
     [
       "__flt_circle__",
       "Fl Circle",
@@ -49,11 +41,7 @@ async fixtures => {
         1,
       ),
     ],
-    [
-      "__flt_group__",
-      "Fl Group",
-      L.layerGroup([mk(L.polygon(fixtures.groupPoly), 1)]),
-    ],
+    ["__flt_group__", "Fl Group", L.layerGroup([mk(L.polygon(fixtures.groupPoly), 1)])],
   ];
 
   const walk = (node, out) => {

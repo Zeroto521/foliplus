@@ -151,9 +151,7 @@ describe("provider selection", () => {
       .mockResolvedValueOnce(
         jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
       )
-      .mockResolvedValueOnce(
-        jsonResponse(loadGeoJSON("core", "photon_fuzhou")),
-      );
+      .mockResolvedValueOnce(jsonResponse(loadGeoJSON("core", "photon_fuzhou")));
     await geocode(mockMap, "Same City", "en"); // nominatim
     await geocode(mockMap, "Same City", "en", "photon");
     expect(globalThis.fetch).toHaveBeenCalledTimes(2); // no cross-provider cache hit

@@ -144,10 +144,7 @@ describe("AnnotationManager — formatting and fields", () => {
     // 10×10 square: bounds center (5,5) == area centroid (5,5), so this
     // case alone wouldn't distinguish the two. Pair it with the concave
     // case below.
-    const square = loadGeometry(
-      "common",
-      "polygon_unit_square_10",
-    ) as GeoJSON.Polygon;
+    const square = loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon;
     expect(mgr.resolveAnchor(mkLeaf({ geometry: square }))).toEqual({
       lat: 5,
       lng: 5,
@@ -159,10 +156,7 @@ describe("AnnotationManager — formatting and fields", () => {
     // shifts toward the un-drilled lower-left, while the bounds center
     // stays at (5,5). This is the assertion that would go red if the
     // polygon branch ever regressed to `getBounds().getCenter()`.
-    const holed = loadGeometry(
-      "common",
-      "polygon_square_10_hole_2",
-    ) as GeoJSON.Polygon;
+    const holed = loadGeometry("common", "polygon_square_10_hole_2") as GeoJSON.Polygon;
     const c = mgr.resolveAnchor(mkLeaf({ geometry: holed }));
     expect(c!.lng).toBeLessThan(5);
     expect(c!.lat).toBeLessThan(5);
@@ -188,10 +182,7 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(
       mgr.resolveAnchor(
         mkLeaf({
-          geometry: loadGeometry(
-            "common",
-            "linestring_diagonal",
-          ) as GeoJSON.LineString,
+          geometry: loadGeometry("common", "linestring_diagonal") as GeoJSON.LineString,
           boundsCenter: { lat: 5, lng: 5 },
         }),
       ),
@@ -214,10 +205,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const group: L.Layer = {
       getLatLng: () => null,
       feature: {
-        geometry: loadGeometry(
-          "common",
-          "polygon_unit_square_10",
-        ) as GeoJSON.Polygon,
+        geometry: loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon,
       },
     };
     expect(mgr.resolveAnchor(group)).toEqual({ lat: 5, lng: 5 });
@@ -234,10 +222,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const circle: L.Layer = {
       getLatLng: () => ({ lat: 4, lng: 6 }),
       feature: {
-        geometry: loadGeometry(
-          "common",
-          "polygon_unit_square_10",
-        ) as GeoJSON.Polygon,
+        geometry: loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon,
       },
     };
     expect(mgr.isPointAnchor(circle)).toBe(false);
@@ -254,10 +239,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const pointLeaf: L.Layer = {
       getLatLng: () => ({ lat: 40, lng: -74 }),
       feature: {
-        geometry: loadGeometry(
-          "common",
-          "point_neg74_40",
-        ) as GeoJSON.Point,
+        geometry: loadGeometry("common", "point_neg74_40") as GeoJSON.Point,
       },
     };
     expect(mgr.isPointAnchor(pointLeaf)).toBe(true);

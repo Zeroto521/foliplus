@@ -75,9 +75,7 @@ describe("Photon provider — normalizers", () => {
   });
 
   it("filters non-string properties fields (e.g. numeric housenumber)", () => {
-    const items = provider.normalizeSuggest(
-      loadGeoJSON("core", "photon_housenumber"),
-    );
+    const items = provider.normalizeSuggest(loadGeoJSON("core", "photon_housenumber"));
     expect(items[0].display_name).toBe("A, C");
   });
 });

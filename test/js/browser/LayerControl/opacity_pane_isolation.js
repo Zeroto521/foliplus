@@ -128,7 +128,10 @@ fixtures => {
   });
   managed.register();
   managed.addLayer(L.polyline(fixtures.managedLine), "op-probe-graph");
-  managed.addLayer(L.circleMarker(fixtures.managedPoint, { radius: 5 }), "op-probe-node");
+  managed.addLayer(
+    L.circleMarker(fixtures.managedPoint, { radius: 5 }),
+    "op-probe-node",
+  );
   const managedOpened = setOpacityViaSlider("op_managed");
   const graphPaneEl = map.getPane("op-probe-graph");
   const nodePaneEl = map.getPane("op-probe-node");
