@@ -66,6 +66,37 @@ const PICKER_GLYPHS = [
   "magnifying-glass",
 ] as const;
 
+/** The by-value icon dimension's glyph schemes — the glyph analogue of the
+ *  color schemes core/palette.ts offers. Each scheme is a distinct, visually
+ *  separable glyph sequence (lead ruling #3: every glyph must be a real
+ *  choice, not a silent substitute). The default scheme is a PICKER_GLYPHS
+ *  subset so every glyph in it is a name the panel already knows and paints.
+ *
+ *  A scheme is a display-order glyph list: the first glyph is the first class
+ *  (or the first distinct category), and so on. The list length bounds the
+ *  distinct classes/categories the ramp can paint — past it, the last glyph
+ *  repeats (the same out-of-bounds fallback the color ramp uses). */
+const GLYPH_SCHEMES = {
+  /** Five distinct marker shapes — the default for a by-value numeric icon. */
+  SHAPES: ["circle", "square", "diamond", "star", "triangle-exclamation"],
+  /** Four arrow directions, for an ordered/categorical direction field. */
+  DIRECTIONS: ["arrow-up", "arrow-down", "arrow-left", "arrow-right"],
+  /** Three status glyphs, for a small categorical domain. */
+  STATUS: ["circle-check", "circle-info", "circle-xmark"],
+} as const;
+
+/** The default glyph scheme name the by-value icon panel seeds with. */
+const GLYPH_SCHEME_DEFAULT = "SHAPES";
+
+/** The ordered scheme names, in display order (the panel lists them). */
+const GLYPH_SCHEME_ORDER: readonly string[] = ["SHAPES", "DIRECTIONS", "STATUS"];
+
+/** Resolve a scheme name to its glyph list, or undefined for an unknown name
+ *  (the panel then degrades to the default scheme rather than rendering an
+ *  empty list). */
+const glyphScheme = (name: string): readonly string[] | undefined =>
+  (GLYPH_SCHEMES as Record<string, readonly string[]>)[name];
+
 /** True when `value` is a syntactically valid FA6 name (see GLYPH_NAME_RE).
  *  This is the ONLY acceptance gate for a persisted/declared name — the grid
  *  is not a whitelist. */
@@ -148,4 +179,14 @@ const glyphHtml = (name: string, extraClass = "", style = ""): string => {
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;
 };
 
-export { PICKER_GLYPHS, glyphAvailable, glyphHtml, isGlyphSyntax, resolveGlyph };
+export {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
+  GLYPH_SCHEMES,
+  PICKER_GLYPHS,
+  glyphAvailable,
+  glyphHtml,
+  glyphScheme,
+  isGlyphSyntax,
+  resolveGlyph,
+};

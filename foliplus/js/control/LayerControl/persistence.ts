@@ -2,8 +2,11 @@ import type { FolderOrder } from "#core/layer/folderOrder.js";
 import {
   FILL_MODE,
   type FillValueConfig,
+  ICON_MODE,
   isFillValueConfig,
   isIconIntent,
+  isIconMode,
+  isIconValueConfig,
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -191,6 +194,11 @@ const PARSE_OVERRIDE: Record<
     const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
     return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
   },
+  iconValue: data => (isIconValueConfig(data.iconValue) ? data.iconValue : null),
+  iconMode: data =>
+    data.iconMode === ICON_MODE.SINGLE || data.iconMode === ICON_MODE.BY_VALUE
+      ? data.iconMode
+      : null,
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

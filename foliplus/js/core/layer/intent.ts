@@ -7,6 +7,7 @@
 // IntentRow / LoadSource / LabelConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** One arm of the value-based fill. Two shapes, discriminated by `kind`:
@@ -69,6 +70,38 @@ const ICON_KIND = {
   GLYPH: "glyph",
 } as const;
 type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
+
+const ICON_MODE = {
+  SINGLE: "single",
+  BY_VALUE: "byValue",
+} as const;
+type IconMode = (typeof ICON_MODE)[keyof typeof ICON_MODE];
+
+/** The value-based icon config: classify a feature field, then map each
+ *  class (or distinct category) to a glyph. Mirrors FillValueConfig: the
+ *  same numeric/category arms, with a glyph list in place of the color
+ *  scheme. method/classes are unused on the category arm but kept
+ *  required at the type level so the union stays assignable to the numeric
+ *  RampConfig the shared classifier expects. */
+type IconValueConfig =
+  | {
+      /** How the drive property is typed. Absent = "numeric". */
+      kind?: "numeric";
+      field: string;
+      method: ClassifyMethod;
+      classes: number;
+      /** The glyph list — one glyph per class, in class order. */
+      glyphs: string[];
+    }
+  | {
+      kind: "category";
+      field: string;
+      /** Kept required so the union stays assignable to the numeric config
+       *  and existing readers of .method / .classes compile unchanged. */
+      method: ClassifyMethod;
+      classes: number;
+      glyphs: string[];
+    };
 
 /** Whether a value is a ramp config this client can build. Two arms,
  *  discriminated by `kind`:
@@ -152,7 +185,9 @@ type LayerOverride =
   | "opacity"
   | "zoomRange"
   | "size"
-  | "icon";
+  | "icon"
+  | "iconValue"
+  | "iconMode";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -210,6 +245,40 @@ const isIconIntent = (value: unknown): boolean =>
   (value as { kind?: unknown }).kind === ICON_KIND.GLYPH &&
   typeof (value as { value?: unknown }).value === "string";
 
+/** Whether a value is a glyph classification this client can build. Two arms,
+ *  discriminated by kind (mirrors isFillValueConfig): the numeric arm needs a
+ *  method/classes inside the shared bounds, the category arm only a field;
+ *  both need a non-empty glyph list whose every entry is a syntactically
+ *  valid glyph name (the glyph vocabulary is isGlyphSyntax, the same
+ *  syntax-only gate the single-glyph intent uses — a bad glyph is dropped
+ *  rather than rendered as a substitute). */
+const isIconValueConfig = (value: unknown): value is IconValueConfig => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  const isName = (v: unknown): v is string =>
+    typeof v === "string" && v.trim().length > 0;
+  const glyphsOk =
+    Array.isArray(data.glyphs) &&
+    data.glyphs.length > 0 &&
+    data.glyphs.every(g => isGlyphSyntax(g));
+  if (!isName(data.field) || !glyphsOk) return false;
+  if (data.kind === "category") return true;
+  if (data.kind !== undefined && data.kind !== "numeric") return false;
+  return (
+    isClassifyMethod(data.method) &&
+    typeof data.classes === "number" &&
+    Number.isInteger(data.classes) &&
+    data.classes >= 2 &&
+    data.classes <= 9
+  );
+};
+
+/** Whether a stored icon arm is one this client can build: single needs a
+ *  valid single-glyph intent; byValue needs a valid value config. Absence
+ *  reads as single at the row level, so this only ever tests a stored value. */
+const isIconMode = (value: unknown): value is IconMode =>
+  value === ICON_MODE.SINGLE || value === ICON_MODE.BY_VALUE;
+
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;
@@ -233,6 +302,13 @@ type LayerIntent = {
   /** The marker-icon override: one glyph name for every marker leaf;
    *  absent = the author's icons stay. */
   icon?: IconIntent;
+  /** The by-value icon arm: classify a feature field, then map each class (or
+   *  distinct category) to a glyph. Only the byValue mode reads this; single
+   *  keeps icon and drops it. */
+  iconValue?: IconValueConfig;
+  /** Which icon arm the user chose: a single whole-layer glyph or a by-value
+   *  mapping. Absent reads as single. */
+  iconMode?: IconMode;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -276,6 +352,12 @@ type PersistedLayerState = {
    *  name for every marker leaf). LayerControl owns the write — a
    *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
+  /** The by-value icon config the user set (field / method / classes /
+   *  glyphs). Only the byValue arm reads it; single keeps icon. */
+  iconValue?: IconValueConfig;
+  /** Which icon arm is active ("single" | "byValue"); the inactive config is
+   *  kept rather than cleared so a switch back restores it. */
+  iconMode?: IconMode;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -318,6 +400,8 @@ const INTENT = {
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
   ICON: "icon",
+  ICON_VALUE: "iconValue",
+  ICON_MODE: "iconMode",
   NAME: "name",
   LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -345,6 +429,8 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // still advertising provenance.
   [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.ICON]: isIconIntent,
+  [INTENT.ICON_VALUE]: isIconValueConfig,
+  [INTENT.ICON_MODE]: isIconMode,
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
 };
@@ -366,14 +452,19 @@ const STYLE_KEYS = {
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,
   icon: INTENT.ICON,
+  iconValue: INTENT.ICON_VALUE,
+  iconMode: INTENT.ICON_MODE,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export {
   FILL_MODE,
   ICON_KIND,
+  ICON_MODE,
   INTENT,
   isFillValueConfig,
   isIconIntent,
+  isIconMode,
+  isIconValueConfig,
   LIVE,
   STYLE_KEYS,
 };
@@ -382,6 +473,8 @@ export type {
   FillMode,
   FillValueConfig,
   IconIntent,
+  IconMode,
+  IconValueConfig,
   IntentKey,
   IntentRow,
   LayerIntent,

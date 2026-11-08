@@ -111,9 +111,12 @@ export {
 export {
   FILL_MODE,
   ICON_KIND,
+  ICON_MODE,
   INTENT,
   isFillValueConfig,
   isIconIntent,
+  isIconMode,
+  isIconValueConfig,
   LIVE,
   STYLE_KEYS,
 } from "./intent.js";
@@ -139,6 +142,8 @@ export type {
   LabelConfig,
   FillValueConfig,
   IconIntent,
+  IconMode,
+  IconValueConfig,
   IntentKey,
   IntentRow,
   LayerIntent,
