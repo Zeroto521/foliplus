@@ -598,3 +598,25 @@ def test_normalise_layer_filter_invalid_warns():
                 raw,
                 [str(w.message) for w in caught],
             )
+
+
+def test_normalise_layer_filter_extra_shape_branches():
+    # Branches the forms/invalid tests above do not reach: a 'values' payload
+    # that is not a list, a non-string 'values' entry, a declaration with a
+    # valid field but neither min/max nor values, and a non-finite bound.
+    for raw in (
+        {"field": "cat", "values": "A"},  # values as a bare string
+        {"field": "cat", "values": ["A", 3]},  # non-string entry
+        {"field": "cat"},  # valid field, no form chosen
+        {"field": "pop", "min": 0, "max": float("inf")},  # non-finite bound
+    ):
+        _declaration.foliplus_reports.clear()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert (
+                normalise_layer_filter(raw, owner="Owner", subject="layer 'L'") is None
+            )
+            assert any("filter" in str(w.message) for w in caught), (
+                raw,
+                [str(w.message) for w in caught],
+            )
