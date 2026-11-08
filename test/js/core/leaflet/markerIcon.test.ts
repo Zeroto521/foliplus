@@ -324,7 +324,7 @@ describe("applyIconByValueToLeaves", () => {
       method: "bogus",
       classes: 2,
       glyphs: ["circle", "square"],
-    });
+    } as any);
     expect(mA.options.icon).toBe(author);
   });
 });
