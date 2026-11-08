@@ -152,12 +152,14 @@ def test_depth_rule_distinguishes_geometry_from_flat_pairs():
     assert _max_array_depth('"coordinates": [[[0, 0], [1, 1]]]', 14) == 3
     assert _max_array_depth('"coordinates": null', 14) == 0
 
+
 # ── Payload class 1: inline browser-test JS ──────────────────────────────
 # page.evaluate( followed by a triple-quote block: the inline-JS shape to ban.
 # The single-quoted regex keeps the banned tokens out of this file's own
 # source (the backslash-space escape means "page.evaluate(" + the quote
 # block is never present verbatim), so the guard does not flag itself.
 INLINE_JS = re.compile(r'page\.evaluate\(\s*"""')
+
 
 def test_no_inline_multiline_js_in_python() -> None:
     """The Python test layer extracts JS to test/js/snippet/, never inline."""
