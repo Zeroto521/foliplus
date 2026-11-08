@@ -14,7 +14,7 @@ env:
   # order/existence check on merge_group (changelog is a required check);
   # 'false' skips it (PR-only informational). Read at step level — a job
   # `if` cannot see `env`.
-  FOLIPLUS_CHANGELOG_MERGE_GROUP: 'false'
+  FOLIPLUS_CHANGELOG_MERGE_GROUP: "false"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

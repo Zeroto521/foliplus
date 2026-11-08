@@ -7,7 +7,12 @@
 // manager import, and a fixture cannot register them on the caller's behalf.
 import { vi } from "vitest";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../../fixture.js";
+import { makeControlEnv } from "../fixture.js";
+
+// Re-export the shared helpers so deeper MeasureControl tests (mode/*) can
+// import from this subdirectory fixture instead of climbing to test/js.
+export { makeControlEnv };
+export { loadFeature, loadGeoJSON, loadGeometry } from "../fixture.js";
 
 /** Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods. */
 function mockLayerAPI() {

@@ -1,6 +1,6 @@
-// Arm an annotation teardown inside the export render window.
+// Arm an label teardown inside the export render window.
 //
-// The export renders for seconds (tile pass, shadow pass), and annotation
+// The export renders for seconds (tile pass, shadow pass), and label
 // rendering can be torn down inside that window — a layer unload/re-register
 // removes every label canvas. The frozen-snapshot fix freezes each layer's label
 // canvas pixels synchronously at render() start, so a teardown in the render
@@ -14,7 +14,7 @@
   const tearDown = () => {
     if (window.__labelTornDown) return;
     window.__labelTornDown = true;
-    window.__layerCtrl.mgr.annotation.unloadLayer("__export_ann__");
+    window.__layerCtrl.mgr.label.unloadLayer("__export_ann__");
   };
   const arm = () => {
     if (armed) return;

@@ -68,7 +68,7 @@ const NARROW_CASTS = [
   { f: "control/ExportControl/index.ts", n: 1 },
   // Tolerant label-config parse: the object shape and color are checked,
   // field-level coercion is the applier's (`applyStyleLabelState`) — the
-  // cast says "reader validates". See `parseAnnotationConfig`.
+  // cast says "reader validates". See `parseLabelConfig`.
   { f: "control/LayerControl/persistence.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;

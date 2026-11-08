@@ -2,7 +2,7 @@
 //
 // `explore(foliplus={"fill": {...}})` in folium rides folium's unknown-kwargs
 // passthrough onto `layer.options.foliplus` — the same per-layer namespace the
-// annotation declaration uses. This module turns that raw declaration into a
+// label declaration uses. This module turns that raw declaration into a
 // validated, cached {@link DeclaredFill}: the fill arm's author default.
 //
 // The declaration is FLAT: `fill` accepts only `field` (required) plus the
@@ -77,7 +77,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
 
 /** Per-layer-object cache. A layer object's options are final once it exists
  *  (folium builds them at construction), so both "declared" and "not declared"
- *  are cacheable — unlike the annotation reader, whose empty read can be
+ *  are cacheable — unlike the label reader, whose empty read can be
  *  provisional because it may run before the layer's script attaches the
  *  namespace. A null layer is never cached: the declaration may still arrive
  *  with the late-linked carrier. */

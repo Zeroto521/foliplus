@@ -18,7 +18,7 @@ import json
 import re
 
 import folium
-from conftest import _js, make_browser_page, panel_ready, use_page
+from conftest import _js, load_geojson, make_browser_page, panel_ready, use_page
 
 from foliplus import LayerControl
 
@@ -41,29 +41,9 @@ _NOTES = _DOC.split("Notes\n-----", 1)[1]
 
 
 def _polygon(name: str, **kwargs: object) -> folium.GeoJson:
-    features = [
-        {
-            "type": "Feature",
-            "properties": {"name": name},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28, 26.06],
-                        [119.32, 26.06],
-                        [119.32, 26.10],
-                        [119.28, 26.10],
-                        [119.28, 26.06],
-                    ]
-                ],
-            },
-        }
-    ]
-    return folium.GeoJson(
-        json.dumps({"type": "FeatureCollection", "features": features}),
-        name=name,
-        **kwargs,
-    )
+    data = load_geojson("common", "polygon_fuzhou_box")
+    data["features"][0]["properties"] = {"name": name}
+    return folium.GeoJson(json.dumps(data), name=name, **kwargs)
 
 
 def _make_page(browser, tmp_path):

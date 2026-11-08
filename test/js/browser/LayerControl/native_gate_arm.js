@@ -1,4 +1,4 @@
-() => {
+data => {
   // Record keydowns observed on document through Chromium's own pipeline.
   // `prevented` is a getter over the live event: a capture listener runs
   // BEFORE the target handler, so reading the boolean here would only ever
@@ -29,16 +29,7 @@
 
   // A GeoJSON layer carries zoomRange capability "pane", so its style panel
   // renders the dual-thumb slider.
-  const geo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "p1" },
-        geometry: { type: "Point", coordinates: [119.3, 26.08] },
-      },
-    ],
-  });
+  const geo = L.geoJson(data);
   map.foliplus.LayerAPI.registerLayer({ id: "ng_gate", name: "NGGate", layer: geo });
   ctrl.mgr.enforceOrder();
   ui.openStylePanel("ng_gate");

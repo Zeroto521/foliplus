@@ -6,6 +6,7 @@ import type { ListCursor } from "#core/interaction/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
+import type { Floating } from "#common/floating.js";
 import { type MODE, type SearchSource } from "./const.js";
 
 /** Search type: coordinate pair or address keyword. */
@@ -84,6 +85,8 @@ interface SearchControl extends BaseControl {
   delIcon: L.Marker | null;
   mode: SearchType;
   panelWrap: HTMLElement | null;
+  /** The mounted floating lifecycle for the result panel (mountFloating). */
+  panelFloating: Floating | null;
   selectedIdx: number;
   /** Shared list cursor — paints ARIA / active class from selectedIdx. */
   listCursor?: ListCursor | null;

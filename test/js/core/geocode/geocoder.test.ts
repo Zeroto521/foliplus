@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
+import { loadGeoJSON } from "../fixture.js";
 
 // A minimal WGS84 map — toWgs84 passes coordinates through unchanged.
 const mockMap = {
@@ -136,14 +137,7 @@ describe("cacheSuggestion", () => {
 describe("provider selection", () => {
   it("geocode with providerId='photon' fetches Photon and normalizes features", async () => {
     (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({
-        features: [
-          {
-            geometry: { coordinates: [13.405, 52.52] },
-            properties: { name: "Berlin", country: "Germany" },
-          },
-        ],
-      }),
+      jsonResponse(loadGeoJSON("core", "photon_berlin_single")),
     );
     const r = await geocode(mockMap, "Berlin Provider", "en", "photon");
     expect(r).toEqual({ lng: 13.405, lat: 52.52, display_name: "Berlin, Germany" });
@@ -157,16 +151,7 @@ describe("provider selection", () => {
       .mockResolvedValueOnce(
         jsonResponse([{ lat: "26.08", lon: "119.3", display_name: "Fuzhou" }]),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          features: [
-            {
-              geometry: { coordinates: [119.3, 26.08] },
-              properties: { name: "Fuzhou" },
-            },
-          ],
-        }),
-      );
+      .mockResolvedValueOnce(jsonResponse(loadGeoJSON("core", "photon_fuzhou")));
     await geocode(mockMap, "Same City", "en"); // nominatim
     await geocode(mockMap, "Same City", "en", "photon");
     expect(globalThis.fetch).toHaveBeenCalledTimes(2); // no cross-provider cache hit
@@ -174,14 +159,7 @@ describe("provider selection", () => {
 
   it("reverseGeocode with providerId uses the provider URL", async () => {
     (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({
-        features: [
-          {
-            geometry: { coordinates: [8.682, 50.11] },
-            properties: { name: "Frankfurt", country: "Germany" },
-          },
-        ],
-      }),
+      jsonResponse(loadGeoJSON("core", "photon_frankfurt")),
     );
     const addr = await reverseGeocode(mockMap, 8.682, 50.11, "en", "photon");
     // formatAddress joins parts with "," (no space) for non-Chinese maps.
@@ -252,14 +230,7 @@ describe("map-default provider", () => {
 
   it("geocode falls back to map.foliplus.geocodeProvider without an explicit spec", async () => {
     (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({
-        features: [
-          {
-            geometry: { coordinates: [13.405, 52.52] },
-            properties: { name: "Berlin", country: "Germany" },
-          },
-        ],
-      }),
+      jsonResponse(loadGeoJSON("core", "photon_berlin_single")),
     );
     const r = await geocode(photonMap, "Berlin MapDefault", "en");
     expect(r).toEqual({ lng: 13.405, lat: 52.52, display_name: "Berlin, Germany" });
@@ -270,14 +241,7 @@ describe("map-default provider", () => {
 
   it("reverseGeocode without a spec uses the map-default provider", async () => {
     (globalThis.fetch as any).mockResolvedValue(
-      jsonResponse({
-        features: [
-          {
-            geometry: { coordinates: [8.682, 50.11] },
-            properties: { name: "Frankfurt", country: "Germany" },
-          },
-        ],
-      }),
+      jsonResponse(loadGeoJSON("core", "photon_frankfurt")),
     );
     const addr = await reverseGeocode(photonMap, 7.682, 49.11, "en");
     expect(addr).toBe("Frankfurt,Germany");

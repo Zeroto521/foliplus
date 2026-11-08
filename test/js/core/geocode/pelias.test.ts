@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPelias } from "#core/geocode/pelias.js";
+import { loadGeoJSON } from "../fixture.js";
 
 const provider = createPelias();
 
@@ -35,23 +36,7 @@ describe("Pelias provider — URL building", () => {
 });
 
 describe("Pelias provider — normalizers", () => {
-  const featureCollection = {
-    geocoding: { version: "0.2", query: { text: "Berlin" } },
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: { coordinates: [13.405, 52.52] },
-        properties: {
-          id: "1",
-          gid: "g1",
-          name: "Berlin",
-          label: "Berlin, Germany",
-          country: "Germany",
-        },
-      },
-    ],
-  };
+  const featureCollection = loadGeoJSON("core", "pelias_berlin");
 
   it("maps features to items using properties.label", () => {
     const items = provider.normalizeSuggest(featureCollection);
@@ -65,14 +50,9 @@ describe("Pelias provider — normalizers", () => {
   });
 
   it("falls back to name when label is absent", () => {
-    const items = provider.normalizeSuggest({
-      features: [
-        {
-          geometry: { coordinates: [13.405, 52.52] },
-          properties: { name: "Berlin" },
-        },
-      ],
-    });
+    const items = provider.normalizeSuggest(
+      loadGeoJSON("core", "pelias_berlin_name_only"),
+    );
     expect(items[0].display_name).toBe("Berlin");
   });
 

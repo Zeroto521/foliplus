@@ -6,7 +6,7 @@ import {
   generateRegistry,
   registryUsedExports,
 } from "#script/build/scan-registry.mjs";
-import { runCli, trapExit } from "../../fixture.js";
+import { runCli, trapExit } from "../fixture.js";
 
 const FS = require("fs");
 const PATH = require("path");

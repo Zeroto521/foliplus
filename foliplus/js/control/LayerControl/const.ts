@@ -161,7 +161,7 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: "foliplus-style-format-select",
   STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
   STYLE_BODY: "foliplus-style-body",
-  /** The Label section's row wrapper — the `annotation` dimension's `row`
+  /** The Label section's row wrapper — the `label` dimension's `row`
    *  element (toggle + body), so the panel assembly and the tests can
    *  select the section's content as one unit. No styles hang off it. */
   STYLE_LABEL_SECTION: "foliplus-style-label-section",
@@ -315,8 +315,8 @@ const SEL = {
  *  itself refuses. */
 const AUTHOR_ZOOM_FALLBACK_MAX = 20;
 
-/** Default annotation config for a layer (disabled). */
-const DEFAULT_ANNOTATION = {
+/** Default label config for a layer (disabled). */
+const DEFAULT_LABEL = {
   show: false,
   field: "",
   color: DEFAULT_LABEL_COLOR,
@@ -331,7 +331,7 @@ export {
   CLASSES,
   COLOR,
   DATA,
-  DEFAULT_ANNOTATION,
+  DEFAULT_LABEL,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,

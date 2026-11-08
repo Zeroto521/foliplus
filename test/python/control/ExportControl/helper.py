@@ -47,7 +47,7 @@ def _make_page(browser, tmp_path, *layers, slug="export", locale=None):
     # scheduler (read by the lazily-created manager), then the control and
     # its manager read back via `mgr` (dev build keeps these names). The
     # LayerControl instance is exposed too, so export tests can drive
-    # annotation labels.
+    # label labels.
     html, n = re.subn(
         r"(new ExportControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
         r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.mgr; window.__map = map;",
