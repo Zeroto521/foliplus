@@ -9,7 +9,7 @@
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { type Floating, mountFloating } from "#common/floating.js";
+import { mountFloating } from "#common/floating.js";
 import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";

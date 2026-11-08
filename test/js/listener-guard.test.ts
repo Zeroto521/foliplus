@@ -207,10 +207,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/floating.ts",
-    n: 17,
+    n: 11,
     pairedOff: 0,
     reason:
-      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional), the root touch/pointer gesture stop-propagation (bindFloatingTouch: touchstart/touchmove/touchend passive + pointerdown/pointermove/pointerup, so a touch drag over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
+      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional) plus the unified gesture containment (bindFloatingGestures: wheel + touch/pointer stop-propagation, so a touch drag or wheel over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
   },
 ];
 

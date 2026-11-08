@@ -62,23 +62,6 @@ const bindFloatingWheel = (root: HTMLElement): void => {
   root.addEventListener("wheel", event => event.stopPropagation());
 };
 
-/** Touch containment over a floating root: stop the touch/pointer gesture
- *  from reaching the map container, where Leaflet's touch/pointer drag
- *  handlers would pan (or pinch-zoom) the map. The root's own native scroll
- *  keeps working because we stop propagation only, never preventDefault —
- *  the browser scroll gesture is not cancelled, it just no longer bubbles to
- *  the map. Attached once for the root's lifetime, mirroring
- *  bindFloatingWheel. */
-const bindFloatingTouch = (root: HTMLElement): void => {
-  const stop = (event: Event): void => event.stopPropagation();
-  root.addEventListener("touchstart", stop, { passive: true });
-  root.addEventListener("touchmove", stop, { passive: true });
-  root.addEventListener("touchend", stop, { passive: true });
-  root.addEventListener("pointerdown", stop);
-  root.addEventListener("pointermove", stop);
-  root.addEventListener("pointerup", stop);
-};
-
 /** Unified gesture containment over a floating root: one call binds both the
  *  wheel and the touch/pointer containment (a popup or a panel scroll body
  *  must never pan or zoom the map beneath it). This is the ONLY gesture-entry
@@ -188,5 +171,5 @@ const mountFloating = (opts: FloatingOptions): Floating => {
   };
 };
 
-export { bindFloatingGestures, bindFloatingTouch, bindFloatingWheel, mountFloating };
+export { bindFloatingGestures, bindFloatingWheel, mountFloating };
 export type { Floating };
