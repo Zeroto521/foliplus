@@ -12,3 +12,8 @@ declare module "#core/*?raw" {
   const src: string;
   export default src;
 }
+
+declare module "#control/*?raw" {
+  const src: string;
+  export default src;
+}

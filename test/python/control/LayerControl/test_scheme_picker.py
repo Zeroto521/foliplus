@@ -657,13 +657,10 @@ def scrollbar_browser(browser):
     sync_playwright() would trip "Sync API inside the asyncio loop".
     """
     _prefetch_cdn_cache()
-    real = browser.browser_type.launch(
+    with browser.browser_type.launch(
         headless=True, ignore_default_args=["--hide-scrollbars"]
-    )
-    try:
+    ) as real:
         yield _CdnBrowserProxy(real)
-    finally:
-        real.close()
 
 
 def _make_strip_page(browser, tmp_path, dpr: int, schemes: list[str] | None = None):
@@ -793,16 +790,16 @@ class TestSchemeStripAlignmentBrowser:
     def test_heatmap_strips_match_with_a_layout_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_heatmap_strips_clip_at_the_scrollport_when_lane_exceeds_inset(
@@ -815,43 +812,40 @@ class TestSchemeStripAlignmentBrowser:
         exceeds it. This asserts the true invariant: the strip stops at the
         scrollport right edge, shorter than the trigger by (lane - inset).
         """
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             assert sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_heatmap_strips_match_without_a_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(
-            scrollbar_browser, tmp_path, dpr, FITTING_SCHEMES
-        )
-        try:
+        with use_page(
+            _make_strip_page, scrollbar_browser, tmp_path, dpr, FITTING_SCHEMES
+        ) as (page, errors):
             _open_strip_heatmap_list(page)
             sample = _measure(page, HEATMAP_TRIGGER)
             assert not sample["scrollable"], sample
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_style_drawer_strips_match_with_a_layout_scrollbar(
         self, scrollbar_browser, tmp_path, dpr
     ):
-        page, errors = _make_strip_page(scrollbar_browser, tmp_path, dpr)
-        try:
+        with use_page(_make_strip_page, scrollbar_browser, tmp_path, dpr) as (
+            page,
+            errors,
+        ):
             _open_strip_layer_list(page)
             sample = _measure(page, LAYER_TRIGGER)
             assert sample["lane"] >= 1, f"real scrollbar lane missing: {sample}"
             _assert_invariant(sample)
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

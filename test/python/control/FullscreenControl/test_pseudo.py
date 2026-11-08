@@ -78,10 +78,13 @@ class TestFullscreenPseudoBrowser:
         Here the page loads with a fully working native API and the flag flips
         only after, so only the lazy implementation reaches the pseudo path.
         """
-        page, errors = make_browser_page(
-            browser, tmp_path, _native_html(), "fullscreen_late_downgrade"
-        )
-        try:
+        with use_page(
+            make_browser_page,
+            browser,
+            tmp_path,
+            _native_html(),
+            "fullscreen_late_downgrade",
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -112,8 +115,6 @@ class TestFullscreenPseudoBrowser:
             hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
             assert hidden, "zoom not hidden after a late downgrade to pseudo mode"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_native_reject_falls_back_to_pseudo(self, browser, tmp_path):
         """A rejected requestFullscreen falls back to pseudo-fullscreen.
@@ -124,10 +125,13 @@ class TestFullscreenPseudoBrowser:
         maximizes the map, and the hint explains the fallback instead of
         announcing "Entered fullscreen" for a click that just failed.
         """
-        page, errors = make_browser_page(
-            browser, tmp_path, _native_html(locale="en"), "fullscreen_reject"
-        )
-        try:
+        with use_page(
+            make_browser_page,
+            browser,
+            tmp_path,
+            _native_html(locale="en"),
+            "fullscreen_reject",
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -151,5 +155,3 @@ class TestFullscreenPseudoBrowser:
             hint = page.evaluate(_js("FullscreenControl/read_hint_text"))
             assert "maximized" in hint.lower(), f"unexpected reject hint: {hint!r}"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()

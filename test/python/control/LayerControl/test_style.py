@@ -2102,10 +2102,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
         HeatmapControl().add_to(m)
         _expand_panel(m)
 
-        page, errors = make_browser_page(
-            browser, tmp_path, m.get_root().render(), "zr_heatmap"
-        )
-        try:
+        with use_page(
+            make_browser_page, browser, tmp_path, m.get_root().render(), "zr_heatmap"
+        ) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2163,8 +2162,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the committed range carried no provenance marker: {stored}"
             )
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_slider_scale_ends_center_on_their_thumbs(self, browser, tmp_path):
         """The end numbers of a slider scale sit centred on the rail's ends.

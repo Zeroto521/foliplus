@@ -32,4 +32,4 @@ export type { SchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export type { SliderOptions } from "./slider.js";
-export { SLIDER } from "./sliderVocabulary.js";
+export { SLIDER_CLASS } from "#common/sliderClassName.js";

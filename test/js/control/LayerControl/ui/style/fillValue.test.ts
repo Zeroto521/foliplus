@@ -7,7 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import type { FillValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
-import { applyValueFill } from "#control/LayerControl/ui/style/fillValue.js";
+import {
+  applyValueFill,
+  resolveFillMode,
+} from "#control/LayerControl/ui/style/fillValue.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 
 // A live intent table keyed by the intent-key string, so a test can set the
@@ -962,5 +965,23 @@ describe("applyValueFill", () => {
     // Leaf 0 is an in-domain label; leaf 1 is a number — categoryLabel reads
     // "no label", so its pin getter yields null rather than a fallback color.
     expect(pinGetterOf(1)()).toBeNull();
+  });
+});
+
+describe("resolveFillMode", () => {
+  it("returns SOLID when no value config and no stored mode", () => {
+    // No fillMode intent, value undefined → the solid arm owns the fill.
+    intentValues = {};
+    expect(resolveFillMode(makeUI({}), "overlay1", undefined)).toBe("solid");
+  });
+
+  it("returns VALUE when a value config is present and no stored mode", () => {
+    intentValues = {};
+    expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("value");
+  });
+
+  it("prefers a stored fillMode over the value-based inference", () => {
+    intentValues = { fillMode: "original" };
+    expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("original");
   });
 });

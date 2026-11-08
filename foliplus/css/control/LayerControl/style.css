@@ -138,3 +138,111 @@
 .foliplus-style-size-input {
   text-align: center;
 }
+
+/* The icon row's category legend: one button per category (symbol + name).
+   The list scrolls past the budget threshold; the toggle expands it in
+   place so the panel does not grow to the full category count. */
+/* ── Icon row ────────────────────────────────────────────────
+   The row is one full-width trigger sharing the .foliplus-form-select
+   skin (ctrl-size height, md font, input border + radius, SVG caret
+   background) plus a grid popup. The trigger's own rule keeps only the
+   flex alignment; the caret, hover and focus visuals come from the
+   shared skin so the row matches every other input row. Left = glyph +
+   name; the glyph paints with currentColor, so the row inherits the
+   panel text colour. */
+/* The row is the grid's containing block: the popup drops below the
+   trigger, not beside it. */
+.foliplus-style-icon-row {
+  position: relative;
+}
+
+.foliplus-style-icon-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-md);
+  text-align: start;
+}
+
+.foliplus-style-icon-trigger-glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--foliplus-icon-size-sm);
+  line-height: 1;
+}
+
+.foliplus-style-icon-trigger-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foliplus-style-icon-grid {
+  position: absolute;
+  z-index: var(--foliplus-z-index-floating);
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--foliplus-space-xs);
+  padding: var(--foliplus-space-sm);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-md);
+  left: 0;
+  top: calc(100% + var(--foliplus-space-xs));
+}
+
+.foliplus-style-icon-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  box-sizing: border-box;
+  padding: 0;
+  border: var(--foliplus-border-thin) solid transparent;
+  border-radius: var(--foliplus-radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.foliplus-style-icon-cell:hover {
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
+}
+
+.foliplus-style-icon-cell .foliplus-marker-glyph {
+  font-size: var(--foliplus-icon-size-md);
+}
+
+.foliplus-style-icon-cell-selected {
+  background: var(--foliplus-menu-row-selected-bg);
+  border-color: var(--foliplus-accent-primary);
+}
+
+/* Marker scene: the glyph paints inside a Leaflet marker icon. The glyph is
+   FontAwesome text, so the icon box's own font-size owns its size (1em); the
+   picker rules above are more specific and win there. */
+.foliplus-marker-glyph {
+  display: inline-block;
+  font-size: 1em;
+  line-height: 1;
+}
+
+/* The Leaflet default icon is an <img> pin; when we swap it for a glyph, the
+   divIcon box is the old pin footprint (25x41, tip at [12,41]), so the glyph
+   sits bottom-centred where the pin tip used to be. */
+.foliplus-marker-default {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.foliplus-marker-default .foliplus-marker-glyph {
+  font-size: var(--foliplus-icon-size-md);
+}
