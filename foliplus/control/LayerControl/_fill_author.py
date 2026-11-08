@@ -35,7 +35,7 @@ FILL_AUTHOR_SCAN_LIMIT = 4_096
 # branca's hex and the leaf's property round differently (measured max 2/255
 # over 40 features of a plasma and a viridis scale).
 FILL_AUTHOR_RGB_SLACK = 2
-# Pairing threshold, continuous arm only: the stepped arm tests exact block
+# Pairing threshold, continuous variant only: the stepped variant tests exact block
 # membership instead, so only column_agreement reads this. A scale mounted on
 # its own layer reproduces every sampled hex (measured 12/12, and 200/200 over
 # 200 random values). On an evenly spread sample no foreign palette comes near
@@ -364,7 +364,7 @@ def warn_refused_caption(
     """Report a refused caption once per (caption, criterion, agreement) pair.
 
     ``criterion`` names the test that failed, so the message says which one: the
-    stepped arm tests exact block membership, the continuous arm tests the
+    stepped variant tests exact block membership, the continuous variant tests the
     color-match ratio against FILL_AUTHOR_AGREE.
     """
     if not should_report(
@@ -459,7 +459,7 @@ def provable_equal_interval(index: list[float]) -> bool:
     or an author who hand-set equal-width breaks, would also produce equal
     gaps, so the proof states "provably equal-interval spacing" rather than
     naming the scheme argument. Future geopandas that does expose the
-    scheme can extend this without changing the honest None arm.
+    scheme can extend this without changing the honest None branch.
     """
     if len(index) < 3:
         # Need at least two intervals to compare; a single class has no
@@ -513,7 +513,7 @@ def scale_payload(
     if column is not None:
         # A column is named only on evidence: a scale is shipped only after its
         # caption named a numeric property of the layer and the sampled colors
-        # agreed with it. The None arm exists for a hand-built record (tests)
+        # agreed with it. The None branch exists for a hand-built record (tests)
         # and must not invent a name.
         scale["column"] = column
     if stepped:
@@ -540,7 +540,7 @@ def fill_author(
 
     Reads properties.__folium_color, which geopandas.explore writes for every
     feature; a style_function layer has no such property and returns None, so
-    JavaScript keeps the normal single-color arms for it. When the author also
+    JavaScript keeps the normal single-color variants for it. When the author also
     declared a scale (a branca colormap on the map), it is shipped as
     ``scale`` only when its caption names one of the layer's numeric properties
     and the sampled colors confirm it; otherwise the record still names how

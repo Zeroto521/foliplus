@@ -123,7 +123,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // single style_method label with two read-only boxes side by side, the method
   // box filling the control column (the by-value method select's role) and the
   // count box taking the compact secondary width (the class-count select's
-  // role), so the two arms read as one grid.
+  // role), so the two modes read as one grid.
   //
   // The method readout is honest to the record. A continuous scale is a
   // LinearColormap — the default explore mapping, an equally spaced interval

@@ -486,7 +486,7 @@ class TestHeatmapDropdownPanelBrowser:
 
 
 def _polygon_layer() -> folium.GeoJson:
-    """Overlay layer with a numeric property, for the style drawer's ramp arm."""
+    """Overlay layer with a numeric property, for the style drawer's ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",

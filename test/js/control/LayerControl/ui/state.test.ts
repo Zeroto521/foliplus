@@ -1007,7 +1007,7 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState("heat");
 
-    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
+    // Default "redraw" branch: CSS live + layerAlpha stored for the next paint.
     expect(canvas.style.opacity).toBe("0.25");
     expect(getLayerAlpha(canvas)).toBeCloseTo(0.25);
     expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
@@ -1305,7 +1305,7 @@ describe("event-driven row refresh", () => {
       for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     });
 
-    it("rides the solid arm onto the same new features", () => {
+    it("rides the solid mode onto the same new features", () => {
       const leaves = attachFeatures([1, 2, 3]);
       seedIntentMap(ui, "fillColor", { overlay1: "#abcdef" });
       seedIntentMap(ui, "fillMode", { overlay1: "solid" });
@@ -1513,7 +1513,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("treats an unknown override key as live (forward-compat default)", () => {
-    // LayerOverride is closed today; the default arm of hasLiveValue /
+    // LayerOverride is closed today; the default branch of hasLiveValue /
     // LayerIntentStore.hasLive is the forward-compat path so a future dimension
     // without a typed guard is not silently dropped by markOverride — and
     // toPersisted writes only the marker (no LIVE rule yet), keeping the

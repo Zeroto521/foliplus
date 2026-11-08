@@ -315,9 +315,9 @@ describe("LayerUI filter panel", () => {
     });
 
     it("names the range group with the shared condition caption", () => {
-      // Both arms expose the condition caption as the control's accessible
+      // Both branches expose the condition caption as the control's accessible
       // name: here the dual-thumb slider host is a named group, and the enum
-      // arm names its dropdown with the same panel vocabulary.
+      // branch names its dropdown with the same panel vocabulary.
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);

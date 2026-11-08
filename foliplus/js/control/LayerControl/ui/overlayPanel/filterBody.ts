@@ -112,7 +112,7 @@ const renderRangeBody = (
     deps.T("filter_field"),
     readOnlyField(dim.field),
   ).row;
-  // The condition row uses the same shared "Range" wording on both arms.
+  // The condition row uses the same shared "Range" wording on both branches.
   const conditionLabel = deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {

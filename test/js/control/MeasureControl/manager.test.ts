@@ -2487,12 +2487,12 @@ describe("MeasureManager — type filter", () => {
   });
 });
 
-// ── Cross-arm filter contract (enum arm) ──────────────────────────────
+// ── Cross-branch filter contract (enum branch) ──────────────────────────────
 //
 // The other half of a mirrored pair. The sibling
 // test/js/control/HeatmapControl/manager.test.ts pins the same rows against
-// the range arm; the describe/it structure is identical on purpose, so a
-// change that moves one arm without the other fails here instead of in a
+// the range branch; the describe/it structure is identical on purpose, so a
+// change that moves one branch without the other fails here instead of in a
 // user report.
 //
 // The rows, in order:
