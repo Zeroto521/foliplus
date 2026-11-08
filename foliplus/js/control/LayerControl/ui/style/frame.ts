@@ -5,7 +5,7 @@
 import { buttonRow, panelButton, sectionDivider } from "#ui/index.js";
 import type { LayerUI } from "../surface.js";
 
-/** Reset footer — divider + button, same vocabulary for the annotation
+/** Reset footer — divider + button, same vocabulary for the label
  *  and the delegated panel. */
 const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   content.append(

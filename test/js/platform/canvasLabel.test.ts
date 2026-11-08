@@ -1,5 +1,5 @@
 // common/canvasLabel unit tests — the one canvas text recipe shared by the
-// heatmap's hex values and LayerControl's annotation labels.
+// heatmap's hex values and LayerControl's label labels.
 import { describe, expect, it, vi } from "vitest";
 import {
   drawCanvasLabel,

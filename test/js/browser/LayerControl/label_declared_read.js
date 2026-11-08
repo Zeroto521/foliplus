@@ -1,7 +1,7 @@
 () => {
   const ctrl = window.__layerCtrl;
   const ui = ctrl && ctrl.mgr;
-  const mgr = ui && ui.annotation;
+  const mgr = ui && ui.label;
   if (!mgr) return null;
   const rows = [...document.querySelectorAll(".foliplus-layer-item[data-layer-id]")];
   const row = rows.find(r => (r.textContent || "").includes("Declared Style"));

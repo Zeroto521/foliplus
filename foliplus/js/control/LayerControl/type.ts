@@ -1,10 +1,10 @@
 // LayerControl shared type definitions — persistence record schema and
-// annotation config/label contracts. Pure types: everything here is erased at
-// build, so persistence and annotation sub-modules can import without pulling
+// label config/label contracts. Pure types: everything here is erased at
+// build, so persistence and label sub-modules can import without pulling
 // value code.
 //
 // Intent-domain types (LayerOverride / LayerIntent / PersistedLayerState /
-// IntentRow / LoadSource / AnnotationConfig) and the projection types
+// IntentRow / LoadSource / LabelConfig) and the projection types
 // (Projection / AppliedProjection) were sunk to core/layer — the
 // barrel below re-exports them so every existing `LayerControl/type` import
 // keeps working unchanged. `PersistedLayerState` is also imported locally
@@ -17,7 +17,7 @@ import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
 
 export type {
-  AnnotationConfig,
+  LabelConfig,
   AppliedProjection,
   IntentRow,
   LayerIntent,
@@ -70,7 +70,7 @@ type DimensionValueSource = "user" | "author" | "none";
 
 /** One per-layer dimension. `key` is the persistence-identifier and the
  *  registry key — one of `DIM`'s names (`"opacity"`, `"fill"`, `"border"`,
- *  `"zoomRange"`, `"annotation"`), typed by `LayerDimKey` so the vocabulary
+ *  `"zoomRange"`, `"label"`), typed by `LayerDimKey` so the vocabulary
  *  cannot drift from `DIM`. Persistence provenance is a different face
  *  (`LayerOverride`: `"fillColor"`, `"visible"`, …).
  *

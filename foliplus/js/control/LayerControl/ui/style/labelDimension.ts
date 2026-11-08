@@ -7,10 +7,10 @@
 // section — heading plus each gated row.
 //
 // The gate is the registry contract's pure two-layer shape and nothing
-// more: layer existence, then `capabilities.annotation !== "none"`. The
+// more: layer existence, then `capabilities.label !== "none"`. The
 // labelable-fields question that makes the row honest is NOT asked here —
 // it is encoded in the capability itself, decided once at the surface
-// declaration edge (`LayerController.withAnnotationSpec` probes
+// declaration edge (`LayerController.withLabelSpec` probes
 // `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
@@ -33,7 +33,7 @@ import {
   selectInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import type { AnnotationConfig } from "#control/LayerControl/type.js";
+import type { LabelConfig } from "#control/LayerControl/type.js";
 import type { LayerUI } from "../surface.js";
 import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";
@@ -41,14 +41,14 @@ import { FACE } from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry label content: the layer
  *  is registered (precondition guard) and its surface declared a label
- *  pane (`capabilities.annotation !== "none"` — the registration edge's
+ *  pane (`capabilities.label !== "none"` — the registration edge's
  *  `hasLabelField` probe already decided that, so this stays a pure
  *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.annotation !== CAP_TIER.NONE;
+  return ui.c.surfaceFor(layerInfo).capabilities.label !== CAP_TIER.NONE;
 };
 
 /** Build the Label section's rows: the label toggle, then the body (field
@@ -63,12 +63,12 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
  *  number format, then avoid-overlap. */
 const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
-  const cfg = ui.c.annotation.getConfig(layerId);
+  const cfg = ui.c.label.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
-  // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
+  // never reads from storage (DEFAULT_LABEL.show = false). The body
   // collapses under the toggle on first paint and on every reopen where
   // show === false, mirroring the heatmap's "switch off → hide body" rule.
   const showChecked = !!cfg.show;
@@ -227,10 +227,10 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 /** The Label section's registry entry. `value` hands back the resolved
  *  config (user's stored choice merged over the defaults) — what a future
  *  schema-style consumer reads without re-deriving it. */
-const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
-  key: DIM.ANNOTATION,
+const LABEL_DIMENSION = registerDimension<LabelConfig>({
+  key: DIM.LABEL,
   gate: layerCanLabel,
-  value: (ui, layerId) => ui.c.annotation.getConfig(layerId),
+  value: (ui, layerId) => ui.c.label.getConfig(layerId),
   row: buildLabelSection,
   /** Content-change replay: labels rebuild from the tree the change just
    *  landed — the most expensive of the replays (full walk + canvas
@@ -240,9 +240,9 @@ const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   contentChange: {
     kind: "frame",
     face: FACE.LABEL,
-    when: (ui, layerId) => ui.c.annotation.getConfig(layerId).show,
+    when: (ui, layerId) => ui.c.label.getConfig(layerId).show,
     run: (ui, layerId) => replayLabelState(ui, layerId),
   },
 });
 
-export { ANNOTATION_DIMENSION, layerCanLabel };
+export { LABEL_DIMENSION, layerCanLabel };

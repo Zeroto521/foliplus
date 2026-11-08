@@ -260,7 +260,7 @@ class ExportRenderer {
     // Task-22: freeze each layer's label canvas pixels synchronously, before the
     // first await. The label pass used to read the live canvas via toDataURL at
     // pass time, but the tile wait + nextFrame between here and that pass is an
-    // async window where an annotation refresh can clear or re-mount the canvas;
+    // async window where an label refresh can clear or re-mount the canvas;
     // the export then came back label-free with no warning. The snapshot makes
     // the export answer the question the user saw when they pressed Export.
     // Keyed by layer id so the label pass reads its own layer's frozen pixels,
@@ -407,7 +407,7 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, pane);
           }
 
-          // The layer's annotation labels sit one z-step above its content, in
+          // The layer's label labels sit one z-step above its content, in
           // a pane the content walk never visits (created with map.createPane).
           // They are drawn right after the layer's content — before the next
           // layer up covers them — so the export's stack order matches the map's.
@@ -460,7 +460,7 @@ class ExportRenderer {
       // the signal they are meant to carry.
       if (labelCanvasesMissing.length > 0) {
         log.warn(
-          `annotation labels left out of the export: label canvas missing for ${labelCanvasesMissing.join(",")}`,
+          `labels left out of the export: label canvas missing for ${labelCanvasesMissing.join(",")}`,
         );
       }
     }
@@ -505,7 +505,7 @@ class ExportRenderer {
   }
 
   /** Render canvas elements from a pane — or the container, for canvases that
-   *  live in a pane the per-layer walk never visits (annotation labels). */
+   *  live in a pane the per-layer walk never visits (label labels). */
   async renderPaneCanvas(
     rc: RenderCtx,
     pane: HTMLElement,

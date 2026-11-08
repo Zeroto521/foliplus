@@ -1,4 +1,4 @@
-// AnnotationManager unit tests — per-layer labels, per-layer plans.
+// LabelManager unit tests — per-layer labels, per-layer plans.
 // The canvas is stubbed (it is the browser tests' job to verify drawing), and
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { LABEL_SIZE } from "#ui/index.js";
-import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { LabelManager } from "#control/LayerControl/label/index.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
 import { loadGeometry } from "../fixture.js";
@@ -34,8 +34,8 @@ const mocks = vi.hoisted(() => {
   return { MockAnnotationCanvas, instances };
 });
 
-vi.mock("#control/LayerControl/annotation/canvas.js", () => ({
-  AnnotationCanvas: mocks.MockAnnotationCanvas,
+vi.mock("#control/LayerControl/label/canvas.js", () => ({
+  LabelCanvas: mocks.MockAnnotationCanvas,
 }));
 
 /** The canvas the manager created last. */
@@ -58,7 +58,7 @@ const makeMap = () => {
     getContainer: () => container,
     // Panes are the SURFACE's — declared and materialized before any label
     // can ask for one. This unit fixture stands that world in by handing
-    // back a pane on demand (the tests drive AnnotationManager alone, with
+    // back a pane on demand (the tests drive LabelManager alone, with
     // no LayerSurface around to declare it).
     getPane: (name: string) => (panes[name] ??= document.createElement("div")),
     createPane: (name: string) => (panes[name] = document.createElement("div")),
@@ -118,9 +118,9 @@ const CONFIG = {
   collide: true,
 } as const;
 
-describe("AnnotationManager — formatting and fields", () => {
+describe("LabelManager — formatting and fields", () => {
   const { map } = makeMap();
-  const mgr = new AnnotationManager({
+  const mgr = new LabelManager({
     map,
     layerFind: () => null,
   });
@@ -262,7 +262,7 @@ describe("AnnotationManager — formatting and fields", () => {
       mkLeaf({ props: { name: "a", count: 1 } }),
       mkLeaf({ props: { count: 2.5 } }),
     ]);
-    const m = new AnnotationManager({
+    const m = new LabelManager({
       map,
       layerFind: () => group,
     });
@@ -273,14 +273,14 @@ describe("AnnotationManager — formatting and fields", () => {
   });
 });
 
-describe("AnnotationManager — config", () => {
+describe("LabelManager — config", () => {
   beforeEach(() => {
     mocks.instances.length = 0;
   });
 
   it("round-trips a config, defaulting collide from the page", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => null,
     });
@@ -321,7 +321,7 @@ describe("AnnotationManager — config", () => {
     // The shared --foliplus-label-* token default is 12; a layer pinned to 12 must
     // reuse the base spec object rather than allocating a copy.
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -335,7 +335,7 @@ describe("AnnotationManager — config", () => {
     const { map } = makeMap();
     const leaf = mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } });
     const group = mkGroup([leaf]);
-    const mgr = new AnnotationManager({ map, layerFind: () => group });
+    const mgr = new LabelManager({ map, layerFind: () => group });
     mgr.setConfig("a", { ...CONFIG, size: 12 });
     // Wire the generic data-layer filter's hidden-leaf check (the controller
     // calls setHiddenCheck once after construction); a not-hidden leaf is
@@ -353,7 +353,7 @@ describe("AnnotationManager — config", () => {
     const { map } = makeMap();
     const leaf = mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } });
     const group = mkGroup([leaf]);
-    const mgr = new AnnotationManager({ map, layerFind: () => group });
+    const mgr = new LabelManager({ map, layerFind: () => group });
     // Size != 12 keeps the layerSpec short-circuit out of the way, so the
     // label walk reaches the check with hiddenCheck still null — the
     // optional-chain skip arm (no filter wired = draw everything).
@@ -370,7 +370,7 @@ describe("AnnotationManager — config", () => {
     };
     try {
       const { map } = makeMap();
-      const mgr = new AnnotationManager({
+      const mgr = new LabelManager({
         map,
         layerFind: () => null,
       });
@@ -382,7 +382,7 @@ describe("AnnotationManager — config", () => {
 
   it("resolves a fieldless config to the layer's default and caches it", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () =>
         mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
@@ -400,7 +400,7 @@ describe("AnnotationManager — config", () => {
     // A config outlives a feature set: a name the layer no longer carries must
     // not leave the labels reading nothing.
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () =>
         mkGroup([mkLeaf({ props: { name: "x" }, latlng: { lat: 40, lng: -74 } })]),
@@ -412,7 +412,7 @@ describe("AnnotationManager — config", () => {
 
   it("re-resolves after the config names a different field", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () =>
         mkGroup([
@@ -428,7 +428,7 @@ describe("AnnotationManager — config", () => {
   });
 });
 
-describe("AnnotationManager — author-declared annotation", () => {
+describe("LabelManager — author-declared label", () => {
   const pageCollideOff = (fn: () => void) => {
     const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
     (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
@@ -447,7 +447,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     const cfg = mgr.getConfig("l1");
     expect(cfg.field).toBe("store");
@@ -465,13 +465,13 @@ describe("AnnotationManager — author-declared annotation", () => {
     try {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "retired" } } },
+        options: { foliplus: { icon: { field: "retired" } } },
       } as unknown as L.Layer;
-      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+      const mgr = new LabelManager({ map, layerFind: () => layer });
 
       const cfg = mgr.getConfig("l1");
-      expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
-      expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+      expect(cfg.field).toBe(CONST.DEFAULT_LABEL.field);
+      expect(cfg.show).toBe(CONST.DEFAULT_LABEL.show);
       expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
@@ -483,7 +483,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       options: { foliplus: { label: { field: "nested" } } },
     } as unknown as L.Layer;
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => mkGroup([child]),
     });
@@ -498,9 +498,9 @@ describe("AnnotationManager — author-declared annotation", () => {
     } as unknown as L.Layer;
     let resolved = false;
     const find = vi.fn(() => (resolved ? layer : null));
-    const mgr = new AnnotationManager({ map, layerFind: find });
+    const mgr = new LabelManager({ map, layerFind: find });
 
-    expect(mgr.getConfig("l1").field).toBe(CONST.DEFAULT_ANNOTATION.field);
+    expect(mgr.getConfig("l1").field).toBe(CONST.DEFAULT_LABEL.field);
     resolved = true;
     expect(mgr.getConfig("l1").field).toBe("late");
   });
@@ -514,9 +514,9 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = { options: {} } as unknown as L.Layer & {
       options: Record<string, unknown>;
     };
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
-    expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_ANNOTATION.show);
+    expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_LABEL.show);
 
     layer.options.foliplus = { label: { field: "store" } };
     expect(mgr.getConfig("l1").field).toBe("store");
@@ -529,7 +529,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       options: { foliplus: { label: { field: "cached" } } },
     } as unknown as L.Layer;
     const find = vi.fn(() => layer);
-    const mgr = new AnnotationManager({ map, layerFind: find });
+    const mgr = new LabelManager({ map, layerFind: find });
 
     expect(mgr.getConfig("l1").field).toBe("cached");
     expect(mgr.getConfig("l1").field).toBe("cached");
@@ -542,7 +542,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       const layer = {
         options: { foliplus: { label: { field: "store" } } },
       } as unknown as L.Layer;
-      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+      const mgr = new LabelManager({ map, layerFind: () => layer });
 
       const cfg = mgr.getConfig("l1");
       expect(cfg.field).toBe("store");
@@ -558,7 +558,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       const layer = {
         options: { foliplus: { label: { field: "store", collide: true } } },
       } as unknown as L.Layer;
-      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+      const mgr = new LabelManager({ map, layerFind: () => layer });
 
       expect(mgr.getConfig("l1").collide).toBe(true);
     });
@@ -579,19 +579,19 @@ describe("AnnotationManager — author-declared annotation", () => {
         },
       },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     const cfg = mgr.getConfig("l1");
     expect(cfg.field).toBe("store");
     // An unknown format degrades to the default instead of being written
     // through, and a non-boolean collide is dropped rather than coerced.
-    expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
+    expect(cfg.format).toBe(CONST.DEFAULT_LABEL.format);
     expect(cfg.collide).toBe(true);
     // `show` is a legal declaration key now, so an explicit `true` survives;
     // `color` is legal too, but `green` is not a hex color — it degrades to
     // the default rather than reaching the canvas as an invalid fill.
     expect(cfg.show).toBe(true);
-    expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
+    expect(cfg.color).toBe(CONST.DEFAULT_LABEL.color);
   });
 
   it("applies a declared color and size, normalised and clamped", () => {
@@ -603,7 +603,7 @@ describe("AnnotationManager — author-declared annotation", () => {
         },
       },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     const cfg = mgr.getConfig("l1");
     // #rgb expands to #rrggbb (lowercase) so a later panel edit compares equal.
@@ -621,9 +621,9 @@ describe("AnnotationManager — author-declared annotation", () => {
         foliplus: { label: { field: "store", size: "12" } },
       },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
-    expect(mgr.getConfig("l1").size).toBe(CONST.DEFAULT_ANNOTATION.size);
+    expect(mgr.getConfig("l1").size).toBe(CONST.DEFAULT_LABEL.size);
   });
 
   it("falls back when the declared field is not a string", () => {
@@ -633,15 +633,15 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: { foliplus: { label: { field: 1200, format: "comma" } } },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
+    expect(cfg.field).toBe(CONST.DEFAULT_LABEL.field);
     // A valid sibling still applies — the bad key drops out on its own.
     expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
     // Activation rides on a real field name: a field that did not survive
     // validation must not turn the labels on.
-    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+    expect(cfg.show).toBe(CONST.DEFAULT_LABEL.show);
   });
 
   it("keeps labels off when the author declares show: false", () => {
@@ -653,14 +653,14 @@ describe("AnnotationManager — author-declared annotation", () => {
         foliplus: { label: { field: "store", show: false } },
       },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     const cfg = mgr.getConfig("l1");
     expect(cfg.field).toBe("store");
     expect(cfg.show).toBe(false);
   });
 
-  it("reads nothing when foliplus carries no annotation", () => {
+  it("reads nothing when foliplus carries no label", () => {
     // `foliplus` is a namespace folium and third-party layers share, so a layer
     // can carry other dimensions (`icon`, label typography) with nothing declared
     // for this control. The declaration is absent, not empty — every key stays at
@@ -669,7 +669,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: { foliplus: { icon: { color: "#ff0000" } } },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     expect(mgr.getConfig("l1")).toEqual(mgr.defaultConfig());
   });
@@ -679,7 +679,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", {
       ...mgr.getConfig("l1"),
       field: "other",
@@ -701,7 +701,7 @@ describe("AnnotationManager — author-declared annotation", () => {
         },
       },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
 
     expect(() => mgr.getConfig("l1")).not.toThrow();
     expect(mgr.getConfig("l1").field).toBe("store");
@@ -712,7 +712,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: { foliplus: { label: { field: "store" } } },
     } as unknown as L.Layer;
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });
     expect(mgr.getConfig("l1").field).toBe("other");
 
@@ -724,14 +724,14 @@ describe("AnnotationManager — author-declared annotation", () => {
   });
 });
 
-describe("AnnotationManager — render & plan", () => {
+describe("LabelManager — render & plan", () => {
   beforeEach(() => {
     mocks.instances.length = 0;
   });
 
   it("gives each layer its own pane, canvas and labels", () => {
     const { map, panes } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -752,7 +752,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("creates nothing when the toggle is off", () => {
     const { map, panes } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -765,7 +765,7 @@ describe("AnnotationManager — render & plan", () => {
   it("paints nothing when the layer is not on the map", () => {
     const { map } = makeMap();
     (map as unknown as { hasLayer: () => boolean }).hasLayer = () => false;
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -777,7 +777,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("plans only the spotlighted layer while a focus filter is set", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -805,7 +805,7 @@ describe("AnnotationManager — render & plan", () => {
       mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
       mkLeaf({ props: { v: "2" }, latlng: { lat: 40, lng: -74 } }), // same anchor
     ]);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => group,
     });
@@ -822,7 +822,7 @@ describe("AnnotationManager — render & plan", () => {
       mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
       mkLeaf({ props: { v: "2" }, latlng: { lat: 40, lng: -74 } }),
     ]);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => group,
     });
@@ -839,7 +839,7 @@ describe("AnnotationManager — render & plan", () => {
       getPosition: () => panePos,
     };
     const proj = vi.spyOn(map, "latLngToContainerPoint");
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -875,7 +875,7 @@ describe("AnnotationManager — render & plan", () => {
     let panes: { mapPane?: HTMLElement } = {};
     (map as unknown as { getPanes: () => unknown }).getPanes = () => panes;
     const proj = vi.spyOn(map, "latLngToContainerPoint");
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -901,7 +901,7 @@ describe("AnnotationManager — render & plan", () => {
       getPosition: () => panePos,
     };
     const proj = vi.spyOn(map, "latLngToContainerPoint");
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -926,7 +926,7 @@ describe("AnnotationManager — render & plan", () => {
     const layerB = mkGroup([
       mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
     ]);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: id => (id === "a" ? layerA : layerB),
     });
@@ -968,7 +968,7 @@ describe("AnnotationManager — render & plan", () => {
     const layerB = mkGroup([
       mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
     ]);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: id => (id === "a" ? layerA : layerB),
     });
@@ -995,7 +995,7 @@ describe("AnnotationManager — render & plan", () => {
     (
       map as unknown as { latLngToContainerPoint: () => unknown }
     ).latLngToContainerPoint = () => ({ x: -10000, y: -10000 });
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1014,7 +1014,7 @@ describe("AnnotationManager — render & plan", () => {
     const { map } = makeMap();
     (map as unknown as { getPane: (n: string) => HTMLElement | null }).getPane = () =>
       null;
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1032,7 +1032,7 @@ describe("AnnotationManager — render & plan", () => {
     // so losing the config here would erase the stored label section.
     // Forgetting the config is deleteLayer's alone.
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1050,7 +1050,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("destroy tears down the map wiring and the canvases", () => {
     const { map, panes } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1071,7 +1071,7 @@ describe("AnnotationManager — render & plan", () => {
   it("destroy reports a failing canvas and still tears the rest down", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1103,7 +1103,7 @@ describe("AnnotationManager — render & plan", () => {
     // holds. Looking the id up when its step runs would destroy the
     // replacement and leak the canvas this teardown owns.
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1133,7 +1133,7 @@ describe("AnnotationManager — render & plan", () => {
       getPosition: () => panePos,
     };
     const proj = vi.spyOn(map, "latLngToContainerPoint");
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1156,7 +1156,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("clears a layer's labels and tears its canvas down", () => {
     const { map, panes } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1174,10 +1174,10 @@ describe("AnnotationManager — render & plan", () => {
 
   it("remounts a fresh canvas into the same pane when the same id is annotated again", () => {
     // Pane ownership split: the declared pane is the surface's and stays;
-    // the canvas is AnnotationManager's and is rebuilt from zero. A stale
+    // the canvas is LabelManager's and is rebuilt from zero. A stale
     // canvas must never be recycled into the second mount.
     const { map, panes } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1199,7 +1199,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("hides the canvases during a zoom animation and redraws on zoomend", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1227,7 +1227,7 @@ describe("AnnotationManager — render & plan", () => {
 
   it("redraws synchronously around an export", () => {
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1255,7 +1255,7 @@ describe("AnnotationManager — render & plan", () => {
 
 describe("a layer that gains labelable content gets the stored intent on its new pane", () => {
   // The label pane is declared by the registration edge's probe
-  // (`LayerController.withAnnotationSpec`). When a live layer GAINS its first
+  // (`LayerController.withLabelSpec`). When a live layer GAINS its first
   // labelable feature, the next `surfaceFor` re-probes, the declared specs
   // differ, and `matches` rebuilds the surface — pane and capability
   // together. The pane name joining `surface.paneNames` is a carrier-set
@@ -1282,9 +1282,9 @@ describe("a layer that gains labelable content gets the stored intent on its new
     vi.useRealTimers();
   });
 
-  it("replays an opacity set before the annotation pane existed", () => {
+  it("replays an opacity set before the label pane existed", () => {
     // Opacity is stored while the layer has no labelable content yet — no
-    // annotation spec, no pane. The pane appears only when the layer gains
+    // label spec, no pane. The pane appears only when the layer gains
     // that content, and the value must land on it at that point.
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
@@ -1322,7 +1322,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 
-    manager.annotation.setConfig("overlay1", {
+    manager.label.setConfig("overlay1", {
       show: true,
       field: "v",
       color: "#ffffff",
@@ -1339,7 +1339,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
       manager.surfaceFor(li).paneNames,
       "the re-probe must declare the label pane",
     ).toContain(`${CONST.LABEL_PANE_PREFIX}overlay1`);
-    manager.annotation.renderLabels("overlay1");
+    manager.label.renderLabels("overlay1");
 
     // Re-apply: the carrier set grew (the pane name joined it), so the
     // stored value is rewritten onto every declared pane, the new one
@@ -1348,8 +1348,8 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
 
     const pane = panes.get(`${CONST.LABEL_PANE_PREFIX}overlay1`);
-    expect(pane, "the annotation pane was created").toBeTruthy();
-    // R11: the annotation pane does NOT take CSS opacity — the label canvas
+    expect(pane, "the label pane was created").toBeTruthy();
+    // R11: the label pane does NOT take CSS opacity — the label canvas
     // bakes layerAlpha into its draws. CSS here would double-compound.
     expect(pane!.style.opacity).toBe("");
     expect(getComputedStyle(pane!).opacity).toBe("1");
@@ -1361,10 +1361,10 @@ describe("a layer that gains labelable content gets the stored intent on its new
     // Labels off → no canvas. applyLayerAlpha must still record the value
     // so a canvas that mounts later does not paint at 1 against a dimmed
     // data layer. The pane CSS path used to cover this (the canvas
-    // inherited the pane's opacity); R11 excludes the annotation pane from
+    // inherited the pane's opacity); R11 excludes the label pane from
     // CSS and bakes instead, so the replay is load-bearing.
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => null,
     } as never);
@@ -1382,7 +1382,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
       feature: { properties: { name: "Depot" } },
       getLatLng: () => ({ lat: 1, lng: 2 }),
     } as unknown as L.Layer;
-    const mgr2 = new AnnotationManager({
+    const mgr2 = new LabelManager({
       map,
       layerFind: () => leaf,
     } as never);
@@ -1406,7 +1406,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     // up by the next paint once a canvas mounts (setLayerAlpha at that point
     // is the late-carrier replay).
     const { map } = makeMap();
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => null,
       paneNameFor: () => null,
@@ -1416,8 +1416,8 @@ describe("a layer that gains labelable content gets the stored intent on its new
   });
 });
 
-describe("AnnotationManager — renderLabels on a departing layer", () => {
-  // The unregister path (controller → annotation.unloadLayer) tears the
+describe("LabelManager — renderLabels on a departing layer", () => {
+  // The unregister path (controller → label.unloadLayer) tears the
   // labels and the canvas down BEFORE LAYER_ITEM_REMOVED is emitted, and a
   // scheduled replay can also fire after the layer left the map. What
   // renderLabels does then is the contract this pins: clear whatever is
@@ -1427,7 +1427,7 @@ describe("AnnotationManager — renderLabels on a departing layer", () => {
       mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
     ]);
     const { map } = makeMap();
-    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    const mgr = new LabelManager({ map, layerFind: () => layer });
     mgr.setConfig("gone", { ...CONFIG });
     expect(mgr.renderLabels("gone")).toHaveLength(1);
     const canvasesBefore = mocks.instances.length;
@@ -1438,7 +1438,7 @@ describe("AnnotationManager — renderLabels on a departing layer", () => {
   });
 });
 
-describe("AnnotationManager — per-layer repaint", () => {
+describe("LabelManager — per-layer repaint", () => {
   // Collision is per layer by design, so one layer's rebuild must not
   // repaint the others: the content-change path paints exactly the changed
   // layer's canvas, once. Before this contract, renderLabels ran
@@ -1453,7 +1453,7 @@ describe("AnnotationManager — per-layer repaint", () => {
         mkLeaf({ props: { v: `${i}` }, latlng: { lat: 40, lng: -74 } }),
       ]);
     }
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: id => groups[id] ?? null,
     });
@@ -1502,7 +1502,7 @@ describe("AnnotationManager — per-layer repaint", () => {
   });
 });
 
-describe("AnnotationManager — clearing labels drops their pan plan", () => {
+describe("LabelManager — clearing labels drops their pan plan", () => {
   // A plan outliving its labels is the resurrection bug: refreshPan
   // translates lastPlanned by the delta from planOrigins, so a cleared layer
   // whose plan survived gets its old boxes painted again on the next pan
@@ -1528,7 +1528,7 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };
     paneDom(() => panePos);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1560,7 +1560,7 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
     const other = mkGroup([
       mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
     ]);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: id => (id === "a" ? oneLabel() : other),
     });
@@ -1593,7 +1593,7 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
   it("unloadLayer drops the stored plan with the canvas", () => {
     const { map } = makeMap();
     paneDom(() => ({ x: 0, y: 0 }));
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1618,7 +1618,7 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };
     paneDom(() => panePos);
-    const mgr = new AnnotationManager({
+    const mgr = new LabelManager({
       map,
       layerFind: () => oneLabel(),
     });
@@ -1644,7 +1644,7 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
   });
 });
 
-describe("AnnotationManager — a map whose mapPane is absent", () => {
+describe("LabelManager — a map whose mapPane is absent", () => {
   // The plan records where mapPane sat so a pan can translate instead of
   // re-planning. Both sides of that contract have an absent branch a normal
   // map never takes: a full refresh with no mapPane cannot record an origin,
@@ -1675,7 +1675,7 @@ describe("AnnotationManager — a map whose mapPane is absent", () => {
     panePos(() => pos);
     let panes: { mapPane?: HTMLElement } = {};
     (map as unknown as { getPanes: () => unknown }).getPanes = () => panes;
-    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    const mgr = new LabelManager({ map, layerFind: () => oneLabel() });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
     const c = canvas();
@@ -1706,7 +1706,7 @@ describe("AnnotationManager — a map whose mapPane is absent", () => {
     const pos = { x: 0, y: 0 };
     panePos(() => pos);
     const proj = vi.spyOn(map, "latLngToContainerPoint");
-    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    const mgr = new LabelManager({ map, layerFind: () => oneLabel() });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
     const c = canvas();
@@ -1728,7 +1728,7 @@ describe("AnnotationManager — a map whose mapPane is absent", () => {
     const { map } = makeMap();
     let pos = { x: 0, y: 0 };
     panePos(() => pos);
-    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    const mgr = new LabelManager({ map, layerFind: () => oneLabel() });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
     const c = canvas();

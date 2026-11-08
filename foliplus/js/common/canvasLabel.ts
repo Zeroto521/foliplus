@@ -1,16 +1,16 @@
 // common/canvasLabel — the one recipe for canvas-drawn map labels.
 //
-// HeatmapControl's hex values and LayerControl's annotation labels both draw
+// HeatmapControl's hex values and LayerControl's label labels both draw
 // text with a halo on a canvas, and both take their typography from the shared
 // --foliplus-label-* tokens. One resolver and one drawer, so the two can never drift:
-// same font, same fill, same halo — an annotation label and a hex value over
+// same font, same fill, same halo — an label label and a hex value over
 // the same feature read as one language.
 import { cssVar } from "./cssvar.js";
 import type { CanvasLabelStyle } from "./type.js";
 
 /** Resolve the canvas label style from the --foliplus-label-* tokens on `root` — the one
  *  place a page restyles map-label typography, for the heatmap's hex values and
- *  LayerControl's annotation labels alike. */
+ *  LayerControl's label labels alike. */
 const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
   const fontFamily = cssVar(root, "--foliplus-label-font-family", "sans-serif");
   const fontSize = parseFloat(cssVar(root, "--foliplus-label-font-size", "12")) || 12;
@@ -27,7 +27,7 @@ const resolveCanvasLabelStyle = (root: HTMLElement): CanvasLabelStyle => {
 };
 
 /** Overlay runtime color/size on a resolved style. Shared by HeatmapControl
- *  and LayerControl annotation so both recompute `font` the same way. */
+ *  and LayerControl label so both recompute `font` the same way. */
 const withLabelPaint = (
   base: CanvasLabelStyle,
   opts: { color?: string; size?: number },

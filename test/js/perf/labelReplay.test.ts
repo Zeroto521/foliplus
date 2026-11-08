@@ -1,4 +1,4 @@
-// Wall-clock gate for LayerControl/annotation/index.ts — the label replay
+// Wall-clock gate for LayerControl/label/index.ts — the label replay
 // (renderLabels) a content change runs. Attribution for `test/js/perf/` (the
 // boundary is spelled out in collision.test.ts): real elapsed time, vitest
 // process. The functional half (coalescing, gates, teardown, flush) lives in
@@ -43,7 +43,7 @@
 // jsdom + stub canvas is a LOWER bound: real canvas painting costs more, so the
 // absolute ms is not a browser promise. Nothing here asserts one.
 import { describe, expect, it, vi } from "vitest";
-import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
+import { LabelManager } from "#control/LayerControl/label/index.js";
 
 const mocks = vi.hoisted(() => {
   const instances: any[] = [];
@@ -59,8 +59,8 @@ const mocks = vi.hoisted(() => {
   }
   return { MockCanvas, instances };
 });
-vi.mock("#control/LayerControl/annotation/canvas.js", () => ({
-  AnnotationCanvas: mocks.MockCanvas,
+vi.mock("#control/LayerControl/label/canvas.js", () => ({
+  LabelCanvas: mocks.MockCanvas,
 }));
 
 /** How many labelled layers the map carries. The repaint side is one plan +
@@ -146,7 +146,7 @@ const makeMap = (n: number) => {
     };
   }
 
-  const mgr = new AnnotationManager({
+  const mgr = new LabelManager({
     map,
     layerFind: (id: string) => groups[id] ?? null,
   });

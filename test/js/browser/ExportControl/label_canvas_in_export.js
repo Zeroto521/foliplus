@@ -1,6 +1,6 @@
 fixtures => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.mgr.annotation;
+  const mgr = ctrl && ctrl.mgr.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 

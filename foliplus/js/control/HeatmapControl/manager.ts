@@ -775,7 +775,7 @@ class HeatmapManager {
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
    *  values are the same the label canvas reads — both go through
-   *  common/canvasLabel — so a hex value and an annotation label render as one
+   *  common/canvasLabel — so a hex value and an label label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
@@ -848,7 +848,7 @@ class HeatmapManager {
 
   /** Numeric property keys on the source points — bare `feature.properties`
    *  keys plus the two foliplus data-contract shapes (`value`, `options.value`).
-   *  Same contract as LayerControl's annotation field picker for the bare keys. */
+   *  Same contract as LayerControl's label field picker for the bare keys. */
   /** Resolve the Python-declared starting layer against the scanned point
    *  layers. Null when nothing was declared, when the name matches no point
    *  layer (warned once — the panel then falls back to its normal

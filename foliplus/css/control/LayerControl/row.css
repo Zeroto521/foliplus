@@ -442,7 +442,7 @@
       Right-aligned. The value is ALWAYS the compact form
       (formatNumber("auto"): 137, 6K, 2.5K, 1.2万) so the min/max track
       never widens for a full number. Filtered adds the funnel glyph; both the
-      count and the glyph stay neutral annotation text — the funnel marks the
+      count and the glyph stay neutral label text — the funnel marks the
       filtered state, it is not an action accent.
       inline-flex + self-center keeps it on the label/icon/more centre line. */
     .foliplus-layer-count {

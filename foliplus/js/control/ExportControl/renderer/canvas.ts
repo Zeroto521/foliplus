@@ -39,7 +39,7 @@ const renderCanvasElement = async (
 /** Render canvas elements from a pane — or the container, for canvases that
  *  live in a pane the per-layer walk never visits.
  *
- *  Returns how many canvases it actually serialized. The annotation-label
+ *  Returns how many canvases it actually serialized. The label-label
  *  report no longer uses this count — the label pass draws labels from the frozen
  *  `renderCanvasSnapshot` instead — and the content/canvas-layer passes
  *  discard the return, so the count is exposed for tests and future callers
@@ -88,11 +88,11 @@ const renderPaneCanvas = async (
 
 /** One label canvas frozen at the moment the export started.
  *
- *  The annotation labels live in a pane the per-layer walk never visits, and
+ *  The label labels live in a pane the per-layer walk never visits, and
  *  the label pass used to read them with a live `toDataURL()` at pass time.
  *  But between `render()`'s synchronous snapshot and that pass there is an
  *  async window — the tile wait (seconds on a loaded machine) and the
- *  `nextFrame()` — and an annotation refresh in that window (a field replay,
+ *  `nextFrame()` — and an label refresh in that window (a field replay,
  *  a LAYER_CHANGE, an unregister then re-register that drops and recreates the
  *  canvas) leaves the pass reading a blank canvas. The export comes back
  *  without the labels and without a word.

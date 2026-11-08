@@ -1,7 +1,7 @@
 // core/layer/walkLeaf — the single source of truth for layer-tree recursion.
 //
 // Every walk in the codebase (PaneManager.pinTree, capability probes, style
-// bag walks, focus/annotation bounds collection, suspendMapInteractions, ...)
+// bag walks, focus/label bounds collection, suspendMapInteractions, ...)
 // used to follow the same pattern: check `eachLayer`, recurse, fall back to
 // the layer registry. This file owns that pattern so no module reimplements
 // it. The public surface is five small functions:
