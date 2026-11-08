@@ -975,6 +975,49 @@ it("open + close drains every document/window listener when ownDismiss is set", 
   expect(read()).toEqual(before);
 });
 
+it("ownDismiss false (portal) binds no outside-press dismisser", () => {
+  const read = countGlobal();
+  const before = read();
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  const cell = document.createElement("div");
+  cell.appendChild(trigger);
+  document.body.appendChild(cell);
+  const listbox = createListbox({
+    trigger,
+    items: () => [{ value: "a", label: "Alpha" }],
+    selected: () => [],
+    shape: {
+      rowTag: "button",
+      dataKey: "data-value",
+      selectedClass: "nodown-selected",
+      disabledAttr: "disabled",
+      activedescendant: "none",
+    },
+    classes: {
+      list: "nodown-list",
+      row: "nodown-row",
+      portal: "nodown-portal",
+      up: "nodown-up",
+      open: "nodown-open",
+    },
+    surface: { onSurfaceChange: () => () => {} },
+    dismiss: { kind: "local" },
+    ownDismiss: false,
+    onRowActivate: () => {},
+  });
+  listbox.open();
+  const outside = document.createElement("div");
+  document.body.appendChild(outside);
+  outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  expect(listbox.getList()?.hidden).toBe(false);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  outside.remove();
+  expect(read()).toEqual(before);
+});
+
 describe("listbox engine: focusOnOpen selection (last row)", () => {
   it("focusOnOpen last lands focus on the last enabled row", () => {
     const trigger = document.createElement("button");
@@ -1268,6 +1311,47 @@ describe("listbox engine: ownDismiss outside press with a null target", () => {
     Object.defineProperty(evt, "target", { value: null });
     expect(() => document.dispatchEvent(evt)).not.toThrow();
     expect(listbox.isOpen()).toBe(true);
+  });
+});
+
+describe("listbox engine: ownDismiss with a detached trigger uses the null-parent containment", () => {
+  // The containment is wrapper.contains(target) || list.contains(target). When
+  // the trigger has no parent (detached), wrapper.contains is false — the
+  // ?? false branch. A press outside the list must still close.
+  it("closes on an outside press when the trigger has no parent element", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const listbox = createListbox({
+      trigger,
+      items: () => [{ value: "a", label: "Alpha" }],
+      selected: () => [],
+      ownDismiss: true,
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "own-detached-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "own-detached-list",
+        row: "own-detached-row",
+        portal: "own-detached-portal",
+        up: "own-detached-up",
+        open: "own-detached-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    expect(listbox.isOpen()).toBe(true);
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(listbox.isOpen()).toBe(false);
+    outside.remove();
   });
 });
 
