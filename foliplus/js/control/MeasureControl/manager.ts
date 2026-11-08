@@ -11,10 +11,10 @@ import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   type FilterEnumDimension,
-  type FilterOwner,
+  type FilterStore,
   type LayerFilter,
   type LayerFilterModel,
-  createFilterOwner,
+  ensureFilterStore,
   isLayerInPanes,
   matchesValues,
   parsePersistedFilter,
@@ -28,7 +28,6 @@ import {
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
 import { finalize, finalizeEach } from "#common/finalize.js";
-import * as Storage from "#common/storage.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { Logger } from "#common/type.js";
 import { mapProjector, placeLabels } from "./collision.js";
@@ -129,15 +128,17 @@ class MeasureManager {
   private editHandles: Map<string, EditHandle> = new Map();
   /** Central store for measurement data + persistence + count emission. */
   readonly store: MeasureStore;
-  /** The shared filter controller — one orchestration path (normalize →
-   *  store → apply → publish) for every setFilter / restore / reset call.
-   *  The owner is the single source of the committed filter and the
+  /** The per-map shared filter store — one orchestration path
+   *  (normalize → store → apply → publish) for every setFilter / reset call.
+   *  The store is the single source of the committed filter and the
    *  ownership flag; the fields below are test-visible views over it. */
-  private filterOwner: FilterOwner;
+  private filterStore: FilterStore;
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
   private get measureFilter(): LayerFilter {
-    return this.filterOwner.getFilter();
+    return this.normalizeMeasureFilter(
+      this.filterStore.getFilter(this.layerId, "measure"),
+    );
   }
   /** Whether the user owns the filter slot (see the filter record's
    *  `filtersTouched` — the same ownership signal HeatmapControl uses). The
@@ -145,13 +146,7 @@ class MeasureManager {
    *  factory Reset deletes the record and clears it, so the declaration
    *  returns with the factory defaults. */
   get filtersTouched(): boolean {
-    return this.filterOwner.isOwned();
-  }
-  /** The Python declaration normalised once at construction — the value a
-   *  Clear re-seeds from (without re-normalising, so an unusable declaration
-   *  still warns exactly once). */
-  private get declaredStartFilter(): LayerFilter {
-    return this.filterOwner.declared();
+    return this.filterStore.isOwned(this.layerId, "measure");
   }
 
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
@@ -161,8 +156,6 @@ class MeasureManager {
    *  keeps leaves inside per-pane child groups, so the group's own hasLayer()
    *  cannot answer this for a single leaf — the manager tracks it instead. */
   private readonly itemVisible = new Map<string, boolean>();
-  /** localStorage key of the type filter, scoped to map + layer instance. */
-  private readonly filterStorageKey: string;
   /** Every rendered label chip, so collision detection plans all measurements
    *   together instead of one measurement at a time. */
   private collidableLabels: CollidableLabel[] = [];
@@ -218,32 +211,25 @@ class MeasureManager {
     this.labelCollide = env.config.label_collide !== false;
     this.labelShow = env.config.label_show !== false;
     this.store = new MeasureStore(this.map, env, this.layerId);
-    this.filterStorageKey = `${CONST.FILTER.STORAGE_PREFIX}_${mapInstance.getContainer().id}_${this.layerId}`;
-    // The record's explicit `filtersTouched` flag is the ownership signal —
-    // the same rule HeatmapControl applies to its SavedConfig. A touched
-    // record wins (including one that says "cleared"); otherwise the Python
-    // declaration is the starting condition. The declaration is normalised
-    // once here (a Clear re-seeds from it without re-normalising, so an
-    // unusable declaration warns exactly once).
-    this.filterOwner = createFilterOwner({
+    // The shared per-map store owns the committed filter, the ownership
+    // flag, and the persistence. The Python declaration is normalised once
+    // here (a Clear re-seeds from it without re-normalising, so an unusable
+    // declaration warns exactly once); the store serves it as the starting
+    // condition until the user takes the slot.
+    this.filterStore = ensureFilterStore(this.map);
+    this.filterStore.register("measure", {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>
         publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }),
-      persist: () => this.saveMeasureFilter(),
-      clearPersist: () => Storage.removeRecord(this.filterStorageKey, this.config.name),
       dimensions: () => [this.filterDimension()],
       counts: () => this.filterCounts(),
     });
-    // The record's explicit `filtersTouched` flag is the ownership signal —
-    // the same rule HeatmapControl applies to its SavedConfig. A touched
-    // record wins (including one that says "cleared"); otherwise the Python
-    // declaration is the starting condition. The declaration is normalised
-    // once here (a Clear re-seeds from it without re-normalising, so an
-    // unusable declaration warns exactly once).
-    this.filterOwner.setDeclaration(this.declaredMeasureFilter());
-    const filterState = this.loadFilterState();
-    this.filterOwner.restore(filterState.filter, filterState.touched);
+    this.filterStore.setDeclaration(
+      this.layerId,
+      "measure",
+      this.declaredMeasureFilter(),
+    );
     // The config defaults were read above — snapshot them before any runtime
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
@@ -382,7 +368,8 @@ class MeasureManager {
 
   /** The model the shared filter panel renders for this layer. */
   filterModel(): LayerFilterModel {
-    return this.filterOwner.filterModel();
+    const model = this.filterStore.filterModel(this.layerId, "measure");
+    return { ...model, filter: this.normalizeMeasureFilter(model.filter) };
   }
 
   /** Measurements whose leaves are rendered — the export view. Reads the
@@ -400,7 +387,7 @@ class MeasureManager {
    *  (normalize → store → apply → publish) is the owner's; the control adds
    *  only the label re-plan that follows a visibility change. */
   setFilter(filter: LayerFilter): void {
-    if (!this.filterOwner.setFilter(filter)) return;
+    if (!this.filterStore.setFilter(this.layerId, "measure", filter)) return;
     this.requestLabelPlan();
   }
 
@@ -518,18 +505,6 @@ class MeasureManager {
    *  every measurement. Records written before the flag existed count as
    *  touched, preserving the old presence-is-ownership behaviour for users
    *  upgrading with a stored filter. */
-  private loadFilterState(): { filter: LayerFilter; touched: boolean } {
-    const record = Storage.loadRecord<unknown>(this.filterStorageKey, this.config.name);
-    if (!record || typeof record !== "object" || Array.isArray(record)) {
-      return { filter: undefined, touched: false };
-    }
-    const data = record as Record<string, unknown>;
-    return {
-      filter: this.normalizeMeasureFilter(parsePersistedFilter(data.filter)),
-      touched: typeof data.filtersTouched === "boolean" ? data.filtersTouched : true,
-    };
-  }
-
   /** The Python declaration as the starting filter.
    *
    *  The declaration is validated against the component's whole type domain,
@@ -569,25 +544,11 @@ class MeasureManager {
     this.log.warn("declared filter ignored:", reason);
   }
 
-  /** Persist the committed filter and its ownership flag (undefined filter =
-   *  explicitly cleared, but still owned by the user). */
-  private saveMeasureFilter(): void {
-    Storage.saveRecord(
-      this.filterStorageKey,
-      {
-        version: CONST.FILTER.RECORD_VERSION,
-        filter: this.measureFilter,
-        filtersTouched: this.filtersTouched,
-      },
-      this.config.name,
-    );
-  }
-
   /** The CLEAR mode's factory Reset: the filter record is deleted, ownership
    *  returns to the declaration, and the current filter is set to the
    *  declaration — both in this session and on reload. */
   private clearFilter(): void {
-    this.filterOwner.reset();
+    this.filterStore.reset(this.layerId, "measure");
   }
 
   /** Explicit label re-plan entry point for filter-driven visibility changes. */

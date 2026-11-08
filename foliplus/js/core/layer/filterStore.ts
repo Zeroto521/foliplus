@@ -18,7 +18,8 @@
 // No DOM, no Leaflet. The host's `apply` is the only carrier the store
 // touches, and the surface decides what that means (item visibility, an
 // aggregation include set, a leaf hidden-class write).
-import { loadRecord, saveRecord } from "#common/storage.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
+import { loadRecord, removeRecord, saveRecord } from "#common/storage.js";
 import {
   type FilterDimension,
   type LayerFilter,
@@ -113,11 +114,23 @@ const createFilterStore = (): FilterStore => {
   /** layerId -> source -> declaration. In-memory only (see setDeclaration). */
   const declarations = new Map<string, Map<string, LayerFilter>>();
 
-  const readRecord = (): PersistedRecord =>
-    loadRecord<PersistedRecord>(FILTER_STORE_KEY) ?? {
-      version: RECORD_VERSION,
-      layers: {},
-    };
+  const readRecord = (): PersistedRecord => {
+    const loaded = loadRecord<unknown>(FILTER_STORE_KEY);
+    // A corrupt or non-record payload (an array, a string, a record missing
+    // the layers map) reads back as an empty record — it is not a persistence
+    // channel and must never be trusted as one.
+    if (
+      !loaded ||
+      typeof loaded !== "object" ||
+      Array.isArray(loaded) ||
+      !("layers" in loaded) ||
+      typeof (loaded as { layers?: unknown }).layers !== "object" ||
+      (loaded as { layers?: unknown }).layers === null
+    ) {
+      return { version: RECORD_VERSION, layers: {} };
+    }
+    return loaded as PersistedRecord;
+  };
 
   const writeRecord = (record: PersistedRecord): void => {
     saveRecord(FILTER_STORE_KEY, record);
@@ -205,7 +218,11 @@ const createFilterStore = (): FilterStore => {
       if (source === undefined) {
         // Whole-layer reset: a layer delete. Every surface on this layer goes.
         delete record.layers[layerId];
-        writeRecord(record);
+        if (Object.keys(record.layers).length === 0) {
+          removeRecord(FILTER_STORE_KEY);
+        } else {
+          writeRecord(record);
+        }
         declarations.delete(layerId);
         return;
       }
@@ -213,7 +230,21 @@ const createFilterStore = (): FilterStore => {
       const entry = layer.sources[source];
       if (!entry) return;
       delete layer.sources[source];
-      writeRecord(record);
+      // A layer whose last source was cleared is empty: drop the layer entry
+      // too, so a factory Reset on the only surface leaves no residue. The
+      // declaration is KEPT — a source reset returns to it (the reset
+      // contract) — so only the whole-layer reset drops it.
+      if (Object.keys(layer.sources).length === 0) {
+        delete record.layers[layerId];
+      }
+      // When no layer entry remains anywhere, remove the whole key (the old
+      // per-surface clear removed the key it wrote). A record with sibling
+      // layers keeps its other entries.
+      if (Object.keys(record.layers).length === 0) {
+        removeRecord(FILTER_STORE_KEY);
+      } else {
+        writeRecord(record);
+      }
       // Return the surface to its declaration and repaint through its own
       // carrier — the store never touches the carrier directly.
       const declared =
@@ -233,5 +264,15 @@ const createFilterStore = (): FilterStore => {
   return store;
 };
 
-export { createFilterStore, FILTER_STORE_KEY };
-export type { FilterSourceHost };
+/** Per-map singleton: one filter store per map, cached on the per-map
+ *  namespace (mirrors ensureModes / ensureEvents). Every control on a map
+ *  shares this instance, so surface registrations and the per-layer
+ *  declarations are single-sourced across Measure / Heatmap / LayerControl. */
+const ensureFilterStore = (map: L.Map): FilterStore => {
+  const api = ensureMapFoliplus(map);
+  api.filterStore ??= createFilterStore();
+  return api.filterStore;
+};
+
+export { createFilterStore, ensureFilterStore, FILTER_STORE_KEY };
+export type { FilterSourceHost, FilterStore };

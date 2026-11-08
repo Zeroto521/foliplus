@@ -98,9 +98,15 @@ describe("filterStore", () => {
     expect(store.isOwned("L1", "measure")).toBe(false);
     expect(store.getFilter("L1", "filter")).toBeUndefined();
     expect(store.getFilter("L1", "measure")).toBeUndefined();
-    // The whole layer entry is gone from the persisted record.
-    const raw = window.localStorage.getItem(FILTER_STORE_KEY) ?? "{}";
-    expect(JSON.parse(raw).layers.L1).toBeUndefined();
+    // The whole layer entry is gone from the persisted record. With the
+    // record now empty the store removes the key entirely (a reset of the
+    // only layer leaves no residue).
+    const raw = window.localStorage.getItem(FILTER_STORE_KEY);
+    if (raw) {
+      expect(JSON.parse(raw).layers.L1).toBeUndefined();
+    } else {
+      expect(raw).toBeNull();
+    }
   });
 
   it("never routes persistence through a host callback (no clearPersist channel)", () => {
