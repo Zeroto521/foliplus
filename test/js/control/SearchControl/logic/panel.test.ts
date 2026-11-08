@@ -381,6 +381,50 @@ describe("renderResults", () => {
   });
 });
 
+describe("renderResults option-row ARIA contract", () => {
+  // The row contract (role/tabindex/aria-selected/id) comes from the shared
+  // ui/optionRow builder, and ListCursor (paintOptionContract: false) never
+  // re-writes it — the row id stays the search-row prefix, never foliplus-opt-.
+  const item = {
+    source: "suggestion" as const,
+    icon: "",
+    primaryText: "Paris, France",
+    coordDisplay: null,
+    onClick: () => false,
+  };
+
+  it("paints the option contract from the shared builder", () => {
+    const ctrl = makeFixture();
+    renderResults(ctrl, [item]);
+    const row = ctrl.panelWrap.querySelector(".foliplus-search-result-item");
+    expect(row).not.toBeNull();
+    expect(row.getAttribute("role")).toBe("option");
+    expect(row.getAttribute("tabindex")).toBe("-1");
+    expect(row.getAttribute("aria-selected")).toBe("false");
+    expect(row.id).toMatch(/^foliplus-search-row-\d+$/);
+  });
+
+  it("keeps the optionRow id after a cursor refresh (no foliplus-opt- re-paint)", () => {
+    const ctrl = makeFixture();
+    renderResults(ctrl, [item]);
+    const row = ctrl.panelWrap.querySelector(".foliplus-search-result-item");
+    const before = row.id;
+    (ctrl as any).listCursor?.refresh();
+    expect(row.id).toBe(before);
+    expect(row.id).toMatch(/^foliplus-search-row-\d+$/);
+    expect(row.id).not.toMatch(/^foliplus-opt-/);
+  });
+
+  it("keeps aria-activedescendant pointing at the optionRow id", () => {
+    const ctrl = makeFixture();
+    renderResults(ctrl, [item]);
+    const row = ctrl.panelWrap.querySelector(".foliplus-search-result-item");
+    (ctrl as any).listCursor?.setIndex(0);
+    const input = (ctrl as any).inp;
+    if (input) expect(input.getAttribute("aria-activedescendant")).toBe(row.id);
+  });
+});
+
 // ─── positionPanel ───
 
 describe("positionPanel", () => {
