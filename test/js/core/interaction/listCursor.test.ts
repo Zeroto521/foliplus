@@ -545,6 +545,44 @@ describe("ListCursor", () => {
       g.remove();
     });
 
+    it("a first move with no DOM focus and no cursor index starts at 0", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      // No set(), no DOM focus: _index stays -1. ArrowRight falls back to 0,
+      // then moves one cell right (index = 0 + 1).
+      key(g, "ArrowRight");
+      expect(c.index).toBe(1);
+      c.destroy();
+      g.remove();
+    });
+
+    it("Enter with no current cell does not activate", () => {
+      const g = makeGrid(1, 2);
+      const activated: number[] = [];
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 2,
+        onActivate: i => activated.push(i),
+      });
+      c.bindKeys(g);
+      // No set() and no focus: current is null. Enter must not activate.
+      const ev = key(g, "Enter");
+      expect(activated).toEqual([]);
+      expect(ev.defaultPrevented).toBe(false);
+      c.destroy();
+      g.remove();
+    });
+
     it("syncs with DOM focus: a Tab'd cell wins over the cursor index", () => {
       const g = makeGrid(2, 3);
       const c = new ListCursor({

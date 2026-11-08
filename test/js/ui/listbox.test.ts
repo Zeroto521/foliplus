@@ -975,7 +975,6 @@ it("open + close drains every document/window listener when ownDismiss is set", 
   expect(read()).toEqual(before);
 });
 
-
 it("ownDismiss false (portal) binds no outside-press dismisser", () => {
   const read = countGlobal();
   const before = read();
@@ -1312,6 +1311,47 @@ describe("listbox engine: ownDismiss outside press with a null target", () => {
     Object.defineProperty(evt, "target", { value: null });
     expect(() => document.dispatchEvent(evt)).not.toThrow();
     expect(listbox.isOpen()).toBe(true);
+  });
+});
+
+describe("listbox engine: ownDismiss with a detached trigger uses the null-parent containment", () => {
+  // The containment is wrapper.contains(target) || list.contains(target). When
+  // the trigger has no parent (detached), wrapper.contains is false — the
+  // ?? false branch. A press outside the list must still close.
+  it("closes on an outside press when the trigger has no parent element", () => {
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const listbox = createListbox({
+      trigger,
+      items: () => [{ value: "a", label: "Alpha" }],
+      selected: () => [],
+      ownDismiss: true,
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "own-detached-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "own-detached-list",
+        row: "own-detached-row",
+        portal: "own-detached-portal",
+        up: "own-detached-up",
+        open: "own-detached-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      onRowActivate: () => {},
+    });
+    cleanup.push(() => listbox.destroy());
+    listbox.open();
+    expect(listbox.isOpen()).toBe(true);
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(listbox.isOpen()).toBe(false);
+    outside.remove();
   });
 });
 
