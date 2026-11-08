@@ -59,9 +59,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     @staticmethod
-    def _declared_label_layer(
-        name, annotation, coords, text="12345678901234567890"
-    ):
+    def _declared_label_layer(name, annotation, coords, text="12345678901234567890"):
         """A point layer whose foliplus namespace declares its label defaults."""
         features = [
             {
@@ -77,9 +75,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             foliplus={"label": annotation},
         )
 
-    def test_label_declared_color_and_size_reach_the_canvas(
-        self, browser, tmp_path
-    ):
+    def test_label_declared_color_and_size_reach_the_canvas(self, browser, tmp_path):
         """A declared color/size paints the real canvas, and Reset restores it.
 
         Reads the label canvas pixels: the declared #00ff00 and size 24
@@ -235,9 +231,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result["decorationClass"] is True, (
                 "label canvas must carry foliplus-canvas-layer"
             )
-            assert result["hitIsCanvas"] is False, (
-                "label canvas intercepted the click"
-            )
+            assert result["hitIsCanvas"] is False, "label canvas intercepted the click"
             assert not errors, f"JS errors: {errors}"
 
     def test_label_canvas_click_through(self, browser, tmp_path):
