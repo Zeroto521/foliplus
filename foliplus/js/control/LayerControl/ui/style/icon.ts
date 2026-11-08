@@ -119,19 +119,32 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // (preview only — the write is still the author icon), else the
     // author-original label.
     const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
-    let glyph = value ? resolveGlyph(value) : null;
-    // A syntactically valid name the loaded FA stylesheet does not paint must
-    // not preview as a blank tofu — degrade to the author-original label, the
-    // same honest fallback the marker build path takes.
-    if (glyph && !glyphAvailable(glyph)) glyph = null;
-    if (value && glyph) {
+    const glyph = value ? resolveGlyph(value) : null;
+    const available = glyph ? glyphAvailable(glyph) : false;
+    if (value && glyph && available) {
+      // The name is syntactically valid AND the loaded stylesheet paints it:
+      // the happy path — show the glyph and its name.
       glyphBox.innerHTML = glyphHtml(glyph);
       nameBox.textContent = glyph;
       trigger.title = value;
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
+    } else if (value) {
+      // A name we cannot render: either the stylesheet does not paint it (a
+      // syntactically valid but unsupported name) or it fails glyph syntax.
+      // Never silently show "Original" or a blank tofu — surface the actual
+      // name in an explicit unavailable state (dashed-outline circle preview)
+      // with a title/aria-label explaining the fallback.
+      glyphBox.innerHTML = `<span class="${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}" aria-hidden="true"></span>`;
+      nameBox.textContent = value;
+      const hint = ui.T("style_icon_unavailable").replace("{name}", value);
+      trigger.title = hint;
+      trigger.setAttribute("aria-label", hint);
+      trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
       glyphBox.innerHTML = "";
       nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     }
   };
   renderTrigger();
