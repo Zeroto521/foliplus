@@ -1,14 +1,14 @@
-// Value-based stroke rendering — the "Color by value / Stroke by value" arm of
+// Value-based stroke rendering — the "Color by value / Stroke by value" mode of
 // the border dimension.
 //
-// This arm is the stroke face's call through the shared by-value mode
+// This mode is the stroke face's call through the shared by-value mode
 // (valuePaint.ts): the skeleton collects values, builds the ramp, writes
 // per-leaf `color` and pins the highlight, while this module only supplies
 // the face-specific surface — the `ValueFaceDecl`. The declaration carries no
-// face literal: the mode body stays face-independent, and a sibling arm
+// face literal: the mode body stays face-independent, and a sibling mode
 // (fill / size / icon) declares its own surface the same way.
 //
-// Unlike the fill arm there is no opacity to carry, but the stroke face owns
+// Unlike the fill mode there is no opacity to carry, but the stroke face owns
 // one scalar liveScalar of its own: the border `weight`. When the caller passes a
 // live width it rides every leaf alongside the ramp color (and the highlight
 // replay), so a user-set border width survives the value-stroke write. A
@@ -23,7 +23,7 @@
 //
 // This module is intentionally decoupled from the intent store: the caller
 // (the border dimension's write path) owns where the stroke config and the
-// active-arm mode live, and supplies the live readers. The engine paints
+// active mode live, and supplies the live readers. The engine paints
 // exactly what it is asked to.
 import { DIM } from "#core/layer/index.js";
 import { type FillMode, type FillValueConfig } from "#core/layer/intent.js";
@@ -31,10 +31,10 @@ import type { LayerUI } from "../surface.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
 
-/** The stroke arm in force. An absent mode defers to whether a value config
+/** The stroke mode in force. An absent mode defers to whether a value config
  *  exists — the pre-mode record shape, where a config alone meant "paint
  *  by value". `FillMode` is reused as the stroke-mode vocabulary: the two
- *  faces own the same literals (solid / value), and the border arm has no
+ *  faces own the same literals (solid / value), and the border mode has no
  *  "original" today. Exported so the dimension's `value` readout and the
  *  replay guard agree with the apply path on what the map should show. */
 const resolveStrokeMode = (
@@ -64,12 +64,12 @@ const applyValueStroke = (
    *  `resetStyle` on the first hover, leaving the author's flat face under a
    *  by-value panel. */
   liveRamp: () => FillValueConfig | undefined,
-  /** The live active arm the pin reads on mouseout — the caller owns the
+  /** The live active mode the pin reads on mouseout — the caller owns the
    *  stored mode, so the pin asks for it rather than importing an intent key
    *  that does not exist yet. A mode that is not "value" returns null so a
    *  solid-mode leaf is never re-painted by a stale value pin. */
   liveMode: () => FillMode | undefined,
-  /** The border width to carry through the value arm. Default `undefined`
+  /** The border width to carry through the value mode. Default `undefined`
    *  keeps the existing color-only behavior (the author's width stays in
    *  force); the border dimension passes its live width so a user-set
    *  border width survives the value-stroke write and the highlight pin. */

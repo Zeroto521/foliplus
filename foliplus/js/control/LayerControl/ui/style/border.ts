@@ -113,7 +113,7 @@ interface BorderRowBuildTarget {
   /** Optional aria-label for the width input. */
   weightAria?: string;
   /** Render the color input inert (the author's own stroke in ORIGINAL mode).
-   *  Same swatch control as the editable arm, so the row stays pixel-identical
+   *  Same swatch control as the editable mode, so the row stays pixel-identical
    *  and only its editability differs. Absent = editable. */
   colorReadOnly?: boolean;
 }
@@ -188,7 +188,7 @@ const effectiveBorderValue = (
   layerId: string,
 ): FillValueConfig | undefined => getIntent(ui, layerId, INTENT.BORDER_VALUE);
 
-/** The arm the border row shows and the stroke paints.
+/** The mode the border row shows and the stroke paints.
  *
  *  mode or (value ? value : solid) — the shared stroke resolver. A stored
  *  mode always wins; a mode-less border defers to whether an own value
@@ -201,7 +201,7 @@ const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
   );
 
 /** Whether a value config is actually in force on the border face. The value
- *  arm is active exactly when the mode is value and a value exists; anything
+ *  mode is active exactly when the mode is value and a value exists; anything
  *  else paints the solid path. */
 const borderValueActive = (ui: LayerUI, layerId: string): boolean =>
   effectiveBorderMode(ui, layerId) === FILL_MODE.VALUE &&
@@ -266,7 +266,7 @@ const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
       };
 
 /** Write the border mode intent, seeding the border value when the user
- *  switches to the by-value arm and none is stored yet. */
+ *  switches to the by-value mode and none is stored yet. */
 const writeBorderMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
   if (mode === FILL_MODE.VALUE) {
     const fields = numericFields(ui, layerId);
@@ -317,7 +317,7 @@ const writeBorderValue = (
  *  the walk is the single writer of a border style — the commits only record
  *  intent. */
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
-  // Value arm: when the derived border mode is 'value' and a value exists,
+  // Value mode: when the derived border mode is 'value' and a value exists,
   // delegate the whole face to the stroke engine. The engine owns the
   // per-leaf classification, the merged author+value write, and the
   // highlight pin — this function only derives the live config so the
@@ -338,7 +338,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // Solid path (unchanged): a flat color+weight write per leaf.
   // ORIGINAL owns no user colour: the author's per-leaf stroke is the target,
   // so the colour override is treated as absent and the walk below restores
-  // each leaf's captured author face (mirror of fill's original arm). It stays
+  // each leaf's captured author face (mirror of fill's original mode). It stays
   // in the intent record, so a later switch back to solid still restores it.
   const original = effectiveBorderMode(ui, layerId) === FILL_MODE.ORIGINAL;
   const color = original ? undefined : getIntent(ui, layerId, INTENT.BORDER_COLOR);
@@ -485,7 +485,7 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
       // The swatch keeps its swatch/hex chrome; only editability differs. Both
       // readOnly and disabled so no picker opens and no keyboard edit lands.
       // READONLY is the shared no-edit class the unified hover rule in
-      // common/input.css excludes — the same channel the fill original arm's
+      // common/input.css excludes — the same channel the fill original mode's
       // read-only box uses, so a disabled border swatch carries no hover or
       // focus hint.
       input.readOnly = true;
@@ -566,7 +566,7 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
  *  layer is actually painting on first open. The color is resolved to the
  *  swatch's own form by `displayColor` before it reaches the field. */
 
-/** The solid arm's border detail: color swatch + width number, one row.
+/** The solid mode's border detail: color swatch + width number, one row.
  *  Mirrors fill's solid detail but keeps the border's own row class and
  *  the width control (the fill side has no width). */
 const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
@@ -574,17 +574,17 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   const mode = displayBorderMode(ui, layerId);
   // In ORIGINAL mode the border colour is the author's own stroke — it is not
   // the user's to change, so the colour input renders disabled (the same
-  // colorInput control the single-color arm uses). Weight stays editable.
+  // colorInput control the single-color mode uses). Weight stays editable.
   if (mode === FILL_MODE.ORIGINAL) {
     // ORIGINAL owns no user color: the row must show the author's own stroke,
-    // never the color the user set in the single-color arm (that intent stays
+    // never the color the user set in the single-color mode (that intent stays
     // stored and takes effect only when the mode returns to solid). Reading
     // INTENT.BORDER_COLOR here would show the user's color after a solid →
     // original round-trip — the reported bug. Same source as the leaf restore
     // path (restoreStyleDim / author face).
     const color = displayColor(author.color);
     const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
-    // Same colour control as the single-color arm (buildBorderRowShell ->
+    // Same colour control as the single-color mode (buildBorderRowShell ->
     // colorInput), only inert: the author's stroke is not the user's to change.
     // Reusing the real input keeps the ORIGINAL row pixel-identical to SINGLE
     // (swatch + hex + weight) rather than degrading to a bare read-only box.
@@ -634,10 +634,10 @@ const disposeBorderRow = (ui: LayerUI): void => {
 const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
   // Same pre-mode record shape the fill side reads: a stored colour without a
-  // mode means the user already painted the solid arm (the record written
+  // mode means the user already painted the solid mode (the record written
   // before this mode existed, and a programmatic colour write). An absent
   // mode plus only a weight keeps the author's stroke — the weight rides both
-  // arms and does not move the mode, same rule as the fill's opacity.
+  // modes and does not move the mode, same rule as the fill's opacity.
   if (stored === undefined) {
     if (getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined) {
       return FILL_MODE.SOLID;
@@ -664,9 +664,9 @@ const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
   return ui.c.surfaceFor(layerInfo).geometryType();
 };
 
-/** Render the detail slot for the active border arm into the block's
+/** Render the detail slot for the active border mode into the block's
  *  detail element. Called on open and after every mode switch. */
-/** The detail arm the border block renders for the current display mode:
+/** The detail mode the border block renders for the current display mode:
  *  'original' and 'solid' both show the solid controls; only an explicit
  *  'value' choice shows the value controls. */
 const borderDetailMode = (ui: LayerUI, layerId: string): FillMode =>
@@ -698,12 +698,12 @@ const renderBorderDetail = (
 };
 
 /** Build the border row block: the mode select (three states for a line,
- *  two for polygon/point) plus the active arm's detail slot. A layer with no
+ *  two for polygon/point) plus the active mode's detail slot. A layer with no
  *  numeric field has no mode select and only owns the solid controls.
  *
  *  The three-state vocabulary applies only where the border IS the element's
  *  primary colour (a line). A polygon/point border is the outline and offers
- *  only original + single; the by_value arm would duplicate the fill's own
+ *  only original + single; the by_value mode would duplicate the fill's own
  *  value config on the same face. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = numericFields(ui, layerId);
@@ -819,7 +819,7 @@ const bindBorderValueDetail = (
   };
 };
 
-/** Bind one detail slot for the active border arm. Called on open and after
+/** Bind one detail slot for the active border mode. Called on open and after
  *  every mode switch. */
 const bindBorderDetail = (
   ui: LayerUI,
@@ -840,8 +840,8 @@ const bindBorderDetail = (
   }
 };
 
-/** Wire the border block: the mode select switches arms in place (rebuilding
- *  the detail slot), and the active arm's controls commit through the
+/** Wire the border block: the mode select switches modes in place (rebuilding
+ *  the detail slot), and the active mode's controls commit through the
  *  dimension's write path. A layer with no numeric field has no mode select
  *  and only owns the solid controls. */
 const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
@@ -870,7 +870,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
   select.onchange = () => {
     // Compare against the DISPLAY mode (what the select shows), so a
     // polygon/point layer whose stored mode reads as original again does not
-    // re-write the same arm.
+    // re-write the same mode.
     const previous = displayBorderMode(ui, layerId);
     const raw = select.value;
     const next = raw as FillMode;
@@ -922,7 +922,7 @@ const BORDER_DIMENSION = registerDimension<{
     if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
     if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
     if (value !== undefined) writes.push([INTENT.BORDER_VALUE, value]);
-    // 'mode' present writes the explicit arm; an omitted mode leaves the
+    // 'mode' present writes the explicit mode; an omitted mode leaves the
     // stored border mode alone (no cross-face derivation exists any more).
     if (mode !== undefined) writes.push([INTENT.BORDER_MODE, mode]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
