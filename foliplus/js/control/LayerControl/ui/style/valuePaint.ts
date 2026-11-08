@@ -145,7 +145,8 @@ const applyValuePaint = (
   resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
    *  or the author's declared value fill when the user has not chosen one. */
-  liveValue: () => FillValueConfig | undefined = () => decl.readValueConfig(ui, layerId),
+  liveValue: () => FillValueConfig | undefined = () =>
+    decl.readValueConfig(ui, layerId),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
