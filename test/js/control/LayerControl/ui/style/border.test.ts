@@ -601,6 +601,9 @@ describe("bindBorderRow", () => {
   it("commits the color on every swatch movement", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     const row = buildBorderRow(ui, "vec1");
     bindBorderRow(ui, "vec1", row);
 
@@ -1101,6 +1104,9 @@ describe("buildBorderRow", () => {
   it("renders one row with a swatch and a bounded width field", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
 
     const row = buildBorderRow(ui, "vec1");
 
@@ -1129,6 +1135,9 @@ describe("buildBorderRow", () => {
   it("shows the stored choice over the authored value", () => {
     const leaf = makeLeaf("#00ff00", 3);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     setIntent(ui, "vec1", "borderColor", "#ff0000");
     setIntent(ui, "vec1", "borderWeight", 5.5);
 
@@ -1146,6 +1155,9 @@ describe("buildBorderRow", () => {
 
   it("shows normalised 6-digit hex when the author declared a short form", () => {
     manager.registerLayer({ id: "vec1", name: "V", layer: makeLeaf("#f00", 2) });
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
 
     const row = buildBorderRow(ui, "vec1");
 
@@ -1167,6 +1179,9 @@ describe("buildBorderRow", () => {
       layer: makeGeoJsonGroup(makeLeaf("gray", 1.5), makeLeaf("#e74c3c", 6)),
     });
 
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "geo1", "borderMode", "solid");
     const row = buildBorderRow(ui, "geo1");
 
     expect(
@@ -1185,6 +1200,9 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("hsl(120, 100%, 50%)", 2),
     });
 
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(
@@ -1204,6 +1222,9 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("notacolor", 2),
     });
 
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(authoredBorder(ui, "vec1").color).toBe("notacolor");
@@ -1225,6 +1246,9 @@ describe("buildBorderRow", () => {
       layer: makeLeaf("oklch(0.5 0.1 100)", 2),
     });
 
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     const row = buildBorderRow(ui, "vec1");
 
     expect(authoredBorder(ui, "vec1").color).toBe("oklch(0.5 0.1 100)");
@@ -1244,6 +1268,9 @@ describe("buildBorderRow", () => {
       layer: makeGeoJsonGroup(makeLeaf("#e74c3c", 6), makeLeaf("gray", 1.5)),
     });
 
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "geo1", "borderMode", "solid");
     const row = buildBorderRow(ui, "geo1");
 
     expect(
@@ -1254,6 +1281,44 @@ describe("buildBorderRow", () => {
       (row.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement)
         .value,
     ).toBe("6");
+  });
+
+  it("renders the border colour read-only in ORIGINAL mode", () => {
+    // The author's own stroke is not the user's to change: only switching the
+    // mode to "solid" hands the colour to the picker. This is the reported
+    // symptom (a red swatch opened a picker while Border Mode = Original).
+    const leaf = makeLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    const row = buildBorderRow(ui, "vec1");
+
+    // The read-only swatch reuses the colour slot's class, so the telling
+    // difference is the element: a static node with role=img, not an input.
+    const readOnly = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLElement | null;
+    expect(readOnly).not.toBeNull();
+    expect(readOnly?.tagName).not.toBe("INPUT");
+    expect(readOnly?.getAttribute("role")).toBe("img");
+    // The weight stays editable: it is a user-facing stroke attribute.
+    expect(row.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
+  });
+
+  it("does not write a colour when the read-only swatch is pressed", () => {
+    const leaf = makeLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    const row = buildBorderRow(ui, "vec1");
+    bindBorderRow(ui, "vec1", row);
+
+    const readOnly = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLElement;
+    readOnly.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(getIntent(ui, "vec1", "borderColor")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(false);
+    expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 });
 
@@ -1534,6 +1599,9 @@ describe("border apply scheduler (drag coalesce)", () => {
   it("bind chain: change runs the prior handler and flushes", () => {
     const leaf = makeLeaf();
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    // Editable colour: the border row is read-only in ORIGINAL mode (the
+    // author's own stroke); a stored "solid" mode is what makes it a picker.
+    setIntent(ui, "vec1", "borderMode", "solid");
     const frames: Array<() => void> = [];
     vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
       frames.push(cb);
