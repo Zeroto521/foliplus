@@ -1,7 +1,7 @@
 () => {
   const ctrl = window.__layerCtrl;
   const ui = ctrl && ctrl.mgr;
-  const mgr = ui && ui.annotation;
+  const mgr = ui && ui.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
@@ -14,7 +14,7 @@
     };
   const id = row.getAttribute("data-layer-id");
   const canvas = document.querySelector(".foliplus-label-canvas");
-  if (!canvas) return { error: "no annotation canvas" };
+  if (!canvas) return { error: "no label canvas" };
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const raf = () =>

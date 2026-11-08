@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  layoutLabel,
-  planLabelLayout,
-} from "#control/LayerControl/annotation/layout.js";
+import { layoutLabel, planLabelLayout } from "#control/LayerControl/label/layout.js";
 
 const SPEC = {
   fontFamily: "sans-serif",

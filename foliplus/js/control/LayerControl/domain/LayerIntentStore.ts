@@ -15,10 +15,10 @@
 // Persistence projections (`toPersisted` / `loadFromPersisted`) own the
 // disk-shape bridge; `LayerControl/persistence.ts` still owns parse/serialize.
 import {
-  type AnnotationConfig,
   type IntentKey,
   type IntentRow,
   LIVE,
+  type LabelConfig,
   type LayerIntent,
   type LayerOverride,
   type LoadSource,
@@ -43,7 +43,7 @@ class LayerIntentStore {
     return row;
   }
 
-  /** Drop the map entry once both axes are empty (name/annotation riders keep
+  /** Drop the map entry once both axes are empty (name/label riders keep
    *  the row alive until their own callers clear them). */
   private prune(id: string): void {
     const row = this.rows.get(id);
@@ -118,7 +118,7 @@ class LayerIntentStore {
   // ── Write ──────────────────────────────────────────────────────────
 
   /** Cohesive user write: store the value and mark provenance in one step
-   *  for override keys. `name` / `annotation` ride without a marker. */
+   *  for override keys. `name` / `label` ride without a marker. */
   set<K extends IntentKey>(
     id: string,
     key: K,
@@ -177,7 +177,7 @@ class LayerIntentStore {
   }
 
   /** Drop style dimensions + provenance for one layer (user deleted it).
-   *  `name` / `annotation` riders stay for their own callers.
+   *  `name` / `label` riders stay for their own callers.
    *  @returns true if a row was dropped, false when nothing was stored. */
   dropRow(id: string): boolean {
     const row = this.rows.get(id);
@@ -253,9 +253,9 @@ class LayerIntentStore {
   // ── Persistence projections ────────────────────────────────────────
 
   /** Project live rows onto the `layers` disk section. `liveAnnotations` is
-   *  the annotation manager's current config map (not the load seed). */
+   *  the label manager's current config map (not the load seed). */
   toPersisted(
-    liveAnnotations: Record<string, AnnotationConfig> = {},
+    liveAnnotations: Record<string, LabelConfig> = {},
   ): Record<string, PersistedLayerState> {
     const states: Record<string, PersistedLayerState> = {};
     const ids = new Set([...this.rows.keys(), ...Object.keys(liveAnnotations)]);
@@ -264,8 +264,8 @@ class LayerIntentStore {
       const declared = row
         ? [...row.provenance].filter(override => this.hasLive(id, override))
         : [];
-      const annotation = liveAnnotations[id];
-      if (declared.length === 0 && !annotation) continue;
+      const label = liveAnnotations[id];
+      if (declared.length === 0 && !label) continue;
       const state: PersistedLayerState = { overrides: declared };
       for (const override of declared) {
         const value = this.get(id, override);
@@ -274,14 +274,14 @@ class LayerIntentStore {
           (state as Record<LayerOverride, unknown>)[override] = value;
         }
       }
-      if (annotation) state.annotation = annotation;
+      if (label) state.label = label;
       states[id] = state;
     }
     return states;
   }
 
   /** Fill the store from a parsed persistence record's intent half.
-   *  The label config is read from `layers[id].annotation` only — the legacy
+   *  The label config is read from `layers[id].label` only — the legacy
    *  top-level `annotations` segment was dropped. */
   loadFromPersisted(source: LoadSource): void {
     this.clearAll();
@@ -289,7 +289,7 @@ class LayerIntentStore {
       this.setValue(id, "name", name);
     }
     for (const [id, entry] of Object.entries(source.layers ?? {})) {
-      if (entry.annotation) this.setValue(id, "annotation", entry.annotation);
+      if (entry.label) this.setValue(id, "label", entry.label);
       this.seedProvenance(id, entry.overrides);
       for (const override of entry.overrides) {
         const value = entry[override];

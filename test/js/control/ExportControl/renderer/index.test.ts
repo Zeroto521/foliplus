@@ -1523,7 +1523,7 @@ describe("ExportRenderer — render passes", () => {
       expect(onProgress.mock.calls.map(call => call[0])).toEqual([70, 81, 90]);
     });
 
-    it("renders a layer's annotation labels right after its content", async () => {
+    it("renders a layer's label labels right after its content", async () => {
       // Each layer's label canvas mounts in its own pane (map.createPane), a
       // sibling of the content panes the walk visits. render() draws it right
       // after the layer's content — before the next layer up covers it — so the
@@ -1566,7 +1566,7 @@ describe("ExportRenderer — render passes", () => {
 
       await runRender(vi.fn());
 
-      // The pane is snapshotted once, with the annotation selector, at export
+      // The pane is snapshotted once, with the label selector, at export
       // start (before the first await), right after the layer's content walk.
       expect(snap).toHaveBeenCalledWith(
         expect.anything(),
@@ -1578,10 +1578,10 @@ describe("ExportRenderer — render passes", () => {
       expect(draw).toHaveBeenCalled();
     });
 
-    it("draws a layer's annotation labels from a snapshot taken at export start, not the live canvas", async () => {
+    it("draws a layer's label labels from a snapshot taken at export start, not the live canvas", async () => {
       // Negative control for the silent-loss race: between render()'s synchronous
       // snapshot (before the first await) and the label pass there is an async
-      // window (the tile wait and the nextFrame). If an annotation refresh
+      // window (the tile wait and the nextFrame). If an label refresh
       // clears the label canvas in that window, the export must still draw the
       // pixels the user saw when they pressed Export — the snapshot — and not
       // the cleared canvas. Before the fix the label pass re-reads the live
@@ -1629,7 +1629,7 @@ describe("ExportRenderer — render passes", () => {
         return Promise.resolve({ src } as any);
       });
 
-      // Inject an annotation refresh at the nextFrame point — after the snapshot,
+      // Inject an label refresh at the nextFrame point — after the snapshot,
       // before the label pass: the canvas is cleared in exactly the async window
       // that used to lose the labels silently.
       vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(cb => {

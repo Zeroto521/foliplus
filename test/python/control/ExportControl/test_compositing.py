@@ -1,6 +1,6 @@
 """Compositing tests for foliplus.ExportControl: how the exported PNG reflects what is on the map.
 
-One lifecycle case rides along: annotation rendering can be torn down while the
+One lifecycle case rides along: label rendering can be torn down while the
 export is still rendering (seconds of tile and shadow passes), so the renderer
 freezes each layer's label canvas synchronously at render() start and the image
 keeps the labels the user saw when they pressed Export.
@@ -23,7 +23,7 @@ from .helper import (
 
 
 class TestExportCompositeBrowser:
-    """Browser tests for compositing heatmap / annotation / basemap / hatch into the exported PNG."""
+    """Browser tests for compositing heatmap / label / basemap / hatch into the exported PNG."""
 
     def test_export_with_heatmap_canvas(self, browser, tmp_path):
         """Export captures the pixels a canvas layer draws.
@@ -134,19 +134,19 @@ class TestExportCompositeBrowser:
             )
             assert len(errors) == 0, f"JS errors on export-exclude export: {errors}"
 
-    def test_export_with_annotation_labels(self, browser, tmp_path):
-        """Export captures the annotation label pixels at their positions.
+    def test_export_with_label_labels(self, browser, tmp_path):
+        """Export captures the label label pixels at their positions.
 
         The pixel-position comparison is the gate: for every opaque pixel in
-        the live annotation canvas, the same (x, y) in the export canvas
+        the live label canvas, the same (x, y) in the export canvas
         must also be opaque. The two canvases share CSS coordinates (the
-        export canvas' crop-box origin cancels the annotation canvas' offset,
+        export canvas' crop-box origin cancels the label canvas' offset,
         regardless of DPR and export scale), so a pixel-position match is a
-        position match. A regression that dropped the annotation canvas from
+        position match. A regression that dropped the label canvas from
         the export (a blanket exclude of ``.foliplus-canvas-layer`` would
         do exactly that) would leave zero matched pixels.
         """
-        with use_page(_make_page, browser, tmp_path, slug="export_annotation") as (
+        with use_page(_make_page, browser, tmp_path, slug="export_label") as (
             page,
             errors,
         ):
@@ -168,7 +168,7 @@ class TestExportCompositeBrowser:
             )
 
             state = page.evaluate(
-                _js("ExportControl/annotation_canvas_in_export"),
+                _js("ExportControl/label_canvas_in_export"),
                 {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
             )
             assert state is not None and state["canvas"] is True, state
@@ -191,24 +191,24 @@ class TestExportCompositeBrowser:
             )
             page.wait_for_timeout(2000)
 
-            after = page.evaluate(_js("ExportControl/annotation_canvas_opaque_count"))
-            assert after > 0, f"annotation labels lost after export: {after}"
+            after = page.evaluate(_js("ExportControl/label_canvas_opaque_count"))
+            assert after > 0, f"label labels lost after export: {after}"
 
             # Pixel gate: the export canvas now has an opaque background
             # fill (the container's computed backgroundColor), so the source
-            # annotation color is blended. Instead of matching the source
+            # label color is blended. Instead of matching the source
             # color, check that the export canvas has non-background pixels —
             # pixels that differ significantly from the gray background. The
-            # annotation canvas carries `.foliplus-canvas-layer`; a blanket
+            # label canvas carries `.foliplus-canvas-layer`; a blanket
             # exclude of that class would drop the labels and leave zero
             # non-background pixels.
-            result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
+            result = page.evaluate(_js("ExportControl/label_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
-                f"annotation label pixels missing from export: {result}; "
+                f"label label pixels missing from export: {result}; "
                 f"exporter errors: {export_errors}"
             )
-            assert len(errors) == 0, f"JS errors on annotation export: {errors}"
+            assert len(errors) == 0, f"JS errors on label export: {errors}"
 
     def test_export_uses_solid_color_basemap_as_background(self, browser, tmp_path):
         """Picking a solid-color basemap → the export canvas is filled with it.
@@ -681,7 +681,7 @@ class TestExportCompositeBrowser:
 class TestExportLabelCanvasBrowser:
     """A label canvas torn down mid-export must still reach the image.
 
-    The export renders for seconds (tile pass, shadow pass), and annotation
+    The export renders for seconds (tile pass, shadow pass), and label
     rendering can be torn down inside that window — a layer unload/re-register
     removes every label canvas. The export used to walk past the now-empty label
     pane, read the live canvas at pass time, and come back without the labels and
@@ -704,7 +704,7 @@ class TestExportLabelCanvasBrowser:
             )
 
             state = page.evaluate(
-                _js("ExportControl/annotation_canvas_in_export"),
+                _js("ExportControl/label_canvas_in_export"),
                 {"points": load_geojson("common", "points_fuzhou_alpha_beta")},
             )
             assert state is not None and state["canvas"] is True, state
@@ -721,7 +721,7 @@ class TestExportLabelCanvasBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
 
-            # Tear the annotation rendering down inside the render window: the
+            # Tear the label rendering down inside the render window: the
             # layer stays on the map, its label canvas does not. The trigger is
             # the first tile image the export loads, so the teardown lands in
             # the render no matter how fast or slow the host is. The
@@ -743,7 +743,7 @@ class TestExportLabelCanvasBrowser:
             # The frozen snapshot carried the labels: the export must still
             # contain non-background (label) pixels even though the live canvas
             # was torn down mid-render.
-            result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
+            result = page.evaluate(_js("ExportControl/label_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
                 f"labels lost from export despite the frozen snapshot: {result}; "

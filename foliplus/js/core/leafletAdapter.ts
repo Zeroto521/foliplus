@@ -64,7 +64,7 @@ type LayerWithUrl = L.Layer & { _url?: string };
  *
  *  `L.Control.Attribution` cannot be named here as a type: type/global.d.ts
  *  aliases `L.Control` to Leaflet's Control *instance* type, so `L.Control` in a
- *  type position has no `Attribution` member and the annotation fails. A
+ *  type position has no `Attribution` member and the label fails. A
  *  structural type also keeps the probe's contract readable — the two fields it
  *  touches and nothing else. */
 type AttributionInternals = {

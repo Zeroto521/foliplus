@@ -33,7 +33,7 @@ describe("LayerUI shell — event subscriptions", () => {
     vi.useRealTimers();
   });
 
-  it("CONTROL_ATTACHED re-runs the init pass and reapplies annotation state", () => {
+  it("CONTROL_ATTACHED re-runs the init pass and reapplies label state", () => {
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
     const applySpy = vi.spyOn(ui, "applyStyleLabelState");
 

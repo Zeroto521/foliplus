@@ -114,15 +114,13 @@ class LayerControlBrowserBase:
         )
 
     @staticmethod
-    def _declared_annotation_layer(
-        name, annotation, coords, text="12345678901234567890"
-    ):
+    def _declared_label_layer(name, label, coords, text="12345678901234567890"):
         """A point layer whose foliplus namespace declares its label defaults."""
         features = [point_feature(lng, lat, {"name": text}) for lat, lng in coords]
         return folium.GeoJson(
             json.dumps(feature_collection(*features)),
             name=name,
-            foliplus={"label": annotation},
+            foliplus={"label": label},
         )
 
     def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:

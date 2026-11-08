@@ -62,23 +62,40 @@ const bindFloatingWheel = (root: HTMLElement): void => {
   root.addEventListener("wheel", event => event.stopPropagation());
 };
 
-/** Touch containment over a floating root: stop the touch/pointer gesture
- *  from reaching the map container, where Leaflet's touch/pointer drag
- *  handlers would pan (or pinch-zoom) the map. The root's own native scroll
- *  keeps working because we stop propagation only, never preventDefault —
- *  the browser scroll gesture is not cancelled, it just no longer bubbles to
- *  the map. Attached once for the root's lifetime, mirroring
- *  bindFloatingWheel. */
-const bindFloatingTouch = (root: HTMLElement): void => {
-  const stop = (event: Event): void => event.stopPropagation();
-  root.addEventListener("touchstart", stop, { passive: true });
-  root.addEventListener("touchmove", stop, { passive: true });
-  root.addEventListener("touchend", stop, { passive: true });
-  root.addEventListener("pointerdown", stop);
-  root.addEventListener("pointermove", stop);
-  root.addEventListener("pointerup", stop);
+/** Unified gesture containment over a floating root: one call binds both the
+ *  wheel and the touch/pointer containment (a popup or a panel scroll body
+ *  must never pan or zoom the map beneath it). This is the ONLY gesture-entry
+ *  point for floating layers; callers bind either here or via mountFloating
+ *  (which auto-binds it). Returns a cleanup that removes every listener, so a
+ *  mount lifecycle can pair the bind with an exact release.
+ *  The unified wheel rule is "always" (the listbox rule): a wheel over the
+ *  root never bubbles to the map, so the map's scrollWheelZoom can't fire.
+ *  The unified touch rule stops propagation only, never preventDefault, so
+ *  the root's own native scroll keeps working. */
+const bindFloatingGestures = (root: HTMLElement): (() => void) => {
+  // Wheel containment: unconditionally swallow so the map's scrollWheelZoom
+  // can't fire. Named so the cleanup can remove it exactly.
+  const stopWheel = (event: Event): void => event.stopPropagation();
+  root.addEventListener("wheel", stopWheel);
+  // Touch/pointer containment: stop propagation only (never preventDefault),
+  // so the root's own native scroll keeps working.
+  const stopPointer = (event: Event): void => event.stopPropagation();
+  root.addEventListener("touchstart", stopPointer, { passive: true });
+  root.addEventListener("touchmove", stopPointer, { passive: true });
+  root.addEventListener("touchend", stopPointer, { passive: true });
+  root.addEventListener("pointerdown", stopPointer);
+  root.addEventListener("pointermove", stopPointer);
+  root.addEventListener("pointerup", stopPointer);
+  return () => {
+    root.removeEventListener("wheel", stopWheel);
+    root.removeEventListener("touchstart", stopPointer);
+    root.removeEventListener("touchmove", stopPointer);
+    root.removeEventListener("touchend", stopPointer);
+    root.removeEventListener("pointerdown", stopPointer);
+    root.removeEventListener("pointermove", stopPointer);
+    root.removeEventListener("pointerup", stopPointer);
+  };
 };
-
 /** Mount a floating layer and start its re-pin / re-seat lifecycle.
  *  Returns a release that is safe to call more than once. */
 const mountFloating = (opts: FloatingOptions): Floating => {
@@ -90,6 +107,13 @@ const mountFloating = (opts: FloatingOptions): Floating => {
   // laid-out box (a detached element reports 0x0).
   const host = hostFor(opts);
   if (root.parentElement !== host) host.appendChild(root);
+
+  // Unified gesture containment: a popup or floating panel must never pan or
+  // zoom the map beneath it. Bound here (once per mount) so every floating
+  // layer that goes through mountFloating gets it automatically; released
+  // exactly on teardown (the cleanup is paired with the bind).
+  const releaseGestures = bindFloatingGestures(root);
+  cleanups.push(releaseGestures);
 
   // Re-pin on scroll/resize instead of dismissing. A scroll that starts inside
   // the root is the root's own overflow-y scroll — it must not re-pin (and the
@@ -147,5 +171,5 @@ const mountFloating = (opts: FloatingOptions): Floating => {
   };
 };
 
-export { bindFloatingTouch, bindFloatingWheel, mountFloating };
+export { bindFloatingGestures, bindFloatingWheel, mountFloating };
 export type { Floating };

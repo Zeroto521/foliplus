@@ -248,7 +248,7 @@ class TestBaseControlRendering:
         """`.foliplus-form-select` rides the shared input hover/focus recipe.
 
         The shared `:is(...)` list in input.css covers `.foliplus-heatmap-ctrl
-        select` and the bare form-select class used by LayerControl annotation
+        select` and the bare form-select class used by LayerControl label
         / label panels. Same hover language as color/number.
         """
         css = read_css_dir("foliplus/css/common", "input.css")

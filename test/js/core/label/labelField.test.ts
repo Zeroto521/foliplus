@@ -89,7 +89,7 @@ describe("collectLabelFields", () => {
 });
 
 describe("hasLabelField", () => {
-  // The declaration-edge probe behind `capabilities.annotation`: a tree walk
+  // The declaration-edge probe behind `capabilities.label`: a tree walk
   // (unlike the collector's plain-iterable input) that stops *checking* at
   // the first hit — the walk itself cannot be interrupted, so leaves after
   // the hit still reach the callback and take the `found` guard arm.

@@ -185,7 +185,7 @@ describe("LayerSurface pane resolution", () => {
     // A spec list whose index 0 is NOT the declared pane (an appended label
     // pane arriving first): the base must take its own spec's role — or
     // none — while the extra spec still gets its pane booked. A position-
-    // based read would stamp `annotation` onto the base and drop the label
+    // based read would stamp `label` onto the base and drop the label
     // pane entirely.
     const { host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -489,7 +489,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("never writes pointer-events onto a pane", () => {
     // Whether a pane's content takes a hit is that content's own call:
-    // AnnotationCanvas writes `none` on itself, a data canvas is re-enabled by
+    // LabelCanvas writes `none` on itself, a data canvas is re-enabled by
     // the canvas rule in LayerControl/focus.css. The surface stays out of it.
     const { panes, host } = makeMap();
     new LayerSurface(host, {
@@ -900,7 +900,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
   });
 
   it("is a translation, not a re-sort: the panes' relative order holds at both bases", () => {
-    // Two sub-panes plus the layer's annotation pane. `writeZ` prices an
+    // Two sub-panes plus the layer's label pane. `writeZ` prices an
     // label pane at base + LABEL_Z_OFFSET and ignores its order, so it
     // lands level with a sub-pane; a focus lift must not change that
     // relationship, only the base everything sits at.
@@ -1524,7 +1524,7 @@ describe("LayerSurface capabilities", () => {
       zoomRange: "pane",
       // A color face has no features to label — the registration edge never
       // declares the `role: "label"` spec for it.
-      annotation: "none",
+      label: "none",
       fill: "native",
       stroke: "none",
       size: "none",

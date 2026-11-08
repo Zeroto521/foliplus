@@ -2,7 +2,7 @@
   // Read the most recently captured canvas — the renderer's own output
   // canvas — and count pixels matching a caller-specified color. The caller
   // picks the "content" color: a canvas layer's red fill, a label's white
-  // text, or the annotation canvas's pixel signature. Returns the hit count
+  // text, or the label canvas's pixel signature. Returns the hit count
   // and the total non-transparent pixel count so a test can tell "nothing
   // drawn at all" (total 0) from "drawn something, but not what I asked for"
   // (total > 0, hit 0). Returns null if no canvas was captured, so the

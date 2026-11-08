@@ -5,6 +5,7 @@ import type { SuggestItem } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
+import type { Floating } from "#common/floating.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */
@@ -15,6 +16,8 @@ interface SearchControlState {
   cachedSuggestions: Cache<string, SuggestItem[]>;
   searchHistory: SearchHistoryEntry[];
   panelWrap: HTMLElement | null;
+  /** The mounted floating lifecycle for the result panel (mountFloating). */
+  panelFloating: Floating | null;
   selectedIdx: number;
   currentItems: ResultItem[];
   lastSuggestFetch: number;

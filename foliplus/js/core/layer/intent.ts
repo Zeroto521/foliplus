@@ -4,7 +4,7 @@
 // layers carry user intent too, so the row store and its types live beside the
 // registry instead of inside the control. Moved verbatim from
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
-// IntentRow / LoadSource / AnnotationConfig) and `LayerControl/ui/intent.ts`
+// IntentRow / LoadSource / LabelConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
@@ -123,8 +123,8 @@ const isFillValueConfig = (value: unknown): value is FillValueConfig => {
   );
 };
 
-/** Per-layer annotation config (matches what persistence stores). */
-interface AnnotationConfig {
+/** Per-layer label config (matches what persistence stores). */
+interface LabelConfig {
   show: boolean;
   field: string;
   /** Runtime paint overrides — fall back to the shared --foliplus-label-* tokens. */
@@ -171,9 +171,9 @@ type LayerOverride =
  *     `Record<…>` pins fail the build until every one of them exists, and
  *     the value rides `layers[id]` under that key. Disk-shape growth is a
  *     separate, explicit task.
- *  2. A *label-only* field (position, …) belongs on {@link AnnotationConfig}
- *     instead: it nests under `layers[id].annotation`, needs no provenance
- *     entry, and flows through the tolerant annotation parse untouched —
+ *  2. A *label-only* field (position, …) belongs on {@link LabelConfig}
+ *     instead: it nests under `layers[id].label`, needs no provenance
+ *     entry, and flows through the tolerant label parse untouched —
  *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
  *     and the renderer consume it.
  *  3. How an *author default* is read depends on what consumes it:
@@ -235,9 +235,9 @@ type LayerIntent = {
   icon?: IconIntent;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
-  /** Label (annotation) config seed for this layer. Live label state after
-   *  the seed applies still lives in AnnotationManager (`configEntries`). */
-  annotation?: AnnotationConfig;
+  /** Label (label) config seed for this layer. Live label state after
+   *  the seed applies still lives in LabelManager (`configEntries`). */
+  label?: LabelConfig;
 };
 
 /** One layer's persisted intent: the values the user set, plus which dimensions
@@ -246,7 +246,7 @@ type PersistedLayerState = {
   visible?: boolean;
   /** The hex fill color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/fill.ts), so
-   *  it lives in this record rather than on the annotation config. */
+   *  it lives in this record rather than on the label config. */
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
@@ -259,7 +259,7 @@ type PersistedLayerState = {
   fillMode?: FillMode;
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
-   *  it lives in this record rather than on the annotation config. */
+   *  it lives in this record rather than on the label config. */
   borderColor?: string;
   /** The stroke width the user set, in the shared border bounds. */
   borderWeight?: number;
@@ -276,11 +276,11 @@ type PersistedLayerState = {
    *  name for every marker leaf). LayerControl owns the write — a
    *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
-  /** The layer's label (annotation) config — a style dimension of this layer,
+  /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
    *  for is still an entry here). */
-  annotation?: AnnotationConfig;
+  label?: LabelConfig;
   overrides: LayerOverride[];
 };
 
@@ -288,7 +288,7 @@ type PersistedLayerState = {
  *  plus provenance axis in one record, so a half-write cannot desync them
  *  through the store's cohesive `set` / `clear`. Absent intent key = the user
  *  never chose that dimension; provenance only ever holds {@link LayerOverride}
- *  keys (`name` / `annotation` are riders without markers). */
+ *  keys (`name` / `label` are riders without markers). */
 type IntentRow = {
   intent: LayerIntent;
   provenance: Set<LayerOverride>;
@@ -297,7 +297,7 @@ type IntentRow = {
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
  *  `PersistedRecord` (order / removed / foldedRoles stay outside the
- *  store); annotation config rides `layers[id].annotation`. */
+ *  store); label config rides `layers[id].label`. */
 type LoadSource = {
   renamedNames?: Record<string, string>;
   layers?: Record<string, PersistedLayerState>;
@@ -319,7 +319,7 @@ const INTENT = {
   SIZE: "size",
   ICON: "icon",
   NAME: "name",
-  ANNOTATION: "annotation",
+  LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
 
 type IntentKey = keyof LayerIntent;
@@ -346,13 +346,13 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.ICON]: isIconIntent,
   [INTENT.NAME]: value => typeof value === "string",
-  [INTENT.ANNOTATION]: value => value != null,
+  [INTENT.LABEL]: value => value != null,
 };
 
 /** The provenance-tracked style dims `dropRow` clears with the layer — an
  *  identity map onto `INTENT`, so a new `LayerOverride` must pick its intent
- *  key here (a compile error until it does). `name` / `annotation` are riders
- *  outside this set, cleared by their own callers (manager delete / annotation
+ *  key here (a compile error until it does). `name` / `label` are riders
+ *  outside this set, cleared by their own callers (manager delete / label
  *  destroy). */
 const STYLE_KEYS = {
   visible: INTENT.VISIBLE,
@@ -378,7 +378,7 @@ export {
   STYLE_KEYS,
 };
 export type {
-  AnnotationConfig,
+  LabelConfig,
   FillMode,
   FillValueConfig,
   IconIntent,

@@ -81,13 +81,13 @@ describe("LayerUI overlay mutual exclusion", () => {
     // and mask the guard that test is meant to reach. Restore the default.
     modeMocks.guardBlocked.mockReturnValue(false);
     // The fixture's data layer carries no real leaves, so the style panel
-    // would build empty: seed the field cache and the annotation capability
+    // would build empty: seed the field cache and the label capability
     // the way the panel's own tests do, so `openStylePanel` renders.
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     const surface = manager.surfaceFor(
       manager.layerRegistry.get("overlay1")!,
     ) as unknown as { capabilities: Record<string, unknown> };
-    surface.capabilities = { ...surface.capabilities, annotation: "pane" };
+    surface.capabilities = { ...surface.capabilities, label: "pane" };
   });
 
   afterEach(() => {

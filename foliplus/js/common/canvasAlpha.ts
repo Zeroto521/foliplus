@@ -1,6 +1,6 @@
 // Shared layer-alpha bake for self-drawn canvases (R11).
 //
-// One convention for every canvas drawer (heatmap, annotation, color face,
+// One convention for every canvas drawer (heatmap, label, color face,
 // future custom): multiply the *drawn* alpha by the layer's opacity slider
 // value instead of writing CSS `opacity` on the canvas element. CSS forces a
 // GPU composite buffer on a large canvas; baking keeps the pixels honest and
@@ -42,7 +42,7 @@ const drawAlpha = (declared: number, layerAlpha: number): number => {
 
 /** Run `draw` under `ctx.globalAlpha = drawAlpha(ctx.globalAlpha, layerAlpha)`,
  *  restoring the previous `globalAlpha` afterwards. Use this when a whole
- *  paint pass is one layer (annotation labels, color fill). Prefer
+ *  paint pass is one layer (label labels, color fill). Prefer
  *  `drawAlpha(declared, layerAlpha)` for per-shape declared alphas that must
  *  stack with the layer (heatmap fill/border). */
 const withLayerAlpha = (
