@@ -380,4 +380,226 @@ describe("ListCursor", () => {
       c.destroy();
     });
   });
+
+  describe("2D grid walk (cols > 1)", () => {
+    const makeGrid = (rows: number, cols: number) => {
+      const g = document.createElement("div");
+      g.id = "grid";
+      for (let i = 0; i < rows * cols; i++) {
+        const cell = document.createElement("button");
+        cell.className = "cell";
+        cell.type = "button";
+        cell.textContent = `c${i}`;
+        g.appendChild(cell);
+      }
+      document.body.appendChild(g);
+      return g;
+    };
+    const key = (target: HTMLElement, k: string) => {
+      const ev = new KeyboardEvent("keydown", {
+        key: k,
+        bubbles: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(ev);
+      return ev;
+    };
+
+    it("rows/cols: ArrowRight/Left move one column, clamped at the row edge", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      c.set(0);
+      // Right from col 0 → col 1
+      key(g, "ArrowRight");
+      expect(c.index).toBe(1);
+      // Right at row edge → next row's first cell (linear walk)
+      key(g, "ArrowRight");
+      expect(c.index).toBe(2);
+      key(g, "ArrowRight");
+      expect(c.index).toBe(3);
+      // Left from row 1 col 0 → row 0 col 2 (linear walk backwards)
+      key(g, "ArrowLeft");
+      expect(c.index).toBe(2);
+      // Left at the first cell → clamped at 0
+      c.set(0);
+      key(g, "ArrowLeft");
+      expect(c.index).toBe(0);
+      // Last cell right → clamped at n-1
+      c.set(5);
+      key(g, "ArrowRight");
+      expect(c.index).toBe(5);
+      c.destroy();
+      g.remove();
+    });
+
+    it("ArrowUp/Down move one row, clamped at the first/last row", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      c.set(0);
+      key(g, "ArrowDown");
+      expect(c.index).toBe(3);
+      // Down from last row → clamped at n-1
+      key(g, "ArrowDown");
+      expect(c.index).toBe(5);
+      key(g, "ArrowUp");
+      expect(c.index).toBe(2);
+      // Up from row 0 → stays (row > 0 guard: index 2 is row 0)
+      key(g, "ArrowUp");
+      expect(c.index).toBe(2);
+      c.destroy();
+      g.remove();
+    });
+
+    it("Home/End go to the first/last cell", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      c.set(1);
+      key(g, "Home");
+      expect(c.index).toBe(0);
+      key(g, "End");
+      expect(c.index).toBe(5);
+      c.destroy();
+      g.remove();
+    });
+
+    it("Enter/Space activate the focused cell", () => {
+      const g = makeGrid(1, 2);
+      const activated: number[] = [];
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 2,
+        onActivate: i => activated.push(i),
+      });
+      c.bindKeys(g);
+      c.set(0);
+      key(g, "Enter");
+      expect(activated).toEqual([0]);
+      key(g, " ");
+      expect(activated).toEqual([0, 0]);
+      c.destroy();
+      g.remove();
+    });
+
+    it("a native control inside the grid keeps its keys (input gets arrows)", () => {
+      const g = makeGrid(1, 2);
+      const input = document.createElement("input");
+      input.type = "text";
+      g.appendChild(input);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 2,
+      });
+      c.bindKeys(g);
+      c.set(0);
+      input.focus();
+      const ev = key(g, "ArrowRight");
+      expect(ev.defaultPrevented).toBe(false);
+      expect(c.index).toBe(0);
+      c.destroy();
+      g.remove();
+    });
+
+    it("an empty grid does not move", () => {
+      const g = document.createElement("div");
+      g.id = "empty";
+      document.body.appendChild(g);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      const ev = key(g, "ArrowRight");
+      expect(ev.defaultPrevented).toBe(false);
+      expect(c.index).toBe(-1);
+      c.destroy();
+      g.remove();
+    });
+
+    it("a first move with no DOM focus and no cursor index starts at 0", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      // No set(), no DOM focus: _index stays -1. ArrowRight falls back to 0,
+      // then moves one cell right (index = 0 + 1).
+      key(g, "ArrowRight");
+      expect(c.index).toBe(1);
+      c.destroy();
+      g.remove();
+    });
+
+    it("Enter with no current cell does not activate", () => {
+      const g = makeGrid(1, 2);
+      const activated: number[] = [];
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 2,
+        onActivate: i => activated.push(i),
+      });
+      c.bindKeys(g);
+      // No set() and no focus: current is null. Enter must not activate.
+      const ev = key(g, "Enter");
+      expect(activated).toEqual([]);
+      expect(ev.defaultPrevented).toBe(false);
+      c.destroy();
+      g.remove();
+    });
+
+    it("syncs with DOM focus: a Tab'd cell wins over the cursor index", () => {
+      const g = makeGrid(2, 3);
+      const c = new ListCursor({
+        root: g,
+        itemSelector: ".cell",
+        activeClass: "on",
+        mode: "roving",
+        cols: 3,
+      });
+      c.bindKeys(g);
+      c.set(0);
+      const cells = [...g.querySelectorAll<HTMLElement>(".cell")];
+      cells[4].focus();
+      key(g, "ArrowRight");
+      expect(c.index).toBe(5);
+      c.destroy();
+      g.remove();
+    });
+  });
 });
