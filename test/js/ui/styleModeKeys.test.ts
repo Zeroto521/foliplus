@@ -34,9 +34,7 @@ const CJK = /[\u4e00-\u9fff]/;
 // The files that are themselves user-visible i18n/word-list sources: these
 // must be ASCII-only. Every other foliplus/js file may keep existing CJK
 // comments (see the user rule recorded above).
-const ASCII_ONLY_SOURCES = [
-  "ui/styleModeKeys.ts",
-];
+const ASCII_ONLY_SOURCES = ["ui/styleModeKeys.ts"];
 
 // A locale key that exists in the JSON but is not yet referenced from JS
 // would be an orphan. The only keys allowed to be "prepared for later" are
@@ -45,7 +43,7 @@ const ORPHAN_ALLOW_LIST: Record<string, string> = {
   // style_fill_original_levels is referenced through a .replace() call in
   // fill.ts (the {n} substitution), not a bare T("...") literal, so the
   // reference scanner below cannot see it; it is genuinely used.
-  "style_fill_original_levels": "referenced via .replace() in fill.ts (originalCaption)",
+  style_fill_original_levels: "referenced via .replace() in fill.ts (originalCaption)",
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -102,8 +100,10 @@ describe("style mode single source", () => {
         const key = m[1] as string;
         const fk = `LayerControl.${key}`;
         const line = s.slice(0, m.index ?? 0).split("\n").length;
-        if (!(fk in LOCALE_EN)) missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing en)`);
-        if (!(fk in LOCALE_ZH)) missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing zh)`);
+        if (!(fk in LOCALE_EN))
+          {missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing en)`);}
+        if (!(fk in LOCALE_ZH))
+          {missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing zh)`);}
       }
     }
     expect(missing).toEqual([]);

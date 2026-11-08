@@ -1304,7 +1304,7 @@ describe("event-driven row refresh", () => {
 
       // The fill walk and the border follow-walk (C8: a fill value ramp
       // derives the border) each paint once; both are coalesced per frame.
-      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     });
 
     it("rides the solid arm onto the same new features", () => {

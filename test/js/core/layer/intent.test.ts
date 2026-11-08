@@ -1,7 +1,13 @@
 // Unit tests for core/layer/intent — the per-layer intent domain, focused
 // on the value-based fill ramp's two arms (numeric / category).
 import { describe, expect, it } from "vitest";
-import { FILL_MODE, INTENT, LIVE, isFillValueConfig, isIconIntent } from "#core/layer/intent.js";
+import {
+  FILL_MODE,
+  INTENT,
+  LIVE,
+  isFillValueConfig,
+  isIconIntent,
+} from "#core/layer/intent.js";
 
 const NUMERIC = {
   kind: "numeric",

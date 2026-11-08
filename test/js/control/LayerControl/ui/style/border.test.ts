@@ -2154,5 +2154,3 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(values).not.toContain("value"); // by_value absent on a polygon
   });
 });
-
-

@@ -27,9 +27,9 @@ import {
   CAP_TIER,
   DIM,
   FILL_MODE,
-  GEOM_TYPE,
   type FillMode,
   type FillValueConfig,
+  GEOM_TYPE,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
@@ -181,8 +181,7 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
 const effectiveBorderValue = (
   ui: LayerUI,
   layerId: string,
-): FillValueConfig | undefined =>
-  getIntent(ui, layerId, INTENT.BORDER_VALUE);
+): FillValueConfig | undefined => getIntent(ui, layerId, INTENT.BORDER_VALUE);
 
 /** The arm the border row shows and the stroke paints.
  *
@@ -263,11 +262,7 @@ const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
 
 /** Write the border mode intent, seeding the border value when the user
  *  switches to the by-value arm and none is stored yet. */
-const writeBorderMode = (
-  ui: LayerUI,
-  layerId: string,
-  mode: FillMode,
-): boolean => {
+const writeBorderMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
   if (mode === FILL_MODE.VALUE) {
     const fields = numericFields(ui, layerId);
     if (fields.length === 0) return false;

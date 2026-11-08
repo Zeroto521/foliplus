@@ -1515,7 +1515,6 @@ const FILL_DIMENSION = registerDimension<{
 
 export {
   buildValueDetail,
-  effectiveFillValue,
   numericFields,
   resolvedValue,
   applyFillToLayer,
