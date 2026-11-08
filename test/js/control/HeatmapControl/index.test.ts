@@ -10,7 +10,7 @@
 // Leaflet runtime and is covered by the browser suite; the lazy getter and
 // destroy() do not.
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { makeConfig } from "../../config-fixture.js";
+import { makeConfig } from "../config-fixture.js";
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };

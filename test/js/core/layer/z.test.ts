@@ -38,7 +38,7 @@ describe("zFor slots", () => {
     expect(zFor({ index: 1, count: 3, order: 2 })).toBe(slot + 2);
   });
 
-  it("prices an annotation pane one step above its layer, not at its own order", () => {
+  it("prices an label pane one step above its layer, not at its own order", () => {
     expect(LABEL_Z_OFFSET).toBe(1);
     const slot = zFor({ index: 1, count: 3 });
     expect(zFor({ index: 1, count: 3, paneRole: "label" })).toBe(slot + 1);
@@ -50,7 +50,7 @@ describe("zFor slots", () => {
     // DOM order: Leaflet writes `pos.y + zIndexOffset` onto icons, which goes
     // negative near the viewport top — where a negative-z positioned element
     // paints BELOW a z:auto sibling. One step down keeps it under its own
-    // icons and above the next layer's slot (STEP = 10). Like annotation,
+    // icons and above the next layer's slot (STEP = 10). Like label,
     // the role decides; `order` is ignored.
     const slot = zFor({ index: 1, count: 3 });
     expect(zFor({ index: 1, count: 3, paneRole: "shadow" })).toBe(slot - 1);

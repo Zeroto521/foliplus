@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import _js, use_page
+from conftest import _js, leaflet_points, use_page
 
 from .helper import _make_page
 
@@ -64,7 +64,10 @@ class TestMeasurePanelBrowser:
         """clearAll collapses the expanded panel when a measurement exists."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             # Add a measurement
-            page.evaluate(_js("MeasureControl/add_layer_and_clear_all"))
+            page.evaluate(
+                _js("MeasureControl/add_layer_and_clear_all"),
+                {"point": leaflet_points("common", "point_1193_2608")[0]},
+            )
             page.wait_for_timeout(300)
             # clearAll should be safe — no crash, panel collapse via ctrl
             assert not errors, f"JS errors: {errors}"

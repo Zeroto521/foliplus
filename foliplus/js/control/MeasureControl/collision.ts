@@ -5,7 +5,7 @@
 // When two chips overlap heavily they are unreadable, so the least important one
 // drops out instead of drifting away from its measurement point — labels never
 // move off their anchor. The geometry (which pairs collide, who survives) lives
-// in core/labelCollision and is shared with LayerControl's annotation labels;
+// in core/labelCollision and is shared with LayerControl's label labels;
 // what stays here is what is specific to a DOM chip: reading its box off the live
 // DOM, and hiding it.
 //

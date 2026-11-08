@@ -4,7 +4,7 @@
 // projection, so a real rebuild cannot run. What these tests pin is the
 // scheduling contract — when a rebuild is queued, when it is dropped, when
 // it is flushed, and when the config gate keeps it from ever running. The
-// real walk and its cost live in the annotation suite and the perf test.
+// real walk and its cost live in the label suite and the perf test.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -58,8 +58,8 @@ describe("content-change label replay", () => {
   };
 
   const turnLabelsOn = () => {
-    ui.c.annotation.setConfig("grp1", {
-      ...ui.c.annotation.defaultConfig(),
+    ui.c.label.setConfig("grp1", {
+      ...ui.c.label.defaultConfig(),
       show: true,
       field: "name",
     });
@@ -75,7 +75,7 @@ describe("content-change label replay", () => {
   it("coalesces a streamed burst into one label rebuild", () => {
     const children = labelledFixture();
     turnLabelsOn();
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
 
     for (let i = 0; i < 5; i++) {
       children.push(labelLeaf(`f${i}`));
@@ -92,7 +92,7 @@ describe("content-change label replay", () => {
   it("does not rebuild when labels are off", () => {
     labelledFixture();
     // No config: getConfig answers the default, show=false.
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
 
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     flushStyleDimApply(FACE.LABEL, "grp1");
@@ -102,7 +102,7 @@ describe("content-change label replay", () => {
   it("an unregister drops the pending label task", () => {
     labelledFixture();
     turnLabelsOn();
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
 
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
@@ -116,7 +116,7 @@ describe("content-change label replay", () => {
   it("closing the style panel flushes a pending label rebuild", () => {
     labelledFixture();
     turnLabelsOn();
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
     // Minimal panel chrome so closeStylePanel finds stylePanelLayerId.
     ui.overlayPanel.stylePanelLayerId = "grp1";
 

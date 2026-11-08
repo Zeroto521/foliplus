@@ -1,4 +1,4 @@
-() => {
+fixtures => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const ids = [];
@@ -8,12 +8,7 @@
       name: `Idem${i}`,
       panes: [{ name: `__idem_g${i}__` }],
     });
-    mg.mainLayer.addLayer(
-      L.polyline([
-        [26.08, 119.3],
-        [26.09, 119.31],
-      ]),
-    );
+    mg.mainLayer.addLayer(L.polyline(fixtures.line));
     ids.push(`__idem_${i}__`);
   }
   const orderBefore = api.layers.filter(l => ids.includes(l.id)).map(l => l.id);

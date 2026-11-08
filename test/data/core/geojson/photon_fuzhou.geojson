@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Fuzhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [119.3, 26.08]
+      }
+    }
+  ]
+}

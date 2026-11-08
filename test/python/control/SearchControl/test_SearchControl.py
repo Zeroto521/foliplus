@@ -10,6 +10,7 @@ from conftest import (
     assert_config_value,
     assert_locale,
     assert_map_unchanged,
+    load_geojson,
     make_browser_page,
     map_center_zoom,
     render_control,
@@ -327,22 +328,7 @@ class TestSearchControlBrowser:
         LayerControl().add_to(m)
         SearchControl().add_to(m)
         folium.GeoJson(
-            {
-                "type": "Feature",
-                "properties": {},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [121.4, 31.2],
-                            [121.5, 31.2],
-                            [121.5, 31.3],
-                            [121.4, 31.3],
-                            [121.4, 31.2],
-                        ]
-                    ],
-                },
-            },
+            load_geojson("common", "shanghai_polygon"),
             name="Municipal Boundaries",
         ).add_to(m)
         html = m.get_root().render()

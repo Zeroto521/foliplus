@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import folium
-from conftest import _js, use_page, use_raw_page
+from conftest import _js, load_geojson, use_page, use_raw_page
 
 from foliplus import ExportControl
 
@@ -48,27 +48,7 @@ class TestExportRenderBrowser:
             browser,
             tmp_path,
             folium.GeoJson(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.28, 26.06],
-                                        [119.32, 26.06],
-                                        [119.32, 26.10],
-                                        [119.28, 26.10],
-                                        [119.28, 26.06],
-                                    ]
-                                ],
-                            },
-                        }
-                    ],
-                },
+                load_geojson("common", "polygon_fuzhou_box"),
                 name="Test Polygon",
                 overlay=True,
                 show=True,

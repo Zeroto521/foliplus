@@ -24,10 +24,10 @@
   color: var(--foliplus-text-primary);
 
   /* Label typography is not redeclared here: the canvas renderer
-     (common/canvasLabel, shared with LayerControl's annotation labels) reads the
+     (common/canvasLabel, shared with LayerControl's label canvas) reads the
      shared map-label tokens — --foliplus-label-font-family / -size / -weight / -color /
      -halo-color / -halo-width from common/token.css — directly, so one override
-     styles a hex value and an annotation label alike. */
+     styles a hex value and a label alike. */
 
   /* ── Style rows block ──
      Sits below the data rows with no heading of its own since the panel

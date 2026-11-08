@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "centroid": [26.08, 119.3],
+        "value": 42,
+        "fillColor": "#ff0000"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [119.3, 26.08],
+            [119.31, 26.09],
+            [119.3, 26.08]
+          ]
+        ]
+      }
+    }
+  ]
+}

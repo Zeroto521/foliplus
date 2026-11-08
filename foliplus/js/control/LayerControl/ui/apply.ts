@@ -361,7 +361,7 @@ const dispatchStateOp = (
         ui.c.panes.assertOwnedPane(pane.name);
         pane.element.style.opacity = String(value);
       }
-      ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
+      ui.c.label.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
     return false;
