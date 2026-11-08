@@ -478,29 +478,18 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
 // instead of inlining coordinates, so one geometry has exactly one home.
 
 /** Load a whole GeoJSON document (Feature, FeatureCollection, or geometry). */
-export function loadGeoJSON<T = GeoJSON.GeoJsonObject>(
-  scope: string,
-  name: string,
-): T {
+export function loadGeoJSON<T = GeoJSON.GeoJsonObject>(scope: string, name: string): T {
   const file = resolve(DATA_DIR, scope, "geojson", `${name}.geojson`);
   return JSON.parse(readFileSync(file, "utf-8")) as T;
 }
 
 /** Load one Feature from a FeatureCollection fixture. */
-export function loadFeature(
-  scope: string,
-  name: string,
-  index = 0,
-): GeoJSON.Feature {
+export function loadFeature(scope: string, name: string, index = 0): GeoJSON.Feature {
   return loadGeoJSON<GeoJSON.FeatureCollection>(scope, name).features[index]!;
 }
 
 /** Load one geometry from a FeatureCollection fixture. */
-export function loadGeometry(
-  scope: string,
-  name: string,
-  index = 0,
-): GeoJSON.Geometry {
+export function loadGeometry(scope: string, name: string, index = 0): GeoJSON.Geometry {
   return loadFeature(scope, name, index).geometry;
 }
 

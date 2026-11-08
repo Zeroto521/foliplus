@@ -1117,7 +1117,7 @@ def _declared_layer() -> folium.GeoJson:
         foliplus={
             "fill": {
                 "field": "score",
-                "scheme": "Blues",
+                "scheme": "Reds",
                 "method": "equal",
                 "classes": 3,
             }
