@@ -44,8 +44,8 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { buildOriginalDetail } from "./fillOriginal.js";
-import { applyValueFill, resolveFillMode } from "./fillValue.js";
 import {
+  applyValueFill,
   bindValueDetail,
   buildValueDetail,
   declaredFill,
@@ -54,10 +54,11 @@ import {
   effectiveFillValue,
   hasDeclaredValue,
   numericFields,
+  resolveFillMode,
   resolvedValue,
   valueForUi,
   writeFillMode,
-} from "./fillValueDetail.js";
+} from "./fillValue.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
