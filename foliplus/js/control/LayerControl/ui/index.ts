@@ -69,6 +69,7 @@ import {
   setVisibleIntent,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
+import { applyIconToLayer } from "./style/icon.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -314,6 +315,7 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
+      applyIconToLayer(this, layerId);
     }
     // Author-declared fills are read-time defaults, not stored overrides, so
     // the provenance loop above never reaches a layer the user left alone.

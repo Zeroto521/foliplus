@@ -1,11 +1,11 @@
-// ui/sliderVocabulary — the class names the slider primitive owns.
+// common/sliderClassName — single source for slider class names.
 //
 // Kept free of any foliplus runtime import: the primitive is usable without a
 // map, so its vocabulary cannot live in LayerControl/const.ts (that module
 // reads the map's container at import time). The primitive and its tests
 // import this module directly.
 
-const SLIDER = {
+const SLIDER_CLASS = {
   ROOT: "foliplus-slider",
   TRACK: "foliplus-slider-track",
   RAIL: "foliplus-slider-rail",
@@ -25,4 +25,4 @@ const SLIDER = {
   DISABLED: "is-disabled",
 } as const;
 
-export { SLIDER };
+export { SLIDER_CLASS };
