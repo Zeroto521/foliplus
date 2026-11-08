@@ -1,4 +1,4 @@
-// Unit tests for the shared by-value style arm — valueArm.
+// Unit tests for the shared by-value style arm — valuePaint.
 //
 // The arm is face-independent: it paints whatever face a \`ValueFaceDecl\`
 // declares, and its body carries no FILL/STROKE literal. These tests drive it
@@ -19,8 +19,8 @@ import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import { FACE, walkStyleLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 import {
   type ValueFaceDecl,
-  applyValueArm,
-} from "#control/LayerControl/ui/style/valueArm.js";
+  applyValuePaint,
+} from "#control/LayerControl/ui/style/valuePaint.js";
 
 vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
@@ -90,7 +90,7 @@ const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => 
 });
 
 // A stroke-flavoured demo face: a different color slot, opacity slot, face
-// and leaf walker than the fill face. If valueArm had a fill branch, this
+// and leaf walker than the fill face. If valuePaint had a fill branch, this
 // declaration would still paint fillColor/fill and the tests below would
 // fail — passing proves the arm consumes the declaration's slots.
 const demoDecl: ValueFaceDecl = {
@@ -104,7 +104,7 @@ const demoDecl: ValueFaceDecl = {
   logLabel: "value-based demo:",
 };
 
-describe("applyValueArm", () => {
+describe("applyValuePaint", () => {
   it("paints the declared face, not a hardcoded fill face", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
@@ -112,7 +112,7 @@ describe("applyValueArm", () => {
       { properties: { value: 9 } },
     ]);
 
-    applyValueArm(makeUI(layer), "demo1", makeRamp(), demoDecl);
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
 
     for (const leaf of layer.leaves) {
       const call = (leaf.setStyle as any).mock.calls[0][0];
@@ -132,7 +132,7 @@ describe("applyValueArm", () => {
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyValueArm(makeUI(layer), "demo1", ramp, demoDecl);
+    applyValuePaint(makeUI(layer), "demo1", ramp, demoDecl);
 
     expect(pinStyleOnHighlight).toHaveBeenCalledTimes(1);
     expect((pinStyleOnHighlight as ReturnType<typeof vi.fn>).mock.calls[0][1]).toBe(
@@ -145,10 +145,93 @@ describe("applyValueArm", () => {
   });
 });
 
-describe("valueArm carries no face literal", () => {
+it("paints category leaves via buildCategoryRamp, not the numeric ramp", () => {
+  // A category config drives the arm down the buildCategoryRamp arm; the
+  // leaf's label must end up in the write's declared color slot.
+  installChroma(["#aa0000", "#00aa00", "#0000aa"]);
+  const catRamp: FillValueConfig = {
+    field: "cat",
+    kind: "category",
+    scheme: DEFAULT_SCHEMES[0],
+  } as FillValueConfig;
+  const catDecl: ValueFaceDecl = {
+    ...demoDecl,
+    readValueConfig: () => catRamp,
+  };
+  const layer = makeFeatureLayer([
+    { properties: { cat: "alpha" } },
+    { properties: { cat: "beta" } },
+    { properties: { cat: "alpha" } }, // duplicate label — first-seen wins
+  ]);
+  applyValuePaint(makeUI(layer), "demo1", catRamp, catDecl);
+  // Both distinct labels got painted (the walk visited them)
+  const painted = layer.leaves.map(l => (l.setStyle as any).mock.calls[0]?.[0]);
+  expect(painted[0].color).toBeDefined();
+  expect(painted[1].color).toBeDefined();
+});
+
+it("warns and skips the write when chroma throws on the scheme", () => {
+  // chroma.scale() throws — the arm must log.warn and return without
+  // calling setStyle or pinning, not propagate the error.
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  globalThis.chroma = {
+    scale: () => {
+      throw new Error("unknown scheme");
+    },
+  } as never;
+  const layer = makeFeatureLayer([{ properties: { value: 1 } }]);
+  applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
+  expect(warnSpy).toHaveBeenCalled();
+  // The arm skipped the paint (color key absent from the write) and ran
+  // the restore path — the leaf's author color is what setStyle received.
+  for (const leaf of layer.leaves) {
+    const call = (leaf.setStyle as any).mock.calls[0]?.[0];
+    expect(call?.color).toBe("#000000"); // the author's original, not a ramp color
+  }
+  warnSpy.mockRestore();
+});
+
+it("restores the author's face when the ramp classifies no leaf", () => {
+  // installChroma returning empty → both scale and catScale are null →
+  // the arm takes the restore (commitStyleDimMerged) branch, not paint.
+  globalThis.chroma = {
+    scale: () => ({ mode: () => ({ colors: () => [] }), colors: () => [] }),
+  } as never;
+  const layer = makeFeatureLayer([
+    { properties: { value: 1 } },
+    { properties: { value: 99 } },
+  ]);
+  applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
+  // The restore path ran — the author's color (unchanged) is what setStyle
+  // received, not a ramp color. The arm skipped the paint.
+  for (const leaf of layer.leaves) {
+    const call = (leaf.setStyle as any).mock.calls[0]?.[0];
+    expect(call?.color).toBe("#000000"); // author's original preserved
+  }
+});
+
+it("replays the category color on mouseout via the pin getter", () => {
+  installChroma(["#aa0000", "#00aa00"]);
+  const catRamp: FillValueConfig = {
+    field: "cat",
+    kind: "category",
+    scheme: DEFAULT_SCHEMES[0],
+  } as FillValueConfig;
+  const catDecl: ValueFaceDecl = {
+    ...demoDecl,
+    readValueConfig: () => catRamp,
+  };
+  const layer = makeFeatureLayer([{ properties: { cat: "alpha" } }]);
+  applyValuePaint(makeUI(layer), "demo1", catRamp, catDecl);
+  const out = pinGetterOf(0)();
+  expect(out).not.toBeNull();
+  expect(out!.color).toBeDefined();
+});
+
+describe("valuePaint carries no face literal", () => {
   it("never references the FACE / DIM vocabularies or a fill/stroke style key", () => {
     const source = readFileSync(
-      `${process.cwd()}/foliplus/js/control/LayerControl/ui/style/valueArm.ts`,
+      `${process.cwd()}/foliplus/js/control/LayerControl/ui/style/valuePaint.ts`,
       "utf8",
     );
     // Strip comments so prose ("fill carriers", "stroke face") cannot mask a

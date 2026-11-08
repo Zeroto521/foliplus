@@ -2,10 +2,10 @@
 // fill dimension.
 //
 // This module is now the FILL declaration over the shared by-value arm
-// (valueArm.ts): the fill face's specific surface — which slot the ramp
+// (valuePaint.ts): the fill face's specific surface — which slot the ramp
 // color lands in (`fillColor`), which leaf walker reaches the fill carriers,
 // the solid-mode `fillOpacity`, the FILL mode check, and the live fillValue
-// reader — is declared here and handed to `applyValueArm`, which walks the
+// reader — is declared here and handed to `applyValuePaint`, which walks the
 // leaves and paints. All the walking / ramp / write / pin logic lives in the
 // arm and is face-independent; a new by-value dimension (stroke / size /
 // icon) declares its own `ValueFaceDecl` and calls the same arm.
@@ -19,7 +19,7 @@ import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/inte
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValueArm } from "./valueArm.js";
+import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
 
 const resolveFillMode = (
   ui: LayerUI,
@@ -65,7 +65,7 @@ const applyValueFill = (
   liveRamp: () => FillValueConfig | undefined = () =>
     getIntent(ui, layerId, INTENT.FILL_VALUE),
 ): void => {
-  applyValueArm(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveRamp);
+  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveRamp);
 };
 
 export { applyValueFill, resolveFillMode };

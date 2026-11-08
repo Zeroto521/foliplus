@@ -10,7 +10,7 @@
  * (`face`), and the two face-level live readers (`isValueActive`,
  * `readValueConfig`) — is injected as a `ValueFaceDecl`. The arm body
  * contains no FILL/STROKE literal and no face branch: a new dimension
- * declares its own `ValueFaceDecl` and calls `applyValueArm`.
+ * declares its own `ValueFaceDecl` and calls `applyValuePaint`.
  * Sibling arms (borderValue / size / icon) reuse it directly.
  *
  * If a NON-LayerControl component ever needs to paint by value, that is a
@@ -89,7 +89,7 @@ type ValueLeafWalker = (node: StyleCarrier, fn: (leaf: StyleSetter) => void) => 
  *  Paired rather than a bare slot so the arm never branches on "does this face
  *  have an opacity" — a face without one passes `null` and the arm simply
  *  skips it. */
-export type ValueOpacity = {
+type ValueOpacity = {
   /** The style slot the user's opacity lands in (e.g. `fillOpacity`). */
   key: string;
   /** The live reader for this face's opacity intent. */
@@ -99,7 +99,7 @@ export type ValueOpacity = {
 /** The face-specific surface of the by-value arm. One declaration per style
  *  dimension (fill / stroke / size / icon); the arm body consumes only these
  *  and carries no face literal or branch. */
-export type ValueFaceDecl = {
+type ValueFaceDecl = {
   /** The dimension the highlight pin registers on (DIM.FILL, DIM.STROKE...). */
   dim: string;
   /** The write face (FACE.FILL, FACE.STROKE). */
@@ -133,7 +133,7 @@ export type ValueFaceDecl = {
  *
  *  The face-specific surface is the `decl`; the two optional readers default
  *  to the decl's own readers so a caller can drive the arm with a decl alone. */
-export const applyValueArm = (
+const applyValuePaint = (
   ui: LayerUI,
   layerId: string,
   value: FillValueConfig,
@@ -300,3 +300,6 @@ export const applyValueArm = (
     });
   }
 };
+
+export { applyValuePaint };
+export type { ValueFaceDecl };
