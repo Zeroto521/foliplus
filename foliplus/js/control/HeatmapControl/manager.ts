@@ -51,16 +51,17 @@ import {
   dropFilterForField,
   filterKey,
   filterStep,
+  getLayerAlpha,
   normalizeFilter,
   parsePersistedFilter,
   pickFilterField,
   revalidateStoredFilter,
   selectIndices,
   serializedFilters,
+  setLayerAlpha,
   snapshotFromPoints,
   storeFilter,
 } from "#core/layer/index.js";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";

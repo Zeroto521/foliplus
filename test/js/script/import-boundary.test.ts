@@ -197,12 +197,13 @@ const resolveTarget = (fromRel: string, spec: string): string | null => {
 // barrel's directory importing a module inside it must use the barrel.
 const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
   // The barrel's own re-exports are the barrel itself — never a violation.
-  const fromDir = dirname(fromRel);
-  // ui barrel: any file outside foliplus/js/ui/ importing #ui/<mod> (not index).
+  // ui barrel: a file in a DIFFERENT tier (or root/control) importing #ui/<mod>
+  // (not index) must use the barrel. Same-tier ui files may import a ui module
+  // directly — a same-tier leaf connection.
   if (
     canonicalSpec.startsWith("#ui/") &&
     !canonicalSpec.startsWith("#ui/index.js") &&
-    !fromDir.startsWith("foliplus/js/ui")
+    layerOf(fromRel) !== "ui"
   ) {
     return "cross-tier ui import must go through #ui/index.js";
   }
@@ -211,7 +212,7 @@ const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
   if (
     canonicalSpec.startsWith("#core/layer/") &&
     !canonicalSpec.startsWith("#core/layer/index.js") &&
-    !fromDir.startsWith("foliplus/js/core/layer")
+    layerOf(fromRel) !== "core"
   ) {
     return "cross-tier core/layer import must go through #core/layer/index.js";
   }
@@ -354,7 +355,7 @@ describe("JS import boundaries", () => {
         f
           .split("\\")
           .join("/")
-          .replace(REPO_ROOT.split("\\").join("/") + "/", ""),
+          .replace(`${REPO_ROOT.split("\\").join("/")}/`, ""),
       )
       .filter(rel => !rel.startsWith("foliplus/js/ui/"))
       .filter(rel =>

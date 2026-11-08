@@ -1,7 +1,7 @@
-// common/listbox — the ONE listbox engine behind every self-built dropdown.
+// ui/listbox — the ONE listbox engine behind every self-built dropdown.
 //
-// The shared select replacement (common/dropdown) and the scheme picker
-// (common/schemePicker) grew up as two parallel implementations that shared
+// The shared select replacement (ui/dropdown) and the scheme picker
+// (ui/schemePicker) grew up as two parallel implementations that shared
 // only their ARIA contract text. Each bug needed the same fix twice (#832's
 // wheel fix, #824's disabled affordance), and the divergence was a *conscious*
 // decision (see schemePicker's note at :199-222): element <div> vs <button>,
@@ -21,6 +21,9 @@
 //
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
+import { bindDismiss } from "./dismiss.js";
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import type { DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,
@@ -29,9 +32,6 @@ import {
 } from "#platform/floating.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { bindDismiss } from "./dismiss.js";
-import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
-import type { DropdownSurface } from "./type.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {
@@ -71,7 +71,7 @@ type ListboxRowShape = {
 };
 
 /** The popup-host contract: where an open popup mounts and how it hears that
- *  the covering surface changed. Consumers pass common/fullscreen's
+ *  the covering surface changed. Consumers pass platform/fullscreen's
  *  dropdownSurface(scope); builders that create listboxes on a consumer's
  *  behalf (core/rampForm, core/label) forward it untouched. */
 /**

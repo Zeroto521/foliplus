@@ -1,4 +1,4 @@
-// common/canvasLabel — the one recipe for canvas-drawn map labels.
+// ui/canvasLabel — the one recipe for canvas-drawn map labels.
 //
 // HeatmapControl's hex values and LayerControl's label labels both draw
 // text with a halo on a canvas, and both take their typography from the shared

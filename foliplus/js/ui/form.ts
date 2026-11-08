@@ -1,4 +1,4 @@
-// common/form — shared form-control builders for panel UIs.
+// ui/form — shared form-control builders for panel UIs.
 // HeatmapControl's template and LayerControl's style drawer both need the
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
