@@ -1,9 +1,9 @@
-// Original-colors arm of the fill dimension — the read-only presentation of
+// Original-colors mode of the fill dimension — the read-only presentation of
 // the author's own paint.
 //
 // The author declared these colors (per feature, a scale, or a plain record);
 // the panel shows them as read-outs, never as controls a user can edit. The
-// caption, the count and the read-only frame are shared by this arm only;
+// caption, the count and the read-only frame are shared by this mode only;
 // `buildOriginalDetail` builds the read-only detail rows.
 import { METHOD } from "#core/classify.js";
 import { dom } from "#common/dom.js";
@@ -45,7 +45,7 @@ const originalCount = (author: AuthorFill | null): string => {
   return `${author?.distinct ?? 0}${author?.capped ? "+" : ""}`;
 };
 
-/** One read-only readout box: the form-control frame of the arm beside it,
+/** One read-only readout box: the form-control frame of the mode beside it,
  *  with no chevron, no focus and no pointer affordance. The detail states the
  *  author's presentation, so every control in it is a readout the panel cannot
  *  open, toggle or edit. */
@@ -62,13 +62,13 @@ const readOnlyBox = (
     ...children,
   );
 
-/** The original-colors arm's read-only detail: the author's column, their
+/** The original-colors mode's read-only detail: the author's column, their
  *  colors, and the method + class-count pair on the same label/control grid
- *  the by-value arm uses, so each readout lands on the column edge of the
+ *  the by-value mode uses, so each readout lands on the column edge of the
  *  control it replaces instead of spilling across the panel.
  *
  *  No select, no chevron and nothing clickable: these exist to classify data,
- *  and this arm is the author's presentation, not a user classification.
+ *  and this mode is the author's presentation, not a user classification.
  *  Rendering them here is what squeezed a 43-color palette into the panel's
  *  2-9 class vocabulary and collapsed it to 9 on the first write.
  *
@@ -118,7 +118,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // ignored). The colors are information, not a control.
   colorsBox.setAttribute("aria-label", caption);
 
-  // Row order matches the by-value arm: Field, Method, Scheme. The method and
+  // Row order matches the by-value mode: Field, Method, Scheme. The method and
   // class count share one row (the by-value valueForm classes row's shape): a
   // single style_method label with two read-only boxes side by side, the method
   // box filling the control column (the by-value method select's role) and the
@@ -133,14 +133,14 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // scale whose method is null or absent (quantiles/jenks/heads are not
   // provable from the breaks alone) states a dash rather than guessing. A
   // categorical layer (no paired scale) uses the same dash. The row always
-  // renders so the arm stays aligned with the by-value grid.
+  // renders so the mode stays aligned with the by-value grid.
   // The two readouts stay distinguishable to assistive tech the way the
   // by-value selects do (the classes row keeps its own aria-labels): the
   // method box is named by the method label, the count box by the class-count
   // label. Both are readouts, never controls — the aria-label describes the
   // value, not an action.
   // The recorded method is what Python proved from the shipped breaks; the
-  // continuous arm keeps its own honest Equal Interval (a LinearColormap is
+  // continuous mode keeps its own honest Equal Interval (a LinearColormap is
   // an interval value fill by construction). A stepped scale reads "Equal
   // Interval" only when the record carries method: "equal", else the dash.
   const methodBox = readOnlyBox(

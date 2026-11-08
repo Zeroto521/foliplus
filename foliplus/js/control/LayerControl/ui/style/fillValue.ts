@@ -1,16 +1,16 @@
-// Value-based fill rendering — the "按值着色 / Color by value" arm of the
+// Value-based fill rendering — the "按值着色 / Color by value" mode of the
 // fill dimension.
 //
-// This module is now the FILL declaration over the shared by-value arm
+// This module is now the FILL declaration over the shared by-value mode
 // (valuePaint.ts): the fill face's specific surface — which slot the ramp
 // color lands in (`fillColor`), which leaf walker reaches the fill carriers,
 // the solid-mode `fillOpacity`, the FILL mode check, and the live fillValue
 // reader — is declared here and handed to `applyValuePaint`, which walks the
 // leaves and paints. All the walking / ramp / write / pin logic lives in the
-// arm and is face-independent; a new by-value dimension (stroke / size /
-// icon) declares its own `ValueFaceDecl` and calls the same arm.
+// mode and is face-independent; a new by-value dimension (stroke / size /
+// icon) declares its own `ValueFaceDecl` and calls the same mode.
 //
-// The arm's highlight pin reads the live fillValue intent and the cached
+// The mode's highlight pin reads the live fillValue intent and the cached
 // breaks. If the config changed since the cache was built (field / method /
 // classes / scheme differ), the getter returns null so the author's fill
 // face stays in force — the next scheduler tick rebuilds the cache.
@@ -29,8 +29,8 @@ const resolveFillMode = (
   getIntent(ui, layerId, INTENT.FILL_MODE) ??
   (value !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
 
-/** The fill face's declaration — the specific surface the shared arm
- *  consumes. Every value here is a fill fact; the arm body carries none. */
+/** The fill face's declaration — the specific surface the shared mode
+ *  consumes. Every value here is a fill fact; the mode body carries none. */
 const FILL_FACE_DECL: ValueFaceDecl = {
   dim: DIM.FILL,
   face: FACE.FILL,
@@ -47,7 +47,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
 };
 
 /** Apply a value-based fill to one layer. This is the fill face's call
- *  through the shared arm: the arm collects, builds, writes and pins; the
+ *  through the shared mode: the mode collects, builds, writes and pins; the
  *  declaration above tells it what the fill face is. The two optional
  *  readers are the fill face's own (they default to the declaration's). */
 const applyValueFill = (
@@ -55,7 +55,7 @@ const applyValueFill = (
   layerId: string,
   value: FillValueConfig,
   /** Resolve a stored config's field against the layer's current fields. The
-   *  caller resolves the config it paints with, so the arm's highlight pin
+   *  caller resolves the config it paints with, so the mode's highlight pin
    *  must resolve the live record the same way before comparing. Identity by
    *  default — a caller with no field list has nothing to resolve. */
   resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,

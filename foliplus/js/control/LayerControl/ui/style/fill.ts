@@ -167,13 +167,13 @@ const VISIBLE_FILL_OPACITY = 0.2;
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
 
-  // Arm selection goes through the panel's resolver: an absent mode is solid,
+  // Mode selection goes through the panel's resolver: an absent mode is solid,
   // a value config with no explicit mode is the pre-fillMode record shape (so
   // the config's presence alone means "paint by value"), and an explore layer
-  // with neither is in the author's own original colors. The arms are mutually
+  // with neither is in the author's own original colors. The modes are mutually
   // exclusive on apply, even though every config stays stored (a mode switch
-  // back must restore the other arm).
-  // A declared value fill (#789) is a read-time default, so this arm can be "value"
+  // back must restore the other mode).
+  // A declared value fill (#789) is a read-time default, so this mode can be "value"
   // with nothing in the intent store: `effectiveFillValue` is the same chain
   // the panel reads, so the map and the row cannot disagree about it.
   const value = effectiveFillValue(ui, layerId);
@@ -198,7 +198,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
 
-  // The original-colors arm owns no fill value: the author's per-feature paint
+  // The original-colors mode owns no fill value: the author's per-feature paint
   // is the target, so the overrides are treated as absent and the walk below
   // restores each leaf's captured author face. They stay in the intent record
   // rather than being cleared, so a later switch back to solid still restores
@@ -240,7 +240,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // two-call form wrote the same face twice per leaf, which doubled the DOM
     // and SVG attribute work on top of the walk.
     if (hasOverride && values.fillColor !== undefined) {
-      // A color commit is minimal: it replaces every key the previous arm
+      // A color commit is minimal: it replaces every key the previous mode
       // could have left stale, and the user's opacity never arrives here
       // unset - `fillOpacity` is set on this same payload whenever the user
       // has chosen one. Leaving the opacity unnamed keeps the author's value,
@@ -248,13 +248,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       commitStyleDim(node, values, FACE.FILL);
     } else if (hasOverride) {
       // An opacity-only commit replaces nothing but the opacity, so the
-      // previous arm's color would ride under it: pull the author's keys
+      // previous mode's color would ride under it: pull the author's keys
       // back in the same payload. The pin below replaces any value getter
       // still holding this leaf.
       commitStyleDimMerged(node, values, FACE.FILL, true);
     } else {
       // No override left: restore the author's face rather than skipping the
-      // walk, or the previous arm's color stays on the map until folium's
+      // walk, or the previous mode's color stays on the map until folium's
       // next mouseout happens to overwrite it.
       restoreStyleDim(node, FACE.FILL);
     }
@@ -268,7 +268,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     pinStyleOnHighlight(node, DIM.FILL, () => {
       // The author's own colors are the paint here: folium's mouseout restore
       // already put them back, so there is no user face to replay over it. The
-      // arm is resolved, not read off the intent, because an explore layer
+      // mode is resolved, not read off the intent, because an explore layer
       // opens in it before any mode has been written.
       if (displayFillMode(ui, layerId) === FILL_MODE.ORIGINAL) return null;
       const c = getIntent(ui, layerId, INTENT.FILL_COLOR);
@@ -345,7 +345,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
-/** What the fill row's mode select shows: the three arms of {@link FillMode}.
+/** What the fill row's mode select shows: the three modes of {@link FillMode}.
  *
  *  "original" is the author's own per-feature paint. It is a real, stored
  *  choice on an explore layer (leave it and come back), and it is also the
@@ -353,11 +353,11 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  below writes no intent of its own. */
 
 /** The author record Python computed for this layer, when it has one. */
-/** The arm the fill row shows and the map paints.
+/** The mode the fill row shows and the map paints.
  *
  *  Only a layer the author paints per feature can be in "original": the
  *  record is the gate, so a stored "original" on any other layer (or on a
- *  layer whose record has since disappeared) reads as the normal arms instead
+ *  layer whose record has since disappeared) reads as the normal modes instead
  *  of a state the layer cannot paint. Before any fill intent exists an explore
  *  layer opens on its author's colors without writing one — a stored value fill
  *  config is the pre-fillMode shape of "the user already classified". */
@@ -365,30 +365,30 @@ const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
   const value = getIntent(ui, layerId, INTENT.FILL_VALUE);
   const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
   // One precedence chain, highest first:
-  //   1. an explicit arm the user stored (INTENT.FILL_MODE);
+  //   1. an explicit mode the user stored (INTENT.FILL_MODE);
   //   2. the author's declared value fill (#789) — a real instruction, so it
   //      outranks the presentation state detected from the author's paint;
   //   3. the detected per-feature state, the pre-fillMode record shape and
   //      the built-in fallback, in the order below.
   // (2) cannot shadow (1): `declaredFill` reads undefined the moment either
-  // fill intent exists, so a stored arm is never overridden by a declaration.
+  // fill intent exists, so a stored mode is never overridden by a declaration.
   if (stored !== undefined) return stored;
   if (declaredValue(ui, layerId)) return FILL_MODE.VALUE;
   if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, value);
   // A value config means the user already classified (the pre-fillMode record
-  // shape). A lone fill color means the solid arm owns the paint — that is how
-  // a record written before this arm existed still reads, and how a
-  // programmatic color write lands. Opacity alone does not move the arm: it
-  // rides both arms, and an explore layer with only an opacity override is
+  // shape). A lone fill color means the solid mode owns the paint — that is how
+  // a record written before this mode existed still reads, and how a
+  // programmatic color write lands. Opacity alone does not move the mode: it
+  // rides both modes, and an explore layer with only an opacity override is
   // still painting its author's colors.
   if (value !== undefined) return FILL_MODE.VALUE;
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return FILL_MODE.SOLID;
   return FILL_MODE.ORIGINAL;
 };
-/** The solid arm's detail: one row holding the color swatch and the
+/** The solid mode's detail: one row holding the color swatch and the
  *  fill-opacity number side by side (the border-row recipe). color and
  *  opacity are one idea — a fill without either half is rarely what the user
- *  means — so the arm stays on a single line instead of two stacked rows. */
+ *  means — so the mode stays on a single line instead of two stacked rows. */
 const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const base = styleBaseOf(ui, layerId);
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
@@ -417,7 +417,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     ),
   ];
 };
-/** Fill one detail slot for the active arm. Always disposes the previous
+/** Fill one detail slot for the active mode. Always disposes the previous
  *  scheme picker first: rebuilding the value detail must not leave a picker
  *  answering clicks for a trigger that no longer exists. */
 const renderFillDetail = (
@@ -428,7 +428,7 @@ const renderFillDetail = (
 ): void => {
   disposeFillRow(ui);
   detail.innerHTML = "";
-  // The original-colors arm shows what the author declared and nothing
+  // The original-colors mode shows what the author declared and nothing
   // editable: the column (when a scale paired), the colors as one order, and
   // how many there are. No classification controls — those belong to the
   // user's own value fill.
@@ -446,7 +446,7 @@ const renderFillDetail = (
   detail.append(...buildSolidDetail(ui, layerId));
 };
 /** Build the fill form block. A layer with numeric fields gets the mode row
- *  (solid / color by value) plus the active arm's detail; a layer without one
+ *  (solid / color by value) plus the active mode's detail; a layer without one
  *  gets the solid controls only — there is nothing to classify, so offering a
  *  disabled "Color by value" option would just be noise. A color basemap keeps
  *  the pre-existing single swatch row: its fill is the pane paint, which has no
@@ -470,9 +470,9 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
   const fields = numericFields(ui, layerId);
   const perFeature = paintsPerFeatureFill(ui, layerId);
-  // No numeric field and no author record: one arm only, so there is no mode
+  // No numeric field and no author record: one mode only, so there is no mode
   // to choose. The wrapper keeps the same block/detail shape so a later
-  // categorical field type can add a second arm without moving the panel's
+  // categorical field type can add a second mode without moving the panel's
   // bind seam. A layer the author paints per feature keeps its mode row even
   // without a numeric field: the read-only state still needs the solid
   // override beside it.
@@ -487,10 +487,10 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   // what it is looking at. Once the user picks it, the choice is a stored mode
   // like the other two, so it can be left and come back to.
   const mode = displayFillMode(ui, layerId);
-  // The three arms. "Original colors" is offered only while the author's
+  // The three modes. "Original colors" is offered only while the author's
   // record still paints per feature: a layer the author did not paint that way
   // has no such state to return to, and an option that cannot paint would be a
-  // dead entry. Solid stays selectable even when the arm had no numeric field
+  // dead entry. Solid stays selectable even when the mode had no numeric field
   // a moment ago.
   const options = [
     ...(perFeature
@@ -535,7 +535,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
   return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, modeRow, detail);
 };
-/** Bind the solid arm's two live controls. */
+/** Bind the solid mode's two live controls. */
 const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
   const colorEl = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
@@ -576,7 +576,7 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     opacityEl.onblur = flush;
   }
 };
-/** Bind one detail slot for the active arm (solid color/opacity or the value
+/** Bind one detail slot for the active mode (solid color/opacity or the value
  *  controls). Called on open and again after every mode switch. */
 const bindFillDetail = (
   ui: LayerUI,
@@ -592,14 +592,14 @@ const bindFillDetail = (
     bindSolidDetail(ui, layerId, detail);
   }
 };
-/** Wire the fill block: the mode select switches arms in place (rebuilding the
- *  detail slot), and the active arm's controls commit through the dimension's
- *  write path. A color basemap row or a layer with one arm (no numeric field)
+/** Wire the fill block: the mode select switches modes in place (rebuilding the
+ *  detail slot), and the active mode's controls commit through the dimension's
+ *  write path. A color basemap row or a layer with one mode (no numeric field)
  *  has no mode select and only owns the solid controls. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const block = row.closest(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement | null;
   if (!block) {
-    // Color basemap: the single swatch row, no arms.
+    // Color basemap: the single swatch row, no modes.
     bindSolidDetail(ui, layerId, row);
     return;
   }
@@ -608,7 +608,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
   ) as HTMLSelectElement | null;
   if (!select) {
-    // One honest arm: no mode row to switch; bind the solid controls only.
+    // One honest mode: no mode row to switch; bind the solid controls only.
     bindSolidDetail(ui, layerId, block);
     return;
   }
@@ -617,7 +617,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   ) as HTMLElement;
 
   select.onchange = () => {
-    // The arm the row was in before the browser moved the select's value. It
+    // The mode the row was in before the browser moved the select's value. It
     // is resolved, not read off the select, so the fallback state (an explore
     // layer that has never been switched) is recognised as "original" too.
     const previous = displayFillMode(ui, layerId);
@@ -630,7 +630,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     if (next === previous) return;
     writeFillMode(ui, layerId, next);
     // Leaving the original colors must repaint. A mode write alone paints
-    // nothing: the solid arm only touches leaves that already carry an
+    // nothing: the solid mode only touches leaves that already carry an
     // override or a captured bag, and an explore layer has neither, so the
     // map would keep its per-feature colors while the row claims solid.
     // Seed the swatch's base color so choosing solid actually takes the
@@ -705,10 +705,10 @@ const replayFillState = (ui: LayerUI, id: string): void => {
 const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
-  /** The active arm. "solid" is the derived default — it doubles as the
+  /** The active mode. "solid" is the derived default — it doubles as the
    *  shape of a pre-value record, so an absent mode reads back as solid. */
   mode: FillMode;
-  /** The value-based fill config. Kept while the active arm is solid, so a
+  /** The value-based fill config. Kept while the active mode is solid, so a
    *  mode switch back restores it; undefined when never set. */
   value?: FillValueConfig;
 }>({

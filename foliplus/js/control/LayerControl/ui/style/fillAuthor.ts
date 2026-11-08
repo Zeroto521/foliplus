@@ -1,11 +1,11 @@
-// Author-paint readouts shared by the fill facade and both fill arms.
+// Author-paint readouts shared by the fill facade and both fill modes.
 //
 // `authorFill` reads the author's fill record from the layer registry;
 // `paintsPerFeatureFill` answers whether the author painted per feature (the
-// gate for the original-colors arm); `methodLabel` names one classification
+// gate for the original-colors mode); `methodLabel` names one classification
 // method in the locale vocabulary. These three are the only author-paint
-// readouts the facade, the original arm and the value arm all read — they are
-// split into this file to break the facade <-> arm import cycle (each arm and
+// readouts the facade, the original mode and the value mode all read — they are
+// split into this file to break the facade <-> mode import cycle (each mode and
 // the facade import this instead of each other).
 import { METHOD } from "#core/classify.js";
 import type { LayerInfo } from "#core/layer/index.js";
@@ -22,9 +22,9 @@ const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
  *  The answer is Python's: `CONFIG.data[].fillAuthor` is computed once at
  *  render time from the GeoJson features' `__folium_color` (explore output)
  *  and the colormap the author mounted on the map, so the panel never walks
- *  the layer. A layer without the key keeps the normal single-color arms
+ *  the layer. A layer without the key keeps the normal single-color modes
  *  (per-feature author colors are recognised for geopandas explore layers
- *  only). This is what offers the "Original colors" arm at all; whether the
+ *  only). This is what offers the "Original colors" mode at all; whether the
  *  layer is currently shown in it is {@link displayFillMode}'s question. */
 const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
   authorFill(ui, layerId)?.perFeature === true;

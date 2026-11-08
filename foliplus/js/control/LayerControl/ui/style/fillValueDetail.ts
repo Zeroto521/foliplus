@@ -1,8 +1,8 @@
-// Value arm UI of the fill dimension — the editable "Color by value" controls.
+// Value mode UI of the fill dimension — the editable "Color by value" controls.
 //
-// The value-arm UI (mode/value writes, the field/method/classes/scheme rows,
+// The value-mode UI (mode/value writes, the field/method/classes/scheme rows,
 // the scheme picker and its overlay lifecycle) is split out of fill.ts so the
-// facade orchestrates the dimension while this file owns the value arm's
+// facade orchestrates the dimension while this file owns the value mode's
 // presentation. The paint engine stays in fillValue.ts.
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
@@ -92,8 +92,8 @@ const numericFields = (ui: LayerUI, layerId: string): string[] => {
   return layer ? numericPropertiesKeys(layer) : [];
 };
 
-/** Categorical field names offered by the category fill arm. Same cache
- *  source as the numeric arm — the label panel field cache first, a
+/** Categorical field names offered by the category fill mode. Same cache
+ *  source as the numeric mode — the label panel field cache first, a
  *  tree walk as the fallback — so a layer whose cache has not been
  *  populated yet still sees its categorical columns. */
 const categoryFields = (ui: LayerUI, layerId: string): string[] => {
@@ -159,7 +159,7 @@ const warnDeclaredFillInference = (
 /** The author's fill declaration in force on this layer, or undefined.
  *
  *  A declaration is a read-time default, not user intent: any fill value or
- *  mode intent means the user owns the arm and the declaration steps aside
+ *  mode intent means the user owns the mode and the declaration steps aside
  *  (the same rule the detected per-feature state follows). A declared value fill is
  *  only in force while the data still offers its column — a declaration whose
  *  field vanished is not silently re-pointed at another column; the whole
@@ -172,13 +172,13 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
   const layer = layerInfo?.layer ?? ui.c.findLayer(layerId);
   const declared = readDeclaredFill(layer, layerId).declared;
   if (!declared) return undefined;
-  // Resolve the arm kind. An explicit kind is the author's override and is
+  // Resolve the mode kind. An explicit kind is the author's override and is
   // never re-inferred (the parse layer already validated it against its
   // scheme); an absent kind is inferred from the layer's own values — a
   // declaration is a read-time default, so the data is the truth about which
-  // arm the values can drive. A field that cannot drive one kind (mixed
+  // mode the values can drive. A field that cannot drive one kind (mixed
   // number/category values) or drives none (all null / no feature) drops the
-  // declaration whole rather than painting one arm over a mismatched column.
+  // declaration whole rather than painting one mode over a mismatched column.
   let config: FillValueConfig = declared;
   if (declared.kind === undefined) {
     const inferred = inferFieldKind(layer, declared.field);
@@ -193,7 +193,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
             kind: "category",
             // An inferred categorical column needs a qualitative palette. The
             // author who named none gets the category default; a named scheme
-            // is the author's choice and is kept verbatim on either arm.
+            // is the author's choice and is kept verbatim on either mode.
             scheme:
               declared.scheme === CONST.FILL_VALUE.SCHEME_DEFAULT
                 ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
@@ -232,7 +232,7 @@ const effectiveFillValue = (
 ): FillValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
 
-/** Whether a declaration names a value arm — the cheap form for gates that run
+/** Whether a declaration names a value mode — the cheap form for gates that run
  *  before an apply allocates its scheduler box (no field resolution). */
 const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
@@ -242,7 +242,7 @@ const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
   );
 };
 
-/** The value config a first switch to the by-value arm starts from. The field
+/** The value config a first switch to the by-value mode starts from. The field
  *  is the caller's seed field; method/classes/scheme come from the shared
  *  bounds, so the first render and the persistence validator agree on what a
  *  legal record looks like. */
@@ -294,15 +294,15 @@ const valueForUi = (
   const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
   if (declared) return declared;
   // Every caller reaches this line with a non-empty list: the detail only
-  // renders the value arm when a numeric field exists, and the mode write
+  // renders the value mode when a numeric field exists, and the mode write
   // bails first when it does not.
   return defaultValueConfig(seedField(ui, layerId, fields), seedClasses(ui, layerId));
 };
 
 /** Write the mode intent, seeding the value config when the user switches to
- *  the by-value arm and none is stored yet. Solid and original keep whatever
- *  value config the other arm holds, and original owns no fill value at all —
- *  a mode alone — so a switch back to either arm restores its own state. */
+ *  the by-value mode and none is stored yet. Solid and original keep whatever
+ *  value config the other mode holds, and original owns no fill value at all —
+ *  a mode alone — so a switch back to either mode restores its own state. */
 const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
   if (mode !== FILL_MODE.VALUE) {
     getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
@@ -334,7 +334,7 @@ const writeFillValue = (
   return next;
 };
 
-/** The value arm's detail rows, built from the shared `core/rampForm`
+/** The value mode's detail rows, built from the shared `core/rampForm`
  *  primitives: the heatmap panel and this panel therefore share the row
  *  structure, the control types (native selects) and the option vocabularies
  *  (method order + 2..9 class counts from #core/classify). The scheme trigger
@@ -425,11 +425,11 @@ const convergeClassesRow = (select: HTMLSelectElement, classes: number): void =>
   dropdown?.refresh();
 };
 
-/** Bind the value arm's three controls, including the shared scheme picker.
+/** Bind the value mode's three controls, including the shared scheme picker.
  *
  *  Every element is built by `buildValueDetail` immediately above, so the
  *  queries cast instead of re-testing for null: a guard here could never take
- *  its false arm (the markup is a private contract) and would just read as an
+ *  its false mode (the markup is a private contract) and would just read as an
  *  uncovered branch. The picker is created first so the class-count commit can
  *  update it directly (its strip has one block per class). */
 const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
