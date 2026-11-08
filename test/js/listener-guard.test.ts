@@ -164,6 +164,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
+    f: "control/LayerControl/ui/style/icon.ts",
+    n: 5,
+    pairedOff: 0,
+    reason:
+      "the glyph picker popup: two document-level dismiss listeners (outside pointerdown + Escape keydown) bound on open and removed when the grid node is removed (once:true self-terminates, but the paired removeEventListener on the grid's `remove` event makes the teardown explicit), plus the grid's own arrow/Enter keydown navigator — the grid node is created and destroyed by the popup lifecycle, so its listeners are collected with it. buildIconRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable",
+  },
+  {
     f: "ui/slider.ts",
     n: 10,
     pairedOff: 0,

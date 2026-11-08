@@ -113,6 +113,7 @@ const DIM = {
   OPACITY: "opacity",
   FILL: "fill",
   SIZE: "size",
+  ICON: "icon",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
   ANNOTATION: "annotation",

@@ -3,7 +3,9 @@ import {
   FILL_MODE,
   type FillValueConfig,
   isFillValueConfig,
+  isIconIntent,
 } from "#core/layer/index.js";
+import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
@@ -179,6 +181,10 @@ const PARSE_OVERRIDE: Record<
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
+  icon: data => {
+    const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
+    return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
