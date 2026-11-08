@@ -486,4 +486,44 @@ describe("filterStore — invariants", () => {
     expect(store.drop("L1", "ghost")).toBeUndefined();
     expect(store.sources("L1")).toEqual([]);
   });
+
+  it("whole-layer reset keeps sibling layers and rewrites the record", () => {
+    // The removeRecord-vs-writeRecord branch: a reset of one layer while
+    // another layer's record survives must keep the key and rewrite, not
+    // remove it.
+    const store = createFilterStore();
+    store.registerHost("L1", "filter", makeEnumHost(["marker"]));
+    store.registerHost("L2", "filter", makeEnumHost(["marker"]));
+    store.setFilter("L1", "filter", enumFilter("marker"));
+    store.setFilter("L2", "filter", enumFilter("marker"));
+
+    store.reset("L1");
+
+    // L1 is gone from the record; L2's value survives.
+    expect(store.isOwned("L1", "filter")).toBe(false);
+    expect(store.isOwned("L2", "filter")).toBe(true);
+    expect(store.getFilter("L2", "filter")).toEqual(enumFilter("marker"));
+    const raw = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+    expect(raw.layers.L1).toBeUndefined();
+    expect(raw.layers.L2.sources.filter.value).toEqual(enumFilter("marker"));
+  });
+
+  it("revalidate follows a changed declaration value on an un-owned slot", () => {
+    // The declarations.set branch: a declaration-only slot whose transform
+    // yields a NEW non-empty value (not undefined — that's the drop branch)
+    // updates the declaration in place, stays un-owned, and is not persisted.
+    const store = createFilterStore();
+    store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+
+    const changed = store.revalidate("L1", "measure", () => enumFilter("time"));
+    expect(changed).toBe(true);
+    expect(store.isOwned("L1", "measure")).toBe(false);
+    // The new declaration value is what reads back now (getFilter consults
+    // the store's declaration; resolve's declared argument is a caller
+    // fallback, not the store's state).
+    expect(store.getFilter("L1", "measure")).toEqual(enumFilter("time"));
+    // Never persisted: a declaration is a construction-time constant.
+    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+  });
 });

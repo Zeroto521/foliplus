@@ -4539,6 +4539,33 @@ describe("HeatmapManager — persisted per-source filters", () => {
     expect(fsGet(m, "layer_a")).toEqual(atom);
   });
 
+  it("migrates an untouched record's filters as declarations, not owned values", () => {
+    // filtersTouched === false means the user never took the slot: the
+    // persisted values are seeded declarations (the store never persists a
+    // declaration). They must land as declarations so a later user write can
+    // take ownership, and the strip still removes the old fields.
+    const m = makeManager();
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        version: CONST.RECORD_VERSION,
+        layerId: "layer_a",
+        filters: { layer_a: atom },
+        filtersTouched: false,
+      }),
+    );
+
+    m.applySavedConfig(m.loadSavedConfig()!);
+
+    // Declaration migration: the value reads back but the slot is not owned.
+    expect(fsGet(m, "layer_a")).toEqual(atom);
+    expect(m.filterStore.isOwned(m.layerId, "layer_a")).toBe(false);
+    // The old fields are still stripped after a declaration migration.
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toBeUndefined();
+    expect(stored.filtersTouched).toBeUndefined();
+  });
+
   it("strips the migrated filters/filtersTouched fields from the old key", () => {
     const m = makeManager();
     window.localStorage.setItem(
