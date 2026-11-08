@@ -1,7 +1,7 @@
 () => {
   const ctrl = window.__layerCtrl;
   const ui = ctrl && ctrl.mgr;
-  const mgr = ui && ui.annotation;
+  const mgr = ui && ui.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 

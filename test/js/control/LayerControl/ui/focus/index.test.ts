@@ -1108,7 +1108,7 @@ describe("LayerUI focus", () => {
           options: { pane: "custom_pane" },
           // One labelable child: the registration edge's `hasLabelField`
           // probe walks leaves, so the group itself carrying nothing is
-          // fine — its child declares the annotation spec. (The label pane
+          // fine — its child declares the label spec. (The label pane
           // is a PaneHandle now, and `setZOverride` prices it at
           // focusedZ + 1 through the same ladder this used to spot-write
           // by hand.)
@@ -1283,7 +1283,7 @@ describe("LayerUI focus", () => {
     });
 
     it("skips the label pane when it doesn't exist", () => {
-      // The annotation pane is created by the annotation system on first
+      // The label pane is created by the label system on first
       // render. A layer that was never annotated has no label pane — the
       // lift just skips it, the rest of the ladder still works.
       const panes = new Map<string, HTMLElement>();
@@ -1616,7 +1616,7 @@ describe("LayerUI focus", () => {
   // ─────────────────── overflow menu ───────────────────
 
   describe("row dblclick only focuses from dead space", () => {
-    // The Label section exists iff the surface declares the annotation
+    // The Label section exists iff the surface declares the label
     // capability (the panel gate reads it through surfaceFor). The three
     // style-panel denylist tests below only need the section's controls in
     // the DOM — the denylist is what they pin — so they flip the shared
@@ -1626,7 +1626,7 @@ describe("LayerUI focus", () => {
       const surface = ui.c.surfaceFor(li) as unknown as {
         capabilities: Record<string, unknown>;
       };
-      surface.capabilities = { ...surface.capabilities, annotation: "pane" };
+      surface.capabilities = { ...surface.capabilities, label: "pane" };
     };
 
     it("focuses the layer on a dblclick of the row's label area", () => {
@@ -1895,7 +1895,7 @@ describe("LayerUI focus", () => {
   });
 
   describe("focusLayer auto-cancel on map navigation", () => {
-    // The annotation manager registers its own moveend/zoomend handlers at
+    // The label manager registers its own moveend/zoomend handlers at
     // construction (bindMapSync); the focus auto-cancel handlers are the last
     // ones registered.
     const lastHandler = (event: string) =>
@@ -2607,7 +2607,7 @@ describe("dismissFocus finalization", () => {
     const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
     // Step 5 of the teardown, before the pane restores: this is the failure that
     // used to skip every visual removal and leave the map dimmed.
-    vi.spyOn(ui.c.annotation, "setFocusFilter").mockImplementation(() => {
+    vi.spyOn(ui.c.label, "setFocusFilter").mockImplementation(() => {
       throw new Error("annotation teardown failed");
     });
     const mask = {} as L.Polygon;

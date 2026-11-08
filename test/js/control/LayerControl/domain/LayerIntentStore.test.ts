@@ -493,7 +493,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       for (const [id, ov] of Object.entries(sc.provenance)) {
         store.seedProvenance(id, ov as LayerOverride[]);
       }
-      // annotation seed lives on the store for the old intents side; the
+      // label seed lives on the store for the old intents side; the
       // live map is the annotations arg (old buildLayerStates input).
       const liveAnn = sc.annotations as Record<string, never>;
       const viaStore = store.toPersisted(liveAnn);

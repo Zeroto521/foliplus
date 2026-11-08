@@ -95,7 +95,7 @@ const SEL = {
    */
   CANVAS: "canvas",
   /**
-   * LayerControl's annotation labels: each layer's labels draw on a canvas in
+   * LayerControl's label labels: each layer's labels draw on a canvas in
    * that layer's *own* label pane, which the manager creates with
    * `map.createPane` — a sibling of the layer's content panes, so the
    * per-layer walk never reaches it and it needs its own pass.

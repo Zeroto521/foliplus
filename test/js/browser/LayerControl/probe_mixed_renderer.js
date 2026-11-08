@@ -6,7 +6,7 @@
 // Build shape: createLayers with two panes (data + label), add a polygon
 // leaf to the data pane (LayerFactory.addLayer pins a Path leaf to the
 // pane's renderer via ensureVector), and hand-draw on a canvas appended
-// to the label pane (the AnnotationManager shape).
+// to the label pane (the LabelManager shape).
 //
 // Note: passing a GeoJSON *group* to addLayer does NOT pin its child paths
 // to the declared pane — LayerFactory.addLayer only sets options.pane on
@@ -36,7 +36,7 @@
   canvas.style.height = "200px";
   canvas.style.position = "absolute";
   canvas.className = "probe-label-canvas";
-  // Decoration, not a hit surface — AnnotationCanvas declares the same.
+  // Decoration, not a hit surface — LabelCanvas declares the same.
   canvas.style.pointerEvents = "none";
   labelPane.appendChild(canvas);
   const ctx = canvas.getContext("2d");

@@ -667,10 +667,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
     const dot = radiusLeaf(10);
     const children = [areal, dot];
     ({ manager, ui, map } = withGroup(children));
-    // Labels on: the annotation policy's when-gate must pass for its face
+    // Labels on: the label policy's when-gate must pass for its face
     // to be queued at all.
-    ui.c.annotation.setConfig("grp1", {
-      ...ui.c.annotation.defaultConfig(),
+    ui.c.label.setConfig("grp1", {
+      ...ui.c.label.defaultConfig(),
       show: true,
       field: "name",
     });
@@ -708,7 +708,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
     const areal = arealLeaf();
     const dot = radiusLeaf(10);
     ({ manager, ui, map } = withGroup([areal, dot]));
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels");
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels");
 
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     flushStyleDimApplies("grp1");
@@ -726,8 +726,8 @@ describe("onLayerItemCountChange — the registry replays", () => {
     // labels on for the label face — without them the when-gates allocate
     // no boxes at all, and there would be nothing to reclaim.
     commitFillColor(ui, "grp1", "#ff0000");
-    ui.c.annotation.setConfig("grp1", {
-      ...ui.c.annotation.defaultConfig(),
+    ui.c.label.setConfig("grp1", {
+      ...ui.c.label.defaultConfig(),
       show: true,
       field: "name",
     });
@@ -744,16 +744,16 @@ describe("onLayerItemCountChange — the registry replays", () => {
   it("a label field arriving late upgrades the annotation capability before the label frame", () => {
     const children: any[] = [];
     ({ manager, ui, map } = withGroup(children));
-    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
-    ui.c.annotation.setConfig("grp1", {
-      ...ui.c.annotation.defaultConfig(),
+    const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
+    ui.c.label.setConfig("grp1", {
+      ...ui.c.label.defaultConfig(),
       show: true,
       field: "name",
     });
     // An empty group has no labelable field: the surface declares the
-    // annotation capability "none" and there is no annotation pane.
+    // label capability "none" and there is no label pane.
     const surfaceOf = () => ui.c.surfaceFor(manager.layerRegistry.get("grp1")!);
-    expect(surfaceOf().capabilities.annotation).toBe("none");
+    expect(surfaceOf().capabilities.label).toBe("none");
 
     // The first labelable leaf lands. The row refresh inside the SAME
     // count-change re-probes the surface synchronously — the capability
@@ -764,7 +764,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
       getLatLng: () => ({ lat: 40, lng: -74 }),
     });
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
-    expect(surfaceOf().capabilities.annotation).not.toBe("none");
+    expect(surfaceOf().capabilities.label).not.toBe("none");
 
     flushStyleDimApplies("grp1");
     expect(renderLabels).toHaveBeenCalledTimes(1);
@@ -774,7 +774,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
     // is the config, not the capability) — the run itself is the no-op.
     children.length = 0;
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
-    expect(surfaceOf().capabilities.annotation).toBe("none");
+    expect(surfaceOf().capabilities.label).toBe("none");
     flushStyleDimApplies("grp1");
     expect(renderLabels).toHaveBeenCalledTimes(2);
   });

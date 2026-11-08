@@ -1,4 +1,4 @@
-// LayerControl annotation — per-layer text-label rendering.
+// LayerControl label — per-layer text-label rendering.
 //
 // Labels are drawn on one canvas per layer, each mounted in its layer's own
 // label pane, so they take their layer's place in the stack: a layer above
@@ -26,8 +26,8 @@ import { createLogger } from "#common/log.js";
 import type { CanvasLabelStyle } from "#common/type.js";
 import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "../const.js";
-import type { AnnotationConfig } from "../type.js";
-import { AnnotationCanvas } from "./canvas.js";
+import type { LabelConfig } from "../type.js";
+import { LabelCanvas } from "./canvas.js";
 import {
   type LabelCandidate,
   type LabelSpec,
@@ -69,7 +69,7 @@ type FoliplusLayerOptions = {
  *  Python, so there is no Python source for the generator to read. */
 type FoliplusDeclaration = {
   /** The author-facing key. */
-  label?: Partial<AnnotationConfig>;
+  label?: Partial<LabelConfig>;
   [key: string]: unknown;
 };
 
@@ -101,7 +101,7 @@ const isDeclaredFormat = (format: string): format is NumberStyle =>
 const isDeclaredColor = (color: string): boolean =>
   /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
 
-/** The annotation keys an author declared for one layer — a PARTIAL record:
+/** The label keys an author declared for one layer — a PARTIAL record:
  *  only the keys actually declared are returned. An absent key must stay
  *  absent so the default below it survives the merge; coercing a full config
  *  (`coerceAnnotationFields`, ui/style/label.ts) would read an undeclared
@@ -113,10 +113,10 @@ const isDeclaredColor = (color: string): boolean =>
  *  (Python kwargs, CONF, locale), where `show`/`color` would collide with
  *  other parameters. */
 const pickDeclaredAnnotation = (
-  raw: Partial<AnnotationConfig> | undefined,
-): Partial<AnnotationConfig> => {
+  raw: Partial<LabelConfig> | undefined,
+): Partial<LabelConfig> => {
   if (!raw) return {};
-  const out: Partial<AnnotationConfig> = {};
+  const out: Partial<LabelConfig> = {};
   if (typeof raw.field === "string") out.field = raw.field;
   if (typeof raw.format === "string" && isDeclaredFormat(raw.format)) {
     out.format = raw.format;
@@ -140,32 +140,32 @@ const pickDeclaredAnnotation = (
 };
 
 /**
- * AnnotationManager owns per-layer label state, the per-layer plans and the
+ * LabelManager owns per-layer label state, the per-layer plans and the
  * per-layer canvases. state and persistence are written to LayerPersistence
  * by LayerUI.
  *
  * Panes are NOT this manager's anymore: the label pane is a declared
  * `role: "label"` PaneSpec of the layer's surface, created when the
  * surface materializes (the registration edge declares it iff the layer has
- * labelable fields — `LayerController.withAnnotationSpec`). This manager only
+ * labelable fields — `LayerController.withLabelSpec`). This manager only
  * mounts and unmounts the canvas inside that pane, so the pane's lifetime,
  * z and opacity carrier are the surface's — the same bookkeeping as every
  * other pane the face owns.
  */
-class AnnotationManager {
+class LabelManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
-  private readonly config: Map<string, AnnotationConfig>;
+  private readonly config: Map<string, LabelConfig>;
   /** The field each layer's labels read, resolved from its config and its
    *  fields. Dropped when the config or the layer's features change. */
   private readonly resolvedFieldCache: Map<string, string>;
-  /** Author-declared annotation keys per id. Cached: getConfig runs once per
+  /** Author-declared label keys per id. Cached: getConfig runs once per
    *  layer per frame (refreshPan → layerSpec/paintStyle), and a declaration
    *  is static for the life of the page, so the tree walk underneath runs once. */
-  private readonly authorCache: Map<string, Partial<AnnotationConfig>>;
+  private readonly authorCache: Map<string, Partial<LabelConfig>>;
   /** The labels each layer wants drawn. */
   private readonly labelsByLayer = new Map<string, LayerLabel[]>();
-  private readonly canvases = new Map<string, AnnotationCanvas>();
+  private readonly canvases = new Map<string, LabelCanvas>();
   /** Layer opacity per id, kept even while the label canvas is unmounted.
    *  R11 bakes alpha into the draws (the pane no longer takes CSS opacity),
    *  so a value written before the canvas exists has to be replayed onto it
@@ -264,18 +264,18 @@ class AnnotationManager {
     );
   }
 
-  /** The built-in default annotation config (labels off, no field chosen, auto
+  /** The built-in default label config (labels off, no field chosen, auto
    *  format, page-level collide) — the bottom layer of getConfig's merge. */
-  defaultConfig(): AnnotationConfig {
+  defaultConfig(): LabelConfig {
     return {
-      ...CONST.DEFAULT_ANNOTATION,
+      ...CONST.DEFAULT_LABEL,
       collide: CONFIG.label_collide ?? true,
     };
   }
 
   /** Read the config for a layer: built-in defaults, the author's declaration,
    *  then the user's stored choice — each layer overriding the one below. */
-  getConfig(id: string): AnnotationConfig {
+  getConfig(id: string): LabelConfig {
     return {
       ...this.defaultConfig(),
       ...this.authorAnnotation(id),
@@ -283,7 +283,7 @@ class AnnotationManager {
     };
   }
 
-  /** The annotation keys the author declared on this layer, as a PARTIAL record.
+  /** The label keys the author declared on this layer, as a PARTIAL record.
    *  A middle layer of getConfig's merge: the built-in defaults below, the
    *  user's choice above, so it is structural rather than guarded — the user's
    *  panel toggle always wins.
@@ -291,7 +291,7 @@ class AnnotationManager {
    *  Nothing goes into the intent store: this is an author's default, not user
    *  intent, and the store's document domain is user intent. getConfig is the
    *  single read point, so no consumer has to know the declaration exists. */
-  private authorAnnotation(id: string): Partial<AnnotationConfig> {
+  private authorAnnotation(id: string): Partial<LabelConfig> {
     const cached = this.authorCache.get(id);
     if (cached !== undefined) return cached;
     const layer = this.layerFind(id);
@@ -311,7 +311,7 @@ class AnnotationManager {
     return out;
   }
 
-  setConfig(id: string, cfg: AnnotationConfig): void {
+  setConfig(id: string, cfg: LabelConfig): void {
     this.config.set(id, cfg);
     // The config may name a different field; the next render re-resolves.
     this.resolvedFieldCache.delete(id);
@@ -338,7 +338,7 @@ class AnnotationManager {
   }
 
   /** All configured layers' id → config entries (for persistence). */
-  configEntries(): [string, AnnotationConfig][] {
+  configEntries(): [string, LabelConfig][] {
     return [...this.config.entries()];
   }
 
@@ -451,7 +451,7 @@ class AnnotationManager {
 
   /** Format a value for display according to the configured style.
    *  String values pass through unchanged; numeric values go through the shared
-   *  label formatter, so an annotation label and a heatmap hex label render the
+   *  label formatter, so an label label and a heatmap hex label render the
    *  same value the same way. */
   formatValue(value: string, format: NumberStyle, locale = "en"): string {
     const n = parseNum(value);
@@ -524,7 +524,7 @@ class AnnotationManager {
     return labels;
   }
 
-  /** Remove every annotation label that belongs to a given layer, and the
+  /** Remove every label label that belongs to a given layer, and the
    *  pan plan built from them. One repaint — this layer's own canvas,
    *  painted empty.
    *
@@ -819,7 +819,7 @@ class AnnotationManager {
   /** Mount a layer's label canvas into its surface-declared label pane.
    *
    *  The pane already exists — the registration edge declared it alongside
-   *  the capability (`withAnnotationSpec`), so the surface created it with
+   *  the capability (`withLabelSpec`), so the surface created it with
    *  the rest of the face and z-priced by the ordering pass. Opacity is NOT
    *  inherited from the pane (R11: the pane stays at CSS 1 and the canvas
    *  bakes layerAlpha) — `layerAlphas` is replayed onto the fresh canvas so
@@ -829,7 +829,7 @@ class AnnotationManager {
     const pane = this.map.getPane(CONST.LABEL_PANE_PREFIX + id);
     if (!pane) return; // no declared carrier (capability "none") — no labels
     pane.classList.add("foliplus-label-pane");
-    const canvas = new AnnotationCanvas(this.map, pane);
+    const canvas = new LabelCanvas(this.map, pane);
     this.canvases.set(id, canvas);
     const alpha = this.layerAlphas.get(id);
     if (alpha !== undefined) canvas.setLayerAlpha(alpha);
@@ -876,4 +876,4 @@ const parseNum = (v: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export { AnnotationManager };
+export { LabelManager };

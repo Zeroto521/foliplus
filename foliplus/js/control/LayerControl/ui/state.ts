@@ -50,13 +50,13 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  layer the user has actually touched, so an untouched layer keeps the
  *  author's declared default across a reload.
  *
- *  The label (annotation) config is the one rider that does not follow the
+ *  The label (label) config is the one rider that does not follow the
  *  touch rule: it is a style configuration with no override provenance, so
- *  every id the annotation manager holds a config for joins the walk — a
+ *  every id the label manager holds a config for joins the walk — a
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI) => {
-  const annotations = Object.fromEntries(ui.c.annotation.configEntries());
+  const annotations = Object.fromEntries(ui.c.label.configEntries());
   return ui.intentStore.toPersisted(annotations);
 };
 
@@ -218,7 +218,7 @@ const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
   // author's colors, which the shell is about to overwrite. One round for the
   // whole replay is still the point: a late registration can join the map
   // here, which is a real membership change no other path notifies — a
-  // bus-only consumer (annotation repaints its labels) would otherwise never
+  // bus-only consumer (label repaints its labels) would otherwise never
   // learn about the layer.
   return swept;
 };
@@ -243,8 +243,8 @@ const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
  *   this id — a layer that never received a user value has nothing to erase.
  */
 const dropPersistedLayerState = (ui: LayerUI, id: string): boolean => {
-  // Style dimensions + their provenance. `name` / `annotation` are cleared
-  // by their own callers (manager delete / annotation destroy).
+  // Style dimensions + their provenance. `name` / `label` are cleared
+  // by their own callers (manager delete / label destroy).
   return ui.intentStore.dropRow(id);
 };
 

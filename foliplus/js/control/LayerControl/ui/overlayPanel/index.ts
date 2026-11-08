@@ -61,7 +61,7 @@ class OverlayPanel {
   styleRefresh: (() => void) | null = null;
   /** Map zoomend handler for the open style panel's zoom-range row. */
   styleZoomEndHandler: (() => void) | null = null;
-  /** Layer id whose annotation style panel is open, or null. */
+  /** Layer id whose label style panel is open, or null. */
   stylePanelLayerId: string | null = null;
 }
 

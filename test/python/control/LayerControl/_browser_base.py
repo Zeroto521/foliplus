@@ -153,7 +153,7 @@ class LayerControlBrowserBase:
         )
 
     @staticmethod
-    def _declared_annotation_layer(
+    def _declared_label_layer(
         name, annotation, coords, text="12345678901234567890"
     ):
         """A point layer whose foliplus namespace declares its label defaults."""

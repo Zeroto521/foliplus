@@ -1,9 +1,9 @@
-// AnnotationCanvas unit tests — one canvas per layer, mounted in that layer's
+// LabelCanvas unit tests — one canvas per layer, mounted in that layer's
 // own pane; it paints the slice the manager hands it and nothing else.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { AnnotationCanvas } from "#control/LayerControl/annotation/canvas.js";
-import type { PlannedLabel } from "#control/LayerControl/annotation/layout.js";
+import { LabelCanvas } from "#control/LayerControl/label/canvas.js";
+import type { PlannedLabel } from "#control/LayerControl/label/layout.js";
 
 const makeCtx = () => ({
   font: "",
@@ -56,20 +56,20 @@ const makeEnv = () => {
   } as unknown as L.Map;
 
   const pane = document.createElement("div");
-  const canvas = new AnnotationCanvas(map, pane);
+  const canvas = new LabelCanvas(map, pane);
   return { container, mapPane, pane, canvas };
 };
 
-const elOf = (canvas: AnnotationCanvas) =>
+const elOf = (canvas: LabelCanvas) =>
   (canvas as unknown as { canvas: HTMLCanvasElement }).canvas;
 
-describe("AnnotationCanvas", () => {
+describe("LabelCanvas", () => {
   it("mounts a decoration canvas in the pane it is given, DPR-scaled", () => {
     const { pane, canvas } = makeEnv();
 
     const el = pane.querySelector("canvas")!;
     expect(el).toBe(elOf(canvas));
-    // Both classes: the annotation role, and the decoration-canvas marker that
+    // Both classes: the label role, and the decoration-canvas marker that
     // lets the base .foliplus-layer-pane rule hand down pointer-events: none.
     expect(el.classList.contains("foliplus-label-canvas")).toBe(true);
     expect(el.classList.contains("foliplus-canvas-layer")).toBe(true);
@@ -102,7 +102,7 @@ describe("AnnotationCanvas", () => {
     } as unknown as L.Map;
     const pane = document.createElement("div");
 
-    const canvas = new AnnotationCanvas(map, pane);
+    const canvas = new LabelCanvas(map, pane);
     // paint calls updatePosition, which bails on the missing mapPane.
     expect(() => canvas.paint([])).not.toThrow();
     expect(elOf(canvas).style.left).toBe("");

@@ -9,7 +9,7 @@ import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "./const.js";
 import type {
-  AnnotationConfig,
+  LabelConfig,
   LayerOverride,
   PersistedLayerState,
   PersistedRecord,
@@ -183,12 +183,12 @@ const PARSE_OVERRIDE: Record<
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
-/** One stored label (annotation) config: an object, color-normalized the
+/** One stored label (label) config: an object, color-normalized the
  *  same way in `layers[id].annotation`. Field-level coercion (size clamps,
  *  format enums, collide) belongs to the reader that applies it —
  *  `applyStyleLabelState`; this keeps a non-object from reaching the config
  *  map, nothing more. */
-const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
+const parseLabelConfig = (raw: unknown): LabelConfig | null => {
   const cfg = asObject(raw);
   if (!cfg) return null;
   const out = { ...cfg };
@@ -200,7 +200,7 @@ const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
   // (it clamps sizes, normalizes formats, defaults collide), which is where
   // the value is actually applied. The cast says "reader validates", the
   // same contract the legacy segment had.
-  return out as unknown as AnnotationConfig;
+  return out as unknown as LabelConfig;
 };
 
 /**
@@ -209,7 +209,7 @@ const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
  *
- * `annotation` is the exception to the provenance rule — it is a style
+ * `label` is the exception to the provenance rule — it is a style
  * configuration, not an override the user "marked": there is no
  * `markOverride` for it and none is wanted. It is parsed on its own and
  * survives with an empty `overrides` array (a layer configured only for
@@ -231,7 +231,7 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       out.overrides.push(override);
     }
   }
-  const annotation = parseAnnotationConfig(data.annotation);
+  const annotation = parseLabelConfig(data.annotation);
   if (annotation) out.annotation = annotation;
   return out.overrides.length > 0 || out.annotation ? out : null;
 };
@@ -320,7 +320,7 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
  * Single entry point for all LayerControl persistence (localStorage).
  *
  * One record per map container holds every dimension -- order, fold, names,
- * annotation config, and the per-layer intent -- behind a single debounced
+ * label config, and the per-layer intent -- behind a single debounced
  * write, so a teardown flush is one call instead of a per-dimension list and
  * adding a dimension cannot silently lose its last write.
  *
@@ -358,7 +358,7 @@ class LayerPersistence {
    * would drop their entries on the very first attach -- showing the default
    * name, re-adding a hidden layer, leaving a reordered layer at its author
    * position, or losing a label config -- and every refresh. Order and
-   * annotation config are user intent exactly like hidden state and names;
+   * label config are user intent exactly like hidden state and names;
    * the only difference is that their replay is deferred until the id
    * resolves. `LayerController.replaySavedOrder` re-applies the order when a
    * layer registers late, and `applyStyleLabelState` re-applies the config on

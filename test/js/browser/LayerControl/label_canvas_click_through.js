@@ -49,7 +49,7 @@
     };
   }
   // A label canvas is one full-bleed element. It paints decoration rather
-  // than receiving hits, so it says so on itself — the shape AnnotationCanvas
+  // than receiving hits, so it says so on itself — the shape LabelCanvas
   // uses. Without that it would swallow every click meant for the data layer
   // underneath.
   const canvas = document.createElement("canvas");

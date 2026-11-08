@@ -1,7 +1,7 @@
 // common/finalize — run a teardown as a list of named, isolated steps.
 //
 // A teardown is a list of things that must ALL happen: drop the gesture, detach
-// from the map, remove the row, unload the annotation. Written as inline
+// from the map, remove the row, unload the label. Written as inline
 // try/catch those steps are only as complete as the author's memory of them —
 // the shape that left one segment unprotected in retireEntry. Naming each step
 // makes the list enumerable in review, and makes a failure report against the

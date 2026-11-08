@@ -142,7 +142,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         annotations: { both: { show: false, field: "old" } },
         layers: {
-          // An annotation-only entry — empty `overrides` survives parse.
+          // An label-only entry — empty `overrides` survives parse.
           both: { overrides: [], annotation: { show: true, field: "new" } },
         },
       });
@@ -252,8 +252,8 @@ describe("LayerPersistence", () => {
     it("drops annotation configs that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
       // a corrupted record must not leak into the config as a valid object.
-      // The annotation config rides `layers[id].annotation`, so a non-object
-      // value drops the whole layer entry (no overrides, no annotation).
+      // The label config rides `layers[id].annotation`, so a non-object
+      // value drops the whole layer entry (no overrides, no label).
       seedStorage({
         layers: {
           a: {
@@ -273,7 +273,7 @@ describe("LayerPersistence", () => {
     });
 
     it("expands short hex annotation color to #rrggbb", () => {
-      // The annotation color is the label paint and also goes through the
+      // The label color is the label paint and also goes through the
       // style panel's <input type=color>, so the same expansion applies as
       // to layers' fill/border: #rgb on disk becomes #rrggbb on read. Long
       // hex (either case) is left alone — normalizeHexColor only expands the
@@ -326,7 +326,7 @@ describe("LayerPersistence", () => {
     });
 
     it("leaves a non-hex annotation color alone", () => {
-      // The annotation config has no isHexColor gate (unlike layers), so
+      // The label config has no isHexColor gate (unlike layers), so
       // values the UI would not have written still round-trip unchanged —
       // the write side is equally permissive, and both consumers (canvas
       // fillStyle, color input) tolerate a bad value by falling back to
@@ -391,7 +391,7 @@ describe("LayerPersistence", () => {
     });
 
     it("passes unknown annotation fields through (future dims, e.g. position)", () => {
-      // The annotation parse is shape-tolerant on purpose: a field the running
+      // The label parse is shape-tolerant on purpose: a field the running
       // code does not know yet (label position, …) rides the same record and
       // survives a round-trip, so a future reader finds it where the writer
       // left it. Field rules live in `coerceAnnotationFields`, not here.
@@ -467,7 +467,7 @@ describe("LayerPersistence", () => {
       // The renamed "value" is the only value-arm literal now; "ramp" reads
       // as an invalid mode (absent), so the record keeps no mode claim.
       // With the only marker invalid, the layer state has no overrides and no
-      // annotation, so parseLayerState returns null — the layer reads absent.
+      // label, so parseLayerState returns null — the layer reads absent.
       expect(makePersistence().load().layers.a).toBeUndefined();
     });
 

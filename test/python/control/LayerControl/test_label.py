@@ -28,29 +28,29 @@ class TestLabelBrowser(LayerControlBrowserBase):
             assert result["pane"] == "__test_label_pane__", f"got {result['pane']}"
             assert result["registered"] is True
 
-    def test_annotation_canvas_draws(self, browser, tmp_path):
+    def test_label_canvas_draws(self, browser, tmp_path):
         """Enabling labels draws text onto the shared annotation canvas."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_canvas_draws"))
-            assert result is not None, "annotation manager or LayerAPI not found"
+            result = page.evaluate(_js("LayerControl/label_canvas_draws"))
+            assert result is not None, "label manager or LayerAPI not found"
             assert result["canvas"] is True, f"canvas not created: {result}"
             assert result["opaque"] > 0, "canvas has no drawn pixels"
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_overlap_hides(self, browser, tmp_path):
+    def test_label_overlap_hides(self, browser, tmp_path):
         """Two labels whose halo-inclusive boxes overlap collapse to the first."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_overlap_hides"))
-            assert result is not None, "annotation manager or LayerAPI not found"
+            result = page.evaluate(_js("LayerControl/label_overlap_hides"))
+            assert result is not None, "label manager or LayerAPI not found"
             assert result["canvas"] is True, f"canvas not created: {result}"
             assert result["aOpaque"] > 0, "first (kept) label was not drawn"
             assert result["bOpaque"] == 0, "second (hidden) label was drawn"
             assert not errors, f"JS errors: {errors}"
 
     @staticmethod
-    def _declared_annotation_layer(
+    def _declared_label_layer(
         name, annotation, coords, text="12345678901234567890"
     ):
         """A point layer whose foliplus namespace declares its label defaults."""
@@ -68,7 +68,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             foliplus={"label": annotation},
         )
 
-    def test_annotation_declared_color_and_size_reach_the_canvas(
+    def test_label_declared_color_and_size_reach_the_canvas(
         self, browser, tmp_path
     ):
         """A declared color/size paints the real canvas, and Reset restores it.
@@ -78,7 +78,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
         panel-equivalent override must repaint blue, Reset must show the
         declaration again, and a persisted override must survive a reload.
         """
-        layer = self._declared_annotation_layer(
+        layer = self._declared_label_layer(
             "Declared Style",
             {"field": "name", "color": "#00ff00", "size": 24},
             [(26.08, 119.30)],
@@ -88,7 +88,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             page.wait_for_selector(
                 ".foliplus-layer-item", state="attached", timeout=5000
             )
-            result = page.evaluate(_js("LayerControl/annotation_declared_style"))
+            result = page.evaluate(_js("LayerControl/label_declared_style"))
             assert result and not result.get("error"), result
 
             declared = result["declared"]
@@ -135,19 +135,19 @@ class TestLabelBrowser(LayerControlBrowserBase):
                 ".foliplus-layer-item", state="attached", timeout=5000
             )
             page.wait_for_timeout(300)
-            after = page.evaluate(_js("LayerControl/annotation_declared_read"))
+            after = page.evaluate(_js("LayerControl/label_declared_read"))
             assert after and not after.get("error"), after
             assert after["cfg"]["color"] == "#0000ff", after
             assert after["cfg"]["size"] == 24, after
             assert after["blue"] > 0, after
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_declared_collide_false_keeps_overlapping_labels(
+    def test_label_declared_collide_false_keeps_overlapping_labels(
         self, browser, tmp_path
     ):
         """A declared collide=false keeps both labels; the default hides one."""
         coords = [(26.08, 119.30), (26.08, 119.3076)]
-        layer = self._declared_annotation_layer(
+        layer = self._declared_label_layer(
             "Declared Collide",
             {"field": "name", "collide": False},
             coords,
@@ -158,7 +158,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
                 ".foliplus-layer-item", state="attached", timeout=5000
             )
             result = page.evaluate(
-                _js("LayerControl/annotation_declared_collide"),
+                _js("LayerControl/label_declared_collide"),
                 [list(c) for c in coords],
             )
             assert result and not result.get("error"), result
@@ -177,7 +177,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
             # The style panel's own "Avoid overlap" switch reads the merged
             # config: unchecked while collide is declared false, flipping it
             # writes the user's true, repaints, and persists across a reload.
-            toggled = page.evaluate(_js("LayerControl/annotation_collide_toggle"), True)
+            toggled = page.evaluate(_js("LayerControl/label_collide_toggle"), True)
             assert toggled and not toggled.get("error"), toggled
             assert toggled["declared"]["checked"] is False, toggled["declared"]
             assert toggled["declared"]["cfg"]["collide"] is False, toggled["declared"]
@@ -199,14 +199,14 @@ class TestLabelBrowser(LayerControlBrowserBase):
                 ".foliplus-layer-item", state="attached", timeout=5000
             )
             page.wait_for_timeout(300)
-            after = page.evaluate(_js("LayerControl/annotation_collide_toggle"), False)
+            after = page.evaluate(_js("LayerControl/label_collide_toggle"), False)
             assert after and not after.get("error"), after
             assert after["declared"]["checked"] is True, after["declared"]
             assert after["declared"]["cfg"]["collide"] is True, after["declared"]
 
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_click_through(self, browser, tmp_path):
+    def test_label_click_through(self, browser, tmp_path):
         """The canvas ignores pointer events so clicks land on the map/feature.
 
         The canvas opts out by carrying ``foliplus-canvas-layer`` (the
@@ -216,8 +216,8 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            page.evaluate(_js("LayerControl/annotation_canvas_draws"))
-            result = page.evaluate(_js("LayerControl/annotation_click_through"))
+            page.evaluate(_js("LayerControl/label_canvas_draws"))
+            result = page.evaluate(_js("LayerControl/label_click_through"))
             assert result is not None and result["canvas"] is True, result
             assert result["pointerEvents"] == "none", result
             assert result["decorationClass"] is True, (
@@ -318,28 +318,28 @@ class TestLabelBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_stays_put_on_pan(self, browser, tmp_path):
+    def test_label_stays_put_on_pan(self, browser, tmp_path):
         """Panning must not drift the labels: the canvas cancels mapPane's move."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_pan_stable"))
+            result = page.evaluate(_js("LayerControl/label_pan_stable"))
             assert result is not None and result["canvas"] is True, result
             assert result["beforeLeft"] == result["afterLeft"], result
             assert result["beforeTop"] == result["afterTop"], result
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_labels_follow_layer_visibility(self, browser, tmp_path):
+    def test_label_labels_follow_layer_visibility(self, browser, tmp_path):
         """Hiding a layer drops its labels; showing it brings them back."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_hidden_layer"))
+            result = page.evaluate(_js("LayerControl/label_hidden_layer"))
             assert result is not None, result
             assert result["before"] > 0, result
             assert result["hidden"] == 0, result
             assert result["shown"] > 0, result
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
+    def test_label_each_layer_own_pane_ordered_by_layer(self, browser, tmp_path):
         """Each labeled layer gets its own canvas pane, z-ordered with its layer.
 
         The pane goes through ``PaneManager.ensurePane`` (the single entry
@@ -349,7 +349,7 @@ class TestLabelBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_multi_layer"))
+            result = page.evaluate(_js("LayerControl/label_multi_layer"))
             assert result is not None and result["canvas"] is True, result
             # One pane + one canvas per labeled layer — not a shared canvas.
             assert result["canvasCount"] == 2, result
@@ -375,11 +375,11 @@ class TestLabelBrowser(LayerControlBrowserBase):
                 )
             assert not errors, f"JS errors: {errors}"
 
-    def test_annotation_focus_lifts_label_pane(self, browser, tmp_path):
+    def test_label_focus_lifts_label_pane(self, browser, tmp_path):
         """Focusing a layer raises its label pane and draws only its labels."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/annotation_focus_lifts_pane"))
+            result = page.evaluate(_js("LayerControl/label_focus_lifts_pane"))
             assert result is not None and result["row"] is True, result
             # Focus lifts the focused layer's label pane to focusedZ + 1
             # (FOCUS.PANE_Z 9000 − FOCUSED_Z_GAP 10 + 1).

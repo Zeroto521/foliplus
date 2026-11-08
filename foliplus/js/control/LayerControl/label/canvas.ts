@@ -16,9 +16,9 @@ import {
 import type { CanvasLabelStyle } from "#common/type.js";
 import { type PlannedLabel } from "./layout.js";
 
-/** One layer's label canvas. Painting is driven by the AnnotationManager, so
+/** One layer's label canvas. Painting is driven by the LabelManager, so
  *  there is nothing to schedule or listen for here. */
-class AnnotationCanvas {
+class LabelCanvas {
   private readonly map: L.Map;
   private readonly container: HTMLElement;
   private readonly canvas: HTMLCanvasElement;
@@ -116,4 +116,4 @@ class AnnotationCanvas {
   }
 }
 
-export { AnnotationCanvas };
+export { LabelCanvas };

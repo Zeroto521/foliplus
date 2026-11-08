@@ -898,7 +898,7 @@ describe("ui/state saveFoldState", () => {
       foldedRoles: new Set(["overlay"]),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
       listPanel: {
         foldedRoles: new Set(["overlay"]),
@@ -1360,7 +1360,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore(),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1388,7 +1388,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       ),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1416,7 +1416,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       ),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1439,7 +1439,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore({}, { overlay1: ["zoomRange"] }),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1476,7 +1476,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore({}, { overlay1: ["opacity"] }),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1499,7 +1499,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore(),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
       log: createLogger("LayerControl"),
     } as unknown as LayerUI;
@@ -1522,7 +1522,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore(),
       c: {
         persistence: { schedule: vi.fn() },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1535,7 +1535,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("skips annotation configs that are not objects", () => {
-    // The annotation config rides `layers[id].annotation`; a corrupt entry
+    // The label config rides `layers[id].annotation`; a corrupt entry
     // must not seed an intent, and an id with only a bad config drops out.
     const bare = {
       intentStore: makeStore(),
@@ -1615,7 +1615,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore(),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
         layerRegistry: new Map(),
         layers: [],
         replaySavedOrder: vi.fn(),
@@ -1746,7 +1746,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         },
       ),
       c: {
-        annotation: {
+        label: {
           configEntries: () => [
             ["overlay1", { show: true, field: "name", format: "auto" }],
           ],
@@ -1780,7 +1780,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore({ overlay1: { opacity: 0.6 } }, { overlay1: ["opacity"] }),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1819,7 +1819,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       ),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 
@@ -1939,7 +1939,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore({ overlay1: { name: "Renamed" } }),
       c: {
         persistence: { schedule },
-        annotation: { configEntries: () => [] },
+        label: { configEntries: () => [] },
       },
     } as unknown as LayerUI;
 

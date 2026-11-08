@@ -1,6 +1,6 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.mgr.annotation;
+  const mgr = ctrl && ctrl.mgr.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
@@ -27,7 +27,7 @@
     [26.11, 119.33, "delta"],
   ]);
   // enforceOrder is debounced; run it now so each layer's pane — and its
-  // annotation pane — gets the z that places it in the stack.
+  // label pane — gets the z that places it in the stack.
   ctrl.mgr.enforceOrder();
 
   return new Promise(resolve => {
@@ -56,13 +56,13 @@
           return n;
         };
         // Every owned pane carries the base class through ensurePane; the
-        // annotation role marker sits on top of it.
+        // label role marker sits on top of it.
         const paneClassesOf = id => {
           const pane = window.map.getPane(`foliplus-label-${id}`);
           if (!pane) return null;
           return {
             layer: pane.classList.contains("foliplus-layer-pane"),
-            annotation: pane.classList.contains("foliplus-label-pane"),
+            label: pane.classList.contains("foliplus-label-pane"),
           };
         };
         resolve({

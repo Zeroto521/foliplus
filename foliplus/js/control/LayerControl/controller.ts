@@ -50,9 +50,9 @@ import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { finishSlidersIn } from "#ui/index.js";
-import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
+import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
@@ -111,7 +111,7 @@ const uninstallBringToFrontPatch = () => {
 //      `computeZIndex`, `role`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
 //   2. **Internal coordination** — the plumbing between LayerInfoRegistry,
-//      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
+//      PaneManager, LayerSurface, LayerFactory, LabelManager and
 //      LayerPersistence. Methods here (`surfaceFor`, `enforceOrder`,
 //      `resolveLayerPanes`, `saveOrder`, `refreshOrder`, `normalizeGroup`,
 //      `onLayerAdd`, `debouncedEnforce`) are read by the sibling ui/*
@@ -161,7 +161,7 @@ interface EnforceOrderResult {
  *  compact concatenation instead of `JSON.stringify` — same equality, no
  *  intermediate array per surface per pass. */
 const capabilityKey = (caps: LayerCapabilities): string =>
-  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.zoomRange}|${caps.visibility}|${caps.annotation}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.zoomRange}|${caps.visibility}|${caps.label}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -216,7 +216,7 @@ class LayerController implements LayerAPI {
    *  record that `normalizeGroups` reads to place Folder blocks before root
    *  layers. Seeded from storage, written on freeze / folder delete. */
   declare folderOrder: FolderOrder;
-  declare annotation: AnnotationManager;
+  declare label: LabelManager;
   declare domain: LayerOrchestration;
   /** Per-layer intent store — domain-owned, exposed on
    *  LayerUI as a read-only getter. Read via `this.intentStore` internally
@@ -228,7 +228,7 @@ class LayerController implements LayerAPI {
    *  filterSetter, and LAYER_FILTER_CHANGE is published after the state here
    *  is settled. Absent = no filter. Heatmap/Measure own their own filters. */
   declare layerFilters: Map<string, LayerFilter>;
-  /** The generic filter's hidden-leaf set per layer id, kept so the annotation
+  /** The generic filter's hidden-leaf set per layer id, kept so the label
    *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
@@ -386,7 +386,7 @@ class LayerController implements LayerAPI {
       // script, so the registry entry still reads `layer: null` when the real
       // object joins the map. That arrival is a map-membership change no
       // registry write emitted, so it gets its own LAYER_CHANGE here — without
-      // it a consumer that only reads the bus (annotation repaints its labels)
+      // it a consumer that only reads the bus (label repaints its labels)
       // would see a registered layer appear and never learn about it. Only
       // entries that had not resolved yet qualify, which also keeps a
       // registration-driven add to one emit: registerLayer's own `map.addLayer`
@@ -452,18 +452,18 @@ class LayerController implements LayerAPI {
       if (claimed && !this.isEnforcing) this.debouncedEnforce();
     };
     this.map.on("layerremove", this.onLayerRemove);
-    // The annotation manager plans each layer's labels on that layer's own
+    // The label manager plans each layer's labels on that layer's own
     // label pane — which is a declared `role: "label"` PaneSpec of the
-    // layer's surface (see `withAnnotationSpec`), created and z-priced with
+    // layer's surface (see `withLabelSpec`), created and z-priced with
     // the rest of the face. The manager only mounts canvases into it; there
     // is no pane hook and no stored-intent replay to wire — the pane exists
     // before any intent can, so the executor's registration-pass write
     // already landed on it.
-    this.annotation = new AnnotationManager({
+    this.label = new LabelManager({
       map: this.map,
       layerFind: this.findLayer,
     });
-    this.annotation.setHiddenCheck(
+    this.label.setHiddenCheck(
       (id, leaf) => this.hiddenSets.get(id)?.has(leaf) ?? false,
     );
     this.domain = new LayerOrchestration({
@@ -473,7 +473,7 @@ class LayerController implements LayerAPI {
       factory: this.factory,
       order: this.order,
       persistence: this.persistence,
-      annotation: this.annotation,
+      label: this.label,
       surfaceIndex: this.surfaceIndex,
       getIntentStore: () => this.intentStore,
     });
@@ -860,7 +860,7 @@ class LayerController implements LayerAPI {
    *  every subscriber can filter on the payload instead of re-walking the
    *  registry. Covers register / unregister / reorder / visibility toggle /
    *  late re-attachment: those are all "the map now shows a different set of
-   *  layers", which is what the annotation manager repaints on.
+   *  layers", which is what the label manager repaints on.
    *
    *  Always routed through the caller's operation: this event has the same
    *  settled fan-out whichever lifecycle entry produced it, so a consumer
@@ -1308,7 +1308,7 @@ class LayerController implements LayerAPI {
   /** Local retirement as one guaranteed-finalization pass: every throwable
    *  step runs isolated through `finalize` — a map-removal listener, a
    *  `clearLayers` `remove` event, a panel read that throws — and all local
-   *  ledgers (drag, map membership, DOM row, cursor, annotation) converge
+   *  ledgers (drag, map membership, DOM row, cursor, label) converge
    *  before the first failure is handed back. The caller owes persistence and
    *  the retirement events; it rethrows after ITS commits have landed. */
   private retireEntry(id: string): { layerInfo: LayerInfo; error?: unknown } | null {
@@ -1367,10 +1367,10 @@ class LayerController implements LayerAPI {
         // Nothing here writes persisted state. The rename and the per-layer
         // intent both survive this teardown, so a component that unregisters an
         // empty layer and registers it again comes back with the name and the
-        // settings the user chose. Tear down the annotation RENDERING state; the
+        // settings the user chose. Tear down the label RENDERING state; the
         // label config stays — it is part of that surviving intent (a flush after
         // this point must not erase `layers[id].annotation` from storage).
-        ["unload-annotation", () => this.annotation.unloadLayer(id)],
+        ["unload-label", () => this.label.unloadLayer(id)],
       ],
       // Every failure is reported, not just the one handed to the caller: a
       // second failing step used to be invisible once the first was returned.
@@ -1443,7 +1443,7 @@ class LayerController implements LayerAPI {
    *
    * User-added layers are deleted for good: the id is added to `removed` so
    * the registry refuses it again, and the three sections that key by layer
-   * id — order, the rename, the annotation config — are pruned. Only a user
+   * id — order, the rename, the label config — are pruned. Only a user
    * who pointed at a row and chose "delete" knows the layer is gone for
    * good; per-dimension resets drop one provenance marker instead, which is
    * the same guarantee at the dimension level. Deletion is one level deeper
@@ -1549,7 +1549,7 @@ class LayerController implements LayerAPI {
     // retireEntry keeps the label config (a teardown is not a delete); this is
     // the delete, so forget it here — `configEntries` must stop answering for
     // a removed id.
-    this.annotation.destroyLayer(id);
+    this.label.destroyLayer(id);
 
     // Drop every persisted value for this id (stored order + per-layer intent
     // + name rider) through the domain. `saveState` / `saveNamesState` are
@@ -1557,7 +1557,7 @@ class LayerController implements LayerAPI {
     // layer no longer rewrites the whole `layers` map.
     //
     // The label config needs no schedule here: it rides `layers[id]`
-    // (the live config is gone via `annotation.destroyLayer` above), and the
+    // (the live config is gone via `label.destroyLayer` above), and the
     // legacy `annotations` segment no longer exists, so a v2 entry cannot
     // resurrect behind the new key's absence.
     const { orderDropped, intentDropped, nameCleared } = this.domain.deleteEntry(id, {
@@ -1690,7 +1690,7 @@ class LayerController implements LayerAPI {
    * Drop every persisted user value for one id — the intent row (visibility,
    * opacity, zoom range) with its provenance, plus the stored order slot —
    * without retiring the layer. The id stays registerable, and the registry
-   * entry and annotation config are left alone.
+   * entry and label config are left alone.
    *
    * `deleteLayer` composes the same two prunes for the layers it does retire,
    * and the component-owned branch of `deleteLayer` calls this straight, so
@@ -1698,9 +1698,9 @@ class LayerController implements LayerAPI {
    * a component that clears its own data must not hand the next draw the
    * tuning the user arranged for the previous one.
    *
-   * Deliberately no `flushAll` and no `annotation.destroyLayer` — the caller
+   * Deliberately no `flushAll` and no `label.destroyLayer` — the caller
    * owns persistence timing, and the id is stable across draws, so the
-   * annotation config and any user rename still describe the same thing.
+   * label config and any user rename still describe the same thing.
    *
    * @param id - The layer ID whose persisted state is being dropped.
    * @returns true if persisted state was dropped, false when nothing was
@@ -1827,8 +1827,8 @@ class LayerController implements LayerAPI {
   /** The generic filter's write-through: store the filter, compute the hidden
    *  set, toggle the hidden class on every geometry leaf's element (path /
    *  icon / shadow — one class write instead of a per-leaf style loop),
-   *  and announce LAYER_FILTER_CHANGE. The annotation label walk reads the
-   *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
+   *  and announce LAYER_FILTER_CHANGE. The label label walk reads the
+   *  same hidden set via the label manager — never walkLeaf/walkFillLeaves
    *  (the ramp/legend domain must not follow the filter). */
   setLayerFilter(id: string, filter: LayerFilter | undefined): void {
     this.layerFilters.set(id, filter);
@@ -1842,8 +1842,8 @@ class LayerController implements LayerAPI {
 
   /** Compute the filter's hidden set and toggle the hidden class on every
    *  geometry leaf's element (path / icon / shadow — one class write
-   *  instead of a per-leaf style loop). The annotation label walk reads the
-   *  same hidden set via the annotation manager — never walkLeaf/walkFillLeaves
+   *  instead of a per-leaf style loop). The label label walk reads the
+   *  same hidden set via the label manager — never walkLeaf/walkFillLeaves
    *  (the ramp/legend domain must not follow the filter). No event is
    *  published: a caller that also announces the change publishes separately. */
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
@@ -1962,7 +1962,7 @@ class LayerController implements LayerAPI {
         // for the control to be removed before the timer fires. unbindEvents
         // also flushes, but it only runs when a panel is attached.
         ["flush-persistence", () => this.persistence.flushAll()],
-        ["destroy-annotation", () => this.annotation.destroy()],
+        ["destroy-label", () => this.label.destroy()],
         ["unbind-ui", () => this.ui?.unbindEvents()],
         ["destroy-persistence", () => this.persistence.destroy()],
         [

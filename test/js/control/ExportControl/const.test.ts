@@ -20,10 +20,10 @@ describe("export canvas whitelists", () => {
     vendorCanvas.className = "vendor-overlay";
     const annotationPane = document.createElement("div");
     annotationPane.className = "foliplus-label-pane";
-    const annotation = document.createElement("canvas");
-    annotation.className = "foliplus-label-canvas";
+    const label = document.createElement("canvas");
+    label.className = "foliplus-label-canvas";
     layerPane.append(vendorCanvas);
-    annotationPane.append(annotation);
+    annotationPane.append(label);
     mapPane.append(layerPane, annotationPane);
     document.body.appendChild(mapPane);
 
@@ -32,7 +32,7 @@ describe("export canvas whitelists", () => {
       vendorCanvas,
     ]);
     expect(Array.from(mapPane.querySelectorAll(CONST.SEL.LABEL_CANVAS))).toEqual([
-      annotation,
+      label,
     ]);
     mapPane.remove();
   });

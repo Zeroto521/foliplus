@@ -50,7 +50,7 @@ describe("zFor slots", () => {
     // DOM order: Leaflet writes `pos.y + zIndexOffset` onto icons, which goes
     // negative near the viewport top — where a negative-z positioned element
     // paints BELOW a z:auto sibling. One step down keeps it under its own
-    // icons and above the next layer's slot (STEP = 10). Like annotation,
+    // icons and above the next layer's slot (STEP = 10). Like label,
     // the role decides; `order` is ignored.
     const slot = zFor({ index: 1, count: 3 });
     expect(zFor({ index: 1, count: 3, paneRole: "shadow" })).toBe(slot - 1);

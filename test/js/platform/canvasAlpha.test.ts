@@ -129,7 +129,7 @@ describe("withCanvasLayerAlpha", () => {
 //     draw time, so the overlap region is (a×a) rather than (a).
 // That difference is inherent to canvas alpha mixing vs layer compositing and
 // is documented here rather than papered over. Heatmap hexes are opaque
-// fills at a declared fill_opacity; annotation labels are opaque text. Color
+// fills at a declared fill_opacity; label labels are opaque text. Color
 // is a single rect. The three bake carriers therefore match CSS for every
 // case they actually draw today.
 describe("visual consistency: bake vs CSS (single shape)", () => {

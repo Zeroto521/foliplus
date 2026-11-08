@@ -1,6 +1,6 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.mgr.annotation;
+  const mgr = ctrl && ctrl.mgr.label;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
@@ -37,7 +37,7 @@
     await frame();
     const before = count();
     // Hide through the intent API (setVisible -> dispatchStateOp -> map.removeLayer
-    // + LAYER_CHANGE) rather than raw map.removeLayer: the annotation manager
+    // + LAYER_CHANGE) rather than raw map.removeLayer: the label manager
     // reads LAYER_CHANGE, not the native `layerremove`, so a direct map call
     // would not reach it. The panel checkbox goes through the same path.
     api.setVisible("__vis__", false);

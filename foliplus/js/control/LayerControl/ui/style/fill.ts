@@ -16,7 +16,7 @@
 // declares `"native"` — the pane's paint *is* the fill.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
-// the HeatmapControl border row and the annotation label row — one
+// the HeatmapControl border row and the label label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
@@ -623,7 +623,7 @@ const disposeFillRow = (ui: LayerUI): void => {
   schemePickerByUi.delete(ui);
 };
 
-/** Numeric field names offered by the value field picker. The annotation
+/** Numeric field names offered by the value field picker. The label
  *  panel's field cache is the primary source (it is already computed and
  *  invalidated with the layer's features); a tree walk is the fallback for a
  *  layer whose cache has not been populated yet. Order is first-seen, so the
@@ -642,7 +642,7 @@ const numericFields = (ui: LayerUI, layerId: string): string[] => {
 };
 
 /** Categorical field names offered by the category fill arm. Same cache
- *  source as the numeric arm — the annotation panel field cache first, a
+ *  source as the numeric arm — the label panel field cache first, a
  *  tree walk as the fallback — so a layer whose cache has not been
  *  populated yet still sees its categorical columns. */
 const categoryFields = (ui: LayerUI, layerId: string): string[] => {
