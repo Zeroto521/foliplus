@@ -21,12 +21,12 @@ import folium
 import pytest
 from conftest import (
     _js,
+    assert_map_unchanged,
     load_geojson,
     make_browser_page,
+    map_center_zoom,
     panel_ready,
     snippet,
-    assert_map_unchanged,
-    map_center_zoom,
     snippet_fn,
     touch_drag,
     use_page,

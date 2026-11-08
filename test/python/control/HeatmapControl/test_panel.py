@@ -37,14 +37,14 @@ import folium
 import pytest
 from conftest import (
     _js,
+    assert_map_unchanged,
     feature_collection,
     heatmap_ready,
     load_geojson,
     make_browser_page,
+    map_center_zoom,
     point_feature,
     snippet,
-    assert_map_unchanged,
-    map_center_zoom,
     snippet_fn,
     touch_drag,
     use_page,

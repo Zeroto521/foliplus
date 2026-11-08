@@ -11,8 +11,8 @@ import folium
 import pytest
 from conftest import (
     _js,
-    feature_collection,
     assert_map_unchanged,
+    feature_collection,
     heatmap_ready,
     leaflet_path,
     leaflet_points,
