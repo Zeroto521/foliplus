@@ -2567,6 +2567,55 @@ describe("fill mode row — solid ↔ color by value", () => {
     ).toBeNull();
   });
 
+  it("a stored category value config survives mode re-entry and value writes unclamped", () => {
+    // persistedValue (fill.ts) has two arms: the category arm returns the
+    // record as-is (no class-count clamp — method/classes are type-required
+    // but unused at runtime on a category), while only the numeric arm clamps
+    // classes to the persistence validator's range. A category record must
+    // therefore survive a user write without being coerced to numeric. Both
+    // write paths are driven here: re-entering the value arm through the mode
+    // select (writeFillMode) and a method change on the value detail
+    // (writeFillValue).
+    installChroma(["#111111", "#222222"]);
+    setIntent(ui, "overlay1", "fillValue", {
+      kind: "category",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+    const block = openPanel(ui);
+
+    // value -> solid -> value: the second value entry writes through
+    // writeFillMode, which persists valueForUi(...) — the stored category
+    // record — through persistedValue's category arm.
+    switchMode(block, "solid");
+    switchMode(block, "value");
+
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
+      kind: "category",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+
+    // A method change on the value detail writes through writeFillValue,
+    // which spreads the stored category record and re-persists it: the kind
+    // stays category, the patch lands, and the classes are still not clamped.
+    const methodSelect = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    methodSelect.value = "jenks";
+    methodSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
+      kind: "category",
+      method: "jenks",
+      classes: 3,
+      scheme: "Reds",
+    });
+  });
+
   it("renders no mode select and writes no mode when there is no numeric field", () => {
     // A text-only layer: the field cache has no numeric entry and the tree
     // walk fallback finds no finite number either.
