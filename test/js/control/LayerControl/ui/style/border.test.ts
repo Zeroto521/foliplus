@@ -1292,16 +1292,22 @@ describe("buildBorderRow", () => {
 
     const row = buildBorderRow(ui, "vec1");
 
-    // The read-only swatch reuses the colour slot's class, so the telling
-    // difference is the element: a static node with role=img, not an input.
+    // Same colour control as the single-color arm — a real swatch input, so
+    // the ORIGINAL row stays pixel-identical to SINGLE — only inert: it must
+    // not open a picker or accept an edit.
     const readOnly = row.querySelector(
       ".foliplus-style-border-color-input",
-    ) as HTMLElement | null;
+    ) as HTMLInputElement | null;
     expect(readOnly).not.toBeNull();
-    expect(readOnly?.tagName).not.toBe("INPUT");
-    expect(readOnly?.getAttribute("role")).toBe("img");
+    expect(readOnly?.tagName).toBe("INPUT");
+    expect(readOnly?.disabled).toBe(true);
+    expect(readOnly?.readOnly).toBe(true);
     // The weight stays editable: it is a user-facing stroke attribute.
-    expect(row.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement | null;
+    expect(weight).not.toBeNull();
+    expect(weight?.disabled).toBe(false);
   });
 
   it("does not write a colour when the read-only swatch is pressed", () => {
@@ -1313,7 +1319,7 @@ describe("buildBorderRow", () => {
 
     const readOnly = row.querySelector(
       ".foliplus-style-border-color-input",
-    ) as HTMLElement;
+    ) as HTMLInputElement;
     readOnly.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(getIntent(ui, "vec1", "borderColor")).toBeUndefined();

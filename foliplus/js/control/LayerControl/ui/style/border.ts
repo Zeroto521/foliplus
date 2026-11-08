@@ -51,7 +51,6 @@ import {
   inlineControls,
   normalizeHexColor,
   numberInput,
-  readOnlyValue,
 } from "#ui/index.js";
 import { STYLE_MODE } from "#ui/styleModeKey.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -75,6 +74,7 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  styleBagOf,
   styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
@@ -112,6 +112,10 @@ interface BorderRowBuildTarget {
   colorAria?: string;
   /** Optional aria-label for the width input. */
   weightAria?: string;
+  /** Render the color input inert (the author's own stroke in ORIGINAL mode).
+   *  Same swatch control as the editable arm, so the row stays pixel-identical
+   *  and only its editability differs. Absent = editable. */
+  colorReadOnly?: boolean;
 }
 
 interface BorderRowBindTarget {
@@ -332,11 +336,16 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
   // Solid path (unchanged): a flat color+weight write per leaf.
-  const color = getIntent(ui, layerId, INTENT.BORDER_COLOR);
+  // ORIGINAL owns no user colour: the author's per-leaf stroke is the target,
+  // so the colour override is treated as absent and the walk below restores
+  // each leaf's captured author face (mirror of fill's original arm). It stays
+  // in the intent record, so a later switch back to solid still restores it.
+  const original = effectiveBorderMode(ui, layerId) === FILL_MODE.ORIGINAL;
+  const color = original ? undefined : getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
-  if (color === undefined && weight === undefined) return;
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
+  const hasOverride = color !== undefined || weight !== undefined;
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.color = color;
   if (weight !== undefined) values.weight = weight;
@@ -344,8 +353,19 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // that own setStyle, so a group's style function (L.GeoJSON, L.FeatureGroup)
   // never captures the base in place of its features.
   walkStyleLeaves(layer, node => {
-    // Shared write contract: value keys + visibility bit (stroke: true).
-    commitStyleDim(node, values, FACE.STROKE);
+    // A leaf that was never written and has nothing to own is left alone: no
+    // restore, no pin. An uncommitted layer keeps folium's own hover handling
+    // and gains no per-leaf cost (same guard as fill's apply).
+    if (!hasOverride && styleBagOf(node) === undefined) return;
+    if (!hasOverride) {
+      // No override left: restore the author's face rather than skipping the
+      // walk, or the previous mode's colour stays on the map until folium's
+      // next mouseout happens to overwrite it.
+      restoreStyleDim(node, FACE.STROKE);
+    } else {
+      // Shared write contract: value keys + visibility bit (stroke: true).
+      commitStyleDim(node, values, FACE.STROKE);
+    }
     // Pin the leaf's stroke against folium's highlight restore via the shared
     // pinStyleOnHighlight hook, keyed 'border' so a re-commit
     // replaces this dimension's getter instead of stacking another closure.
@@ -354,6 +374,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     // highlight-restore can neither drop one dimension nor grow a getter
     // list with every commit.
     pinStyleOnHighlight(node, DIM.BORDER, () => {
+      // The author's own stroke is the paint in ORIGINAL: folium's mouseout
+      // restore already put it back, so there is no user face to replay.
+      if (effectiveBorderMode(ui, layerId) === FILL_MODE.ORIGINAL) return null;
       const c = getIntent(ui, layerId, INTENT.BORDER_COLOR);
       const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
       if (c === undefined && w === undefined) return null;
@@ -453,13 +476,19 @@ const weightSelector = (className?: string) =>
 const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
   const parts: HTMLElement[] = [];
   if (target.hasColorInput) {
-    parts.push(
-      colorInput({
-        value: target.color,
-        className: target.className,
-        ariaLabel: target.colorAria,
-      }),
-    );
+    const input = colorInput({
+      value: target.color,
+      className: target.className,
+      ariaLabel: target.colorAria,
+    }) as HTMLInputElement;
+    if (target.colorReadOnly) {
+      // The swatch keeps its swatch/hex chrome; only editability differs. Both
+      // readOnly and disabled so no picker opens and no keyboard edit lands.
+      input.readOnly = true;
+      input.disabled = true;
+      input.tabIndex = -1;
+    }
+    parts.push(input);
   }
   if (target.hasWeightInput) {
     parts.push(
@@ -539,34 +568,30 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
   const mode = displayBorderMode(ui, layerId);
   // In ORIGINAL mode the border colour is the author's own stroke — it is not
-  // the user's to change, so the colour slot renders as a read-only swatch
-  // (same readOnlyValue primitive fill's original arm uses) instead of an
-  // editable picker. Weight stays editable: it is a user-facing stroke
-  // attribute, not a colour carried from Python.
+  // the user's to change, so the colour input renders disabled (the same
+  // colorInput control the single-color arm uses). Weight stays editable.
   if (mode === FILL_MODE.ORIGINAL) {
-    const color = displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color);
-    const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
-    const block = dom.el("div", {
-      class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
-    });
-    block.append(dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("border")));
-    const control = dom.el("div", { class: PANEL_CLASS.FORM_CONTROL });
-    control.append(
-      readOnlyValue(
-        { className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT, role: "img" },
-        dom.el("span", { title: ui.T("style_border_color") }, color),
-      ),
-      numberInput({
-        value: weight,
-        min: BORDER_WEIGHT.MIN,
-        max: BORDER_WEIGHT.MAX,
-        step: BORDER_WEIGHT.STEP,
-        className: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-        ariaLabel: ui.T("style_border_weight"),
-      }),
+    const color = displayColor(
+      getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
     );
-    block.append(control);
-    return block;
+    const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
+    // Same colour control as the single-color arm (buildBorderRowShell ->
+    // colorInput), only inert: the author's stroke is not the user's to change.
+    // Reusing the real input keeps the ORIGINAL row pixel-identical to SINGLE
+    // (swatch + hex + weight) rather than degrading to a bare read-only box.
+    return buildBorderRowShell({
+      rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+      label: ui.T("border"),
+      color,
+      weight,
+      hasColorInput: true,
+      hasWeightInput: true,
+      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+      colorAria: ui.T("style_border_color"),
+      weightAria: ui.T("style_border_weight"),
+      colorReadOnly: true,
+    });
   }
   return buildBorderRowShell({
     rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
