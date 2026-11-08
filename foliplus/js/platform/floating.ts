@@ -1,4 +1,4 @@
-// common/floating — the shared floating-layer lifecycle.
+// platform/floating — the shared floating-layer lifecycle.
 //
 // A floating layer leaves its owning panel's clip box and mounts on a covering
 // surface (native/pseudo fullscreen or <body>), re-pins on scroll/resize

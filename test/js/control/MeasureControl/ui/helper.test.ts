@@ -1,7 +1,7 @@
+import { installStubs } from "./fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bindOpenOverlay } from "#control/MeasureControl/ui/helper.js";
 import * as UI from "#control/MeasureControl/ui/index.js";
-import { installStubs } from "./fixture.js";
 
 beforeEach(() => {
   installStubs();

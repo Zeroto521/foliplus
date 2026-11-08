@@ -12,6 +12,20 @@
 // (closeStylePanel). Row builders, the field cache and the delegated drawer
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
+import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
+import { bindBorderRow, resetLayerBorder } from "./border.js";
+import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
+import { appendResetFooter } from "./frame.js";
+import { resetLayerIcon } from "./icon.js";
+import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
+import { resetLayerOpacity } from "./opacity.js";
+import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { bindSizeRow, resetLayerSize } from "./size.js";
+import { flushStyleDimApplies } from "./styleBag.js";
+import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import {
@@ -33,20 +47,6 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
-import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
-import { bindBorderRow, resetLayerBorder } from "./border.js";
-import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
-import { appendResetFooter } from "./frame.js";
-import { resetLayerIcon } from "./icon.js";
-import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
-import { resetLayerOpacity } from "./opacity.js";
-import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
-import { bindSizeRow, resetLayerSize } from "./size.js";
-import { flushStyleDimApplies } from "./styleBag.js";
-import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
  *  neither a capable Label dimension nor a capable Layer dimension. */

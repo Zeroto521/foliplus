@@ -3,7 +3,7 @@
 // plain `new Error(...)` / `new TypeError(...)`, so instanceof/name/stack come
 // from the runtime, not from here.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,13 +1,21 @@
+import {
+  GridLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+} from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { DIM } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { registerPortalRoot } from "#platform/portalRoot.js";
 import { sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -32,14 +40,6 @@ import { coerceAnnotationFields } from "#control/LayerControl/ui/style/label.js"
 import { clampPct, resetLayerOpacity } from "#control/LayerControl/ui/style/opacity.js";
 import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#control/LayerControl/ui/style/zoomRange.js";
-import {
-  GridLayer,
-  attachedPanel,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  oneOverlay,
-} from "../fixture.js";
 
 // The carrier contract promises pane coverage only to migratable families
 // (Path / Marker / GridLayer / ImageOverlay). Style-row stubs for vector

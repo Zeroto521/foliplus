@@ -2,6 +2,14 @@
 // sequence and the layer-count-change refresh. These are the null-guard rails
 // in the two public functions, not the happy path (which the shell test and
 // the individual handler suites already exercise).
+import {
+  attachedPanel,
+  findItem,
+  initFixture,
+  oneOverlay,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,14 +37,6 @@ import {
   hasStyleDimApply,
   scheduleStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import {
-  attachedPanel,
-  findItem,
-  initFixture,
-  oneOverlay,
-  polygonLayer,
-  trackMembership,
-} from "./fixture.js";
 
 vi.mock("#control/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<

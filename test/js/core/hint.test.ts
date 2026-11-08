@@ -5,7 +5,7 @@ import {
   ensureHint,
   registerHintIcon,
 } from "#core/hint.js";
-import { setPseudoFullscreen } from "#common/fullscreen.js";
+import { setPseudoFullscreen } from "#platform/fullscreen.js";
 
 beforeEach(() => {
   document.body.innerHTML = "";

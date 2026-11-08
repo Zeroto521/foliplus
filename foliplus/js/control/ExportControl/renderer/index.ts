@@ -2,15 +2,6 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import {
-  type LayerInfo,
-  contentPanesOf,
-  findLayer,
-  labelPaneNameOf,
-} from "#core/layer/index.js";
-import { layerUrl } from "#core/leafletAdapter.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import {
@@ -31,6 +22,15 @@ import {
 import { renderPaneSVG } from "./svg.js";
 import { calcTiles, renderTileLayer, tilePositions } from "./tile.js";
 import { isCorsBlocked, pooledEach } from "./util.js";
+import {
+  type LayerInfo,
+  contentPanesOf,
+  findLayer,
+  labelPaneNameOf,
+} from "#core/layer/index.js";
+import { layerUrl } from "#core/leafletAdapter.js";
+import { createScopedTranslator } from "#platform/locale.js";
+import { createLogger } from "#platform/log.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);

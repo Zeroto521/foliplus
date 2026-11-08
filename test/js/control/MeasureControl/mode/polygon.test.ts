@@ -1,8 +1,8 @@
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 import { PolygonMode } from "#control/MeasureControl/mode/index.js";
-import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachPolygonUI's opts so the start-path onDelete/onUpdate
 // callbacks (store.update/remove by polyId) can be exercised directly.

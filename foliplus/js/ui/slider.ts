@@ -1,8 +1,8 @@
-// Horizontal slider primitive — one thumb or two, foliplus chrome, no deps.
+// ui/slider — horizontal slider primitive: one thumb or two, foliplus chrome, no deps.
 //
 // The widget owns the interaction model that native <input type=range> cannot
 // express: a single control with two thumbs that never cross. Everything
-// geometric is CSS (common/slider.css); this module owns values, pointer and
+// geometric is CSS (foliplus/css/slider.css); this module owns values, pointer and
 // keyboard handling, and the ARIA contract.
 //
 // The value readout is NOT rendered inside the row: the bubble is a singleton
@@ -13,12 +13,12 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { dom } from "#common/dom.js";
-import { finalize } from "#common/finalize.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
-import { SLIDER_CLASS } from "#common/sliderClassName.js";
+import { SLIDER_CLASS } from "./sliderClassName.js";
 import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
+import { dom } from "#platform/dom.js";
+import { finalize } from "#platform/finalize.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
 
@@ -75,7 +75,7 @@ const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
   // Native fullscreen and pseudo enter/exit both announce through
-  // common/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
+  // platform/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
   // so a `fullscreenchange` listener alone would leave the bubble on <body>
   // under the opaque map.
   // Page-lifetime singleton: the bubble and this subscription are

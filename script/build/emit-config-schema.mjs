@@ -26,12 +26,12 @@
  * build (with --verify, which never writes); also runnable standalone for
  * local iteration.
  */
+import { help, parseArgs } from "../args.mjs";
+import { repoRoot } from "../build-path.mjs";
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { format, resolveConfig } from "prettier";
 import { pathToFileURL } from "url";
-import { help, parseArgs } from "../args.mjs";
-import { repoRoot } from "../build-path.mjs";
 
 // `format()` does not load the repo config on its own, so bare defaults would
 // produce a file that `format:check` (printWidth 88 + the import-sort plugin)

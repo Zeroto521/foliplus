@@ -1,21 +1,21 @@
 // ExportControl export session pipeline — doExport through cleanup.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { COMPONENTS } from "#core/component.js";
-import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
-import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { guardBlocked } from "#core/mode.js";
-import { dom } from "#common/dom.js";
-import { download } from "#common/download.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
-import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
 import type { CropRect } from "./type.js";
 import { resolveExportBackground } from "./util.js";
+import { COMPONENTS } from "#core/component.js";
+import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
+import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { guardBlocked } from "#core/mode.js";
+import { dom } from "#platform/dom.js";
+import { download } from "#platform/download.js";
+import { createScopedTranslator } from "#platform/locale.js";
+import { createLogger } from "#platform/log.js";
+import { nextFrame } from "#platform/throttle.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);

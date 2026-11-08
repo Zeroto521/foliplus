@@ -9,7 +9,6 @@
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / ensureVector / pinTree / pinLateContent / releasePane /
 //     invalidateDiscoveryCache / destroy
-import { createLogger } from "#common/log.js";
 import {
   destroyPane,
   getRendererContainer,
@@ -21,6 +20,7 @@ import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
 import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("PaneManager");
 

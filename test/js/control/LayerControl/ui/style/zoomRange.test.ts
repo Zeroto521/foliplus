@@ -1,3 +1,11 @@
+import {
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+  polygonLayer,
+  trackMembership,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
@@ -12,14 +20,6 @@ import {
   commitZoomRange,
   resetLayerZoomRange,
 } from "#control/LayerControl/ui/style/zoomRange.js";
-import {
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  oneOverlay,
-  polygonLayer,
-  trackMembership,
-} from "../fixture.js";
 
 const mockMap = {
   getMinZoom: () => 0,

@@ -5,9 +5,9 @@
 // a browser; mockLayerAPI is the CreateLayersAPI stub both factories share.
 // The module mocks stay in each test file: they must be hoisted above the
 // manager import, and a fixture cannot register them on the caller's behalf.
+import { makeControlEnv } from "../fixture.js";
 import { vi } from "vitest";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../fixture.js";
 
 // Re-export the shared helpers so deeper MeasureControl tests (mode/*) can
 // import from this subdirectory fixture instead of climbing to test/js.

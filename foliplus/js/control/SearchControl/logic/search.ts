@@ -1,5 +1,15 @@
 // SearchControl search/suggestion logic — geocoding, suggestions, result panel
 // and the result marker. Moved from logic.ts; history lives in ./history.ts.
+import { AUTOCOMPLETE, MODE, SOURCE, ZOOM } from "../const.js";
+import type { AddressResult, ResultItem } from "../type.js";
+import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
+import {
+  attachSearchDelIcon,
+  positionPanel,
+  removePanel,
+  renderResults,
+} from "./panel.js";
+import { type SearchControlCtx, parseCoord } from "./util.js";
 import { fromWgs84, toWgs84 } from "#core/geo/index.js";
 import {
   type GeocodeProvider,
@@ -13,20 +23,10 @@ import { HINT_DURATION } from "#core/hint.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
-import { debounce } from "#common/debounce.js";
-import { fetchWithTimeout } from "#common/fetch.js";
-import { formatLatLng } from "#common/format.js";
-import * as Icons from "#common/icon.js";
-import { AUTOCOMPLETE, MODE, SOURCE, ZOOM } from "../const.js";
-import type { AddressResult, ResultItem } from "../type.js";
-import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
-import {
-  attachSearchDelIcon,
-  positionPanel,
-  removePanel,
-  renderResults,
-} from "./panel.js";
-import { type SearchControlCtx, parseCoord } from "./util.js";
+import { debounce } from "#platform/debounce.js";
+import { fetchWithTimeout } from "#platform/fetch.js";
+import { formatLatLng } from "#platform/format.js";
+import * as Icons from "#platform/icon.js";
 
 /** Resolve the configured geocode provider (falls back to Nominatim). */
 const getProvider = (config: ComponentConfig): GeocodeProvider => {

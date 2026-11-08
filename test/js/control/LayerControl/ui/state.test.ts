@@ -1,11 +1,21 @@
+import {
+  GridLayer,
+  TEST_ENV,
+  TileLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  polygonLayerWithStyle,
+} from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -28,16 +38,6 @@ import {
   unmarkOverride,
 } from "#control/LayerControl/ui/state.js";
 import { flushStyleDimApplies } from "#control/LayerControl/ui/style/styleBag.js";
-import {
-  GridLayer,
-  TEST_ENV,
-  TileLayer,
-  attachedPanel,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  polygonLayerWithStyle,
-} from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */

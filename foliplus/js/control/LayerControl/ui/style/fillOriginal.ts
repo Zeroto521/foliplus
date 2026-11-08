@@ -5,13 +5,13 @@
 // the panel shows them as read-outs, never as controls a user can edit. The
 // caption, the count and the read-only frame are shared by this mode only;
 // `buildOriginalDetail` builds the read-only detail rows.
-import { METHOD } from "#core/classify.js";
-import { dom } from "#common/dom.js";
-import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
 import { originalGradient } from "./originalColor.js";
+import { METHOD } from "#core/classify.js";
+import { dom } from "#platform/dom.js";
+import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** What the author's strip is, in the author's own terms.
  *

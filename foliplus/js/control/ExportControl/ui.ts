@@ -1,17 +1,17 @@
 // ExportControl UI — DOM construction and event binding.
 // Standalone functions called with `mgr` (ExportManager instance) as first param.
-import { COMPONENTS } from "#core/component.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { bindMapSync } from "#core/leaflet/index.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
-import { createIconButton, dom } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
-import * as Icons from "#common/icon.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
+import { COMPONENTS } from "#core/component.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { bindMapSync } from "#core/leaflet/index.js";
+import { ensureModes, guardBlocked } from "#core/mode.js";
+import { createIconButton, dom } from "#platform/dom.js";
+import { formatNumber } from "#platform/format.js";
+import * as Icons from "#platform/icon.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {

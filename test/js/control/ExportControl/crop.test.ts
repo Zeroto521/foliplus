@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/ExportControl/const.js";
 import { ExportManager } from "#control/ExportControl/manager.js";
 
-vi.mock("#common/locale.js", async () => {
-  const real = await vi.importActual("#common/locale.js");
+vi.mock("#platform/locale.js", async () => {
+  const real = await vi.importActual("#platform/locale.js");
   const TABLES: Record<string, string> = {
     hint_locked: "Locked: resize with the handles",
     hint_restore: "Restored saved crop area",

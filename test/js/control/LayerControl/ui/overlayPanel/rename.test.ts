@@ -1,10 +1,10 @@
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#foliplus/core/mode.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#control/LayerControl/ui/intent.js";
-import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerController;
