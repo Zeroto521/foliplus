@@ -12,6 +12,7 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
+import { ListCursor } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
   PICKER_GLYPHS,
@@ -26,6 +27,7 @@ import {
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 import { dom } from "#common/dom.js";
+import { bindDismiss } from "#ui/dismiss.js";
 import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
@@ -180,7 +182,12 @@ const bindGlyphGrid = (
   renderTrigger: () => void,
 ): void => {
   let grid: HTMLElement | null = null;
+  let unbind: (() => void) | null = null;
   const close = () => {
+    // Pair the dismissal teardown with the close path (never a synthetic
+    // `remove` event): unbind is captured once per open.
+    unbind?.();
+    unbind = null;
     grid?.remove();
     grid = null;
     trigger.setAttribute("aria-expanded", "false");
@@ -193,27 +200,23 @@ const bindGlyphGrid = (
     grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
-    // Outside press closes.
-    const onDoc = (ev: Event) => {
-      if (grid && !grid.contains(ev.target as Node)) close();
-    };
-    document.addEventListener("pointerdown", onDoc, { once: true });
+    // Outside press + Escape + focus return, as one primitive. The old
+    // implementation got this wrong twice: `once: true` consumed the
+    // pointerdown listener on the first press anywhere (so the second outside
+    // press did not close), and `addEventListener("remove", …)` never ran
+    // (remove is not a real event, so the document listeners leaked).
+    unbind = bindDismiss({
+      root: grid,
+      trigger,
+      // The trigger is a separate subtree (the row holds both): a press on
+      // the trigger must reach its own click toggle, not close here.
+      containment: target =>
+        trigger.contains(target) || (grid as HTMLElement).contains(target),
+      onClose: close,
+      escapeTarget: document,
+    });
     grid.dataset.closeOnDoc = "1";
-    grid.addEventListener("remove", () =>
-      document.removeEventListener("pointerdown", onDoc),
-    );
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") {
-        ev.preventDefault();
-        close();
-        trigger.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey, { once: true });
     grid.dataset.closeOnKey = "1";
-    grid.addEventListener("remove", () =>
-      document.removeEventListener("keydown", onKey),
-    );
   };
 
   trigger.onclick = () => {
@@ -263,31 +266,22 @@ const buildGlyphGrid = (
     grid.appendChild(cell);
   }
 
-  // Keyboard: arrows move 2D, Enter/Space activates, Esc closes (handled above).
-  const focusIndex = (index: number) => {
-    /* v8 ignore next -- defensive: caller clamps index before calling */
-    if (index >= 0 && index < cells.length) cells[index]?.focus();
-  };
-  const currentIndex = () => cells.findIndex(c => c === document.activeElement);
-  grid.addEventListener("keydown", ev => {
-    const idx = currentIndex();
-    if (idx < 0) return;
-    const cols = GLYPH_GRID_COLS;
-    let next = idx;
-    if (ev.key === "ArrowRight") next = Math.min(cells.length - 1, idx + 1);
-    else if (ev.key === "ArrowLeft") next = Math.max(0, idx - 1);
-    else if (ev.key === "ArrowDown") next = Math.min(cells.length - 1, idx + cols);
-    else if (ev.key === "ArrowUp") next = Math.max(0, idx - cols);
-    else if (ev.key === "Home") next = 0;
-    else if (ev.key === "End") next = cells.length - 1;
-    else if (ev.key === "Enter" || ev.key === " ") {
-      ev.preventDefault();
-      cells[idx]?.click();
-      return;
-    } else return;
-    ev.preventDefault();
-    focusIndex(next);
+  // Keyboard: 2D walk via the shared ListCursor (arrows move row/column,
+  // Home/End first/last, Enter/Space activate the focused cell — a <button>
+  // fires its own click natively, which commits + closes). Esc is handled by
+  // the dismissal primitive above. The grid keeps its own ARIA roles: the
+  // cursor paints focus, not a listbox selection.
+  const cursor = new ListCursor({
+    root: grid,
+    itemSelector: `.${CONST.CLASSES.STYLE_ICON_CELL}`,
+    activeClass: "foliplus-icon-grid-cursor",
+    mode: "roving",
+    cols: GLYPH_GRID_COLS,
+    roles: { list: "grid", item: "gridcell" },
+    // Enter/Space on a focused cell commits + closes (the cell's click).
+    onActivate: (_, el) => (el as HTMLButtonElement).click(),
   });
+  cursor.bindKeys(grid);
   return grid;
 };
 /** Register icon as a per-layer dimension. The descriptor owns the

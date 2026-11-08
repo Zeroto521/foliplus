@@ -644,6 +644,50 @@ describe("buildIconRow", () => {
       );
     }).not.toThrow();
   });
+  it("outside press still closes after five open/close cycles", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    for (let i = 0; i < 5; i++) {
+      trigger.click();
+      expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
+      row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    }
+  });
+
+  it("Escape returns focus to the trigger", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("document listeners are paired across open/close (no leak)", () => {
+    const addSpy = vi.spyOn(document, "addEventListener");
+    const removeSpy = vi.spyOn(document, "removeEventListener");
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const added = addSpy.mock.calls.length;
+    const removedBefore = removeSpy.mock.calls.length;
+    trigger.click();
+    const removed = removeSpy.mock.calls.length - removedBefore;
+    expect(removed).toBeGreaterThanOrEqual(added);
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
 });
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
