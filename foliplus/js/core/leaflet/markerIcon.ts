@@ -236,7 +236,7 @@ const authorGlyphName = (layer: L.Layer): AuthorGlyph | null => {
     if (typeof own !== "string" || own.length === 0) return;
     const candidate = { name: own, valid: isGlyphSyntax(own) };
     if (candidate.valid) found = candidate;
-    else if (invalid === null) invalid = candidate;
+    else invalid ??= candidate;
   });
   return found ?? invalid;
 };

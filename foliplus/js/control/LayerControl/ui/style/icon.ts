@@ -145,7 +145,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
     // An author-declared name that fails glyph syntax is NEVER renderable, no
     // matter what the stylesheet paints — it gets its own unavailable state
-    // (task-23) rather than silently reading as the author-original label.
+    // rather than silently reading as the author-original label.
     const authorInvalid = !userGlyph && author !== null && !author.valid;
     if (value && glyph && available && !authorInvalid) {
       // The name is syntactically valid AND the loaded stylesheet paints it:

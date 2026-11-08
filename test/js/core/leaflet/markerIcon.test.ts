@@ -246,6 +246,14 @@ describe("authorGlyphName", () => {
       valid: true,
     });
   });
+  it("keeps the first invalid declaration when a later one is also invalid", () => {
+    const bad1 = makeMarker({ options: { icon: "not an icon" } });
+    const bad2 = makeMarker({ options: { icon: "also not an icon" } });
+    expect(authorGlyphName(makeMarkerGroup(bad1, bad2))).toEqual({
+      name: "not an icon",
+      valid: false,
+    });
+  });
 });
 
 describe("authorGlyphPrefix", () => {
