@@ -1096,7 +1096,7 @@ describe("icon rehydrate drift guard", () => {
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "fa-martini-glass", prefix: "fa" };
     const marker = makeMarker({ type: "school" }, author);
-    const { manager: m10, ui: u10 } = fixtureWithMarkers([marker]);
+    const { ui: u10 } = fixtureWithMarkers([marker]);
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const row = buildIconRow(u10, "overlay1")!;
     const trigger = row.querySelector(
@@ -1121,7 +1121,7 @@ describe("icon rehydrate drift guard", () => {
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "no-such-glyph", prefix: "fa-solid" };
     const marker = makeMarker({ type: "school" }, author);
-    const { manager: m11, ui: u11 } = fixtureWithMarkers([marker]);
+    const { ui: u11 } = fixtureWithMarkers([marker]);
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const row = buildIconRow(u11, "overlay1")!;
     const trigger = row.querySelector(

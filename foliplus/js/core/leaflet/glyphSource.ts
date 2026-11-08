@@ -165,12 +165,4 @@ const glyphHtml = (name: string, extraClass = "", style = ""): string => {
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;
 };
 
-export {
-  PICKER_GLYPHS,
-  faToken,
-  glyphAvailable,
-  glyphClassName,
-  glyphHtml,
-  isGlyphSyntax,
-  resolveGlyph,
-};
+export { PICKER_GLYPHS, glyphAvailable, glyphHtml, isGlyphSyntax, resolveGlyph };
