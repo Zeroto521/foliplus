@@ -85,7 +85,7 @@ const defaultIconProto = (): unknown => {
  *  `createShadow`, `options`, `_setIconStyles` — is reused verbatim, so the
  *  sprite background, className, iconSize and popupAnchor stay pixel-identical.
  *
- *  (Chassis / glyph colour is task-82; not in scope this PR.)
+ *  (Chassis / glyph colour is out of scope for this PR.)
  *
  *  Returns the derived icon object (already `Object.create(author)`), or the
  *  author's icon unchanged when the author is not a Leaflet icon (no
@@ -151,7 +151,7 @@ const buildMarkerIcon = (opts: {
     // inherits the same paint. No inline author color -> white (a computed
     // colour is not a signal: every element computes one, so reading it would
     // turn "the author named nothing" into black). The colour dimension
-    // itself is task-82.
+    // itself is a separate dimension (glyph colour).
     const authorInner = div.querySelector("i");
     const authorColor = authorInner ? (authorInner as HTMLElement).style.color : "";
     const markerColor = authorColor || "#fff";

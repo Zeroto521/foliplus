@@ -9,6 +9,7 @@
 // (the breaks algorithm sorts, and non-finite values break the sort), so
 // it is not offered to the picker at all.
 import { walkLeaf } from "./layer/walkLeaf.js";
+import { VALUE_KIND, type ValueKind } from "./valueKind.js";
 
 /** Whether a property value can drive a numeric classification.
  *
@@ -127,7 +128,7 @@ const resolveField = (stored: string, fields: readonly string[]): string =>
 /** The kind a layer field's values can drive. "numeric" for finite numbers,
  *  "category" for non-empty strings and booleans, "mixed" when both appear,
  *  "empty" when no usable value exists at all (all null, or no feature). */
-type InferredFieldKind = "numeric" | "category" | "mixed" | "empty";
+type InferredFieldKind = ValueKind | "mixed" | "empty";
 
 /** How many leaves the kind inference samples before it stops walking. A
  *  categorical column can hold thousands of rows, but the inference only needs
@@ -138,10 +139,10 @@ const INFER_SAMPLE_CAP = 64;
 /** Classify one non-null value into the kind it can drive, or undefined when
  *  the value is not a usable number or label (NaN / Infinity / an empty string
  *  / an object — the same non-values the numeric and category predicates skip). */
-const valueKindOf = (value: unknown): "numeric" | "category" | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) return "numeric";
-  if (typeof value === "boolean") return "category";
-  if (typeof value === "string" && value.length > 0) return "category";
+const valueKindOf = (value: unknown): ValueKind | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return VALUE_KIND.NUMERIC;
+  if (typeof value === "boolean") return VALUE_KIND.CATEGORY;
+  if (typeof value === "string" && value.length > 0) return VALUE_KIND.CATEGORY;
   return undefined;
 };
 
