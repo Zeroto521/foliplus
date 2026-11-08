@@ -212,7 +212,7 @@ const SIZE_DIMENSION = registerDimension<number>({
     getIntent(ui, layerId, INTENT.SIZE) ?? firstAuthorRadius(ui, layerId),
   /** `gatedRows` only calls a descriptor's row after its gate passed, and the
    *  gate is `layerCanSize` — the same check `buildSizeRow` re-runs for its
-   *  direct callers. So the `null` arm is unreachable on this path. */
+   *  direct callers. So the `null` mode is unreachable on this path. */
   row: (ui, layerId) => buildSizeRow(ui, layerId) as HTMLElement,
   /** Cohesive user write: round to a whole pixel, skip an unchanged value,
    *  record intent + provenance, then replay the stored intent onto the

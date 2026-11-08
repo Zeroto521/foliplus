@@ -130,7 +130,7 @@ const LABEL_DIM_ORDER = [DIM.LABEL] as const;
  *
  *  Every key listed in a section order is registered — `registry.test` locks
  *  the union of both orders against the built-ins — so the lookup cannot
- *  miss; the cast states that contract instead of branching on a null arm no
+ *  miss; the cast states that contract instead of branching on a null mode no
  *  test can reach. */
 const gatedRows = (
   ui: LayerUI,
