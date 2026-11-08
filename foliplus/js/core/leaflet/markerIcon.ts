@@ -25,11 +25,11 @@
 // overridden to swap only the inner <i> symbol. The chassis (sprite
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
+import { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/field.js";
 import { buildCategoryGlyphRamp, buildGlyphRamp, glyphFor } from "#core/glyphRamp.js";
 import type { IconValueConfig } from "#core/layer/intent.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
-import { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import {
   glyphAvailable,
@@ -199,7 +199,7 @@ const applyIconToLeaves = (layer: L.Layer, glyph: string): void => {
  *  degradation, never a silent substitute.
  *
  *  No highlight pin is installed (unlike the color ramp): the icon write is
- *  a direct Leaflet setIcon, not a setStyle face, so the flat-arm hover
+ *  a direct Leaflet setIcon, not a setStyle face, so the flat-mode hover
  *  restore that pinStyleOnHighlight serves has no style slot to replay into.
  *  A hover on a marker does not touch its icon, so there is nothing to
  *  restore on mouseout. */

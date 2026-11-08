@@ -1240,7 +1240,7 @@ describe("icon rehydrate drift guard", () => {
   });
 });
 
-describe("icon by-value arm", () => {
+describe("icon by-value mode", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
@@ -1279,7 +1279,7 @@ describe("icon by-value arm", () => {
   const modeSelect = (row: HTMLElement) =>
     row.querySelector(`.${CONST.CLASSES.STYLE_ICON_MODE_SELECT}`) as HTMLSelectElement;
 
-  it("offers both arms when a numeric field exists and defaults to single", () => {
+  it("offers both modes when a numeric field exists and defaults to single", () => {
     const row = buildRow();
     const select = modeSelect(row);
     expect(select.value).toBe(ICON_MODE.SINGLE);
@@ -1368,7 +1368,7 @@ describe("icon by-value arm", () => {
     expect(value.glyphs).toEqual([...glyphScheme("STATUS")!]);
   });
 
-  it("applies the by-value arm through the stored mode", () => {
+  it("applies the by-value mode through the stored mode", () => {
     // Write a by-value config directly (the descriptor path), then apply.
     const config = {
       kind: "numeric" as const,
@@ -1419,7 +1419,7 @@ describe("icon by-value arm", () => {
     expect(modeSelect(row).value).toBe(ICON_MODE.BY_VALUE);
   });
 
-  it("single arm keeps working when the mode select returns to single", () => {
+  it("single mode keeps working when the mode select returns to single", () => {
     const row = buildRow();
     const select = modeSelect(row);
     select.value = ICON_MODE.BY_VALUE;

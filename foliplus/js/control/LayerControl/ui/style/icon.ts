@@ -1,6 +1,6 @@
 // LayerControl UI — per-layer marker icon dimension (DOM/panel layer).
 //
-// The icon dimension is a WHOLE-LAYER choice with two arms, mutually
+// The icon dimension is a WHOLE-LAYER choice with two modes, mutually
 // exclusive on apply:
 //
 //   - Single: the user picks one glyph from a grid, and every marker leaf
@@ -18,7 +18,7 @@
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
 //
-// The by-value arm mirrors the fill value arm: the same field/classes rows,
+// The by-value mode mirrors the fill value mode: the same field/classes rows,
 // the same classify method vocabulary, and the same intent-store contract.
 // The glyph scheme row replaces the color scheme picker (a marker has no
 // color strip) with a simple scheme select over the shared glyph scheme
@@ -155,8 +155,8 @@ const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
   return authorGlyphPrefixOnLayer(layer);
 };
 
-/** The active icon arm. Absence reads as single: a record written before the
- *  by-value arm existed has no iconMode, and its icon (single) is what it
+/** The active icon mode. Absence reads as single: a record written before the
+ *  by-value mode existed has no iconMode, and its icon (single) is what it
  *  painted. A stored value config with no explicit mode is the pre-mode
  *  record shape (the user already classified). */
 const displayIconMode = (ui: LayerUI, layerId: string): IconMode => {
@@ -184,7 +184,7 @@ const valueForIconValue = (
   );
   if (stored) return stored;
   // Every caller reaches this line with a non-empty list: the detail only
-  // renders the by-value arm when a numeric field exists, and the mode write
+  // renders the by-value mode when a numeric field exists, and the mode write
   // bails first when it does not.
   return {
     kind: "numeric",
@@ -260,8 +260,8 @@ const writeIconValue = (
 };
 
 /** Write the mode intent, seeding the value config when the user switches to
- *  the by-value arm and none is stored yet. Single keeps whatever value config
- *  the other arm holds — a mode alone — so a switch back to by-value restores
+ *  the by-value mode and none is stored yet. Single keeps whatever value config
+ *  the other mode holds — a mode alone — so a switch back to by-value restores
  *  its own state. */
 const writeIconMode = (ui: LayerUI, layerId: string, mode: IconMode): boolean => {
   if (mode !== ICON_MODE.BY_VALUE) {
@@ -277,13 +277,13 @@ const writeIconMode = (ui: LayerUI, layerId: string, mode: IconMode): boolean =>
   return true;
 };
 
-/** Apply the layer's stored icon arm to every marker leaf, capturing each
+/** Apply the layer's stored icon mode to every marker leaf, capturing each
  *  leaf's author icon on first write. A missing intent is a no-op — a layer
  *  the user never touched keeps exactly what the author declared.
  *
- *  The two arms are mutually exclusive on apply: the stored iconMode decides
+ *  The two modes are mutually exclusive on apply: the stored iconMode decides
  *  which one runs, and a stored value config with no explicit mode (the
- *  pre-mode record shape) runs the by-value arm. */
+ *  pre-mode record shape) runs the by-value mode. */
 const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
@@ -306,7 +306,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   applyIconToLeaves(layer, intent.value);
 };
 
-/** Write the layer's glyph and replay the walk (single arm). Also records the
+/** Write the layer's glyph and replay the walk (single mode). Also records the
  *  mode so a later switch to by-value and back restores the single glyph. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
   writeIntentKeys(ui, layerId, [
@@ -478,8 +478,8 @@ const buildSingleDetail = (ui: LayerUI, layerId: string): HTMLElement => {
 };
 
 /** Build the icon row. The row is a mode row (single / by value) with the
- *  active arm's detail beneath it. A layer with no numeric field offers only
- *  the single arm — there is nothing to classify, so offering a disabled
+ *  active mode's detail beneath it. A layer with no numeric field offers only
+ *  the single mode — there is nothing to classify, so offering a disabled
  *  "Icon by value" option would just be noise. */
 const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!layerCanIcon(ui, layerId)) return null;
@@ -507,8 +507,8 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   return dom.el("div", { class: CONST.CLASSES.STYLE_ICON_BLOCK }, modeRow, detail);
 };
 
-/** Fill one detail slot for the active arm. The single arm builds the glyph
- *  trigger + grid; the by-value arm builds the field/classes/scheme rows. */
+/** Fill one detail slot for the active mode. The single mode builds the glyph
+ *  trigger + grid; the by-value mode builds the field/classes/scheme rows. */
 const renderIconDetail = (
   ui: LayerUI,
   layerId: string,
@@ -536,7 +536,7 @@ const renderIconDetail = (
 /** Bind the by-value detail's three controls (field / method+classes /
  *  glyph scheme). Every element is built by `buildValueDetail` immediately
  *  above, so the queries cast instead of re-testing for null: a guard here
- *  could never take its false arm (the markup is a private contract) and
+ *  could never take its false mode (the markup is a private contract) and
  *  would just read as an uncovered branch. */
 const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
   const fieldSelect = detail.querySelector(
@@ -573,8 +573,8 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   };
 };
 
-/** Bind one detail slot for the active arm. The single arm's trigger/grid
- *  wires itself in `buildSingleDetail`; the by-value arm binds its three
+/** Bind one detail slot for the active mode. The single mode's trigger/grid
+ *  wires itself in `buildSingleDetail`; the by-value mode binds its three
  *  selects here. */
 const bindIconDetail = (
   ui: LayerUI,
@@ -587,8 +587,8 @@ const bindIconDetail = (
   }
 };
 
-/** Wire the icon block: the mode select switches arms in place (rebuilding
- *  the detail slot), and the active arm's controls commit through the
+/** Wire the icon block: the mode select switches modes in place (rebuilding
+ *  the detail slot), and the active mode's controls commit through the
  *  dimension's write path. */
 const bindIconRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const block = row.closest(`.${CONST.CLASSES.STYLE_ICON_BLOCK}`) as HTMLElement | null;
@@ -729,9 +729,9 @@ const buildGlyphGrid = (
   cursor.bindKeys(grid);
   return grid;
 };
-/** The icon dimension's value. For the single arm it is the stored glyph
+/** The icon dimension's value. For the single mode it is the stored glyph
  *  intent (compatible with the pre-by-value descriptor shape); for the
- *  by-value arm it is the stored value config. A layer the user never
+ *  by-value mode it is the stored value config. A layer the user never
  *  touched has neither and reads as undefined. */
 type IconDimensionValue = IconIntent | { mode: IconMode; value?: IconValueConfig };
 
@@ -752,7 +752,7 @@ const ICON_DIMENSION = registerDimension<IconDimensionValue>({
   row: (ui, layerId) => buildIconRow(ui, layerId) as HTMLElement,
   write: (ui, layerId, patch) => {
     const writes: Array<readonly [key: IntentKey, value: unknown]> = [];
-    // The single-arm patch is the pre-by-value descriptor shape
+    // The single-mode patch is the pre-by-value descriptor shape
     // ({kind, value}); the mode patch is {mode, value?}. The two are
     // discriminated by the kind key — a single glyph write always carries
     // kind: "glyph".

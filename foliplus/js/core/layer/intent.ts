@@ -79,8 +79,8 @@ type IconMode = (typeof ICON_MODE)[keyof typeof ICON_MODE];
 
 /** The value-based icon config: classify a feature field, then map each
  *  class (or distinct category) to a glyph. Mirrors FillValueConfig: the
- *  same numeric/category arms, with a glyph list in place of the color
- *  scheme. method/classes are unused on the category arm but kept
+ *  same numeric/category modes, with a glyph list in place of the color
+ *  scheme. method/classes are unused on the category mode but kept
  *  required at the type level so the union stays assignable to the numeric
  *  RampConfig the shared classifier expects. */
 type IconValueConfig =
@@ -245,9 +245,9 @@ const isIconIntent = (value: unknown): boolean =>
   (value as { kind?: unknown }).kind === ICON_KIND.GLYPH &&
   typeof (value as { value?: unknown }).value === "string";
 
-/** Whether a value is a glyph classification this client can build. Two arms,
- *  discriminated by kind (mirrors isFillValueConfig): the numeric arm needs a
- *  method/classes inside the shared bounds, the category arm only a field;
+/** Whether a value is a glyph classification this client can build. Two modes,
+ *  discriminated by kind (mirrors isFillValueConfig): the numeric mode needs a
+ *  method/classes inside the shared bounds, the category mode only a field;
  *  both need a non-empty glyph list whose every entry is a syntactically
  *  valid glyph name (the glyph vocabulary is isGlyphSyntax, the same
  *  syntax-only gate the single-glyph intent uses — a bad glyph is dropped
@@ -273,7 +273,7 @@ const isIconValueConfig = (value: unknown): value is IconValueConfig => {
   );
 };
 
-/** Whether a stored icon arm is one this client can build: single needs a
+/** Whether a stored icon mode is one this client can build: single needs a
  *  valid single-glyph intent; byValue needs a valid value config. Absence
  *  reads as single at the row level, so this only ever tests a stored value. */
 const isIconMode = (value: unknown): value is IconMode =>
@@ -302,11 +302,11 @@ type LayerIntent = {
   /** The marker-icon override: one glyph name for every marker leaf;
    *  absent = the author's icons stay. */
   icon?: IconIntent;
-  /** The by-value icon arm: classify a feature field, then map each class (or
+  /** The by-value icon mode: classify a feature field, then map each class (or
    *  distinct category) to a glyph. Only the byValue mode reads this; single
    *  keeps icon and drops it. */
   iconValue?: IconValueConfig;
-  /** Which icon arm the user chose: a single whole-layer glyph or a by-value
+  /** Which icon mode the user chose: a single whole-layer glyph or a by-value
    *  mapping. Absent reads as single. */
   iconMode?: IconMode;
   /** User-assigned display name (replaces the layer's authored name). */
@@ -353,9 +353,9 @@ type PersistedLayerState = {
    *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
   /** The by-value icon config the user set (field / method / classes /
-   *  glyphs). Only the byValue arm reads it; single keeps icon. */
+   *  glyphs). Only the byValue mode reads it; single keeps icon. */
   iconValue?: IconValueConfig;
-  /** Which icon arm is active ("single" | "byValue"); the inactive config is
+  /** Which icon mode is active ("single" | "byValue"); the inactive config is
    *  kept rather than cleared so a switch back restores it. */
   iconMode?: IconMode;
   /** The layer's label config — a style dimension of this layer,

@@ -195,6 +195,40 @@ const inferFieldKind = (layer: unknown, field: string): InferredFieldKind => {
   return result;
 };
 
+/** Read a leaf's `feature.properties[key]` value, if any.
+ *
+ *  The three reads walk into a third-party object, so each hop is its own
+ *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
+ *  is a throwing getter simply has no value. Letting it propagate aborts the
+ *  whole layer's collection — no healthy sibling gets colored. Only the read
+ *  is inside the boundary; the classifier and the write stay outside it (a
+ *  classifier or write failure is a different class of problem). Shared by
+ *  the value-based fill, the value-stroke dimension and the by-value icon. */
+const leafPropertyValue = (leaf: unknown, key: string): unknown => {
+  try {
+    const feature = (
+      leaf as { feature?: { properties?: Record<string, unknown> } } | null | undefined
+    )?.feature;
+    const properties = feature?.properties;
+    return properties?.[key];
+  } catch {
+    return undefined;
+  }
+};
+
+/** Whether a property value can drive a numeric classification. */
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/** A value that can be a categorical label. A non-empty string is a label
+ *  as-is; a boolean too (the fill kind inference types booleans as category),
+ *  stringified for the palette lookup ("true" / "false"). Anything else (a
+ *  number, null, an empty string, an object) reads as "no label". */
+const categoryLabel = (value: unknown): string | undefined => {
+  if (typeof value === "boolean") return String(value);
+  return isCategoryValue(value) ? value : undefined;
+};
+
 export {
   categoricalPropertiesKeys,
   categoryDomain,
@@ -204,3 +238,5 @@ export {
   numericPropertiesKeys,
   resolveField,
 };
+
+export { categoryLabel, isFiniteNumber, leafPropertyValue };
