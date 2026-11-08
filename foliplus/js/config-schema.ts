@@ -35,6 +35,12 @@ type LayerData = {
    *  the schema generator covers CONFIG fields only, so this per-layer
    *  runtime payload is declared here by hand. */
   folder?: string | null;
+  /** Author's declared filter (per-layer, emitted by control.py from the
+   *  author's `foliplus={"filter": ...}` declaration, normalised in Python to
+   *  the shared filter AST). Not a CONFIG field: the schema generator covers
+   *  CONFIG fields only, so this per-layer runtime payload is declared here by
+   *  hand. */
+  filter?: Record<string, unknown> | null;
 }[];
 type ProviderConfig = {
   id: string;

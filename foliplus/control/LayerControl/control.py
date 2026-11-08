@@ -6,12 +6,13 @@ from branca.element import Element
 from folium.map import Layer
 
 from foliplus._config_schema import FieldSpec
+from foliplus._declaration import FILTER_KEY
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._layer_declaration import declared_folder, declared_zoom_range
+from ._layer_declaration import declared_filter, declared_folder, declared_zoom_range
 
 
 class LayerControl(BaseControl):
@@ -384,6 +385,9 @@ class LayerControl(BaseControl):
             folder = declared_folder(item, item.layer_name)
             if folder is not None:
                 entry["folder"] = folder
+            filter_decl = declared_filter(item, item.layer_name)
+            if filter_decl is not None:
+                entry[FILTER_KEY] = filter_decl
             data.append(entry)
 
         # A folder name shared by several layers is a grouping intent, not a
