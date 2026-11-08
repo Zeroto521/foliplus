@@ -295,7 +295,7 @@ describe("executor: late-carrier replay", () => {
     setIntent(ui, "h", "opacity", 0.4);
     ui.intentStore.seedProvenance("h", ["opacity"]);
     applyProjection(ui, "h");
-    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
+    // Default "redraw" branch: CSS live + layerAlpha stored for the next paint.
     expect(oldCanvas.style.opacity).toBe("0.4");
     expect(getLayerAlpha(oldCanvas)).toBeCloseTo(0.4);
 
@@ -424,7 +424,7 @@ describe("executor: late-carrier replay", () => {
   });
 });
 
-describe("executor: coalesced redraw-arm repaint", () => {
+describe("executor: coalesced redraw-branch repaint", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });
@@ -510,7 +510,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     vi.useRealTimers();
   });
 
-  it("commit arm paints synchronously and schedules no timer", () => {
+  it("commit branch paints synchronously and schedules no timer", () => {
     vi.useFakeTimers();
 
     const { container, map } = makeOffMapFixture();
@@ -531,7 +531,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const ui = manager.ui as LayerUI;
     ui.attachUI(container);
 
-    // The commit arm bakes immediately on every commit: onOpacity fires
+    // The commit branch bakes immediately on every commit: onOpacity fires
     // synchronously with the new value and no timer is scheduled.
     setIntent(ui, "c", "opacity", 0.4);
     ui.intentStore.seedProvenance("c", ["opacity"]);
@@ -657,7 +657,7 @@ describe("executor: idempotent writes", () => {
     vi.useRealTimers();
 
     // Only layer "a" has a stored opacity — layer "b" is untouched and
-    // keeps the author's declared default (1). Default "redraw" arm writes
+    // keeps the author's declared default (1). Default "redraw" branch writes
     // CSS; layerAlpha is stored for the next bake paint.
     // The registry-position independence is proven by "a" landing its 0.7
     // on the right canvas: if the diff misrouted by position, either

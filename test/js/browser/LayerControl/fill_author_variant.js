@@ -1,5 +1,5 @@
 // Act on the Facility Points fill row's style panel: open it (default), pick
-// the original-colors arm, switch to the solid arm so the caller can assert
+// the original-colors variant, switch to the solid variant so the caller can assert
 // the take-over repainted the map, or click Reset so the caller can assert the
 // author's own paint came back.
 arg => {

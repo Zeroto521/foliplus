@@ -4,7 +4,7 @@
 // `labelLines` counts text line boxes with Range.getClientRects(): the label's
 // own rect always reports one row height, so a wrapped label would otherwise
 // look single-line. The `ramp` flag switches the style panel's fill detail to
-// the ramp arm first — that is where the method + class-count row exists.
+// the ramp mode first — that is where the method + class-count row exists.
 ({ root, ramp } = {}) => {
   const rootEl = document.querySelector(root || ".foliplus-layer-style-panel");
   if (!rootEl) return { ok: false, reason: "no-panel" };

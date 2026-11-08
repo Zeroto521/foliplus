@@ -7,7 +7,7 @@ this module builds both sides — synthetic features and a real colormap — and
 asserts the shipped payload rather than the internals that produce it.
 
 The browser half drives the row those facts feed: an explore layer opens on a
-read-only "Original Colors" arm that the user can leave and return to, and a
+read-only "Original Colors" mode that the user can leave and return to, and a
 ``foliplus={"fill": {"field": ...}}`` declaration paints at load, survives Reset
 and yields to a later panel edit. Both use the shared fill-row probes and build
 their fixtures with folium + branca directly, so explore and geopandas stay out
@@ -34,7 +34,7 @@ from conftest import (
 
 from foliplus import LayerControl
 
-# ── browser: the author-colors arm ──
+# ── browser: the author-colors mode ──
 _SCORES = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
 
 # Locale text the row must expose as a tooltip instead of a paragraph.
@@ -51,9 +51,9 @@ _DECLARED_SCORES = [10, 20, 30, 40, 50, 60]
 # ── browser: shared probes ──
 # Page snippets live in test/js/browser/LayerControl, the same split the
 # menu-keyboard browser test uses: one file to drive the panel, one to read it.
-# The arm probe opens the drawer / clicks Reset; pick_scheme presses a palette
+# The mode probe opens the drawer / clicks Reset; pick_scheme presses a palette
 # row the way a user does.
-_ARM = _js("LayerControl/fill_author_arm")
+_ARM = _js("LayerControl/fill_author_variant")
 _READ_FILL = _js("LayerControl/fill_author_read")
 _PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
 _READ_FILL_METHOD = _js("LayerControl/read_fill_method")
@@ -692,7 +692,7 @@ def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
 
 
 def test_a_refused_stepped_caption_reports_block_membership(caplog):
-    # The stepped arm tests exact block membership, so the refusal message
+    # The stepped variant tests exact block membership, so the refusal message
     # must name it: features carry none of this scale's blocks.
     scale = _stepped(caption="membership_probe")
     colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
@@ -707,7 +707,7 @@ def test_a_refused_stepped_caption_reports_block_membership(caplog):
 
 
 def test_a_refused_continuous_caption_reports_color_match(caplog):
-    # The continuous arm tests the color-match ratio, so the refusal message
+    # The continuous variant tests the color-match ratio, so the refusal message
     # must name that instead of block membership.
     scale = _linear(
         ("#440154", "#fde725"), caption="color_match_probe", vmin=0, vmax=100
@@ -895,7 +895,7 @@ class TestFillAuthorBrowser:
             panel_ready(page)
             _open_author_style_panel(page)
 
-            # The read-only original-colors arm: the scale's column, the
+            # The read-only original-colors mode: the scale's column, the
             # author's colors in author order and their count, and none of the
             # classification controls. The map still shows the author's paint.
             initial = page.evaluate(_READ_FILL)
@@ -974,17 +974,17 @@ class TestFillAuthorBrowser:
                 f"the map did not paint per-feature author colors: {initial}"
             )
 
-            # Activating the arm it is already in writes nothing and repaints
+            # Activating the mode it is already in writes nothing and repaints
             # nothing: it is a stored choice, not a state change.
             page.evaluate(_ARM, {"original": True})
             page.wait_for_timeout(300)
             unchanged = page.evaluate(_READ_FILL)
             assert unchanged["mode"] == "original", unchanged
             assert unchanged["fills"] == initial["fills"], (
-                f"activating the original-colors arm repainted the map: {unchanged}"
+                f"activating the original-colors mode repainted the map: {unchanged}"
             )
 
-            # Choosing the solid arm takes the fill over with one color.
+            # Choosing the solid mode takes the fill over with one color.
             solid_result = page.evaluate(_ARM, {"solid": True})
             assert solid_result["ok"], f"solid switch failed: {solid_result}"
             page.wait_for_timeout(300)
@@ -992,11 +992,11 @@ class TestFillAuthorBrowser:
             assert taken["mode"] == "solid", taken
             assert taken["hasSwatch"] is True, taken
             assert len(taken["fills"]) == 1, (
-                f"the solid arm did not repaint the map: {taken}"
+                f"the solid mode did not repaint the map: {taken}"
             )
             assert taken["fills"] != initial["fills"], taken
 
-            # The arm is offered again — the stored state, not a one-way door —
+            # The mode is offered again — the stored state, not a one-way door —
             # and picking it puts the author's own colors back on the map.
             assert taken["originalAvailable"] is True, taken
             page.evaluate(_ARM, {"original": True})
@@ -1004,7 +1004,7 @@ class TestFillAuthorBrowser:
             back = page.evaluate(_READ_FILL)
             assert back["mode"] == "original", back
             assert back["fills"] == initial["fills"], (
-                f"the original-colors arm did not restore the author colors: {back}"
+                f"the original-colors mode did not restore the author colors: {back}"
             )
             assert back["hasSwatch"] is False, back
 
@@ -1056,7 +1056,7 @@ class TestFillAuthorBrowser:
         self, browser, tmp_path
     ):
         """A legend=False layer painting >9 distinct colors is read as a
-        continuous ramp: the original-colors arm states Equal Interval, the
+        continuous ramp: the original-colors mode states Equal Interval, the
         honest statement that a LinearColormap is an interval ramp — not a
         dash, and not a guessed classification.
         """
@@ -1177,7 +1177,7 @@ class TestDeclaredFillBrowser:
             assert initial["classes"] == "3", initial
             assert initial["schemeTitle"] == "Reds", initial
             assert initial["fills"] == before_panel["fills"], initial
-            # The method key is the fifth declared control: the by-value arm
+            # The method key is the fifth declared control: the by-value mode
             # states the declared classification, not a guess.
             method = page.evaluate(_READ_FILL_METHOD)
             assert method == {"value": "equal", "label": "Equal Interval"}, method
@@ -1208,7 +1208,7 @@ class TestDeclaredFillBrowser:
                 f"Reset did not restore the declared ramp: {restored}"
             )
             # Reset restores the declared method too — the read-only by-value
-            # arm comes back to the author's classification, not a guess.
+            # mode comes back to the author's classification, not a guess.
             restored_method = page.evaluate(_READ_FILL_METHOD)
             # Reset may drop the drawer (the element can be absent), so do not
             # assume the probe always returns an object.
