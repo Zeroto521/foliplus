@@ -84,6 +84,11 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_empty_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
+    # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;
+    # the scanner cannot see them. They are resolved via ui.T(STYLE_MODE.X).
+    "LayerControl.style_mode_original",
+    "LayerControl.style_mode_single",
+    "LayerControl.style_mode_by_value",
 }
 
 
