@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPseudoFullscreen } from "#common/fullscreen.js";
-import { SLIDER_CLASS, Slider, type SliderOptions, sliderOf } from "#ui/index.js";
+import {
+  SLIDER_CLASS,
+  Slider,
+  type SliderOptions,
+  finishSlidersIn,
+  sliderOf,
+} from "#ui/index.js";
 
 const hosts: HTMLElement[] = [];
 
@@ -1172,5 +1178,101 @@ describe("Slider middle-segment pan", () => {
     const [lo, hi] = sliderOf(host)!.value as [number, number];
     expect(hi - lo).toBe(60);
     track.dispatchEvent(pointer("pointerup", 40));
+  });
+
+  it("clears the hover grab cursor when the pointer leaves the track", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointermove", 50));
+    expect(track.classList.contains(SLIDER_CLASS.CAN_PAN)).toBe(true);
+    track.dispatchEvent(new Event("pointerleave"));
+    expect(track.classList.contains(SLIDER_CLASS.CAN_PAN)).toBe(false);
+  });
+
+  it("keeps a pan active when the pointer leaves the track mid-drag", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    expect(track.classList.contains(SLIDER_CLASS.IS_PANNING)).toBe(true);
+    // A leave mid-drag is not the pointer leaving the segment (the pan holds
+    // pointer capture): the panning state must survive until the release.
+    track.dispatchEvent(new Event("pointerleave"));
+    expect(track.classList.contains(SLIDER_CLASS.IS_PANNING)).toBe(true);
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("ignores a second press while a pan is active", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    // A second press must not re-anchor the pan: the delta stays measured
+    // from the first press, so a move lands where the first press led.
+    track.dispatchEvent(pointer("pointerdown", 30));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("does not re-emit when a pan is already pinned at the extent edge", () => {
+    const input = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [0, 60],
+      label: "x",
+      input,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 30));
+    // Already at the lower clamp: a further push left clamps to the same
+    // pair, so no write and no input event may fire.
+    track.dispatchEvent(pointer("pointermove", -20));
+    expect(sliderOf(host)!.value).toEqual([0, 60]);
+    expect(input).not.toHaveBeenCalled();
+    track.dispatchEvent(pointer("pointerup", -20));
+  });
+
+  it("keeps a thumb draggable when the pair spans the whole extent", () => {
+    // A full-extent pair has no rail to grab: the fill swallows the track,
+    // so the pan feature must yield and a press still drags the nearer
+    // thumb (the filter panel's initial state stays settable).
+    const { host } = make({ min: 10, max: 30, value: [10, 30], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 25));
+    track.dispatchEvent(pointer("pointermove", 25));
+    const [lo, hi] = sliderOf(host)!.value as [number, number];
+    // Press x=25 on a 100px rail over 10..30 maps to value 15, nearest the
+    // lower thumb; the guard let the press fall through to a thumb drag.
+    expect([lo, hi]).toEqual([15, 30]);
+    track.dispatchEvent(pointer("pointerup", 25));
+  });
+});
+describe("Slider teardown and keyboard edges", () => {
+  it("finishes every slider inside a removed root", () => {
+    // finishSlidersIn walks a container and calls finish on each slider
+    // host found there; a slider removed from the document must not be
+    // left holding a live pointer capture or a stale bubble.
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const before = sliderOf(host)!.value;
+    // finishSlidersIn queries descendants for the root class, so hand it a
+    // container that holds the slider host rather than the host itself.
+    const container = document.createElement("div");
+    container.appendChild(host);
+    finishSlidersIn(container);
+    expect(sliderOf(host)!.value).toBe(before);
+  });
+
+  it("moves the value down in RTL with the Down key, mirroring the visual", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 40, label: "x" });
+    // Vertical keys keep value semantics (down subtracts) even in a
+    // mirrored row; only the horizontal keys follow the visual direction.
+    press(thumb(host), "ArrowDown");
+    expect(sliderOf(host)!.value).toBe(39);
   });
 });
