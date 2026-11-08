@@ -22,6 +22,7 @@ import {
 import {
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
+  authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 import { dom } from "#common/dom.js";
@@ -91,6 +92,14 @@ const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
   if (!layer) return null;
   return authorGlyphNameOnLayer(layer);
 };
+/** The author's FontAwesome family prefix for the layer (see authorGlyphPrefixOnLayer).
+ *  Returns null when the layer declares no prefix — callers then fall back to
+ *  the panel's fa-solid family. */
+const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return null;
+  return authorGlyphPrefixOnLayer(layer);
+};
 /** Build the icon row: a trigger showing the current glyph (or the author's
  *  original, labelled 「原始」) plus a grid picker popup. The popup is a
  *  simple absolute-positioned grid anchored to the trigger; Esc / outside
@@ -118,9 +127,16 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // Covered: the user's glyph. Uncovered: the author's recognized glyph
     // (preview only — the write is still the author icon), else the
     // author-original label.
-    const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
+    const userGlyph = currentGlyph(ui, layerId);
+    const authorName = userGlyph ? null : authorGlyphName(ui, layerId);
+    const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
+    const value = userGlyph ?? authorName ?? null;
     const glyph = value ? resolveGlyph(value) : null;
-    const available = glyph ? glyphAvailable(glyph) : false;
+    // The user's picked/persisted glyph renders in the panel's fa-solid family;
+    // an author-declared glyph renders under the author's own prefix
+    // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
+    // a name the map actually draws is never reported unavailable.
+    const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
     if (value && glyph && available) {
       // The name is syntactically valid AND the loaded stylesheet paints it:
       // the happy path — show the glyph and its name.

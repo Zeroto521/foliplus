@@ -405,7 +405,6 @@ describe("buildIconRow", () => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
-
   it("shows the author-original label when no glyph is chosen", () => {
     const row = buildIconRow(ui, "overlay1");
     expect(row).not.toBeNull();
@@ -1040,5 +1039,54 @@ describe("icon rehydrate drift guard", () => {
     expect(replayBlock).toContain("replayFillState(this, layerId);");
     expect(replayBlock).toContain("applySizeToLayer(this, layerId);");
     expect(replayBlock).toContain("applyIconToLayer(this, layerId);");
+  });
+
+  it("shows the happy state when the author declares a fa-prefixed name", () => {
+    const probed: string[] = [];
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el: Element, pseudo?: string | null) => {
+        if (pseudo === "::before") probed.push(el.className);
+        return { content: '"\\f00a"' } as CSSStyleDeclaration;
+      },
+    );
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "fa-martini-glass", prefix: "fa" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m10, ui: u10 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u10, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+    expect(trigger.textContent).toContain("fa-martini-glass");
+    expect(probed).toContain("fa fa-martini-glass");
+  });
+
+  it("shows the unavailable state for a name the author's prefix cannot paint", () => {
+    const probed: string[] = [];
+    (window as any).__glyphProbePainted = false;
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el: Element, pseudo?: string | null) => {
+        if (pseudo === "::before") probed.push(el.className);
+        return { content: "none" } as CSSStyleDeclaration;
+      },
+    );
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "no-such-glyph", prefix: "fa-solid" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m11, ui: u11 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u11, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(trigger.textContent).toContain("no-such-glyph");
+    expect(probed).toContain("fa-solid fa-no-such-glyph");
   });
 });
