@@ -1,4 +1,5 @@
 import * as CONST from "./const.js";
+import { readDeclaredFilter } from "./declaredFilter.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
@@ -60,7 +61,6 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
-import { readDeclaredFilter } from "./declaredFilter.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;

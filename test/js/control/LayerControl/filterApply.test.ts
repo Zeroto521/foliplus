@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initFixture, polygonLayer } from "./ui/fixture.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilterFeatures } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
