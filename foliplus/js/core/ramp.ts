@@ -11,12 +11,8 @@
 // breaks.length - 1 is the class count: computeBreaks returns one boundary
 // per class plus the final bound, so colors is requested for the span, not
 // for the raw classes config (a 6-class quantile is 7 breaks, 6 colors).
-import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
-import {
-  SCHEME_FALLBACK_COLOR,
-  getCategoryColors,
-  getColorScale,
-} from "#core/palette.js";
+import { type ClassifyMethod, computeBreaks } from "./classify.js";
+import { SCHEME_FALLBACK_COLOR, getCategoryColors, getColorScale } from "./palette.js";
 
 /** The three inputs a ramp is built from — the persisted FillValueConfig's
  *  values minus field, which selects the property key and is the caller's
@@ -131,4 +127,4 @@ const buildCategoryRamp = (values: string[], scheme: string): CategoryRamp => {
 
 export { buildCategoryRamp, buildRamp, colorFor };
 
-export { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/field.js";
+export { categoryLabel, isFiniteNumber, leafPropertyValue } from "./field.js";

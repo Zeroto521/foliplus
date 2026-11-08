@@ -23,12 +23,25 @@
 // The glyph scheme row replaces the color scheme picker (a marker has no
 // color strip) with a simple scheme select over the shared glyph scheme
 // table.
+import {
+  ICON_KIND,
+  INTENT,
+  type IconIntent,
+  type IntentKey,
+  getIntent,
+} from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { layerFields } from "./label.js";
+import {
+  getDimension,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
+import { buildModeRow } from "./row.js";
+import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
-import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
-import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { ListCursor } from "#core/interaction/index.js";
 import {
   CAP_TIER,
@@ -57,27 +70,14 @@ import {
 import { buildClassesRow, buildFieldRow } from "#core/rampForm.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
-import { bindDismiss } from "#ui/dismiss.js";
-import { createDropdown, formRow, selectInput } from "#ui/index.js";
-import { nextOptionId } from "#ui/optionRow.js";
+import {
+  bindDismiss,
+  createDropdown,
+  formRow,
+  nextOptionId,
+  selectInput,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import {
-  ICON_KIND,
-  INTENT,
-  type IconIntent,
-  type IntentKey,
-  getIntent,
-} from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { layerFields } from "./label.js";
-import {
-  getDimension,
-  registerDimension,
-  resetIntentKeys,
-  writeIntentKeys,
-} from "./registry.js";
-import { buildModeRow } from "./row.js";
-import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;

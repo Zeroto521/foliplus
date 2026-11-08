@@ -11,7 +11,7 @@
 // dropped by the caller before it reaches this module (isGlyphSyntax gate in
 // the intent validator); this module trusts its inputs the way ramp.ts trusts
 // a scheme name.
-import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
+import { type ClassifyMethod, computeBreaks } from "./classify.js";
 
 /** A built glyph ramp: ordered breaks, per-class glyphs, and the value →
  *  class index bisection (identical semantics to core/ramp.ts classOf).
