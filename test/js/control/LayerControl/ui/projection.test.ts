@@ -290,9 +290,9 @@ describe("inZoomRange (author-declared range)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it("reports the policy degradation once; the row arm is silent", () => {
+  it("reports the policy degradation once; the row branch is silent", () => {
     // The policy is the single place that warns about an unusable
-    // declaration. The row arm returns undefined (falls back to the map range)
+    // declaration. The row branch returns undefined (falls back to the map range)
     // and warns nothing — a fake [18, 18] is not a value the user could drag.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const ui = makeUIWith({ minZoom: 0, maxZoom: 18, zoom: 10 });

@@ -1,5 +1,5 @@
 // Set the style drawer's fill mode (the "by value" / "single color" /
-// "original colors" arm) by value, like a user choosing from the select.
+// "original colors" mode) by value, like a user choosing from the select.
 arg => {
   const { mode } = arg ?? {};
   const select = document.querySelector(".foliplus-style-fill-mode-select");

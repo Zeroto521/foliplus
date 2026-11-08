@@ -22,7 +22,7 @@ const wrapperWith = (foliplus: unknown) => {
 
 describe("readDeclaredFill", () => {
   it("reads a full flat declaration (kind absent reads numeric)", () => {
-    // kind is deliberately omitted on the numeric arm (absent = numeric,
+    // kind is deliberately omitted on the numeric variant (absent = numeric,
     // resolved by inference in fill.ts) — the declared record carries no kind
     // key. method/classes/scheme are kept verbatim.
     const read = readDeclaredFill(
@@ -41,7 +41,7 @@ describe("readDeclaredFill", () => {
     });
   });
 
-  it("naming only the field turns the arm on with the panel defaults", () => {
+  it("naming only the field turns the variant on with the panel defaults", () => {
     // Declaring a field IS the instruction; the other keys fall back to what
     // the panel offers.
     const read = readDeclaredFill(layerWith({ fill: { field: "score" } }));
@@ -125,7 +125,7 @@ describe("readDeclaredFill", () => {
     );
 
     // Three rejected keys (method/classes/scheme), none fatal: the field
-    // survives, so the arm stays on with the panel defaults for the rejected
+    // survives, so the variant stays on with the panel defaults for the rejected
     // keys.
     expect(read.invalid).toHaveLength(3);
     expect(read.declared).toEqual({
@@ -167,7 +167,7 @@ describe("readDeclaredFill", () => {
         layerWith({ fill: { field: "score", classes } }),
         "overlay1",
       );
-      // The key is dropped, not the declaration: the field still names the arm.
+      // The key is dropped, not the declaration: the field still names the variant.
       expect(read.invalid).toHaveLength(1);
       expect(read.invalid[0]).toContain("invalid fill.classes");
       expect(read.declared).toMatchObject({ classes: 6 });
@@ -201,9 +201,9 @@ describe("readDeclaredFill", () => {
     expect(read.invalid[0]).toContain("non-object fill declaration");
   });
 
-  it("drops an empty fill object (no field names no arm)", () => {
+  it("drops an empty fill object (no field names no variant)", () => {
     // field is the one required key; an object with no usable field cannot
-    // turn any arm on, so it is dropped whole.
+    // turn any variant on, so it is dropped whole.
     const read = readDeclaredFill(layerWith({ fill: {} }), "overlay1");
     expect(read.declared).toBeUndefined();
     expect(read.invalid).toHaveLength(1);
@@ -262,7 +262,7 @@ describe("readDeclaredFill", () => {
   });
 
   it("reads a category declaration", () => {
-    // The categorical arm: kind:"category" + field + scheme. method/classes
+    // The categorical variant: kind:"category" + field + scheme. method/classes
     // are irrelevant and deliberately not validated — the declaration keeps
     // the type-level defaults so the union stays assignable to RampConfig.
     const read = readDeclaredFill(

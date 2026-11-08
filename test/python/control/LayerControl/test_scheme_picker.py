@@ -54,7 +54,7 @@ _WARN_PRELUDE = """
 
 
 def _polygon_layer() -> folium.GeoJson:
-    """Overlay layer with a numeric property, for the style drawer's ramp arm."""
+    """Overlay layer with a numeric property, for the style drawer's ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",
@@ -90,7 +90,7 @@ def _expose_heatmap(html: str) -> str:
 def _make_flip_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     # Polygon first: it is the first overlay row, so the style drawer opens on a
-    # layer that actually has a fill row (the point group has no fill arm).
+    # layer that actually has a fill row (the point group has no fill mode).
     _polygon_layer().add_to(m)
     _points_group().add_to(m)
     # The heatmap panel grows up from the bottom edge, so its scheme row is the
@@ -121,12 +121,12 @@ def _open_layer_list(page) -> dict:
     )
     panel_ready(page)
     # Open the polygon's row, not the first overlay row: the point group sorts
-    # first and has no fill arm.
+    # first and has no fill mode.
     opened = page.evaluate(snippet("LayerControl/dropdown_open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
@@ -324,7 +324,7 @@ def _open_style_dropdown(page) -> None:
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     # Wait for the picker's open state to be *committed*, not merely for the
     # portal node to be in the DOM. On Linux headless the open state lands a
@@ -486,7 +486,7 @@ class TestPickerCloseBrowser:
 
 
 def _ramp_layer() -> folium.GeoJson:
-    """A polygon layer with a numeric property, for the fill ramp arm."""
+    """A polygon layer with a numeric property, for the fill ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",
@@ -523,7 +523,7 @@ def _make_host_page(browser, tmp_path, *, pseudo: bool):
 
 
 def _open_ramp(page) -> None:
-    """Expand the layer control, open the style drawer and settle the ramp arm."""
+    """Expand the layer control, open the style drawer and settle the ramp mode."""
     page.evaluate(_js("LayerControl/open_panel"))
     page.wait_for_selector(
         ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
@@ -537,7 +537,7 @@ def _open_ramp(page) -> None:
 def _open_list(page) -> dict:
     """Press the scheme trigger and return the live list geometry."""
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
