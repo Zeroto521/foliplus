@@ -188,8 +188,8 @@ describe("build-path.mjs", () => {
     const rules = namespacePrefixRules();
     expect(Object.keys(rules).sort()).toEqual([...SHARED_MODULE_PREFIXES].sort());
     for (const prefix of SHARED_MODULE_PREFIXES) {
-      const dir = ALIAS_DIRS["#" + prefix].split("/").pop();
-      expect(rules[prefix]).toBe(dir + "/");
+      const dir = ALIAS_DIRS[`#${prefix}`].split("/").pop();
+      expect(rules[prefix]).toBe(`${dir}/`);
     }
     // The rewrite is keyed by the alias segment, not the directory name: a
     // shared spec "#common/dom.js" becomes "common/dom.js" under the source root.
@@ -205,7 +205,7 @@ describe("build-path.mjs", () => {
     for (const [spec, rel] of Object.entries(ALIAS_TO_REL)) {
       expect(
         existsSync(resolve(ROOT, rel)),
-        spec + " -> " + rel + ": target directory missing on disk",
+        `${spec} -> ${rel}: target directory missing on disk`,
       ).toBe(true);
     }
   });
