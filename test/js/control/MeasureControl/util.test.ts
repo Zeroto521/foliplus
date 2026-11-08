@@ -11,7 +11,7 @@ import {
   markDragSyntheticClick,
 } from "#control/MeasureControl/edit.js";
 import * as Util from "#control/MeasureControl/util.js";
-import { makeControlEnv } from "../../fixture.js";
+import { makeControlEnv } from "../fixture.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn(),

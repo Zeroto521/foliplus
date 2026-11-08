@@ -1,19 +1,10 @@
-async () => {
+async data => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const ui = ctrl.mgr.ui;
   const api = map.foliplus.LayerAPI;
 
-  const geo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "p1" },
-        geometry: { type: "Point", coordinates: [119.3, 26.08] },
-      },
-    ],
-  });
+  const geo = L.geoJson(data);
   api.registerLayer({ id: "zr_zoomend", name: "ZRZoomEnd", layer: geo });
   ctrl.mgr.enforceOrder();
 

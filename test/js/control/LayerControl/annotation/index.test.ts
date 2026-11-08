@@ -10,6 +10,7 @@ import { AnnotationManager } from "#control/LayerControl/annotation/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
+import { loadGeometry } from "../fixture.js";
 import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
@@ -143,18 +144,7 @@ describe("AnnotationManager — formatting and fields", () => {
     // 10×10 square: bounds center (5,5) == area centroid (5,5), so this
     // case alone wouldn't distinguish the two. Pair it with the concave
     // case below.
-    const square: GeoJSON.Polygon = {
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [0, 10],
-          [10, 10],
-          [10, 0],
-          [0, 0],
-        ],
-      ],
-    };
+    const square = loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon;
     expect(mgr.resolveAnchor(mkLeaf({ geometry: square }))).toEqual({
       lat: 5,
       lng: 5,
@@ -166,25 +156,7 @@ describe("AnnotationManager — formatting and fields", () => {
     // shifts toward the un-drilled lower-left, while the bounds center
     // stays at (5,5). This is the assertion that would go red if the
     // polygon branch ever regressed to `getBounds().getCenter()`.
-    const holed: GeoJSON.Polygon = {
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [0, 10],
-          [10, 10],
-          [10, 0],
-          [0, 0],
-        ],
-        [
-          [8, 8],
-          [9, 8],
-          [9, 9],
-          [8, 9],
-          [8, 8],
-        ],
-      ],
-    };
+    const holed = loadGeometry("common", "polygon_square_10_hole_2") as GeoJSON.Polygon;
     const c = mgr.resolveAnchor(mkLeaf({ geometry: holed }));
     expect(c!.lng).toBeLessThan(5);
     expect(c!.lat).toBeLessThan(5);
@@ -196,29 +168,10 @@ describe("AnnotationManager — formatting and fields", () => {
     // the two bounding boxes. This assertion is what would go red if the
     // MultiPolygon branch ever routed through `turf.centerOfMass` (whose
     // convex-hull shortcut lands at the midpoint).
-    const multi: GeoJSON.MultiPolygon = {
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [
-            [0, 0],
-            [0, 10],
-            [10, 10],
-            [10, 0],
-            [0, 0],
-          ],
-        ],
-        [
-          [
-            [20, 0],
-            [20, 1],
-            [21, 1],
-            [21, 0],
-            [20, 0],
-          ],
-        ],
-      ],
-    };
+    const multi = loadGeometry(
+      "common",
+      "multipolygon_weighted",
+    ) as GeoJSON.MultiPolygon;
     expect(mgr.resolveAnchor(mkLeaf({ geometry: multi }))).toEqual({
       lat: (100 * 5 + 0.5) / 101,
       lng: (100 * 5 + 20.5) / 101,
@@ -229,13 +182,7 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(
       mgr.resolveAnchor(
         mkLeaf({
-          geometry: {
-            type: "LineString",
-            coordinates: [
-              [0, 0],
-              [10, 10],
-            ],
-          },
+          geometry: loadGeometry("common", "linestring_diagonal") as GeoJSON.LineString,
           boundsCenter: { lat: 5, lng: 5 },
         }),
       ),
@@ -258,18 +205,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const group: L.Layer = {
       getLatLng: () => null,
       feature: {
-        geometry: {
-          type: "Polygon" as const,
-          coordinates: [
-            [
-              [0, 0],
-              [0, 10],
-              [10, 10],
-              [10, 0],
-              [0, 0],
-            ],
-          ],
-        },
+        geometry: loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon,
       },
     };
     expect(mgr.resolveAnchor(group)).toEqual({ lat: 5, lng: 5 });
@@ -286,18 +222,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const circle: L.Layer = {
       getLatLng: () => ({ lat: 4, lng: 6 }),
       feature: {
-        geometry: {
-          type: "Polygon" as const,
-          coordinates: [
-            [
-              [0, 0],
-              [0, 10],
-              [10, 10],
-              [10, 0],
-              [0, 0],
-            ],
-          ],
-        },
+        geometry: loadGeometry("common", "polygon_unit_square_10") as GeoJSON.Polygon,
       },
     };
     expect(mgr.isPointAnchor(circle)).toBe(false);
@@ -314,10 +239,7 @@ describe("AnnotationManager — formatting and fields", () => {
     const pointLeaf: L.Layer = {
       getLatLng: () => ({ lat: 40, lng: -74 }),
       feature: {
-        geometry: {
-          type: "Point" as const,
-          coordinates: [-74, 40],
-        },
+        geometry: loadGeometry("common", "point_neg74_40") as GeoJSON.Point,
       },
     };
     expect(mgr.isPointAnchor(pointLeaf)).toBe(true);

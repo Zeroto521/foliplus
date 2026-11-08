@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPhoton } from "#core/geocode/photon.js";
+import { loadGeoJSON } from "../fixture.js";
 
 const provider = createPhoton();
 
@@ -35,24 +36,7 @@ describe("Photon provider — URL building", () => {
 });
 
 describe("Photon provider — normalizers", () => {
-  const featureCollection = {
-    type: "FeatureCollection",
-    features: [
-      {
-        geometry: { coordinates: [13.405, 52.52] },
-        properties: {
-          name: "Berlin",
-          street: "Pariser Platz",
-          city: "Berlin",
-          country: "Germany",
-        },
-      },
-      {
-        geometry: { coordinates: [13.4, 52.5] },
-        properties: { name: "Berlin", country: "Germany" },
-      },
-    ],
-  };
+  const featureCollection = loadGeoJSON("core", "photon_berlin");
 
   it("maps features to items with a joined display name", () => {
     const items = provider.normalizeSuggest(featureCollection);
@@ -91,14 +75,7 @@ describe("Photon provider — normalizers", () => {
   });
 
   it("filters non-string properties fields (e.g. numeric housenumber)", () => {
-    const items = provider.normalizeSuggest({
-      features: [
-        {
-          geometry: { coordinates: [1, 2] },
-          properties: { housenumber: 42, name: "A", country: "C" },
-        },
-      ],
-    });
+    const items = provider.normalizeSuggest(loadGeoJSON("core", "photon_housenumber"));
     expect(items[0].display_name).toBe("A, C");
   });
 });

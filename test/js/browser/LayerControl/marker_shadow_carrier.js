@@ -1,4 +1,4 @@
-async () => {
+async fixtures => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return null;
   const map = ctrl.mgr.map;
@@ -70,15 +70,12 @@ async () => {
   const m4 = mkPoint(26.12, 119.34, "m4");
 
   const mkPolygon = fillOpacity =>
-    L.polygon(
-      [
-        [26.115, 119.33],
-        [26.125, 119.33],
-        [26.125, 119.35],
-        [26.115, 119.35],
-      ],
-      { fillOpacity, stroke: false, color: "#000", fillColor: "#000" },
-    );
+    L.polygon(fixtures.polygon, {
+      fillOpacity,
+      stroke: false,
+      color: "#000",
+      fillColor: "#000",
+    });
 
   const waitZoom = () =>
     new Promise(resolve => {

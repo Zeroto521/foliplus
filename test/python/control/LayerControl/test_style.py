@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import re
 import time
@@ -12,9 +13,13 @@ import folium
 import pytest
 from conftest import (
     _js,
+    feature_collection,
     heatmap_ready,
+    leaflet_path,
+    load_geojson,
     make_browser_page,
     panel_ready,
+    point_feature,
     render,
     snippet,
     use_page,
@@ -41,7 +46,16 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/opacity_pane_isolation"))
+            result = page.evaluate(
+                _js("LayerControl/opacity_pane_isolation"),
+                {
+                    "hollow": load_geojson("LayerControl", "opacity_hollow"),
+                    "annotated": load_geojson("LayerControl", "opacity_annotated"),
+                    "neighbor": load_geojson("LayerControl", "opacity_neighbor"),
+                    "managedLine": leaflet_path("LayerControl", "line_fuzhou_managed"),
+                    "managedPoint": [26.085, 119.505],
+                },
+            )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
 
@@ -100,33 +114,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
         def poly(name: str) -> folium.GeoJson:
             """One polygon layer with a numeric field so the fill row exists."""
-            return folium.GeoJson(
-                json.dumps(
-                    {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "properties": {"value": i},
-                                "geometry": {
-                                    "type": "Polygon",
-                                    "coordinates": [
-                                        [
-                                            [119.28 + i * 0.01, 26.06],
-                                            [119.32 + i * 0.01, 26.06],
-                                            [119.32 + i * 0.01, 26.10],
-                                            [119.28 + i * 0.01, 26.10],
-                                            [119.28 + i * 0.01, 26.06],
-                                        ]
-                                    ],
-                                },
-                            }
-                            for i in range(2)
-                        ],
-                    }
-                ),
-                name=name,
-            )
+            data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+            data["features"] = data["features"][:2]
+            for i, feat in enumerate(data["features"]):
+                feat["properties"] = {"value": i}
+            return folium.GeoJson(json.dumps(data), name=name)
 
         first = poly("IsoLayerA")
         second = poly("IsoLayerB")
@@ -207,33 +199,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
         def poly(name: str) -> folium.GeoJson:
             """One polygon layer with a numeric field so the fill row exists."""
-            return folium.GeoJson(
-                json.dumps(
-                    {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "properties": {"value": i},
-                                "geometry": {
-                                    "type": "Polygon",
-                                    "coordinates": [
-                                        [
-                                            [119.28 + i * 0.01, 26.06],
-                                            [119.32 + i * 0.01, 26.06],
-                                            [119.32 + i * 0.01, 26.10],
-                                            [119.28 + i * 0.01, 26.10],
-                                            [119.28 + i * 0.01, 26.06],
-                                        ]
-                                    ],
-                                },
-                            }
-                            for i in range(2)
-                        ],
-                    }
-                ),
-                name=name,
-            )
+            data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+            data["features"] = data["features"][:2]
+            for i, feat in enumerate(data["features"]):
+                feat["properties"] = {"value": i}
+            return folium.GeoJson(json.dumps(data), name=name)
 
         first = poly("IsoLayerA")
         second = poly("IsoLayerB")
@@ -470,21 +440,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"val": 26.08},
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [119.30, 26.08],
-                            },
-                        }
-                    ],
-                }
-            )
+            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
         ).add_to(fg)
         fg.add_to(m)
         LayerControl().add_to(m)
@@ -594,7 +550,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         # data layer earns a panel row (a bare vector has no control of its own).
         fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
         folium.Polygon(
-            [[30.0, 120.0], [31.0, 121.0], [30.5, 121.5]],
+            leaflet_path("LayerControl", "polygon_hangzhou_triangle"),
             color="#0000ff",
             weight=2,
         ).add_to(fg)
@@ -693,21 +649,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         # aggregate, so give it one — its id is the stable component id.
         fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"val": 26.08},
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [119.30, 26.08],
-                            },
-                        }
-                    ],
-                }
-            )
+            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
         ).add_to(fg)
         fg.add_to(m)
         # The border row label is read in English, so pin the page locale.
@@ -760,36 +702,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
         fg = folium.FeatureGroup(name="Region", overlay=True, show=True)
         folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"kind": "face"},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [120.0, 30.0],
-                                        [121.0, 30.0],
-                                        [121.0, 31.0],
-                                        [120.0, 30.0],
-                                    ]
-                                ],
-                            },
-                        },
-                        {
-                            "type": "Feature",
-                            "properties": {"kind": "line"},
-                            "geometry": {
-                                "type": "LineString",
-                                "coordinates": [[120.2, 30.2], [120.8, 30.8]],
-                            },
-                        },
-                    ],
-                }
-            ),
+            json.dumps(load_geojson("LayerControl", "face_polygon_line_hangzhou")),
             style_function=lambda f: (
                 {"color": "gray", "weight": 1.5}
                 if f["properties"]["kind"] == "face"
@@ -937,7 +850,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         fg.add_to(m)
         region = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
         folium.Polygon(
-            [[30.0, 120.1], [30.1, 120.1], [30.1, 120.2], [30.0, 120.2]],
+            leaflet_path("LayerControl", "polygon_hangzhou_square"),
             color="#3388ff",
             weight=2,
             fill=True,
@@ -1284,7 +1197,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(
-                _js("LayerControl/intent_change_gated_by_zoom_range")
+                _js("LayerControl/intent_change_gated_by_zoom_range"),
+                load_geojson("common", "point_1193_2608"),
             )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
@@ -1339,7 +1253,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 state="attached",
                 timeout=5000,
             )
-            arm = page.evaluate(_js("LayerControl/native_gate_arm"))
+            arm = page.evaluate(
+                _js("LayerControl/native_gate_arm"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert arm.get("error") is None, f"setup failed: {arm}"
             assert arm["sliderBefore"] > arm["sliderMin"], (
                 "the thumb rests on its floor, so ArrowDown has nowhere to go: "
@@ -1393,28 +1310,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         the widget's center resolves to the widget itself", the same contract
         the row-overlay probes use.
         """
-        data = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"value": 10 + i},
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [119.28 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.06],
-                            ]
-                        ],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+        data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="style_scheme_dd"
@@ -1719,28 +1615,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         is the shared 88px token inside the 280px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
-        data = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"value": 10 + i},
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [119.28 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.06],
-                            ]
-                        ],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+        data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="fill_row_label"
@@ -1849,28 +1724,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         and a wheel over the card must stay inside it instead of chaining to the
         layer list behind.
         """
-        data = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"value": 10 + i},
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [119.28 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.06],
-                                [119.32 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.10],
-                                [119.28 + i * 0.01, 26.06],
-                            ]
-                        ],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+        data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="row_panel_scroll"
@@ -1949,7 +1803,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/zoom_range_dual_thumb_clamp"))
+            result = page.evaluate(
+                _js("LayerControl/zoom_range_dual_thumb_clamp"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
             assert result["forwardMoved"], (
@@ -1984,7 +1841,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/close_mid_drag"))
+            result = page.evaluate(
+                _js("LayerControl/close_mid_drag"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
             assert result["afterMove"] == result["target"], (
@@ -2023,7 +1883,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
         numbers stay crisp, the current dot greys, and the title explains."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
+            result = page.evaluate(
+                _js("LayerControl/zoom_range_oor_dim"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
@@ -2050,7 +1913,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """Current-zoom marker follows the map on zoomend."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(_js("LayerControl/zoom_range_zoomend_marker"))
+            result = page.evaluate(
+                _js("LayerControl/zoom_range_zoomend_marker"),
+                load_geojson("common", "point_1193_2608"),
+            )
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
             assert result["markerMoved"] is True, (
@@ -2223,20 +2089,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
             json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"val": i},
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": [119.30 + i * 0.01, 26.08],
-                            },
-                        }
+                feature_collection(
+                    *[
+                        point_feature(119.30 + i * 0.01, 26.08, {"val": i})
                         for i in range(3)
-                    ],
-                }
+                    ]
+                )
             )
         ).add_to(fg)
         fg.add_to(m)
@@ -2428,7 +2286,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
         folium.Polygon(
-            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            locations=leaflet_path("LayerControl", "polygon_focus_box"),
             fill_color="#ffa500",
             fill=True,
         ).add_to(fg)

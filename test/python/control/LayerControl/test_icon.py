@@ -8,6 +8,7 @@ import folium
 import pytest
 from conftest import (
     _js,
+    load_geojson,
     panel_ready,
     render,
     snippet,
@@ -81,7 +82,10 @@ class TestIconBrowser(LayerControlBrowserBase):
             page,
             errors,
         ):
-            result = page.evaluate(_js("LayerControl/pane_svg_does_not_capture"))
+            result = page.evaluate(
+                _js("LayerControl/pane_svg_does_not_capture"),
+                load_geojson("common", "polygon_fuzhou_box"),
+            )
             assert result is not None, "LayerAPI not found"
             assert result["ready"] is True, f"fixture not ready: {result}"
 
