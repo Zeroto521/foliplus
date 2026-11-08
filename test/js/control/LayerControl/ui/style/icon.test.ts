@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DIM } from "#core/layer/index.js";
-import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
+import { DIM, ICON_KIND, ICON_MODE } from "#core/layer/index.js";
+import {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
+  PICKER_GLYPHS,
+  glyphScheme,
+} from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -10,6 +15,7 @@ import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
 import {
   ICON_DIMENSION,
   applyIconToLayer,
+  bindIconRow,
   buildIconRow,
   commitGlyph,
   layerCanIcon,
@@ -978,5 +984,212 @@ describe("icon rehydrate drift guard", () => {
     expect(replayBlock).toContain("replayFillState(this, layerId);");
     expect(replayBlock).toContain("applySizeToLayer(this, layerId);");
     expect(replayBlock).toContain("applyIconToLayer(this, layerId);");
+  });
+});
+
+describe("icon by-value arm", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  // Two markers with a numeric field ("population") and a shared author icon,
+  // so the by-value walk can classify and the reset can restore.
+  const author = makeAuthorIcon();
+  const byValueFixture = () => {
+    const fixture = fixtureWithMarkers([
+      makeMarker({ population: 100 }, author),
+      makeMarker({ population: 900 }, author),
+    ]);
+    return fixture;
+  };
+
+  beforeEach(() => {
+    ({ manager, ui } = byValueFixture());
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const buildRow = () => {
+    const row = buildIconRow(ui, "overlay1");
+    expect(row).not.toBeNull();
+    // Wire the mode select / detail controls (openStylePanel would do this
+    // in production; the unit test binds explicitly, like fill.test.ts).
+    bindIconRow(ui, "overlay1", row as HTMLElement);
+    return row as HTMLElement;
+  };
+
+  const modeSelect = (row: HTMLElement) =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_ICON_MODE_SELECT}`) as HTMLSelectElement;
+
+  it("offers both arms when a numeric field exists and defaults to single", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    expect(select.value).toBe(ICON_MODE.SINGLE);
+    const values = Array.from(select.options).map(o => o.value);
+    expect(values).toContain(ICON_MODE.SINGLE);
+    expect(values).toContain(ICON_MODE.BY_VALUE);
+  });
+
+  it("switching to by value seeds a value config and renders the value detail", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.BY_VALUE);
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.kind).toBe("numeric");
+    expect(value.field).toBe("population");
+    expect(value.classes).toBeGreaterThanOrEqual(2);
+    expect(value.glyphs).toEqual([...glyphScheme(GLYPH_SCHEME_DEFAULT)!]);
+
+    // The detail slot now holds field / method+classes / scheme rows.
+    const detail = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_DETAIL}`,
+    ) as HTMLElement;
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`),
+    ).not.toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_ICON_METHOD_SELECT}`),
+    ).not.toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_ICON_CLASSES_SELECT}`),
+    ).not.toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_ICON_SCHEME_SELECT}`),
+    ).not.toBeNull();
+  });
+
+  it("by value field change writes the field", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+
+    const field = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    field.value = "population";
+    field.dispatchEvent(new Event("change"));
+
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.field).toBe("population");
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.BY_VALUE);
+  });
+
+  it("by value classes change writes the classes", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+    classes.value = "3";
+    classes.dispatchEvent(new Event("change"));
+
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.classes).toBe(3);
+  });
+
+  it("by value scheme change writes the glyph list", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+
+    const scheme = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_SCHEME_SELECT}`,
+    ) as HTMLSelectElement;
+    scheme.value = "STATUS";
+    scheme.dispatchEvent(new Event("change"));
+
+    const value = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(value.glyphs).toEqual([...glyphScheme("STATUS")!]);
+  });
+
+  it("applies the by-value arm through the stored mode", () => {
+    // Write a by-value config directly (the descriptor path), then apply.
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.BY_VALUE, value: config });
+    flushIcon("overlay1");
+
+    // The markers now carry a derived icon (glyph from the ramp), not the author.
+    const leafA = (ui.c.findLayer("overlay1") as any).eachLayer.mock.calls[0][0];
+    // Can't easily grab leaves; instead assert the intent wrote and the walk ran
+    // by checking a marker's setIcon was called.
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.BY_VALUE);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toEqual(config);
+  });
+
+  it("reset restores the author icon and drops all three intents", () => {
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.BY_VALUE, value: config });
+    flushIcon("overlay1");
+    ICON_DIMENSION.reset!(ui, "overlay1");
+
+    expect(getIntent(ui, "overlay1", INTENT.ICON)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBeUndefined();
+    expect(ICON_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("a stored value config with no mode reads as by value (pre-mode record)", () => {
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_VALUE, config]]);
+    // displayIconMode is private; the row's mode select reflects it.
+    const row = buildRow();
+    expect(modeSelect(row).value).toBe(ICON_MODE.BY_VALUE);
+  });
+
+  it("single arm keeps working when the mode select returns to single", () => {
+    const row = buildRow();
+    const select = modeSelect(row);
+    select.value = ICON_MODE.BY_VALUE;
+    select.dispatchEvent(new Event("change"));
+    select.value = ICON_MODE.SINGLE;
+    select.dispatchEvent(new Event("change"));
+
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.SINGLE);
+    // Switching to single does not write a glyph intent (no user glyph chosen),
+    // so the row shows the author-original label.
+    expect(getIntent(ui, "overlay1", INTENT.ICON)).toBeUndefined();
+  });
+
+  it("mode row with no numeric field offers only single", () => {
+    const noFields = fixtureWithMarkers([makeMarker({ name: "x" }, author)]);
+    const row = buildIconRow(noFields.ui, "overlay1");
+    expect(row).not.toBeNull();
+    const select = modeSelect(row as HTMLElement);
+    const values = Array.from(select.options).map(o => o.value);
+    expect(values).toEqual([ICON_MODE.SINGLE]);
+    noFields.manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
   });
 });

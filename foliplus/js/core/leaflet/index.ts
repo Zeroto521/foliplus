@@ -31,6 +31,7 @@ export {
   unpinRowPanel,
 } from "./panel.js";
 export {
+  applyIconByValueToLeaves,
   applyIconToLeaves,
   authorGlyphName,
   buildMarkerIcon,
@@ -39,9 +40,12 @@ export {
   resetIconLeaves,
 } from "./markerIcon.js";
 export {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
   PICKER_GLYPHS,
   glyphAvailable,
   glyphHtml,
+  glyphScheme,
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";

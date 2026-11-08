@@ -225,6 +225,14 @@
   border-color: var(--foliplus-accent-primary);
 }
 
+/* Icon by-value detail: the arm's rows (field / method+classes / glyph
+   scheme) stack under the mode row on the same grid as the fill detail. */
+.foliplus-style-icon-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--foliplus-space-xs);
+}
+
 /* Marker scene: the glyph paints inside a Leaflet marker icon. The glyph is
    FontAwesome text, so the icon box's own font-size owns its size (1em); the
    picker rules above are more specific and win there. */

@@ -40,7 +40,7 @@ import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
-import { resetLayerIcon } from "./icon.js";
+import { bindIconRow, resetLayerIcon } from "./icon.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
@@ -194,6 +194,10 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
     if (fillRow) bindFillRow(ui, layerId, fillRow);
+    const iconRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_ROW}`,
+    ) as HTMLElement | null;
+    if (iconRow) bindIconRow(ui, layerId, iconRow);
     // Size rides the same flavour as fill: the delegated drawer never renders it.
     const sizeRow = panel.querySelector(
       `.${CONST.CLASSES.STYLE_SIZE_ROW}`,

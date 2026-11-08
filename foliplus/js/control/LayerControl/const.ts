@@ -227,6 +227,17 @@ const CLASSES = {
   /** The selected cell's highlight. */
   STYLE_ICON_CELL_SELECTED: "foliplus-style-icon-cell-selected",
   /** Opacity row: the slider host, its class and the row hook. */
+  /** Icon by-value mode row: the mode select, its detail slot, and the
+   *  field / method / classes / glyph-scheme controls inside it. The classes
+   *  are the same vocabulary the fill value arm uses. */
+  STYLE_ICON_MODE_SELECT: "foliplus-style-icon-mode-select",
+  STYLE_ICON_DETAIL: "foliplus-style-icon-detail",
+  STYLE_ICON_FIELD_SELECT: "foliplus-style-icon-field-select",
+  STYLE_ICON_METHOD_SELECT: "foliplus-style-icon-method-select",
+  STYLE_ICON_CLASSES_SELECT: "foliplus-style-icon-classes-select",
+  STYLE_ICON_SCHEME_SELECT: "foliplus-style-icon-scheme-select",
+  STYLE_ICON_BLOCK: "foliplus-style-icon-block",
+
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",
   /** Zoom-range row: a dual-thumb slider with a current-zoom marker.
