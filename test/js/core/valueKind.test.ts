@@ -6,7 +6,7 @@
 // the unit tests of the migrated modules would not catch (they only see their
 // own call sites).
 import { describe, expect, it } from "vitest";
-import { VALUE_KIND, isCategoryValue, isValueKind } from "#core/valueKind.js";
+import { VALUE_KIND, isCategoryKind, isValueKind } from "#core/valueKind.js";
 
 describe("VALUE_KIND vocabulary", () => {
   it("owns exactly the two by-value config kinds", () => {
@@ -29,19 +29,19 @@ describe("VALUE_KIND vocabulary", () => {
   });
 });
 
-describe("isCategoryValue (absent-is-numeric convention)", () => {
+describe("isCategoryKind (absent-is-numeric convention)", () => {
   it("is false for the numeric arm and for an absent kind", () => {
-    expect(isCategoryValue(undefined)).toBe(false);
-    expect(isCategoryValue("numeric")).toBe(false);
+    expect(isCategoryKind(undefined)).toBe(false);
+    expect(isCategoryKind("numeric")).toBe(false);
   });
 
   it("is true for the category arm", () => {
-    expect(isCategoryValue("category")).toBe(true);
+    expect(isCategoryKind("category")).toBe(true);
   });
 
   it("treats a kind outside the vocabulary as numeric (total, non-throwing)", () => {
     // The caller drops an invalid kind via isValueKind before this predicate
     // runs; the predicate itself must not throw on the leftover.
-    expect(isCategoryValue("gradient" as never)).toBe(false);
+    expect(isCategoryKind("gradient" as never)).toBe(false);
   });
 });

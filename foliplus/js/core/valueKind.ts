@@ -10,7 +10,7 @@
 //
 // "Absent is numeric" is a pervasive convention: a pre-kind record shape (or
 // an author who left the override out) reads as the numeric mode. It is
-// encoded here as isCategoryValue(kind?) so the convention lives beside the
+// encoded here as isCategoryKind(kind?) so the convention lives beside the
 // vocabulary instead of being re-derived per caller.
 //
 // This is the VALUE kind (numeric / category), deliberately NOT:
@@ -40,7 +40,7 @@ const isValueKind = (value: unknown): value is ValueKind =>
  *  reads as numeric too (the caller's isValueKind check drops it first), but
  *  the predicate is total and non-throwing so a live rule can call it without
  *  a separate guard. */
-const isCategoryValue = (kind?: ValueKind): boolean => kind === VALUE_KIND.CATEGORY;
+const isCategoryKind = (kind?: ValueKind): boolean => kind === VALUE_KIND.CATEGORY;
 
-export { VALUE_KIND, isCategoryValue, isValueKind };
+export { VALUE_KIND, isCategoryKind, isValueKind };
 export type { ValueKind };
