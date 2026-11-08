@@ -1,8 +1,8 @@
 // core/controlEnv — shared component entry bootstrap.
 // Lives in core (not common) because it depends on the hint icon registry;
 // common must stay free of #core imports.
-import { requireRuntime } from "#core/guard.js";
 import { registerHintIcon } from "./hint.js";
+import { requireRuntime } from "#core/guard.js";
 
 /**
  * Create the standard control environment (runtime guard + hint icon registration).

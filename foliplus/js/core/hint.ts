@@ -2,13 +2,13 @@
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { ensureMapFoliplus } from "#core/mapApi.js";
+import { parseSVG } from "#core/sanitize.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
 import { ICON_LOADING } from "#platform/icon.js";
 import { createLogger } from "#platform/log.js";
-import { parseSVG } from "#core/sanitize.js";
 
 const log = createLogger("Hint");
 

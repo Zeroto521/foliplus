@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -20,7 +21,6 @@ import {
   scaffoldControl,
   splitArgv,
 } from "#script/tool/new-control.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 type NewControlArgs = {
   help: boolean;

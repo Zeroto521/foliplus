@@ -12,6 +12,10 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
+import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { ListCursor } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
@@ -32,10 +36,6 @@ import { bindDismiss } from "#ui/dismiss.js";
 import { formRow } from "#ui/index.js";
 import { nextOptionId } from "#ui/optionRow.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
-import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;

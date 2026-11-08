@@ -1,12 +1,6 @@
 // core/layer/LayerFactory — standalone createLayers/createCanvas factories.
 // Pure logic, no CONFIG / translator dependency. Takes map + PaneManager +
 // register/unregister callbacks via dependency injection.
-import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
-import { withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
-import { dom } from "#platform/dom.js";
-import { finalize } from "#platform/finalize.js";
-import { createLogger } from "#platform/log.js";
-import { throttleRaf } from "#platform/throttle.js";
 import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { type PaneManager } from "./PaneManager.js";
 import {
@@ -34,6 +28,12 @@ import type {
   SurfaceHandle,
 } from "./type.js";
 import { zFor } from "./z.js";
+import { withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
+import { dom } from "#platform/dom.js";
+import { finalize } from "#platform/finalize.js";
+import { createLogger } from "#platform/log.js";
+import { throttleRaf } from "#platform/throttle.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {

@@ -12,6 +12,9 @@
 // Two pieces:
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
+import { INTENT, getIntent } from "../intent.js";
+import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
+import type { LayerUI } from "../surface.js";
 import { ROLE } from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
@@ -19,9 +22,6 @@ import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
-import { INTENT, getIntent } from "../intent.js";
-import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
-import type { LayerUI } from "../surface.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {

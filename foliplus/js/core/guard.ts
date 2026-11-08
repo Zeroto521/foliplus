@@ -28,9 +28,12 @@ const requireFoliplus = (map: L.Map): MapFoliplus => {
 };
 
 const requireRuntime = (componentName: string): void => {
-  const log = createLogger(componentName);
   if (!window.foliplus) {
-    throw new Error(log.msg("foliplus runtime not found, plugin disabled."));
+    throw new Error(
+      log.msg(
+        `foliplus runtime not found (component: ${componentName}), plugin disabled.`,
+      ),
+    );
   }
 };
 

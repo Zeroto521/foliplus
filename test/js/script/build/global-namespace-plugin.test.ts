@@ -84,10 +84,10 @@ describe("runtimeTarget", () => {
     expect(runtimeTarget("core/event")).toBe("core.event");
   });
 
-  it("maps common subdirectories to common.<sub>", () => {
-    expect(runtimeTarget("common/dom")).toBe("common.dom");
-    expect(runtimeTarget("common/log")).toBe("common.log");
-    expect(runtimeTarget("common/engine/foo")).toBe("common.foo");
+  it("maps platform subdirectories to platform.<sub>", () => {
+    expect(runtimeTarget("platform/dom")).toBe("platform.dom");
+    expect(runtimeTarget("platform/log")).toBe("platform.log");
+    expect(runtimeTarget("platform/engine/foo")).toBe("platform.foo");
   });
 
   it("maps ui modules to ui.<mod>", () => {
@@ -157,9 +157,11 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps common modules to foliplus.common.mod", () => {
-    expect(sharedGlobalNamespace("#platform/dom.js")).toBe("foliplus.common.dom");
-    expect(sharedGlobalNamespace("#platform/storage.js")).toBe("foliplus.common.storage");
-    expect(sharedGlobalNamespace("#platform/log.js")).toBe("foliplus.common.log");
+    expect(sharedGlobalNamespace("#platform/dom.js")).toBe("foliplus.platform.dom");
+    expect(sharedGlobalNamespace("#platform/storage.js")).toBe(
+      "foliplus.platform.storage",
+    );
+    expect(sharedGlobalNamespace("#platform/log.js")).toBe("foliplus.platform.log");
   });
 
   it("maps ui modules to foliplus.ui.mod", () => {
@@ -462,7 +464,9 @@ describe("scanSharedImports", () => {
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
       expect(used.has("#platform/dom.js")).toBe(true);
-      expect(used.get("#platform/dom.js")).toEqual(new Set(["dom", "createIconButton"]));
+      expect(used.get("#platform/dom.js")).toEqual(
+        new Set(["dom", "createIconButton"]),
+      );
       expect(used.has("#core/geo/index.js")).toBe(true);
       expect(used.get("#core/geo/index.js")).toEqual(new Set(["fromWgs84"]));
       expect(used.has("#platform/locale.js")).toBe(true);

@@ -1,3 +1,15 @@
+import * as CONST from "./const.js";
+import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
+import { LabelManager } from "./label/index.js";
+import { LayerPersistence } from "./persistence.js";
+import { collectDeltas } from "./ui/apply.js";
+import { type LayerUI } from "./ui/index.js";
+import {
+  type CursorRef,
+  cursorRef,
+  reconcileCursorByIdentity,
+} from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 import {
   EVENTS,
   type EventBus,
@@ -50,18 +62,6 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
-import * as CONST from "./const.js";
-import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
-import { LabelManager } from "./label/index.js";
-import { LayerPersistence } from "./persistence.js";
-import { collectDeltas } from "./ui/apply.js";
-import { type LayerUI } from "./ui/index.js";
-import {
-  type CursorRef,
-  cursorRef,
-  reconcileCursorByIdentity,
-} from "./ui/listPanel/cursor.js";
-import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;

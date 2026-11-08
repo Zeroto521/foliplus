@@ -6,15 +6,15 @@
 //
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
+import { CLASSES } from "../const.js";
+import type { ResultItem } from "../type.js";
+import { type SearchControlCtx } from "./util.js";
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { mountFloating } from "#platform/floating.js";
 import { applyOptionRowA11y, nextOptionId } from "#ui/optionRow.js";
 import { computePlacement } from "#ui/placement.js";
-import { CLASSES } from "../const.js";
-import type { ResultItem } from "../type.js";
-import { type SearchControlCtx } from "./util.js";
 
 // listCursor lives on SearchControl but not on SearchControlState; panel.ts
 // only touches it at panel-lifecycle boundaries (destroy on teardown, refresh

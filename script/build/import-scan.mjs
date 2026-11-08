@@ -40,9 +40,9 @@
 //     imported spec A as `X` and another that imported spec B as `X` got the
 //     props of both specs attributed to both. Props are now collected only
 //     from the files that imported the spec under that alias.
+import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
 
 /** `#core/geo/index.js` → `core/geo`, `#platform/dom.js` → `platform/dom`.
  *  Keys `_shared-registry.ts` is generated against. */

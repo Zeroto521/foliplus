@@ -1,6 +1,4 @@
 // LayerControl UI — Checkbox / role-toggle visibility.
-import { ROLE, paintsAtZoom } from "#core/layer/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import {
   type ProjectionBatch,
   type ProjectionDelta,
@@ -13,6 +11,8 @@ import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
+import { ROLE, paintsAtZoom } from "#core/layer/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
  *  callers are all reconcile paths that run at least once against a torn-down

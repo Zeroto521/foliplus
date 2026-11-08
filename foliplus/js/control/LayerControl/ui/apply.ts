@@ -26,17 +26,17 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import * as CONST from "../const.js";
+import { INTENT, getIntent } from "./intent.js";
+import { intentVisibleOf, projectLayer } from "./projection.js";
+import type { LayerUI } from "./surface.js";
 import {
   type DispatchFailure,
   EVENTS,
   type SettledOperation,
 } from "#core/event/index.js";
-import { CAP_TIER, HIDDEN, PANE_ROLE, carrierTargetOf } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
-import * as CONST from "../const.js";
-import { INTENT, getIntent } from "./intent.js";
-import { intentVisibleOf, projectLayer } from "./projection.js";
-import type { LayerUI } from "./surface.js";
+import { CAP_TIER, HIDDEN, PANE_ROLE, carrierTargetOf } from "#core/layer/index.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's

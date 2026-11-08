@@ -7,6 +7,16 @@
 // Collision is per layer too, by design: the z-order already expresses "who
 // covers whom", so a cross-layer plan would only make an upper layer's labels
 // vanish under a lower layer's — the layers themselves are the avoidance.
+import * as CONST from "../const.js";
+import type { LabelConfig } from "../type.js";
+import { LabelCanvas } from "./canvas.js";
+import {
+  type LabelCandidate,
+  type LabelSpec,
+  type PlannedLabel,
+  layoutLabel,
+  planLabelLayout,
+} from "./layout.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { areaCentroid } from "#core/geo/index.js";
 import {
@@ -19,22 +29,12 @@ import {
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { resolveCanvasLabelStyle, withLabelPaint } from "#ui/canvasLabel.js";
 import { finalize } from "#platform/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { CanvasLabelStyle } from "#platform/type.js";
+import { resolveCanvasLabelStyle, withLabelPaint } from "#ui/canvasLabel.js";
 import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
-import * as CONST from "../const.js";
-import type { LabelConfig } from "../type.js";
-import { LabelCanvas } from "./canvas.js";
-import {
-  type LabelCandidate,
-  type LabelSpec,
-  type PlannedLabel,
-  layoutLabel,
-  planLabelLayout,
-} from "./layout.js";
 
 // The component's prefix, not the folder's: `Annotation` is an internal
 // subsystem name a user never sees, and every diagnostic from a mounted

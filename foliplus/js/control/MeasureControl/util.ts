@@ -1,5 +1,6 @@
 // MeasureControl utility functions — no manager instance, only the control's
 // config/translator where a label or popup string is i18n-driven.
+import * as CONST from "./const.js";
 import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
@@ -13,7 +14,6 @@ import {
 } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
-import * as CONST from "./const.js";
 
 const log = createLogger("MeasureControl");
 

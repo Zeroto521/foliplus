@@ -10,7 +10,6 @@
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#platform/dom.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
   type DropdownSurface,
@@ -23,6 +22,7 @@ import {
   numberInput as formNumberInput,
   inlineControls,
 } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 
 /** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)

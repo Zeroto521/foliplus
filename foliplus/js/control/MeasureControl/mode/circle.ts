@@ -1,3 +1,8 @@
+import * as CONST from "../const.js";
+import type { MeasureManager } from "../manager.js";
+import { attachCircleUI } from "../ui/index.js";
+import * as Util from "../util.js";
+import { PreviewMode, mountMeasureDelIcon } from "./base.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   type MapEventHandlers,
@@ -6,11 +11,6 @@ import {
 } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
 import { stopEvent } from "#platform/dom.js";
-import * as CONST from "../const.js";
-import type { MeasureManager } from "../manager.js";
-import { attachCircleUI } from "../ui/index.js";
-import * as Util from "../util.js";
-import { PreviewMode, mountMeasureDelIcon } from "./base.js";
 
 interface CirclePreviews {
   center: L.CircleMarker | null;

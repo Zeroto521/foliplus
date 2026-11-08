@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +7,6 @@ import {
   generateRegistry,
   registryUsedExports,
 } from "#script/build/scan-registry.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 const FS = require("fs");
 const PATH = require("path");
@@ -43,9 +43,9 @@ describe("registryUsedExports", () => {
       "Component2/index.ts": `import { debounce } from "#platform/debounce.js";`,
     });
     const result = usedExports(dir);
-    expect(result["common/dom"]).toContain("dom");
-    expect(result["common/dom"]).toContain("cssVar");
-    expect(result["common/debounce"]).toContain("debounce");
+    expect(result["platform/dom"]).toContain("dom");
+    expect(result["platform/dom"]).toContain("cssVar");
+    expect(result["platform/debounce"]).toContain("debounce");
   });
 
   it("scans imports from subdirectories", () => {
@@ -54,8 +54,8 @@ describe("registryUsedExports", () => {
       "Component1/util.ts": `import { bar } from "#platform/bar.js";`,
     });
     const result = usedExports(dir);
-    expect(result["common/foo"]).toContain("foo");
-    expect(result["common/bar"]).toContain("bar");
+    expect(result["platform/foo"]).toContain("foo");
+    expect(result["platform/bar"]).toContain("bar");
   });
 
   it("ignores type-only imports", () => {
@@ -63,8 +63,8 @@ describe("registryUsedExports", () => {
       "Component1/index.ts": `import { type SomeType, dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
-    expect(result["common/dom"]).toContain("dom");
-    expect(result["common/dom"]).not.toContain("SomeType");
+    expect(result["platform/dom"]).toContain("dom");
+    expect(result["platform/dom"]).not.toContain("SomeType");
   });
 
   it("resolves import * as to property access", () => {
@@ -81,10 +81,10 @@ describe("registryUsedExports", () => {
       `,
     });
     const result = usedExports(dir);
-    expect(result["common/icon"]).toContain("ICON_CLOSE");
-    expect(result["common/icon"]).toContain("OPEN");
-    expect(result["common/storage"]).toContain("loadRecord");
-    expect(result["common/storage"]).toContain("saveRecord");
+    expect(result["platform/icon"]).toContain("ICON_CLOSE");
+    expect(result["platform/icon"]).toContain("OPEN");
+    expect(result["platform/storage"]).toContain("loadRecord");
+    expect(result["platform/storage"]).toContain("saveRecord");
   });
 
   it("ignores array methods on namespace imports", () => {
@@ -98,11 +98,11 @@ describe("registryUsedExports", () => {
       `,
     });
     const result = usedExports(dir);
-    expect(result["common/icon"]).toContain("ICON_CLOSE");
+    expect(result["platform/icon"]).toContain("ICON_CLOSE");
     // Should NOT contain array methods
-    expect(result["common/icon"]).not.toContain("forEach");
-    expect(result["common/icon"]).not.toContain("push");
-    expect(result["common/icon"]).not.toContain("length");
+    expect(result["platform/icon"]).not.toContain("forEach");
+    expect(result["platform/icon"]).not.toContain("push");
+    expect(result["platform/icon"]).not.toContain("length");
   });
 
   it("scans core imports", () => {
@@ -133,7 +133,7 @@ describe("registryUsedExports", () => {
       "Component2/index.ts": `import { createIconButton, dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
-    expect(result["common/dom"]).toEqual(["createIconButton", "dom"]);
+    expect(result["platform/dom"]).toEqual(["createIconButton", "dom"]);
   });
 
   it("handles empty directory", () => {
@@ -171,7 +171,7 @@ describe("registryUsedExports", () => {
       "Component1/types.d.ts": `import { dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
-    expect(result["common/dom"]).toEqual(["dom"]);
+    expect(result["platform/dom"]).toEqual(["dom"]);
   });
 });
 
@@ -195,7 +195,7 @@ describe("generateRegistry", () => {
 
   it("generates registry with shared modules", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/event/index.ts": `export const EventBus = {};`,
       "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
@@ -205,7 +205,7 @@ describe("generateRegistry", () => {
     const output = readRegistry(buildDir);
     expect(output).toContain('window.foliplus.core["event"]');
     expect(output).toContain("#core/event/index.js");
-    expect(output).toContain("window.foliplus.common");
+    expect(output).toContain("window.foliplus.platform");
   });
 
   it("folds a non-barrel #core/<sub>/<file> import into the sub's namespace", () => {
@@ -216,7 +216,7 @@ describe("generateRegistry", () => {
     // import pulls from the sub's index.js, so the barrel must re-export
     // the name or the build fails.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/layer/index.ts": `export const HIDDEN = "hidden";`,
       "core/layer/const.ts": `export const HIDDEN = "hidden";`,
       "control/MyComponent/index.ts": `import { HIDDEN } from "#core/layer/const.js";`,
@@ -236,7 +236,7 @@ describe("generateRegistry", () => {
     // keys, an empty name set must emit nothing rather than an empty
     // import.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/lonely/index.ts": `export const nothing = 1;`,
       "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
     });
@@ -248,7 +248,7 @@ describe("generateRegistry", () => {
 
   it("skips core files registered in runtime/index.ts", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/component.ts": `export const COMPONENTS = {};`,
       "core/hint.ts": `export const ensureHint = () => {};`,
       "core/mode.ts": `export const ModeManager = {};`,
@@ -270,7 +270,7 @@ describe("generateRegistry", () => {
 
   it("keeps core subdirectories (event) in registry", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/event/index.ts": `export const EventBus = {};`,
       "core/component.ts": `export const COMPONENTS = {};`,
       "runtime/index.ts": ``,
@@ -288,7 +288,7 @@ describe("generateRegistry", () => {
     // would mean an import resolves to a specifier nobody bundles — a barrel
     // with no runtime surface.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/geo/index.ts": `export const fromWgs84 = () => {};`,
       "core/index.ts": `export { fromWgs84 } from "./geo/index.js";`,
       "runtime/index.ts": ``,
@@ -306,7 +306,7 @@ describe("generateRegistry", () => {
 
   it("registers BaseControl", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `import { BaseControl } from "#foliplus/BaseControl.js";`,
@@ -322,7 +322,7 @@ describe("generateRegistry", () => {
     // records an empty names array for the spec, so `baseNames` is `[]`
     // rather than falling back to `["BaseControl"]` — the `if` false branch.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `import { } from "#foliplus/BaseControl.js";`,
@@ -336,7 +336,7 @@ describe("generateRegistry", () => {
     // The existsSync(uiDir) ? ... : [] false branch: a source tree without a
     // ui/ layer must not throw and must not emit a ui namespace line.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
@@ -349,7 +349,7 @@ describe("generateRegistry", () => {
 
   it("publishes ui modules a component actually imports", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
@@ -373,7 +373,7 @@ describe("generateRegistry", () => {
     // reads (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui.index") —
     // and not flattened onto the ui root.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "ui/index.ts": `export { panelButton } from "./panelChrome.js";`,
       "core/empty.ts": ``,
@@ -398,7 +398,7 @@ describe("generateRegistry", () => {
     // if (names.length === 0) continue — a ui module on disk that no
     // component imports must emit nothing (no empty namespace object).
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
@@ -411,7 +411,7 @@ describe("generateRegistry", () => {
   });
   it("writes valid output for empty component set", () => {
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
     });
@@ -439,7 +439,7 @@ describe("generateRegistry", () => {
     // registry would publish `window.foliplus.ui["index"] = { missingName }`
     // and the shimmed import would resolve to `undefined` at runtime.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "ui/index.ts": `export { panelButton } from "./panelChrome.js";`,
       "core/empty.ts": ``,
@@ -459,7 +459,7 @@ describe("generateRegistry", () => {
     // import is the silent-drift case: the build would stay green and the
     // component would read `undefined`. The guard must fail the build.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "ui/index.ts": `// emptied — no re-exports`,
       "core/empty.ts": ``,
@@ -478,7 +478,7 @@ describe("generateRegistry", () => {
     // A barrel with no `index.ts` at all is the same failure one step
     // earlier: the component shim reads a namespace that is never published.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
@@ -494,7 +494,7 @@ describe("generateRegistry", () => {
     // `export * from` re-exports the target module's whole surface, so the
     // guard must follow the star clause to collect `panelButton`.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "ui/index.ts": `export * from "./panelChrome.js";`,
       "core/empty.ts": ``,
@@ -514,7 +514,7 @@ describe("generateRegistry", () => {
     // Two dropped re-exports must both be reported, and the message chooses the
     // plural phrasing instead of naming a single export.
     const [jsDir, buildDir] = buildFakeTree({
-      "common/dom.ts": `export const dom = {};`,
+      "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "ui/index.ts": `// emptied — no re-exports`,
       "core/empty.ts": ``,

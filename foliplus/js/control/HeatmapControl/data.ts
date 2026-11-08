@@ -1,6 +1,14 @@
 // HeatmapControl data aggregation — pure functions for H3 binning, class
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
+import * as CONST from "./const.js";
+import type {
+  AggregatedData,
+  HeatmapPointMarker,
+  HexCell,
+  HexFeature,
+  SelectedPoint,
+} from "./type.js";
 import {
   ClassifierDependencyError,
   type ClassifyMethod,
@@ -10,14 +18,6 @@ import {
 import { vertexMean } from "#core/geo/index.js";
 import { safeColorScale } from "#core/palette.js";
 import type { Logger } from "#platform/type.js";
-import * as CONST from "./const.js";
-import type {
-  AggregatedData,
-  HeatmapPointMarker,
-  HexCell,
-  HexFeature,
-  SelectedPoint,
-} from "./type.js";
 
 /** Resolve the H3 resolution for a map zoom level. */
 const getH3Res = (zoom: number): number => {

@@ -2,6 +2,8 @@
 // The canvas is stubbed (it is the browser tests' job to verify drawing), and
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
+import { loadGeometry } from "../fixture.js";
+import { initFixture } from "../ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
@@ -10,8 +12,6 @@ import * as CONST from "#control/LayerControl/const.js";
 import { LabelManager } from "#control/LayerControl/label/index.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
-import { loadGeometry } from "../fixture.js";
-import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {

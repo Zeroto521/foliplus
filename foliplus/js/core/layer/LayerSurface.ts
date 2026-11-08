@@ -24,7 +24,6 @@
 //     is pinned into it, never after.
 //
 // No CONFIG / translator dependency: core/layer, not a component dir.
-import { createLogger } from "#platform/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import {
   type LayerCarrierProbe,
@@ -50,6 +49,7 @@ import type {
 } from "./type.js";
 import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerSurface");
 

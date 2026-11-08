@@ -1,7 +1,3 @@
-import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import type { ControlEnv } from "#core/type.js";
-import { throttleRaf } from "#platform/throttle.js";
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -17,6 +13,10 @@ import {
   mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
+import { createLocationMarker } from "#core/locationMarker.js";
+import type { ControlEnv } from "#core/type.js";
+import { throttleRaf } from "#platform/throttle.js";
 
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */

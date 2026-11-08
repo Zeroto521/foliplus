@@ -1,12 +1,5 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
-import { type EventBus, ensureEvents } from "#core/event/index.js";
-import {
-  type CreateColorAPI,
-  type LayerInfo,
-  LayerRuntimeStore,
-} from "#core/layer/index.js";
-import type { Logger } from "#platform/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
@@ -85,6 +78,13 @@ import {
   setStyleApplyFailureReporter,
 } from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
+import { type EventBus, ensureEvents } from "#core/event/index.js";
+import {
+  type CreateColorAPI,
+  type LayerInfo,
+  LayerRuntimeStore,
+} from "#core/layer/index.js";
+import type { Logger } from "#platform/type.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:

@@ -19,26 +19,6 @@
 // the HeatmapControl border row and the label label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { readFeatureFillColors } from "#core/layer/authorFill.js";
-import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
-import {
-  FILL_MODE,
-  type FillMode,
-  type FillValueConfig,
-  type LayerOverride,
-} from "#core/layer/intent.js";
-import { dom } from "#platform/dom.js";
-import { dropdownSurface } from "#platform/fullscreen.js";
-import {
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput as formColorInput,
-  formRow,
-  inlineControls,
-  normalizeHexColor,
-  numberInput,
-} from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -82,6 +62,26 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+import { readFeatureFillColors } from "#core/layer/authorFill.js";
+import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
+import {
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+  type LayerOverride,
+} from "#core/layer/intent.js";
+import { dom } from "#platform/dom.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import {
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput as formColorInput,
+  formRow,
+  inlineControls,
+  normalizeHexColor,
+  numberInput,
+} from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.

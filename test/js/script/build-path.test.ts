@@ -82,14 +82,14 @@ describe("build-path.mjs", () => {
 
   it("SHARED_MODULE_PREFIXES is #platform/#core only — #foliplus is aliased but not shared", () => {
     // The alias table has five entries (#platform/#core/#ui/#control/#foliplus), but only
-    // #common and #core have their whole namespace published on
+    // #platform and #core have their whole namespace published on
     // window.foliplus. #foliplus/BaseControl.js is shared by exact name
     // (see SHARED_MODULE_EXACTS); every other #foliplus/* path — a component
     // importing its own const.js or config-schema.js — bundles normally
     // through esbuild's alias and must NOT be externalized. The old test
     // asserted the alias table and the shared set were equal; that
     // assumption is what externalized self-imports as empty shims.
-    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["common", "core", "ui"]);
+    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["core", "platform", "ui"]);
     for (const prefix of SHARED_MODULE_PREFIXES) {
       expect(Object.keys(pathAliases(ROOT))).toContain(`#${prefix}`);
     }
@@ -193,7 +193,7 @@ describe("build-path.mjs", () => {
     }
     // The rewrite is keyed by the alias segment, not the directory name: a
     // shared spec "#platform/dom.js" becomes "common/dom.js" under the source root.
-    expect(rules["common"]).toBe("common/");
+    expect(rules["platform"]).toBe("platform/");
     expect(rules["core"]).toBe("core/");
     expect(rules["ui"]).toBe("ui/");
   });

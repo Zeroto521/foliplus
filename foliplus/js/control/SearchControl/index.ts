@@ -1,3 +1,13 @@
+import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
+import * as SVGs from "./icon.js";
+import { bindEvents, initFromUrl } from "./interaction.js";
+import {
+  flushHistory,
+  initDebouncedFetch,
+  loadHistory,
+  removePanel,
+} from "./logic/index.js";
+import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { ensureHint } from "#core/hint.js";
@@ -10,16 +20,6 @@ import { finalize } from "#platform/finalize.js";
 import type { Floating } from "#platform/floating.js";
 import * as Icons from "#platform/icon.js";
 import { closeButton } from "#ui/index.js";
-import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
-import * as SVGs from "./icon.js";
-import { bindEvents, initFromUrl } from "./interaction.js";
-import {
-  flushHistory,
-  initDebouncedFetch,
-  loadHistory,
-  removePanel,
-} from "./logic/index.js";
-import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 
 class SearchControl extends defineControl({
   config: CONFIG,

@@ -1,10 +1,10 @@
+import { initFixture } from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilterFeatures } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { initFixture } from "./ui/fixture.js";
 
 /** A geometry leaf stub with a real element the class toggle writes, exposed
  *  through the public getElement() the apply pass enumerates. */

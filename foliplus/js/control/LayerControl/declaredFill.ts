@@ -33,10 +33,10 @@
 // rest of the declaration survives), and a declaration that names a ramp but
 // no usable field is dropped whole rather than painted as a misleading solid
 // face.
+import * as CONST from "./const.js";
 import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
 import type { FillValueConfig } from "#core/layer/intent.js";
 import { createLogger } from "#platform/log.js";
-import * as CONST from "./const.js";
 
 const log = createLogger("LayerControl");
 

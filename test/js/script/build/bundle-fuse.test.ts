@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -11,7 +12,6 @@ import {
   main,
   readSizes,
 } from "#script/build/bundle-fuse.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 // The "defaults --root to the checkout" case runs the tool without --root, so
 // it reads the checkout's own foliplus/dist. Without a prior build there is no

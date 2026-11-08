@@ -1,3 +1,8 @@
+import * as CONST from "../const.js";
+import type { MeasureManager } from "../manager.js";
+import { attachPolygonUI } from "../ui/index.js";
+import * as Util from "../util.js";
+import { PreviewMode } from "./base.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
@@ -5,11 +10,6 @@ import {
 } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
 import { stopEvent } from "#platform/dom.js";
-import * as CONST from "../const.js";
-import type { MeasureManager } from "../manager.js";
-import { attachPolygonUI } from "../ui/index.js";
-import * as Util from "../util.js";
-import { PreviewMode } from "./base.js";
 
 // ==================== Polygon Area Mode ====================
 /** Polygon area measurement mode. Click to place nodes, closes on first/last node click. */

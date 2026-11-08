@@ -21,6 +21,8 @@
 //
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
+import { bindDismiss } from "./dismiss.js";
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,
@@ -29,8 +31,6 @@ import {
 } from "#platform/floating.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { bindDismiss } from "./dismiss.js";
-import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {

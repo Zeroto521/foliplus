@@ -454,7 +454,7 @@ describe("common/form.ts emits the shared chrome classes", () => {
   // references them via PANEL_CLASS, so the contract test asserts against the
   // source of truth, not the consumer.
   const panelSource = readFileSync(
-    resolve(ROOT, "foliplus/js/platform/panelClassName.ts"),
+    resolve(ROOT, "foliplus/js/ui/panelClassName.ts"),
     "utf-8",
   );
   const source = readFileSync(resolve(ROOT, "foliplus/js/ui/form.ts"), "utf-8");

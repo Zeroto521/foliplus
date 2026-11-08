@@ -22,19 +22,6 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // label label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#platform/dom.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
-import {
-  BORDER_WEIGHT,
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput,
-  inlineControls,
-  normalizeHexColor,
-  numberInput,
-} from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -56,6 +43,19 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
+import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { dom } from "#platform/dom.js";
+import {
+  BORDER_WEIGHT,
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput,
+  inlineControls,
+  normalizeHexColor,
+  numberInput,
+} from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's

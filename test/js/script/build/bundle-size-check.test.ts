@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
@@ -23,7 +24,6 @@ import {
   toolVersion,
 } from "#script/build/bundle-size-check.mjs";
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 // The "defaults --root to the checkout" case runs the tool without --root, so
 // it reads the checkout's own foliplus/dist. Without a prior build there is no

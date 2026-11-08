@@ -1,6 +1,13 @@
 // Value-based fill rendering and its editable "按值着色 / Color by value" UI — the
 // FILL declaration and the value mode's presentation share this file. The paint
 // engine (the shared by-value mode) lives in valuePaint.ts.
+import { INTENT, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { authorFill, methodLabel } from "./fillAuthor.js";
+import { layerFields } from "./label.js";
+import { getDimension } from "./registry.js";
+import { FACE, walkFillLeaves } from "./styleBag.js";
+import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
@@ -22,13 +29,6 @@ import { createLogger } from "#platform/log.js";
 import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
-import { INTENT, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { authorFill, methodLabel } from "./fillAuthor.js";
-import { layerFields } from "./label.js";
-import { getDimension } from "./registry.js";
-import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
 
 const resolveFillMode = (
   ui: LayerUI,

@@ -8,6 +8,9 @@
 // so a change on either input reaches the map through exactly one path.
 //
 // Nothing in this file touches the map, the registry, or storage.
+import type { Projection } from "../type.js";
+import { INTENT, getIntent } from "./intent.js";
+import type { LayerUI } from "./surface.js";
 import type { AuthorZoomRange } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import {
@@ -16,9 +19,6 @@ import {
   unreachableZoomRange,
   unusableZoomRange,
 } from "#platform/zoomRange.js";
-import type { Projection } from "../type.js";
-import { INTENT, getIntent } from "./intent.js";
-import type { LayerUI } from "./surface.js";
 
 const log = createLogger("LayerControl");
 

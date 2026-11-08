@@ -22,7 +22,10 @@
 // zoom fires many in a row) into one rAF redraw.
 //
 // Corner rounding uses the shared roundedRectOutline (same math as focus.ts).
-import { type RectCorners, roundedRectOutline } from "#control/LayerControl/ui/focus/marqueeShape.js";
+import {
+  type RectCorners,
+  roundedRectOutline,
+} from "#control/LayerControl/ui/focus/marqueeShape.js";
 
 const MARQUEE_PAD = 4;
 const NS = "http://www.w3.org/2000/svg";

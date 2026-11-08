@@ -1,5 +1,8 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import * as CONST from "./const.js";
+import { type HeatmapManager } from "./manager.js";
+import { panelContentHTML } from "./template.js";
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -19,9 +22,6 @@ import {
   createSchemePicker,
   dropdownOf,
 } from "#ui/index.js";
-import * as CONST from "./const.js";
-import { type HeatmapManager } from "./manager.js";
-import { panelContentHTML } from "./template.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {

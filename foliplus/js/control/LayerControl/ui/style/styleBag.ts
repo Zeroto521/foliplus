@@ -15,11 +15,11 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import type { LayerUI } from "../surface.js";
 import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
 import { createLogger } from "#platform/log.js";
 import { throttleRaf } from "#platform/throttle.js";
-import type { LayerUI } from "../surface.js";
 
 /** The author's full vector style bag. Every field is always populated on
  *  capture — nothing downstream can tell "the author declared nothing"

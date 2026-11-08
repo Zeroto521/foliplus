@@ -1,4 +1,10 @@
 // LayerControl UI — Inline layer rename.
+import { notifyDeltas } from "../apply.js";
+import { INTENT, setIntent } from "../intent.js";
+import { displayName } from "../listPanel/rowView.js";
+import { saveNamesState } from "../state.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   createInlineEditInput,
@@ -6,12 +12,6 @@ import {
   updateItemLabel,
 } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { notifyDeltas } from "../apply.js";
-import { INTENT, setIntent } from "../intent.js";
-import { displayName } from "../listPanel/rowView.js";
-import { saveNamesState } from "../state.js";
-import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can

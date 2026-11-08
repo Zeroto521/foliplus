@@ -126,7 +126,7 @@ const ALLOWED: ReadonlyArray<{
   // Type-only config-schema imports: the schema is the shared contract
   // between Python and JS, and these are erased at compile time.
   {
-    file: "common/format.ts",
+    file: "platform/format.ts",
     spec: "#foliplus/config-schema.js",
     reason: "type-only NumberStyle contract, erased at compile time",
   },
@@ -247,7 +247,7 @@ describe("JS import boundaries", () => {
     expect(control, control.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
-  it("no non-control layer (common/ui/core/root) imports #control/*", () => {
+  it("no non-control layer (platform/ui/core/root) imports #control/*", () => {
     const violations = collect().filter(
       v => v[2] === "non-control layer imports #control/*",
     );

@@ -1,10 +1,10 @@
+import { loadFeature, makeControlEnv } from "./fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as downloadMod from "#platform/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";
 import { MarkerMode } from "#control/MeasureControl/mode/index.js";
-import { loadFeature, makeControlEnv } from "./fixture.js";
 
 // This file asserts on bare locale-key strings (identity T/_): the export
 // hint text is built by key concatenation, so scoped lookups would wrap the

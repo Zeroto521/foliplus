@@ -192,7 +192,7 @@ describe("buildCodecovPayload mapping", () => {
       root: tmp,
       gzipOf: () => 1,
     });
-    const cache = payload.modules.find(m => m.name.endsWith("common/cache.ts"));
+    const cache = payload.modules.find(m => m.name.endsWith("platform/cache.ts"));
     expect(cache).toBeDefined();
     // 300 (js) + 40 (css)
     expect(cache!.size).toBe(340);

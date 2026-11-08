@@ -6,7 +6,7 @@
 // the markup, so the panel-shell behavior layer (core/leaflet/panel.ts)
 // owns open/close/outside-press and these builders stay inert.
 //
-// The class names come from common/panelClassName.ts (the single source), so the
+// The class names come from ui/panelClassName.ts (the single source), so the
 // vocabulary cannot drift between the style panel, the filter panel and the
 // heatmap template.
 import { dom } from "#platform/dom.js";

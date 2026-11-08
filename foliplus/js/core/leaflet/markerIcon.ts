@@ -25,15 +25,15 @@
 // overridden to swap only the inner <i> symbol. The chassis (sprite
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
-import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/leafletAdapter.js";
-import { createLogger } from "#platform/log.js";
 import {
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { walkLeaf } from "#core/layer/walkLeaf.js";
+import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");
 /** Glyph names already warned as unavailable — warn once per name, not per

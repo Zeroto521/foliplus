@@ -35,16 +35,6 @@
  * getter returns null so the author's face stays in force — the next
  * scheduler tick rebuilds the cache.
  */
-import type { FillValueConfig } from "#core/layer/intent.js";
-import {
-  buildCategoryRamp,
-  buildRamp,
-  categoryLabel,
-  colorFor,
-  isFiniteNumber,
-  leafPropertyValue,
-} from "#core/ramp.js";
-import { createLogger } from "#platform/log.js";
 import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
@@ -56,6 +46,16 @@ import {
   styleDimOverAuthor,
   styleDimPayload,
 } from "./styleBag.js";
+import type { FillValueConfig } from "#core/layer/intent.js";
+import {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+} from "#core/ramp.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");
 

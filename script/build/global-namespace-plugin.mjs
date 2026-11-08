@@ -17,13 +17,13 @@
 // are never declared, so they cannot appear in the bundle. The scan itself
 // lives in script/build/import-scan.mjs — the same engine
 // script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
-import { existsSync, readFileSync } from "fs";
-import { dirname, resolve } from "path";
 import { SHARED_SPEC_REGEX_SOURCE, namespacePrefixRules } from "../build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
 } from "./import-scan.mjs";
+import { existsSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -80,7 +80,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  runtime publishes it at the top level (`foliplus.hint`, not
  *  `foliplus.core.hint`) in the `Object.assign(window.foliplus, …)` block
  *  in runtime/index.ts. Everything else follows `core.<sub>` /
- *  `common.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
+ *  `platform.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
  *  bare top-level export.
  *
  *  When the canonical form still carries a `#` — which only happens for the
@@ -96,7 +96,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("platform/")) return `common.${spec.split("/").at(-1)}`;
+  if (spec.startsWith("platform/")) return `platform.${spec.split("/").at(-1)}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];

@@ -1,5 +1,14 @@
+import {
+  TEST_ENV,
+  attachWithGroup,
+  attachedPanel,
+  initFixture,
+  polygonLayer,
+  trackMembership,
+} from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import {
   FALLBACK_PANE_PREFIX,
@@ -8,7 +17,6 @@ import {
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
 import * as coreLayer from "#foliplus/core/layer/index.js";
-import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
@@ -26,14 +34,6 @@ import {
   saveNamesState,
   saveState,
 } from "#control/LayerControl/ui/state.js";
-import {
-  TEST_ENV,
-  attachWithGroup,
-  attachedPanel,
-  initFixture,
-  polygonLayer,
-  trackMembership,
-} from "./ui/fixture.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 

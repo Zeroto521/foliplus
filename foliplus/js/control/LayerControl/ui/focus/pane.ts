@@ -1,5 +1,8 @@
 // Focus-layer pane bookkeeping: hide every other visible layer while a focus
 // is live, lift the focused layer above its peers, and undo both on dismiss.
+import { basePaints } from "../listPanel/visibility.js";
+import { projectLayer } from "../projection.js";
+import type { LayerUI } from "../surface.js";
 import {
   type LayerInfo,
   PANE_ROLE,
@@ -9,9 +12,6 @@ import {
 } from "#core/layer/index.js";
 import type { FinalizeStep } from "#platform/finalize.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { basePaints } from "../listPanel/visibility.js";
-import { projectLayer } from "../projection.js";
-import type { LayerUI } from "../surface.js";
 
 /**
  * Hide every other visible layer so the focused layer stands out.
