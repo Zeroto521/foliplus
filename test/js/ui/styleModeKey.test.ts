@@ -1,9 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { STYLE_MODE } from "#ui/styleModeKeys.js";
+import { STYLE_MODE } from "#ui/styleModeKey.js";
 
-// Style-mode single-source guard. See ui/styleModeKeys.ts.
+// Style-mode single-source guard. See ui/styleModeKey.ts.
 //
 // (1) CJK white-list: the style-mode key file and its own test must stay
 //     ASCII-only — the zh/en text lives only in foliplus/locale. Other
@@ -34,7 +34,7 @@ const CJK = /[\u4e00-\u9fff]/;
 // The files that are themselves user-visible i18n/word-list sources: these
 // must be ASCII-only. Every other foliplus/js file may keep existing CJK
 // comments (see the user rule recorded above).
-const ASCII_ONLY_SOURCES = ["ui/styleModeKeys.ts"];
+const ASCII_ONLY_SOURCES = ["ui/styleModeKey.ts"];
 
 // A locale key that exists in the JSON but is not yet referenced from JS
 // would be an orphan. The only keys allowed to be "prepared for later" are
@@ -100,10 +100,12 @@ describe("style mode single source", () => {
         const key = m[1] as string;
         const fk = `LayerControl.${key}`;
         const line = s.slice(0, m.index ?? 0).split("\n").length;
-        if (!(fk in LOCALE_EN))
-          {missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing en)`);}
-        if (!(fk in LOCALE_ZH))
-          {missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing zh)`);}
+        if (!(fk in LOCALE_EN)) {
+          missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing en)`);
+        }
+        if (!(fk in LOCALE_ZH)) {
+          missing.push(`${relative(JS_ROOT, p)}:${line}: ${key} (missing zh)`);
+        }
       }
     }
     expect(missing).toEqual([]);

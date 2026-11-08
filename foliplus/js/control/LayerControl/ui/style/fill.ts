@@ -57,7 +57,7 @@ import {
   numberInput,
   readOnlyValue,
 } from "#ui/index.js";
-import { STYLE_MODE } from "#ui/styleModeKeys.js";
+import { STYLE_MODE } from "#ui/styleModeKey.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 import { showSolidBasemap } from "../color.js";
