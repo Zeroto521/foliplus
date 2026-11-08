@@ -224,7 +224,6 @@ class ListCursor {
     const focused = items.indexOf(document.activeElement as HTMLElement);
     const index = focused >= 0 ? focused : this._index < 0 ? 0 : this._index;
     const row = Math.floor(index / this.cols);
-    const col = index % this.cols;
     if (event.key === "ArrowRight") {
       event.preventDefault();
       this.set(Math.min(n - 1, index + 1));
@@ -232,7 +231,7 @@ class ListCursor {
     }
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      if (col > 0) this.set(index - 1);
+      this.set(Math.max(0, index - 1));
       return true;
     }
     if (event.key === "ArrowDown") {

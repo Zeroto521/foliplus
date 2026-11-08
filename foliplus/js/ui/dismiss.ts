@@ -78,4 +78,3 @@ const bindDismiss = (opts: DismissOptions): (() => void) => {
 };
 
 export { bindDismiss };
-export type { DismissOptions };

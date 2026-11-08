@@ -975,6 +975,50 @@ it("open + close drains every document/window listener when ownDismiss is set", 
   expect(read()).toEqual(before);
 });
 
+
+it("ownDismiss false (portal) binds no outside-press dismisser", () => {
+  const read = countGlobal();
+  const before = read();
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  const cell = document.createElement("div");
+  cell.appendChild(trigger);
+  document.body.appendChild(cell);
+  const listbox = createListbox({
+    trigger,
+    items: () => [{ value: "a", label: "Alpha" }],
+    selected: () => [],
+    shape: {
+      rowTag: "button",
+      dataKey: "data-value",
+      selectedClass: "nodown-selected",
+      disabledAttr: "disabled",
+      activedescendant: "none",
+    },
+    classes: {
+      list: "nodown-list",
+      row: "nodown-row",
+      portal: "nodown-portal",
+      up: "nodown-up",
+      open: "nodown-open",
+    },
+    surface: { onSurfaceChange: () => () => {} },
+    dismiss: { kind: "local" },
+    ownDismiss: false,
+    onRowActivate: () => {},
+  });
+  listbox.open();
+  const outside = document.createElement("div");
+  document.body.appendChild(outside);
+  outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  expect(listbox.getList()?.hidden).toBe(false);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  outside.remove();
+  expect(read()).toEqual(before);
+});
+
 describe("listbox engine: focusOnOpen selection (last row)", () => {
   it("focusOnOpen last lands focus on the last enabled row", () => {
     const trigger = document.createElement("button");
