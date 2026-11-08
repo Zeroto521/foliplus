@@ -160,7 +160,7 @@
 
   /* ── Map label style ──
      The text foliplus draws over the map: HeatmapControl's hex values (canvas,
-     read through getComputedStyle) and LayerControl's annotation labels (DOM
+     read through getComputedStyle) and LayerControl's label canvas (DOM
      markers, consumed directly). One source, so the two cannot end up in
      opposite color schemes — which is exactly what happened while each
      declared its own: the canvas drew white-on-dark-stroke and the DOM labels
@@ -316,7 +316,7 @@
        200+n·10   layer z        core/layer const.ts Z_INDEX.TILE_BASE
                                   basemap panes, one STEP per basemap slot
        600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
-                                  overlay panes; annotation labels sit +1
+                                  overlay panes; label canvas sits +1
                                   in-slot (LABEL_Z_OFFSET)
        9490       export z       --foliplus-export-scale-z (ExportControl.css)
                                   scale/attribution dimmed under the crop

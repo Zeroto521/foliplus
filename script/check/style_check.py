@@ -63,6 +63,7 @@ PLURAL_WHITELIST = {
     "canvas",
     "compress",  # verb (script/build/compress.mjs), not a plural noun
     "css",
+    "dismiss",  # verb (ui/dismiss.ts), not a plural noun
     "eventbus",
     "focus",
     "index",

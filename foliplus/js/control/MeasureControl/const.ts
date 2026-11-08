@@ -65,7 +65,7 @@ const UNIT_FORMAT = {
   KM2_DECIMALS: 2,
 };
 
-/** IDs and pane names. Hyphenated + foliplus-namespaced like annotation/canvas. */
+/** IDs and pane names. Hyphenated + foliplus-namespaced like label/canvas. */
 const ID = "foliplus_measure";
 const PANES = {
   GRAPH: "foliplus-measure-graph",

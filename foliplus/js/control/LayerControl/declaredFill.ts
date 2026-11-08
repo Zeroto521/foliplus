@@ -2,18 +2,18 @@
 //
 // `explore(foliplus={"fill": {...}})` in folium rides folium's unknown-kwargs
 // passthrough onto `layer.options.foliplus` — the same per-layer namespace the
-// annotation declaration uses. This module turns that raw declaration into a
-// validated, cached {@link DeclaredFill}: the fill arm's author default.
+// label declaration uses. This module turns that raw declaration into a
+// validated, cached {@link DeclaredFill}: the fill mode's author default.
 //
 // The declaration is FLAT: `fill` accepts only `field` (required) plus the
 // optional `method` / `classes` / `scheme` / `kind`. The old nested
 // `fill.ramp` shell and the `fill.mode` switch are cancelled — those keys
 // are now unknown, ignored one by one with a one-time warning, never re-read
 // as a compat shape (no compat read, no version bump). A declaration that
-// names a usable `field` turns the "color by value" arm on; one without is
+// names a usable `field` turns the "color by value" mode on; one without is
 // dropped whole rather than painted as a misleading solid face.
 //
-// `kind` selects the internal arm — `"numeric"` or `"category"` — and is an
+// `kind` selects the internal mode — `"numeric"` or `"category"` — and is an
 // optional override. Absent, it reads as `"numeric"` here, but the parse
 // layer deliberately leaves it out of the returned record so `fill.ts` can
 // infer it from the layer's own values first (`inferFieldKind`, slice ②): the
@@ -27,7 +27,7 @@
 //
 // The declaration is a PURE ADDITIVE key, the same contract the per-feature
 // `fillAuthor` payload follows: a layer that declares no `foliplus.fill` has
-// no CONF change, no panel arm and no behaviour difference from before this
+// no CONF change, no panel mode and no behaviour difference from before this
 // reader existed; only a layer that names one gets the read-time default.
 // Invalid keys degrade one by one (each rejected key is warned once and the
 // rest of the declaration survives), and a declaration that names a ramp but
@@ -49,7 +49,7 @@ type FoliplusOptions = {
  *
  *  The declaration is FLAT — there is no `mode`/ramp` shell. A present
  *  declaration always names a usable `field`, which is what turns the
- *  "color by value" arm on; `kind` is the optional override `fill.ts`
+ *  "color by value" mode on; `kind` is the optional override `fill.ts`
  *  resolves against the layer's own values when absent (the inference happens
  *  there, never in the parse layer). `method` / `classes` / `scheme` took
  *  the panel defaults where the author stayed silent, so a declaration and a
@@ -77,7 +77,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
 
 /** Per-layer-object cache. A layer object's options are final once it exists
  *  (folium builds them at construction), so both "declared" and "not declared"
- *  are cacheable — unlike the annotation reader, whose empty read can be
+ *  are cacheable — unlike the label reader, whose empty read can be
  *  provisional because it may run before the layer's script attaches the
  *  namespace. A null layer is never cached: the declaration may still arrive
  *  with the late-linked carrier. */
@@ -119,7 +119,7 @@ const rawFillOf = (layer: object): unknown =>
 /** Parse the flat `fill` declaration into a validated {@link DeclaredFill}.
  *
  *  One declaration, one "color by value" instruction: naming a usable `field`
- *  turns the arm on, and the remaining keys configure it. Invalid keys degrade
+ *  turns the mode on, and the remaining keys configure it. Invalid keys degrade
  *  one by one (each rejected key is warned once and the rest survives), except
  *  where a missing piece makes the declaration unbuildable — no `field`, an
  *  unknown `kind`, or an explicit category without a `scheme` — in which case
@@ -176,7 +176,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     return { invalid };
   }
 
-  // kind is the optional override that picks the arm. Absent reads as
+  // kind is the optional override that picks the mode. Absent reads as
   // "numeric" (the pre-kind record shape, resolved by inference in fill.ts);
   // an unrecognized kind drops the declaration whole — the persistence reader
   // applies the same rule, so a kind this client cannot build is never
@@ -192,9 +192,9 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   }
 
   if (data.kind === "category") {
-    // A categorical arm needs its qualitative palette — the one key beyond the
+    // A categorical mode needs its qualitative palette — the one key beyond the
     // field a category ramp cannot build without. A missing scheme is a hard
-    // rejection for an *explicit* category: the author chose the arm, so there
+    // rejection for an *explicit* category: the author chose the mode, so there
     // is no ordered method to fall back to. Only an *inferred* category fills a
     // default (CATEGORY_SCHEME_DEFAULT in fill.ts, slice ②), where the author
     // did not pick a kind at all. method/classes are irrelevant (a category is
@@ -295,11 +295,11 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
  *  Additive contract — the same one #781's `fillAuthor` payload follows:
  *  `fillAuthor` is a pure additive key. A layer that produces no payload
  *  (non-explore, `style_function`, single-color explore) carries no CONF key,
- *  shows no Author arm, and behaves byte-identically to before; only a
+ *  shows no Author mode, and behaves byte-identically to before; only a
  *  multi-color explore layer gains the read-only Author state, and the map
  *  paint is not rewritten before the user edits. This reader adds nothing to
  *  CONF either: a layer without `foliplus.fill` is byte-identical, and a
- *  declaration only changes what the fill arm reads at load/Reset time.
+ *  declaration only changes what the fill mode reads at load/Reset time.
  *
  *  @param layer the carrier a control registered; `null`/undefined before the
  *    layer is linked — the read is then provisional and never cached.

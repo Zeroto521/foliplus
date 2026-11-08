@@ -1,6 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { describe, expect, it } from "vitest";
+// The bottom tier's directory is not re-spelled here: it must equal the
+// shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
+// rename lands in build-path and this test's TIER stays honest (red here
+// until TIER follows).
+import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
@@ -36,8 +41,22 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 // ── Layer classification ──────────────────────────────────────
 // TIER maps each tier to its directory AND its #alias segment. Step 2 renames
 // the bottom tier (common -> platform) by changing this one value.
+// The directories must equal the shared-module prefixes build-path derives
+// from ALIAS_TO_REL (asserted below), so a tier rename in build-path lands
+// here automatically and this test cannot police a directory the build no
+// longer has. The three tier NAMES are the stable identifiers of the
+// boundary matrix itself and are NOT derived — they are the matrix's own
+// vocabulary, and deriving them positionally from a filtered list (which
+// drops #control/#foliplus) would silently reorder ui/core.
 const TIER = { platform: "common", ui: "ui", core: "core" } as const;
 type Tier = keyof typeof TIER;
+// Single-source: the bottom tier's directory must be the one build-path
+// derives. If they diverge (a rename applied here but not in build-path, or
+// vice versa) the boundary matrix would police a tier the build no longer
+// has. Change ALIAS_TO_REL in build-path first, then this TIER value.
+const TIER_DIRS = Object.values(TIER).sort();
+const SHARED_PREFIX_DIRS = [...SHARED_MODULE_PREFIXES].sort();
+expect(TIER_DIRS).toEqual(SHARED_PREFIX_DIRS);
 type Layer = Tier | "control" | "root";
 
 // Allowed dependencies per tier: itself plus everything below it. ui never

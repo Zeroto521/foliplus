@@ -69,6 +69,7 @@ import {
   setVisibleIntent,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
+import { applyIconToLayer } from "./style/icon.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -122,7 +123,7 @@ class LayerUI implements LayerUISurface {
   focusController: FocusController;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
-   *  annotation). Absent key = never touched. Provenance rides the same
+   *  label). Absent key = never touched. Provenance rides the same
    *  `IntentRow` beside the values (`IntentRow.provenance`).
    *
    *  Domain-owned: `ui.c.domain.intentStore` is the single instance and
@@ -314,6 +315,7 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
+      applyIconToLayer(this, layerId);
     }
     // Author-declared fills are read-time defaults, not stored overrides, so
     // the provenance loop above never reaches a layer the user left alone.

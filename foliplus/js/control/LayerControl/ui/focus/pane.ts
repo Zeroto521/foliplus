@@ -133,7 +133,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       // focus-hide CSS would swallow the layer's own labels — and the
       // marker-shadow pane, whose shadows belong to the focused layer's
       // spotlight just as much as its icons. The glow stays off the
-      // annotation role (text labels are the layer's typography, not its
+      // label role (text labels are the layer's typography, not its
       // geometry, and a drop-shadow halo on them reads as a second outline
       // over the halo the label paint already carries) and off the shadow
       // role (a filter halo on the shadows would read as a shadow of the

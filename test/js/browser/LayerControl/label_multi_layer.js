@@ -1,0 +1,78 @@
+fixtures => {
+  const ctrl = window.__layerCtrl;
+  const mgr = ctrl && ctrl.mgr.label;
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
+  if (!mgr || !api) return null;
+
+  const build = (id, name, points) => {
+    const g = api.createLayers({
+      id,
+      name,
+      panes: [{ name: `${id}_pane` }],
+    });
+    for (const f of points.features) {
+      const m = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+      m.feature = { properties: f.properties };
+      g.mainLayer.addLayer(m);
+    }
+    mgr.setConfig(id, { show: true, field: "name", format: "auto" });
+    mgr.renderLabels(id);
+  };
+  build("__ml_a__", "MLA", fixtures.pointsA);
+  build("__ml_b__", "MLB", fixtures.pointsB);
+  // enforceOrder is debounced; run it now so each layer's pane — and its
+  // label pane — gets the z that places it in the stack.
+  ctrl.mgr.enforceOrder();
+
+  return new Promise(resolve => {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        // Pane names come from the Leaflet _panes registry, not the DOM id —
+        // createPane does not set element.id, so read through map.getPane.
+        const zOf = id => {
+          const pane = window.map.getPane(`foliplus-label-${id}`);
+          return pane ? parseInt(pane.style.zIndex) || 0 : null;
+        };
+        const layerZOf = id => {
+          const pane = window.map.getPane(`${id}_pane`);
+          return pane ? parseInt(pane.style.zIndex) || 0 : null;
+        };
+        const opaqueOf = id => {
+          const canvas = window.map
+            .getPane(`foliplus-label-${id}`)
+            ?.querySelector("canvas");
+          if (!canvas) return 0;
+          const data = canvas
+            .getContext("2d")
+            .getImageData(0, 0, canvas.width, canvas.height).data;
+          let n = 0;
+          for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
+          return n;
+        };
+        // Every owned pane carries the base class through ensurePane; the
+        // label role marker sits on top of it.
+        const paneClassesOf = id => {
+          const pane = window.map.getPane(`foliplus-label-${id}`);
+          if (!pane) return null;
+          return {
+            layer: pane.classList.contains("foliplus-layer-pane"),
+            label: pane.classList.contains("foliplus-label-pane"),
+          };
+        };
+        resolve({
+          canvas: true,
+          // One pane + one canvas per labeled layer, z-ordered with the layer.
+          canvasCount: document.querySelectorAll(".foliplus-label-canvas").length,
+          opaqueA: opaqueOf("__ml_a__"),
+          opaqueB: opaqueOf("__ml_b__"),
+          annA: zOf("__ml_a__"),
+          annB: zOf("__ml_b__"),
+          layerA: layerZOf("__ml_a__"),
+          layerB: layerZOf("__ml_b__"),
+          paneClassesA: paneClassesOf("__ml_a__"),
+          paneClassesB: paneClassesOf("__ml_b__"),
+        });
+      }),
+    );
+  });
+};

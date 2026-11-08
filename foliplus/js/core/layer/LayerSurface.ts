@@ -209,7 +209,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  base pane does not host, so every write that "covers the layer's panes"
    *  must go through `surface.panes`, never through the base pane alone. */
   private shadowPaneName: string | null = null;
-  /** Every pane name this surface holds a lease on — base, sub, annotation,
+  /** Every pane name this surface holds a lease on — base, sub, label,
    *  shadow, canvas — in acquisition order. `destroy` releases all of them:
    *  the lease always retires, and the element goes only for the panes
    *  foliplus created as this surface's own carrier. */
@@ -740,7 +740,7 @@ class LayerSurface implements LayerSurfaceContract {
    *
    *  Every pane is created `pointer-events: none` by CSS, and nothing here
    *  re-opens it: whether a pane's content takes a hit is the content's own
-   *  call (`AnnotationCanvas` writes `none` on itself, a data canvas is
+   *  call (`LabelCanvas` writes `none` on itself, a data canvas is
    *  re-enabled by the rule in `LayerControl/focus.css`).
    *
    *  The boolean is the admission answer, and callers must branch on it:
@@ -855,12 +855,13 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities.fill = probe.fill;
     this.capabilities.stroke = probe.stroke;
     this.capabilities.size = probe.size;
+    this.capabilities.icon = probe.icon;
     // A pane write is honest only while every visible leaf belongs to a
     // family the migrator relocates AND we actually hold a base pane. An
     // empty container stays provisional-true: its leaves arrive later and
     // are re-audited on the next dirty cycle.
     // The carrier is the surface's own content pane — the synthesized target
-    // or the declared base — not "any booked pane": an annotation/shadow-only
+    // or the declared base — not "any booked pane": an label/shadow-only
     // set has nothing an opacity write can reach. Role alone is not enough:
     // a caller may declare the base pane with a non-base role.
     //
@@ -982,7 +983,7 @@ const detectCapabilities = (
   // the same fact. Every branch reports it, early returns included: a
   // MarkerCluster whose children carry properties still has an honest
   // label pane (the probe decides the spec, not the branch shape).
-  const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
+  const label: LayerCapabilities["label"] = opts.paneSpecs?.some(
     spec => spec.role === PANE_ROLE.LABEL,
   )
     ? CAP_TIER.PANE
@@ -1001,9 +1002,10 @@ const detectCapabilities = (
         fill: CAP_TIER.NATIVE,
         stroke: CAP_TIER.NONE,
         size: CAP_TIER.NONE,
+        icon: CAP_TIER.NONE,
         opacity: CAP_TIER.PANE,
         zoomRange: CAP_TIER.PANE,
-        annotation,
+        label,
         relocatable: true,
         bounds: false,
         visibility: CAP_TIER.PANE,
@@ -1019,7 +1021,7 @@ const detectCapabilities = (
   // needing the plugin's group to still look like a MarkerCluster.
   if (kindOf(opts) === KIND.CLUSTER) {
     return {
-      capabilities: { ...CLUSTER_CAPABILITIES, annotation },
+      capabilities: { ...CLUSTER_CAPABILITIES, label },
       treeDerived: false,
     };
   }
@@ -1036,9 +1038,10 @@ const detectCapabilities = (
         fill: CAP_TIER.NONE,
         stroke: CAP_TIER.NONE,
         size: CAP_TIER.NONE,
+        icon: CAP_TIER.NONE,
         opacity: CAP_TIER.NATIVE,
         zoomRange,
-        annotation,
+        label,
         relocatable: true,
         bounds: hasBoundsProvider(layer),
         visibility: CAP_TIER.NATIVE,
@@ -1094,9 +1097,10 @@ const detectCapabilities = (
         fill: carrier.fill,
         stroke: carrier.stroke,
         size: carrier.size,
+        icon: carrier.icon,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
-        annotation,
+        label,
         relocatable: paneCarrier,
         bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
         visibility,
@@ -1114,9 +1118,10 @@ const detectCapabilities = (
         fill: carrier.fill,
         stroke: carrier.stroke,
         size: carrier.size,
+        icon: carrier.icon,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
-        annotation,
+        label,
         relocatable: paneCarrier,
         bounds: hasBoundsProvider(layer),
         visibility,
@@ -1131,9 +1136,10 @@ const detectCapabilities = (
       fill: CAP_TIER.NONE,
       stroke: CAP_TIER.NONE,
       size: CAP_TIER.NONE,
+      icon: CAP_TIER.NONE,
       opacity: CAP_TIER.NONE,
       zoomRange: CAP_TIER.NONE,
-      annotation,
+      label,
       relocatable: false,
       bounds: false,
       visibility,

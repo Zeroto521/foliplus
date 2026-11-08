@@ -9,7 +9,7 @@ import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { PANEL_CLASS } from "#common/panelClassName.js";
-import { SLIDER } from "#ui/index.js";
+import { SLIDER_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -304,7 +304,7 @@ describe("LayerUI filter panel", () => {
       const host = panel.querySelector(
         `.${CONST.CLASSES.FILTER_SLIDER}`,
       ) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs).toHaveLength(2);
       expect(panel.querySelector("input[type=range]")).toBeNull();
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
@@ -372,7 +372,7 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
     });
@@ -454,8 +454,8 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      expect(host.classList.contains(SLIDER.DISABLED)).toBe(true);
-      const thumb = host.querySelector(`.${SLIDER.THUMB}`) as HTMLElement;
+      expect(host.classList.contains(SLIDER_CLASS.DISABLED)).toBe(true);
+      const thumb = host.querySelector(`.${SLIDER_CLASS.THUMB}`) as HTMLElement;
       expect(thumb.getAttribute("aria-disabled")).toBe("true");
     });
 
@@ -1025,7 +1025,7 @@ describe("LayerUI filter panel", () => {
     /** The slider.test.ts pointer recipe: jsdom reports 0×0 rects, the
      *  pointer paths need a rail with a measurable box. */
     const stubTrack = (host: HTMLElement): HTMLElement => {
-      const track = host.querySelector(`.${SLIDER.TRACK}`) as HTMLElement;
+      const track = host.querySelector(`.${SLIDER_CLASS.TRACK}`) as HTMLElement;
       track.getBoundingClientRect = () =>
         ({
           left: 0,
@@ -1110,7 +1110,7 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const maxThumb = host.querySelectorAll(`.${SLIDER.THUMB}`)[1];
+      const maxThumb = host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`)[1];
       maxThumb.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "ArrowLeft",
@@ -1144,7 +1144,7 @@ describe("LayerUI filter panel", () => {
       const host = panel.querySelector(
         `.${CONST.CLASSES.FILTER_SLIDER}`,
       ) as HTMLElement;
-      host.querySelectorAll(`.${SLIDER.THUMB}`)[1].dispatchEvent(
+      host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`)[1].dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "ArrowLeft",
           bubbles: true,
@@ -1219,7 +1219,7 @@ describe("LayerUI filter panel", () => {
 
       expect(owner.filter).toBeUndefined();
       const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
-      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
     });
@@ -1378,7 +1378,7 @@ describe("LayerUI filter panel", () => {
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const thumbs = panel.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = panel.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
@@ -1398,9 +1398,9 @@ describe("LayerUI filter panel", () => {
       });
       ui.openFilterPanel(item);
       expect(
-        (item.querySelectorAll(`.${SLIDER.THUMB}`)[0] as HTMLElement).getAttribute(
-          "aria-valuenow",
-        ),
+        (
+          item.querySelectorAll(`.${SLIDER_CLASS.THUMB}`)[0] as HTMLElement
+        ).getAttribute("aria-valuenow"),
       ).toBe("15");
 
       // The owner retired the filter on its own (source reset, content
@@ -1408,7 +1408,7 @@ describe("LayerUI filter panel", () => {
       owner.filterSetter(undefined);
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
 
-      const thumbs = item.querySelectorAll(`.${SLIDER.THUMB}`);
+      const thumbs = item.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
       expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
     });
@@ -1419,7 +1419,7 @@ describe("LayerUI filter panel", () => {
       registerPoints("pnt", oldOwner);
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
-      const staleThumb = item.querySelectorAll(`.${SLIDER.THUMB}`)[0];
+      const staleThumb = item.querySelectorAll(`.${SLIDER_CLASS.THUMB}`)[0];
 
       // The entry under the same id is swapped (re-registration): the panel's
       // identity is the entry it opened against, so this must close rather
@@ -1942,7 +1942,11 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
         clientY: 7,
         button: 0,
       } as MouseEventInit);
-    track.dispatchEvent(pointer("pointerdown", 25));
+    // Grab the lower thumb itself: the committed band [10,20] spans x 0..50,
+    // and a press in that segment now pans the pair (the pan feature's grab
+    // region). The echo-suppression contract is what this test covers, so it
+    // drags the handle instead of the band.
+    track.dispatchEvent(pointer("pointerdown", 0));
     track.dispatchEvent(pointer("pointermove", 25));
     track.dispatchEvent(pointer("pointerup", 25));
 

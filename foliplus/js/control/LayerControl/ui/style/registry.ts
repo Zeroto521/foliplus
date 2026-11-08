@@ -1,5 +1,5 @@
 // Per-layer dimension registry — the discovery surface for the style panel.
-// opacity / zoomRange / border / fill / annotation … are all per-layer dimensions
+// opacity / zoomRange / border / fill / label … are all per-layer dimensions
 // with the same shape (gate → row → state write), just different carriers.
 // Today each dimension has its own set of helpers; the registry is the
 // minimal slice — a descriptor shape + register + lookup — that lets the
@@ -35,7 +35,7 @@
 // Dimension write/reset migration: `fill` / `border` own the intent+persist
 // slots (`write` / `reset` / `valueSource` on the descriptor). The named
 // helpers (`commitFillColor` / `resetLayerBorder` / …) stay as thin delegates.
-// `opacity` / `zoomRange` / `annotation` still keep their helpers as the
+// `opacity` / `zoomRange` / `label` still keep their helpers as the
 // authoritative implementation until a later PR. styleBag remains the
 // setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
 // descriptor write/reset call it.
@@ -104,6 +104,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  that same test catches.
  */
 const DIM_ORDER = [
+  DIM.ICON,
   DIM.FILL,
   DIM.SIZE,
   DIM.BORDER,
@@ -119,17 +120,17 @@ const DIM_ORDER = [
  *  every registered built-in key and nothing more, which is the drift this
  *  split would otherwise open: a dimension registered but put in neither
  *  order is unreachable from the panel. */
-const LABEL_DIM_ORDER = [DIM.ANNOTATION] as const;
+const LABEL_DIM_ORDER = [DIM.LABEL] as const;
 
 /** Collect the descriptors whose `gate` passes, in the caller's declared
- *  order — the one gate pass every panel flavor shares. The annotation
+ *  order — the one gate pass every panel flavor shares. The label
  *  panel passes `DIM_ORDER` / `LABEL_DIM_ORDER`; the delegated drawer passes
  *  its own slice (`DELEGATED_DIM_ORDER` in `./delegated.js`). Same single
  *  implementation behind both consumers.
  *
  *  Every key listed in a section order is registered — `registry.test` locks
  *  the union of both orders against the built-ins — so the lookup cannot
- *  miss; the cast states that contract instead of branching on a null arm no
+ *  miss; the cast states that contract instead of branching on a null mode no
  *  test can reach. */
 const gatedRows = (
   ui: LayerUI,

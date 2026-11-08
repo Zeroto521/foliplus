@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import { CircleMode } from "#control/MeasureControl/mode/index.js";
+import { loadFeature } from "../fixture.js";
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachCircleUI's opts so the start/restore callbacks
@@ -55,23 +56,7 @@ describe("CircleMode — click stops propagation to data layers", () => {
 
 describe("CircleMode — toGeoFeature", () => {
   it("returns a Polygon from turf.circle", () => {
-    const mockCircle = {
-      geometry: {
-        coordinates: [
-          [
-            [121, 31],
-            [121.001, 31],
-            [121.002, 31],
-            [121.001, 31.001],
-            [121, 31.002],
-            [120.999, 31.001],
-            [120.998, 31],
-            [120.999, 31],
-            [121, 31],
-          ],
-        ],
-      },
-    };
+    const mockCircle = loadFeature("MeasureControl", "circle_polygon");
     globalThis.turf.circle = vi.fn(() => mockCircle);
 
     const feature: any = CircleMode.toGeoFeature(makeEnv(), {

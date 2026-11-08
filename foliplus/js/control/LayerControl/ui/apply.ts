@@ -136,11 +136,11 @@ const authorZoomBoundsOf = (
 const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
   authorZoomBoundsOf(ui, ui.c.layerRegistry.get(layerId)?.layer);
 
-/** The redraw arm does not clear CSS opacity on the write itself: the drawer
+/** The redraw branch does not clear CSS opacity on the write itself: the drawer
  *  that owns the face reads layerAlpha off the canvas and repaints there,
  *  then drops the CSS so the two carriers never compound. Because a full
  *  repaint can be expensive (see the R11 measurement note in the redraw
- *  arm), a continuous slider drag must not repaint on every input.
+ *  branch), a continuous slider drag must not repaint on every input.
  *
  *  So: coalesce repaints with a short debounce. Each new commit within
  *  the window replaces the pending one, so a drag produces many O(1)
@@ -151,7 +151,7 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *  the drag frame-rate clean; the 60ms window is ~3 frames at 60fps,
  *  invisible to the eye but enough to settle a drag. At repaint time
  *  the drawer reads the latest layerAlpha off its canvas (see the
- *  redraw arm and HeatmapManager.redrawHeatmap), so the pixel state
+ *  redraw branch and HeatmapManager.redrawHeatmap), so the pixel state
  *  converges to the slider's terminal position — no more waiting
  *  for pan/zoom. */
 const OPACITY_REPAINT_DEBOUNCE_MS = 60;
@@ -282,7 +282,7 @@ const dispatchStateOp = (
       //               Cheap for a one-rect color face or a label pass.
       //   "redraw"  — slider commit keeps CSS `opacity` (O(1), live
       //               feedback); the next pan/zoom redraw bakes and drops
-      //               the CSS. Default. Heatmap ≥5k takes this arm because
+      //               the CSS. Default. Heatmap ≥5k takes this branch because
       //               a full hexagon redraw per commit is jank (measured
       //               8ms warm / 30-320ms under load on a stub ctx @5k —
       //               over a 16ms frame; real rasterization is slower).
@@ -293,14 +293,14 @@ const dispatchStateOp = (
       // "we own this face" answer and this comment is what stops it from lying.
       const value = op.value ?? 1;
       // Registry fills `opacityBake` (default "redraw"); treat unset as
-      // "redraw" via the else arm so there is no second default to drift.
+      // "redraw" via the else branch so there is no second default to drift.
       const bake = layerInfo.opacityBake;
       setLayerAlpha(layerInfo.canvas, value);
       if (bake === "commit") {
         layerInfo.canvas.style.opacity = "";
         layerInfo.onOpacity?.(value);
       } else {
-        // Live CSS arm: the value lands on the canvas face as CSS opacity
+        // Live CSS branch: the value lands on the canvas face as CSS opacity
         // (O(1) per drag event). We do NOT defer the bake to the next
         // pan/zoom — that would leave canvas pixels showing a stale
         // alpha × the new CSS opacity, i.e. a compounded wrong value,
@@ -361,7 +361,7 @@ const dispatchStateOp = (
         ui.c.panes.assertOwnedPane(pane.name);
         pane.element.style.opacity = String(value);
       }
-      ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
+      ui.c.label.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
     return false;

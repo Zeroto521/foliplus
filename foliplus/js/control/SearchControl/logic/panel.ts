@@ -9,7 +9,8 @@
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { bindFloatingWheel } from "#common/floating.js";
+import { mountFloating } from "#common/floating.js";
+import { applyOptionRowA11y, nextOptionId } from "#ui/optionRow.js";
 import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
@@ -59,6 +60,10 @@ const removePanel = (ctrl: SearchControlCtx) => {
   if (ctrl.throttleTimer) {
     clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = null;
+  }
+  if (ctrl.panelFloating) {
+    ctrl.panelFloating.release();
+    ctrl.panelFloating = null;
   }
   if (ctrl.panelWrap) {
     ctrl.panelWrap.remove();
@@ -112,19 +117,18 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
       parent: map.getContainer(),
       onclick: (event: Event) => event.stopPropagation(),
     });
-    // A wheel over the result panel must not zoom the map. The panel is
-    // mounted on the map container (not inside the control's container), so
-    // the container's disableScrollPropagation does not cover it — a wheel
-    // bubbles to the map container and Leaflet's scrollWheelZoom would fire.
-    // The shared containment swallows every wheel unconditionally (the
-    // boundary-aware variant that let boundary / zero-delta wheels bubble was
-    // removed: those bubbled to the map and zoomed it).
-    //
-    // Bound once, right here in the creation block: the element exists only
-    // once (subsequent renders reuse it, removePanel drops it), so binding
-    // here means one listener per element lifecycle — no stacking per
-    // renderResults, and no stale flag to reset when a new element is made.
-    bindFloatingWheel(ctrl.panelWrap);
+    // The result panel is a floating layer: it must never pan or zoom the map
+    // beneath it. mountFloating is the single mount entry — it auto-binds the
+    // unified gesture containment (wheel + touch) and owns the re-pin / re-seat
+    // lifecycle. The panel is position: fixed, so mounting on the covering
+    // host (body) keeps the same visual position; re-pin is idempotent for a
+    // fixed element (positionPanel recomputes the same rect).
+    ctrl.panelFloating = mountFloating({
+      root: ctrl.panelWrap,
+      anchor: ctrl.ctrl,
+      position: () => positionPanel(ctrl),
+      // No portal-root registration: the search panel does not portal.
+    });
   }
 
   ctrl.panelWrap.innerHTML = "";
@@ -132,28 +136,31 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
 
   // Retained so Enter reuses the keyboard selection instead of re-geocoding.
   ctrl.currentItems = results;
-
   results.forEach((item: ResultItem, idx: number) => {
-    dom.el(
-      "div",
-      {
-        class: CLASSES.RESULT_ITEM,
-        "data-index": String(idx),
-        // Keyboard nav reads `data-query` to fill the input. History items
-        // carry their panel display (addrDisplay / coordDisplay); suggestions
-        // omit it and fall back to RESULT_TEXT in interaction.ts.
-        "data-query": item.query,
-        parent: ctrl.panelWrap,
-        onmousedown: (event: Event) => {
-          event.stopPropagation();
-          event.preventDefault();
-          // Panel closes only if the click actually places a marker. A
-          // mode-lock refusal leaves the panel open so the user sees the
-          // hint and can retry once the blocking mode clears.
-          if (item.onClick()) removePanel(ctrl);
-        },
+    const row = dom.el("div", {
+      class: CLASSES.RESULT_ITEM,
+      "data-index": String(idx),
+      // Keyboard nav reads `data-query` to fill the input. History items
+      // carry their panel display (addrDisplay / coordDisplay); suggestions
+      // omit it and fall back to RESULT_TEXT in interaction.ts.
+      "data-query": item.query,
+      parent: ctrl.panelWrap,
+      onmousedown: (event: Event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        // Panel closes only if the click actually places a marker. A
+        // mode-lock refusal leaves the panel open so the user sees the
+        // hint and can retry once the blocking mode clears.
+        if (item.onClick()) removePanel(ctrl);
       },
+    });
+    // The option contract (role/tabindex/aria-selected) comes from the
+    // shared row builder; the stable id feeds aria-activedescendant.
+    applyOptionRowA11y({ el: row, selected: false, id: nextOptionId("search-row") });
+    row.appendChild(
       dom.el("span", { class: CLASSES.RESULT_ICON }, { html: item.icon }),
+    );
+    row.appendChild(
       dom.el(
         "div",
         { class: CLASSES.RESULT_CONTENT },

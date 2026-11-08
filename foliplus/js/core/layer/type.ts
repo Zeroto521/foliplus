@@ -115,6 +115,18 @@ interface LayerCapabilities {
    *  Probe-derived and re-read on each audit — same contract as `stroke` /
    *  `fill`. */
   size: "native" | "none";
+  /** Whether the layer's tree has a write carrier for marker icons:
+   *    - "native" — any leaf owns a runtime `setIcon` (a Marker with its
+   *      default icon). The write walks `eachLayer` and calls `setIcon` per
+   *      leaf.
+   *    - "none"   — no `setIcon` leaf. Vector paths, canvas, MarkerCluster
+   *      (cluster bubbles live in the shared markerPane and never enter
+   *      eachLayer), native setter surfaces (ImageOverlay / GridLayer) and
+   *      the color basemap all fall out.
+   *
+   *  Probe-derived and re-read on each audit (`refreshCapabilities`) — same
+   *  contract as `stroke` / `fill`. */
+  icon: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -153,7 +165,7 @@ interface LayerCapabilities {
    *      here; declared so a future shape that cannot carry visibility can say
    *      so without another union change. */
   visibility: "native" | "pane" | "none";
-  /** Whether the layer can host a label (annotation) pane:
+  /** Whether the layer can host a label (label) pane:
    *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
@@ -167,7 +179,7 @@ interface LayerCapabilities {
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
    *  `matches` — the declaration changed, not merely a capability. */
-  annotation: "pane" | "none";
+  label: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
    *  cannot (a plugin that owns its own z) can say so without another shape
@@ -254,7 +266,7 @@ interface RegisterLayerOpts {
    *  The slider path must not regress: a full redraw of a ≥5k layer on every
    *  commit is jank, while a CSS style write is O(1).
    *    - "commit"  — bake layerAlpha and redraw on the slider commit itself.
-   *      Use when the redraw is cheap (color face: one fillRect; annotation
+   *      Use when the redraw is cheap (color face: one fillRect; label
    *      labels: a few hundred glyphs).
    *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
@@ -358,7 +370,7 @@ interface FillAuthor {
   distinct: number;
   /** The strip the panel draws: a continuous scale sampled to 64 colors, a
    *  stepped scale's own blocks, or the layer's distinct colors when neither
-   *  exists. The own-color arm keeps the values verbatim, so a `missing_kwds`
+   *  exists. The own-color mode keeps the values verbatim, so a `missing_kwds`
    *  CSS name such as `lightgrey` can sit among hex stops. */
   stops: string[];
   /** True when the layer paints more distinct colors than the strip samples,
@@ -659,8 +671,8 @@ interface CreateCanvasOpts {
    *  (e.g. HeatmapControl's source layer + aggregation field). */
   meta?: Record<string, string | number> | null;
   /** See {@link RegisterLayerOpts.onOpacity}. Called after a layer-opacity
-   *  commit so a `"commit"`-arm drawer can re-render immediately. Heatmap
-   *  omits this (it takes the default `"redraw"` arm and repaints on the
+   *  commit so a `"commit"`-branch drawer can re-render immediately. Heatmap
+   *  omits this (it takes the default `"redraw"` branch and repaints on the
    *  next pan/zoom instead). */
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. Heatmap uses the default
@@ -920,7 +932,7 @@ interface LayerAPI {
    *  inheriting the tuning the user arranged for the previous draw.
    *
    *  Unlike deleteLayer this does not unregister the layer, record it in
-   *  `removedIds`, or destroy its annotation config: the id stays
+   *  `removedIds`, or destroy its label config: the id stays
    *  registerable, so a component that cleared its own data can draw again.
    *  Reachable from an explicit user action alone — the component clear paths
    *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) —

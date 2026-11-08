@@ -1,4 +1,4 @@
-() => {
+data => {
   // Reproduce the user's bug scenario: at map zoom 12 a layer whose stored
   // zoom range is [15, 18] is policy-hidden. A `setVisible(id, true)` call
   // flips the user's stored intent from false to true, but the effective
@@ -19,16 +19,7 @@
   const api = map.foliplus.LayerAPI;
   const events = map.foliplus.events;
 
-  const geo = L.geoJson({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { name: "p1" },
-        geometry: { type: "Point", coordinates: [119.3, 26.08] },
-      },
-    ],
-  });
+  const geo = L.geoJson(data);
   const id = "__test_intent_gated__";
   api.registerLayer({ id, name: "IntentGated", layer: geo });
   ctrl.mgr.enforceOrder();

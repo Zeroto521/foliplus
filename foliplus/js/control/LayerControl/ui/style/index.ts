@@ -1,4 +1,4 @@
-// LayerControl UI — per-layer annotation style panel (entry module).
+// LayerControl UI — per-layer label style panel (entry module).
 //
 // Opened from a data layer's ⋮ menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
@@ -40,6 +40,7 @@ import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
+import { resetLayerIcon } from "./icon.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
@@ -62,7 +63,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // (capability "none") but still owns the Layer section; a fielded layer
   // owns the Label section even when no Layer dimension applies. The ⋮ menu
   // enables Style on the same two signals — `layerCanLabel` IS the
-  // annotation dimension's gate — so the panel honors them rather than
+  // label dimension's gate — so the panel honors them rather than
   // demanding both.
   const layerRows = gatedRows(ui, layerId, DIM_ORDER);
   const labelRows = gatedRows(ui, layerId, LABEL_DIM_ORDER);
@@ -90,7 +91,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Label is what document order alone conveys.
   for (const dim of layerRows) content.append(dim.row(ui, layerId));
   // The Label section's gate is a pure capability bit (layer exists +
-  // `capabilities.annotation !== "none"`) — the labelable-fields probe that
+  // `capabilities.label !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
   for (const dim of labelRows) content.append(dim.row(ui, layerId));
@@ -98,7 +99,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   return panel;
 };
 
-/** Open the annotation style panel for a layer. The panel is anchored to the
+/** Open the label style panel for a layer. The panel is anchored to the
  *  layer's own row — the same "drop below the trigger" rule the attributes
  *  panel uses — through the shared fixed-position pin, so it is not clipped by
  *  the row list's scroll box. */
@@ -155,7 +156,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
   // its live binders attach to the row instead of going through the panel's
-  // change delegation — that only knows opacity, zoom range and the annotation
+  // change delegation — that only knows opacity, zoom range and the label
   // rows. A delegated drawer never renders this row (its gate excludes
   // styleSetters), so the lookup alone is the discriminator.
   const borderRow = panel.querySelector(
@@ -202,7 +203,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // The slider rows wire their own live/commit callbacks when the primitive is
   // built, so the panel no longer translates input/change events into values.
-  // What remains here is the annotation toggle and the delegated rows.
+  // What remains here is the label toggle and the delegated rows.
 
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
@@ -225,7 +226,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const fieldSel = panel.querySelector(
         ".foliplus-style-field-select",
       ) as HTMLSelectElement | null;
-      const cfg = ui.c.annotation.getConfig(layerId);
+      const cfg = ui.c.label.getConfig(layerId);
       const fields = layerFields(ui, layerId);
       const chosen = fieldSel?.value ?? cfg.field;
       const fmtRow = panel.querySelector(
@@ -292,12 +293,15 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // one dimension mid-operation would hand a subscriber a panel that is
       // still open, and a subscriber that tears the control down would take
       // this handler's own closeStylePanel lookup with it.
-      // Fill is LayerControl-owned on the annotation flavour only (the gate
+      // Fill is LayerControl-owned on the label flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
       // Size is LayerControl-owned too: restore the author's radius and drop
       // the persisted value, so a reload does not re-apply it.
       resetLayerSize(ui, layerId);
+      // Icon is LayerControl-owned too: restore the author's marker icons
+      // and drop the persisted config, so a reload does not re-apply it.
+      resetLayerIcon(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
@@ -312,7 +316,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
-        // the values — never write localStorage or annotation config here.
+        // the values — never write localStorage or label config here.
         const layerInfo = ui.c.layerRegistry.get(layerId);
         const setters = layerInfo?.styleSetters;
         const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
@@ -324,7 +328,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       } else {
         // Labels are a LayerControl-owned dimension too: the reset drops the
         // layer's config entry rather than writing the defaults back in, so the
-        // author's declared annotation shows through again and the drop is what
+        // author's declared label shows through again and the drop is what
         // gets persisted (a reload does not restore the user's choice).
         resetStyleLabel(ui, layerId);
       }
@@ -450,6 +454,6 @@ export {
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";
-export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
+export { LABEL_DIMENSION, layerCanLabel } from "./labelDimension.js";
 export { layerHasStyleDelegation } from "./delegated.js";
 export { replayDeclaredFill, replayFillState } from "./fill.js";

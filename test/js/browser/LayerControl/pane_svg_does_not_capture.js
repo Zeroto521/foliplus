@@ -8,34 +8,13 @@
 // The user-visible contract this pins down:
 //   - on the geometry, the path is the hit target and the cursor is `pointer`
 //   - off the geometry, nothing inside the foliplus pane is the hit target
-() => {
+geo => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
 
   const PANE = "__pane_svg_capture__";
   // GeoJSON coordinates are [longitude, latitude]. Small box around the map
   // center ([26.08, 119.30]) so the container's far corner stays free.
-  const geo = {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [119.28, 26.06],
-              [119.32, 26.06],
-              [119.32, 26.1],
-              [119.28, 26.1],
-              [119.28, 26.06],
-            ],
-          ],
-        },
-      },
-    ],
-  };
 
   const mg = api.createLayers({
     id: "__pane_svg_capture_layers__",

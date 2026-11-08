@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { globSync } from "tinyglobby";
 import { describe, expect, it } from "vitest";
@@ -165,7 +165,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/slider.ts",
-    n: 10,
+    n: 11,
     pairedOff: 0,
     reason:
       "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
@@ -193,17 +193,24 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/listbox.ts",
-    n: 7,
+    n: 5,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press and window keydown (capture, Escape ownership ahead of the panel dispatcher), both gated on `spec.ownDismiss` (a select-replacement adapter owning its own dismissal leaves them off), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and three popup-scope listeners — (the outside-press and Escape ownership now live in ui/dismiss.ts, bound by the ownDismiss branch), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+  },
+  {
+    f: "ui/dismiss.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "the ONE outside-press + Escape dismissal primitive (task-32): document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
   },
   {
     f: "common/floating.ts",
-    n: 4,
+    n: 11,
     pairedOff: 0,
     reason:
-      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
+      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional) plus the unified gesture containment (bindFloatingGestures: wheel + touch/pointer stop-propagation, so a touch drag or wheel over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
   },
 ];
 
@@ -449,6 +456,23 @@ const checkListenerRegistrations = (
   return problems;
 };
 
+describe("allow-list entries name real files", () => {
+  it("every pinned path resolves to an existing file under foliplus/js/", () => {
+    for (const list of [
+      BARE_ADD_EVENT_LISTENER,
+      L_DOM_EVENT_ON,
+      MAP_ON_ALLOW_LISTENER,
+    ]) {
+      for (const e of list) {
+        expect(
+          existsSync(resolve(ROOT, "foliplus/js", e.f)),
+          `allow-list entry "${e.f}" names a missing file`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
 describe("no bare addEventListener in foliplus/js", () => {
   it("every bare call is on the allow-list, and the allow-list still matches the tree", () => {
     expect(
@@ -653,5 +677,58 @@ describe("the listener allow-list guard still bites", () => {
     expect(callsIn("map.off('click', fn)", MAP_ON_RE)).toBe(0);
     expect(callsIn("this.map.on('click', fn)", MAP_ON_RE)).toBe(0);
     expect(callsIn("ui.m.map.on('click', fn)", MAP_ON_RE)).toBe(0);
+  });
+});
+
+describe("floating gesture containment", () => {
+  // A touch/wheel gesture over a floating surface must never reach Leaflet's
+  // map handlers (they would pan/zoom the map instead of scrolling the
+  // panel). bindFloatingGestures (common/floating.ts) is the ONE mechanism;
+  // mountFloating auto-binds it. Two invariants:
+  //   A. Every mountFloating caller gets the containment automatically (the
+  //      bind lives inside mountFloating in floating.ts) — no caller may
+  //      re-wire a raw bindFloatingTouch (that would be a second mechanism).
+  //   B. Non-mountFloating floating roots (the resident panel-factory bodies)
+  //      must bind bindFloatingGestures exactly once per root.
+  // Counts use the raw source (call sites only — never in a comment/string).
+  it("every floating mount binds the touch containment", () => {
+    const files = globSync("foliplus/js/**/*.ts", { cwd: ROOT });
+    const countOf = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
+    const gesturesByFile = new Map<string, number>();
+    const mountUsers: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      const g = countOf(src, /bindFloatingGestures\(/g);
+      if (g > 0) gesturesByFile.set(f.replace(/^foliplus\/js\//, ""), g);
+      if (countOf(src, /mountFloating\(/g) > 0) mountUsers.push(f);
+    }
+    // A. mountFloating is the single mechanism — its callers must NOT also
+    //    wire a raw bindFloatingTouch (that would bypass the unified entry).
+    for (const f of mountUsers) {
+      const src = readFileSync(f, "utf8");
+      expect(
+        countOf(src, /bindFloatingTouch\(/g),
+        `${f} mounts a floating layer (mountFloating) but also wires a raw bindFloatingTouch — use the unified entry only`,
+      ).toBe(0);
+    }
+    // B. Non-mountFloating floating roots pin their bindFloatingGestures.
+    //    core/leaflet/panel.ts binds the two resident panel-factory bodies
+    //    (content, panelContent); ui/listbox.ts binds the inline-listbox
+    //    root (the portalled listbox goes through mountFloating).
+    expect(
+      gesturesByFile.get("core/leaflet/panel.ts"),
+      "panel factory binds its two resident roots (content, panelContent)",
+    ).toBe(2);
+    expect(
+      gesturesByFile.get("ui/listbox.ts"),
+      "listbox binds its inline root via the unified entry",
+    ).toBe(1);
+    // The floating.ts definition itself is the only place the raw helpers
+    // may still exist (bindFloatingTouch/bindFloatingWheel are the legacy
+    // building blocks the unified entry replaces).
+    expect(
+      gesturesByFile.get("common/floating.ts"),
+      "floating.ts binds its own unified entry",
+    ).toBe(1);
   });
 });

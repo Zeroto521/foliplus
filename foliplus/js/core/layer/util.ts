@@ -210,10 +210,15 @@ const paintsAtZoom = (map: L.Map, layer: L.Layer | null | undefined): boolean =>
  *  regression suite share one answer: cluster icons live in the shared
  *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
  *  group itself is an `L.Layer` so visibility is still map membership. */
-const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
+const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "label"> = {
   fill: CONST.CAP_TIER.NONE,
   stroke: CONST.CAP_TIER.NONE,
   size: CONST.CAP_TIER.NONE,
+  // Icon is "none" for the same reason opacity is: cluster bubbles live in
+  // the shared `markerPane` and never enter `eachLayer`, so a per-leaf
+  // `setIcon` write would change the individual markers but not the cluster
+  // bubbles — half the layer. Do not "fix" this to "native".
+  icon: CONST.CAP_TIER.NONE,
   opacity: CONST.CAP_TIER.NONE,
   zoomRange: CONST.CAP_TIER.NONE,
   visibility: CONST.CAP_TIER.NATIVE,

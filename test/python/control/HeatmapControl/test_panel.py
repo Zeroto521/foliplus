@@ -35,7 +35,20 @@ import json
 
 import folium
 import pytest
-from conftest import _js, heatmap_ready, make_browser_page, snippet, use_page
+from conftest import (
+    _js,
+    assert_map_unchanged,
+    feature_collection,
+    heatmap_ready,
+    load_geojson,
+    make_browser_page,
+    map_center_zoom,
+    point_feature,
+    snippet,
+    snippet_fn,
+    touch_drag,
+    use_page,
+)
 
 from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
@@ -245,16 +258,7 @@ def _dropdown_make_page(browser, tmp_path, *, pseudo: bool = False):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
-        features = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": lat},
-                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                }
-            ],
-        }
+        features = feature_collection(point_feature(lng, lat, {"val": lat}))
         folium.GeoJson(json.dumps(features)).add_to(fg)
         fg.add_to(m)
     LayerControl().add_to(m)
@@ -416,14 +420,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # _hexbin_panel_ready picks the first layer; clear it so the
             # placeholder prompt is the visible state again.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  select.value = "";
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/clear_hexbin_layer"))
             page.wait_for_timeout(300)
 
             # No layer picked: the prompt is the muted placeholder ink.
@@ -439,15 +436,7 @@ class TestHeatmapDropdownPanelBrowser:
 
             # Pick a real layer: the trigger leaves the muted ink for the
             # value ink, and the placeholder class goes away.
-            page.evaluate(
-                """() => {
-                  const ctrl = document.querySelector('.foliplus-heatmap-ctrl');
-                  const select = ctrl.querySelector('select[data-heatmap-layer]');
-                  const option = [...select.options].find(option => option.value);
-                  select.value = option.value;
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(snippet("HeatmapControl/pick_hexbin_layer"))
             page.wait_for_timeout(300)
             after = page.evaluate(_js("HeatmapControl/read_layer_dropdown_ink"))
             assert after["ok"], after
@@ -498,51 +487,18 @@ class TestHeatmapDropdownPanelBrowser:
 
 def _polygon_layer() -> folium.GeoJson:
     """Overlay layer with a numeric property, for the style drawer's ramp arm."""
-    data = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"value": 10 + i},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [119.28 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.06],
-                            [119.32 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.10],
-                            [119.28 + i * 0.01, 26.06],
-                        ]
-                    ],
-                },
-            }
-            for i in range(3)
-        ],
-    }
-    return folium.GeoJson(json.dumps(data), name="Polygon data")
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def _points_group() -> folium.FeatureGroup:
     """One point layer, so the heatmap auto-selects it and opens its config."""
     fg = folium.FeatureGroup(name="Points", show=True)
-    gj = json.dumps(
-        {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": 1.0 + i},
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [119.30 + i * 0.01, 26.08],
-                    },
-                }
-                for i in range(3)
-            ],
-        }
+    folium.GeoJson(json.dumps(load_geojson("common", "points_fuzhou_3offset"))).add_to(
+        fg
     )
-    folium.GeoJson(gj).add_to(fg)
     return fg
 
 
@@ -607,16 +563,7 @@ def _make_geometry_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i, (lat, lng) in enumerate([(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]):
         fg = folium.FeatureGroup(name=f"Points {i}", show=True)
-        features = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {"val": lat},
-                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
-                }
-            ],
-        }
+        features = feature_collection(point_feature(lng, lat, {"val": lat}))
         folium.GeoJson(json.dumps(features)).add_to(fg)
         fg.add_to(m)
     LayerControl().add_to(m)
@@ -669,4 +616,42 @@ class TestClassesRowGeometryBrowser:
             assert data["methodFillsControl"], data
             assert data["classesAtSecondary"], data
             assert data["noOverlap"], data
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestHeatmapPanelTouchBrowser:
+    """A touch drag over the fold-panel body scrolls it, not the map."""
+
+    def test_touch_drag_over_the_fold_panel_does_not_pan_the_map(
+        self, touch_browser, tmp_path
+    ):
+        # The fold panel comes from the shared createPanelControl factory, which
+        # binds the touch containment on the scrollable panel-content body.
+        with use_page(_make_page, touch_browser, tmp_path, num_layers=1) as (
+            page,
+            errors,
+        ):
+            page.evaluate(
+                "document.querySelector('.foliplus-heatmap-ctrl .foliplus-toggle-btn')?.click()"
+            )
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            assert _panel_open(page) is True
+            page.wait_for_timeout(300)
+            rect = page.evaluate(
+                f"({snippet_fn('common/element_rect')})"
+                "('.foliplus-heatmap-ctrl .foliplus-panel-content')"
+            )
+            before = map_center_zoom(page)
+            touch_drag(
+                page,
+                rect["x"] + rect["w"] / 2,
+                rect["y"] + rect["h"] / 2,
+                rect["y"] + rect["h"] / 2 - 80,
+            )
+            page.wait_for_timeout(300)
+            assert_map_unchanged(before, map_center_zoom(page))
             assert not errors, f"JS errors: {errors}"

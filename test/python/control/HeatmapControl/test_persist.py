@@ -362,16 +362,15 @@ class TestHeatmapControlCacheBrowser:
 
         html = m.get_root().render()
         html = _stub_html(html)
-        page, errors = make_browser_page(browser, tmp_path, html, "heatmap_no_layer")
-        page.wait_for_selector(
-            ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-        )
-        try:
+        with use_page(
+            make_browser_page, browser, tmp_path, html, "heatmap_no_layer"
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
             ctrl = page.evaluate(_js("HeatmapControl/read_heatmap_ctrl"))
             assert ctrl is not None, "HeatmapControl DOM should exist"
             assert not errors, f"JS errors: {errors}"
-        finally:
-            page.close()
 
     def test_canvas_pane_birth_z_is_final(self, browser, tmp_path):
         """HeatmapControl's canvas pane is born at its final z.

@@ -3,13 +3,15 @@ import {
   FILL_MODE,
   type FillValueConfig,
   isFillValueConfig,
+  isIconIntent,
 } from "#core/layer/index.js";
+import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import * as Storage from "#common/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "./const.js";
 import type {
-  AnnotationConfig,
+  LabelConfig,
   LayerOverride,
   PersistedLayerState,
   PersistedRecord,
@@ -50,7 +52,7 @@ type LiveState = {
  *  meaning — ship the old-version read path, an unknown-future-version policy,
  *  and round-trip tests with it.
  *
- *  2 → 3: the label config moved into `layers[id].annotation` (a style
+ *  2 → 3: the label config moved into `layers[id].label` (a style
  *  dimension of the layer, not a parallel segment). There is deliberately no
  *  compatibility read: the legacy top-level `annotations` segment is
  *  dropped, not read (no compatibility migration), so a v2 record still loads
@@ -59,8 +61,14 @@ type LiveState = {
  *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
  *  no compatibility read: the field rename is a breaking change accepted for
  *  this release, so an old v3 record still loads but its fold state is
- *  dropped, and the next write stamps v4. */
-const RECORD_VERSION = 4;
+ *  dropped, and the next write stamps v4.
+ *
+ *  4 → 5: `layers[id].annotation` was renamed to `layers[id].label` (the label
+ *  config's on-wire key). There is deliberately no compatibility read: the
+ *  field rename is a breaking change accepted for this release, so an old v4
+ *  record still loads but its label config is dropped, and the next write
+ *  stamps v5. */
+const RECORD_VERSION = 5;
 
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
@@ -179,16 +187,20 @@ const PARSE_OVERRIDE: Record<
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
+  icon: data => {
+    const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
+    return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
-/** One stored label (annotation) config: an object, color-normalized the
- *  same way in `layers[id].annotation`. Field-level coercion (size clamps,
+/** One stored label (label) config: an object, color-normalized the
+ *  same way in `layers[id].label`. Field-level coercion (size clamps,
  *  format enums, collide) belongs to the reader that applies it —
  *  `applyStyleLabelState`; this keeps a non-object from reaching the config
  *  map, nothing more. */
-const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
+const parseLabelConfig = (raw: unknown): LabelConfig | null => {
   const cfg = asObject(raw);
   if (!cfg) return null;
   const out = { ...cfg };
@@ -200,7 +212,7 @@ const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
   // (it clamps sizes, normalizes formats, defaults collide), which is where
   // the value is actually applied. The cast says "reader validates", the
   // same contract the legacy segment had.
-  return out as unknown as AnnotationConfig;
+  return out as unknown as LabelConfig;
 };
 
 /**
@@ -209,7 +221,7 @@ const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
  * dropped: keeping the value would persist a choice the record itself says was
  * never made, and failing closed sends the layer back to its declared default.
  *
- * `annotation` is the exception to the provenance rule — it is a style
+ * `label` is the exception to the provenance rule — it is a style
  * configuration, not an override the user "marked": there is no
  * `markOverride` for it and none is wanted. It is parsed on its own and
  * survives with an empty `overrides` array (a layer configured only for
@@ -231,9 +243,9 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
       out.overrides.push(override);
     }
   }
-  const annotation = parseAnnotationConfig(data.annotation);
-  if (annotation) out.annotation = annotation;
-  return out.overrides.length > 0 || out.annotation ? out : null;
+  const label = parseLabelConfig(data.label);
+  if (label) out.label = label;
+  return out.overrides.length > 0 || out.label ? out : null;
 };
 
 /**
@@ -299,7 +311,7 @@ const parseRecord = (raw: unknown): PersistedRecord => {
  *  Named per dimension rather than keyed generically: PersistedRecord is a
  *  literal type, so adding a field without adding it here is a compile error.
  *
- *  The label config writes through `layers[id].annotation`; the legacy
+ *  The label config writes through `layers[id].label`; the legacy
  *  `annotations` segment no longer exists, so it is not copied through. */
 const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecord => {
   const removed = fields.removed ? fields.removed() : record.removed;
@@ -320,7 +332,7 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
  * Single entry point for all LayerControl persistence (localStorage).
  *
  * One record per map container holds every dimension -- order, fold, names,
- * annotation config, and the per-layer intent -- behind a single debounced
+ * label config, and the per-layer intent -- behind a single debounced
  * write, so a teardown flush is one call instead of a per-dimension list and
  * adding a dimension cannot silently lose its last write.
  *
@@ -358,7 +370,7 @@ class LayerPersistence {
    * would drop their entries on the very first attach -- showing the default
    * name, re-adding a hidden layer, leaving a reordered layer at its author
    * position, or losing a label config -- and every refresh. Order and
-   * annotation config are user intent exactly like hidden state and names;
+   * label config are user intent exactly like hidden state and names;
    * the only difference is that their replay is deferred until the id
    * resolves. `LayerController.replaySavedOrder` re-applies the order when a
    * layer registers late, and `applyStyleLabelState` re-applies the config on
