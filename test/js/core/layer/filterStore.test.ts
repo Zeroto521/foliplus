@@ -252,6 +252,35 @@ describe("filterStore — invariants", () => {
     expect(store.getFilter("L1", "filter")).toBeUndefined();
   });
 
+  it("a captured declaration re-seeds a reset slot immediately (the factory reset contract)", () => {
+    const store = createFilterStore();
+    store.register("measure", makeEnumHost(["distance", "time"]));
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+    // Reset with no user write yet: the slot returns to the declaration.
+    store.reset("L1", "measure");
+    expect(store.getFilter("L1", "measure")).toEqual(enumFilter("distance"));
+    // A user write takes the slot, then the factory reset returns to the declaration.
+    store.setFilter("L1", "measure", enumFilter("time"));
+    expect(store.getFilter("L1", "measure")).toEqual(enumFilter("time"));
+    store.reset("L1", "measure");
+    expect(store.getFilter("L1", "measure")).toEqual(enumFilter("distance"));
+    expect(store.isOwned("L1", "measure")).toBe(false);
+  });
+
+  it("reset of a layer with a captured declaration clears the declaration too (a layer delete)", () => {
+    const store = createFilterStore();
+    store.register("measure", makeEnumHost(["distance", "time"]));
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+    store.setFilter("L1", "measure", enumFilter("time"));
+    store.reset("L1");
+    expect(store.isOwned("L1", "measure")).toBe(false);
+    expect(store.getFilter("L1", "measure")).toBeUndefined();
+    // A re-registered surface with the same declaration seeds fresh.
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+    expect(store.restore("L1", "measure", enumFilter("distance"))).toEqual(
+      enumFilter("distance"),
+    );
+  });
   it("reset hands a value that lost its ownership flag back to the surface, not to the void", () => {
     // Guard the touched/value pairing. The store only ever writes the two
     // together, so the only way to observe a value with touched=false is to

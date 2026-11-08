@@ -89,6 +89,13 @@ interface FilterStore {
   /** Seed a source from a persisted record, or from its declaration when the
    *  user never owned the slot. */
   restore(layerId: string, name: string, declared: LayerFilter): LayerFilter;
+  /** Capture a surface's Python-declared starting filter. Not persisted — a
+   *  declaration is a construction-time constant, and persisting it would let
+   *  a stale one win over a newer control config. `reset(layerId, name)`
+   *  returns the surface to this value; an un-declared surface resets to
+   *  undefined (or to its stored value when the record lost its ownership
+   *  flag — see the reset guard test). */
+  setDeclaration(layerId: string, name: string, declared: LayerFilter): void;
   /** Factory reset. With `source`: drop that one surface's value and return
    *  it to its declaration, leaving every other surface on the layer intact.
    *  Without `source`: drop the whole layer's record (a layer delete, not a
@@ -103,6 +110,8 @@ const createFilterStore = (): FilterStore => {
   /** name -> host, per registration order. One registry serves every layer;
    *  the per-layer state lives in the persisted record. */
   const hosts = new Map<string, FilterSourceHost>();
+  /** layerId -> source -> declaration. In-memory only (see setDeclaration). */
+  const declarations = new Map<string, Map<string, LayerFilter>>();
 
   const readRecord = (): PersistedRecord =>
     loadRecord<PersistedRecord>(FILTER_STORE_KEY) ?? {
@@ -166,7 +175,11 @@ const createFilterStore = (): FilterStore => {
       return true;
     },
     getFilter(layerId, name) {
-      return sourceOf(readRecord(), layerId, name).value;
+      const entry = sourceOf(readRecord(), layerId, name);
+      // An un-persisted slot reads back as its declaration (a factory reset
+      // cleared the record, and the declaration is the reset target) rather
+      // than the void. A source with no declaration still reads undefined.
+      return entry.touched ? entry.value : declarations.get(layerId)?.get(name);
     },
     isOwned(layerId, name) {
       return sourceOf(readRecord(), layerId, name).touched;
@@ -177,6 +190,14 @@ const createFilterStore = (): FilterStore => {
       // shows what they set, even across a reload.
       return entry.touched ? entry.value : declared;
     },
+    setDeclaration(layerId, name, declared) {
+      let bySource = declarations.get(layerId);
+      if (!bySource) {
+        bySource = new Map();
+        declarations.set(layerId, bySource);
+      }
+      bySource.set(name, declared);
+    },
     reset(layerId, source) {
       const record = readRecord();
       const layer = record.layers[layerId];
@@ -185,6 +206,7 @@ const createFilterStore = (): FilterStore => {
         // Whole-layer reset: a layer delete. Every surface on this layer goes.
         delete record.layers[layerId];
         writeRecord(record);
+        declarations.delete(layerId);
         return;
       }
       const host = hosts.get(source);
@@ -194,7 +216,9 @@ const createFilterStore = (): FilterStore => {
       writeRecord(record);
       // Return the surface to its declaration and repaint through its own
       // carrier — the store never touches the carrier directly.
-      const declared = entry.touched ? undefined : entry.value;
+      const declared =
+        declarations.get(layerId)?.get(source) ??
+        (entry.touched ? undefined : entry.value);
       host?.apply(declared);
       host?.publish?.(declared);
     },
