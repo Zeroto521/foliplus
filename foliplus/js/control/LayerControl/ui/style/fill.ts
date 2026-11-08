@@ -29,7 +29,6 @@ import {
 } from "#core/layer/intent.js";
 import { dom } from "#common/dom.js";
 import { dropdownSurface } from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
 import {
   bindLiveColor,
   bindLiveNumber,
@@ -43,7 +42,7 @@ import * as CONST from "#control/LayerControl/const.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { authorFill, paintsPerFeatureFill } from "./fillAuthor.js";
+import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { buildOriginalDetail } from "./fillOriginal.js";
 import { applyValueFill, resolveFillMode } from "./fillValue.js";
 import {

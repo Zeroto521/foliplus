@@ -4,7 +4,7 @@
 // the scheme picker and its overlay lifecycle) is split out of fill.ts so the
 // facade orchestrates the dimension while this file owns the value arm's
 // presentation. The paint engine stays in fillValue.ts.
-import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
   inferFieldKind,
