@@ -84,14 +84,12 @@ WHITELIST = {
     "_declared_label_layer": "builds features from a coords parameter (no inline geometry)",
     # turf.circle / turf.polygon default return values in test mocks: the test
     # exercises the mode's own bookkeeping, not real geometry.
-    "turf.circle(": "turf mock default (mode bookkeeping, no real geometry)",
-    "turf.polygon(": "turf mock default (mode bookkeeping, no real geometry)",
+    "turf.circle(": "default geometry of a production turf.circle call, not inline data",
+    "turf.polygon(": "default geometry of a production turf.polygon call, not inline data",
     # predicate tests: hasFillLeaf / isArealStyleLeaf read geometry.type only;
     # a minimal Polygon-with-holes literal is the point of the test.
     "hasFillLeaf": "predicate test (geometry.type only; minimal shape is the point)",
     "isArealStyleLeaf": "predicate test (geometry.type only; minimal shape is the point)",
-    # production coords=[coords] wrapping (data.ts) is a variable, not a literal.
-    "coords = [coords]": "production wrapping of a variable, not an inline literal",
 }
 
 def _scan_file(path):
