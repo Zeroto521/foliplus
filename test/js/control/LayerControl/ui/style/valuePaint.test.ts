@@ -228,6 +228,81 @@ it("replays the category color on mouseout via the pin getter", () => {
   expect(out!.color).toBeDefined();
 });
 
+describe("a face without a user opacity", () => {
+  // The opacity arm must be optional per face: a dimension with no user opacity
+  // (e.g. a stroke that has no width-as-opacity slot) passes null and the paint
+  // writes/replays only the color. A no-opacity face is the only way to reach
+  // the paint's opacity-skipping branches.
+  const noOpacityDecl: ValueFaceDecl = {
+    dim: "demoDim",
+    face: FACE.STROKE,
+    colorKey: "color",
+    opacity: null,
+    walkLeaves: walkStyleLeaves,
+    isValueActive: () => true,
+    readValueConfig: () => makeRamp(),
+    logLabel: "value-based demo:",
+  };
+
+  it("writes the ramp color without an opacity slot", () => {
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 9 } },
+    ]);
+
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+
+    for (const leaf of layer.leaves) {
+      const call = (leaf.setStyle as any).mock.calls[0][0];
+      expect(call.color).toBeDefined();
+      expect(call.opacity).toBeUndefined();
+      expect(call.stroke).toBe(true);
+    }
+  });
+
+  it("replays the declared color without an opacity slot for an in-domain numeric leaf", () => {
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
+
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+
+    const out = pinGetterOf(0)();
+    expect(out).not.toBeNull();
+    expect(out!.color).toBeDefined();
+    expect(out!.opacity).toBeUndefined();
+  });
+
+  it("returns null for an out-of-reach leaf when the face has no opacity", () => {
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const features = [{ properties: { value: 5 } }];
+    const layer = makeFeatureLayer(features);
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+
+    // The live value turns non-finite after the cache was built: the pin has
+    // nothing to replay and, with no user opacity, nothing to add on top.
+    features[0].properties.value = NaN;
+    expect(pinGetterOf(0)()).toBeNull();
+  });
+
+  it("replays a categorical color without an opacity slot", () => {
+    installChroma(["#e41a1c", "#377eb8"]);
+    const layer = makeFeatureLayer([{ properties: { kind: "forest" } }]);
+    const ramp = makeRamp({ kind: "category", field: "kind" });
+    const catDecl: ValueFaceDecl = {
+      ...noOpacityDecl,
+      readValueConfig: () => ramp,
+    };
+
+    applyValuePaint(makeUI(layer), "demo1", ramp, catDecl);
+
+    const out = pinGetterOf(0)();
+    expect(out).not.toBeNull();
+    expect(out!.color).toBeDefined();
+    expect(out!.opacity).toBeUndefined();
+  });
+});
+
 describe("valuePaint carries no face literal", () => {
   it("never references the FACE / DIM vocabularies or a fill/stroke style key", () => {
     const source = readFileSync(

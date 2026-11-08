@@ -228,7 +228,7 @@ const applyValuePaint = (
     }
     const paint = category
       ? catScale !== null && leafCategory !== undefined
-        ? (catScale.colors.get(leafCategory) ?? catScale.other)
+        ? catScale.colors.get(leafCategory)
         : undefined
       : scale !== null && leafValue !== undefined
         ? colorFor(scale, leafValue)

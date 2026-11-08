@@ -63,7 +63,7 @@ const applyValueFill = (
    *  intent, or the author's declared value fill when the user has not
    *  chosen one. */
   liveRamp: () => FillValueConfig | undefined = () =>
-    getIntent(ui, layerId, INTENT.FILL_VALUE),
+    FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
   applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveRamp);
 };
