@@ -85,8 +85,9 @@ WHITELIST = {
     # test_label builds features from a coords *parameter* (a for-loop over
     # (lat, lng) pairs), not an embedded literal geometry.
     "_declared_label_layer": "builds features from a coords parameter (no inline geometry)",
-    # turf.circle / turf.polygon default return values in test mocks: the test
-    # exercises the mode's own bookkeeping, not real geometry.
+    # turf.circle / turf.polygon: production calls (MeasureControl/mode/circle.ts,
+    # core/geo/geodesic.ts) return default geometry -- computed output, not inline
+    # data to extract.
     "turf.circle(": "default geometry of a production turf.circle call, not inline data",
     "turf.polygon(": "default geometry of a production turf.polygon call, not inline data",
     # predicate tests: hasFillLeaf / isArealStyleLeaf read geometry.type only;
