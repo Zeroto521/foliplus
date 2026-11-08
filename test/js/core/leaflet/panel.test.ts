@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
@@ -1386,5 +1388,60 @@ describe("pinRowPanel", () => {
     );
     expect(panel.style.left).toBe(`${bounds.left + ROW_PANEL_EDGE}px`);
     expect(panel.style.top).toBe("180px");
+  });
+});
+
+// Structural guard for core/leaflet/panel: a .foliplus-panel-content element
+// may only be created inside the two panel factories (createRowPanel /
+// createPanelControl in core/leaflet/panel.ts), and each factory must call
+// bindFloatingGestures. A third ad-hoc creation point (or a factory that
+// forgets the bind) fails here. This is a factory-location guard, not a
+// call-site enum: every resident panel body is made by these two factories,
+// so a new control that uses the factory gets the containment automatically.
+//
+// Red-proof (recorded, both directions):
+//  - Removing bindFloatingGestures(content) from createRowPanel made the
+//    factory-bind assertion fail with "factory createRowPanel missing
+//    bindFloatingGestures"; restoring it returned green.
+describe("floating gesture containment goes through the unified entry", () => {
+  const panelSrc = readFileSync(
+    resolve(import.meta.dirname, "../../../../foliplus/js/core/leaflet/panel.ts"),
+    "utf8",
+  );
+
+  it("B: .foliplus-panel-content created only in the two panel factories, each bound", () => {
+    const createSites: string[] = [];
+    panelSrc.split("\n").forEach((line, i) => {
+      // A creation site is a dom.el element whose class is the panel-content
+      // (the selector `:scope > .foliplus-panel-content` is a reference, not
+      // a creation point).
+      if (/class: "foliplus-panel-content"/.test(line)) {
+        createSites.push(`L${i + 1}: ${line.trim()}`);
+      }
+    });
+    expect(createSites.length).toBeGreaterThanOrEqual(2);
+    const rowLine =
+      panelSrc.split("\n").findIndex(l => l.includes("const createRowPanel")) + 1;
+    const ctrlLine =
+      panelSrc.split("\n").findIndex(l => l.includes("const createPanelControl")) + 1;
+    expect(rowLine).toBeGreaterThan(0);
+    expect(ctrlLine).toBeGreaterThan(0);
+    for (const site of createSites) {
+      const lineNo = Number(/L(\d+)/.exec(site)?.[1] ?? 0);
+      const inRow = lineNo > rowLine && lineNo < ctrlLine;
+      const inCtrl = lineNo > ctrlLine;
+      expect(inRow || inCtrl).toBe(true);
+    }
+    // Each factory must bind the unified gesture entry.
+    const rowLines = panelSrc.split("\n");
+    const rowBody = rowLines.slice(rowLine - 1, ctrlLine - 1).join("\n");
+    const ctrlBody = rowLines.slice(ctrlLine - 1).join("\n");
+    const stripComments = (s: string): string =>
+      s
+        .split("\n")
+        .filter(l => !l.trim().startsWith("//"))
+        .join("\n");
+    expect(stripComments(rowBody)).toMatch(/bindFloatingGestures\s*\(/);
+    expect(stripComments(ctrlBody)).toMatch(/bindFloatingGestures\s*\(/);
   });
 });

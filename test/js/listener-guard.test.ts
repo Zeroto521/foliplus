@@ -200,7 +200,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/floating.ts",
-    n: 10,
+    n: 17,
     pairedOff: 0,
     reason:
       "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional), the root touch/pointer gesture stop-propagation (bindFloatingTouch: touchstart/touchmove/touchend passive + pointerdown/pointermove/pointerup, so a touch drag over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
@@ -673,55 +673,55 @@ describe("the listener allow-list guard still bites", () => {
   });
 });
 
-describe("floating touch containment", () => {
-  // A touch drag over a floating surface must never reach Leaflet's map
-  // handlers (they would pan/zoom the map instead of scrolling the panel).
-  // bindFloatingTouch (common/floating.ts) is the one mechanism. Today it has
-  // no unified entry (mountFloating does not call it), so each floating mount
-  // wires it explicitly. The guard enumerates every mount:
-  //   A. Engine mounts (mountFloating callers) are auto-scanned — a new engine
-  //      user that forgets to bind goes red immediately.
-  //   B. Each mount file is pinned to an exact bindFloatingTouch count —
-  //      deleting any one of them goes red.
-  // Counts use the raw source (bindFloatingTouch( appears only at real call
-  // sites in the production tree — never in a comment or string), so a stray
-  // comment cannot fake a wiring. The pin is the exemption table (each entry
-  // carries its reason):
-  //   ui/listbox.ts          engine root list, via mountFloating
-  //   core/leaflet/panel.ts  panel-factory roots content, panelContent
-  //   control/SearchControl/logic/panel.ts  Search result root panelWrap
+describe("floating gesture containment", () => {
+  // A touch/wheel gesture over a floating surface must never reach Leaflet's
+  // map handlers (they would pan/zoom the map instead of scrolling the
+  // panel). bindFloatingGestures (common/floating.ts) is the ONE mechanism;
+  // mountFloating auto-binds it. Two invariants:
+  //   A. Every mountFloating caller gets the containment automatically (the
+  //      bind lives inside mountFloating in floating.ts) — no caller may
+  //      re-wire a raw bindFloatingTouch (that would be a second mechanism).
+  //   B. Non-mountFloating floating roots (the resident panel-factory bodies)
+  //      must bind bindFloatingGestures exactly once per root.
+  // Counts use the raw source (call sites only — never in a comment/string).
   it("every floating mount binds the touch containment", () => {
     const files = globSync("foliplus/js/**/*.ts", { cwd: ROOT });
     const countOf = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
-    const touchByFile = new Map<string, number>();
+    const gesturesByFile = new Map<string, number>();
     const mountUsers: string[] = [];
     for (const f of files) {
       const src = readFileSync(f, "utf8");
-      const t = countOf(src, /bindFloatingTouch\(/g);
-      if (t > 0) touchByFile.set(f.replace(/^foliplus\/js\//, ""), t);
+      const g = countOf(src, /bindFloatingGestures\(/g);
+      if (g > 0) gesturesByFile.set(f.replace(/^foliplus\/js\//, ""), g);
       if (countOf(src, /mountFloating\(/g) > 0) mountUsers.push(f);
     }
-    // A. The shared engine mount must be paired with the touch containment
-    // in the same file.
+    // A. mountFloating is the single mechanism — its callers must NOT also
+    //    wire a raw bindFloatingTouch (that would bypass the unified entry).
     for (const f of mountUsers) {
       const src = readFileSync(f, "utf8");
       expect(
-        countOf(src, /bindFloatingTouch\(/g) > 0,
-        `${f} mounts a floating layer (mountFloating) but never binds touch`,
-      ).toBe(true);
+        countOf(src, /bindFloatingTouch\(/g),
+        `${f} mounts a floating layer (mountFloating) but also wires a raw bindFloatingTouch — use the unified entry only`,
+      ).toBe(0);
     }
-    // B. Per-mount pin: each floating-root file binds exactly its count.
+    // B. Non-mountFloating floating roots pin their bindFloatingGestures.
+    //    core/leaflet/panel.ts binds the two resident panel-factory bodies
+    //    (content, panelContent); ui/listbox.ts binds the inline-listbox
+    //    root (the portalled listbox goes through mountFloating).
     expect(
-      touchByFile.get("core/leaflet/panel.ts"),
-      "panel factory binds its two floating roots (content, panelContent)",
+      gesturesByFile.get("core/leaflet/panel.ts"),
+      "panel factory binds its two resident roots (content, panelContent)",
     ).toBe(2);
     expect(
-      touchByFile.get("control/SearchControl/logic/panel.ts"),
-      "the Search result panel binds its floating root (panelWrap)",
+      gesturesByFile.get("ui/listbox.ts"),
+      "listbox binds its inline root via the unified entry",
     ).toBe(1);
+    // The floating.ts definition itself is the only place the raw helpers
+    // may still exist (bindFloatingTouch/bindFloatingWheel are the legacy
+    // building blocks the unified entry replaces).
     expect(
-      touchByFile.get("ui/listbox.ts"),
-      "listbox engine binds its floating root (list) exactly once",
+      gesturesByFile.get("common/floating.ts"),
+      "floating.ts binds its own unified entry",
     ).toBe(1);
   });
 });
