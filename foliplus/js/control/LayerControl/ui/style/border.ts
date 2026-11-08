@@ -51,6 +51,7 @@ import {
   inlineControls,
   normalizeHexColor,
   numberInput,
+  readOnlyValue,
 } from "#ui/index.js";
 import { STYLE_MODE } from "#ui/styleModeKey.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -536,6 +537,37 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
  *  the width control (the fill side has no width). */
 const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   const author = authoredBorder(ui, layerId);
+  const mode = displayBorderMode(ui, layerId);
+  // In ORIGINAL mode the border colour is the author's own stroke — it is not
+  // the user's to change, so the colour slot renders as a read-only swatch
+  // (same readOnlyValue primitive fill's original arm uses) instead of an
+  // editable picker. Weight stays editable: it is a user-facing stroke
+  // attribute, not a colour carried from Python.
+  if (mode === FILL_MODE.ORIGINAL) {
+    const color = displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color);
+    const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
+    const block = dom.el("div", {
+      class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+    });
+    block.append(dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("border")));
+    const control = dom.el("div", { class: PANEL_CLASS.FORM_CONTROL });
+    control.append(
+      readOnlyValue(
+        { className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT, role: "img" },
+        dom.el("span", { title: ui.T("style_border_color") }, color),
+      ),
+      numberInput({
+        value: weight,
+        min: BORDER_WEIGHT.MIN,
+        max: BORDER_WEIGHT.MAX,
+        step: BORDER_WEIGHT.STEP,
+        className: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+        ariaLabel: ui.T("style_border_weight"),
+      }),
+    );
+    block.append(control);
+    return block;
+  }
   return buildBorderRowShell({
     rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
