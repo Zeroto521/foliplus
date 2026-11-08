@@ -20,9 +20,13 @@ async (arg = []) => {
   const readGrid = glyph === "@readGrid";
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { panel: false };
-  const iconRow = panel.querySelector(".foliplus-style-icon-row");
+  const iconBlock = panel.querySelector(".foliplus-style-icon-block");
+  const iconRow = iconBlock?.querySelector(".foliplus-style-icon-row") ?? null;
   if (!iconRow) return { panel: true, iconRow: false };
-  const trigger = iconRow.querySelector(".foliplus-style-icon-trigger");
+  // The single-mode trigger lives in the detail beneath the mode row (the
+  // by-value mode arm added the mode selector above it), so scope the trigger
+  // and the grid by the block, not by the first icon row.
+  const trigger = iconBlock.querySelector(".foliplus-style-icon-trigger");
   if (!trigger) return { panel: true, iconRow: true, trigger: false };
 
   const flush = () =>
@@ -56,7 +60,7 @@ async (arg = []) => {
 
   if (glyph && !readGrid) {
     trigger.click();
-    const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+    const grid = iconBlock.querySelector(".foliplus-style-icon-grid");
     const cell = grid?.querySelector(
       `.foliplus-style-icon-cell[data-glyph="${glyph}"]`,
     );
@@ -76,7 +80,7 @@ async (arg = []) => {
   if (readGrid) {
     trigger.click();
     await flush();
-    const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+    const grid = iconBlock.querySelector(".foliplus-style-icon-grid");
     const cells = grid
       ? Array.from(grid.querySelectorAll(".foliplus-style-icon-cell"))
       : [];
