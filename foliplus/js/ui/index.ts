@@ -8,7 +8,6 @@
 // second barrel) is what the layering keeps out.
 export { buttonRow, closeButton, panelButton, sectionDivider } from "./panelChrome.js";
 export { applyOptionRowA11y, createDropdown, dropdownOf } from "./dropdown.js";
-export type { Dropdown, DropdownSurface } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
 export {
   bindLiveColor,
@@ -26,11 +25,18 @@ export {
   selectInput,
 } from "./form.js";
 export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
-export type { Placement, PlacementOpts, Rect, SurfaceSize } from "./placement.js";
 export { createSchemePicker } from "./schemePicker.js";
-export type { SchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
-export type { SliderOptions } from "./slider.js";
 export { STYLE_MODE } from "./styleModeKey.js";
 export { SLIDER_CLASS } from "#common/sliderClassName.js";
+export type {
+  Dropdown,
+  DropdownSurface,
+  Placement,
+  PlacementOpts,
+  Rect,
+  SurfaceSize,
+  SchemePicker,
+  SliderOptions,
+} from "./type.js";
