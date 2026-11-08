@@ -180,14 +180,14 @@
 
 .foliplus-style-icon-grid {
   position: absolute;
-  z-index: 10;
+  z-index: var(--foliplus-z-index-floating);
   display: grid;
   width: 100%;
   box-sizing: border-box;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: var(--foliplus-space-xs);
   padding: var(--foliplus-space-sm);
-  background: var(--foliplus-surface-raised);
+  background: var(--foliplus-input-bg);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);
   box-shadow: var(--foliplus-shadow-md);
