@@ -1,5 +1,5 @@
 /**
- * The by-value style arm — the face-independent skeleton shared by every
+ * The by-value style mode — the face-independent skeleton shared by every
  * LayerControl style dimension that paints a leaf by a feature value.
  *
  * This is the LayerControl style subsystem's shared mechanism, NOT a
@@ -8,7 +8,7 @@
  * leaves (`walkLeaves`), the user's opacity for this face (`opacity`, or null
  * for a face without one), the highlight dimension (`dim`), the write face
  * (`face`), and the two face-level live readers (`isValueActive`,
- * `readValueConfig`) — is injected as a `ValueFaceDecl`. The arm body
+ * `readValueConfig`) — is injected as a `ValueFaceDecl`. The mode body
  * contains no FILL/STROKE literal and no face branch: a new dimension
  * declares its own `ValueFaceDecl` and calls `applyValuePaint`.
  * Sibling arms (borderValue / size / icon) reuse it directly.
@@ -24,7 +24,7 @@
  * The user's flat-mode opacity (e.g. solid-mode `fillOpacity`) rides along on
  * every leaf of this face, including ones the value ramp cannot classify:
  * the ramp replaces only the color, so dropping the opacity here would make a
- * mode switch back to the flat arm silently lose it, and a valueless leaf
+ * mode switch back to the flat mode silently lose it, and a valueless leaf
  * would keep the author's opacity next to the user's on a classifiable
  * neighbour of the same layer. When a face has no user opacity (`opacity` is
  * null) nothing rides along.
@@ -62,9 +62,9 @@ const log = createLogger("foliplus");
 /** One collected leaf: the node plus its finite drive value, if any. */
 type CollectedLeaf = {
   leaf: StyleSetter;
-  /** The numeric drive value, when the arm is numeric. */
+  /** The numeric drive value, when the mode is numeric. */
   value: number | undefined;
-  /** The categorical drive label, when the arm is category. */
+  /** The categorical drive label, when the mode is category. */
   category: string | undefined;
 };
 
@@ -82,12 +82,12 @@ const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
   a.classes === b.classes &&
   a.scheme === b.scheme;
 
-/** The leaf walker: visits exactly the carrier leaves for the arm's face. */
+/** The leaf walker: visits exactly the carrier leaves for the mode's face. */
 type ValueLeafWalker = (node: StyleCarrier, fn: (leaf: StyleSetter) => void) => void;
 
 /** The face's user opacity: the style slot it writes to plus the live reader.
- *  Paired rather than a bare slot so the arm never branches on "does this face
- *  have an opacity" — a face without one passes `null` and the arm simply
+ *  Paired rather than a bare slot so the mode never branches on "does this face
+ *  have an opacity" — a face without one passes `null` and the mode simply
  *  skips it. */
 type ValueOpacity = {
   /** The style slot the user's opacity lands in (e.g. `fillOpacity`). */
@@ -96,8 +96,8 @@ type ValueOpacity = {
   read: (ui: LayerUI, layerId: string) => number | undefined;
 };
 
-/** The face-specific surface of the by-value arm. One declaration per style
- *  dimension (fill / stroke / size / icon); the arm body consumes only these
+/** The face-specific surface of the by-value mode. One declaration per style
+ *  dimension (fill / stroke / size / icon); the mode body consumes only these
  *  and carries no face literal or branch. */
 type ValueFaceDecl = {
   /** The dimension the highlight pin registers on (DIM.FILL, DIM.STROKE...). */
@@ -110,7 +110,7 @@ type ValueFaceDecl = {
   opacity: ValueOpacity | null;
   /** The leaf walker reaching only the carrier leaves for this face. */
   walkLeaves: ValueLeafWalker;
-  /** Whether the value arm is active for a layer (the face's mode check). */
+  /** Whether the value mode is active for a layer (the face's mode check). */
   isValueActive: (ui: LayerUI, layerId: string, value: FillValueConfig) => boolean;
   /** The live value config for this face (the pin's default live reader). */
   readValueConfig: (ui: LayerUI, layerId: string) => FillValueConfig | undefined;
@@ -118,7 +118,7 @@ type ValueFaceDecl = {
   logLabel: string;
 };
 
-/** Apply a value-based style to one layer through the shared arm.
+/** Apply a value-based style to one layer through the shared mode.
  *
  *  Two-pass walk: collect `feature.properties[field]` values, then write
  *  per-leaf color via styleBag. Every carrier leaf is written on every apply:
@@ -132,7 +132,7 @@ type ValueFaceDecl = {
  *  next scheduler tick rebuilds the cache.
  *
  *  The face-specific surface is the `decl`; the two optional readers default
- *  to the decl's own readers so a caller can drive the arm with a decl alone. */
+ *  to the decl's own readers so a caller can drive the mode with a decl alone. */
 const applyValuePaint = (
   ui: LayerUI,
   layerId: string,
@@ -153,7 +153,7 @@ const applyValuePaint = (
   // stable once populated, so it wins; the controller's `findLayer`
   // re-resolves against the live map for a folium layer whose registry
   // reference is still null — the same late-binding defense as the original
-  // arm, without which a just-attached control would paint nothing.
+  // mode, without which a just-attached control would paint nothing.
   const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as StyleCarrier | null;
   if (!layer) return;
 
@@ -237,7 +237,7 @@ const applyValuePaint = (
     if (paint !== undefined) {
       // The value ramp owns this leaf's color, so the face's visibility bit
       // is lit and the author's color is replaced. The payload stays minimal:
-      // a named color replaces whatever the previous arm left in that slot,
+      // a named color replaces whatever the previous mode left in that slot,
       // and the opacity is named only when the user chose one, so the
       // author's stays in force.
       write[decl.colorKey] = paint;
@@ -255,7 +255,7 @@ const applyValuePaint = (
       // name compares unequal to the resolved config and the replay drops the
       // value color on the first mouseout.
       const currentValue = resolveStored(stored);
-      // The arm changed since the cache was built: the flat commit owns the
+      // The mode changed since the cache was built: the flat commit owns the
       // leaf now, and this getter must not replay a color the active mode
       // does not own (a mode switch back to flat that leaves the value config
       // stored would otherwise re-apply the value fill on every mouseout).

@@ -20,7 +20,7 @@ import {
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer
  *  (icon / size by value) show a mode it cannot offer yet with the reason on
- *  the option; the fill row hides the whole mode select when it has one arm. */
+ *  the option; the fill row hides the whole mode select when it has one mode. */
 type ModeRowOption = {
   value: string;
   label: string;
