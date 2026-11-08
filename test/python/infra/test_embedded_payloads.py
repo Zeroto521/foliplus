@@ -33,6 +33,7 @@ SCAN_ROOTS = [
     ROOT / "test" / "python",
 ]
 
+
 def _max_array_depth(text, start):
     """Nesting depth of the array literal beginning at start.
 
@@ -66,13 +67,15 @@ def _max_array_depth(text, start):
         i += 1
     return max_depth
 
+
 def _whitelisted(src, pos):
     """If the match at pos sits in a whitelisted construct, return why."""
-    window = src[max(0, pos - 900): pos + 200]
+    window = src[max(0, pos - 900) : pos + 200]
     for key, reason in WHITELIST.items():
         if key in window:
             return reason
     return None
+
 
 WHITELIST = {
     # conftest.feature_collection() is the SHARED wrapper tests call to build a
@@ -94,6 +97,7 @@ WHITELIST = {
     "coords = [coords]": "production wrapping of a variable, not an inline literal",
 }
 
+
 def _scan_file(path):
     src = path.read_text(encoding="utf-8")
     rel = path.relative_to(ROOT).as_posix()
@@ -109,8 +113,11 @@ def _scan_file(path):
             reason = _whitelisted(src, m.start())
             if reason is None:
                 line = src.count("\n", 0, m.start()) + 1
-                offenders.append(f"{rel}:{line} inline coordinates array (depth {depth})")
+                offenders.append(
+                    f"{rel}:{line} inline coordinates array (depth {depth})"
+                )
     return offenders
+
 
 def _iter_scan_files():
     files = []
@@ -128,6 +135,7 @@ def _iter_scan_files():
                 files.append(path)
     return files
 
+
 def test_no_inline_geojson_payloads():
     offenders = []
     for path in _iter_scan_files():
@@ -137,6 +145,7 @@ def test_no_inline_geojson_payloads():
         "read via conftest.load_geojson (Python) or fixture.loadGeoJSON (JS): "
         + str(offenders)
     )
+
 
 def test_depth_rule_distinguishes_geometry_from_flat_pairs():
     assert _max_array_depth("centroid: [0, 0]", 10) == 1
