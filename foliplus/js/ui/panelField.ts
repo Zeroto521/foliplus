@@ -1,6 +1,6 @@
 // ui/panelField — shared read-only field primitive for panel UIs.
 //
-// The style panel's original-colors arm and the filter panel's field row both
+// The style panel's original-colors mode and the filter panel's field row both
 // show a value the panel cannot edit: a readout box with the form-control
 // frame, no chevron, no focus ring and no pointer affordance. This builder is
 // the one home for that box; each caller keeps the CSS hook class that carries

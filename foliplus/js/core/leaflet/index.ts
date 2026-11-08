@@ -33,6 +33,7 @@ export {
 export {
   applyIconToLeaves,
   authorGlyphName,
+  authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,

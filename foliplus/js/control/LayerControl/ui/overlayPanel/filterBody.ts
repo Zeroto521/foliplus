@@ -216,8 +216,8 @@ const renderEnumBody = (
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  // The enum arm names its condition with the same shared vocabulary the
-  // range arm uses for its control, and exposes that name on both the group
+  // The enum mode names its condition with the same shared vocabulary the
+  // range mode uses for its control, and exposes that name on both the group
   // and the trigger so a screen reader hears the condition, not a bare
   // button.
   const conditionLabel = deps.T("filter_enum");

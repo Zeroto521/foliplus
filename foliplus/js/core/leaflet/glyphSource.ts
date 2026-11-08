@@ -82,6 +82,22 @@ const isGlyphSyntax = (value: unknown): value is string =>
 const isGlyphPainted = (content: string): boolean =>
   content !== "none" && content !== "normal" && content !== "";
 
+/** Normalize a glyph name to a single FA class token: ensure exactly one
+ *  leading `fa-`. A user who writes `fa-martini-glass` (as awesome-markers
+ *  stores it) and one who writes `martini-glass` both land on the same token
+ *  `fa-martini-glass` — so the probe and the render never disagree on the
+ *  class the stylesheet actually matches. */
+const faToken = (name: string): string =>
+  name.startsWith("fa-") ? name : `fa-${name}`;
+
+/** The full FontAwesome class string a glyph renders under a given family
+ *  prefix. Single source of truth for BOTH the render path (glyphHtml) and
+ *  the availability probe (glyphAvailable): the probe builds exactly the class
+ *  the stylesheet must paint, so a name the renderer draws is never reported
+ *  unavailable and vice versa. */
+const glyphClassName = (name: string, prefix = "fa-solid"): string =>
+  `${prefix} ${faToken(name)}`;
+
 /** Runtime availability probe: does the loaded FontAwesome stylesheet actually
  *  paint `fa-<name>`? Builds a hidden `<i class="fa-solid fa-<name>">`, attaches
  *  it (a detached element reads ::before content as "" even when the rule
@@ -94,11 +110,12 @@ const isGlyphPainted = (content: string): boolean =>
  *  single tests must stub `getComputedStyle` (or `glyphAvailable`) to model
  *  availability; the real probe lives in the browser suite. */
 const availabilityCache = new Map<string, boolean>();
-const glyphAvailable = (name: string): boolean => {
-  const cached = availabilityCache.get(name);
+const glyphAvailable = (name: string, prefix = "fa-solid"): boolean => {
+  const cacheKey = `${prefix}|${name}`;
+  const cached = availabilityCache.get(cacheKey);
   if (cached !== undefined) return cached;
   if (typeof document === "undefined") {
-    availabilityCache.set(name, false);
+    availabilityCache.set(cacheKey, false);
     return false;
   }
   // A *detached* <i> reads ::before content as "" in Chromium even when the
@@ -110,7 +127,7 @@ const glyphAvailable = (name: string): boolean => {
   // Attach (hidden, so no layout flash) then remove immediately; the probe is
   // read-only and cached, so this runs once per name ever.
   const probe = document.createElement("i");
-  probe.className = `fa-solid fa-${name}`;
+  probe.className = glyphClassName(name, prefix);
   probe.style.display = "none";
   const host = document.body ?? document.documentElement;
   if (!host) {
@@ -125,7 +142,7 @@ const glyphAvailable = (name: string): boolean => {
     probe.remove();
   }
   const available = isGlyphPainted(content);
-  availabilityCache.set(name, available);
+  availabilityCache.set(cacheKey, available);
   return available;
 };
 
@@ -142,7 +159,7 @@ const resolveGlyph = (name: string): string | null =>
  *  marker scene carry the author's own paint class (`icon-white`, …) and
  *  `style` its inline colour, so the symbol inherits the chassis paint. */
 const glyphHtml = (name: string, extraClass = "", style = ""): string => {
-  const classes = ["foliplus-marker-glyph", extraClass, "fa-solid", `fa-${name}`]
+  const classes = ["foliplus-marker-glyph", extraClass, glyphClassName(name)]
     .filter(Boolean)
     .join(" ");
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;
