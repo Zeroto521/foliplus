@@ -330,6 +330,9 @@
          row's opaque surface — rows are never transparent (#277). Raise the
          interaction target so both glow edges paint above its neighbors. */
       position: relative;
+      /* Local stacking inside the row list (glow edge over the neighboring
+         row's opaque surface) -- deliberately not the global
+         --foliplus-z-index-* ladder. */
       z-index: 1;
       /* The left accent bar is deliberately NOT set here: it is a persistent
          "layer visible" (checked) indicator, so it only turns red on .foliplus-active /
