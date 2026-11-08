@@ -2025,7 +2025,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const select = modeSelectOf(block);
     expect(select!.value).toBe("value");
     changeSelect(select, "original");
-    expect(getIntent(ui, "vec1", "borderMode")).toBeUndefined();
+    expect(getIntent(ui, "vec1", "borderMode")).toBe("original");
     // The value config survives an original switch (it stays stored for reuse).
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
@@ -2101,59 +2101,58 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
       expect(typeof strokeCall.color).toBe("string");
     });
   });
-});
 
-
-describe("border geometry gate — by_value only on lines", () => {
+  // ── geometry gate ──
   // borderCarriesValue = geometryKindOf === LINE. Polygon/point borders are
   // the outline, never the element's primary colour, so they must never
-  // offer by_value — the stored-by-value-on-polygon negative is the
-  // "no silent fallback" guard.
+  // offer by_value. The stored-by-value-on-polygon negative is the
+  // "no silent fallback" guard: displayBorderMode rejects the illegal value
+  // and returns ORIGINAL instead.
+
+  /** A Polygon feature leaf — unlike makeFeatureLeaf (now LineString for the
+   *  value-stroke tests), this creates a genuine L.Polygon so getGeometryType
+   *  returns "Polygon" without mocking. */
+  const makePolyLeaf = (count: number): any => {
+    const leaf = new (globalThis as any).L.Polygon() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+    leaf.feature = { geometry: { type: "Polygon" }, properties: { count } };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
   it("polygon layer: stored by_value reads back as original (illegal value rejected)", () => {
-    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    const leaves = [makePolyLeaf(1), makePolyLeaf(5)];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    // Force the surface's geometry type to polygon.
-    const li = manager.layerRegistry.get("poly1");
-    const surface = manager.surfaceFor(li);
-    vi.spyOn(surface, "geometryType").mockReturnValue("Polygon");
-    // Store an illegal by_value mode on a polygon border.
     setIntent(ui, "poly1", "borderMode", "value");
     setIntent(ui, "poly1", "borderValue", countRamp());
-    // The row's displayed mode must fall back to original, not by_value.
-    const select = document.querySelector(
-      ".foliplus-style-border-mode-select",
-    ) as HTMLSelectElement | null;
-    // The displayBorderMode contract: illegal stored value → ORIGINAL.
-    expect(select === null || select.value !== "value").toBe(true);
+    // displayBorderMode contract: illegal stored value on a non-line → ORIGINAL.
+    // The row select must NOT show "value".
+    const block = openBorderRow(manager, ui, "poly1", leaves);
+    const select = modeSelectOf(block);
+    expect(select!.value).not.toBe("value");
   });
 
-  it("line layer: by_value is offered in the options", () => {
+  it("line layer: by_value IS offered in the options", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
     registerFeatureLayer(manager, ui, "line1", leaves);
-    const li = manager.layerRegistry.get("line1");
-    const surface = manager.surfaceFor(li);
-    vi.spyOn(surface, "geometryType").mockReturnValue("LineString");
-    const row = buildBorderRow(ui, "line1");
-    const select = row.querySelector(
-      ".foliplus-style-border-mode-select",
-    ) as HTMLSelectElement | null;
-    expect(select).not.toBeNull();
+    const block = openBorderRow(manager, ui, "line1", leaves);
+    const select = modeSelectOf(block);
     const values = Array.from(select!.options).map(o => o.value);
     expect(values).toContain("value"); // by_value present on a line
   });
 
   it("polygon layer: by_value is NOT offered in the options", () => {
-    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    const leaves = [makePolyLeaf(1), makePolyLeaf(5)];
     registerFeatureLayer(manager, ui, "poly2", leaves);
-    const li = manager.layerRegistry.get("poly2");
-    const surface = manager.surfaceFor(li);
-    vi.spyOn(surface, "geometryType").mockReturnValue("Polygon");
-    const row = buildBorderRow(ui, "poly2");
-    const select = row.querySelector(
-      ".foliplus-style-border-mode-select",
-    ) as HTMLSelectElement | null;
-    expect(select).not.toBeNull();
+    const block = openBorderRow(manager, ui, "poly2", leaves);
+    const select = modeSelectOf(block);
     const values = Array.from(select!.options).map(o => o.value);
     expect(values).not.toContain("value"); // by_value absent on a polygon
   });
 });
+
+

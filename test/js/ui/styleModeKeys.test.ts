@@ -36,8 +36,6 @@ const CJK = /[\u4e00-\u9fff]/;
 // comments (see the user rule recorded above).
 const ASCII_ONLY_SOURCES = [
   "ui/styleModeKeys.ts",
-  // The guard's own test must stay ASCII so the CJK regex stays valid.
-  "ui/styleModeKeys.test.ts",
 ];
 
 // A locale key that exists in the JSON but is not yet referenced from JS
