@@ -230,6 +230,12 @@ const CLASSES = {
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",
   STYLE_ICON_TRIGGER_NAME: "foliplus-style-icon-trigger-name",
+  /** The trigger's unavailable state (a syntactically valid name the loaded
+   *  stylesheet does not paint, or a name that fails syntax). */
+  STYLE_ICON_TRIGGER_UNAVAILABLE: "foliplus-style-icon-trigger-unavailable",
+  /** The dashed-outline circle shown as the glyph preview in the unavailable
+   *  state — a bare span (no FontAwesome glyph to paint), drawn by CSS. */
+  STYLE_ICON_UNAVAILABLE_GLYPH: "foliplus-style-icon-unavailable-glyph",
   /** The glyph grid popup. */
   STYLE_ICON_GRID: "foliplus-style-icon-grid",
   /** One glyph cell in the grid. */

@@ -46,6 +46,12 @@ type ListCursorOptions = {
   cols?: number;
   onMove?: (index: number, el: HTMLElement | null) => void;
   onActivate?: (index: number, el: HTMLElement) => void;
+  /** Paint the option contract (role/aria-selected/id/tabindex) on rows.
+   *  True by default for the shared roving/listbox cursor. Set false when
+   *  the rows already carry the contract from a shared builder (SearchControl
+   *  uses ui/optionRow) — the cursor then only paints activeClass and
+   *  aria-activedescendant, never re-writing the row's role or selection. */
+  paintOptionContract?: boolean;
 };
 
 let listCursorSeq = 0;
@@ -64,6 +70,7 @@ class ListCursor {
   private cols: number;
   private onMove: ListCursorOptions["onMove"];
   private onActivate: ListCursorOptions["onActivate"];
+  private paintOptionContract: boolean;
   private _index = -1;
   private bound: { target: HTMLElement; type: string; fn: EventListener }[] = [];
 
@@ -79,6 +86,7 @@ class ListCursor {
     this.cols = opts.cols ?? 1;
     this.onMove = opts.onMove;
     this.onActivate = opts.onActivate;
+    this.paintOptionContract = opts.paintOptionContract ?? true;
 
     this.root.setAttribute("role", this.listRole);
     this.applyRovingTabindex();
@@ -286,8 +294,10 @@ class ListCursor {
   private applyRovingTabindex(): void {
     const list = this.items();
     list.forEach((el, i) => {
-      if (!el.id) el.id = nextId("foliplus-opt");
-      el.setAttribute("role", this.itemRole);
+      if (this.paintOptionContract) {
+        if (!el.id) el.id = nextId("foliplus-opt");
+        el.setAttribute("role", this.itemRole);
+      }
       if (this.mode === "roving") {
         el.tabIndex =
           this._index === -1 ? (i === 0 ? 0 : -1) : i === this._index ? 0 : -1;
@@ -302,7 +312,7 @@ class ListCursor {
     list.forEach((el, i) => {
       const on = i === this._index;
       el.classList.toggle(this.activeClass, on);
-      if (this.itemRole === "option") {
+      if (this.paintOptionContract && this.itemRole === "option") {
         el.setAttribute("aria-selected", on ? "true" : "false");
       }
     });
