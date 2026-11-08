@@ -46,8 +46,8 @@ describe("more-menu button styles", () => {
       sharedMenuCss,
       '.foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {',
     );
-    expect(hover).toContain("background: var(--foliplus-accent-light)");
-    expect(hover).toContain("color: var(--foliplus-accent-primary)");
+    expect(hover).toContain("background: var(--foliplus-menu-row-hover-bg)");
+    expect(hover).toContain("color: var(--foliplus-menu-row-hover-ink)");
   });
 
   it("keeps disabled entries muted on hover", () => {
@@ -58,6 +58,12 @@ describe("more-menu button styles", () => {
     expect(disabled).toContain("background: transparent");
     expect(disabled).toContain("color: var(--foliplus-text-muted)");
   });
+});
+
+it("keeps the menu from stealing touch scroll (overscroll + touch-action)", () => {
+  const menu = blockOf(sharedMenuCss, ".foliplus-search-result-panel,");
+  expect(menu).toContain("overscroll-behavior: contain");
+  expect(menu).toContain("touch-action: pan-y");
 });
 
 describe("disabled menu entries", () => {
