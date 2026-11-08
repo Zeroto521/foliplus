@@ -225,6 +225,17 @@ const CLASSES = {
    *  label-size and border-weight number fields. */
   STYLE_SIZE_ROW: "foliplus-style-size-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
+  STYLE_ICON_ROW: "foliplus-style-icon-row",
+  /** The icon row's trigger button (shows the current glyph or 「原始」). */
+  STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
+  STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",
+  STYLE_ICON_TRIGGER_NAME: "foliplus-style-icon-trigger-name",
+  /** The glyph grid popup. */
+  STYLE_ICON_GRID: "foliplus-style-icon-grid",
+  /** One glyph cell in the grid. */
+  STYLE_ICON_CELL: "foliplus-style-icon-cell",
+  /** The selected cell's highlight. */
+  STYLE_ICON_CELL_SELECTED: "foliplus-style-icon-cell-selected",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",

@@ -99,6 +99,8 @@
   "LayerControl.style_method_equal": "Equal Interval",
   "LayerControl.style_method_heads": "Equal Count",
   "LayerControl.style_size": "Size",
+  "LayerControl.style_icon": "Icon",
+  "LayerControl.style_icon_original": "Original",
   "LayerControl.border": "Border",
   "LayerControl.filter_layer": "Filter",
   "LayerControl.filter_layer_tooltip": "Filter this layer's data",

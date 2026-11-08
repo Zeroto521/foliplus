@@ -69,6 +69,7 @@ const FACE = {
   FILL: "fill",
   STROKE: "stroke",
   SIZE: "size",
+  ICON: "icon",
   LABEL: "label",
 } as const;
 
@@ -632,4 +633,4 @@ export {
   walkFillLeaves,
   walkStyleLeaves,
 };
-export type { StyleCarrier, SchedulerFace, StyleApplyFailure, StyleSetter };
+export type { StyleCarrier, SchedulerFace, StyleApplyFailure, StyleSetter, StyleFace };

@@ -234,7 +234,10 @@ export function installWindowLExtensions(): void {
     latLngBounds: boundsMock,
     bounds: boundsMock,
     CRS: { EPSG3857: {} as any },
-    DomUtil: { getPosition: vi.fn(() => ({ x: 0, y: 0 })) },
+    DomUtil: {
+      getPosition: vi.fn(() => ({ x: 0, y: 0 })),
+      create: vi.fn((tag: string) => document.createElement(tag)),
+    },
     Util: {
       extend: <T, U>(target: T, source: U): any => Object.assign({}, target, source),
     } as any,

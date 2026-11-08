@@ -104,6 +104,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  that same test catches.
  */
 const DIM_ORDER = [
+  DIM.ICON,
   DIM.FILL,
   DIM.SIZE,
   DIM.BORDER,
