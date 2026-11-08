@@ -185,10 +185,10 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // A declared value fill (#789) is a read-time default, so this arm can be "value"
   // with nothing in the intent store: `effectiveFillValue` is the same chain
   // the panel reads, so the map and the row cannot disagree about it.
-  const ramp = effectiveFillValue(ui, layerId);
+  const value = effectiveFillValue(ui, layerId);
   const mode = displayFillMode(ui, layerId);
 
-  if (mode === FILL_MODE.VALUE && ramp !== undefined) {
+  if (mode === FILL_MODE.VALUE && value !== undefined) {
     // A solid-color basemap has no leaves to classify, so a value fill degrades to
     // the authored pane paint instead of painting nothing.
     if (!isColorBasemap(layerInfo)) {
@@ -199,7 +199,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       applyValueFill(
         ui,
         layerId,
-        resolvedValue(ui, layerId, ramp)!,
+        resolvedValue(ui, layerId, value)!,
         stored => resolvedValue(ui, layerId, stored)!,
         () => effectiveFillValue(ui, layerId),
       );
@@ -388,7 +388,7 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
  *  layer opens on its author's colors without writing one — a stored value fill
  *  config is the pre-fillMode shape of "the user already classified". */
 const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
-  const ramp = getIntent(ui, layerId, INTENT.FILL_VALUE);
+  const value = getIntent(ui, layerId, INTENT.FILL_VALUE);
   const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
   // One precedence chain, highest first:
   //   1. an explicit arm the user stored (INTENT.FILL_MODE);
@@ -400,14 +400,14 @@ const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
   // fill intent exists, so a stored arm is never overridden by a declaration.
   if (stored !== undefined) return stored;
   if (declaredValue(ui, layerId)) return FILL_MODE.VALUE;
-  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, ramp);
+  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, value);
   // A value config means the user already classified (the pre-fillMode record
   // shape). A lone fill color means the solid arm owns the paint — that is how
   // a record written before this arm existed still reads, and how a
   // programmatic color write lands. Opacity alone does not move the arm: it
   // rides both arms, and an explore layer with only an opacity override is
   // still painting its author's colors.
-  if (ramp !== undefined) return FILL_MODE.VALUE;
+  if (value !== undefined) return FILL_MODE.VALUE;
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return FILL_MODE.SOLID;
   return FILL_MODE.ORIGINAL;
 };
@@ -1201,16 +1201,16 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
   const fields = numericFields(ui, layerId);
-  const ramp = valueForUi(ui, layerId, fields);
+  const value = valueForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
     schemes: DEFAULT_SCHEMES,
-    value: ramp.scheme,
+    value: value.scheme,
     // Every scheme this panel offers is a registered chroma scale; the author
     // scale is no longer one of them, so the picker needs no consumer hook.
     colorScale: getColorScale,
-    numClasses: ramp.classes,
+    numClasses: value.classes,
     portal: true,
     // The list mounts into the surface that actually covers the trigger:
     // native fullscreen, or this control's pseudo-fullscreen fallback (which
