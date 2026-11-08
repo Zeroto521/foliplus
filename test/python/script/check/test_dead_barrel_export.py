@@ -138,7 +138,7 @@ class TestResolveImport:
         )
 
     def test_alias_ui(self, tmp_path):
-        # The #ui/ mapping (same shape as #common/#core): the barrel
+        # The #ui/ mapping (same shape as #platform/#core): the barrel
         # (#ui/index.js) re-exports the ui modules, so the graph must
         # resolve it or the barrel's re-exports are judged dead.
         _make(tmp_path, "foliplus/js/ui/panelChrome.ts")
