@@ -709,7 +709,7 @@ describe("glyph grid cell contract (id single-source + role kept)", () => {
       expect(cell.getAttribute("role")).toBe("gridcell");
     });
     // roving tabindex: exactly one cell is the tab stop.
-    const tabStops = [...cells].filter(c => c.tabIndex === 0);
+    const tabStops = [...cells].filter(c => (c as HTMLElement).tabIndex === 0);
     expect(tabStops.length).toBe(1);
   });
 

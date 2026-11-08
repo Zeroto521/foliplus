@@ -42,4 +42,3 @@ const nextOptionId = (prefix: string): string =>
 let optionIdCounter = 0;
 
 export { applyOptionRowA11y, nextOptionId };
-export type { OptionRowA11y };
