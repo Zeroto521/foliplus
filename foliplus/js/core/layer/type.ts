@@ -364,7 +364,7 @@ interface FillAuthor {
   distinct: number;
   /** The strip the panel draws: a continuous scale sampled to 64 colors, a
    *  stepped scale's own blocks, or the layer's distinct colors when neither
-   *  exists. The own-color arm keeps the values verbatim, so a `missing_kwds`
+   *  exists. The own-color mode keeps the values verbatim, so a `missing_kwds`
    *  CSS name such as `lightgrey` can sit among hex stops. */
   stops: string[];
   /** True when the layer paints more distinct colors than the strip samples,
@@ -665,8 +665,8 @@ interface CreateCanvasOpts {
    *  (e.g. HeatmapControl's source layer + aggregation field). */
   meta?: Record<string, string | number> | null;
   /** See {@link RegisterLayerOpts.onOpacity}. Called after a layer-opacity
-   *  commit so a `"commit"`-arm drawer can re-render immediately. Heatmap
-   *  omits this (it takes the default `"redraw"` arm and repaints on the
+   *  commit so a `"commit"`-branch drawer can re-render immediately. Heatmap
+   *  omits this (it takes the default `"redraw"` branch and repaints on the
    *  next pan/zoom instead). */
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. Heatmap uses the default

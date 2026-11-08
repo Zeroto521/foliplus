@@ -1,6 +1,6 @@
 // The author's original colors as one order and one CSS gradient.
 //
-// The read-only "Original colors" arm states what the layer's author painted.
+// The read-only "Original colors" mode states what the layer's author painted.
 // Two problems live here, and neither is a styling knob:
 //
 //   Order. A paired branca scale ships its colors in domain order (a stepped
@@ -9,7 +9,7 @@
 //   its distinct colors in feature-discovery order, which is arbitrary: the
 //   same layer painted a different confetti order on every render. Those are
 //   sorted hue → lightness, so the gradient is a stable function of the color
-//   set rather than of the feature order. A continuous fallback arm (a
+//   set rather than of the feature order. A continuous fallback mode (a
 //   legend=False numeric layer, `{"kind": "continuous", "ordered": false}`)
 //   is discovery-ordered too, but the intent is a sequential ramp, so those
 //   are sorted lightness → hue instead: a sequential palette is
@@ -122,7 +122,7 @@ const categorical = (colors: readonly string[]): string[] => {
   });
 };
 
-/** Lightness → hue, then the color string: the continuous fallback arm's
+/** Lightness → hue, then the color string: the continuous fallback mode's
  *  order. A sequential/continuous palette (viridis, plasma, a YlOrRd ramp) is
  *  lightness-monotonic, so ranking a discovery-order strip by lightness keeps
  *  it one contiguous ramp; hue is only the tie-break, because a hue-wrapping
@@ -177,7 +177,7 @@ const ramp = (colors: readonly string[]): string => {
  *
  *  With a scale: the author's own order, shaped by its kind (a stepped scale
  *  keeps its bands, a continuous one stays smooth) — except a
- *  `{"kind": "continuous", "ordered": false}` fallback arm, whose stops are
+ *  `{"kind": "continuous", "ordered": false}` fallback mode, whose stops are
  *  discovery order and are ranked lightness → hue before ramping. Without a
  *  scale: the colors ranked hue → lightness and sampled down, so a 64-color
  *  categorical layer paints one ordered gradient instead of a confetti strip.
@@ -189,7 +189,7 @@ const originalGradient = (stops: readonly string[], scale?: OriginalScale): stri
   if (colors.length === 1) return colors[0];
   if (scale != null) {
     if (scale.ordered === false) {
-      // Discovery order, not domain order: a legend=False continuous arm. Sort
+      // Discovery order, not domain order: a legend=False continuous mode. Sort
       // lightness → hue so the ramp is one contiguous sequential gradient.
       return ramp(sample(byLightness(colors), MAX_STOPS));
     }

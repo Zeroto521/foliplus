@@ -184,7 +184,7 @@ const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
  *  needs that distinction. A missing layer (a style row for an id the
  *  registry no longer holds) resolves to `undefined` — the caller treats
  *  "no layer" as "no value". The overload for a known layer drops the
- *  undefined arm so callers with a registry-guaranteed layer (`basePaints`)
+ *  undefined branch so callers with a registry-guaranteed layer (`basePaints`)
  *  read a plain number. */
 function currentOpacity(ui: LayerUI, layerInfo: LayerInfo): number;
 function currentOpacity(

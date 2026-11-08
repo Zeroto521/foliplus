@@ -74,7 +74,7 @@ const syncZoomRangeRow = (
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Only look up the declaration when the user has no range: the row's
-  // author arm is the fallback, not a second source to compare against.
+  // author mode is the fallback, not a second source to compare against.
   const author = stored ? undefined : authorZoomRowRange(ui, layerInfo);
   const [min, max] = liveRange
     ? clampEndpoints(liveRange, mapMin, mapMax)
@@ -139,7 +139,7 @@ const clampEndpoints = (
  *  opens on the full map range. Reset clears the intent, landing on the same
  *  fallback.
  *
- *  The author arm is why Reset lands on the declaration instead of the map's
+ *  The author mode is why Reset lands on the declaration instead of the map's
  *  full range — the declaration is the author's default, and Reset returns to
  *  it. */
 const rowEndpoints = (

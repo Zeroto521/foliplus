@@ -211,7 +211,7 @@ const elementOf = (target: Node): Element | null =>
 const isEditable = (target: Node): boolean => {
   const element = elementOf(target);
   // A target that owns an entry is an element or a text node with a parent, so
-  // the null arm is unreachable through the dispatcher.
+  // the null branch is unreachable through the dispatcher.
   /* v8 ignore next -- owning targets always resolve to an element */
   if (!element) return false;
   const tag = element.tagName;
