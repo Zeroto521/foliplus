@@ -41,8 +41,6 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
   /* Entrance: subtle fade + slide-down, plays once when the menu mounts.
      The two former 0.15s entrances (dropdown + scheme picker) were identical;
      the tokens are the single duration/easing both use now. */
@@ -109,11 +107,14 @@
 }
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
-     language as the LayerControl "more" button hover). ── */
+     language as the LayerControl "more" button hover). The background/ink
+     pair comes from the shared menu-row tokens (token.css), so a search
+     result row and a dropdown row answer identically — one source, not a
+     second accent-light/primary pair restated here. ── */
 .foliplus-search-result-item:not([disabled]):hover,
 .foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {
-  background: var(--foliplus-accent-light);
-  color: var(--foliplus-accent-primary);
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
 }
 
 /* ─── Press: soft wash, same vocabulary as the scheme picker's

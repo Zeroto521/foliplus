@@ -46,8 +46,8 @@ describe("more-menu button styles", () => {
       sharedMenuCss,
       '.foliplus-layer-more-menu button:not([aria-disabled="true"]):hover {',
     );
-    expect(hover).toContain("background: var(--foliplus-accent-light)");
-    expect(hover).toContain("color: var(--foliplus-accent-primary)");
+    expect(hover).toContain("background: var(--foliplus-menu-row-hover-bg)");
+    expect(hover).toContain("color: var(--foliplus-menu-row-hover-ink)");
   });
 
   it("keeps disabled entries muted on hover", () => {
