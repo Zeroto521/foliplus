@@ -134,6 +134,29 @@ const clearSavedConfig = (): void => {
   Storage.removeRecord(CONST.STORAGE.KEY, CONFIG.name);
 };
 
+/** Strip the migrated filter fields from the persisted record.
+ *
+ *  The component key once carried `filters`/`filtersTouched`; those moved to
+ *  the shared FilterStore (one record per map under FILTER_STORE_KEY). The
+ *  old fields are read once on load to migrate, then become dead weight on
+ *  the old key — a later save never writes them, but a reader that only
+ *  migrates would keep seeing them forever. Removing them once (and
+ *  rewriting the record) closes that gap: the next load has nothing left to
+ *  migrate and the record matches what the writer produces. */
+const stripMigratedFilters = (): void => {
+  const raw = Storage.loadRecord<Record<string, unknown> | null>(
+    CONST.STORAGE.KEY,
+    CONFIG.name,
+  );
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+  const hasFilters = Object.prototype.hasOwnProperty.call(raw, "filters");
+  const hasTouched = Object.prototype.hasOwnProperty.call(raw, "filtersTouched");
+  if (!hasFilters && !hasTouched) return;
+  delete raw.filters;
+  delete raw.filtersTouched;
+  Storage.saveRecord(CONST.STORAGE.KEY, raw, CONFIG.name);
+};
+
 /** Apply a loaded config object to the manager's state.
  *
  *  The record is parsed here too, not only on load: this is public on the
@@ -193,6 +216,12 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
       }
     }
   }
+  // The filter half has moved into the shared store: the component key's
+  // `filters`/`filtersTouched` are dead the moment they are read. Strip them
+  // once so they don't sit forever on the old key (every future load would
+  // otherwise re-read stale filter state; a save would never write them, but
+  // a reader that only migrates would keep seeing them).
+  stripMigratedFilters();
 };
 
 export { applySavedConfig, clearSavedConfig, loadSavedConfig };

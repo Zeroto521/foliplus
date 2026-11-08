@@ -2496,7 +2496,6 @@ describe("MeasureManager — type filter", () => {
     expect((manager as any).filtersTouched).toBe(false);
 
     // Persistence is the store's job now; observe the localStorage write.
-    const before = window.localStorage.getItem(FILTER_STORE_KEY);
     const replan = vi.spyOn(manager, "requestLabelPlan");
 
     // Writing the same values the declaration seeded is still a user action;
@@ -2534,6 +2533,79 @@ describe("MeasureManager — type filter", () => {
     expect((manager as any).filtersTouched).toBe(false);
     expect((manager as any).measureFilter).toBeUndefined();
     const key = filterStorageKey(manager);
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+});
+
+describe("MeasureManager — legacy filter migration", () => {
+  const legacyKey = (manager: any): string =>
+    `${CONST.FILTER.STORAGE_PREFIX}_${manager.map.getContainer().id}_${manager.layerId}`;
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  it("migrates an owned legacy record into the store and deletes the old key", () => {
+    // Probe the stable key with a throwaway manager (container + layer id).
+    const probe = makeManager();
+    const key = legacyKey(probe.manager);
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+        filtersTouched: true,
+      }),
+    );
+
+    const { manager } = makeManager();
+
+    // The user's filter lands in the shared store, owned.
+    expect((manager as any).filtersTouched).toBe(true);
+    expect((manager as any).measureFilter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    const record = readStoreRecord();
+    const source = measureSourceOf(record, manager.layerId);
+    expect(source.value).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(source.touched).toBe(true);
+
+    // The legacy key is consumed: a reload must not re-read it.
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it("a corrupt legacy record is dropped and its key removed", () => {
+    const probe = makeManager();
+    const key = legacyKey(probe.manager);
+    window.localStorage.setItem(key, "not-json");
+
+    const { manager } = makeManager();
+
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it("a legacy record that says untouched seeds the declaration instead", () => {
+    const probe = makeManager();
+    const key = legacyKey(probe.manager);
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: CONST.FILTER.RECORD_VERSION,
+        filter: filter([CONST.MEASURE_MODE.MARKER]),
+        filtersTouched: false,
+      }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager } = makeManager();
+
+    // Untouched = never spoke: the declaration (not the legacy value) seeds.
+    expect((manager as any).filtersTouched).toBe(false);
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
     expect(window.localStorage.getItem(key)).toBeNull();
   });
 });
@@ -2844,10 +2916,9 @@ describe("MeasureManager — filter contract (enum arm)", () => {
   });
 });
 
-// ── F4 regression: the shared filter owner must reproduce the hand-rolled
+// ── F4 regression: the shared filter store must reproduce the hand-rolled
 // setFilter behaviour byte-for-byte. These rows are the contract the old
-// MeasureManager.setFilter held; if the owner ever drifts, they fail here
-// (and in the equivalent filterOwner.test.ts unit rows).
+// MeasureManager.setFilter held; if the store ever drifts, they fail here.
 describe("MeasureManager — filter owner equivalence (F4)", () => {
   const storageKey = (manager: any): string => filterStorageKey(manager);
 

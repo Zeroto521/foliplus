@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
-import { FILTER_STORE_KEY, type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
+import {
+  FILTER_STORE_KEY,
+  type LayerFilter,
+  extractMarkerFields,
+} from "#core/layer/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
@@ -2819,11 +2823,8 @@ const fsHas = (m: any, src: string) => fsGet(m, src) !== undefined;
  *  Mirrors the old layerFilters.size: a slot the user owns but cleared
  *  holds no value and does not count. */
 const fsSize = (m: any) =>
-  m.filterStore
-    .sources(m.layerId)
-    .filter((s: string) => fsGet(m, s) !== undefined)
+  m.filterStore.sources(m.layerId).filter((s: string) => fsGet(m, s) !== undefined)
     .length;
-
 
 // ── Declared filter guards (HeatmapManager) ───────────────────────────
 //
@@ -3091,7 +3092,9 @@ describe("HeatmapManager — declared filter guards", () => {
 
     manager.resetState(makeConfig());
 
-    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(
+      false,
+    );
     expect(manager.hasScanned).toBe(false);
   });
 
@@ -3100,7 +3103,9 @@ describe("HeatmapManager — declared filter guards", () => {
     // Seed on first open: the declaration owns the slot.
     manager.seedDeclaredFilter();
     expect(fsGet(manager, "pts")).toEqual(RANGE);
-    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(
+      false,
+    );
 
     // Data change drops the field: the source's rebuilt snapshot no longer
     // carries "score". A public render of the selected source revalidates the
@@ -3115,7 +3120,9 @@ describe("HeatmapManager — declared filter guards", () => {
     // build entry), so the declaration re-seeds.
     manager.cachedSnapshot = snapshot();
     manager.seedDeclaredFilter();
-    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+    expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(
+      false,
+    );
     expect(fsGet(manager, "pts")).toEqual(RANGE);
   });
 });
@@ -3154,7 +3161,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       expect(fsGet(manager, "pts")).toEqual(RANGE);
       // A declaration is not a user choice: the factory Reset can still
       // return to it.
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(false);
     });
 
     it("does not seed while a stored record owns the slot", () => {
@@ -3168,7 +3177,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       manager.seedDeclaredFilter();
 
       expect(fsHas(manager, "pts")).toBe(false);
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(true);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(true);
     });
   });
 
@@ -3176,7 +3187,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
     it("takes ownership and persists the user's choice", () => {
       const manager = userWrite(seedable(null));
 
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(true);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(true);
       expect(fsGet(manager, "pts")).toEqual(USER_RANGE);
       // The user's choice persists under the shared store key.
       const saved = manager.loadSavedConfig();
@@ -3188,7 +3201,6 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       });
     });
   });
-
 
   describe("3. a stored filter wins over the declaration", () => {
     it("restores the stored filter instead of the declaration", () => {
@@ -3208,7 +3220,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       prepare(manager).seedDeclaredFilter();
 
       expect(fsGet(manager, "pts")).toEqual(USER_RANGE);
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId!)).toBe(true);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId!),
+      ).toBe(true);
     });
   });
 
@@ -3220,7 +3234,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       expect(fsGet(manager, "pts")).toEqual(RANGE);
 
       manager.setFilter(undefined);
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(true);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(true);
       expect(fsHas(manager, "pts")).toBe(false);
 
       // The declaration must not come back in this session...
@@ -3230,7 +3246,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       // ...or on the next one: the record owns an explicitly empty slot.
       const reloaded = reload(RANGE);
       reloaded.seedDeclaredFilter();
-      expect(reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId)).toBe(true);
+      expect(
+        reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId),
+      ).toBe(true);
       expect(fsHas(reloaded, "pts")).toBe(false);
     });
 
@@ -3243,18 +3261,24 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       // exactly what the real button runs.
       manager.resetState(window.CONFIG);
       manager.clearSavedConfig();
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(false);
       expect(fsSize(manager)).toBe(0);
 
       prepare(manager).seedDeclaredFilter();
       expect(fsGet(manager, "pts")).toEqual(RANGE);
-      expect(manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId)).toBe(false);
+      expect(
+        manager.filterStore.isOwned(manager.layerId, manager.selectedLayerId),
+      ).toBe(false);
 
       // The record is gone, so a reload starts from the declaration again.
       const reloaded = reload(RANGE);
       reloaded.seedDeclaredFilter();
       expect(fsGet(reloaded, "pts")).toEqual(RANGE);
-      expect(reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId)).toBe(false);
+      expect(
+        reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId),
+      ).toBe(false);
     });
   });
 
@@ -3307,7 +3331,9 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       const reloaded = reload(RANGE);
       reloaded.seedDeclaredFilter();
 
-      expect(reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId)).toBe(true);
+      expect(
+        reloaded.filterStore.isOwned(reloaded.layerId, reloaded.selectedLayerId),
+      ).toBe(true);
       expect(fsGet(reloaded, "pts")).toEqual(USER_RANGE);
     });
   });
@@ -4407,7 +4433,6 @@ describe("HeatmapManager — versioned persisted config", () => {
         value: { kind: "atom", field: "value", op: "between", range: [1, 2] },
       });
 
-
       const m2 = makeManager();
       const loaded = m2.loadSavedConfig();
       expect(loaded).toEqual(stored);
@@ -4512,5 +4537,51 @@ describe("HeatmapManager — persisted per-source filters", () => {
     // The parser keeps the AST intact; the render-time revalidation clamps
     // or drops it against the rebuilt snapshot (pinned above).
     expect(fsGet(m, "layer_a")).toEqual(atom);
+  });
+
+  it("strips the migrated filters/filtersTouched fields from the old key", () => {
+    const m = makeManager();
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        version: CONST.RECORD_VERSION,
+        layerId: "layer_a",
+        filters: { layer_a: atom },
+        filtersTouched: true,
+        agg: "sum",
+      }),
+    );
+
+    // Apply reads the old fields once (migrating into the store), then
+    // removes them from the persisted record — the filter half lives only
+    // under the shared store key from then on.
+    m.applySavedConfig(m.loadSavedConfig()!);
+
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toBeUndefined();
+    expect(stored.filtersTouched).toBeUndefined();
+    // The rest of the record survives the strip.
+    expect(stored.agg).toBe("sum");
+    // The migrated filter still reached the store.
+    expect(fsGet(m, "layer_a")).toEqual(atom);
+  });
+
+  it("leaves a record with no filter fields untouched", () => {
+    const m = makeManager();
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        version: CONST.RECORD_VERSION,
+        layerId: "layer_a",
+        agg: "sum",
+      }),
+    );
+
+    m.applySavedConfig(m.loadSavedConfig()!);
+
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toBeUndefined();
+    expect(stored.filtersTouched).toBeUndefined();
+    expect(stored.agg).toBe("sum");
   });
 });

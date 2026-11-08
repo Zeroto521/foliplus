@@ -1391,10 +1391,13 @@ class HeatmapManager {
     // Was any source carrying a filter (owned or declared)? The whole-layer
     // reset below drops the record without repainting; the notification
     // fires only when there was something to clear.
-    const clearedFilter = this.filterStore.sources(this.layerId).some(src =>
-      this.filterStore.isOwned(this.layerId, src) ||
-      this.filterStore.getFilter(this.layerId, src) !== undefined,
-    );
+    const clearedFilter = this.filterStore
+      .sources(this.layerId)
+      .some(
+        src =>
+          this.filterStore.isOwned(this.layerId, src) ||
+          this.filterStore.getFilter(this.layerId, src) !== undefined,
+      );
     this.selectedLayerId = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";

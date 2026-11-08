@@ -19,6 +19,7 @@
 // touches, and the surface decides what that means (item visibility, an
 // aggregation include set, a leaf hidden-class write).
 import { ensureMapFoliplus } from "#core/mapApi.js";
+import { createLogger } from "#common/log.js";
 import { loadRecord, removeRecord, saveRecord } from "#common/storage.js";
 import {
   type FilterDimension,
@@ -31,6 +32,8 @@ import {
  *  indexed by layer id inside the record — never a per-surface or per-layer
  *  key assembled at the call site. */
 const FILTER_STORE_KEY = "foliplus_filter_store";
+
+const log = createLogger("filterStore");
 
 /** The persisted record: one entry per layer, one source entry per surface.
  *  `touched` is the ownership flag — it is stored next to the value so there
@@ -236,7 +239,7 @@ const createFilterStore = (): FilterStore => {
         // A control rebuild re-registers the same (layerId, name); the host
         // object is fresh but the stored value must survive. This is the
         // idempotent-overwrite contract, not an error.
-        console.debug(`[filterStore] re-register host ${layerId}/${name}`);
+        log.debug(`re-register host ${layerId}/${name}`);
       }
       hosts.set(key, host);
     },

@@ -117,14 +117,12 @@ export {
   LIVE,
   STYLE_KEYS,
 } from "./intent.js";
-export { createFilterOwner } from "./filterOwner.js";
 export {
   createFilterStore,
   ensureFilterStore,
   FILTER_STORE_KEY,
 } from "./filterStore.js";
 export type { FilterSourceHost, FilterStore } from "./filterStore.js";
-export type { FilterOwner, FilterOwnerHost, FilterOwnerSlot } from "./filterOwner.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type {
   FilterDimension,
