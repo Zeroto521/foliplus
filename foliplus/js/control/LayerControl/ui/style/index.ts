@@ -42,6 +42,7 @@ import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { resetLayerIcon } from "./icon.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
+import { resetLayerMarkerColor } from "./markerColor.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { bindSizeRow, resetLayerSize } from "./size.js";
@@ -302,6 +303,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Icon is LayerControl-owned too: restore the author's marker icons
       // and drop the persisted config, so a reload does not re-apply it.
       resetLayerIcon(ui, layerId);
+      resetLayerMarkerColor(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);

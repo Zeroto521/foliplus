@@ -292,6 +292,7 @@ export {
   applyIconToLayer,
   buildIconRow,
   commitGlyph,
+  currentGlyph,
   layerCanIcon,
   resetLayerIcon,
 };

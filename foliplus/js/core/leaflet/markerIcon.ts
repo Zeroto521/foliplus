@@ -82,7 +82,7 @@ const defaultIconProto = (): unknown => {
  *  `createShadow`, `options`, `_setIconStyles` — is reused verbatim, so the
  *  sprite background, className, iconSize and popupAnchor stay pixel-identical.
  *
- *  (Chassis / glyph colour is task-82; not in scope this PR.)
+ *  (Chassis / glyph colour is task-42; not in scope this PR.)
  *
  *  Returns the derived icon object (already `Object.create(author)`), or the
  *  author's icon unchanged when the author is not a Leaflet icon (no
@@ -93,6 +93,10 @@ const buildMarkerIcon = (opts: {
   author: unknown;
   /** The glyph name to render. */
   glyph: string;
+  /** A user-set marker colour (hex) to merge into the same construction as
+   *  the glyph — `setIcon` replaces the whole icon object, so the colour and
+   *  the glyph must land in one derived icon, never two successive writes. */
+  color?: string;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { markerColor?: string } } | undefined;
@@ -148,10 +152,13 @@ const buildMarkerIcon = (opts: {
     // inherits the same paint. No inline author color -> white (a computed
     // colour is not a signal: every element computes one, so reading it would
     // turn "the author named nothing" into black). The colour dimension
-    // itself is task-82.
+    // itself is task-42.
     const authorInner = div.querySelector("i");
     const authorColor = authorInner ? (authorInner as HTMLElement).style.color : "";
-    const markerColor = authorColor || "#fff";
+    // The user's colour wins; else the author's own inline colour (awesome-
+    // markers paints `icon-white` via a class and an inline colour); else
+    // white. One derivation, one paint — colour and glyph never split.
+    const markerColor = opts.color || authorColor || "#fff";
     // Drop the author's own icon-font classes (fa / fas / fa-star /
     // glyphicon-*) so only the paint classes survive and our FA glyph is the
     // one thing painting.
@@ -174,14 +181,39 @@ const buildMarkerIcon = (opts: {
 /** Apply the layer's glyph to every marker leaf, capturing each leaf's
  *  author icon on first write. A missing intent is a no-op — a layer the
  *  user never touched keeps exactly what the author declared. */
-const applyIconToLeaves = (layer: L.Layer, glyph: string): void => {
+const applyIconToLeaves = (layer: L.Layer, glyph: string, color?: string): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
-    const derived = buildMarkerIcon({ author, glyph });
+    const derived = buildMarkerIcon({ author, glyph, color });
+    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+  });
+};
+
+/** Apply the user's marker colour to every marker leaf, re-deriving the
+ *  icon in ONE construction with the given glyph (the user's current glyph
+ *  from the icon intent, or the author's recognised glyph name, or the
+ *  author icon's inner glyph) so the colour and the glyph never split
+ *  across two `setIcon` writes. A missing intent is a no-op. */
+const applyMarkerColorToLeaves = (
+  layer: L.Layer,
+  color: string,
+  glyph: string | null,
+): void => {
+  walkLeaf(layer, leaf => {
+    if (!isIconLeaf(leaf)) return;
+    captureAuthorIcon(leaf);
+    const author = authorIcon.get(leaf);
+    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
+    if (author === undefined) return;
+    const derived = buildMarkerIcon({
+      author,
+      glyph: glyph ?? "circle",
+      color,
+    });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
 };
@@ -230,6 +262,7 @@ const authorGlyphName = (layer: L.Layer): string | null => {
 
 export {
   applyIconToLeaves,
+  applyMarkerColorToLeaves,
   authorGlyphName,
   buildMarkerIcon,
   captureAuthorIcon,

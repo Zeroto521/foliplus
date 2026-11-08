@@ -100,6 +100,7 @@
   "LayerControl.style_method_heads": "等数分段",
   "LayerControl.style_size": "大小",
   "LayerControl.style_icon": "图标",
+  "LayerControl.style_marker_color": "标记颜色",
   "LayerControl.style_icon_original": "原始",
   "LayerControl.border": "边框",
   "LayerControl.filter_layer": "筛选",

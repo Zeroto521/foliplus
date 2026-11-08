@@ -99,6 +99,21 @@ const hasSetStyleLeaf = (node: unknown): boolean => someLeaf(node, hasSetStyle);
 const hasSetIcon = (node: unknown): boolean =>
   safeRead(() => typeof (node as { setIcon?: unknown }).setIcon) === "function";
 
+/** Whether the leaf is an awesome-markers carrier: a runtime `setIcon`
+ *  whose authored icon declares `markerColor` (Leaflet.awesome-markers).
+ *  Same throwing-getter guard as `hasSetIcon` — a hostile getter answers
+ *  nothing rather than walking mid-flight. */
+const hasMarkerColorLeaf = (node: unknown): boolean =>
+  safeRead(
+    () =>
+      typeof (node as { setIcon?: unknown }).setIcon === "function" &&
+      (
+        node as {
+          options?: { icon?: { options?: { markerColor?: unknown } } };
+        }
+      ).options?.icon?.options?.markerColor !== undefined,
+  ) === true;
+
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
@@ -135,6 +150,8 @@ interface LayerCarrierProbe {
   size: "native" | "none";
   /** Any leaf owns a runtime `setIcon` — the marker icon carrier. */
   icon: "native" | "none";
+  /** Any leaf is an awesome-markers carrier (setIcon + authored markerColor). */
+  markerColor: "native" | "none";
   /** The full-tree migratable audit: "mixed" is the degrade signal. */
   migratable: "ok" | "mixed" | "empty";
 }
@@ -144,6 +161,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
   let fill = false;
   let radius = false;
   let icon = false;
+  let markerColor = false;
   let known = 0;
   let unknown = 0;
   walkLeaf(node, leaf => {
@@ -151,6 +169,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     if (!fill && isArealStyleLeaf(leaf)) fill = true;
     if (!radius && isPixelRadiusLeaf(leaf)) radius = true;
     if (!icon && hasSetIcon(leaf)) icon = true;
+    if (!markerColor && hasMarkerColorLeaf(leaf)) markerColor = true;
     if (isMigratableLeaf(leaf)) known += 1;
     else unknown += 1;
   });
@@ -159,6 +178,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     fill: fill ? "native" : "none",
     size: radius ? "native" : "none",
     icon: icon ? "native" : "none",
+    markerColor: markerColor ? "native" : "none",
     migratable: unknown > 0 ? "mixed" : known > 0 ? "ok" : "empty",
   };
 };

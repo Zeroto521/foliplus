@@ -100,6 +100,7 @@
   "LayerControl.style_method_heads": "Equal Count",
   "LayerControl.style_size": "Size",
   "LayerControl.style_icon": "Icon",
+  "LayerControl.style_marker_color": "Marker Color",
   "LayerControl.style_icon_original": "Original",
   "LayerControl.border": "Border",
   "LayerControl.filter_layer": "Filter",
