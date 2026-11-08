@@ -97,7 +97,7 @@ const demoDecl: ValueFaceDecl = {
   dim: "demoDim",
   face: FACE.STROKE,
   colorKey: "color",
-  rider: { key: "opacity", read: () => 0.5 },
+  liveScalar: { key: "opacity", read: () => 0.5 },
   walkLeaves: walkStyleLeaves,
   isValueActive: () => true,
   readValueConfig: () => makeRamp(),
@@ -228,30 +228,30 @@ it("replays the category color on mouseout via the pin getter", () => {
   expect(out!.color).toBeDefined();
 });
 
-describe("a face without a user rider", () => {
-  // The rider arm must be optional per face: a dimension with no user rider
-  // (e.g. a stroke that has no width-as-rider slot) passes null and the paint
-  // writes/replays only the color. A no-rider face is the only way to reach
-  // the paint's rider-skipping branches.
-  const noRiderDecl: ValueFaceDecl = {
+describe("a face without a user liveScalar", () => {
+  // The liveScalar arm must be optional per face: a dimension with no user liveScalar
+  // (e.g. a stroke that has no width-as-liveScalar slot) passes null and the paint
+  // writes/replays only the color. A no-liveScalar face is the only way to reach
+  // the paint's liveScalar-skipping branches.
+  const noliveScalarDecl: ValueFaceDecl = {
     dim: "demoDim",
     face: FACE.STROKE,
     colorKey: "color",
-    rider: null,
+    liveScalar: null,
     walkLeaves: walkStyleLeaves,
     isValueActive: () => true,
     readValueConfig: () => makeRamp(),
     logLabel: "value-based demo:",
   };
 
-  it("writes the ramp color without a rider slot", () => {
+  it("writes the ramp color without a liveScalar slot", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
       { properties: { value: 9 } },
     ]);
 
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noRiderDecl);
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noliveScalarDecl);
 
     for (const leaf of layer.leaves) {
       const call = (leaf.setStyle as any).mock.calls[0][0];
@@ -261,11 +261,11 @@ describe("a face without a user rider", () => {
     }
   });
 
-  it("replays the declared color without a rider slot for an in-domain numeric leaf", () => {
+  it("replays the declared color without a liveScalar slot for an in-domain numeric leaf", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noRiderDecl);
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noliveScalarDecl);
 
     const out = pinGetterOf(0)();
     expect(out).not.toBeNull();
@@ -273,24 +273,24 @@ describe("a face without a user rider", () => {
     expect(out!.opacity).toBeUndefined();
   });
 
-  it("returns null for an out-of-reach leaf when the face has no rider", () => {
+  it("returns null for an out-of-reach leaf when the face has no liveScalar", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const features = [{ properties: { value: 5 } }];
     const layer = makeFeatureLayer(features);
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noRiderDecl);
+    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noliveScalarDecl);
 
     // The live value turns non-finite after the cache was built: the pin has
-    // nothing to replay and, with no user rider, nothing to add on top.
+    // nothing to replay and, with no user liveScalar, nothing to add on top.
     features[0].properties.value = NaN;
     expect(pinGetterOf(0)()).toBeNull();
   });
 
-  it("replays a categorical color without a rider slot", () => {
+  it("replays a categorical color without a liveScalar slot", () => {
     installChroma(["#e41a1c", "#377eb8"]);
     const layer = makeFeatureLayer([{ properties: { kind: "forest" } }]);
     const ramp = makeRamp({ kind: "category", field: "kind" });
     const catDecl: ValueFaceDecl = {
-      ...noRiderDecl,
+      ...noliveScalarDecl,
       readValueConfig: () => ramp,
     };
 

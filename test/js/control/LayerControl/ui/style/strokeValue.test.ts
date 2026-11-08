@@ -20,7 +20,10 @@ vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
 }));
 vi.mock("#control/LayerControl/ui/style/valuePaint.js", async importOriginal => {
-  const actual = await importOriginal<typeof import("#control/LayerControl/ui/style/valuePaint.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("#control/LayerControl/ui/style/valuePaint.js")
+    >();
   return {
     ...actual,
     applyValuePaint: vi.fn(actual.applyValuePaint),
@@ -139,8 +142,8 @@ describe("applyValueStroke", () => {
     expect(applyValuePaint).toHaveBeenCalledTimes(1);
     // The declaration tells the shared mode the stroke face: DIM.BORDER + the
     // stroke face + the color slot + the style-leaf walker.
-    const [ui, layerId, value, decl] = (applyValuePaint as ReturnType<typeof vi.fn>).mock
-      .calls[0];
+    const [ui, layerId, value, decl] = (applyValuePaint as ReturnType<typeof vi.fn>)
+      .mock.calls[0];
     expect(ui).toBeDefined();
     expect(layerId).toBe("overlay1");
     expect(value).toEqual(ramp);

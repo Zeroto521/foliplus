@@ -5,7 +5,7 @@
  * This is the LayerControl style subsystem's shared mechanism, NOT a
  * fill-specific implementation. The face-specific surface — which style slot
  * the ramp color lands in (`colorKey`), which leaf walker reaches the carrier
- * leaves (`walkLeaves`), the user's scalar rider for this face (`rider`, or
+ * leaves (`walkLeaves`), the user's scalar liveScalar for this face (`liveScalar`, or
  * null for a face without one), the highlight dimension (`dim`), the write
  * face (`face`), and the two face-level live readers (`isValueActive`,
  * `readValueConfig`) — is injected as a `ValueFaceDecl`. The mode body
@@ -21,13 +21,13 @@
  * (`scheduleStyleDimApply`) coalesces the whole apply to at most one per
  * frame, so a scheme drag does not trigger a walk per input step.
  *
- * The user's flat-mode scalar rider (e.g. solid-mode `fillOpacity`, or the
+ * The user's flat-mode scalar liveScalar (e.g. solid-mode `fillOpacity`, or the
  * stroke's `weight`) rides along on every leaf of this face, including ones
  * the value ramp cannot classify: the ramp replaces only the color, so
- * dropping the rider here would make a mode switch back to the flat mode
- * silently lose it, and a valueless leaf would keep the author's rider next
+ * dropping the liveScalar here would make a mode switch back to the flat mode
+ * silently lose it, and a valueless leaf would keep the author's liveScalar next
  * to the user's on a classifiable neighbour of the same layer. When a face
- * has no user rider (`rider` is null) nothing rides along.
+ * has no user liveScalar (`liveScalar` is null) nothing rides along.
  *
  * Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
  * reads the live value config and the cached breaks. If the config changed
@@ -85,16 +85,16 @@ const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
 /** The leaf walker: visits exactly the carrier leaves for the mode's face. */
 type ValueLeafWalker = (node: StyleCarrier, fn: (leaf: StyleSetter) => void) => void;
 
-/** The face's user scalar rider: the one style property this face owns that
+/** The face's live scalar: the one style property this face owns that
  *  is not replaced by the ramp but must ride every leaf (the fill's
  *  `fillOpacity`, the stroke's `weight`) — the style slot it writes to plus
  *  the live reader. Paired rather than a bare slot so the mode never branches
- *  on "does this face have a rider" — a face without one passes `null` and
+ *  on "does this face have a liveScalar" — a face without one passes `null` and
  *  the mode simply skips it. */
-type ValueRider = {
-  /** The style slot the rider lands in (e.g. `fillOpacity`, `weight`). */
+type LiveScalar = {
+  /** The style slot the liveScalar lands in (e.g. `fillOpacity`, `weight`). */
   key: string;
-  /** The live reader for this face's rider intent. */
+  /** The live reader for this face's liveScalar intent. */
   read: (ui: LayerUI, layerId: string) => number | undefined;
 };
 
@@ -108,8 +108,8 @@ type ValueFaceDecl = {
   face: StyleFace;
   /** The style slot the ramp color lands in (`fillColor`, `color`...). */
   colorKey: string;
-  /** The user's scalar rider for this face, or null when the face has none. */
-  rider: ValueRider | null;
+  /** The user's scalar liveScalar for this face, or null when the face has none. */
+  liveScalar: LiveScalar | null;
   /** The leaf walker reaching only the carrier leaves for this face. */
   walkLeaves: ValueLeafWalker;
   /** Whether the value mode is active for a layer (the face's mode check). */
@@ -125,7 +125,7 @@ type ValueFaceDecl = {
  *  Two-pass walk: collect `feature.properties[field]` values, then write
  *  per-leaf color via styleBag. Every carrier leaf is written on every apply:
  *  one the value ramp can classify gets the ramp's color, one it cannot gets the
- *  author's own color and visibility bit back, and both get the user's rider.
+ *  author's own color and visibility bit back, and both get the user's liveScalar.
  *
  *  Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
  *  reads the live value intent and uses the cached breaks to re-derive the
@@ -161,8 +161,8 @@ const applyValuePaint = (
 
   // Live reader: the pin replays whatever the user has since chosen, not the
   // value frozen at build time.
-  const readRider = (): number | undefined =>
-    decl.rider !== null ? decl.rider.read(ui, layerId) : undefined;
+  const readliveScalar = (): number | undefined =>
+    decl.liveScalar !== null ? decl.liveScalar.read(ui, layerId) : undefined;
 
   // ── Pass 1: collect values ──
   // The collection is local to this call on purpose. A module-level scratch
@@ -224,10 +224,10 @@ const applyValuePaint = (
   // Iterating the collection instead of re-walking the tree: the two passes
   // then share one leaf order and no shared state.
   for (const { leaf, value: leafValue, category: leafCategory } of collected) {
-    const rider = readRider();
+    const liveScalar = readliveScalar();
     const write: Record<string, unknown> = {};
-    if (rider !== undefined && decl.rider !== null) {
-      write[decl.rider.key] = rider;
+    if (liveScalar !== undefined && decl.liveScalar !== null) {
+      write[decl.liveScalar.key] = liveScalar;
     }
     const paint = category
       ? catScale !== null && leafCategory !== undefined
@@ -240,13 +240,13 @@ const applyValuePaint = (
       // The value ramp owns this leaf's color, so the face's visibility bit
       // is lit and the author's color is replaced. The payload stays minimal:
       // a named color replaces whatever the previous mode left in that slot,
-      // and the rider is named only when the user chose one, so the
+      // and the liveScalar is named only when the user chose one, so the
       // author's stays in force.
       write[decl.colorKey] = paint;
       commitStyleDim(leaf, write, decl.face);
     } else {
       // Outside the value ramp's reach: the author's color and visibility
-      // bit ride the merge untouched, but the user's rider still does.
+      // bit ride the merge untouched, but the user's liveScalar still does.
       commitStyleDimMerged(leaf, write, decl.face, false);
     }
 
@@ -265,7 +265,7 @@ const applyValuePaint = (
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameValueConfig(currentValue, value)) return null;
-      const rider = readRider();
+      const liveScalar = readliveScalar();
       const curVal = leafPropertyValue(leaf, value.field);
       if (category && catScale !== null) {
         const label = categoryLabel(curVal);
@@ -274,7 +274,7 @@ const applyValuePaint = (
           return styleDimPayload(
             {
               [decl.colorKey]: color,
-              ...(decl.rider ? { [decl.rider.key]: rider } : {}),
+              ...(decl.liveScalar ? { [decl.liveScalar.key]: liveScalar } : {}),
             },
             decl.face,
           );
@@ -283,23 +283,28 @@ const applyValuePaint = (
       if (!category && scale !== null && isFiniteNumber(curVal)) {
         // The face's visibility bit rides the replay too — folium's
         // resetStyle would otherwise re-apply the author's hollow flag on
-        // mouseout and hide the fill. The rider replays alongside it so the
+        // mouseout and hide the fill. The liveScalar replays alongside it so the
         // hover restore does not drop the user's scalar.
         return styleDimPayload(
           {
             [decl.colorKey]: colorFor(scale, curVal),
-            ...(decl.rider ? { [decl.rider.key]: rider } : {}),
+            ...(decl.liveScalar ? { [decl.liveScalar.key]: liveScalar } : {}),
           },
           decl.face,
         );
       }
       // Out of the value ramp's reach: folium's restore already gave the author's
       // color and visibility bit back, so the only thing worth re-applying on
-      // top of it is the user's rider. With none chosen there is nothing
+      // top of it is the user's liveScalar. With none chosen there is nothing
       // to add, and null lets the restore stand instead of rewriting it.
-      if (decl.rider === null) return null;
-      if (rider === undefined) return null;
-      return styleDimOverAuthor(leaf, { [decl.rider.key]: rider }, decl.face, false);
+      if (decl.liveScalar === null) return null;
+      if (liveScalar === undefined) return null;
+      return styleDimOverAuthor(
+        leaf,
+        { [decl.liveScalar.key]: liveScalar },
+        decl.face,
+        false,
+      );
     });
   }
 };

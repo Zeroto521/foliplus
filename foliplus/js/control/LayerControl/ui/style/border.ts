@@ -633,7 +633,17 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  migration is performed. */
 const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_MODE);
-  if (stored === undefined) return FILL_MODE.ORIGINAL;
+  // Same pre-mode record shape the fill side reads: a stored colour without a
+  // mode means the user already painted the solid arm (the record written
+  // before this mode existed, and a programmatic colour write). An absent
+  // mode plus only a weight keeps the author's stroke — the weight rides both
+  // arms and does not move the mode, same rule as the fill's opacity.
+  if (stored === undefined) {
+    if (getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined) {
+      return FILL_MODE.SOLID;
+    }
+    return FILL_MODE.ORIGINAL;
+  }
   if (stored === FILL_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
     return FILL_MODE.ORIGINAL;
   }

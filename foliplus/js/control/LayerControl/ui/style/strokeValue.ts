@@ -9,10 +9,10 @@
 // (fill / size / icon) declares its own surface the same way.
 //
 // Unlike the fill arm there is no opacity to carry, but the stroke face owns
-// one scalar rider of its own: the border `weight`. When the caller passes a
+// one scalar liveScalar of its own: the border `weight`. When the caller passes a
 // live width it rides every leaf alongside the ramp color (and the highlight
 // replay), so a user-set border width survives the value-stroke write. A
-// caller with no width passes `weight` undefined and the rider is absent —
+// caller with no width passes `weight` undefined and the liveScalar is absent —
 // the author's width stays in force.
 //
 // The walk is `walkStyleLeaves`, NOT `walkFillLeaves`: the stroke predicate
@@ -79,10 +79,7 @@ const applyValueStroke = (
     dim: DIM.BORDER,
     face: FACE.STROKE,
     colorKey: "color",
-    rider:
-      weight !== undefined
-        ? { key: "weight", read: () => weight }
-        : null,
+    liveScalar: weight !== undefined ? { key: "weight", read: () => weight } : null,
     walkLeaves: walkStyleLeaves,
     isValueActive: (_ui, _layerId, value) =>
       resolveStrokeMode(liveMode(), value) === "value",
