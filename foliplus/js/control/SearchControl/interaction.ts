@@ -39,6 +39,9 @@ const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
     activeClass: CLASSES.ACTIVE,
     mode: "active-descendant",
     input: ctrl.inp,
+    // Rows already carry the option contract from renderResults
+    // (ui/optionRow): the cursor only paints focus + aria-activedescendant.
+    paintOptionContract: false,
     onMove: (i, el) => {
       ctrl.selectedIdx = i;
       if (el) ctrl.inp.value = resultItemValue(el);

@@ -30,15 +30,7 @@ import {
 import { registerPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 import { bindDismiss } from "./dismiss.js";
-
-/** The three ARIA attributes shared by every option row. The engine paints
- *  the exact trio the dropdown and picker have always painted, so existing
- *  call sites and tests are untouched. */
-const applyOptionA11y = (el: HTMLElement, opts: { selected: boolean }): void => {
-  el.setAttribute("role", "option");
-  el.setAttribute("tabindex", "-1");
-  el.setAttribute("aria-selected", opts.selected ? "true" : "false");
-};
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {
@@ -205,8 +197,6 @@ const MIN_ROWS_BELOW = 2;
 
 let idCounter = 0;
 const nextListId = (): string => `foliplus-listbox-${String(++idCounter)}`;
-let rowIdCounter = 0;
-const nextRowId = (): string => `foliplus-listbox-row-${String(++rowIdCounter)}`;
 
 interface InternalState {
   trigger: HTMLElement;
@@ -321,9 +311,9 @@ const buildRow = (
   }
   // The picker shape tracks the focused row on the trigger via
   // aria-activedescendant, so its rows need stable ids to reference.
-  if (shape.activedescendant === "trigger") attrs.id = nextRowId();
+  if (shape.activedescendant === "trigger") attrs.id = nextOptionId("listbox-row");
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
-  applyOptionA11y(row, { selected });
+  applyOptionRowA11y({ el: row, selected, id: attrs.id });
   row.classList.toggle(shape.selectedClass, selected);
   // The trigger shape tracks the focused row via aria-activedescendant. A
   // click (or a programmatic .focus()) focuses a row directly, bypassing
@@ -762,5 +752,5 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   return listbox;
 };
 
-export { applyOptionA11y, createListbox };
+export { createListbox };
 export type { DropdownSurface };
