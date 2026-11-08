@@ -312,7 +312,16 @@ class ListCursor {
     list.forEach((el, i) => {
       const on = i === this._index;
       el.classList.toggle(this.activeClass, on);
-      if (this.paintOptionContract && this.itemRole === "option") {
+      // aria-selected is the cursor's to own: the option-row builder paints
+      // the contract once at build (role/tabindex/aria-selected=false), but a
+      // row must flip to "true" when the cursor lands on it even when
+      // paintOptionContract is false (SearchControl builds rows with the
+      // shared builder, then sets paintOptionContract:false — without this
+      // flip aria-selected would stay dead at "false" while activeClass and
+      // aria-activedescendant move, diverging from the shared listbox rows
+      // which do flip it). Grid cells (itemRole="gridcell") are excluded:
+      // they carry aria-current, not aria-selected.
+      if (this.itemRole === "option") {
         el.setAttribute("aria-selected", on ? "true" : "false");
       }
     });
