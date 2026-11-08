@@ -3,10 +3,17 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {"name": "hollow", "value": 1},
+      "properties": { "name": "hollow", "value": 1 },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[119.45, 26.07], [119.45, 26.08], [119.46, 26.08], [119.45, 26.07]]]
+        "coordinates": [
+          [
+            [119.45, 26.07],
+            [119.45, 26.08],
+            [119.46, 26.08],
+            [119.45, 26.07]
+          ]
+        ]
       }
     }
   ]

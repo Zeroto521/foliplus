@@ -4,7 +4,7 @@ import * as downloadMod from "#common/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";
 import { MarkerMode } from "#control/MeasureControl/mode/index.js";
-import { loadGeometry, makeControlEnv } from "./fixture.js";
+import { loadFeature, loadGeometry, makeControlEnv } from "./fixture.js";
 
 // This file asserts on bare locale-key strings (identity T/_): the export
 // hint text is built by key concatenation, so scoped lookups would wrap the
@@ -738,11 +738,9 @@ describe("Export.toWKT — unknown type", () => {
     // featureToWKT's switch handles only Point/LineString/Polygon — the
     // three geometry types the built-in modes emit. Anything else hits the
     // default branch and returns an empty string.
-    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
-      type: "Feature",
-      geometry: loadGeometry("common", "multipoint_1193_2608"),
-      properties: {},
-    } as GeoJSON.Feature);
+    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue(
+      loadFeature("common", "multipoint_1193_2608"),
+    );
     try {
       // No address/center so csvEscape quotes no field and row[8] is unambiguously wkt.
       const csv = Export.toCSV(env, [

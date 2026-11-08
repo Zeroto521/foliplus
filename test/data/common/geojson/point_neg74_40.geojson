@@ -6,10 +6,7 @@
       "properties": {},
       "geometry": {
         "type": "Point",
-        "coordinates": [
-          -74,
-          40
-        ]
+        "coordinates": [-74, 40]
       }
     }
   ]

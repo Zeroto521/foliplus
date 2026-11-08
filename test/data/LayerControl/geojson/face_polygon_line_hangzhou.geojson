@@ -3,18 +3,28 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {"kind": "face"},
+      "properties": { "kind": "face" },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[120.0, 30.0], [121.0, 30.0], [121.0, 31.0], [120.0, 30.0]]]
+        "coordinates": [
+          [
+            [120.0, 30.0],
+            [121.0, 30.0],
+            [121.0, 31.0],
+            [120.0, 30.0]
+          ]
+        ]
       }
     },
     {
       "type": "Feature",
-      "properties": {"kind": "line"},
+      "properties": { "kind": "line" },
       "geometry": {
         "type": "LineString",
-        "coordinates": [[120.2, 30.2], [120.8, 30.8]]
+        "coordinates": [
+          [120.2, 30.2],
+          [120.8, 30.8]
+        ]
       }
     }
   ]

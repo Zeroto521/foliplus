@@ -3,10 +3,18 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {"name": "Zone A", "value": 42},
+      "properties": { "name": "Zone A", "value": 42 },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[119.29, 26.07], [119.31, 26.07], [119.31, 26.09], [119.29, 26.09], [119.29, 26.07]]]
+        "coordinates": [
+          [
+            [119.29, 26.07],
+            [119.31, 26.07],
+            [119.31, 26.09],
+            [119.29, 26.09],
+            [119.29, 26.07]
+          ]
+        ]
       }
     }
   ]

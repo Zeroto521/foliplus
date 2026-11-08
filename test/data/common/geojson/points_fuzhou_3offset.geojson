@@ -3,18 +3,18 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {"val": 1.0},
-      "geometry": {"type": "Point", "coordinates": [119.30, 26.08]}
+      "properties": { "val": 1.0 },
+      "geometry": { "type": "Point", "coordinates": [119.3, 26.08] }
     },
     {
       "type": "Feature",
-      "properties": {"val": 2.0},
-      "geometry": {"type": "Point", "coordinates": [119.31, 26.08]}
+      "properties": { "val": 2.0 },
+      "geometry": { "type": "Point", "coordinates": [119.31, 26.08] }
     },
     {
       "type": "Feature",
-      "properties": {"val": 3.0},
-      "geometry": {"type": "Point", "coordinates": [119.32, 26.08]}
+      "properties": { "val": 3.0 },
+      "geometry": { "type": "Point", "coordinates": [119.32, 26.08] }
     }
   ]
 }

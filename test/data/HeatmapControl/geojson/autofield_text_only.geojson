@@ -3,8 +3,8 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {"name": "Alpha", "kind": "city"},
-      "geometry": {"type": "Point", "coordinates": [119.30, 26.08]}
+      "properties": { "name": "Alpha", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [119.3, 26.08] }
     }
   ]
 }
