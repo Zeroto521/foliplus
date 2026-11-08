@@ -44,7 +44,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
   dim: DIM.FILL,
   face: FACE.FILL,
   colorKey: "fillColor",
-  opacity: {
+  rider: {
     key: "fillOpacity",
     read: (ui, layerId) => getIntent(ui, layerId, INTENT.FILL_OPACITY),
   },
