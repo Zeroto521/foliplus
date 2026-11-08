@@ -25,6 +25,7 @@
 // table.
 import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
+import { ListCursor } from "#core/interaction/index.js";
 import {
   CAP_TIER,
   DIM,
@@ -42,15 +43,19 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  type AuthorGlyph,
   applyIconByValueToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
+  authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 import { buildClassesRow, buildFieldRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
 import { dropdownSurface } from "#common/fullscreen.js";
+import { bindDismiss } from "#ui/dismiss.js";
 import { createDropdown, formRow, selectInput } from "#ui/index.js";
+import { nextOptionId } from "#ui/optionRow.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   ICON_KIND,
@@ -130,14 +135,24 @@ const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
 };
 
 /** The author's own glyph name when the layer's marker icon declares one
- *  we can render (awesome-markers/Leaflet put the name in
+ *  (awesome-markers/Leaflet put the name in
  *  `leaf.options.icon.options.icon`). Used for the row preview only — the
  *  write semantics are unchanged: an uncovered layer keeps the author icon.
- *  Walks leaves and returns the first recognized name, or null. */
-const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
+ *  Walks leaves and returns the first declared name with its syntax verdict
+ *  (a valid name wins, else the first invalid declaration so a typo is never
+ *  silently dropped), or null when no leaf declares a string icon name. */
+const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   return authorGlyphNameOnLayer(layer);
+};
+/** The author's FontAwesome family prefix for the layer (see authorGlyphPrefixOnLayer).
+ *  Returns null when the layer declares no prefix — callers then fall back to
+ *  the panel's fa-solid family. */
+const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return null;
+  return authorGlyphPrefixOnLayer(layer);
 };
 
 /** The active icon arm. Absence reads as single: a record written before the
@@ -407,23 +422,53 @@ const buildSingleDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   trigger.append(glyphBox, nameBox);
 
   const renderTrigger = () => {
-    // Covered: the user's glyph. Uncovered: the author's recognized glyph
+    // Covered: the user's glyph. Uncovered: the author's declared glyph
     // (preview only — the write is still the author icon), else the
     // author-original label.
-    const value = currentGlyph(ui, layerId) ?? authorGlyphName(ui, layerId);
-    let glyph = value ? resolveGlyph(value) : null;
-    // A syntactically valid name the loaded FA stylesheet does not paint must
-    // not preview as a blank tofu — degrade to the author-original label, the
-    // same honest fallback the marker build path takes.
-    if (glyph && !glyphAvailable(glyph)) glyph = null;
-    if (value && glyph) {
+    const userGlyph = currentGlyph(ui, layerId);
+    const author = userGlyph ? null : authorGlyphName(ui, layerId);
+    const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
+    const value = userGlyph ?? author?.name ?? null;
+    const glyph = value ? resolveGlyph(value) : null;
+    // The user's picked/persisted glyph renders in the panel's fa-solid family;
+    // an author-declared glyph renders under the author's own prefix
+    // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
+    // a name the map actually draws is never reported unavailable.
+    const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
+    // An author-declared name that fails glyph syntax is NEVER renderable, no
+    // matter what the stylesheet paints — it gets its own unavailable state
+    // rather than silently reading as the author-original label.
+    const authorInvalid = !userGlyph && author !== null && !author.valid;
+    if (value && glyph && available && !authorInvalid) {
+      // The name is syntactically valid AND the loaded stylesheet paints it:
+      // the happy path — show the glyph and its name.
       glyphBox.innerHTML = glyphHtml(glyph);
       nameBox.textContent = glyph;
       trigger.title = value;
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
+    } else if (value) {
+      // A name we cannot render. Two distinct reasons, two messages: an
+      // author-invalid name (syntax failed — a typo, never paintable) vs a
+      // syntactically valid name the loaded stylesheet does not paint.
+      // Never silently show "Original" or a blank tofu — surface the actual
+      // name in an explicit unavailable state (dashed-outline circle preview)
+      // with a title/aria-label explaining the fallback.
+      glyphBox.innerHTML = `<span class="${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}" aria-hidden="true"></span>`;
+      nameBox.textContent = value;
+      const hint = (
+        authorInvalid ? ui.T("style_icon_invalid") : ui.T("style_icon_unavailable")
+      ).replace("{name}", value);
+      trigger.title = hint;
+      trigger.setAttribute("aria-label", hint);
+      trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
+      // No user glyph and no author-declared name: the true author-original
+      // label. (An author-invalid declaration never reaches here — author.name
+      // is non-null, so value is non-null and the unavailable branch above owns it.)
       glyphBox.innerHTML = "";
       nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     }
   };
   renderTrigger();
@@ -579,7 +624,12 @@ const bindGlyphGrid = (
   renderTrigger: () => void,
 ): void => {
   let grid: HTMLElement | null = null;
+  let unbind: (() => void) | null = null;
   const close = () => {
+    // Pair the dismissal teardown with the close path (never a synthetic
+    // `remove` event): unbind is captured once per open.
+    unbind?.();
+    unbind = null;
     grid?.remove();
     grid = null;
     trigger.setAttribute("aria-expanded", "false");
@@ -592,27 +642,23 @@ const bindGlyphGrid = (
     grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
-    // Outside press closes.
-    const onDoc = (ev: Event) => {
-      if (grid && !grid.contains(ev.target as Node)) close();
-    };
-    document.addEventListener("pointerdown", onDoc, { once: true });
+    // Outside press + Escape + focus return, as one primitive. The old
+    // implementation got this wrong twice: `once: true` consumed the
+    // pointerdown listener on the first press anywhere (so the second outside
+    // press did not close), and `addEventListener("remove", …)` never ran
+    // (remove is not a real event, so the document listeners leaked).
+    unbind = bindDismiss({
+      root: grid,
+      trigger,
+      // The trigger is a separate subtree (the row holds both): a press on
+      // the trigger must reach its own click toggle, not close here.
+      containment: target =>
+        trigger.contains(target) || (grid as HTMLElement).contains(target),
+      onClose: close,
+      escapeTarget: document,
+    });
     grid.dataset.closeOnDoc = "1";
-    grid.addEventListener("remove", () =>
-      document.removeEventListener("pointerdown", onDoc),
-    );
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") {
-        ev.preventDefault();
-        close();
-        trigger.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey, { once: true });
     grid.dataset.closeOnKey = "1";
-    grid.addEventListener("remove", () =>
-      document.removeEventListener("keydown", onKey),
-    );
   };
 
   trigger.onclick = () => {
@@ -620,7 +666,6 @@ const bindGlyphGrid = (
     else open();
   };
 };
-
 /** Build the glyph grid popup DOM: a 2D matrix of cells, current highlighted,
  *  hover tooltip = name, click applies + closes, arrows + Enter navigate. */
 const buildGlyphGrid = (
@@ -647,6 +692,7 @@ const buildGlyphGrid = (
         role: "gridcell",
         title: glyph,
         "data-glyph": glyph,
+        id: nextOptionId("icon-cell"),
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
       { html: glyphHtml(glyph) },
@@ -663,34 +709,27 @@ const buildGlyphGrid = (
     grid.appendChild(cell);
   }
 
-  // Keyboard: arrows move 2D, Enter/Space activates, Esc closes (handled above).
-  const focusIndex = (index: number) => {
-    /* v8 ignore next -- defensive: caller clamps index before calling */
-    if (index >= 0 && index < cells.length) cells[index]?.focus();
-  };
-  const currentIndex = () => cells.findIndex(c => c === document.activeElement);
-  grid.addEventListener("keydown", ev => {
-    const idx = currentIndex();
-    if (idx < 0) return;
-    const cols = GLYPH_GRID_COLS;
-    let next = idx;
-    if (ev.key === "ArrowRight") next = Math.min(cells.length - 1, idx + 1);
-    else if (ev.key === "ArrowLeft") next = Math.max(0, idx - 1);
-    else if (ev.key === "ArrowDown") next = Math.min(cells.length - 1, idx + cols);
-    else if (ev.key === "ArrowUp") next = Math.max(0, idx - cols);
-    else if (ev.key === "Home") next = 0;
-    else if (ev.key === "End") next = cells.length - 1;
-    else if (ev.key === "Enter" || ev.key === " ") {
-      ev.preventDefault();
-      cells[idx]?.click();
-      return;
-    } else return;
-    ev.preventDefault();
-    focusIndex(next);
+  // Keyboard: 2D walk via the shared ListCursor (arrows move row/column,
+  // Home/End first/last, Enter/Space activate the focused cell — a <button>
+  // fires its own click natively, which commits + closes). Esc is handled by
+  // the dismissal primitive above. The grid keeps its own ARIA roles: the
+  // cursor paints focus, not a listbox selection.
+  const cursor = new ListCursor({
+    root: grid,
+    itemSelector: `.${CONST.CLASSES.STYLE_ICON_CELL}`,
+    activeClass: "foliplus-icon-grid-cursor",
+    mode: "roving",
+    cols: GLYPH_GRID_COLS,
+    roles: { list: "grid", item: "gridcell" },
+    // Cells carry their own role/id from the shared id source below; the
+    // cursor only paints focus + aria-activedescendant.
+    paintOptionContract: false,
+    // Enter/Space on a focused cell commits + closes (the cell's click).
+    onActivate: (_, el) => (el as HTMLButtonElement).click(),
   });
+  cursor.bindKeys(grid);
   return grid;
 };
-
 /** The icon dimension's value. For the single arm it is the stored glyph
  *  intent (compatible with the pre-by-value descriptor shape); for the
  *  by-value arm it is the stored value config. A layer the user never

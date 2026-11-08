@@ -22,6 +22,8 @@ const SLIDER_CLASS = {
   BUBBLE: "foliplus-slider-bubble",
   LABEL_HIDDEN: "foliplus-slider-label-hidden",
   DRAGGING: "is-dragging",
+  CAN_PAN: "is-can-pan",
+  IS_PANNING: "is-panning",
   DISABLED: "is-disabled",
 } as const;
 

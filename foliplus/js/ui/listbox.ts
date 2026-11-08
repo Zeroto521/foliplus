@@ -29,15 +29,8 @@ import {
 } from "#common/floating.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
-
-/** The three ARIA attributes shared by every option row. The engine paints
- *  the exact trio the dropdown and picker have always painted, so existing
- *  call sites and tests are untouched. */
-const applyOptionA11y = (el: HTMLElement, opts: { selected: boolean }): void => {
-  el.setAttribute("role", "option");
-  el.setAttribute("tabindex", "-1");
-  el.setAttribute("aria-selected", opts.selected ? "true" : "false");
-};
+import { bindDismiss } from "./dismiss.js";
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {
@@ -204,8 +197,6 @@ const MIN_ROWS_BELOW = 2;
 
 let idCounter = 0;
 const nextListId = (): string => `foliplus-listbox-${String(++idCounter)}`;
-let rowIdCounter = 0;
-const nextRowId = (): string => `foliplus-listbox-row-${String(++rowIdCounter)}`;
 
 interface InternalState {
   trigger: HTMLElement;
@@ -320,9 +311,9 @@ const buildRow = (
   }
   // The picker shape tracks the focused row on the trigger via
   // aria-activedescendant, so its rows need stable ids to reference.
-  if (shape.activedescendant === "trigger") attrs.id = nextRowId();
+  if (shape.activedescendant === "trigger") attrs.id = nextOptionId("listbox-row");
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
-  applyOptionA11y(row, { selected });
+  applyOptionRowA11y({ el: row, selected, id: attrs.id });
   row.classList.toggle(shape.selectedClass, selected);
   // The trigger shape tracks the focused row via aria-activedescendant. A
   // click (or a programmatic .focus()) focuses a row directly, bypassing
@@ -518,18 +509,21 @@ const open = (state: InternalState): void => {
 
   if (!state.spec.inline) {
     if (state.spec.ownDismiss) {
-      // Dismiss on any press outside the control. Capture phase, so the press
-      // closes the popup before the element under it reacts.
-      const onOutsidePress = (event: Event): void => {
-        const target = event.target as Node | null;
-        if (!target) return;
-        const wrapper = state.trigger.parentElement;
-        if (wrapper?.contains(target) || state.list.contains(target)) return;
-        close(state, { restoreFocus: false });
-      };
-      document.addEventListener("pointerdown", onOutsidePress, true);
-      state.mountCleanup.push(() =>
-        document.removeEventListener("pointerdown", onOutsidePress, true),
+      // Outside press + Escape + focus return, as one primitive (the engine
+      // no longer keeps a private copy — icon.ts had a second one that got
+      // it wrong twice, and this is the root cause of the "outside press
+      // does not close the glyph popup" defect).
+      state.mountCleanup.push(
+        bindDismiss({
+          root: state.list,
+          trigger: state.trigger,
+          // A portalled list is not inside the trigger's wrapper, so the
+          // containment is wrapper + list (the historical ownDismiss rule).
+          containment: target =>
+            (state.trigger.parentElement?.contains(target) ?? false) ||
+            state.list.contains(target),
+          onClose: () => close(state, { restoreFocus: false }),
+        }),
       );
     }
 
@@ -546,22 +540,6 @@ const open = (state: InternalState): void => {
         observer.disconnect();
         followTrigger.cancel();
       });
-    }
-
-    if (state.spec.ownDismiss) {
-      // Escape belongs to the popup while it is open. The panel dispatcher (#783)
-      // listens on document *capture*, so this sits on window capture, which runs
-      // before any document capture listener and stops the event there.
-      const onEscapeCapture = (event: KeyboardEvent): void => {
-        if (event.key !== "Escape" || event.defaultPrevented) return;
-        event.preventDefault();
-        event.stopPropagation();
-        close(state, { restoreFocus: true });
-      };
-      window.addEventListener("keydown", onEscapeCapture, true);
-      state.mountCleanup.push(() =>
-        window.removeEventListener("keydown", onEscapeCapture, true),
-      );
     }
   }
 
@@ -774,5 +752,5 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   return listbox;
 };
 
-export { applyOptionA11y, createListbox };
+export { createListbox };
 export type { DropdownSurface };

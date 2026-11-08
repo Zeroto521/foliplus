@@ -178,6 +178,19 @@
   white-space: nowrap;
 }
 
+.foliplus-style-icon-trigger-unavailable {
+  color: var(--foliplus-text-muted);
+}
+
+.foliplus-style-icon-unavailable-glyph {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border: var(--foliplus-border-thin) dashed var(--foliplus-input-border);
+  border-radius: 50%;
+}
+
 .foliplus-style-icon-grid {
   position: absolute;
   z-index: var(--foliplus-z-index-floating);

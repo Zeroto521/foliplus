@@ -10,7 +10,7 @@ import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
-/** One arm of the value-based fill. Two shapes, discriminated by `kind`:
+/** One mode of the value-based fill. Two shapes, discriminated by `kind`:
  *
  *  - **numeric** (`kind: "numeric"` or absent): the property is a number,
  *    split into ordered classes. `field` is the caller's key selection;
@@ -20,7 +20,7 @@ import type { NumberStyle } from "#foliplus/config-schema.js";
  *    painted with a discrete qualitative scheme. `scheme` is the category
  *    palette; `method` / `classes` are irrelevant to a category fill (a
  *    category is not ordered, so "classify" has no meaning) and are kept
- *    optional so a record that only ever carried them on the numeric arm can
+ *    optional so a record that only ever carried them on the numeric mode can
  *    be reused unchanged.
  *
  *  A record that asks for a `kind` this client cannot build is dropped whole
@@ -35,7 +35,7 @@ type FillValueConfig =
       scheme: string;
     }
   | {
-      /** The categorical arm: color by distinct label. */
+      /** The categorical mode: color by distinct label. */
       kind: "category";
       field: string;
       /** The qualitative scheme name (a `CATEGORY_SCHEMES` key). */
@@ -49,7 +49,7 @@ type FillValueConfig =
       classes: number;
     };
 
-/** The stored fill-arm literals (persisted `fillMode`). One vocabulary for the
+/** The stored fill-mode literals (persisted `fillMode`). One vocabulary for the
  *  row, the intent and the resolver.
  *
  *  "original" is the layer author's own per-feature paint: a real choice on a
@@ -119,10 +119,10 @@ type IconValueConfig =
  *  `field` and `scheme` are tested for non-whitespace only, never rewritten:
  *  a GeoJSON property called " score " is a different key from "score", so
  *  trimming on read would silently miss every feature after a reload. On the
- *  numeric arm `method` is different - it is a closed protocol token, so it
+ *  numeric mode `method` is different - it is a closed protocol token, so it
  *  goes through `isClassifyMethod` and a name outside the four (including
  *  one with padding or the wrong case) drops the record whole. On the
- *  category arm `kind` must be exactly "category"; a `method` / `classes`
+ *  category mode `kind` must be exactly "category"; a `method` / `classes`
  *  that are present are not re-validated (a migrated numeric record may carry
  *  them, and a category does not classify so they cannot be wrong in a way
  *  that affects the ramp). A `kind` outside the two drops the record whole
@@ -285,10 +285,10 @@ type LayerIntent = {
   fillColor?: string;
   fillOpacity?: number;
   /** The value-based fill config when the layer is painted by a field.
-   *  Kept when the active arm is solid — the mode switch back restores it. */
+   *  Kept when the active mode is solid — the mode switch back restores it. */
   fillValue?: FillValueConfig;
-  /** Which fill arm the user chose: a single color, a value ramp, or the
-   *  layer author's own per-feature colors. Absent means solid — the arm that
+  /** Which fill mode the user chose: a single color, a value ramp, or the
+   *  layer author's own per-feature colors. Absent means solid — the mode that
    *  predates the ramp. */
   fillMode?: FillMode;
   borderColor?: string;
@@ -327,10 +327,10 @@ type PersistedLayerState = {
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
   /** The value-based fill config the user set (field / method / classes /
-   *  scheme). The ramp arm owns the color; solid-mode opacity still rides
+   *  scheme). The ramp mode owns the color; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
   fillValue?: FillValueConfig;
-  /** Which fill arm is active ("solid" | "value" | "original"); the inactive
+  /** Which fill mode is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
   fillMode?: FillMode;
   /** The hex stroke color the user picked in the style panel. LayerControl

@@ -34,11 +34,13 @@ export {
   applyIconByValueToLeaves,
   applyIconToLeaves,
   authorGlyphName,
+  authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
   resetIconLeaves,
 } from "./markerIcon.js";
+export type { AuthorGlyph } from "./markerIcon.js";
 export {
   GLYPH_SCHEME_DEFAULT,
   GLYPH_SCHEME_ORDER,

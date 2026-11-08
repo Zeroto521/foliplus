@@ -108,6 +108,8 @@
   "LayerControl.style_icon_classes": "分级数",
   "LayerControl.style_icon_classes_out_of_range": "图层声明的分级数，超出可编辑范围 2–9；编辑后收敛到该范围。",
   "LayerControl.style_icon_scheme": "图标方案",
+  "LayerControl.style_icon_unavailable": "图标「{name}」未被支持，已保留原始图标。",
+  "LayerControl.style_icon_invalid": "图标名「{name}」无效，已保留原始图标。",
   "LayerControl.border": "边框",
   "LayerControl.filter_layer": "筛选",
   "LayerControl.filter_layer_tooltip": "筛选该图层的数据",
