@@ -865,14 +865,15 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
     probe = _Flaky95Probe(worker_id, _HEALTH_SAMPLE_N)
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        if _BROWSER_MODE == "shared":
-            proxy = _SharedContextBrowserProxy(browser, probe)
-        else:
-            proxy = _CdnBrowserProxy(browser, probe)
-        yield proxy
-        probe.close()
-        browser.close()
+        with pw.chromium.launch(headless=True) as browser:
+            if _BROWSER_MODE == "shared":
+                proxy = _SharedContextBrowserProxy(browser, probe)
+            else:
+                proxy = _CdnBrowserProxy(browser, probe)
+            try:
+                yield proxy
+            finally:
+                probe.close()
 
 
 @pytest.fixture
