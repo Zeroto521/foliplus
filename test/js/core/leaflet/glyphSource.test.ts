@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PICKER_GLYPHS,
   glyphAvailable,
+  glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
@@ -92,3 +93,36 @@ describe("glyphSource", () => {
     readSpy.mockRestore();
   });
 });
+
+  it("glyphHtml renders the shell + FA classes with no extra class or style", () => {
+    const html = glyphHtml("flag");
+    expect(html).toContain('class="foliplus-marker-glyph fa-solid fa-flag"');
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).not.toContain('style=');
+  });
+
+  it("glyphHtml includes the extra class and inline style when provided", () => {
+    const html = glyphHtml("star", "icon-white", "color: red");
+    expect(html).toContain("icon-white");
+    expect(html).toContain('style="color: red"');
+  });
+
+  it("glyphHtml drops an empty extraClass (no trailing double space)", () => {
+    const html = glyphHtml("star", "", "");
+    expect(html).not.toContain("  ");
+    expect(html).toContain('class="foliplus-marker-glyph fa-solid fa-star"');
+  });
+
+  it("glyphAvailable returns false when neither document.body nor documentElement exists", () => {
+    // Model the "no host to attach to" branch: both body and documentElement absent.
+    const origBody = document.body;
+    const origDocEl = document.documentElement;
+    Object.defineProperty(document, "body", { value: null, configurable: true, writable: true });
+    Object.defineProperty(document, "documentElement", { value: null, configurable: true, writable: true });
+    try {
+      expect(glyphAvailable("no-host-glyph")).toBe(false);
+    } finally {
+      Object.defineProperty(document, "body", { value: origBody, configurable: true, writable: true });
+      Object.defineProperty(document, "documentElement", { value: origDocEl, configurable: true, writable: true });
+    }
+  });
