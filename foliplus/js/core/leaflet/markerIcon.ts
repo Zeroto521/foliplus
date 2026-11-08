@@ -211,21 +211,34 @@ const resetIconLeaves = (layer: L.Layer): void => {
   });
 };
 
+/** The author's declared glyph on a layer, with its syntax verdict.
+ *  `valid` is false when the author wrote a name that fails glyph syntax (a
+ *  typo — never renderable). The UI keeps the raw `name` either way so a
+ *  wrong declaration is surfaced instead of silently reading as "Original". */
+type AuthorGlyph = { name: string; valid: boolean };
+
 /** The author's own glyph name when the layer's marker icon declares one
- *  we can render (awesome-markers/Leaflet put the name in
+ *  (awesome-markers/Leaflet put the name in
  *  `leaf.options.icon.options.icon`). Used for the row preview only — the
  *  write semantics are unchanged: an uncovered layer keeps the author icon.
- *  Walks leaves and returns the first recognized name, or null. */
-const authorGlyphName = (layer: L.Layer): string | null => {
-  let found: string | null = null;
+ *  Walks leaves and returns the first DECLARED name: the first syntactically
+ *  valid one if any (existing short-circuit), else the first declared name
+ *  whatever its syntax, so a typo is never silently dropped. Returns null only
+ *  when no leaf declares a string icon name at all. */
+const authorGlyphName = (layer: L.Layer): AuthorGlyph | null => {
+  let found: AuthorGlyph | null = null;
+  let invalid: AuthorGlyph | null = null;
   walkLeaf(layer, leaf => {
     if (found) return;
     if (!isIconLeaf(leaf)) return;
     const own = (leaf as { options?: { icon?: { options?: { icon?: unknown } } } })
       .options?.icon?.options?.icon;
-    if (isGlyphSyntax(own)) found = own;
+    if (typeof own !== "string" || own.length === 0) return;
+    const candidate = { name: own, valid: isGlyphSyntax(own) };
+    if (candidate.valid) found = candidate;
+    else if (invalid === null) invalid = candidate;
   });
-  return found;
+  return found ?? invalid;
 };
 
 /** The author's FontAwesome family prefix (leaf.options.icon.options.prefix)
@@ -255,3 +268,4 @@ export {
   isIconLeaf,
   resetIconLeaves,
 };
+export type { AuthorGlyph };
