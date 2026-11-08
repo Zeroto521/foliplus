@@ -1,5 +1,5 @@
-import { initFixture } from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { initFixture, polygonLayer } from "./ui/fixture.js";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilterFeatures } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -301,6 +301,27 @@ describe("generic data-layer filter (controller wiring)", () => {
         enumValues: {},
       });
       expect(manager.genericFilterModel("flt1")).toBeNull();
+    });
+  });
+
+  describe("declared filter seeding (per-layer declaration → committed filter)", () => {
+    it("seeds a declared filter as the layer's initial committed filter", () => {
+      const { manager } = initFixture({
+        data: [
+          {
+            id: "flt1",
+            name: "Filtered",
+            role: "overlay",
+            layer: polygonLayer(),
+            filter: between("value", [2, 8]),
+          },
+          { id: "plain", name: "Plain", role: "overlay", layer: polygonLayer() },
+        ],
+      });
+      expect(manager.layerRegistry.get("flt1")?.filter).toEqual(
+        between("value", [2, 8]),
+      );
+      expect(manager.layerRegistry.get("plain")?.filter).toBeUndefined();
     });
   });
 });

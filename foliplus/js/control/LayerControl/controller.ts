@@ -60,6 +60,7 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
+import { readDeclaredFilter } from "./declaredFilter.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -323,6 +324,22 @@ class LayerController implements LayerAPI {
     this.intentStore = new LayerIntentStore();
     this.layerFilters = new Map();
     this.hiddenSets = new Map();
+
+    // Seed each layer's author-declared filter as its initial committed filter.
+    // The per-layer `foliplus={"filter": ...}` declaration is normalised in
+    // Python into CONF data[].filter (carried on the layer record); a layer
+    // with no declared filter keeps no committed filter. A re-init / persisted
+    // committed filter is never overwritten — the declared default is only the
+    // starting state, user intent wins. `setLayerFilter` is the single
+    // write-through (committed slot + hidden class + event); at this point the
+    // runtime store has no feature snapshot, so the class pass is a no-op until
+    // the feature-build slice lands.
+    for (const layerInfo of this.layerRegistry.items) {
+      const declared = readDeclaredFilter(layerInfo);
+      if (declared !== undefined && !this.layerFilters.has(layerInfo.id)) {
+        this.setLayerFilter(layerInfo.id, declared);
+      }
+    }
 
     this.factory = new LayerFactory({
       map: this.map,
