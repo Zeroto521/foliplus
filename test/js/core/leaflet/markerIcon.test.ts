@@ -11,6 +11,7 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  applyIconByValueToLeaves,
   applyIconToLeaves,
   authorGlyphName,
   buildMarkerIcon,
@@ -195,6 +196,103 @@ describe("applyIconToLeaves", () => {
   it("skips a non-marker leaf in the walk", () => {
     const leaf = { options: {} };
     expect(() => applyIconToLeaves(makeMarkerGroup(leaf), "star")).not.toThrow();
+  });
+});
+
+describe("applyIconByValueToLeaves", () => {
+  const NUMERIC: {
+    kind: "numeric";
+    field: string;
+    method: "equal";
+    classes: number;
+    glyphs: string[];
+  } = {
+    kind: "numeric",
+    field: "value",
+    method: "equal",
+    classes: 2,
+    glyphs: ["circle", "square"],
+  };
+  const CATEGORY: {
+    kind: "category";
+    field: string;
+    method: "equal";
+    classes: number;
+    glyphs: string[];
+  } = {
+    kind: "category",
+    field: "type",
+    method: "equal",
+    classes: 2,
+    glyphs: ["tree", "circle"],
+  };
+
+  const makeFeatureMarker = (props: Record<string, unknown>, icon?: unknown): any => {
+    const leaf = makeMarker(icon);
+    leaf.feature = { properties: props };
+    return leaf;
+  };
+
+  it("classifies a numeric field across markers and writes a derived glyph per class", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ value: 1 }, author);
+    const mB = makeFeatureMarker({ value: 9 }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB), NUMERIC);
+    // Both markers got a derived icon (not the author object itself), but the
+    // classes differ — value 1 vs value 9 land in different classes.
+    expect(mA.options.icon).not.toBe(author);
+    expect(mB.options.icon).not.toBe(author);
+    expect(mA.options.icon).not.toBe(mB.options.icon);
+    // The glyphs differ: value 1 -> circle (class 0), value 9 -> square (class 1).
+    const glyphA = (mA.options.icon as any).createIcon().querySelector("i");
+    const glyphB = (mB.options.icon as any).createIcon().querySelector("i");
+    expect(glyphA.className).toContain("fa-circle");
+    expect(glyphB.className).toContain("fa-square");
+  });
+
+  it("captures the author icon on first write so Reset restores it", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ value: 1 }, author);
+    const mB = makeFeatureMarker({ value: 9 }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB), NUMERIC);
+    resetIconLeaves(makeMarkerGroup(mA, mB));
+    expect(mA.options.icon).toBe(author);
+    expect(mB.options.icon).toBe(author);
+  });
+
+  it("maps a categorical field in first-seen order", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ type: "forest" }, author);
+    const mB = makeFeatureMarker({ type: "lake" }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB), CATEGORY);
+    const glyphA = (mA.options.icon as any).createIcon().querySelector("i");
+    const glyphB = (mB.options.icon as any).createIcon().querySelector("i");
+    expect(glyphA.className).toContain("fa-tree");
+    expect(glyphB.className).toContain("fa-circle");
+  });
+
+  it("keeps the author icon for a leaf with no usable drive value", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ value: 1 }, author);
+    const mB = makeFeatureMarker({}, author); // missing field -> undefined
+    applyIconByValueToLeaves(makeMarkerGroup(mA, mB), NUMERIC);
+    expect(mA.options.icon).not.toBe(author);
+    // The undriven leaf keeps the author's icon (honest degradation).
+    expect(mB.options.icon).toBe(author);
+  });
+
+  it("keeps the author icon when the field is non-numeric for a numeric arm", () => {
+    const author = makeAuthorIcon();
+    const mA = makeFeatureMarker({ value: "x" }, author);
+    applyIconByValueToLeaves(makeMarkerGroup(mA), NUMERIC);
+    expect(mA.options.icon).toBe(author);
+  });
+
+  it("skips a non-marker leaf in the walk", () => {
+    const poly = { options: {} };
+    expect(() =>
+      applyIconByValueToLeaves(makeMarkerGroup(poly), NUMERIC),
+    ).not.toThrow();
   });
 });
 

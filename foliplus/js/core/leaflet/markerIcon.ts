@@ -25,8 +25,11 @@
 // overridden to swap only the inner <i> symbol. The chassis (sprite
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
+import { buildCategoryGlyphRamp, buildGlyphRamp, glyphFor } from "#core/glyphRamp.js";
+import type { IconValueConfig } from "#core/layer/intent.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import {
   glyphAvailable,
@@ -186,6 +189,90 @@ const applyIconToLeaves = (layer: L.Layer, glyph: string): void => {
   });
 };
 
+/** Apply a by-value glyph to every marker leaf, capturing each leaf's author
+ *  icon on first write. The glyph is read per leaf from the leaf's own
+ *  feature property (the same safe 3-hop read the color ramp uses), then
+ *  classified through the SHARED glyph ramp — buildGlyphRamp reuses
+ *  computeBreaks and the identical value-to-class bisection, so no second
+ *  classify kernel exists (lead ruling #2). A leaf with no usable drive value
+ *  (or a field the config cannot read) keeps the author icon — the honest
+ *  degradation, never a silent substitute.
+ *
+ *  No highlight pin is installed (unlike the color ramp): the icon write is
+ *  a direct Leaflet setIcon, not a setStyle face, so the flat-arm hover
+ *  restore that pinStyleOnHighlight serves has no style slot to replay into.
+ *  A hover on a marker does not touch its icon, so there is nothing to
+ *  restore on mouseout. */
+const applyIconByValueToLeaves = (layer: L.Layer, iconValue: IconValueConfig): void => {
+  // Pass 1: collect the drive values, exactly as the color ramp's two-pass
+  // walk does — the classification is built once from the layer's own
+  // sample, not re-derived per leaf.
+  const values: number[] = [];
+  const categories: string[] = [];
+  const collected: {
+    leaf: L.Marker;
+    value: number | undefined;
+    category: string | undefined;
+  }[] = [];
+  const seenCategories = new Set<string>();
+  const category = iconValue.kind === "category";
+  walkLeaf(layer, leaf => {
+    if (!isIconLeaf(leaf)) return;
+    const read = leafPropertyValue(leaf, iconValue.field);
+    if (category) {
+      const text = categoryLabel(read);
+      if (text !== undefined && !seenCategories.has(text)) {
+        seenCategories.add(text);
+        categories.push(text);
+      }
+      collected.push({ leaf, value: undefined, category: text });
+    } else {
+      const leafValue = isFiniteNumber(read) ? read : undefined;
+      if (leafValue !== undefined) values.push(leafValue);
+      collected.push({ leaf, value: leafValue, category: undefined });
+    }
+  });
+
+  // Build the ramp once. A build failure (a bad record) must not escape the
+  // walk — the layer keeps the author icon, the same answer an all-invalid
+  // field gives.
+  let numericScale: ReturnType<typeof buildGlyphRamp> | null = null;
+  let categoryScale: ReturnType<typeof buildCategoryGlyphRamp> | null = null;
+  try {
+    if (category) {
+      categoryScale = buildCategoryGlyphRamp(categories, iconValue.glyphs);
+    } else {
+      numericScale = buildGlyphRamp(values, iconValue);
+    }
+  } catch {
+    numericScale = null;
+    categoryScale = null;
+  }
+  const usableNumeric =
+    numericScale !== null && numericScale.glyphs.length > 0 ? numericScale : null;
+  const usableCategory =
+    categoryScale !== null && categoryScale.glyphs.size > 0 ? categoryScale : null;
+
+  // Pass 2: write per leaf. A leaf the ramp can classify gets its glyph; one
+  // it cannot keeps the author icon (captured on first write so Reset
+  // restores it).
+  for (const { leaf, value: leafValue, category: leafCategory } of collected) {
+    captureAuthorIcon(leaf);
+    const author = authorIcon.get(leaf);
+    if (author === undefined) continue;
+    const glyph = category
+      ? leafCategory !== undefined
+        ? (usableCategory?.glyphs.get(leafCategory) ?? usableCategory?.other)
+        : undefined
+      : leafValue !== undefined && usableNumeric !== null
+        ? glyphFor(usableNumeric, leafValue)
+        : undefined;
+    if (glyph === undefined) continue;
+    const derived = buildMarkerIcon({ author, glyph });
+    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+  }
+};
+
 /** Reset every marker leaf to the author's icon and drop the capture. The
  *  authored icons come from the WeakMap, never from a re-read — a re-read
  *  would restore the user's own choice, and a layer that never wrote has
@@ -229,6 +316,7 @@ const authorGlyphName = (layer: L.Layer): string | null => {
 };
 
 export {
+  applyIconByValueToLeaves,
   applyIconToLeaves,
   authorGlyphName,
   buildMarkerIcon,
