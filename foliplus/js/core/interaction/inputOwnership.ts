@@ -30,7 +30,61 @@ type NativeClass =
  *  reaches the panel that opened, regardless of the focused control. */
 const OWNER_KEYS: ReadonlySet<string> = new Set(["Escape"]);
 
+/**
+ * Active keyboard-ownership claims: a floating surface (a popup, a grid, a
+ * dropdown) that is open claims the keys it owns so the central dispatcher
+ * and every other handler stand aside while it is open. The claim root is
+ * the surface element; a key press whose owner is a descendant of the root
+ * is owned by the surface. Released when the surface closes.
+ *
+ * Keyed weakly so a claim whose element is garbage-collected (a popup torn
+ * down without an explicit close) cannot leak.
+ */
+const CLAIMS: WeakMap<HTMLElement, Set<string>> = new WeakMap();
+
+/** The arrow family, shared by the surface claim and the native table. */
 const ARROWS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] as const;
+
+/** The keys a surface owns while it is open. */
+const SURFACE_KEYS = new Set([...ARROWS, "Home", "End", "Enter", " "]);
+
+/**
+ * Claim keyboard ownership for a floating surface. While the claim is
+ * active, `nativeConsumesKey(el, key)` answers true for any `el` inside
+ * the surface and any key in `keys`, so the central interaction dispatcher
+ * stands aside and the surface's own handler (bound via the shared cursor)
+ * owns the key. Returns an idempotent release function — call it when the
+ * surface closes.
+ */
+const claimKeys = (
+  root: HTMLElement,
+  keys: ReadonlySet<string> = SURFACE_KEYS,
+): (() => void) => {
+  const owned = CLAIMS.get(root) ?? new Set<string>();
+  for (const key of keys) owned.add(key);
+  CLAIMS.set(root, owned);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const current = CLAIMS.get(root);
+    if (!current) return;
+    for (const key of keys) current.delete(key);
+    if (current.size === 0) CLAIMS.delete(root);
+  };
+};
+
+/** True when `el` (or an ancestor) is a surface that has claimed `key`. */
+const isKeyClaimed = (el: Element | null, key: string): boolean => {
+  if (!el) return false;
+  let cur: Element | null = el;
+  while (cur) {
+    const owned = cur instanceof HTMLElement ? CLAIMS.get(cur) : undefined;
+    if (owned?.has(key)) return true;
+    cur = cur.parentElement;
+  }
+  return false;
+};
 
 /** The table. `"*"` means every key but the owner keys. */
 const NATIVE_KEYS: Record<Exclude<NativeClass, "none">, ReadonlySet<string> | "*"> = {
@@ -159,6 +213,11 @@ const keyOwner = (event: { target?: unknown }): Element | null => {
  *  dispatch site asks before touching a key. */
 const nativeConsumesKey = (el: Element | null, key: string): boolean => {
   if (OWNER_KEYS.has(key)) return false;
+  // An open surface owns the keys it claimed: a press inside it belongs to
+  // the surface, so every foliplus dispatcher stands aside. Checked before
+  // the native table so a claim overrides the default answer (a grid cell is
+  // a <button> whose arrows the table would otherwise call free).
+  if (isKeyClaimed(el, key)) return true;
   const cls = nativeClass(el);
   if (cls === "none") return false;
   const keys = NATIVE_KEYS[cls];
@@ -175,4 +234,12 @@ const isNativeControl = (el: Element | null): boolean => {
   return isEditableEl(el);
 };
 
-export { OWNER_KEYS, isNativeControl, keyOwner, nativeClass, nativeConsumesKey };
+export {
+  OWNER_KEYS,
+  claimKeys,
+  isKeyClaimed,
+  isNativeControl,
+  keyOwner,
+  nativeClass,
+  nativeConsumesKey,
+};

@@ -16,7 +16,7 @@ import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { ListCursor } from "#core/interaction/index.js";
+import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
   PICKER_GLYPHS,
@@ -195,11 +195,16 @@ const bindGlyphGrid = (
 ): void => {
   let grid: HTMLElement | null = null;
   let unbind: (() => void) | null = null;
+  let releaseClaim: (() => void) | null = null;
   const close = () => {
     // Pair the dismissal teardown with the close path (never a synthetic
     // `remove` event): unbind is captured once per open.
     unbind?.();
     unbind = null;
+    // The grid owns the keyboard while it is open: release on close so the
+    // layer list regains its arrows / Enter / Space.
+    releaseClaim?.();
+    releaseClaim = null;
     grid?.remove();
     grid = null;
     trigger.setAttribute("aria-expanded", "false");
@@ -210,6 +215,11 @@ const bindGlyphGrid = (
     /* v8 ignore next -- defensive: trigger handler closes before re-opening */
     if (grid) return;
     grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
+    // While the grid is open it owns the arrow / Home / End / Enter / Space
+    // keys: a press on a focused cell must move the grid cursor, not toggle a
+    // layer row behind the popup. The claim makes the central dispatcher and
+    // every other handler stand aside; released in close().
+    releaseClaim = claimKeys(grid);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
     // Outside press + Escape + focus return, as one primitive. The old

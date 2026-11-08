@@ -1,5 +1,6 @@
 import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -566,6 +567,83 @@ describe("buildIconRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent).toEqual({ kind: "glyph", value: PICKER_GLYPHS[0] });
+  });
+
+  it("does not steal Arrow/Space/Enter from the open glyph grid (ownership)", () => {
+    // The reported regression: with the grid open, an arrow on a focused cell
+    // bubbled to the document-level InteractionManager, whose ArrowRight row
+    // shortcut toggled the layer behind the popup. The grid claims the keys on
+    // open; the dispatcher must stand aside while the claim is active.
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+
+    // A container-bound ArrowRight / Space / Enter shortcut standing in for the
+    // layer row toggle, registered through the real InteractionManager — the
+    // same document-level dispatch the user's key press went through.
+    const toggle = vi.fn();
+    const host = document.createElement("div");
+    host.appendChild(row);
+    document.body.appendChild(host);
+    const cleanup = ensureInteraction(ui.c.map).register("Guard", [
+      { key: "ArrowRight", container: host, handler: toggle as (e: Event) => void },
+      { key: " ", container: host, handler: toggle as (e: Event) => void },
+      { key: "Enter", container: host, handler: toggle as (e: Event) => void },
+    ]);
+
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+    cells[0].focus();
+
+    // ArrowRight on the focused cell: the grid cursor moves, the row toggle
+    // stays silent.
+    const arrow = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    cells[0].dispatchEvent(arrow);
+    expect(document.activeElement).toBe(cells[1]);
+    expect(toggle).not.toHaveBeenCalled();
+    expect(arrow.defaultPrevented).toBe(true);
+
+    // Space / Enter on a cell: cursor-owned, no row toggle.
+    const space = new KeyboardEvent("keydown", {
+      key: " ",
+      bubbles: true,
+      cancelable: true,
+    });
+    cells[1].dispatchEvent(space);
+    expect(toggle).not.toHaveBeenCalled();
+    const enter = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+    cells[1].dispatchEvent(enter);
+    expect(toggle).not.toHaveBeenCalled();
+
+    // Escape closes the grid and releases the claim; the row regains its keys.
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    // After close, focus returns to the trigger; an ArrowRight on the row now
+    // reaches the row shortcut again (ownership restored).
+    trigger.focus();
+    const after = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    trigger.dispatchEvent(after);
+    expect(toggle).toHaveBeenCalledTimes(1);
+
+    cleanup();
   });
 
   it("clamps keyboard navigation at the grid edges", () => {
