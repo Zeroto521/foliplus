@@ -91,4 +91,3 @@ const buildCategoryGlyphRamp = (
 };
 
 export { buildCategoryGlyphRamp, buildGlyphRamp, glyphFor };
-export type { CategoryGlyphRamp, ValueGlyphRamp };

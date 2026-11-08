@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DIM, ICON_KIND, ICON_MODE } from "#core/layer/index.js";
+import { DIM, ICON_MODE } from "#core/layer/index.js";
 import {
   GLYPH_SCHEME_DEFAULT,
-  GLYPH_SCHEME_ORDER,
   PICKER_GLYPHS,
   glyphScheme,
 } from "#core/leaflet/glyphSource.js";
@@ -1382,7 +1381,6 @@ describe("icon by-value arm", () => {
     flushIcon("overlay1");
 
     // The markers now carry a derived icon (glyph from the ramp), not the author.
-    const leafA = (ui.c.findLayer("overlay1") as any).eachLayer.mock.calls[0][0];
     // Can't easily grab leaves; instead assert the intent wrote and the walk ran
     // by checking a marker's setIcon was called.
     expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.BY_VALUE);

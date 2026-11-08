@@ -230,8 +230,7 @@ const schemeOf = (glyphs: readonly string[]): string => {
   for (const name of GLYPH_SCHEME_ORDER) {
     const scheme = glyphScheme(name);
     if (
-      scheme !== undefined &&
-      scheme.length === glyphs.length &&
+      scheme?.length === glyphs.length &&
       scheme.every((glyph, index) => glyph === glyphs[index])
     ) {
       return name;

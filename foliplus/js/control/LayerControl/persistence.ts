@@ -2,7 +2,6 @@ import type { FolderOrder } from "#core/layer/folderOrder.js";
 import {
   FILL_MODE,
   type FillValueConfig,
-  ICON_MODE,
   isFillValueConfig,
   isIconIntent,
   isIconMode,
@@ -195,10 +194,7 @@ const PARSE_OVERRIDE: Record<
     return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
   },
   iconValue: data => (isIconValueConfig(data.iconValue) ? data.iconValue : null),
-  iconMode: data =>
-    data.iconMode === ICON_MODE.SINGLE || data.iconMode === ICON_MODE.BY_VALUE
-      ? data.iconMode
-      : null,
+  iconMode: data => (isIconMode(data.iconMode) ? data.iconMode : null),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

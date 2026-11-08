@@ -199,7 +199,6 @@ const glyphHtml = (name: string, extraClass = "", style = ""): string => {
 export {
   GLYPH_SCHEME_DEFAULT,
   GLYPH_SCHEME_ORDER,
-  GLYPH_SCHEMES,
   PICKER_GLYPHS,
   glyphAvailable,
   glyphHtml,
