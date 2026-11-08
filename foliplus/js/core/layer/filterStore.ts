@@ -123,6 +123,20 @@ interface FilterStore {
   reset(layerId: string, source?: string): void;
   /** The model a filter panel renders for one source. */
   filterModel(layerId: string, name: string): LayerFilterModel;
+  /** Re-validate a source's filter against a snapshot-derived transform.
+   *  Reads the current committed-or-declared value, applies `transform`, and
+   *  if the result differs, updates the source (an owned slot keeps its
+   *  ownership — a cleared-owned slot stays owned; a declaration-only slot
+   *  follows the declaration, and a transform that empties it drops the
+   *  declaration so the next seed re-establishes it). Returns whether the
+   *  value changed. Never applies or publishes — the render path owns the
+   *  repaint and the notification (a filter write during a render would
+   *  double-publish). Used by the Heatmap's content/identity revalidation. */
+  revalidate(
+    layerId: string,
+    name: string,
+    transform: (current: LayerFilter | undefined) => LayerFilter | undefined,
+  ): boolean;
 }
 
 const createFilterStore = (): FilterStore => {
@@ -299,6 +313,28 @@ const createFilterStore = (): FilterStore => {
       const dimensions = host?.dimensions?.() ?? [];
       const counts = host?.counts?.() ?? { kept: 0, total: 0 };
       return { dimensions, filter, ...counts };
+    },
+    revalidate(layerId, name, transform) {
+      const entry = sourceOf(readRecord(), layerId, name);
+      const declared = declarations.get(layerId)?.get(name);
+      const current = entry.touched ? entry.value : declared;
+      // Nothing to re-validate: no committed value and no declaration.
+      if (current === undefined) return false;
+      const next = transform(current);
+      if (filtersEqual(next, current)) return false;
+      if (entry.touched) {
+        // An owned slot stays owned (a cleared-owned slot remains owned — the
+        // user's empty choice is still theirs). The value follows the
+        // transform.
+        commit(layerId, name, next, true);
+      } else if (next === undefined) {
+        // A declaration the snapshot no longer supports is dropped; the next
+        // seed re-establishes it against the fresh snapshot.
+        declarations.get(layerId)?.delete(name);
+      } else {
+        declarations.get(layerId)?.set(name, next);
+      }
+      return true;
     },
   };
   return store;

@@ -407,4 +407,52 @@ describe("filterStore — invariants", () => {
     expect(store.setFilter("L1", "filter", enumFilter("distance"))).toBe(true);
     expect(store.getFilter("L1", "filter")).toEqual(enumFilter("distance"));
   });
+
+  it("revalidate transforms a committed value without applying or publishing", () => {
+    const store = createFilterStore();
+    const applied: LayerFilter[] = [];
+    const published: LayerFilter[] = [];
+    store.registerHost("L1", "filter", {
+      ...makeEnumHost(["marker", "distance"]),
+      apply: f => applied.push(f),
+      publish: f => published.push(f),
+    });
+    store.setFilter("L1", "filter", enumFilter("marker"));
+    // setFilter already applied + published (a user write); clear the record so
+    // the revalidate assertion below proves IT neither applies nor publishes.
+    applied.length = 0;
+    published.length = 0;
+    const changed = store.revalidate("L1", "filter", f =>
+      f?.kind === "enum" ? { ...f, values: ["marker", "distance"] } : f,
+    );
+    expect(changed).toBe(true);
+    expect(store.getFilter("L1", "filter")).toEqual(enumFilter("marker", "distance"));
+    expect(store.isOwned("L1", "filter")).toBe(true);
+    // No apply, no publish — the render path owns the repaint.
+    expect(applied).toEqual([]);
+    expect(published).toEqual([]);
+  });
+
+  it("revalidate on an un-owned slot keeps the declaration-owned flag and returns false on no change", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+    // No change: declaration intact, not owned, not persisted.
+    expect(store.revalidate("L1", "measure", f => (f ? { ...f } : f))).toBe(false);
+    expect(store.isOwned("L1", "measure")).toBe(false);
+    expect(store.resolve("L1", "measure", enumFilter("distance"))).toEqual(
+      enumFilter("distance"),
+    );
+  });
+
+  it("revalidate dropping a declaration's value clears it so the seed can re-establish", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
+    store.setDeclaration("L1", "measure", enumFilter("distance"));
+    // A content change removed the field: the transform yields undefined.
+    expect(store.revalidate("L1", "measure", () => undefined)).toBe(true);
+    expect(store.resolve("L1", "measure", enumFilter("distance"))).toEqual(
+      enumFilter("distance"),
+    );
+  });
 });
