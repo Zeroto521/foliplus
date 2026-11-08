@@ -1,3 +1,4 @@
+// ui/style/strokeValue.ts — the stroke face's call through the shared by-value mode — supplies the ValueFaceDecl, no two-pass machinery.
 // Value-based stroke rendering — the "Color by value / Stroke by value" mode of
 // the border dimension.
 //
@@ -9,10 +10,10 @@
 // (fill / size / icon) declares its own surface the same way.
 //
 // Unlike the fill mode there is no opacity to carry, but the stroke face owns
-// one scalar liveScalar of its own: the border `weight`. When the caller passes a
+// one scalar flatScalar of its own: the border `weight`. When the caller passes a
 // live width it rides every leaf alongside the ramp color (and the highlight
 // replay), so a user-set border width survives the value-stroke write. A
-// caller with no width passes `weight` undefined and the liveScalar is absent —
+// caller with no width passes `weight` undefined and the flatScalar is absent —
 // the author's width stays in force.
 //
 // The walk is `walkStyleLeaves`, NOT `walkFillLeaves`: the stroke predicate
@@ -29,7 +30,7 @@ import { DIM } from "#core/layer/index.js";
 import { type FillMode, type FillValueConfig } from "#core/layer/intent.js";
 import type { LayerUI } from "../surface.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
+import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 
 /** The stroke mode in force. An absent mode defers to whether a value config
  *  exists — the pre-mode record shape, where a config alone meant "paint
@@ -50,7 +51,7 @@ const resolveStrokeMode = (
 const applyValueStroke = (
   ui: LayerUI,
   layerId: string,
-  ramp: FillValueConfig,
+  valueConfig: FillValueConfig,
   /** Resolve a stored config's field against the layer's current fields.
    *  The caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing: a stored field the
@@ -63,7 +64,7 @@ const applyValueStroke = (
    *  Without it a declared value stroke would be dropped by folium's
    *  `resetStyle` on the first hover, leaving the author's flat face under a
    *  by-value panel. */
-  liveRamp: () => FillValueConfig | undefined,
+  liveValue: () => FillValueConfig | undefined,
   /** The live active mode the pin reads on mouseout — the caller owns the
    *  stored mode, so the pin asks for it rather than importing an intent key
    *  that does not exist yet. A mode that is not "value" returns null so a
@@ -79,14 +80,17 @@ const applyValueStroke = (
     dim: DIM.BORDER,
     face: FACE.STROKE,
     colorKey: "color",
-    liveScalar: weight !== undefined ? { key: "weight", read: () => weight } : null,
+    flatScalar: weight !== undefined ? { key: "weight", read: () => weight } : null,
     walkLeaves: walkStyleLeaves,
     isValueActive: (_ui, _layerId, value) =>
       resolveStrokeMode(liveMode(), value) === "value",
-    readValueConfig: () => liveRamp(),
+    // The caller's live reader IS the config reader — no second thunk. The
+    // shared mode defaults its own live reader to this when the caller passes
+    // none, so a passthrough closure here would only ever be dead.
+    readValueConfig: liveValue,
     logLabel: "value-based stroke:",
   };
-  applyValuePaint(ui, layerId, ramp, decl, resolveStored, liveRamp);
+  paintByValue(ui, layerId, valueConfig, decl, resolveStored, liveValue);
 };
 
 export { applyValueStroke, resolveStrokeMode };

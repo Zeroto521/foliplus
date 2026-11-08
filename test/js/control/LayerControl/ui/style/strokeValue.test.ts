@@ -14,7 +14,7 @@ import {
   applyValueStroke,
   resolveStrokeMode,
 } from "#control/LayerControl/ui/style/strokeValue.js";
-import { applyValuePaint } from "#control/LayerControl/ui/style/valuePaint.js";
+import { paintByValue } from "#control/LayerControl/ui/style/valuePaint.js";
 
 vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("#control/LayerControl/ui/style/valuePaint.js", async importOriginal => 
     >();
   return {
     ...actual,
-    applyValuePaint: vi.fn(actual.applyValuePaint),
+    paintByValue: vi.fn(actual.paintByValue),
   };
 });
 
@@ -104,7 +104,7 @@ const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => 
   ...overrides,
 });
 
-const liveRampOf = (ramp: FillValueConfig | undefined) => () => ramp;
+const liveValueOf = (ramp: FillValueConfig | undefined) => () => ramp;
 const liveModeOf = (mode: FillMode | undefined) => () => mode;
 
 describe("resolveStrokeMode", () => {
@@ -123,10 +123,10 @@ describe("resolveStrokeMode", () => {
 });
 
 describe("applyValueStroke", () => {
-  it("delegates the whole paint to the shared applyValuePaint skeleton", () => {
+  it("delegates the whole paint to the shared paintByValue skeleton", () => {
     // The single-source convergence contract (P1): the stroke arm must not
     // rebuild the collect/ramp/write/pin machinery — it assembles a
-    // ValueFaceDecl and calls applyValuePaint, so a change to the shared
+    // ValueFaceDecl and calls paintByValue, so a change to the shared
     // mode lands on both the fill and the stroke arm from one place.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeLayer(makeLeaf({ properties: { value: 5 } }));
@@ -136,13 +136,13 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
-    expect(applyValuePaint).toHaveBeenCalledTimes(1);
+    expect(paintByValue).toHaveBeenCalledTimes(1);
     // The declaration tells the shared mode the stroke face: DIM.BORDER + the
     // stroke face + the color slot + the style-leaf walker.
-    const [ui, layerId, value, decl] = (applyValuePaint as ReturnType<typeof vi.fn>)
+    const [ui, layerId, value, decl] = (paintByValue as ReturnType<typeof vi.fn>)
       .mock.calls[0];
     expect(ui).toBeDefined();
     expect(layerId).toBe("overlay1");
@@ -170,7 +170,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ classes: 2 }),
       undefined,
-      liveRampOf(makeRamp({ classes: 2 })),
+      liveValueOf(makeRamp({ classes: 2 })),
       liveModeOf("value"),
     );
     // Both leaves painted — the line leaf's color is the ramp's first class.
@@ -190,7 +190,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -220,7 +220,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -244,7 +244,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ classes: 2 }),
       undefined,
-      liveRampOf(makeRamp({ classes: 2 })),
+      liveValueOf(makeRamp({ classes: 2 })),
       liveModeOf("value"),
     );
 
@@ -267,7 +267,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -290,7 +290,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -314,7 +314,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -341,7 +341,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
     applyValueStroke(
@@ -349,7 +349,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ field: "missing" }),
       undefined,
-      liveRampOf(makeRamp({ field: "missing" })),
+      liveValueOf(makeRamp({ field: "missing" })),
       liveModeOf("value"),
     );
 
@@ -375,7 +375,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
     applyValueStroke(
@@ -383,7 +383,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ field: "alt" }),
       undefined,
-      liveRampOf(makeRamp({ field: "alt" })),
+      liveValueOf(makeRamp({ field: "alt" })),
       liveModeOf("value"),
     );
 
@@ -407,7 +407,7 @@ describe("applyValueStroke", () => {
         "missing",
         makeRamp(),
         undefined,
-        liveRampOf(makeRamp()),
+        liveValueOf(makeRamp()),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -430,7 +430,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
     });
@@ -439,7 +439,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
     for (const layer of [outer, inner]) {
@@ -467,7 +467,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       ),
     ).toThrow("boom");
@@ -477,7 +477,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
     for (const leaf of layer.leaves) {
@@ -500,7 +500,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp({ method: METHOD.QUANTILE }),
         undefined,
-        liveRampOf(makeRamp({ method: METHOD.QUANTILE })),
+        liveValueOf(makeRamp({ method: METHOD.QUANTILE })),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -529,7 +529,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp({ method: "bogus" as never }),
         undefined,
-        liveRampOf(makeRamp({ method: "bogus" as never })),
+        liveValueOf(makeRamp({ method: "bogus" as never })),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -554,7 +554,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
 
@@ -570,7 +570,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp({ scheme: "bogus-scheme" }),
         undefined,
-        liveRampOf(makeRamp({ scheme: "bogus-scheme" })),
+        liveValueOf(makeRamp({ scheme: "bogus-scheme" })),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -601,7 +601,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp(),
         undefined,
-        liveRampOf(makeRamp()),
+        liveValueOf(makeRamp()),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -629,7 +629,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp(),
         undefined,
-        liveRampOf(makeRamp()),
+        liveValueOf(makeRamp()),
         liveModeOf("value"),
       ),
     ).not.toThrow();
@@ -652,7 +652,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ classes: 9 }),
       undefined,
-      liveRampOf(makeRamp({ classes: 9 })),
+      liveValueOf(makeRamp({ classes: 9 })),
       liveModeOf("value"),
     );
     expect(layer.leaves[0].setStyle).toHaveBeenCalled();
@@ -671,7 +671,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp(),
       undefined,
-      liveRampOf(makeRamp()),
+      liveValueOf(makeRamp()),
       liveModeOf("value"),
     );
     for (const leaf of layer.leaves) {
@@ -688,7 +688,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       makeRamp({ classes: 5 }),
       undefined,
-      liveRampOf(makeRamp({ classes: 5 })),
+      liveValueOf(makeRamp({ classes: 5 })),
       liveModeOf("value"),
     );
     expect((layer.leaves[0].setStyle as any).mock.calls[0][0].color).toBe("#ff0000");
@@ -708,7 +708,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
 
@@ -734,7 +734,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
 
@@ -759,7 +759,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
 
@@ -784,7 +784,7 @@ describe("applyValueStroke", () => {
       "overlay1",
       ramp,
       undefined,
-      liveRampOf(ramp),
+      liveValueOf(ramp),
       liveModeOf("value"),
     );
 
@@ -804,7 +804,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
 
@@ -823,7 +823,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("solid"),
       );
 
@@ -838,7 +838,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         makeRamp(),
         undefined,
-        liveRampOf(undefined),
+        liveValueOf(undefined),
         liveModeOf("value"),
       );
 
@@ -850,15 +850,15 @@ describe("applyValueStroke", () => {
       const ramp = makeRamp();
       // A mutable live reader: the pin reads the live record on every fire,
       // so reassigning the box must change what the getter compares against.
-      let liveRampVal = ramp;
-      const liveRamp = () => liveRampVal;
+      let liveValueVal = ramp;
+      const liveValue = () => liveValueVal;
       const layer = makeLayer(makeLeaf({ properties: { value: 5 } }));
       applyValueStroke(
         makeUI(layer),
         "overlay1",
         ramp,
         undefined,
-        liveRamp,
+        liveValue,
         liveModeOf("value"),
       );
 
@@ -868,7 +868,7 @@ describe("applyValueStroke", () => {
         ["classes", 5],
         ["scheme", DEFAULT_SCHEMES[1]],
       ] as const) {
-        liveRampVal = { ...ramp, [key]: value } as FillValueConfig;
+        liveValueVal = { ...ramp, [key]: value } as FillValueConfig;
         expect(pinGetterOf()()).toBeNull();
       }
     });
@@ -886,7 +886,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         resolveStored,
-        liveRampOf(makeRamp({ field: "gone" })),
+        liveValueOf(makeRamp({ field: "gone" })),
         liveModeOf("value"),
       );
 
@@ -904,7 +904,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
 
@@ -929,7 +929,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
       const replay = pinGetterOf();
@@ -948,7 +948,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
 
@@ -970,7 +970,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
 
@@ -987,7 +987,7 @@ describe("applyValueStroke", () => {
         "overlay1",
         ramp,
         undefined,
-        liveRampOf(ramp),
+        liveValueOf(ramp),
         liveModeOf("value"),
       );
 

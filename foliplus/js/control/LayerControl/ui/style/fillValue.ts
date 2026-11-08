@@ -28,7 +28,7 @@ import { authorFill, methodLabel } from "./fillAuthor.js";
 import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
+import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 
 const resolveFillMode = (
   ui: LayerUI,
@@ -44,7 +44,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
   dim: DIM.FILL,
   face: FACE.FILL,
   colorKey: "fillColor",
-  liveScalar: {
+  flatScalar: {
     key: "fillOpacity",
     read: (ui, layerId) => getIntent(ui, layerId, INTENT.FILL_OPACITY),
   },
@@ -74,7 +74,7 @@ const applyValueFill = (
   liveValue: () => FillValueConfig | undefined = () =>
     FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
-  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
+  paintByValue(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
 };
 
 export {
