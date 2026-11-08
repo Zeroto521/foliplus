@@ -3447,29 +3447,7 @@ class TestStylePanelTouchBrowser:
         self, touch_browser, tmp_path
     ):
         layer = folium.GeoJson(
-            json.dumps(
-                {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"value": 1},
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": [
-                                    [
-                                        [119.30, 26.08],
-                                        [119.31, 26.08],
-                                        [119.31, 26.09],
-                                        [119.30, 26.09],
-                                        [119.30, 26.08],
-                                    ]
-                                ],
-                            },
-                        }
-                    ],
-                }
-            ),
+            json.dumps(load_geojson("LayerControl", "polygon_value_1")),
             name="Polygon data",
         )
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
