@@ -150,6 +150,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
+    f: "control/LayerControl/ui/style/iconColor.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
+  },
+  {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,
@@ -164,22 +171,8 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
-    f: "control/LayerControl/ui/style/icon.ts",
-    n: 5,
-    pairedOff: 0,
-    reason:
-      "the glyph picker popup: two document-level dismiss listeners (outside pointerdown + Escape keydown) bound on open and removed when the grid node is removed (once:true self-terminates, but the paired removeEventListener on the grid's `remove` event makes the teardown explicit), plus the grid's own arrow/Enter keydown navigator — the grid node is created and destroyed by the popup lifecycle, so its listeners are collected with it. buildIconRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable",
-  },
-  {
-    f: "control/LayerControl/ui/style/iconColor.ts",
-    n: 1,
-    pairedOff: 0,
-    reason:
-      "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
-  },
-  {
     f: "ui/slider.ts",
-    n: 10,
+    n: 11,
     pairedOff: 0,
     reason:
       "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
@@ -207,10 +200,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/listbox.ts",
-    n: 7,
+    n: 5,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and five popup-scope listeners — document pointerdown outside-press and window keydown (capture, Escape ownership ahead of the panel dispatcher), both gated on `spec.ownDismiss` (a select-replacement adapter owning its own dismissal leaves them off), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and three popup-scope listeners — (the outside-press and Escape ownership now live in ui/dismiss.ts, bound by the ownDismiss branch), while window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) are installed for every popup — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+  },
+  {
+    f: "ui/dismiss.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "the ONE outside-press + Escape dismissal primitive (task-32): document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
   },
   {
     f: "common/floating.ts",

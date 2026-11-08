@@ -13,6 +13,7 @@ import {
 import {
   applyIconToLeaves,
   authorGlyphName,
+  authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
@@ -199,25 +200,86 @@ describe("applyIconToLeaves", () => {
 });
 
 describe("authorGlyphName", () => {
-  it("returns the first recognized author glyph name", () => {
+  it("returns the first valid author glyph name with its verdict", () => {
     const withGlyph = makeMarker({ options: { icon: "star" } });
     const plain = makeMarker({ options: {} });
-    expect(authorGlyphName(makeMarkerGroup(plain, withGlyph))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(plain, withGlyph))).toEqual({
+      name: "star",
+      valid: true,
+    });
   });
-  it("returns null when no leaf declares a known glyph", () => {
+  it("returns null when no leaf declares a glyph name", () => {
     const plain = makeMarker({ options: {} });
     expect(authorGlyphName(makeMarkerGroup(plain))).toBeNull();
   });
-  it("stops walking after the first recognized glyph (short-circuit)", () => {
+  it("stops walking after the first valid glyph (short-circuit)", () => {
     const withGlyph = makeMarker({ options: { icon: "star" } });
     const after = makeMarker({ options: { icon: "heart" } });
     // The second recognized leaf is never read: the walk returns at the first.
-    expect(authorGlyphName(makeMarkerGroup(withGlyph, after))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(withGlyph, after))).toEqual({
+      name: "star",
+      valid: true,
+    });
   });
   it("skips a non-icon leaf and keeps walking", () => {
     const poly = { options: {} };
     const withGlyph = makeMarker({ options: { icon: "star" } });
-    expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toEqual({
+      name: "star",
+      valid: true,
+    });
+  });
+  it("returns an invalid author name with valid=false instead of dropping it", () => {
+    // A syntactically invalid declaration (spaces) must surface raw — the UI
+    // shows the unavailable state, not the author-original label.
+    const bad = makeMarker({ options: { icon: "not an icon" } });
+    expect(authorGlyphName(makeMarkerGroup(bad))).toEqual({
+      name: "not an icon",
+      valid: false,
+    });
+  });
+  it("prefers a valid declaration over an earlier invalid one", () => {
+    const bad = makeMarker({ options: { icon: "not an icon" } });
+    const good = makeMarker({ options: { icon: "star" } });
+    expect(authorGlyphName(makeMarkerGroup(bad, good))).toEqual({
+      name: "star",
+      valid: true,
+    });
+  });
+  it("keeps the first invalid declaration when a later one is also invalid", () => {
+    const bad1 = makeMarker({ options: { icon: "not an icon" } });
+    const bad2 = makeMarker({ options: { icon: "also not an icon" } });
+    expect(authorGlyphName(makeMarkerGroup(bad1, bad2))).toEqual({
+      name: "not an icon",
+      valid: false,
+    });
+  });
+});
+
+describe("authorGlyphPrefix", () => {
+  it("returns the first author prefix declared on an icon leaf", () => {
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    const plain = makeMarker({ options: {} });
+    expect(authorGlyphPrefix(makeMarkerGroup(plain, withPrefix))).toBe("fa");
+  });
+  it("returns null when no leaf declares a prefix", () => {
+    const plain = makeMarker({ options: {} });
+    expect(authorGlyphPrefix(makeMarkerGroup(plain))).toBeNull();
+  });
+  it("stops walking after the first prefix (short-circuit)", () => {
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    const after = makeMarker({ options: { prefix: "fa-solid" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(withPrefix, after))).toBe("fa");
+  });
+  it("skips a non-icon leaf and keeps walking", () => {
+    const poly = { options: {} };
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(poly, withPrefix))).toBe("fa");
+  });
+  it("ignores an empty-string prefix (treats as absent)", () => {
+    const empty = makeMarker({ options: { prefix: "" } });
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(empty, withPrefix))).toBe("fa");
   });
 });
 

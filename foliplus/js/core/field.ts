@@ -56,7 +56,7 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
  *  a name the reader can tell apart, and a number column is a numeric
  *  classification's input even when the user wants to color by it. The
  *  value-based fill therefore never offers a number column to the category
- *  arm — it is already the numeric arm's input. */
+ *  mode — it is already the numeric mode's input. */
 const isCategoryValue = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
