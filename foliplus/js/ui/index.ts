@@ -7,7 +7,7 @@
 // a re-export layer beyond it (an alias module forwarding another file, or a
 // second barrel) is what the layering keeps out.
 export { buttonRow, closeButton, panelButton, sectionDivider } from "./panelChrome.js";
-export { applyOptionA11y, createDropdown, dropdownOf } from "./dropdown.js";
+export { applyOptionRowA11y, createDropdown, dropdownOf } from "./dropdown.js";
 export type { Dropdown, DropdownSurface } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
 export {
