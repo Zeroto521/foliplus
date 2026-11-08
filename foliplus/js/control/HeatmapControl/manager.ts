@@ -15,23 +15,21 @@ import {
 } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
-  type FilterOwner,
+  type FilterSourceHost,
+  type FilterStore,
   type LayerFilter,
   type LayerFilterModel,
   type LayerSnapshot,
   NO_FEATURE_TREE_KINDS,
-  createFilterOwner,
-  dropFilterForField,
+  dropStaleFilter,
+  ensureFilterStore,
   filterKey,
   filterStep,
   normalizeFilter,
   parsePersistedFilter,
   pickFilterField,
-  revalidateStoredFilter,
   selectIndices,
-  serializedFilters,
   snapshotFromPoints,
-  storeFilter,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
@@ -193,13 +191,18 @@ class HeatmapManager {
    *  Invalidation: `onLayerChange` / `clearHeatmapCanvas`. */
   declare cachedSnapshot: LayerSnapshot | null;
   declare cachedSnapshotLayerId: string | null;
-  /** The filter store — this manager is the filter's single owner. Keyed
-   *  by source layer id, so a source switch keeps each source's filter
-   *  attributed correctly (A → B → A restores A's filter) and the render
-   *  path reads `layerFilters.get(selectedLayerId)`. Absent = no filter.
-   *  The LayerControl panel writes through the `filterSetter` capability;
+  /** The shared filter store — one per-map singleton, this manager is the
+   *  Heatmap's single filter owner. Keyed by (this.layerId, source id), so a
+   *  source switch keeps each source's filter attributed correctly (A → B →
+   *  A restores A's filter) and the render path reads
+   *  `getFilter(this.layerId, selectedLayerId)`. Absent = no filter. The
+   *  LayerControl panel writes through the `filterSetter` capability;
    *  LAYER_FILTER_CHANGE is published *after* the state here is settled. */
-  declare layerFilters: Map<string, LayerFilter>;
+  declare filterStore: FilterStore;
+  /** The shared host object registered under every source's (layerId,
+   *  sourceId) key — its normalize/apply read the current selection at
+   *  call time, so one instance serves every source. */
+  declare filterHost: FilterSourceHost;
   /** The Python-declared starting filter (CONFIG.filter), parsed once through
    *  the same tolerant AST reader a persisted record uses. Undefined means
    *  "not declared" — or a declaration the reader could not understand, in
@@ -207,16 +210,6 @@ class HeatmapManager {
    *  once. */
   declare declaredFilter: LayerFilter;
   declare declaredFilterInvalid: boolean;
-  /** Whether the user owns the filter slot (see SavedConfig.filtersTouched).
-   *  A declaration seeds only while this is false; the factory Reset clears
-   *  it so the declaration returns with the rest of the defaults. */
-  declare filtersTouched: boolean;
-  /** The shared filter controller — one orchestration path (normalize →
-   *  store → apply → publish) for every setFilter / restore / reset call.
-   *  The Heatmap's committed filter is per-source, so the owner routes its
-   *  reads/writes through a slot over {@link layerFilters}; the slot is the
-   *  single source of truth and the owner never keeps a second copy. */
-  declare filterOwner: FilterOwner;
   declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
@@ -289,7 +282,6 @@ class HeatmapManager {
     const rawDeclaredFilter: unknown = CONFIG.filter;
     this.declaredFilter = parsePersistedFilter(rawDeclaredFilter);
     this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
-    this.filtersTouched = false;
     this.declarationWarned = new Set();
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
@@ -337,16 +329,15 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
-            // A seeded declaration lands here on any unrelated save (a color
-            // change), so it is restored as a per-source filter even after the
-            // author changes or drops the declaration: a user who once saved
-            // another setting keeps hitting the restored filter first. Accepted
-            // (see seedDeclaredFilter): the record is visible in the panel (the
-            // slider sits on the range), and the filter row's Clear or the
-            // panel's Reset removes it — a seeded-vs-user marker on disk would
-            // be a second ownership signal beside filtersTouched.
-            filters: serializedFilters(this.layerFilters),
-            filtersTouched: this.filtersTouched,
+            // The filter half moved to FilterStore (the shared per-map
+            // store, one key for every control): style fields stay here,
+            // the filter record lives under FILTER_STORE_KEY and is
+            // restored from there. The old component key's
+            // `filters`/`filtersTouched` are read ONCE on load to migrate
+            // them into the store, then never written here again — a seeded
+            // declaration is no longer persisted (a declaration is a
+            // construction-time constant; the store keeps the user's owned
+            // value under its own key).
           } satisfies SavedConfig,
           CONFIG.name,
         ),
@@ -494,17 +485,19 @@ class HeatmapManager {
     this.cachedLabelStyle = null;
     this.cachedSnapshot = null;
     this.cachedSnapshotLayerId = null;
-    this.layerFilters = new Map();
-    // The shared filter controller: one orchestration path (normalize →
-    // store → apply → publish) for every setFilter call, routed through a
-    // slot over the per-source store. The slot is the single source of truth
-    // (getFilter/isOwned read it live), so a per-source restore, a field
-    // change, or a factory reset that mutates `layerFilters` / `filtersTouched`
-    // directly stays consistent with the owner. The render-coupled publish
+    this.filterStore = ensureFilterStore(this.map);
+    // One host for every source this heatmap touches: the variant bits
+    // (normalize/apply/dimensions/counts) read the CURRENT selection at
+    // call time, so a single host object is registered under every source
+    // name — the store looks it up by (this.layerId, sourceId), and a
+    // source is only ever written while it is the selected one (the panel
+    // edits the selected row). The store owns the orchestration (normalize
+    // → compare → commit → apply → publish) and the persistence; the host
+    // owns only the Heatmap's domain. The render-coupled publish
     // (SettledOperation → renderHexagons → LAYER_FILTER_CHANGE →
-    // throwIfFailed) is the host's `apply`: the owner calls it after persist,
-    // exactly where the old setFilter ran the render tail.
-    this.filterOwner = createFilterOwner({
+    // throwIfFailed) is the host's `apply`: the store calls it after
+    // committing, exactly where the old setFilter ran the render tail.
+    this.filterHost = {
       normalize: filter => {
         // The snapshot is the validation baseline — build it here, cached
         // after the first call, so the steady path is free.
@@ -521,9 +514,6 @@ class HeatmapManager {
         operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
         operation.throwIfFailed();
       },
-      // The write-through binding reads live state (layerFilters +
-      // filtersTouched) at save time, so a plain signal is enough.
-      persist: () => this.saveConfig(),
       dimensions: () => {
         const snapshot = this.cachedSnapshot;
         const field = pickFilterField(snapshot, this.effectiveField());
@@ -538,14 +528,7 @@ class HeatmapManager {
         kept: this.cachedFeatures?.length ?? 0,
         total: this.cachedBins?.bins.size ?? 0,
       }),
-      slot: {
-        read: () => this.layerFilters.get(this.selectedLayerId!),
-        write: next => storeFilter(this.layerFilters, this.selectedLayerId!, next),
-        writeOwned: owned => {
-          this.filtersTouched = owned;
-        },
-      },
-    });
+    };
     this.renderAll = false;
     this.hasScanned = false;
 
@@ -609,13 +592,16 @@ class HeatmapManager {
         !this.pointLayers.some(p => p.id === this.selectedLayerId)
       ) {
         const departed = this.selectedLayerId;
-        // Record the filter before deleting the entry: `Map.delete` is what
-        // answers "was this source filtered", and the notification below must
-        // still fire after the local cleanup has run.
-        const hadFilter = this.layerFilters.delete(departed);
+        // Record whether the departed source carried a filter before the
+        // store drops it: the notification below must still fire after the
+        // local cleanup has run. A departed source must not re-render the
+        // heatmap, so the store's drop removes the record without applying.
+        const hadFilter =
+          this.filterStore.isOwned(this.layerId, departed) ||
+          this.filterStore.getFilter(this.layerId, departed) !== undefined;
         this.selectedLayerId = null;
+        this.filterStore.drop(this.layerId, departed);
         if (hadFilter) this.saveConfig();
-        // Local state and canvas converge first; the notification is
         // published through one operation so a throwing terminal count
         // consumer cannot cut the filter signal off.
         const operation = new SettledOperation(this.events);
@@ -1012,6 +998,16 @@ class HeatmapManager {
     return pts;
   }
 
+  /** Register the shared host under a source's (layerId, name) key. A
+   *  source is only ever written while selected (the panel edits the
+   *  selected row), so the one host object — whose normalize/apply read the
+   *  current selection at call time — is correct for every source it is
+   *  registered under. Idempotent: re-selecting a source re-registers the
+   *  same host (a no-op after the first call). */
+  private ensureFilterHost(sourceId: string): void {
+    this.filterStore.registerHost(this.layerId, sourceId, this.filterHost);
+  }
+
   // --- Filter capability ---
   //
   // This manager owns the filter: the LayerControl panel reads
@@ -1028,8 +1024,16 @@ class HeatmapManager {
   syncFilterField(): void {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
+    this.ensureFilterHost(sourceId);
     const field = pickFilterField(this.cachedSnapshot, this.effectiveField());
-    if (!dropFilterForField(this.layerFilters, sourceId, field)) return;
+    // A filter whose field no longer matches the effective field is dropped
+    // (the field list changed under it). The transform maps an unmatched
+    // filter to undefined; revalidate commits the drop without applying —
+    // the caller repaints and publishes LAYER_FILTER_CHANGE.
+    const changed = this.filterStore.revalidate(this.layerId, sourceId, f =>
+      f && dropStaleFilter(f, field) === f ? f : undefined,
+    );
+    if (!changed) return;
     this.cachedAgg = null;
     this.saveConfig();
   }
@@ -1044,13 +1048,15 @@ class HeatmapManager {
     this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
     const snapshot = this.cachedSnapshot;
     if (!snapshot || snapshot.numericFields.length === 0) return null;
-    // The owner is the single read path: dimensions (the range rail bound to
-    // the aggregation field), the committed filter (the slot's per-source
-    // value), and kept/total in the heatmap's own unit (hex cells, not source
+    // The store is the single read path: dimensions (the range rail bound to
+    // the aggregation field), the committed filter (the per-source value,
+    // falling back to the declaration when the user never took the slot),
+    // and kept/total in the heatmap's own unit (hex cells, not source
     // points: a filter that drops points inside a cell keeps the cell; the
     // bins cache is the unfiltered cell set, the drawn features are what the
     // committed filter kept).
-    return this.filterOwner.filterModel();
+    this.ensureFilterHost(sourceId);
+    return this.filterStore.filterModel(this.layerId, sourceId);
   }
   /** Write path for the filter panel. Validates the incoming atom against
    *  the current snapshot (unknown field or non-atom → no filter; range
@@ -1068,15 +1074,15 @@ class HeatmapManager {
   setFilter(filter: LayerFilter | undefined) {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
-    // The owner is the single write path: it normalizes (the snapshot is the
+    // The store is the single write path: it normalizes (the snapshot is the
     // validation baseline — build it here, cached after the first call so the
-    // steady path is free), routes the store write through the slot (the
-    // slot's store equality is authoritative — a no-op needs no re-render),
-    // persists, and runs the render-coupled publish tail (SettledOperation →
-    // renderHexagons → LAYER_FILTER_CHANGE → throwIfFailed). The owner
-    // returns false exactly when the old direct storeFilter early-returned,
-    // so the caller's shape is unchanged.
-    this.filterOwner.setFilter(filter);
+    // steady path is free), compares, commits, and runs the render-coupled
+    // publish tail (SettledOperation → renderHexagons → LAYER_FILTER_CHANGE →
+    // throwIfFailed) through the host's apply. Returns false exactly when the
+    // old direct storeFilter early-returned, so the caller's shape is
+    // unchanged.
+    this.ensureFilterHost(sourceId);
+    this.filterStore.setFilter(this.layerId, sourceId, filter);
   }
 
   /** One warning per declared-filter problem: the seed runs again on every
@@ -1104,20 +1110,23 @@ class HeatmapManager {
    *  dimension does not carry, no numeric extent) is reported once and
    *  ignored — never turned into a filter that hides the layer.
    *
-   *  Persistence caveat (deliberate, pinned by a test): the seeded filter
-   *  lives in the same per-source store a panel write uses, so any later save
-   *  of an unrelated setting (a color, a class count) persists it with the
-   *  rest of the record. If the author then changes the declaration, a user
-   *  who has ever saved another setting still hits the restored per-source
-   *  filter first — the seed is skipped by layerFilters.has(sourceId) — until
-   *  the filter row's Clear or the panel's Reset. That is the cost of "the
-   *  declaration is a starting condition and the user owns the slot from the
-   *  first write"; a second, declaration-only store would make Reset and the
-   *  filter panel disagree. */
+   *  Declaration-only seeding (no ownership): the declaration is a
+   *  construction-time constant captured via setDeclaration — never
+   *  written to persistence, never touched. Only a user write (setFilter)
+   *  takes the slot and persists; the store keeps the user's owned value
+   *  under its own key, and a declaration never survives a reload as a
+   *  filter. The old record's `filters`/`filtersTouched` are migrated ONCE
+   *  on load (a real user choice wins); a declaration-only slot seeds
+   *  fresh each load. */
   seedDeclaredFilter(): void {
-    if (this.filtersTouched) return;
     const sourceId = this.selectedLayerId;
-    if (!sourceId || this.layerFilters.has(sourceId)) return;
+    if (!sourceId) return;
+    this.ensureFilterHost(sourceId);
+    // A slot the user owns (a persisted record that says "cleared" or a
+    // committed value) keeps the user out; a restored per-source filter
+    // (owned) also wins. Only an un-owned slot takes the declaration.
+    if (this.filterStore.isOwned(this.layerId, sourceId)) return;
+    if (this.filterStore.getFilter(this.layerId, sourceId) !== undefined) return;
     if (!this.declaredFilter) {
       if (this.declaredFilterInvalid) {
         this.warnDeclaredFilter("unreadable declaration");
@@ -1180,9 +1189,9 @@ class HeatmapManager {
     }
     const next = normalizeFilter(declared, snapshot);
     // Undefined here means the declaration covers the whole extent: the same
-    // state as "no filter", so store nothing and stay quiet.
+    // state as "no filter", so declare nothing and stay quiet.
     if (!next) return;
-    storeFilter(this.layerFilters, sourceId, next);
+    this.filterStore.setDeclaration(this.layerId, sourceId, next);
   }
 
   /** Align the stored filter for the selected source with the freshly
@@ -1195,7 +1204,15 @@ class HeatmapManager {
     const sourceId = this.selectedLayerId;
     const snapshot = this.cachedSnapshot;
     if (!sourceId || !snapshot) return false;
-    if (!revalidateStoredFilter(this.layerFilters, sourceId, snapshot)) return false;
+    this.ensureFilterHost(sourceId);
+    // The store aligns the current committed-or-declared value against the
+    // fresh snapshot (clamp a between range into the current extent, drop a
+    // filter whose field disappeared) without applying or publishing — the
+    // render tail owns the repaint and the notification.
+    const changed = this.filterStore.revalidate(this.layerId, sourceId, f =>
+      normalizeFilter(f, snapshot),
+    );
+    if (!changed) return false;
     this.cachedAgg = null;
     this.saveConfig();
     return true;
@@ -1231,10 +1248,11 @@ class HeatmapManager {
     const filterRevalidated = this.revalidateFilter();
     const zoom = this.map.getZoom();
     const res = getH3Res(zoom);
-    const fKey = filterKey(this.layerFilters.get(this.selectedLayerId!));
+    const sourceId = this.selectedLayerId;
+    const fKey = filterKey(this.filterStore.getFilter(this.layerId, sourceId!));
     const includeSet = selectIndices(
       this.cachedSnapshot,
-      this.layerFilters.get(this.selectedLayerId!),
+      this.filterStore.getFilter(this.layerId, sourceId!),
       allPts.length,
     );
     // Bins cache: geometry only, independent of the filter. A filter
@@ -1357,7 +1375,13 @@ class HeatmapManager {
    *  clear entries (the panel's Clear button and LayerControl's more-menu
    *  delete) go through here, so the two can never drift apart. */
   resetState(config: ComponentConfig) {
-    const clearedFilter = this.layerFilters.size > 0;
+    // Was any source carrying a filter (owned or declared)? The whole-layer
+    // reset below drops the record without repainting; the notification
+    // fires only when there was something to clear.
+    const clearedFilter = this.filterStore.sources(this.layerId).some(src =>
+      this.filterStore.isOwned(this.layerId, src) ||
+      this.filterStore.getFilter(this.layerId, src) !== undefined,
+    );
     this.selectedLayerId = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
@@ -1369,9 +1393,11 @@ class HeatmapManager {
     this.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
     this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
-    // The clear wipes the row's data — every source's filter is a statement
-    // about data that no longer exists.
-    this.layerFilters.clear();
+    // The clear wipes the row's data — every source's filter (and its
+    // declaration) is a statement about data that no longer exists. The
+    // store's whole-layer reset drops the record + declarations; the next
+    // seed re-establishes the declaration against the fresh snapshot.
+    this.filterStore.reset(this.layerId);
     this.cachedSnapshot = null;
     this.cachedSnapshotLayerId = null;
     // Reset returns the manager to the Python-declared starting state: the
@@ -1380,7 +1406,6 @@ class HeatmapManager {
     // filter slot's ownership goes with it — the declared filter is part of
     // the declared state Reset returns to.
     this.hasScanned = false;
-    this.filtersTouched = false;
     if (clearedFilter) {
       publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }

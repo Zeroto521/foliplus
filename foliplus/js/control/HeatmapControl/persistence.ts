@@ -3,11 +3,7 @@
 // state surface.
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
-import {
-  type LayerFilter,
-  parsePersistedFilters,
-  restoreFilters,
-} from "#core/layer/index.js";
+import { type LayerFilter, parsePersistedFilters } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import * as Storage from "#common/storage.js";
 import { clampBorderWeight, clampLabelSize } from "#ui/index.js";
@@ -120,11 +116,13 @@ interface ManagerLike {
    *  user's pick under it. Optional so plain state objects stay valid. */
   invalidateEffectiveField?: () => void;
   hasScanned: boolean;
-  /** Per-source committed filters (restored before the first render, then
-   *  re-validated against the rebuilt snapshot by the manager). */
-  layerFilters: Map<string, LayerFilter>;
-  /** Whether the user owns the filter slot (see SavedConfig.filtersTouched). */
-  filtersTouched: boolean;
+  /** The heatmap's own canvas layer id — the store's layer key. */
+  layerId: string;
+  /** The shared per-map filter store (see core/layer/filterStore). */
+  filterStore: {
+    setDeclaration(layerId: string, name: string, filter: LayerFilter): void;
+    restore(layerId: string, name: string, filter: LayerFilter): void;
+  };
 }
 
 /** Load saved configuration from localStorage, through the runtime schema. */
@@ -171,15 +169,29 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   // it and must not answer the first render.
   mgr.invalidateEffectiveField?.();
   mgr.selectedLayerId = saved.layerId ?? null;
-  // Restore the record's filter map as-is; the first render revalidates each
-  // stored filter against the rebuilt snapshot (clamp to the current extent,
-  // drop a field that disappeared) before it can exclude a point.
-  restoreFilters(mgr.layerFilters, saved.filters);
-  // A record written before this key existed carries no ownership: its filter
-  // map (if any) is restored above and still wins per source, and the
-  // declaration may seed a source the record never filtered.
-  if (saved.filtersTouched !== undefined) {
-    mgr.filtersTouched = saved.filtersTouched;
+  // The filter half migrated to FilterStore: the old record's filters are
+  // genuine user-saved state, read ONCE here and restored into the store
+  // (owned, so the user's choice wins over the declaration). A source the
+  // user never touched (filtersTouched === false) is a seeded declaration
+  // that got persisted by an unrelated save — migrate it as a declaration,
+  // not an owned value. The store is single-sourced afterwards; the old key
+  // is never written again (see createPersisted's comment).
+  if (saved.filters && Object.keys(saved.filters).length > 0) {
+    if (saved.filtersTouched === false) {
+      // A record that says the user never took the slot: the persisted values
+      // are just seeded declarations. Capture them as declarations (the store
+      // never persists a declaration), so a later user write wins.
+      for (const [sourceId, filter] of Object.entries(saved.filters)) {
+        mgr.filterStore.setDeclaration(mgr.layerId, sourceId, filter);
+      }
+    } else {
+      // A record that says the user owns the slot: restore each source's
+      // filter as owned (value + touched, no normalize/apply — the draw is
+      // the render path's job). The store's record becomes the home.
+      for (const [sourceId, filter] of Object.entries(saved.filters)) {
+        mgr.filterStore.restore(mgr.layerId, sourceId, filter);
+      }
+    }
   }
 };
 

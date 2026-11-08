@@ -1,0 +1,28 @@
+wip(heatmap): migrate the type filter onto the shared filterStore
+
+Heatmap manager + persistence + tests migrated OFF filterOwner and onto the
+shared per-map filterStore (Measure did this first in 9f1b2dba).
+
+- manager.ts: layerFilters Map + filtersTouched field dropped; a per-source
+  filterHost {normalize, apply, dimensions, counts} is registered per source
+  via ensureFilterHost(sourceId); seedDeclaredFilter now declaration-only
+  (setDeclaration, never persisted); renderHexagons reads the store; the
+  departure and reset paths use store drop/reset. createPersisted keeps style
+  fields + field, writes no filters/filtersTouched (old key read ONCE to
+  migrate).
+- persistence.ts: applySavedConfig migrates the old record's filters ONCE
+  (filtersTouched===false -> setDeclaration per source; else restore per
+  source, value+touched). SavedConfig type still carries filters/filtersTouched
+  for the one-read migration.
+- filterStore.ts: revalidate(layerId,name,transform) added (aligns a stored
+  filter with the rebuilt snapshot without applying/publishing); restore is
+  now a WRITE (value+touched, no normalize/apply) and resolve() is the read.
+- tests: manager.test.ts rewritten to the store API (fsGet/fsHas/fsSize
+  helpers + FILTER_STORE_KEY assertions); filterStore.test.ts +31 lines
+  (revalidate + declaration-only persistence + same-name-different-layer).
+
+NOT COMPLETE: 9 of 248 manager tests still fail (field-save restore was added
+after this snapshot; malformed-filter migration + source-listing semantics +
+declaration-ownership seeding need alignment). Remaining steps per lead:
+LayerControl filter segment + filterOwner.ts deletion, then the store guard
+grep.

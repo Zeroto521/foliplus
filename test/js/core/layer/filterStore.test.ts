@@ -455,4 +455,35 @@ describe("filterStore — invariants", () => {
       enumFilter("distance"),
     );
   });
+  it("drop removes a source's persisted value and declaration without applying or publishing", () => {
+    const store = createFilterStore();
+    const applied: unknown[] = [];
+    const published: unknown[] = [];
+    store.registerHost("L1", "filter", {
+      ...makeEnumHost(["marker", "distance"]),
+      apply: f => applied.push(f),
+      publish: f => published.push(f),
+    });
+    store.setDeclaration("L1", "filter", enumFilter("marker"));
+    store.setFilter("L1", "filter", enumFilter("distance"));
+    expect(store.isOwned("L1", "filter")).toBe(true);
+    // drop: record value + declaration removed, no apply/publish (the caller —
+    // a departed data layer — owns the repaint).
+    applied.length = 0;
+    published.length = 0;
+    store.drop("L1", "filter");
+    expect(store.isOwned("L1", "filter")).toBe(false);
+    expect(store.getFilter("L1", "filter")).toBeUndefined();
+    expect(store.resolve("L1", "filter", enumFilter("marker"))).toEqual(
+      enumFilter("marker"),
+    );
+    expect(applied).toEqual([]);
+    expect(published).toEqual([]);
+  });
+
+  it("drop is a no-op on an unregistered or empty source", () => {
+    const store = createFilterStore();
+    expect(store.drop("L1", "ghost")).toBeUndefined();
+    expect(store.sources("L1")).toEqual([]);
+  });
 });

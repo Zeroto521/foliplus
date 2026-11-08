@@ -121,6 +121,12 @@ interface FilterStore {
    *  panel reset — never call this from a Reset button). Repaint-free; the
    *  caller owns carrier teardown via its own `apply`. */
   reset(layerId: string, source?: string): void;
+  /** Drop one source's persisted value AND its declaration without applying
+   *  or publishing — the source (a data layer) is gone, and the caller owns
+   *  the repaint (it clears the canvas itself). Distinct from `reset(layerId,
+   *  source)`, which repaints the declaration; a departed source must not
+   *  re-render the heatmap. No-op when the source has no record. */
+  drop(layerId: string, source: string): void;
   /** The model a filter panel renders for one source. */
   filterModel(layerId: string, name: string): LayerFilterModel;
   /** Re-validate a source's filter against a snapshot-derived transform.
@@ -197,6 +203,30 @@ const createFilterStore = (): FilterStore => {
     record.layers[layerId] = layer;
     layer.sources[name] = { touched, value: next };
     writeRecord(record);
+  };
+
+  /** Remove one source's persisted value from the record (no apply, no
+   *  publish). Shared by `reset` (which then repaints the declaration) and
+   *  `drop` (which does not). Returns whether a source entry was removed. */
+  const dropSource = (layerId: string, source: string): boolean => {
+    const record = readRecord();
+    const layer = record.layers[layerId];
+    if (!layer?.sources?.[source]) return false;
+    delete layer.sources[source];
+    // A layer whose last source was cleared is empty: drop the layer entry
+    // too, so a factory Reset on the only surface leaves no residue.
+    if (Object.keys(layer.sources).length === 0) {
+      delete record.layers[layerId];
+    }
+    // When no layer entry remains anywhere, remove the whole key (the old
+    // per-surface clear removed the key it wrote). A record with sibling
+    // layers keeps its other entries.
+    if (Object.keys(record.layers).length === 0) {
+      removeRecord(FILTER_STORE_KEY);
+    } else {
+      writeRecord(record);
+    }
+    return true;
   };
 
   const store: FilterStore = {
@@ -283,22 +313,9 @@ const createFilterStore = (): FilterStore => {
       const host = hosts.get(keyOf(layerId, source));
       const entry = layer.sources[source];
       if (!entry) return;
-      delete layer.sources[source];
-      // A layer whose last source was cleared is empty: drop the layer entry
-      // too, so a factory Reset on the only surface leaves no residue. The
-      // declaration is KEPT — a source reset returns to it (the reset
-      // contract) — so only the whole-layer reset drops it.
-      if (Object.keys(layer.sources).length === 0) {
-        delete record.layers[layerId];
-      }
-      // When no layer entry remains anywhere, remove the whole key (the old
-      // per-surface clear removed the key it wrote). A record with sibling
-      // layers keeps its other entries.
-      if (Object.keys(record.layers).length === 0) {
-        removeRecord(FILTER_STORE_KEY);
-      } else {
-        writeRecord(record);
-      }
+      // Remove the source's persisted value (shared with `drop`), keeping
+      // the declaration — a source reset returns to it (the reset contract).
+      dropSource(layerId, source);
       // Return the surface to its declaration and repaint through its own
       // carrier — the store never touches the carrier directly.
       const declared =
@@ -306,6 +323,17 @@ const createFilterStore = (): FilterStore => {
         (entry.touched ? undefined : entry.value);
       host?.apply(declared);
       host?.publish?.(declared);
+    },
+    drop(layerId, source) {
+      const record = readRecord();
+      const layer = record.layers[layerId];
+      if (!layer?.sources?.[source]) return;
+      dropSource(layerId, source);
+      // A departed source is gone: its declaration is stale and must not
+      // re-seed a future re-add of the same id. Only the persisted value and
+      // the declaration are removed — no apply, no publish (the caller owns
+      // the repaint; a departed source must not re-render the heatmap).
+      declarations.get(layerId)?.delete(source);
     },
     filterModel(layerId, name) {
       const host = hosts.get(keyOf(layerId, name));
