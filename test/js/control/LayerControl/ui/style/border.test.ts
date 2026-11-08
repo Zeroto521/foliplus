@@ -1302,6 +1302,10 @@ describe("buildBorderRow", () => {
     expect(readOnly?.tagName).toBe("INPUT");
     expect(readOnly?.disabled).toBe(true);
     expect(readOnly?.readOnly).toBe(true);
+    // The shared no-edit class is present so the unified hover rule in
+    // common/input.css excludes it — a disabled border swatch carries no
+    // hover/focus hint, same channel as the fill original arm's read-only box.
+    expect(readOnly?.classList.contains("foliplus-readonly")).toBe(true);
     // The weight stays editable: it is a user-facing stroke attribute.
     const weight = row.querySelector(
       ".foliplus-style-border-weight-input",
@@ -1325,6 +1329,32 @@ describe("buildBorderRow", () => {
     expect(getIntent(ui, "vec1", "borderColor")).toBeUndefined();
     expect(ui.intentStore.isUserSet("vec1", "borderColor")).toBe(false);
     expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("shows the author's stroke again after a solid → original round-trip", () => {
+    // The reported bug: set a color in the single-color (solid) arm, switch
+    // back to ORIGINAL, and the row showed the user's color instead of the
+    // author's. ORIGINAL owns no user color — the row must read the author
+    // face, never INTENT.BORDER_COLOR (which stays stored for the return to
+    // solid).
+    const leaf = makeLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    setIntent(ui, "vec1", "borderMode", "solid");
+    setIntent(ui, "vec1", "borderColor", "#ff0000");
+
+    // Switch to ORIGINAL: the row rebuilds and must show the author's green,
+    // not the user's red.
+    setIntent(ui, "vec1", "borderMode", "original");
+    const row = buildBorderRow(ui, "vec1");
+    const swatch = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement;
+    expect(swatch.value).toBe("#00ff00");
+    // The row is inert: no picker, no edit.
+    expect(swatch.disabled).toBe(true);
+    expect(swatch.readOnly).toBe(true);
+    // The intent stays stored: returning to solid hands the user's color back.
+    expect(getIntent(ui, "vec1", "borderColor")).toBe("#ff0000");
   });
 });
 

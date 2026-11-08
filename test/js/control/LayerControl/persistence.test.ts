@@ -1624,3 +1624,54 @@ describe("borderMode value domain", () => {
     expect(makePersistence().load().layers.a).toBeUndefined();
   });
 });
+
+describe("borderValue parse", () => {
+  // The border's value config rides the same parseFillValue path as the
+  // fill's (one predicate, one shape) — but the PARSE_OVERRIDE key is its
+  // own arrow, so a borderValue record must be exercised on its own to
+  // prove the key is wired. The fillValue suite owns the shared validator's
+  // edge cases; this block proves the border key dispatches to it.
+  it("keeps a legal numeric borderValue record", () => {
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: {
+        a: {
+          borderValue: {
+            field: "count",
+            method: "quantile",
+            classes: 5,
+            scheme: "Reds",
+          },
+          overrides: ["borderValue"],
+        },
+      },
+    });
+    const loaded = makePersistence().load().layers.a;
+    expect(loaded).toEqual({
+      borderValue: {
+        kind: undefined,
+        field: "count",
+        method: "quantile",
+        classes: 5,
+        scheme: "Reds",
+      },
+      overrides: ["borderValue"],
+    });
+  });
+
+  it("drops a borderValue outside the shared validator's domain", () => {
+    for (const bad of [
+      { field: "", method: "equal", classes: 3, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 1, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 3, scheme: "" },
+      "Reds",
+      null,
+    ]) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderValue: bad, overrides: ["borderValue"] } },
+      });
+      expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+    }
+  });
+});

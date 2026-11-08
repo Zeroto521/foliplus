@@ -7,7 +7,10 @@
 // (2) every referenced t()/ui.T() locale key exists in both zh and en,
 // (3) STYLE_MODE keys are defined and non-empty in both zh and en.
 //
-// Pure string constants, no foliplus runtime import (same tier as sliderKeys).
+// Pure string constants, no foliplus runtime import. This module is the
+// locale-key vocabulary for the style mode, in the *Key family (the locale
+// key constants) — distinct from the *ClassName family, which owns CSS class
+// lists (see AGENTS.md directory notes).
 
 const STYLE_MODE = {
   ORIGINAL: "style_mode_original",

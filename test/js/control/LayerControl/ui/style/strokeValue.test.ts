@@ -14,10 +14,18 @@ import {
   applyValueStroke,
   resolveStrokeMode,
 } from "#control/LayerControl/ui/style/strokeValue.js";
+import { applyValuePaint } from "#control/LayerControl/ui/style/valuePaint.js";
 
 vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
 }));
+vi.mock("#control/LayerControl/ui/style/valuePaint.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("#control/LayerControl/ui/style/valuePaint.js")>();
+  return {
+    ...actual,
+    applyValuePaint: vi.fn(actual.applyValuePaint),
+  };
+});
 
 /** Install a chroma stub that hands back a fixed color list, whatever
  *  count was requested — used to force the out-of-bounds fallback. */
@@ -112,6 +120,61 @@ describe("resolveStrokeMode", () => {
 });
 
 describe("applyValueStroke", () => {
+  it("delegates the whole paint to the shared applyValuePaint skeleton", () => {
+    // The single-source convergence contract (P1): the stroke arm must not
+    // rebuild the collect/ramp/write/pin machinery — it assembles a
+    // ValueFaceDecl and calls applyValuePaint, so a change to the shared
+    // mode lands on both the fill and the stroke arm from one place.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const layer = makeLayer(makeLeaf({ properties: { value: 5 } }));
+    const ramp = makeRamp();
+    applyValueStroke(
+      makeUI(layer),
+      "overlay1",
+      ramp,
+      undefined,
+      liveRampOf(ramp),
+      liveModeOf("value"),
+    );
+    expect(applyValuePaint).toHaveBeenCalledTimes(1);
+    // The declaration tells the shared mode the stroke face: DIM.BORDER + the
+    // stroke face + the color slot + the style-leaf walker.
+    const [ui, layerId, value, decl] = (applyValuePaint as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    expect(ui).toBeDefined();
+    expect(layerId).toBe("overlay1");
+    expect(value).toEqual(ramp);
+    expect(decl.colorKey).toBe("color");
+    expect(decl.walkLeaves).toBeDefined();
+    // The shared mode wrote through commitStyleDim (the paint path ran).
+    expect(layer.leaves[0].setStyle).toHaveBeenCalled();
+  });
+
+  it("reaches line leaves as well as area leaves (walkStyleLeaves, not walkFillLeaves)", () => {
+    // The semantic difference between the stroke walker and the fill walker:
+    // a Polyline owns a setStyle but is not areal, so walkFillLeaves would
+    // skip it and the border would never paint a line's stroke. The value
+    // stroke must reach both geometries — one walk, no geometry filter.
+    installChroma(["#ff0000", "#00ff00"]);
+    const line = makeLeaf(
+      { properties: { value: 1 }, geometry: { type: "LineString" } },
+      { color: "#111111" },
+    );
+    const area = makeLeaf({ properties: { value: 9 } });
+    const layer = makeLayer(line, area);
+    applyValueStroke(
+      makeUI(layer),
+      "overlay1",
+      makeRamp({ classes: 2 }),
+      undefined,
+      liveRampOf(makeRamp({ classes: 2 })),
+      liveModeOf("value"),
+    );
+    // Both leaves painted — the line leaf's color is the ramp's first class.
+    expect((line.setStyle as any).mock.calls[0][0].color).toBe("#ff0000");
+    expect((area.setStyle as any).mock.calls[0][0].color).toBe("#00ff00");
+  });
+
   it("classifies values and writes per-leaf color via commitStyleDim", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeLayer(
