@@ -29,7 +29,7 @@ const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
     key !== DIM.BORDER &&
     key !== DIM.SIZE &&
     key !== DIM.ICON &&
-    key !== DIM.MARKER_COLOR,
+    key !== DIM.ICON_COLOR,
 );
 
 /** Whether the layer delegates its style to the drawer via styleSetters

@@ -105,7 +105,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  */
 const DIM_ORDER = [
   DIM.ICON,
-  DIM.MARKER_COLOR,
+  DIM.ICON_COLOR,
   DIM.FILL,
   DIM.SIZE,
   DIM.BORDER,

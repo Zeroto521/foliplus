@@ -1,7 +1,7 @@
-// control/LayerControl/ui/style/markerColor — the per-layer marker
-// colour dimension (awesome-markers `markerColor` face), orthogonal to the
+// control/LayerControl/ui/style/iconColor — the per-layer icon
+// color dimension (awesome-markers `iconColor` face), orthogonal to the
 // glyph. This file pins the DOM/panel-level contract: the gate's positive
-// and negative carriers, the merged single-construction derive (colour and
+// and negative carriers, the merged single-construction derive (color and
 // glyph never split across two writes), Reset restoring the author paint
 // without clearing a user glyph, and the persistence parser.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,13 +11,13 @@ import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT, getIntent } from "#control/LayerControl/ui/intent.js";
 import { applyIconToLayer } from "#control/LayerControl/ui/style/icon.js";
 import {
-  MARKER_COLOR_DIMENSION,
-  applyMarkerColorToLayer,
-  buildMarkerColorRow,
-  commitMarkerColor,
-  layerCanMarkerColor,
-  resetLayerMarkerColor,
-} from "#control/LayerControl/ui/style/markerColor.js";
+  ICON_COLOR_DIMENSION,
+  applyIconColorToLayer,
+  buildIconColorRow,
+  commitIconColor,
+  layerCanIconColor,
+  resetLayerIconColor,
+} from "#control/LayerControl/ui/style/iconColor.js";
 import { writeIntentKeys } from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 import { initFixture } from "../fixture.js";
@@ -53,7 +53,7 @@ afterEach(() => {
   (window as any).__glyphProbePainted = true;
 });
 
-// A marker leaf: the layer type the colour dimension owns. It carries a
+// A marker leaf: the layer type the color dimension owns. It carries a
 // runtime `setIcon` (the duck-type the capability probe keys on) and an
 // `options.icon` that `setIcon` replaces in place.
 const makeMarker = (props: Record<string, unknown> = {}, icon?: unknown): any => {
@@ -103,15 +103,15 @@ const fixtureWithMarkers = (markers: any[]) => {
   return { ...fixture, layer };
 };
 
-const flushMarkerColor = (id: string) => flushStyleDimApply(FACE.MARKER_COLOR, id);
+const flushIconColor = (id: string) => flushStyleDimApply(FACE.ICON_COLOR, id);
 
 // A realistic awesome-markers author icon. Its `options` declares a
-// `markerColor` face (the capability probe keys on this), and its
-// `createIcon` returns an <i> with the author's inline colour.
-const makeAuthorIcon = (opts: { markerColor?: string; innerColor?: string } = {}) => {
+// `iconColor` face (the capability probe keys on this), and its
+// `createIcon` returns an <i> with the author's inline color.
+const makeAuthorIcon = (opts: { iconColor?: string; innerColor?: string } = {}) => {
   const author: any = {
     options: {
-      markerColor: opts.markerColor ?? "blue",
+      iconColor: opts.iconColor ?? "blue",
       className: "awesome-marker",
       iconSize: [36, 46],
       iconAnchor: [18, 46],
@@ -141,8 +141,8 @@ const makeAuthorIcon = (opts: { markerColor?: string; innerColor?: string } = {}
   return author;
 };
 
-// A plain divIcon author: NO markerColor face. The capability probe must
-// answer "none" so the marker-colour row never renders for this carrier.
+// A plain divIcon author: NO iconColor face. The capability probe must
+// answer "none" so the marker-color row never renders for this carrier.
 const makePlainDivIconAuthor = () => ({
   options: { className: "plain-div-icon" },
   createIcon: vi.fn(() => {
@@ -155,13 +155,27 @@ const makePlainDivIconAuthor = () => ({
   }),
 });
 
-describe("layerCanMarkerColor", () => {
+// An <img>-based author (Icon.Default / iconUrl): the glyph capability probe
+// must answer "none" — an <img> has no children, so no glyph can be inserted.
+const makeImgAuthor = () => ({
+  options: { className: "leaflet-marker-icon" },
+  createIcon: vi.fn(() => {
+    const img = document.createElement("img");
+    img.className = "leaflet-marker-icon";
+    return img;
+  }),
+  _setIconStyles: vi.fn((div: HTMLElement) => {
+    div.className = "leaflet-marker-icon";
+  }),
+});
+
+describe("layerCanIconColor", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
     ({ manager, ui } = fixtureWithMarkers([
-      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" })),
+      makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "blue" })),
     ]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
@@ -171,20 +185,30 @@ describe("layerCanMarkerColor", () => {
     vi.useRealTimers();
   });
 
-  it("accepts an awesome-markers carrier (markerColor face declared)", () => {
-    expect(layerCanMarkerColor(ui, "overlay1")).toBe(true);
+  it("accepts an awesome-markers carrier (iconColor face declared)", () => {
+    expect(layerCanIconColor(ui, "overlay1")).toBe(true);
   });
 
-  it("declines a plain divIcon carrier (no markerColor face)", () => {
+  it("accepts a plain divIcon carrier (div-based, glyph insertable)", () => {
+    // Lead decision 1: a div-type icon (plain DivIcon / awesome-markers) can
+    // hold a glyph node even if the author drew none — the probe is "native".
     const plain = makeMarker({ type: "school" }, makePlainDivIconAuthor());
     const { ui: u2 } = fixtureWithMarkers([plain]);
-    expect(layerCanMarkerColor(u2, "overlay1")).toBe(false);
+    expect(layerCanIconColor(u2, "overlay1")).toBe(true);
+  });
+
+  it("declines an <img>-based icon (Icon.Default / iconUrl)", () => {
+    // The negative carrier: an <img> has no children, so no glyph node can
+    // be inserted — the probe reads "none" and the row never renders.
+    const img = makeMarker({ type: "school" }, makeImgAuthor());
+    const { ui: u5 } = fixtureWithMarkers([img]);
+    expect(layerCanIconColor(u5, "overlay1")).toBe(false);
   });
 
   it("declines a leaf with no icon at all", () => {
     const bare = makeMarker({ type: "school" });
     const { ui: u3 } = fixtureWithMarkers([bare]);
-    expect(layerCanMarkerColor(u3, "overlay1")).toBe(false);
+    expect(layerCanIconColor(u3, "overlay1")).toBe(false);
   });
 
   it("declines a non-marker layer (polygon)", () => {
@@ -192,21 +216,21 @@ describe("layerCanMarkerColor", () => {
     const { ui: u4 } = initFixture({
       data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
     });
-    expect(layerCanMarkerColor(u4, "overlay1")).toBe(false);
+    expect(layerCanIconColor(u4, "overlay1")).toBe(false);
   });
 
   it("declines a layer not in the registry", () => {
-    expect(layerCanMarkerColor(ui, "nope")).toBe(false);
+    expect(layerCanIconColor(ui, "nope")).toBe(false);
   });
 });
 
-describe("buildMarkerColorRow", () => {
+describe("buildIconColorRow", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
     ({ manager, ui } = fixtureWithMarkers([
-      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" })),
+      makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "blue" })),
     ]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
@@ -218,46 +242,46 @@ describe("buildMarkerColorRow", () => {
   });
 
   it("renders the row for an awesome-markers carrier", () => {
-    const row = buildMarkerColorRow(ui, "overlay1");
+    const row = buildIconColorRow(ui, "overlay1");
     expect(row).not.toBeNull();
-    expect(row!.classList.contains(CONST.CLASSES.STYLE_MARKER_COLOR_ROW)).toBe(true);
+    expect(row!.classList.contains(CONST.CLASSES.STYLE_ICON_COLOR_ROW)).toBe(true);
     expect(row!.querySelector("input[type=color]")).not.toBeNull();
   });
 
-  it("returns null for a plain divIcon carrier (capability gate negative)", () => {
-    const plain = makeMarker({ type: "school" }, makePlainDivIconAuthor());
-    const { ui: u2 } = fixtureWithMarkers([plain]);
-    expect(buildMarkerColorRow(u2, "overlay1")).toBeNull();
+  it("returns null for an <img>-based icon (capability gate negative)", () => {
+    const img = makeMarker({ type: "school" }, makeImgAuthor());
+    const { ui: u6 } = fixtureWithMarkers([img]);
+    expect(buildIconColorRow(u6, "overlay1")).toBeNull();
   });
 
-  it("shows the author colour as the default value", () => {
-    // A hex author colour survives the row's colour-input normalisation.
+  it("shows the author color as the default value", () => {
+    // A hex author color survives the row's color-input normalisation.
     const hex = makeMarker(
       { type: "school" },
-      makeAuthorIcon({ markerColor: "#3366ff" }),
+      makeAuthorIcon({ iconColor: "#3366ff" }),
     );
     const { ui: uHex } = fixtureWithMarkers([hex]);
-    const row = buildMarkerColorRow(uHex, "overlay1")!;
+    const row = buildIconColorRow(uHex, "overlay1")!;
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#3366ff");
   });
 
-  it("shows the user's stored colour when one is set", () => {
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#ff0000"]]);
-    const row = buildMarkerColorRow(ui, "overlay1")!;
+  it("shows the user's stored color when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
+    const row = buildIconColorRow(ui, "overlay1")!;
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#ff0000");
   });
 });
 
-describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", () => {
+describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => {
   let manager: LayerController;
   let ui: LayerUI;
   let school: any;
   let authorIcon: any;
 
   beforeEach(() => {
-    authorIcon = makeAuthorIcon({ markerColor: "blue" });
+    authorIcon = makeAuthorIcon({ iconColor: "blue" });
     school = makeMarker({ type: "school" }, authorIcon);
     ({ manager, ui } = fixtureWithMarkers([school]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
@@ -271,80 +295,80 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("commit writes the intent and schedules an apply", () => {
-    commitMarkerColor(ui, "overlay1", "#00ff00");
-    const intent = getIntent(ui, "overlay1", INTENT.MARKER_COLOR);
+    commitIconColor(ui, "overlay1", "#00ff00");
+    const intent = getIntent(ui, "overlay1", INTENT.ICON_COLOR);
     expect(intent).toBe("#00ff00");
-    flushMarkerColor("overlay1");
+    flushIconColor("overlay1");
     expect(school.setIcon).toHaveBeenCalled();
     const written = school.options.icon;
     expect(written).not.toBe(authorIcon);
-    // The derived icon carries the colour in ONE construction with the glyph.
+    // The derived icon carries the color in ONE construction with the glyph.
     const div = written.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
     expect(inner.className).toContain("foliplus-marker-glyph");
   });
 
-  it("apply is a no-op without a colour intent", () => {
-    applyMarkerColorToLayer(ui, "overlay1");
+  it("apply is a no-op without a color intent", () => {
+    applyIconColorToLayer(ui, "overlay1");
     expect(school.setIcon).not.toHaveBeenCalled();
     expect(school.options.icon).toBe(authorIcon);
   });
 
-  it("merged construction: setting a glyph then a colour keeps both", () => {
+  it("merged construction: setting a glyph then a color keeps both", () => {
     // Simulate the glyph dimension having already written its intent.
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
-    commitMarkerColor(ui, "overlay1", "#ff0000");
-    flushMarkerColor("overlay1");
+    commitIconColor(ui, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
-    // The glyph survived the colour write (single construction merged both).
+    // The glyph survived the color write (single construction merged both).
     expect(inner.className).toContain("foliplus-marker-glyph");
     expect(inner.className).toContain("fa-star");
     expect(inner.style.color).toBe("rgb(255, 0, 0)");
   });
 
-  it("merged construction: setting a colour then a glyph keeps both", () => {
-    commitMarkerColor(ui, "overlay1", "#00ff00");
-    flushMarkerColor("overlay1");
+  it("merged construction: setting a color then a glyph keeps both", () => {
+    commitIconColor(ui, "overlay1", "#00ff00");
+    flushIconColor("overlay1");
     // Now the glyph dimension writes its intent and applies (applyIconToLayer
-    // merges the current colour into the same derived construction).
+    // merges the current color into the same derived construction).
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
     applyIconToLayer(ui, "overlay1");
     flushStyleDimApply(FACE.ICON, "overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
-    // The colour survived the glyph write.
+    // The color survived the glyph write.
     expect(inner.className).toContain("fa-star");
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
   });
 
   it("reset restores the author paint and drops the intent", () => {
-    commitMarkerColor(ui, "overlay1", "#ff0000");
-    flushMarkerColor("overlay1");
+    commitIconColor(ui, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
     expect(school.options.icon).not.toBe(authorIcon);
-    resetLayerMarkerColor(ui, "overlay1");
-    flushMarkerColor("overlay1");
+    resetLayerIconColor(ui, "overlay1");
+    flushIconColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
-    // Reset restored the author paint: the author declares markerColor "blue",
+    // Reset restored the author paint: the author declares iconColor "blue",
     // so the derived icon paints blue (white is only the no-author-color
     // fallback). The glyph is re-derived in the SAME construction.
     expect(inner.style.color).toBe("blue");
-    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
   });
 
   it("reset preserves a user-set glyph (orthogonal)", () => {
-    // User set both a glyph and a colour.
+    // User set both a glyph and a color.
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON, { kind: "glyph", value: "star" }],
-      [INTENT.MARKER_COLOR, "#ff0000"],
+      [INTENT.ICON_COLOR, "#ff0000"],
     ]);
-    commitMarkerColor(ui, "overlay1", "#ff0000");
-    flushMarkerColor("overlay1");
-    // Reset the colour only — the glyph must survive.
-    resetLayerMarkerColor(ui, "overlay1");
-    flushMarkerColor("overlay1");
+    commitIconColor(ui, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
+    // Reset the color only — the glyph must survive.
+    resetLayerIconColor(ui, "overlay1");
+    flushIconColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
     expect(inner.className).toContain("foliplus-marker-glyph");
@@ -352,27 +376,54 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("reset skips a missing layer without throwing", () => {
-    expect(() => resetLayerMarkerColor(ui, "nope")).not.toThrow();
+    expect(() => resetLayerIconColor(ui, "nope")).not.toThrow();
   });
 
   it("reset is a no-op when the layer left the map", () => {
-    commitMarkerColor(ui, "overlay1", "#ff0000");
-    flushMarkerColor("overlay1");
+    commitIconColor(ui, "overlay1", "#ff0000");
+    flushIconColor("overlay1");
     vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
-    expect(() => resetLayerMarkerColor(ui, "overlay1")).not.toThrow();
-    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+    expect(() => resetLayerIconColor(ui, "overlay1")).not.toThrow();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
     vi.restoreAllMocks();
+  });
+
+  it("set Icon Color changes the glyph color only, NOT the chassis", () => {
+    // Lead decision 3: the icon color dimension must NOT touch the pin chassis.
+    // The derived icon's outer div (chassis) keeps the author's paint
+    // (className, backgroundImage, backgroundPosition, size, anchor),
+    // while the inner <i> (glyph) carries the new color.
+    const authorDiv = authorIcon.createIcon();
+    const before = {
+      className: authorDiv.className,
+      backgroundImage: authorDiv.style.backgroundImage,
+      backgroundPosition: authorDiv.style.backgroundPosition,
+      width: authorDiv.style.width,
+      height: authorDiv.style.height,
+    };
+    commitIconColor(ui, "overlay1", "#00ff00");
+    flushIconColor("overlay1");
+    const div = school.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    // Chassis unchanged.
+    expect(div.className).toBe(before.className);
+    expect(div.style.backgroundImage).toBe(before.backgroundImage);
+    expect(div.style.backgroundPosition).toBe(before.backgroundPosition);
+    expect(div.style.width).toBe(before.width);
+    expect(div.style.height).toBe(before.height);
+    // Glyph changed.
+    expect(inner.style.color).toBe("rgb(0, 255, 0)");
   });
 });
 
-describe("markerColor dimension — surface integration", () => {
-  it("registers the dimension with the markerColor face", () => {
+describe("iconColor dimension — surface integration", () => {
+  it("registers the dimension with the iconColor face", () => {
     // The dimension must declare its own face so it never fights the icon
     // dimension over one coalescer slot (registry.test pins the faces set).
-    expect(MARKER_COLOR_DIMENSION).toBeDefined();
-    expect(MARKER_COLOR_DIMENSION.contentChange).toMatchObject({
+    expect(ICON_COLOR_DIMENSION).toBeDefined();
+    expect(ICON_COLOR_DIMENSION.contentChange).toMatchObject({
       kind: "frame",
-      face: FACE.MARKER_COLOR,
+      face: FACE.ICON_COLOR,
     });
   });
 });

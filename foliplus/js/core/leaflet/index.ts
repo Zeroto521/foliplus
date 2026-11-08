@@ -32,7 +32,7 @@ export {
 } from "./panel.js";
 export {
   applyIconToLeaves,
-  applyMarkerColorToLeaves,
+  applyIconColorToLeaves,
   authorGlyphName,
   buildMarkerIcon,
   captureAuthorIcon,

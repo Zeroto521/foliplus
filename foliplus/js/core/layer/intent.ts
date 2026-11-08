@@ -153,7 +153,7 @@ type LayerOverride =
   | "zoomRange"
   | "size"
   | "icon"
-  | "markerColor";
+  | "iconColor";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -234,11 +234,11 @@ type LayerIntent = {
   /** The marker-icon override: one glyph name for every marker leaf;
    *  absent = the author's icons stay. */
   icon?: IconIntent;
-  /** The marker colour the user set in the style panel (a single hex for
-   *  every marker leaf, the awesome-markers `markerColor` face).
+  /** The marker color the user set in the style panel (a single hex for
+   *  every marker leaf, the glyph color face).
    *  LayerControl owns the write — a self-managed dimension, see
-   *  ui/style/markerColor.ts. */
-  markerColor?: string;
+   *  ui/style/iconColor.ts. */
+  iconColor?: string;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -282,10 +282,10 @@ type PersistedLayerState = {
    *  name for every marker leaf). LayerControl owns the write — a
    *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
-  /** The marker colour the user set in the style panel (a single hex for
+  /** The marker color the user set in the style panel (a single hex for
    *  every marker leaf). LayerControl owns the write — a self-managed
-   *  dimension, see ui/style/markerColor.ts. */
-  markerColor?: string;
+   *  dimension, see ui/style/iconColor.ts. */
+  iconColor?: string;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -328,7 +328,7 @@ const INTENT = {
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
   ICON: "icon",
-  MARKER_COLOR: "markerColor",
+  ICON_COLOR: "iconColor",
   NAME: "name",
   LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -356,9 +356,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // still advertising provenance.
   [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.ICON]: isIconIntent,
-  // A display-ready hex only: the colour lands in an inline style, so any
+  // A display-ready hex only: the color lands in an inline style, so any
   // non-hex would paint an invalid `color:` that the browser ignores.
-  [INTENT.MARKER_COLOR]: value =>
+  [INTENT.ICON_COLOR]: value =>
     typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
@@ -381,7 +381,7 @@ const STYLE_KEYS = {
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,
   icon: INTENT.ICON,
-  markerColor: INTENT.MARKER_COLOR,
+  iconColor: INTENT.ICON_COLOR,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export {

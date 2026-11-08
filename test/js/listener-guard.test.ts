@@ -171,6 +171,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "the glyph picker popup: two document-level dismiss listeners (outside pointerdown + Escape keydown) bound on open and removed when the grid node is removed (once:true self-terminates, but the paired removeEventListener on the grid's `remove` event makes the teardown explicit), plus the grid's own arrow/Enter keydown navigator — the grid node is created and destroyed by the popup lifecycle, so its listeners are collected with it. buildIconRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable",
   },
   {
+    f: "control/LayerControl/ui/style/iconColor.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
+  },
+  {
     f: "ui/slider.ts",
     n: 10,
     pairedOff: 0,

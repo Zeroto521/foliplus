@@ -133,8 +133,8 @@ describe("LayerControl style-panel dimension registry", () => {
       "border",
       "fill",
       "icon",
+      "iconColor",
       "label",
-      "markerColor",
       "size",
     ]);
     // Every face of the coalescer is claimed by exactly one frame policy —
@@ -144,7 +144,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind === "frame")
       .map(d => (d.contentChange as { face: string }).face)
       .sort();
-    expect(faces).toEqual(["fill", "icon", "label", "markerColor", "size", "stroke"]);
+    expect(faces).toEqual(["fill", "icon", "iconColor", "label", "size", "stroke"]);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
@@ -367,8 +367,8 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
     // Pinned so a future edit to the constant cannot silently widen the
     // delegated sweep past the rows a delegated layer does not own: fill and
     // border write through setStyle, size through setRadius, icon through
-    // setIcon, markerColor through setIcon (colour and glyph share ONE
-    // icon construction, so marker colour is LayerControl-owned like icon).
+    // setIcon, iconColor through setIcon (color and glyph share ONE
+    // icon construction, so marker color is LayerControl-owned like icon).
     expect([...DELEGATED_DIM_ORDER]).toEqual(["opacity", "zoomRange"]);
     expect([...DELEGATED_DIM_ORDER]).toEqual(
       [...DIM_ORDER].filter(
@@ -377,7 +377,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
           k !== "border" &&
           k !== "size" &&
           k !== "icon" &&
-          k !== "markerColor",
+          k !== "iconColor",
       ),
     );
   });

@@ -70,7 +70,7 @@ const FACE = {
   STROKE: "stroke",
   SIZE: "size",
   ICON: "icon",
-  MARKER_COLOR: "markerColor",
+  ICON_COLOR: "iconColor",
   LABEL: "label",
 } as const;
 

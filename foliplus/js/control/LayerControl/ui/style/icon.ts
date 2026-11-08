@@ -21,7 +21,7 @@ import {
 } from "#core/leaflet/glyphSource.js";
 import {
   applyIconToLeaves,
-  applyMarkerColorToLeaves,
+  applyIconColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
@@ -52,11 +52,11 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  // Merge the current marker colour into the SAME derived-icon
-  // construction (the colour is a separate dimension, but setIcon
+  // Merge the current marker color into the SAME derived-icon
+  // construction (the color is a separate dimension, but setIcon
   // replaces the whole icon, so a glyph edit must carry the current
-  // colour and a colour edit must carry the current glyph).
-  const color = getIntent(ui, layerId, INTENT.MARKER_COLOR);
+  // color and a color edit must carry the current glyph).
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
   applyIconToLeaves(layer, intent.value, typeof color === "string" ? color : undefined);
 };
 /** Write the layer's glyph and replay the walk. */
@@ -80,12 +80,12 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   resetIconLeaves(layer);
-  // Orthogonal: a user-set marker colour survives a glyph reset. Re-derive
-  // the colour on the freshly restored author icons so the colour and the
+  // Orthogonal: a user-set marker color survives a glyph reset. Re-derive
+  // the color on the freshly restored author icons so the color and the
   // glyph never split across two writes.
-  const color = getIntent(ui, layerId, INTENT.MARKER_COLOR);
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
   if (typeof color === "string") {
-    applyMarkerColorToLeaves(layer, color, currentGlyph(ui, layerId));
+    applyIconColorToLeaves(layer, color, currentGlyph(ui, layerId));
   }
 };
 /** The current glyph name for the row, or null when the layer still shows

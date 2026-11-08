@@ -1004,7 +1004,7 @@ const detectCapabilities = (
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
 
-        markerColor: CAP_TIER.NONE,
+        iconColor: CAP_TIER.NONE,
         opacity: CAP_TIER.PANE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1042,7 +1042,7 @@ const detectCapabilities = (
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
 
-        markerColor: CAP_TIER.NONE,
+        iconColor: CAP_TIER.NONE,
         opacity: CAP_TIER.NATIVE,
         zoomRange,
         label,
@@ -1103,7 +1103,7 @@ const detectCapabilities = (
         size: carrier.size,
         icon: carrier.icon,
 
-        markerColor: carrier.markerColor,
+        iconColor: carrier.iconColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1126,7 +1126,7 @@ const detectCapabilities = (
         size: carrier.size,
         icon: carrier.icon,
 
-        markerColor: carrier.markerColor,
+        iconColor: carrier.iconColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1146,7 +1146,7 @@ const detectCapabilities = (
       size: CAP_TIER.NONE,
       icon: CAP_TIER.NONE,
 
-      markerColor: CAP_TIER.NONE,
+      iconColor: CAP_TIER.NONE,
       opacity: CAP_TIER.NONE,
       zoomRange: CAP_TIER.NONE,
       label,
