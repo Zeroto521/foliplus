@@ -1696,7 +1696,7 @@ const makeFeatureLeaf = (
   weight = 2,
   opts: { fillColor?: string; fillOpacity?: number } = {},
 ): any => {
-  const leaf = new L.Polygon() as any;
+  const leaf = new L.Polyline() as any;
   leaf.options = { color, weight, stroke: true, ...opts };
   leaf.feature = {
     geometry: { type: "Polygon" },
@@ -2100,5 +2100,60 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
       expect(strokeCall).toMatchObject({ weight: 6, stroke: true });
       expect(typeof strokeCall.color).toBe("string");
     });
+  });
+});
+
+
+describe("border geometry gate — by_value only on lines", () => {
+  // borderCarriesValue = geometryKindOf === LINE. Polygon/point borders are
+  // the outline, never the element's primary colour, so they must never
+  // offer by_value — the stored-by-value-on-polygon negative is the
+  // "no silent fallback" guard.
+  it("polygon layer: stored by_value reads back as original (illegal value rejected)", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    // Force the surface's geometry type to polygon.
+    const li = manager.layerRegistry.get("poly1");
+    const surface = manager.surfaceFor(li);
+    vi.spyOn(surface, "geometryType").mockReturnValue("Polygon");
+    // Store an illegal by_value mode on a polygon border.
+    setIntent(ui, "poly1", "borderMode", "value");
+    setIntent(ui, "poly1", "borderValue", countRamp());
+    // The row's displayed mode must fall back to original, not by_value.
+    const select = document.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+    // The displayBorderMode contract: illegal stored value → ORIGINAL.
+    expect(select === null || select.value !== "value").toBe(true);
+  });
+
+  it("line layer: by_value is offered in the options", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    registerFeatureLayer(manager, ui, "line1", leaves);
+    const li = manager.layerRegistry.get("line1");
+    const surface = manager.surfaceFor(li);
+    vi.spyOn(surface, "geometryType").mockReturnValue("LineString");
+    const row = buildBorderRow(ui, "line1");
+    const select = row.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+    const values = Array.from(select!.options).map(o => o.value);
+    expect(values).toContain("value"); // by_value present on a line
+  });
+
+  it("polygon layer: by_value is NOT offered in the options", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    registerFeatureLayer(manager, ui, "poly2", leaves);
+    const li = manager.layerRegistry.get("poly2");
+    const surface = manager.surfaceFor(li);
+    vi.spyOn(surface, "geometryType").mockReturnValue("Polygon");
+    const row = buildBorderRow(ui, "poly2");
+    const select = row.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+    const values = Array.from(select!.options).map(o => o.value);
+    expect(values).not.toContain("value"); // by_value absent on a polygon
   });
 });
