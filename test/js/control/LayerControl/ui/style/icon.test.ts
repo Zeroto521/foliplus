@@ -332,6 +332,53 @@ describe("buildIconRow", () => {
     vi.clearAllMocks();
   });
 
+  it("shows the unavailable state (invalid hint) for a syntax-invalid author name", () => {
+    // The author declares a name that fails glyph syntax (spaces): it is never
+    // renderable, so the trigger must show the unavailable state with the RAW
+    // name and the invalid-hint title — not the silent author-original label.
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "not an icon" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m12, ui: u12 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u12, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("not an icon");
+    expect(trigger.title).toContain(
+      u12.T("style_icon_invalid").replace("{name}", "not an icon"),
+    );
+    m12?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("does not show the unavailable state when the author declares no icon", () => {
+    // A marker with no author icon name: the trigger must keep the
+    // author-original label and NOT misreport an unavailable state.
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { manager: m13, ui: u13 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u13, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+    expect(trigger.textContent).toContain(u13.T("style_icon_original"));
+    m13?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
   it("stops the author glyph walk at the first recognized name", () => {
     // A multi-marker group where the FIRST marker declares a known glyph: the
     // walk must short-circuit (found already set) and not inspect later leaves.

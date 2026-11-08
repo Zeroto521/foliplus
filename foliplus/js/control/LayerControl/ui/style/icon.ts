@@ -21,6 +21,7 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  type AuthorGlyph,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
@@ -86,11 +87,13 @@ const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
   return intent?.kind === ICON_KIND.GLYPH ? intent.value : null;
 };
 /** The author's own glyph name when the layer's marker icon declares one
- *  we can render (awesome-markers/Leaflet put the name in
+ *  (awesome-markers/Leaflet put the name in
  *  `leaf.options.icon.options.icon`). Used for the row preview only — the
  *  write semantics are unchanged: an uncovered layer keeps the author icon.
- *  Walks leaves and returns the first recognized name, or null. */
-const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
+ *  Walks leaves and returns the first declared name with its syntax verdict
+ *  (a valid name wins, else the first invalid declaration so a typo is never
+ *  silently dropped), or null when no leaf declares a string icon name. */
+const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   return authorGlyphNameOnLayer(layer);
@@ -127,20 +130,24 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   trigger.append(glyphBox, nameBox);
 
   const renderTrigger = () => {
-    // Covered: the user's glyph. Uncovered: the author's recognized glyph
+    // Covered: the user's glyph. Uncovered: the author's declared glyph
     // (preview only — the write is still the author icon), else the
     // author-original label.
     const userGlyph = currentGlyph(ui, layerId);
-    const authorName = userGlyph ? null : authorGlyphName(ui, layerId);
+    const author = userGlyph ? null : authorGlyphName(ui, layerId);
     const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
-    const value = userGlyph ?? authorName ?? null;
+    const value = userGlyph ?? author?.name ?? null;
     const glyph = value ? resolveGlyph(value) : null;
     // The user's picked/persisted glyph renders in the panel's fa-solid family;
     // an author-declared glyph renders under the author's own prefix
     // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
     // a name the map actually draws is never reported unavailable.
     const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
-    if (value && glyph && available) {
+    // An author-declared name that fails glyph syntax is NEVER renderable, no
+    // matter what the stylesheet paints — it gets its own unavailable state
+    // rather than silently reading as the author-original label.
+    const authorInvalid = !userGlyph && author !== null && !author.valid;
+    if (value && glyph && available && !authorInvalid) {
       // The name is syntactically valid AND the loaded stylesheet paints it:
       // the happy path — show the glyph and its name.
       glyphBox.innerHTML = glyphHtml(glyph);
@@ -148,18 +155,24 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
       trigger.title = value;
       trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else if (value) {
-      // A name we cannot render: either the stylesheet does not paint it (a
-      // syntactically valid but unsupported name) or it fails glyph syntax.
+      // A name we cannot render. Two distinct reasons, two messages: an
+      // author-invalid name (syntax failed — a typo, never paintable) vs a
+      // syntactically valid name the loaded stylesheet does not paint.
       // Never silently show "Original" or a blank tofu — surface the actual
       // name in an explicit unavailable state (dashed-outline circle preview)
       // with a title/aria-label explaining the fallback.
       glyphBox.innerHTML = `<span class="${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}" aria-hidden="true"></span>`;
       nameBox.textContent = value;
-      const hint = ui.T("style_icon_unavailable").replace("{name}", value);
+      const hint = (
+        authorInvalid ? ui.T("style_icon_invalid") : ui.T("style_icon_unavailable")
+      ).replace("{name}", value);
       trigger.title = hint;
       trigger.setAttribute("aria-label", hint);
       trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
+      // No user glyph and no author-declared name: the true author-original
+      // label. (An author-invalid declaration never reaches here — author.name
+      // is non-null, so value is non-null and the unavailable branch above owns it.)
       glyphBox.innerHTML = "";
       nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
