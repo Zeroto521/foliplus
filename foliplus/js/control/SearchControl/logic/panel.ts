@@ -9,7 +9,7 @@
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { bindFloatingTouch, bindFloatingWheel } from "#common/floating.js";
+import { type Floating, mountFloating } from "#common/floating.js";
 import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
@@ -59,6 +59,10 @@ const removePanel = (ctrl: SearchControlCtx) => {
   if (ctrl.throttleTimer) {
     clearTimeout(ctrl.throttleTimer);
     ctrl.throttleTimer = null;
+  }
+  if (ctrl.panelFloating) {
+    ctrl.panelFloating.release();
+    ctrl.panelFloating = null;
   }
   if (ctrl.panelWrap) {
     ctrl.panelWrap.remove();
@@ -112,20 +116,18 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
       parent: map.getContainer(),
       onclick: (event: Event) => event.stopPropagation(),
     });
-    // A wheel over the result panel must not zoom the map. The panel is
-    // mounted on the map container (not inside the control's container), so
-    // the container's disableScrollPropagation does not cover it — a wheel
-    // bubbles to the map container and Leaflet's scrollWheelZoom would fire.
-    // The shared containment swallows every wheel unconditionally (the
-    // boundary-aware variant that let boundary / zero-delta wheels bubble was
-    // removed: those bubbled to the map and zoomed it).
-    //
-    // Bound once, right here in the creation block: the element exists only
-    // once (subsequent renders reuse it, removePanel drops it), so binding
-    // here means one listener per element lifecycle — no stacking per
-    // renderResults, and no stale flag to reset when a new element is made.
-    bindFloatingWheel(ctrl.panelWrap);
-    bindFloatingTouch(ctrl.panelWrap);
+    // The result panel is a floating layer: it must never pan or zoom the map
+    // beneath it. mountFloating is the single mount entry — it auto-binds the
+    // unified gesture containment (wheel + touch) and owns the re-pin / re-seat
+    // lifecycle. The panel is position: fixed, so mounting on the covering
+    // host (body) keeps the same visual position; re-pin is idempotent for a
+    // fixed element (positionPanel recomputes the same rect).
+    ctrl.panelFloating = mountFloating({
+      root: ctrl.panelWrap,
+      anchor: ctrl.ctrl,
+      position: () => positionPanel(ctrl),
+      // No portal-root registration: the search panel does not portal.
+    });
   }
 
   ctrl.panelWrap.innerHTML = "";

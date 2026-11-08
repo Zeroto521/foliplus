@@ -7,6 +7,7 @@ import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
+import type { Floating } from "#common/floating.js";
 import * as Icons from "#common/icon.js";
 import { closeButton } from "#ui/index.js";
 import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
@@ -43,6 +44,7 @@ class SearchControl extends defineControl({
   declare delIcon: L.Marker | null;
   declare mode: SearchType;
   declare panelWrap: HTMLElement | null;
+  declare panelFloating: Floating | null;
   declare selectedIdx: number;
   declare lastSuggestFetch: number;
   declare throttleTimer: ReturnType<typeof setTimeout> | null;
@@ -142,6 +144,7 @@ class SearchControl extends defineControl({
         ? this.config.mode
         : MODE.COORD;
     this.panelWrap = null;
+    this.panelFloating = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
     this.throttleTimer = null;
