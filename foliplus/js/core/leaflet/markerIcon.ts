@@ -158,7 +158,7 @@ const buildMarkerIcon = (opts: {
     // The user's colour wins; else the author's own inline colour (awesome-
     // markers paints `icon-white` via a class and an inline colour); else
     // white. One derivation, one paint — colour and glyph never split.
-    const markerColor = opts.color || authorColor || "#fff";
+    const markerColor = opts.color ?? (authorColor || "#fff");
     // Drop the author's own icon-font classes (fa / fas / fa-star /
     // glyphicon-*) so only the paint classes survive and our FA glyph is the
     // one thing painting.

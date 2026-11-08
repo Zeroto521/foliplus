@@ -5,7 +5,6 @@
 // glyph never split across two writes), Reset restoring the author paint
 // without clearing a user glyph, and the persistence parser.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DIM } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -126,12 +125,12 @@ const makeAuthorIcon = (opts: { markerColor?: string; innerColor?: string } = {}
       div.style.width = "36px";
       div.style.height = "46px";
       div.innerHTML = opts.innerColor
-        ? '<i class="fa fa-map-marker" style="color:' + opts.innerColor + '"></i>'
+        ? `<i class="fa fa-map-marker" style="color:${opts.innerColor}"></i>`
         : '<i class="fa fa-map-marker"></i>';
       return div;
     }),
     _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
-      div.className = (name + " awesome-marker").trim();
+      div.className = `${name} awesome-marker`.trim();
     }),
     createShadow: vi.fn(() => {
       const sh = document.createElement("div");
