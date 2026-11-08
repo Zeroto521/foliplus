@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
-import * as downloadMod from "#common/download.js";
+import * as downloadMod from "#platform/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";
 import { MarkerMode } from "#control/MeasureControl/mode/index.js";
@@ -11,7 +11,7 @@ import { loadFeature, makeControlEnv } from "./fixture.js";
 // keys and break the expectations. Pin translators explicitly.
 const identity = { T: (k: string) => k, _: (k: string) => k };
 
-vi.mock("#common/locale.js", () => ({
+vi.mock("#platform/locale.js", () => ({
   createTranslator: () => (k: string) => k,
   createScopedTranslator: () => (k: string) => k,
 }));

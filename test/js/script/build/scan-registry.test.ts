@@ -39,8 +39,8 @@ const usedExports = (dir: string): Record<string, string[]> =>
 describe("registryUsedExports", () => {
   it("scans named imports from component files", () => {
     const dir = mkDir("test", {
-      "Component1/index.ts": `import { dom, cssVar } from "#common/dom.js";`,
-      "Component2/index.ts": `import { debounce } from "#common/debounce.js";`,
+      "Component1/index.ts": `import { dom, cssVar } from "#platform/dom.js";`,
+      "Component2/index.ts": `import { debounce } from "#platform/debounce.js";`,
     });
     const result = usedExports(dir);
     expect(result["common/dom"]).toContain("dom");
@@ -50,8 +50,8 @@ describe("registryUsedExports", () => {
 
   it("scans imports from subdirectories", () => {
     const dir = mkDir("test", {
-      "Component1/index.ts": `import { foo } from "#common/foo.js";`,
-      "Component1/util.ts": `import { bar } from "#common/bar.js";`,
+      "Component1/index.ts": `import { foo } from "#platform/foo.js";`,
+      "Component1/util.ts": `import { bar } from "#platform/bar.js";`,
     });
     const result = usedExports(dir);
     expect(result["common/foo"]).toContain("foo");
@@ -60,7 +60,7 @@ describe("registryUsedExports", () => {
 
   it("ignores type-only imports", () => {
     const dir = mkDir("test", {
-      "Component1/index.ts": `import { type SomeType, dom } from "#common/dom.js";`,
+      "Component1/index.ts": `import { type SomeType, dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
     expect(result["common/dom"]).toContain("dom");
@@ -70,12 +70,12 @@ describe("registryUsedExports", () => {
   it("resolves import * as to property access", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
-        import * as Icons from "#common/icon.js";
+        import * as Icons from "#platform/icon.js";
         const x = Icons.ICON_CLOSE;
         const y = Icons.OPEN;
       `,
       "Component1/util.ts": `
-        import * as Storage from "#common/storage.js";
+        import * as Storage from "#platform/storage.js";
         Storage.loadRecord();
         Storage.saveRecord();
       `,
@@ -90,7 +90,7 @@ describe("registryUsedExports", () => {
   it("ignores array methods on namespace imports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
-        import * as Icons from "#common/icon.js";
+        import * as Icons from "#platform/icon.js";
         const arr = [];
         arr.forEach(x => Icons[x]);
         arr.push(Icons.ICON_CLOSE);
@@ -129,8 +129,8 @@ describe("registryUsedExports", () => {
 
   it("aggregates imports across files", () => {
     const dir = mkDir("test", {
-      "Component1/index.ts": `import { dom } from "#common/dom.js";`,
-      "Component2/index.ts": `import { createIconButton, dom } from "#common/dom.js";`,
+      "Component1/index.ts": `import { dom } from "#platform/dom.js";`,
+      "Component2/index.ts": `import { createIconButton, dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
     expect(result["common/dom"]).toEqual(["createIconButton", "dom"]);
@@ -167,8 +167,8 @@ describe("registryUsedExports", () => {
 
   it("ignores .d.ts files", () => {
     const dir = mkDir("test", {
-      "Component1/index.ts": `import { dom } from "#common/dom.js";`,
-      "Component1/types.d.ts": `import { dom } from "#common/dom.js";`,
+      "Component1/index.ts": `import { dom } from "#platform/dom.js";`,
+      "Component1/types.d.ts": `import { dom } from "#platform/dom.js";`,
     });
     const result = usedExports(dir);
     expect(result["common/dom"]).toEqual(["dom"]);
@@ -197,8 +197,8 @@ describe("generateRegistry", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
       "core/event/index.ts": `export const EventBus = {};`,
-      "runtime/index.ts": `import { dom } from "#common/dom.js";`,
-      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
+      "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/util.ts": `import { EventBus } from "#core/event/index.js";`,
     });
     generateRegistry(jsDir, buildDir);
@@ -238,7 +238,7 @@ describe("generateRegistry", () => {
     const [jsDir, buildDir] = buildFakeTree({
       "common/dom.ts": `export const dom = {};`,
       "core/lonely/index.ts": `export const nothing = 1;`,
-      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -252,12 +252,12 @@ describe("generateRegistry", () => {
       "core/component.ts": `export const COMPONENTS = {};`,
       "core/hint.ts": `export const ensureHint = () => {};`,
       "core/mode.ts": `export const ModeManager = {};`,
-      "runtime/index.ts": `import { dom } from "#common/dom.js";`,
+      "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/index.ts": `
         import { COMPONENTS } from "#core/component.js";
         import { ensureHint } from "#core/hint.js";
         import { ModeManager } from "#core/mode.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     generateRegistry(jsDir, buildDir);
@@ -339,7 +339,7 @@ describe("generateRegistry", () => {
       "common/dom.ts": `export const dom = {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
-      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -355,7 +355,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { panelButton } from "#ui/panelChrome.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     generateRegistry(jsDir, buildDir);
@@ -380,7 +380,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { panelButton } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     generateRegistry(jsDir, buildDir);
@@ -402,7 +402,7 @@ describe("generateRegistry", () => {
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
       "core/empty.ts": ``,
       "runtime/index.ts": ``,
-      "control/MyComponent/index.ts": `import { dom } from "#common/dom.js";`,
+      "control/MyComponent/index.ts": `import { dom } from "#platform/dom.js";`,
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
@@ -446,7 +446,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { missingName } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     expect(() => generateRegistry(jsDir, buildDir)).toThrow(
@@ -466,7 +466,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { panelButton } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     expect(() => generateRegistry(jsDir, buildDir)).toThrow(
@@ -484,7 +484,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { panelButton } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     expect(() => generateRegistry(jsDir, buildDir)).toThrow(/index\.ts is missing/);
@@ -501,7 +501,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { panelButton } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     generateRegistry(jsDir, buildDir);
@@ -521,7 +521,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": ``,
       "control/MyComponent/index.ts": `
         import { missingOne, missingTwo } from "#ui/index.js";
-        import { dom } from "#common/dom.js";
+        import { dom } from "#platform/dom.js";
       `,
     });
     expect(() => generateRegistry(jsDir, buildDir)).toThrow(
@@ -626,7 +626,7 @@ describe("collectExportedNames", () => {
   it("leaves an aliased export * target to esbuild", () => {
     // A bare alias specifier cannot be read by this scan; skipping it keeps the
     // guard from reporting a phantom missing export.
-    const d = dir({ "ui/index.ts": `export * from "#common/dom.js";` });
+    const d = dir({ "ui/index.ts": `export * from "#platform/dom.js";` });
     const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
     expect(names.size).toBe(0);
   });

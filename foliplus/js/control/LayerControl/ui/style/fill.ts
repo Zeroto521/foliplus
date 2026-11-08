@@ -27,8 +27,8 @@ import {
   type FillValueConfig,
   type LayerOverride,
 } from "#core/layer/intent.js";
-import { dom } from "#common/dom.js";
-import { dropdownSurface } from "#common/fullscreen.js";
+import { dom } from "#platform/dom.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   bindLiveColor,
   bindLiveNumber,

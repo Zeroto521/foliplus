@@ -10,8 +10,8 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import { formatNumber, formatTimestamp } from "#common/format.js";
+import { dom } from "#platform/dom.js";
+import { formatNumber, formatTimestamp } from "#platform/format.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";

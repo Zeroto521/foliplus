@@ -15,7 +15,7 @@ import {
   unpinRowPanel,
 } from "#core/leaflet/index.js";
 import { ROW_PANEL_EDGE, ROW_PANEL_MIN_HEIGHT } from "#core/leaflet/panel.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+import { registerPortalRoot } from "#platform/portalRoot.js";
 import { computePlacement } from "#ui/index.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),

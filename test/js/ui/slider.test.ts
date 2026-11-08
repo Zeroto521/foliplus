@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPseudoFullscreen } from "#common/fullscreen.js";
+import { setPseudoFullscreen } from "#platform/fullscreen.js";
 import { SLIDER_CLASS, Slider, type SliderOptions, sliderOf } from "#ui/index.js";
 
 const hosts: HTMLElement[] = [];

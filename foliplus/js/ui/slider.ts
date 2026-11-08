@@ -13,11 +13,11 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { dom } from "#common/dom.js";
-import { finalize } from "#common/finalize.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
-import { SLIDER_CLASS } from "#common/sliderClassName.js";
+import { dom } from "#platform/dom.js";
+import { finalize } from "#platform/finalize.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
+import { SLIDER_CLASS } from "#platform/sliderClassName.js";
 
 const log = createLogger("LayerControl");
 

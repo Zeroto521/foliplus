@@ -9,13 +9,13 @@
 //
 // Nothing in this file touches the map, the registry, or storage.
 import type { AuthorZoomRange } from "#core/layer/index.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import {
   intersectsMapZoom,
   isZoomRange,
   unreachableZoomRange,
   unusableZoomRange,
-} from "#common/zoomRange.js";
+} from "#platform/zoomRange.js";
 import type { Projection } from "../type.js";
 import { INTENT, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";

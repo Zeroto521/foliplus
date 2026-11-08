@@ -9,7 +9,7 @@
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / ensureVector / pinTree / pinLateContent / releasePane /
 //     invalidateDiscoveryCache / destroy
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import {
   destroyPane,
   getRendererContainer,

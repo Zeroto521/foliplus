@@ -18,7 +18,7 @@
 // No DOM, no Leaflet. The host's `apply` is the only carrier the store
 // touches, and the surface decides what that means (item visibility, an
 // aggregation include set, a leaf hidden-class write).
-import { loadRecord, saveRecord } from "#common/storage.js";
+import { loadRecord, saveRecord } from "#platform/storage.js";
 import {
   type FilterDimension,
   type LayerFilter,

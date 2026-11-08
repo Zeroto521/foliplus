@@ -3,9 +3,9 @@
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
-import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/debounce.js";
-import type { Floating } from "#common/floating.js";
+import type { Cache } from "#platform/cache.js";
+import type { Debounced } from "#platform/debounce.js";
+import type { Floating } from "#platform/floating.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */

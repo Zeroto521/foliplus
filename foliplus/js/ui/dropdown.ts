@@ -23,8 +23,8 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
-import { dom } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
+import { dom } from "#platform/dom.js";
+import { createLogger } from "#platform/log.js";
 import { type DropdownSurface, createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
 

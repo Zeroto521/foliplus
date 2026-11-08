@@ -27,7 +27,7 @@
 // marker keeps the author's exact look minus the symbol.
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import {
   glyphAvailable,
   glyphHtml,

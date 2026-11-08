@@ -34,9 +34,9 @@
 // touch `this.manager` — the factory nulls it once, unconditionally, so
 // `map.removeControl()` + `map.addControl()` always rebuilds a fresh manager.
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
-import type { Logger } from "#common/type.js";
+import { createScopedTranslator, createTranslator } from "#platform/locale.js";
+import { createLogger } from "#platform/log.js";
+import type { Logger } from "#platform/type.js";
 import { createControlEnv } from "./controlEnv.js";
 import type { ControlEnv } from "./type.js";
 

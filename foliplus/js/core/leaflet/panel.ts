@@ -3,13 +3,13 @@
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar
 // (cssvar.js) directly instead of reading them from the runtime global.
-import { cssVar } from "#common/cssvar.js";
-import { dom } from "#common/dom.js";
-import { bindFloatingGestures } from "#common/floating.js";
-import { ICON_CLOSE } from "#common/icon.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { isPortalOf } from "#common/portalRoot.js";
-import { throttleRaf } from "#common/throttle.js";
+import { cssVar } from "#platform/cssvar.js";
+import { dom } from "#platform/dom.js";
+import { bindFloatingGestures } from "#platform/floating.js";
+import { ICON_CLOSE } from "#platform/icon.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
+import { isPortalOf } from "#platform/portalRoot.js";
+import { throttleRaf } from "#platform/throttle.js";
 import { closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────

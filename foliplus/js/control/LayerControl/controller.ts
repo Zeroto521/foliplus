@@ -45,10 +45,10 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { finalize } from "#common/finalize.js";
-import { createLogger } from "#common/log.js";
-import type { Logger } from "#common/type.js";
+import { type Debounced, debounce } from "#platform/debounce.js";
+import { finalize } from "#platform/finalize.js";
+import { createLogger } from "#platform/log.js";
+import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
 import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";

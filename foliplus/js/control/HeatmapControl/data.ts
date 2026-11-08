@@ -9,7 +9,7 @@ import {
 } from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
 import { safeColorScale } from "#core/palette.js";
-import type { Logger } from "#common/type.js";
+import type { Logger } from "#platform/type.js";
 import * as CONST from "./const.js";
 import type {
   AggregatedData,

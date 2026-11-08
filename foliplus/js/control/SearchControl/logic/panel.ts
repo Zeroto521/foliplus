@@ -7,9 +7,9 @@
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { cssVar } from "#common/cssvar.js";
-import { dom } from "#common/dom.js";
-import { mountFloating } from "#common/floating.js";
+import { cssVar } from "#platform/cssvar.js";
+import { dom } from "#platform/dom.js";
+import { mountFloating } from "#platform/floating.js";
 import { applyOptionRowA11y, nextOptionId } from "#ui/optionRow.js";
 import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";

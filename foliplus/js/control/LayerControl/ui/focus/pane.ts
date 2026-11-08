@@ -7,7 +7,7 @@ import {
   focusLayerZ,
   zFor,
 } from "#core/layer/index.js";
-import type { FinalizeStep } from "#common/finalize.js";
+import type { FinalizeStep } from "#platform/finalize.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { basePaints } from "../listPanel/visibility.js";
 import { projectLayer } from "../projection.js";

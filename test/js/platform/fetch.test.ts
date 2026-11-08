@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
+import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#platform/fetch.js";
 
 const jsonResponse = (data: unknown) =>
   ({ json: () => Promise.resolve(data) }) as Response;

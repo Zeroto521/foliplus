@@ -1,7 +1,7 @@
 // script/build/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
 // Component bundles externalize shared-module imports to the global namespace
 // exposed by foliplus-common.min.js:
-//   - #common/*  → window.foliplus.common.<mod>
+//   - #platform/*  → window.foliplus.platform.<mod>
 //   - #core/*    → window.foliplus.core.<sub>  (or .hint for the top-level hint)
 //   - #foliplus/BaseControl.js → window.foliplus.BaseControl
 // Other #foliplus/* paths (a component's own const.js, icon.js,
@@ -88,7 +88,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  `sharedGlobalNamespace` produces an invalid JS identifier in the shim
  *  name. The build fails loudly rather than shipping a stale artifact. */
 // Same-name collision guard lives upstream in scan-registry.mjs, which
-// canonicalizes every shared module to the flat key (common.<name> /
+// canonicalizes every shared module to the flat key (platform.<name> /
 // ui.<name>) before this plugin sees the spec. Two subdirectory modules with
 // the same last segment would have collided there and aborted the build, so
 // no per-spec fallback is needed here — the registry is the single source of
@@ -96,7 +96,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("common/")) return `common.${spec.split("/").at(-1)}`;
+  if (spec.startsWith("platform/")) return `common.${spec.split("/").at(-1)}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
@@ -108,7 +108,7 @@ const runtimeTarget = spec => {
 
 /** Map a shared-module specifier to the global namespace holding its exports:
  *  foliplus.BaseControl / foliplus.hint / foliplus.core.<mod> /
- *  foliplus.common.<mod>. The shim generated below reads exactly this string,
+ *  foliplus.platform.<mod>. The shim generated below reads exactly this string,
  *  so a wrong value makes the import resolve to `undefined` at runtime while
  *  the build still prints a tick for it.
  *

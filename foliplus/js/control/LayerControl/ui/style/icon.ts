@@ -26,7 +26,7 @@ import {
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import { bindDismiss } from "#ui/dismiss.js";
 import { formRow } from "#ui/index.js";
 import { nextOptionId } from "#ui/optionRow.js";

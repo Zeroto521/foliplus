@@ -15,7 +15,7 @@ import {
   type ClassifyMethod,
   METHOD_ORDER,
 } from "#core/classify.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import {
   type Dropdown,
   type DropdownSurface,

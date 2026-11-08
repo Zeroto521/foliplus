@@ -6,7 +6,7 @@ import {
   type LayerInfo,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import type { Logger } from "#common/type.js";
+import type { Logger } from "#platform/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";

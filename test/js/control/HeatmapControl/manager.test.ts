@@ -3,7 +3,7 @@ import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
 import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";

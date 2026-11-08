@@ -59,14 +59,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason: "the only sanctioned entry point — `on()` is the sole implementation",
   },
   {
-    f: "common/fetch.ts",
+    f: "platform/fetch.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "signal.addEventListener('abort', ...) is AbortSignal composition, not a DOM listener — no control instance in scope",
   },
   {
-    f: "common/dom.ts",
+    f: "platform/dom.ts",
     n: 2,
     pairedOff: 0,
     reason:
@@ -80,7 +80,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "two calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The other two are the row-panel placement singleton (window scroll capture + resize): one pair for the whole page, bound on the first pinned card and shared by every card since, re-placing the open cards from live rects. The factory is free-standing (no mounting signal), and the singleton has no per-instance teardown to pair the removal with — a per-card pair would re-register the same two document listeners for every open panel",
   },
   {
-    f: "common/fullscreen.ts",
+    f: "platform/fullscreen.ts",
     n: 1,
     pairedOff: 0,
     reason:
@@ -206,7 +206,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "the ONE outside-press + Escape dismissal primitive (task-32): document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
   },
   {
-    f: "common/floating.ts",
+    f: "platform/floating.ts",
     n: 11,
     pairedOff: 0,
     reason:

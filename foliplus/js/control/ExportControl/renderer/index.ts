@@ -9,8 +9,8 @@ import {
   labelPaneNameOf,
 } from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
-import { createScopedTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { createScopedTranslator } from "#platform/locale.js";
+import { createLogger } from "#platform/log.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import {

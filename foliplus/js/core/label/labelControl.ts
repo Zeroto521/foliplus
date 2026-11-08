@@ -8,9 +8,9 @@
 // (`foliplus.label*`), which is why `T` here must be an *unscoped* translator
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
-import { dom } from "#common/dom.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
   type DropdownSurface,

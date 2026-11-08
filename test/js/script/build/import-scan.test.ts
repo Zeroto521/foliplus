@@ -78,25 +78,25 @@ const canonJson = (map: Record<string, string[]>) =>
 
 const EQUIV_CORPUS: Record<string, string> = {
   "Named.ts": [
-    'import { alpha } from "#common/alpha.js";',
+    'import { alpha } from "#platform/alpha.js";',
     'import { beta } from "#core/beta.js";',
-    'import { eps as e, zeta } from "#common/eps.js";',
+    'import { eps as e, zeta } from "#platform/eps.js";',
     'import { type Theta, iota } from "#core/iota.js";',
     'import type { kappa } from "#core/kappa.js";',
     'import { lambda } from "#core/lambda/index.js";',
     'import { BaseControl } from "#foliplus/BaseControl.js";',
   ].join("\n"),
   "Stars.ts": [
-    'import * as Storage from "#common/store.js";',
+    'import * as Storage from "#platform/store.js";',
     'Storage.load("key");',
     'Storage.save("key", 1);',
-    'import * as Icons from "#common/icons.js";',
+    'import * as Icons from "#platform/icons.js";',
     "const a = Icons.ICON_DOWNLOAD;",
     "const b = Icons.ICON_CLOSE;",
   ].join("\n"),
   "sub/nested.ts": 'import { nested } from "#core/nested/index.js";',
   // Both predecessors dropped .d.ts; keep them asserting that.
-  "types.d.ts": 'import { ghost } from "#common/ghost.js";',
+  "types.d.ts": 'import { ghost } from "#platform/ghost.js";',
 };
 
 const EQUIV_REGISTRY_VIEW = {
@@ -113,8 +113,8 @@ const EQUIV_REGISTRY_VIEW = {
 
 const EQUIV_PLUGIN_VIEW = {
   used: {
-    "#common/alpha.js": ["alpha"],
-    "#common/eps.js": ["eps", "zeta"],
+    "#platform/alpha.js": ["alpha"],
+    "#platform/eps.js": ["eps", "zeta"],
     "#core/beta.js": ["beta"],
     "#core/iota.js": ["iota"],
     "#core/lambda/index.js": ["lambda"],
@@ -122,8 +122,8 @@ const EQUIV_PLUGIN_VIEW = {
     "#foliplus/BaseControl.js": ["BaseControl"],
   },
   starUsed: {
-    "#common/icons.js": ["ICON_CLOSE", "ICON_DOWNLOAD"],
-    "#common/store.js": ["load", "save"],
+    "#platform/icons.js": ["ICON_CLOSE", "ICON_DOWNLOAD"],
+    "#platform/store.js": ["load", "save"],
   },
 } as const;
 
@@ -205,7 +205,7 @@ const DIVERGENCES: DivergenceRow[] = [
   {
     id: "lowercase star prop on a non-`Storage` alias",
     files: {
-      "a.ts": 'import * as Ico from "#common/ico.js";\nconst a = Ico.downloadIcon;\n',
+      "a.ts": 'import * as Ico from "#platform/ico.js";\nconst a = Ico.downloadIcon;\n',
     },
     // The empty entry is the same star-side-effect as "unused star alias": the
     // registry always creates a key for a star spec, then the uppercase-only
@@ -219,7 +219,7 @@ const DIVERGENCES: DivergenceRow[] = [
   },
   {
     id: "unused star alias",
-    files: { "a.ts": 'import * as Unused from "#common/unused.js";\n' },
+    files: { "a.ts": 'import * as Unused from "#platform/unused.js";\n' },
     registryBefore: { "common/unused": [] },
     pluginBefore: {},
     // Registry kept an empty key, which generateRegistry discards anyway
@@ -230,7 +230,7 @@ const DIVERGENCES: DivergenceRow[] = [
   {
     id: "alias embedded in a longer identifier",
     files: {
-      "a.ts": 'import * as Store2 from "#common/store2.js";\nmyStore2.EXTRA();\n',
+      "a.ts": 'import * as Store2 from "#platform/store2.js";\nmyStore2.EXTRA();\n',
     },
     registryBefore: { "common/store2": ["EXTRA"] },
     pluginBefore: {},
@@ -241,7 +241,7 @@ const DIVERGENCES: DivergenceRow[] = [
   },
   {
     id: ".js source file",
-    files: { "a.js": 'import { fromJs } from "#common/fromjs.js";\n' },
+    files: { "a.js": 'import { fromJs } from "#platform/fromjs.js";\n' },
     registryBefore: {},
     pluginBefore: { "common/fromjs": ["fromJs"] },
     // Registry walked `.ts` only. foliplus/js has no .js file today, so this is
@@ -261,7 +261,7 @@ const DIVERGENCES: DivergenceRow[] = [
   },
   {
     id: "dot-dir source",
-    files: { ".hidden/x.ts": 'import { hidden } from "#common/hidden.js";\n' },
+    files: { ".hidden/x.ts": 'import { hidden } from "#platform/hidden.js";\n' },
     registryBefore: { "common/hidden": ["hidden"] },
     pluginBefore: {},
     // Registry recursed into dot-dirs, which would pull caches and `.git` into
@@ -321,7 +321,7 @@ const PREDECESSOR_BUGS: DivergenceRow[] = [
     id: "one alias reused for two different specs",
     files: {
       "a.ts": 'import * as Geo from "#core/geo.js";\nconst a = Geo.distanceTo;\n',
-      "b.ts": 'import * as Geo from "#common/geo2.js";\nconst b = Geo.bearingOf;\n',
+      "b.ts": 'import * as Geo from "#platform/geo2.js";\nconst b = Geo.bearingOf;\n',
     },
     // Registry kept both keys but emptied both (uppercase-only prop match).
     registryBefore: { "common/geo2": [], "core/geo": [] },
@@ -368,7 +368,7 @@ describe("predecessor bugs — engine diverges from both, deliberately", () => {
 describe("canonicalSpec", () => {
   it("strips the hash, the .js extension and a trailing /index", () => {
     expect(canonicalSpec("#core/geo/index.js")).toBe("core/geo");
-    expect(canonicalSpec("#common/dom.js")).toBe("common/dom");
+    expect(canonicalSpec("#platform/dom.js")).toBe("common/dom");
     expect(canonicalSpec("#foliplus/BaseControl.js")).toBe("foliplus/BaseControl");
     expect(canonicalSpec("#core/index.js")).toBe("core");
     expect(canonicalSpec("#core/layer/api.js")).toBe("core/layer/api");

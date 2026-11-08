@@ -23,8 +23,8 @@
 // label label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import {
   BORDER_WEIGHT,
   bindLiveColor,

@@ -6,8 +6,8 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
   withLabelPaint,
-} from "#common/canvasLabel.js";
-import type { CanvasLabelStyle } from "#common/type.js";
+} from "#ui/canvasLabel.js";
+import type { CanvasLabelStyle } from "#platform/type.js";
 
 /** A container carrying the shared --foliplus-label-* tokens (jsdom reads inline
  *  custom properties through getComputedStyle, the same way the real page

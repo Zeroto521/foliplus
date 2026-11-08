@@ -11,7 +11,7 @@ import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 //
 // Four layers, one direction: platform -> ui -> core -> control/<Feature>. A
 // layer may import itself and the layers below it, never the ones above.
-//   - platform (today "common/"): host primitives only — DOM, storage,
+//   - platform (today "platform/"): host primitives only — DOM, storage,
 //     fetch, locale, cssvar, rafLoop, fullscreen. No product semantics.
 //   - ui: foliplus chrome — appearance primitives (panelChrome, panelField,
 //     icon, panelClassName, canvasLabel) plus the stateful interaction
@@ -33,7 +33,7 @@ import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 // upward dependency is caught at authoring time.
 //
 // The tier table below is the single place the layer names live: Step 2
-// renames the bottom tier from "common/" to "platform/" by editing TIER
+// renames the bottom tier from "platform/" (was "common/") by editing TIER
 // (directory and alias in one entry) and the rules/tests follow.
 const REPO_ROOT = resolve(".");
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
@@ -48,7 +48,7 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 // boundary matrix itself and are NOT derived — they are the matrix's own
 // vocabulary, and deriving them positionally from a filtered list (which
 // drops #control/#foliplus) would silently reorder ui/core.
-const TIER = { platform: "common", ui: "ui", core: "core" } as const;
+const TIER = { platform: "platform", ui: "ui", core: "core" } as const;
 type Tier = keyof typeof TIER;
 // Single-source: the bottom tier's directory must be the one build-path
 // derives. If they diverge (a rename applied here but not in build-path, or

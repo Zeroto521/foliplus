@@ -1,6 +1,6 @@
 import { mountDelIcon, toggleDelIcon } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
-import type { Logger } from "#common/type.js";
+import type { Logger } from "#platform/type.js";
 import * as CONST from "../const.js";
 import { buildEditOverlay } from "../edit.js";
 import type { MeasureManager } from "../manager.js";

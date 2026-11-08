@@ -10,8 +10,8 @@
 // translated via each mode's getNameLabel(), falling back to English.
 import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
-import { download } from "#common/download.js";
-import { formatCoord } from "#common/format.js";
+import { download } from "#platform/download.js";
+import { formatCoord } from "#platform/format.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP } from "./mode/index.js";

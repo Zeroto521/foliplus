@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextFrame, throttleRaf } from "#common/throttle.js";
+import { nextFrame, throttleRaf } from "#platform/throttle.js";
 
 describe("throttleRaf", () => {
   beforeEach(() => {

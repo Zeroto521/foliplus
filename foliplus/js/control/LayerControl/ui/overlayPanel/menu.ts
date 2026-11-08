@@ -7,8 +7,8 @@ import {
   attachPanel,
   createPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
+import { dom } from "#platform/dom.js";
+import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";

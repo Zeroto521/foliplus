@@ -3,16 +3,16 @@
 import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { cssVar } from "#common/cssvar.js";
-import { buildPopupEl } from "#common/dom.js";
+import { cssVar } from "#platform/cssvar.js";
+import { buildPopupEl } from "#platform/dom.js";
 import {
   LAT_LNG_PRECISION,
   NUMBER_FORMAT,
   formatLatLng,
   formatNumber,
-} from "#common/format.js";
-import { createLogger } from "#common/log.js";
-import type { Logger } from "#common/type.js";
+} from "#platform/format.js";
+import { createLogger } from "#platform/log.js";
+import type { Logger } from "#platform/type.js";
 import * as CONST from "./const.js";
 
 const log = createLogger("MeasureControl");

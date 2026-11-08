@@ -117,9 +117,9 @@ class TestResolveImport:
         assert Path(out).as_posix().endswith("a/util.ts")
 
     def test_alias_common(self, tmp_path):
-        _make(tmp_path, "foliplus/js/common/log.ts")
+        _make(tmp_path, "foliplus/js/platform/log.ts")
         fp = str(tmp_path / "foliplus" / "js" / "a" / "index.ts")
-        out = mod._resolve_import(fp, "#common/log.js", str(tmp_path))
+        out = mod._resolve_import(fp, "#platform/log.js", str(tmp_path))
         assert out is not None
 
     def test_alias_core(self, tmp_path):

@@ -17,7 +17,7 @@ const events = vi.hoisted(() => ({
   emit: vi.fn(),
 }));
 
-vi.mock("#common/storage.js", () => ({
+vi.mock("#platform/storage.js", () => ({
   loadRecord: storage.loadRecord,
   saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,

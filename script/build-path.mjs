@@ -25,7 +25,7 @@ import { fileURLToPath } from "url";
 
 /** Import specifier → repo-relative directory. One spelling for every table. */
 const ALIAS_TO_REL = {
-  "#common": "foliplus/js/common",
+  "#platform": "foliplus/js/platform",
   "#core": "foliplus/js/core",
   "#ui": "foliplus/js/ui",
   "#control": "foliplus/js/control",
@@ -34,7 +34,7 @@ const ALIAS_TO_REL = {
 };
 
 /** The shared aliases; `#script` is vitest-only. */
-const SHARED_ALIASES = ["#common", "#core", "#ui", "#control", "#foliplus"];
+const SHARED_ALIASES = ["#platform", "#core", "#ui", "#control", "#foliplus"];
 
 /** Resolve `foliplus/js` under a project `root`. */
 const resolveJsRoot = root => resolve(root, ALIAS_TO_REL["#foliplus"]);

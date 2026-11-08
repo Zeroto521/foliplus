@@ -3,14 +3,14 @@
 // in explicitly.
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
+import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/canvasAlpha.js";
 import {
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
-} from "#common/canvasLabel.js";
-import { formatLabelNumber } from "#common/format.js";
-import type { CanvasLabelStyle } from "#common/type.js";
+} from "#ui/canvasLabel.js";
+import { formatLabelNumber } from "#platform/format.js";
+import type { CanvasLabelStyle } from "#platform/type.js";
 import type { HexFeature } from "./type.js";
 
 /** Draw a single hexagon polygon (fill + stroke).

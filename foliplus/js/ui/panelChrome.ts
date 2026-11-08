@@ -9,8 +9,8 @@
 // The class names come from common/panelClassName.ts (the single source), so the
 // vocabulary cannot drift between the style panel, the filter panel and the
 // heatmap template.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 
 /** Section divider — the hairline between panel sections.
  *  Defaults to <hr>; pass "div" where the caller's layout relies on the

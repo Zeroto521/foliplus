@@ -6,7 +6,7 @@
 // caption, the count and the read-only frame are shared by this mode only;
 // `buildOriginalDetail` builds the read-only detail rows.
 import { METHOD } from "#core/classify.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "../surface.js";

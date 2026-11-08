@@ -19,11 +19,11 @@ import {
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
-import { finalize } from "#common/finalize.js";
-import { NUMBER_FORMAT, formatLabelNumber } from "#common/format.js";
-import { createLogger } from "#common/log.js";
-import type { CanvasLabelStyle } from "#common/type.js";
+import { resolveCanvasLabelStyle, withLabelPaint } from "#ui/canvasLabel.js";
+import { finalize } from "#platform/finalize.js";
+import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
+import { createLogger } from "#platform/log.js";
+import type { CanvasLabelStyle } from "#platform/type.js";
 import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "../const.js";
 import type { LabelConfig } from "../type.js";
