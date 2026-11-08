@@ -270,7 +270,7 @@ describe("buildIconRow", () => {
     expect(buildIconRow(ui, "nope")).toBeNull();
   });
 
-  it("shows the author-original label when a walk encounters a non-marker leaf", () => {
+  it("shows the unavailable state when the author glyph is not painted", () => {
     // A mixed group (marker + polygon): the walk must skip the polygon leaf
     // (no setIcon) and continue to the marker. The marker's author declares a
     // name outside the set, so authorGlyphName stays null and the trigger
@@ -286,8 +286,9 @@ describe("buildIconRow", () => {
     );
     const group = makeMarkerGroup(marker, poly as any);
     // "map-marker" is an FA4 name: syntactically valid but NOT painted by the
-    // FA6 stylesheet, so the availability probe degrades to the author-original
-    // label (the honest fallback, not a rendered tofu).
+    // FA6 stylesheet, so the trigger must show the explicit unavailable state
+    // (dashed-outline circle preview + the original name + a hint title), not
+    // a silent "Original" label or a blank tofu.
     (window as any).__glyphProbePainted = false;
     const { manager: m8, ui: u8 } = initFixture({
       data: [{ id: "mix3", name: "MIX3", role: "overlay", layer: group }, BASE_LAYER],
@@ -297,7 +298,16 @@ describe("buildIconRow", () => {
     const trigger = row.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    expect(trigger.textContent).toContain(u8.T("style_icon_original"));
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("map-marker");
+    expect(trigger.title).toContain(
+      u8.T("style_icon_unavailable").replace("{name}", "map-marker"),
+    );
     m8?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -365,15 +375,15 @@ describe("buildIconRow", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the author-original label when the author glyph name is not in the set", () => {
+  it("shows the unavailable state when the author glyph name is not painted", () => {
     // The author declares a glyph name the FA6 set no longer knows (an FA4
-    // name): renderTrigger resolves it to null, so the row must show the
-    // author-original label rather than render an unknown symbol.
+    // name): the name is syntactically valid but the loaded stylesheet does
+    // not paint it, so the trigger must show the explicit unavailable state
+    // with the original name rather than silently render an unknown symbol.
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "map-marker" };
     const marker = makeMarker({ type: "school" }, author);
-    // FA4 name, syntactically valid, not painted by FA6 -> availability probe
-    // degrades to the author-original label (the honest fallback).
+    // FA4 name, syntactically valid, not painted by FA6 -> unavailable state.
     (window as any).__glyphProbePainted = false;
     const { manager: m6, ui: u6 } = fixtureWithMarkers([marker]);
     window.localStorage.removeItem(CONST.STORAGE.KEY);
@@ -381,15 +391,20 @@ describe("buildIconRow", () => {
     const trigger = row.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    // The author's icon.options.icon is "map-marker" (not in the FA6 set), so
-    // authorGlyphName returns null (isGlyphName rejects it) — the trigger
-    // shows the author-original label, not an unknown glyph.
-    expect(trigger.textContent).toContain(u6.T("style_icon_original"));
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("map-marker");
+    expect(trigger.title).toContain(
+      u6.T("style_icon_unavailable").replace("{name}", "map-marker"),
+    );
     m6?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
-
   it("shows the author-original label when no glyph is chosen", () => {
     const row = buildIconRow(ui, "overlay1");
     expect(row).not.toBeNull();
@@ -629,6 +644,50 @@ describe("buildIconRow", () => {
       );
     }).not.toThrow();
   });
+  it("outside press still closes after five open/close cycles", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    for (let i = 0; i < 5; i++) {
+      trigger.click();
+      expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
+      row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    }
+  });
+
+  it("Escape returns focus to the trigger", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    grid.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("document listeners are paired across open/close (no leak)", () => {
+    const addSpy = vi.spyOn(document, "addEventListener");
+    const removeSpy = vi.spyOn(document, "removeEventListener");
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const added = addSpy.mock.calls.length;
+    const removedBefore = removeSpy.mock.calls.length;
+    trigger.click();
+    const removed = removeSpy.mock.calls.length - removedBefore;
+    expect(removed).toBeGreaterThanOrEqual(added);
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
 });
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
@@ -715,6 +774,52 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     m4?.debouncedEnforce?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
+  });
+  it("shows the unavailable state when the user picks a valid-but-unpainted glyph", () => {
+    // The user committed a syntactically valid glyph (via intent) that the
+    // loaded stylesheet does not paint: the trigger must show the unavailable
+    // state (dashed circle + the original name + hint) instead of a blank.
+    writeIntentKeys(ui, "overlay1", [
+      [DIM.ICON, { kind: "glyph", value: "map-marker" }],
+    ]);
+    (window as any).__glyphProbePainted = false;
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("map-marker");
+    expect(trigger.title).toContain(
+      ui.T("style_icon_unavailable").replace("{name}", "map-marker"),
+    );
+  });
+
+  it("shows the unavailable state when the glyph name fails syntax", () => {
+    // A name that fails glyph syntax (resolveGlyph -> null): the behavior is
+    // pinned to the same explicit unavailable state — show the original name
+    // with the hint, never silently fall back to a circle or an empty label.
+    writeIntentKeys(ui, "overlay1", [
+      [DIM.ICON, { kind: "glyph", value: "not a glyph!" }],
+    ]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("not a glyph!");
+    expect(trigger.title).toContain(
+      ui.T("style_icon_unavailable").replace("{name}", "not a glyph!"),
+    );
   });
 
   it("apply is a no-op for a layer the registry lost", () => {
@@ -978,5 +1083,54 @@ describe("icon rehydrate drift guard", () => {
     expect(replayBlock).toContain("replayFillState(this, layerId);");
     expect(replayBlock).toContain("applySizeToLayer(this, layerId);");
     expect(replayBlock).toContain("applyIconToLayer(this, layerId);");
+  });
+
+  it("shows the happy state when the author declares a fa-prefixed name", () => {
+    const probed: string[] = [];
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el: Element, pseudo?: string | null) => {
+        if (pseudo === "::before") probed.push(el.className);
+        return { content: '"\\f00a"' } as CSSStyleDeclaration;
+      },
+    );
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "fa-martini-glass", prefix: "fa" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { ui: u10 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u10, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+    expect(trigger.textContent).toContain("fa-martini-glass");
+    expect(probed).toContain("fa fa-martini-glass");
+  });
+
+  it("shows the unavailable state for a name the author's prefix cannot paint", () => {
+    const probed: string[] = [];
+    (window as any).__glyphProbePainted = false;
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el: Element, pseudo?: string | null) => {
+        if (pseudo === "::before") probed.push(el.className);
+        return { content: "none" } as CSSStyleDeclaration;
+      },
+    );
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "no-such-glyph", prefix: "fa-solid" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { ui: u11 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u11, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(trigger.textContent).toContain("no-such-glyph");
+    expect(probed).toContain("fa-solid fa-no-such-glyph");
   });
 });

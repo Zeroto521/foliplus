@@ -13,6 +13,7 @@ import {
 import {
   applyIconToLeaves,
   authorGlyphName,
+  authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
@@ -218,6 +219,33 @@ describe("authorGlyphName", () => {
     const poly = { options: {} };
     const withGlyph = makeMarker({ options: { icon: "star" } });
     expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toBe("star");
+  });
+});
+
+describe("authorGlyphPrefix", () => {
+  it("returns the first author prefix declared on an icon leaf", () => {
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    const plain = makeMarker({ options: {} });
+    expect(authorGlyphPrefix(makeMarkerGroup(plain, withPrefix))).toBe("fa");
+  });
+  it("returns null when no leaf declares a prefix", () => {
+    const plain = makeMarker({ options: {} });
+    expect(authorGlyphPrefix(makeMarkerGroup(plain))).toBeNull();
+  });
+  it("stops walking after the first prefix (short-circuit)", () => {
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    const after = makeMarker({ options: { prefix: "fa-solid" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(withPrefix, after))).toBe("fa");
+  });
+  it("skips a non-icon leaf and keeps walking", () => {
+    const poly = { options: {} };
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(poly, withPrefix))).toBe("fa");
+  });
+  it("ignores an empty-string prefix (treats as absent)", () => {
+    const empty = makeMarker({ options: { prefix: "" } });
+    const withPrefix = makeMarker({ options: { prefix: "fa" } });
+    expect(authorGlyphPrefix(makeMarkerGroup(empty, withPrefix))).toBe("fa");
   });
 });
 
