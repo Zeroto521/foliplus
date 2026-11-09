@@ -653,3 +653,57 @@ describe("ListCursor", () => {
     });
   });
 });
+
+describe("active row stays visible (ensureActiveVisible contract)", () => {
+  let root: HTMLElement;
+
+  beforeEach(() => {
+    root = makeList(6);
+  });
+
+  afterEach(() => {
+    root.remove();
+  });
+
+  it("calls scrollIntoView with nearest semantics when the cursor lands", () => {
+    const opts = [...root.querySelectorAll<HTMLElement>(".opt")];
+    const spy = vi.fn();
+    (opts[2] as unknown as { scrollIntoView: (o?: unknown) => void }).scrollIntoView =
+      spy;
+    const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+    c.set(2);
+    expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+    c.destroy();
+  });
+
+  it("does not scroll when the cursor clears", () => {
+    const opts = [...root.querySelectorAll<HTMLElement>(".opt")];
+    const spy = vi.fn();
+    (opts[0] as unknown as { scrollIntoView: (o?: unknown) => void }).scrollIntoView =
+      spy;
+    const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+    c.set(0);
+    // set(0) scrolls the active row into view once.
+    expect(spy).toHaveBeenCalledTimes(1);
+    c.clear();
+    // clear() has no active row: it must NOT scroll anything again.
+    expect(spy).toHaveBeenCalledTimes(1);
+    c.destroy();
+  });
+
+  it("scrolling follows the cursor across moves", () => {
+    const opts = [...root.querySelectorAll<HTMLElement>(".opt")];
+    const spies = opts.map(o => {
+      const fn = vi.fn();
+      (o as unknown as { scrollIntoView: (o?: unknown) => void }).scrollIntoView = fn;
+      return fn;
+    });
+    const c = new ListCursor({ root, itemSelector: ".opt", activeClass: "on" });
+    c.set(0);
+    expect(spies[0]).toHaveBeenCalledTimes(1);
+    c.move(1);
+    expect(spies[1]).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+    expect(spies[0]).toHaveBeenCalledTimes(1);
+    c.destroy();
+  });
+});
