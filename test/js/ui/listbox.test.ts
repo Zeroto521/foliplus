@@ -326,7 +326,15 @@ describe("listbox engine: bare shape and edge states", () => {
       triggerParent?: "attached" | "detached";
       dismiss?: {
         kind: "registry";
-        register: (e: unknown) => () => void;
+        register: (e: {
+          id: string;
+          isOpen(): boolean;
+          close(opts: { restoreFocus: boolean }): void | boolean;
+          panels(): Element[];
+          dismissOn: "mousedown" | "click";
+          pressPriority: number;
+          escapeRank?: number;
+        }) => () => void;
         id: string;
         rank: number;
       };
@@ -2374,7 +2382,15 @@ const makeRowPicker = (
   selected: readonly string[] = [],
   dismiss?: {
     kind: "registry";
-    register: (e: unknown) => () => void;
+    register: (e: {
+      id: string;
+      isOpen(): boolean;
+      close(opts: { restoreFocus: boolean }): void | boolean;
+      panels(): Element[];
+      dismissOn: "mousedown" | "click";
+      pressPriority: number;
+      escapeRank?: number;
+    }) => () => void;
     id: string;
     rank: number;
   },
