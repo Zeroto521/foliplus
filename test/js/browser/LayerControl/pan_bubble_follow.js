@@ -108,6 +108,11 @@ async data => {
     new PointerEvent("pointerdown", { ...base, clientX: mid, buttons: 1 }),
   );
 
+  // Pan toward whichever side still has a gap: a pair flush with the min edge
+  // clamps a left pan (and vice versa), which would leave the bubbles static
+  // and fail the follow assertion.
+  const dir = v0 > lo ? -1 : 1;
+  const nextX = mid + dir * 20;
   // Position is rAF-merged by design (updateBubbles schedules one
   // requestAnimationFrame for all live bubbles), so a left read right after
   // dispatching the move is still the pre-move value. Await two frames after
