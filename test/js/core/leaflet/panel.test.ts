@@ -267,7 +267,7 @@ describe("bindOutsideCollapse", () => {
     // inside press for the panel that owns that trigger, even though the node
     // is not a descendant of the panel. (Attribution itself — and the fact
     // that one overlay's list is *not* inside another's — is asserted in
-    // common/portalRoot.test.ts, where the predicate is the unit under test;
+    // platform/portalRoot.test.ts, where the predicate is the unit under test;
     // bindOutsideCollapse deliberately shares one "inside" verdict per event
     // across its bindings, so nested/sister panels cannot collapse each
     // other.)

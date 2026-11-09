@@ -13,7 +13,7 @@ import * as CONST from "./const.js";
 // common template helper would add an abstraction with one caller — and it
 // would have to keep this HTML byte-for-byte identical anyway (the Python
 // rendering tests pin the rendered panel). Revisit when a second control adopts
-// common/schemePicker; the picker's contract is the trigger element plus an
+// ui/schemePicker; the picker's contract is the trigger element plus an
 // optional hidden select passed to createSchemePicker.
 /** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `

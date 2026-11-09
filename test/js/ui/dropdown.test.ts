@@ -1,4 +1,4 @@
-// Tests for the shared select replacement (common/dropdown.ts).
+// Tests for the shared select replacement (ui/dropdown.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Dropdown, createDropdown, dropdownOf } from "#ui/index.js";
 
@@ -189,7 +189,7 @@ describe("dropdown: bridged single select", () => {
   });
 
   it("mounts the open popup on the injected covering surface", () => {
-    // The panels pass common/fullscreen's dropdownSurface: in pseudo/fullscreen
+    // The panels pass platform/fullscreen's dropdownSurface: in pseudo/fullscreen
     // mode the list must mount into the covering container, not <body>, or the
     // opaque map paints over it.
     const host = document.createElement("div");
