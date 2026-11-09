@@ -1,19 +1,11 @@
 // control/LayerControl/ui/style/replay — a neutral bridge that lets one style dimension
 // schedule a re-apply of another dimension's face without importing the other
-// dimension module. The dimensions form a DAG (fill → border derives from the
-// leaf's current fill); a direct fill ↔ border import would be a cycle. The
-// face owner registers its replay here, and the writer asks for it by face.
-// re-apply of another dimension's face WITHOUT importing the other dimension
-// module. The layer control dimensions form a DAG (fill → border derives from
-// the leaf's current fill), and a direct fill.ts ↔ border.ts import would be
-// a cycle that breaks single-source layering. Instead the face owner (border)
-// registers its replay callback here once, and the writer (fill) asks for it
-// by face — the bridge knows neither dimension.
-//
-// The registration is keyed by UI + face because the callback closes over the
-// owning dimension's per-UI apply function (e.g. border's applyBorderToLayer).
-// A replay is only ever scheduled for a layerId the writer just committed, so
-// the callback takes the layerId as its argument.
+// dimension module. The style dimensions form a DAG (fill → border derives
+// from the leaf's current fill); a direct fill ↔ border import would be a
+// cycle. The bridge knows neither dimension: the face owner (border)
+// registers its replay here, keyed by UI + face, and the writer (fill)
+// asks for it by face. The callback takes the layerId the writer just
+// committed, because a replay is only ever scheduled for one layer.
 import type { LayerUI } from "../surface.js";
 import { FACE, type SchedulerFace, scheduleStyleDimApply } from "./styleBag.js";
 
