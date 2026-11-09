@@ -547,6 +547,23 @@ class TestSearchControlBrowser:
 
             assert not errors, f"JS errors: {errors}"
 
+    def test_keyboard_keeps_active_row_visible(self, browser, tmp_path):
+        """ArrowDown navigation keeps the active history row inside the panel
+        viewport (the list cursor scrolls the panel, not the map)."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("SearchControl/seed_scrollable_history"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("SearchControl/keyboard_scroll_visible"))
+            assert result and result.get("ok"), result
+            assert result["anyScrolled"], result
+            assert result["allActiveInView"], result
+            assert not errors, f"JS errors: {errors}"
+
 
 def _panel_up(geom: dict) -> bool:
     """True when the panel carries the up class (the class-list form).

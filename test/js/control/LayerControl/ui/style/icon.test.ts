@@ -942,6 +942,24 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
+  it("reset re-derives a surviving icon color onto the restored author icon", () => {
+    // The icon color is orthogonal to the glyph: resetting the glyph must not
+    // lose a user-set color. resetLayerIcon restores the author icon then
+    // re-applies the ICON_COLOR intent, so the marker ends up with the color
+    // painted on the freshly restored chassis.
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#12abef"]]);
+    commitGlyph(ui, "overlay1", "star");
+    flushIcon("overlay1");
+    expect(school.options.icon).not.toBe(authorIcon);
+    resetLayerIcon(ui, "overlay1");
+    flushIcon("overlay1");
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.style.color).toBe("rgb(18, 171, 239)");
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
+  });
+
   it("reset skips a missing layer without throwing", () => {
     expect(() => resetLayerIcon(ui, "nope")).not.toThrow();
   });

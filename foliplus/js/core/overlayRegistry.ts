@@ -116,6 +116,7 @@ interface EscapeHandled {
 const OVERLAY_IDS = {
   LAYER_RENAME: "layer.rename",
   LAYER_PICKER_DROPDOWN: "layer.style.picker.dropdown",
+  BORDER_PICKER_DROPDOWN: "layer.style.border.picker.dropdown",
   HEATMAP_PICKER_DROPDOWN: "heatmap.picker.dropdown",
   LAYER_MENU: "layer.menu",
   LAYER_FILTER: "layer.filter",
@@ -142,6 +143,7 @@ type OverlayId = (typeof OVERLAY_IDS)[keyof typeof OVERLAY_IDS];
 const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
   [OVERLAY_IDS.LAYER_RENAME]: 900,
   [OVERLAY_IDS.LAYER_PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.BORDER_PICKER_DROPDOWN]: 845,
   [OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN]: 840,
   [OVERLAY_IDS.LAYER_MENU]: 800,
   [OVERLAY_IDS.LAYER_FILTER]: 700,

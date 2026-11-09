@@ -7,7 +7,7 @@ import { authorFill, methodLabel } from "./fillAuthor.js";
 import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
+import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
@@ -15,15 +15,11 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
-import {
-  DIM,
-  FILL_MODE,
-  type FillMode,
-  type FillValueConfig,
-} from "#core/layer/index.js";
+import { DIM, FILL_MODE, type FillMode, type ValueConfig } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   dropdownSurface,
   fullscreenSurface,
@@ -42,7 +38,7 @@ import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig | undefined,
+  value: ValueConfig | undefined,
 ): FillMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ??
   (value !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
@@ -53,7 +49,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
   dim: DIM.FILL,
   face: FACE.FILL,
   colorKey: "fillColor",
-  opacity: {
+  flatScalar: {
     key: "fillOpacity",
     read: (ui, layerId) => getIntent(ui, layerId, INTENT.FILL_OPACITY),
   },
@@ -71,19 +67,19 @@ const FILL_FACE_DECL: ValueFaceDecl = {
 const applyValueFill = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig,
+  value: ValueConfig,
   /** Resolve a stored config's field against the layer's current fields. The
    *  caller resolves the config it paints with, so the mode's highlight pin
    *  must resolve the live record the same way before comparing. Identity by
    *  default — a caller with no field list has nothing to resolve. */
-  resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
+  resolveStored: (stored: ValueConfig) => ValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live fillValue
    *  intent, or the author's declared value fill when the user has not
    *  chosen one. */
-  liveValue: () => FillValueConfig | undefined = () =>
+  liveValue: () => ValueConfig | undefined = () =>
     FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
-  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
+  paintByValue(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
 };
 
 export {
@@ -107,10 +103,10 @@ const log = createLogger("foliplus");
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedValue = (value: FillValueConfig): FillValueConfig =>
-  value.kind === "category"
+const persistedValue = (value: ValueConfig): ValueConfig =>
+  isCategoryKind(value.kind)
     ? {
-        kind: "category",
+        kind: VALUE_KIND.CATEGORY,
         field: value.field,
         // method/classes are type-required (the union stays assignable to
         // the numeric ValueConfig) but unused at runtime on a category.
@@ -119,7 +115,7 @@ const persistedValue = (value: FillValueConfig): FillValueConfig =>
         scheme: value.scheme,
       }
     : {
-        kind: "numeric",
+        kind: VALUE_KIND.NUMERIC,
         field: value.field,
         method: value.method,
         classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
@@ -189,15 +185,15 @@ const categoryFields = (ui: LayerUI, layerId: string): string[] => {
 const resolvedValue = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig | undefined,
-): FillValueConfig | undefined =>
+  value: ValueConfig | undefined,
+): ValueConfig | undefined =>
   value === undefined
     ? undefined
     : {
         ...value,
         field: resolveField(
           value.field,
-          (value.kind ?? "numeric") === "category"
+          isCategoryKind(value.kind)
             ? categoryFields(ui, layerId)
             : numericFields(ui, layerId),
         ),
@@ -236,7 +232,7 @@ const warnDeclaredFillInference = (
  *  field vanished is not silently re-pointed at another column; the whole
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined => {
+const declaredFill = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
@@ -250,7 +246,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
   // mode the values can drive. A field that cannot drive one kind (mixed
   // number/category values) or drives none (all null / no feature) drops the
   // declaration whole rather than painting one mode over a mismatched column.
-  let config: FillValueConfig = declared;
+  let config: ValueConfig = declared;
   if (declared.kind === undefined) {
     const inferred = inferFieldKind(layer, declared.field);
     if (inferred === "mixed" || inferred === "empty") {
@@ -258,10 +254,10 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
       return undefined;
     }
     config =
-      inferred === "category"
+      inferred === VALUE_KIND.CATEGORY
         ? {
             ...declared,
-            kind: "category",
+            kind: VALUE_KIND.CATEGORY,
             // An inferred categorical column needs a qualitative palette. The
             // author who named none gets the category default; a named scheme
             // is the author's choice and is kept verbatim on either mode.
@@ -270,17 +266,16 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
                 ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
                 : declared.scheme,
           }
-        : { ...declared, kind: "numeric" };
+        : { ...declared, kind: VALUE_KIND.NUMERIC };
   }
   // The declaration kind selects the candidate set: a category value fill
   // needs its column among the categorical fields, a numeric value fill among
   // the numeric ones. A declaration whose field vanished from the matching
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
-  const fields =
-    (config.kind ?? "numeric") === "category"
-      ? categoryFields(ui, layerId)
-      : numericFields(ui, layerId);
+  const fields = isCategoryKind(config.kind)
+    ? categoryFields(ui, layerId)
+    : numericFields(ui, layerId);
   return fields.includes(config.field) ? config : undefined;
 };
 
@@ -292,15 +287,12 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
  *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredValue = (ui: LayerUI, layerId: string): FillValueConfig | undefined =>
+const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   declaredFill(ui, layerId);
 
 /** The value config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared value fill. */
-const effectiveFillValue = (
-  ui: LayerUI,
-  layerId: string,
-): FillValueConfig | undefined =>
+const effectiveFillValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
 
 /** Whether a declaration names a value mode — the cheap form for gates that run
@@ -320,8 +312,8 @@ const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
 const defaultValueConfig = (
   field: string,
   classes: number = CLASS_COUNT.DEFAULT,
-): FillValueConfig => ({
-  kind: "numeric",
+): ValueConfig => ({
+  kind: VALUE_KIND.NUMERIC,
   field,
   method: CONST.FILL_VALUE.METHOD_DEFAULT,
   classes,
@@ -359,7 +351,7 @@ const valueForUi = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-): FillValueConfig => {
+): ValueConfig => {
   const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.FILL_VALUE));
   if (stored) return stored;
   const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
@@ -394,10 +386,10 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
 const writeFillValue = (
   ui: LayerUI,
   layerId: string,
-  patch: Partial<FillValueConfig>,
-): FillValueConfig => {
+  patch: Partial<ValueConfig>,
+): ValueConfig => {
   const fields = numericFields(ui, layerId);
-  const next: FillValueConfig = persistedValue({
+  const next: ValueConfig = persistedValue({
     ...valueForUi(ui, layerId, fields),
     ...patch,
   });
@@ -414,7 +406,7 @@ const buildValueDetail = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-  value: FillValueConfig,
+  value: ValueConfig,
 ): HTMLElement[] => {
   const field = buildFieldRow({
     label: ui.T("style_fill_field"),
@@ -556,7 +548,7 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   ) as HTMLSelectElement;
   methodSelect.onchange = () =>
     writeFillValue(ui, layerId, {
-      method: methodSelect.value as FillValueConfig["method"],
+      method: methodSelect.value as ValueConfig["method"],
     });
 
   const classesSelect = detail.querySelector(

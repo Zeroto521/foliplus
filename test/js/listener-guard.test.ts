@@ -150,6 +150,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
+    f: "control/LayerControl/ui/style/iconColor.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
+  },
+  {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,

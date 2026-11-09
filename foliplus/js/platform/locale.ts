@@ -1,3 +1,5 @@
+// platform/locale — Locale resolution for the foliplus runtime.
+
 // Locale resolution for the foliplus runtime.
 //
 // Detects the browser language and selects a locale table from the

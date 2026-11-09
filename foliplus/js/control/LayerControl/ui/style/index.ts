@@ -15,11 +15,12 @@
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import { bindBorderRow, resetLayerBorder } from "./border.js";
+import { bindBorderRow, disposeBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { resetLayerIcon } from "./icon.js";
+import { resetLayerIconColor } from "./iconColor.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
@@ -160,7 +161,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // rows. A delegated drawer never renders this row (its gate excludes
   // styleSetters), so the lookup alone is the discriminator.
   const borderRow = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_BORDER_ROW}`,
+    '[data-style-dim="border"]',
   ) as HTMLElement | null;
   if (borderRow) bindBorderRow(ui, layerId, borderRow);
 
@@ -191,7 +192,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     // visible/opacity/zoomRange family): bindLiveColor commits straight to
     // ui.intentStore fillColor + setStyle. Same live-recipe as label color.
     const fillRow = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+      '[data-style-dim="fill"]',
     ) as HTMLElement | null;
     if (fillRow) bindFillRow(ui, layerId, fillRow);
     // Size rides the same flavour as fill: the delegated drawer never renders it.
@@ -302,6 +303,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Icon is LayerControl-owned too: restore the author's marker icons
       // and drop the persisted config, so a reload does not re-apply it.
       resetLayerIcon(ui, layerId);
+      resetLayerIconColor(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
@@ -429,6 +431,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // listbox is open; the panel is being removed, so destroy it first or the
   // next open would leave a picker answering clicks for a dead trigger.
   disposeFillRow(ui);
+  disposeBorderRow(ui);
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).

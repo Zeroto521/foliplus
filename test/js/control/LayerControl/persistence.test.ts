@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isFillValueConfig } from "#core/layer/intent.js";
+import { FILL_MODE, isValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
-import type { PersistedRecord } from "#control/LayerControl/type.js";
+import type { LayerPersistedRecord } from "#control/LayerControl/type.js";
 
 const makePersistence = () => new LayerPersistence();
 
-const emptyRecord = (): PersistedRecord => ({
+const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
@@ -26,8 +26,8 @@ const seedStorage = (record: unknown) => {
  *  -- the record under assertion is then the one handed to the spy. */
 const spySave = () => vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
 
-const lastRecord = (save: ReturnType<typeof spySave>): PersistedRecord =>
-  save.mock.calls.at(-1)![1] as PersistedRecord;
+const lastRecord = (save: ReturnType<typeof spySave>): LayerPersistedRecord =>
+  save.mock.calls.at(-1)![1] as LayerPersistedRecord;
 
 describe("LayerPersistence", () => {
   beforeEach(() => {
@@ -65,11 +65,11 @@ describe("LayerPersistence", () => {
 
     it("round-trips every section the record declares", () => {
       // Forward-compat guard: parseRecord must copy through every section of
-      // PersistedRecord, because the write rebuilds the record through it.
+      // LayerPersistedRecord, because the write rebuilds the record through it.
       // Add a dimension to the type and forget the parser, and this test fails
       // on the new field — the silent-loss case has no other visible symptom.
       const ids = ["a", "b"];
-      const record: PersistedRecord = {
+      const record: LayerPersistedRecord = {
         version: RECORD_VERSION,
         order: ids,
         removed: [],
@@ -713,7 +713,7 @@ describe("LayerPersistence", () => {
         [false, null],
       ];
       for (const [ok, config] of cases) {
-        expect(isFillValueConfig(config), JSON.stringify(config)).toBe(ok);
+        expect(isValueConfig(config), JSON.stringify(config)).toBe(ok);
         seedStorage({
           version: RECORD_VERSION,
           layers: { a: { fillValue: config, overrides: ["fillValue"] } },
@@ -1028,6 +1028,36 @@ describe("LayerPersistence", () => {
           fillOpacity: 0.6,
           overrides: ["fillColor", "fillOpacity"],
         },
+      });
+    });
+
+    it("keeps the icon color the user set, with provenance", () => {
+      // The icon color rides the same value-plus-provenance rule as the
+      // border/fill dimensions: only a value WITH an override is a user
+      // choice; a bare iconColor is an author default and stays untouched.
+      seedStorage({
+        layers: {
+          a: { iconColor: "#ff0000", overrides: ["iconColor"] },
+          b: { iconColor: "#12abef", overrides: ["iconColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { iconColor: "#ff0000", overrides: ["iconColor"] },
+        b: { iconColor: "#12abef", overrides: ["iconColor"] },
+      });
+    });
+
+    it("drops an invalid icon color that the swatch could not display", () => {
+      // line 195 arm: isHexColor false -> null (corrupt entry must not leak).
+      seedStorage({
+        layers: {
+          a: { iconColor: "red", overrides: ["iconColor"] },
+          b: { iconColor: "#1234567", overrides: ["iconColor"] },
+          c: { iconColor: "#fff", overrides: ["iconColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        c: { iconColor: "#ffffff", overrides: ["iconColor"] },
       });
     });
 
@@ -1589,5 +1619,89 @@ describe("LayerPersistence", () => {
       save.mockRestore();
       vi.useRealTimers();
     });
+  });
+});
+
+describe("borderStyleMode value domain", () => {
+  // The border mode is a closed domain (solid / value / original). The parser
+  // must keep a legal literal and drop anything else — a corrupt stored value
+  // cannot leak a broken border mode through provenance.
+  it("accepts solid / value / original borderStyleMode literals", () => {
+    for (const mode of [
+      FILL_MODE.SOLID,
+      FILL_MODE.VALUE,
+      FILL_MODE.ORIGINAL,
+    ] as const) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderStyleMode: mode, overrides: ["borderStyleMode"] } },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        borderStyleMode: mode,
+        overrides: ["borderStyleMode"],
+      });
+    }
+  });
+
+  it("drops a borderStyleMode outside the domain rather than leaking it", () => {
+    // The parser returns null for a bad literal and the marker is dropped
+    // with it; with only that marker invalid the layer has no overrides and
+    // reads absent — same contract as the fillMode "ramp" case.
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: { a: { borderStyleMode: "ramp", overrides: ["borderStyleMode"] } },
+    });
+    expect(makePersistence().load().layers.a).toBeUndefined();
+  });
+});
+
+describe("borderValue parse", () => {
+  // The border's value config rides the same parseFillValue path as the
+  // fill's (one predicate, one shape) — but the PARSE_OVERRIDE key is its
+  // own arrow, so a borderValue record must be exercised on its own to
+  // prove the key is wired. The fillValue suite owns the shared validator's
+  // edge cases; this block proves the border key dispatches to it.
+  it("keeps a legal numeric borderValue record", () => {
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: {
+        a: {
+          borderValue: {
+            field: "count",
+            method: "quantile",
+            classes: 5,
+            scheme: "Reds",
+          },
+          overrides: ["borderValue"],
+        },
+      },
+    });
+    const loaded = makePersistence().load().layers.a;
+    expect(loaded).toEqual({
+      borderValue: {
+        kind: undefined,
+        field: "count",
+        method: "quantile",
+        classes: 5,
+        scheme: "Reds",
+      },
+      overrides: ["borderValue"],
+    });
+  });
+
+  it("drops a borderValue outside the shared validator's domain", () => {
+    for (const bad of [
+      { field: "", method: "equal", classes: 3, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 1, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 3, scheme: "" },
+      "Reds",
+      null,
+    ]) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderValue: bad, overrides: ["borderValue"] } },
+      });
+      expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+    }
   });
 });

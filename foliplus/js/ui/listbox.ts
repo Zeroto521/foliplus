@@ -22,6 +22,7 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import { ensureActiveVisible } from "./scrollIntoView.js";
 import type { DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import {
@@ -288,7 +289,7 @@ const focusOption = (state: InternalState, index: number): void => {
   if (!option) return;
   option.focus();
   // A clamped popup scrolls internally; keep the focused row visible.
-  option.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  ensureActiveVisible(option);
   // The picker tracks the focused row on the trigger; the dropdown does not.
   if (state.spec.shape.activedescendant === "trigger") {
     // buildRow assigns a stable id to every row of the trigger shape, so the

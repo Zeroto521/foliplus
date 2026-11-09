@@ -82,13 +82,13 @@
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
   "LayerControl.style_fill_mode": "Fill Mode",
-  "LayerControl.style_fill_single": "Single Color",
-  "LayerControl.style_fill_per_feature": "Original Colors",
+  "LayerControl.style_mode_single": "Single Color",
+  "LayerControl.style_mode_by_value": "Color by Value",
+  "LayerControl.style_mode_original": "Original Colors",
   "LayerControl.style_fill_per_feature_note": "Colors set per feature by geopandas.GeoDataFrame.explore. Editing the fill overrides them; Reset restores them.",
   "LayerControl.style_fill_original_continuous": "Original · continuous",
   "LayerControl.style_fill_original_levels": "Original · {n} levels",
   "LayerControl.style_fill_original_colors": "Original · {n} colors",
-  "LayerControl.style_fill_by_value": "Color by Value",
   "LayerControl.style_fill_field": "Field",
   "LayerControl.style_fill_classes": "Classes",
   "LayerControl.style_fill_classes_out_of_range": "This class count comes from the layer declaration. It is outside the editable 2–9 range; editing it collapses the count into that range.",
@@ -100,6 +100,7 @@
   "LayerControl.style_method_heads": "Equal Count",
   "LayerControl.style_size": "Size",
   "LayerControl.style_icon": "Icon",
+  "LayerControl.style_icon_color": "Icon Color",
   "LayerControl.style_icon_original": "Original",
   "LayerControl.style_icon_unavailable": "Icon \"{name}\" is not supported; the original icon is kept.",
   "LayerControl.style_icon_invalid": "Icon name \"{name}\" is invalid; the original icon is kept.",
@@ -119,5 +120,6 @@
   "LayerControl.filter_clear_tooltip": "Clear this layer's filter",
   "LayerControl.filter_clear_disabled": "No filter to clear",
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
-  "LayerControl.filter_empty": "No numeric fields on this layer"
+  "LayerControl.filter_empty": "No numeric fields on this layer",
+  "LayerControl.style_border_mode": "Border Mode"
 }

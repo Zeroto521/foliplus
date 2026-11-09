@@ -2916,7 +2916,7 @@ describe("fill row — original colors", () => {
     // real option, named like the arm it selects.
     expect(option).not.toBeNull();
     expect(option!.disabled).toBe(false);
-    expect(option!.textContent).toBe("LayerControl.style_fill_per_feature");
+    expect(option!.textContent).toBe("LayerControl.style_mode_original");
     // Opening writes no intent: the map keeps the author's own paint until the
     // user picks an arm.
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
@@ -3556,7 +3556,7 @@ describe("fill row — original colors option", () => {
     // colors can be left and come back to.
     expect(select.value).toBe("original");
     expect(option.disabled).toBe(false);
-    expect(option.textContent).toBe("LayerControl.style_fill_per_feature");
+    expect(option.textContent).toBe("LayerControl.style_mode_original");
     expect(select.querySelector('option[value="solid"]')).not.toBeNull();
     expect(select.querySelector('option[value="value"]')).not.toBeNull();
     // The explanation is a tooltip on the control, not a paragraph in the

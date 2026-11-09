@@ -47,12 +47,15 @@ export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
+export { ensureActiveVisible } from "./scrollIntoView.js";
+export { STYLE_MODE } from "./styleModeKey.js";
 export type {
+  CanvasLabelStyle,
   Dropdown,
   DropdownSurface,
   Placement,
   PlacementOpts,
-  Rect,
+  PlacementBox,
   SurfaceSize,
   SchemePicker,
   SliderOptions,
