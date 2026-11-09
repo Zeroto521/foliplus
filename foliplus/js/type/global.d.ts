@@ -275,6 +275,8 @@ declare global {
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */
     interaction: InteractionManager;
+    /** Per-map shared filter store (Measure/Heatmap/LayerControl). */
+    filterStore: FilterStore;
     /** Default geocode provider spec for this map, registered by provider-aware
      *  controls (e.g. SearchControl) so indirect geocoding follows it. */
     geocodeProvider?: string | ProviderConfig;
@@ -290,6 +292,9 @@ declare global {
 
   /** Per-map active-mode registry (`map.foliplus.modes`). */
   type ModeManager = CoreModeManager;
+
+  /** Per-map shared filter store (`map.foliplus.filterStore`). */
+  type FilterStore = CoreFilterStore;
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;

@@ -5,8 +5,8 @@ import {
   FILL_MODE,
   INTENT,
   LIVE,
-  isFillValueConfig,
   isIconIntent,
+  isValueConfig,
 } from "#core/layer/intent.js";
 
 const NUMERIC = {
@@ -23,55 +23,53 @@ const CATEGORY = {
   scheme: "Set3",
 };
 
-describe("isFillValueConfig", () => {
+describe("isValueConfig", () => {
   it("accepts a numeric record (kind numeric or absent)", () => {
-    expect(isFillValueConfig(NUMERIC)).toBe(true);
+    expect(isValueConfig(NUMERIC)).toBe(true);
     const { kind: _kind, ...absent } = NUMERIC;
-    expect(isFillValueConfig(absent)).toBe(true);
+    expect(isValueConfig(absent)).toBe(true);
   });
 
   it("accepts a category record without method or classes", () => {
-    expect(isFillValueConfig(CATEGORY)).toBe(true);
+    expect(isValueConfig(CATEGORY)).toBe(true);
   });
 
   it("accepts a category record that still carries method/classes", () => {
     // A migrated numeric record may retain the classifier fields; a category
     // does not classify, so they are tolerated but not required.
-    expect(isFillValueConfig({ ...CATEGORY, method: "equal", classes: 3 })).toBe(true);
+    expect(isValueConfig({ ...CATEGORY, method: "equal", classes: 3 })).toBe(true);
   });
 
   it("drops an unknown kind rather than misapplying it as numeric", () => {
-    expect(isFillValueConfig({ ...NUMERIC, kind: "other" })).toBe(false);
-    expect(isFillValueConfig({ ...CATEGORY, kind: "other" })).toBe(false);
+    expect(isValueConfig({ ...NUMERIC, kind: "other" })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, kind: "other" })).toBe(false);
   });
 
   it("drops a category record with a bad field or scheme", () => {
-    expect(isFillValueConfig({ ...CATEGORY, field: "" })).toBe(false);
-    expect(isFillValueConfig({ ...CATEGORY, scheme: "" })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, field: "" })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, scheme: "" })).toBe(false);
   });
 
   it("drops a category record with an invalid method or classes", () => {
     // A category's method/classes are optional; when present they must still
     // be well-formed (a category never classifies, but a record that claims a
     // bad method is malformed regardless of arm).
-    expect(isFillValueConfig({ ...CATEGORY, method: "bad" })).toBe(false);
-    expect(isFillValueConfig({ ...CATEGORY, classes: 1 })).toBe(false);
-    expect(isFillValueConfig({ ...CATEGORY, classes: 10 })).toBe(false);
-    expect(isFillValueConfig({ ...CATEGORY, classes: 3.5 })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, method: "bad" })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, classes: 1 })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, classes: 10 })).toBe(false);
+    expect(isValueConfig({ ...CATEGORY, classes: 3.5 })).toBe(false);
   });
 
   it("drops a numeric record missing any required field", () => {
-    expect(isFillValueConfig({ field: "price", method: "equal", classes: 3 })).toBe(
-      false,
-    );
-    expect(isFillValueConfig({ ...NUMERIC, classes: undefined })).toBe(false);
-    expect(isFillValueConfig({ ...NUMERIC, method: undefined })).toBe(false);
+    expect(isValueConfig({ field: "price", method: "equal", classes: 3 })).toBe(false);
+    expect(isValueConfig({ ...NUMERIC, classes: undefined })).toBe(false);
+    expect(isValueConfig({ ...NUMERIC, method: undefined })).toBe(false);
   });
 
   it("rejects non-objects", () => {
-    expect(isFillValueConfig(null)).toBe(false);
-    expect(isFillValueConfig("Reds")).toBe(false);
-    expect(isFillValueConfig([1, 2, 3])).toBe(false);
+    expect(isValueConfig(null)).toBe(false);
+    expect(isValueConfig("Reds")).toBe(false);
+    expect(isValueConfig([1, 2, 3])).toBe(false);
   });
 });
 

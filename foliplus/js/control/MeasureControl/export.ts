@@ -11,7 +11,7 @@
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP } from "./mode/index.js";
-import type { ExportFormat } from "./type.js";
+import type { ExportDataFormat } from "./type.js";
 import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
 import { download } from "#platform/download.js";
@@ -179,7 +179,7 @@ interface ExportFormatSpec {
  * back as mojibake. Written as an escape so it is visible in the source. */
 const CSV_BOM = "﻿";
 
-const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
+const EXPORT_FORMAT_META: Record<ExportDataFormat, ExportFormatSpec> = {
   [CONST.EXPORT_FORMAT.GEOJSON]: {
     ext: "geojson",
     mime: "application/geo+json",
@@ -196,10 +196,10 @@ const EXPORT_FORMAT_META: Record<ExportFormat, ExportFormatSpec> = {
 /** Resolve a runtime `CONFIG.export_format` to a table key. Python's
  * `MeasureControl` rejects anything outside `EXPORT_FORMAT`, so this only
  * guards misconfiguration. */
-const resolveExportFormat = (raw: unknown): ExportFormat =>
+const resolveExportFormat = (raw: unknown): ExportDataFormat =>
   typeof raw === "string" &&
   Object.prototype.hasOwnProperty.call(EXPORT_FORMAT_META, raw)
-    ? (raw as ExportFormat)
+    ? (raw as ExportDataFormat)
     : CONST.DEFAULT_EXPORT_FORMAT;
 
 /** The record for `CONFIG.export_format` — no cast, no fallback lookup. */
@@ -208,7 +208,7 @@ const currentExportFormat = (env: ControlEnv): ExportFormatSpec =>
 
 /** Filename the export writes to — shared with the success hint so
  * the two cannot drift. */
-const exportFilename = (env: ControlEnv, format: ExportFormat): string =>
+const exportFilename = (env: ControlEnv, format: ExportDataFormat): string =>
   `${env.config.filename ?? "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
 
 /**
@@ -219,7 +219,7 @@ const exportFilename = (env: ControlEnv, format: ExportFormat): string =>
 const exportMeasurements = (
   env: ControlEnv,
   measurements: MeasureData[],
-  format: ExportFormat,
+  format: ExportDataFormat,
 ): void => {
   if (!measurements || measurements.length === 0) return;
 

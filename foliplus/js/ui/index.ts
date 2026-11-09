@@ -46,7 +46,7 @@ export type {
   DropdownSurface,
   Placement,
   PlacementOpts,
-  Rect,
+  PlacementBox,
   SurfaceSize,
   SchemePicker,
   SliderOptions,
