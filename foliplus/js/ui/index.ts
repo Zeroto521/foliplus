@@ -41,6 +41,7 @@ export { SLIDER_CLASS } from "./sliderClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";
 export { STYLE_MODE } from "./styleModeKey.js";
 export type {
+  CanvasLabelStyle,
   Dropdown,
   DropdownSurface,
   Placement,
