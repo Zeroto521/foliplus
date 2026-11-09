@@ -5,7 +5,6 @@
 // Set round-trip. Values and behavior must match the pre-store twin.
 import { describe, expect, it } from "vitest";
 import { FILL_MODE, ICON_KIND, STYLE_KEYS } from "#core/layer/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { LayerPersistence } from "#control/LayerControl/persistence.js";
 import type { LayerOverride, PersistedLayerState } from "#control/LayerControl/type.js";
@@ -505,7 +504,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
     });
   }
 });
-// ── task-61: persistence round-trip parameterised matrix ─────────────
+// ── #1029: persistence round-trip parameterised matrix ─────────────
 // Every provenance-tracked style dimension must survive write → rebuild →
 // read-back through the REAL persistence channel (LayerPersistence →
 // localStorage → parseRecord/PARSE_OVERRIDE → loadFromPersisted). The
@@ -520,7 +519,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
 //     "absent from record → author default stays" sample, plus two negative
 //     guards (write-only half proves the record is the carrier, and a
 //     dropped membership branch makes the count assertion red).
-describe("LayerIntentStore — persistence round-trip matrix (task-61)", () => {
+describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
   const overrideKeys = Object.keys(STYLE_KEYS) as LayerOverride[];
 
   /** A canonical live value per dimension. The on-disk shape is the parsed
