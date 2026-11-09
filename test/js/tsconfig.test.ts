@@ -70,6 +70,10 @@ const NARROW_CASTS = [
   // field-level coercion is the applier's (`applyStyleLabelState`) — the
   // cast says "reader validates". See `parseLabelConfig`.
   { f: "control/LayerControl/persistence.ts", n: 1 },
+  // The marker-color row factory: buildIconColorRow returns HTMLElement | null
+  // (the capability gate), so the dimension registry's row slot narrows with a
+  // cast — the same shape every other style row uses.
+  { f: "control/LayerControl/ui/style/iconColor.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
 
