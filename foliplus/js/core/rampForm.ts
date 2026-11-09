@@ -14,6 +14,7 @@ import { CLASS_COUNT_VALUES, type ClassifyMethod, METHOD_ORDER } from "./classif
 import { dom } from "#platform/dom.js";
 import {
   type Dropdown,
+  type DropdownOverlay,
   type DropdownSurface,
   createDropdown,
   formRow,
@@ -47,6 +48,9 @@ type FieldRowOptions = {
    *  `dropdownSurface(map.getContainer())`), so an open list follows the
    *  surface covering the trigger. */
   surface?: DropdownSurface;
+  /** Overlay-registry hook (single Escape dispatcher). When present, the open
+   *  list registers with the per-map registry instead of binding its own keydown. */
+  overlay?: DropdownOverlay;
 };
 
 type FieldRow = {
@@ -73,6 +77,7 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
     nativeSelect: select,
     ariaLabel: opts.ariaLabel,
     ...opts.surface,
+    ...(opts.overlay ? { overlay: opts.overlay } : {}),
   });
 
   const row = formRow(opts.label, dropdown.element, opts.rowClass);
@@ -102,6 +107,8 @@ type ClassesRowOptions = {
   onChange?: (next: { method?: ClassifyMethod; classes?: number }) => void;
   /** Popup host contract for both bridged dropdowns (see FieldRowOptions). */
   surface?: DropdownSurface;
+  /** Overlay-registry hook (single Escape dispatcher). Shared by both lists. */
+  overlay?: DropdownOverlay;
 };
 
 type ClassesRow = {
@@ -158,6 +165,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     nativeSelect: methodSelect,
     ariaLabel: opts.methodAriaLabel,
     ...opts.surface,
+    ...(opts.overlay ? { overlay: opts.overlay } : {}),
   });
   const classesDropdown = createDropdown({
     nativeSelect: classesSelect,
@@ -166,6 +174,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     // width contract (form.css) has to size it.
     className: "foliplus-classes-select",
     ...opts.surface,
+    ...(opts.overlay ? { overlay: opts.overlay } : {}),
   });
 
   const row = formRow(

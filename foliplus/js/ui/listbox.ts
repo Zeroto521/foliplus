@@ -21,7 +21,6 @@
 //
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
-import { bindDismiss } from "./dismiss.js";
 import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
 import type { DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
@@ -81,14 +80,31 @@ type ListboxRowShape = {
  * PanelController registry work) switches to the registry and the engine stops
  * listening on document/window entirely.
  */
+/** The overlay entry the listbox engine fills in when the consumer hands it a
+ *  registry register. The engine lives in ui and cannot import core, so the
+ *  entry shape is structural (a plain object the registry accepts) and the
+ *  register function is injected by the consumer (core/control has the map). */
+interface RegistryOverlayEntry {
+  id: string;
+  isOpen(): boolean;
+  close(opts: { restoreFocus: boolean }): void | boolean;
+  panels(): Element[];
+  dismissOn: "mousedown" | "click";
+  pressPriority: number;
+  escapeRank?: number;
+}
+
 type ListboxDismiss =
   | { kind: "local" }
   | {
       kind: "registry";
-      owner: string;
+      /** Register a floating surface with the per-map overlay registry.
+       *  Returns its unregister (called on close). */
+      register(entry: RegistryOverlayEntry): () => void;
+      /** Stable identity for the Escape order / duplicate rejection. */
+      id: string;
+      /** Escape + press rank: higher = closer to the top. */
       rank: number;
-      open: () => void;
-      close: () => void;
     };
 
 /** CSS classes the engine toggles. The consumer supplies them so the engine
@@ -119,13 +135,10 @@ interface ListboxSpec {
   shape: ListboxRowShape;
   classes: ListboxClasses;
   surface?: DropdownSurface;
-  /** Phase 1: always { kind: "local" }. */
+  /** The dismissal contract: "local" (Phase 1) or "registry" (Phase 2 —
+   *  the consumer injects the per-map overlay registry's register, keeping
+   *  the boundary that ui never imports core). */
   dismiss: ListboxDismiss;
-  /** The engine's own outside-press / Escape dismissal. Default OFF: #807
-   *  gives the overlay registry single ownership of closing a floating layer,
-   *  and the scheme picker's consumer wires that registry itself. The bridged
-   *  dropdown has no such owner, so its adapter opts in. */
-  ownDismiss?: boolean;
   /** Called at the very start of open(), before rows are rendered, so the
    *  consumer can re-read its value/items from a source that may have changed
    *  since the last open (a bridged select's options are rebuilt whenever the
@@ -504,21 +517,25 @@ const open = (state: InternalState): void => {
   }
 
   if (!state.spec.inline) {
-    if (state.spec.ownDismiss) {
-      // Outside press + Escape + focus return, as one primitive (the engine
-      // no longer keeps a private copy — icon.ts had a second one that got
-      // it wrong twice, and this is the root cause of the "outside press
-      // does not close the glyph popup" defect).
+    if (state.spec.dismiss.kind === "registry") {
+      // The overlay registry owns outside-press + Escape + focus return. The
+      // engine registers a floating surface for the open list (rank above its
+      // host panel) so a stacked popup closes one layer at a time, and the
+      // registry's single dispatcher never competes with a second keydown.
+      // The consumer injects register (core/control has the map); the engine
+      // only builds the entry, keeping the boundary that ui never imports core.
+      const wrapper = state.trigger.parentElement;
       state.mountCleanup.push(
-        bindDismiss({
-          root: state.list,
-          trigger: state.trigger,
-          // A portalled list is not inside the trigger's wrapper, so the
-          // containment is wrapper + list (the historical ownDismiss rule).
-          containment: target =>
-            (state.trigger.parentElement?.contains(target) ?? false) ||
-            state.list.contains(target),
-          onClose: () => close(state, { restoreFocus: false }),
+        state.spec.dismiss.register({
+          id: state.spec.dismiss.id,
+          isOpen: () => state.isOpen,
+          // The portalled list is not inside the trigger's wrapper, so the
+          // containment is wrapper + list.
+          panels: () => (wrapper?.isConnected ? [wrapper, state.list] : [state.list]),
+          close: opts => close(state, opts),
+          dismissOn: "mousedown",
+          pressPriority: state.spec.dismiss.rank,
+          escapeRank: state.spec.dismiss.rank,
         }),
       );
     }

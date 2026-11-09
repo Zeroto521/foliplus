@@ -18,6 +18,7 @@ import type {
 } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import {
+  type DropdownOverlay,
   type DropdownSurface,
   PANEL_CLASS,
   Slider,
@@ -34,6 +35,8 @@ type FilterBodyDeps = {
   formatCount: (n: number) => string;
   formatValue: (n: number) => string;
   surface: DropdownSurface;
+  /** Overlay-registry hook (single Escape dispatcher) for the enum popup. */
+  overlay?: DropdownOverlay;
 };
 
 /** One rendered condition body. `dimension` is kept so the panel can decide
@@ -253,6 +256,7 @@ const renderEnumBody = (
       deps.T("filter_enum_count").replace("{n}", String(labels.length)),
     onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
     ...deps.surface,
+    ...(deps.overlay ? { overlay: deps.overlay } : {}),
   });
   // The owner declared no options: nothing to select, and an empty popup would
   // read as a broken control.

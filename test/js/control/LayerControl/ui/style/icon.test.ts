@@ -712,7 +712,7 @@ describe("buildIconRow", () => {
     trigger.click();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
     // A press outside the grid (on the row, not inside a cell) closes it.
-    row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    row.dispatchEvent(new Event("mousedown", { bubbles: true }));
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
   });
 
@@ -806,7 +806,7 @@ describe("buildIconRow", () => {
     for (let i = 0; i < 5; i++) {
       trigger.click();
       expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
-      row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      row.dispatchEvent(new Event("mousedown", { bubbles: true }));
       expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     }
   });

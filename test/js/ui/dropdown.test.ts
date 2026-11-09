@@ -1,6 +1,32 @@
 // Tests for the shared select replacement (ui/dropdown.ts).
+import type * as L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { type Dropdown, createDropdown, dropdownOf } from "#ui/index.js";
+
+// A real registry the bridged fixtures wire in: the single Escape/outside-press
+// dispatcher the production dropdowns now use. It installs document-capture
+// listeners while an entry is open.
+let activeRegistry: ReturnType<typeof ensureOverlayRegistry> | null = null;
+const mockOverlay = () => {
+  const map = {
+    on: (_event: string, _handler: () => void) => {},
+  } as unknown as L.Map;
+  const registry = ensureOverlayRegistry(map);
+  activeRegistry = registry;
+  cleanup.push(() => {
+    activeRegistry = null;
+    registry.destroy();
+  });
+  return {
+    overlay: {
+      register: registry.register.bind(registry),
+      id: "foliplus.popup.dropdown",
+      rank: 860,
+    },
+    registry,
+  };
+};
 
 // The class names are the module's DOM contract (its table stays private), so
 // the tests pin them by literal name, exactly like the stylesheet does.
@@ -50,7 +76,8 @@ const bridged = (
   extra: Record<string, unknown> = {},
 ): { select: HTMLSelectElement; cell: HTMLElement; dropdown: Dropdown } => {
   const { select, cell } = makeCell(value, options);
-  const dropdown = createDropdown({ nativeSelect: select, ...extra });
+  const overlay = mockOverlay().overlay;
+  const dropdown = createDropdown({ nativeSelect: select, overlay, ...extra });
   cleanup.push(() => dropdown.destroy());
   return { select, cell, dropdown };
 };
@@ -216,7 +243,7 @@ describe("dropdown: bridged single select", () => {
     expect(dropdown.isOpen()).toBe(true);
     const outside = document.createElement("button");
     document.body.appendChild(outside);
-    outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    outside.dispatchEvent(new Event("mousedown", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(false);
   });
 
@@ -605,8 +632,23 @@ describe("dropdown: Escape ownership", () => {
   it("closes only the popup while a capture-phase panel dispatcher is live", () => {
     const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
     const panelEscape = vi.fn();
-    document.addEventListener("keydown", panelEscape, true);
-    cleanup.push(() => document.removeEventListener("keydown", panelEscape, true));
+    // The panel behind the popup is a registry entry with a lower rank: while
+    // the popup (rank 860) is open it is topmost and owns Escape; once it
+    // closes the panel is topmost and hears the next Escape.
+    const panelEntry = {
+      id: "layer.style",
+      isOpen: () => true,
+      panels: () => [],
+      close: () => {
+        panelEscape();
+        return true;
+      },
+      dismissOn: "mousedown",
+      pressPriority: 500,
+      escapeRank: 500,
+    };
+    const unregisterPanel = activeRegistry!.register(panelEntry as never);
+    cleanup.push(unregisterPanel);
     dropdown.open();
     const option = optionEls(dropdown)[0];
     option.focus();
@@ -958,7 +1000,8 @@ describe("dropdown: remaining contracts", () => {
     items: readonly { value: string; label: string }[],
     extra: Record<string, unknown> = {},
   ): Dropdown => {
-    const dropdown = createDropdown({ items, ...extra });
+    const overlay = mockOverlay().overlay;
+    const dropdown = createDropdown({ items, overlay, ...extra });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     return dropdown;
@@ -1021,10 +1064,10 @@ describe("dropdown: remaining contracts", () => {
   it("a press inside the portalled list does not dismiss it", () => {
     const dropdown = dropdownOfItems(three);
     dropdown.open();
-    optionEls(dropdown)[1].dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    optionEls(dropdown)[1].dispatchEvent(new Event("mousedown", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(true);
     // A press outside does (the list is its own hit area now).
-    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    document.body.dispatchEvent(new Event("mousedown", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(false);
   });
 

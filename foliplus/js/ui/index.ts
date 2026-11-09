@@ -13,10 +13,19 @@ export {
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "./canvasLabel.js";
-export { bindDismiss } from "./dismiss.js";
 export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
-export { applyOptionRowA11y, createDropdown, dropdownOf } from "./dropdown.js";
+export {
+  DROPDOWN_OVERLAY_ID,
+  POPUP_ESCAPE_DELTA,
+  POPUP_HOST_RANK,
+  POPUP_OVERLAY_RANK,
+  applyOptionRowA11y,
+  createDropdown,
+  dropdownOf,
+  dropdownOverlay,
+} from "./dropdown.js";
+export type { DropdownOverlay } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
 export {
   bindLiveColor,

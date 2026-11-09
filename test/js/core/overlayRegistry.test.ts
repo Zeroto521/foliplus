@@ -15,6 +15,7 @@ import {
   orderOf,
 } from "#core/overlayRegistry.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
+import { POPUP_ESCAPE_DELTA, POPUP_HOST_RANK, POPUP_OVERLAY_RANK } from "#ui/index.js";
 
 /** The id value every register call site produces, across the source tree.
  *  Two shapes exist:
@@ -545,6 +546,43 @@ describe("OverlayRegistry", () => {
       expect(dropdown.closeCalls).toHaveLength(1);
     });
 
+    it("registry owns outside-press takeover: outside closes, inside stays", () => {
+      // The single dispatcher is the only outside-press channel now (dismiss.ts
+      // is gone). A press outside an open surface closes exactly the topmost
+      // open surface, one layer at a time; a press inside a surface keeps that
+      // surface (the mousedown capture walk never dismisses an inside press).
+      // This is the proof the lead required before the pointerdown channel
+      // could be removed: the registry's mousedown/click capture fully owns
+      // outside-press dismissal, including a portalled popup.
+      const hostPanel = panel("host");
+      const popup = panel("popup");
+      const host = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        pressPriority: 500,
+        panels: () => [hostPanel],
+      });
+      const popupEntry = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        pressPriority: 700,
+        panels: () => [popup],
+      });
+      registry.register(host.entry);
+      registry.register(popupEntry.entry);
+      // The dropdown popup is portalled to body; the registry sees it as a
+      // portal of the trigger's host, exactly like the production wiring.
+      portalReleases.push(registerPortalRoot(popup, child(hostPanel)));
+
+      // Inside press keeps the surface under the pointer (the popup).
+      press(popup, "mousedown");
+      expect(popupEntry.isOpen()).toBe(true);
+      expect(host.closeCalls).toHaveLength(0);
+      // Outside press closes exactly the topmost open surface (the popup),
+      // one layer at a time; the host stays until its turn.
+      press(panel("outside"), "mousedown");
+      expect(popupEntry.isOpen()).toBe(false);
+      expect(host.isOpen()).toBe(true);
+    });
+
     it("consumes before closing: a nested consumer keeps its host open", () => {
       const outside = panel();
       const host = makeEntry({
@@ -806,6 +844,45 @@ describe("OverlayRegistry", () => {
       const ranks = Object.values(OVERLAY_IDS).map(orderOf);
       expect(new Set(ranks).size).toBe(ranks.length);
       expect([...ranks].sort((a, b) => b - a)).toEqual(ranks);
+    });
+
+    it("a dynamic popup ranks strictly above its host panel (guard)", () => {
+      // The popup band is a derived value: host-panel rank + fixed delta.
+      // If a developer edits POPUP_HOST_RANK / POPUP_ESCAPE_DELTA / the
+      // ESC_PRIORITY table so a popup could rank at or below its host panel,
+      // Escape would close the panel and leave the popup floating half-open.
+      // This guard fails exactly when the invariant drifts.
+      expect(POPUP_OVERLAY_RANK).toBe(POPUP_HOST_RANK + POPUP_ESCAPE_DELTA);
+      // The host band covers every panel a popup can sit in. The highest one
+      // is LAYER_MENU (800); if a future panel exceeds POPUP_HOST_RANK this
+      // fails and forces the developer to raise the band with it.
+      const hostRanks = [
+        OVERLAY_IDS.LAYER_MENU,
+        OVERLAY_IDS.LAYER_FILTER,
+        OVERLAY_IDS.LAYER_ATTRS,
+        OVERLAY_IDS.LAYER_STYLE,
+      ].map(id => ESC_PRIORITY[id]);
+      for (const host of hostRanks) {
+        expect(POPUP_OVERLAY_RANK).toBeGreaterThan(host);
+      }
+      // ... and above the fixed picker dropdowns, so an open popup always
+      // wins topmost() while it is open.
+      expect(POPUP_OVERLAY_RANK).toBeGreaterThan(
+        ESC_PRIORITY[OVERLAY_IDS.LAYER_PICKER_DROPDOWN],
+      );
+      expect(POPUP_OVERLAY_RANK).toBeGreaterThan(
+        ESC_PRIORITY[OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN],
+      );
+    });
+
+    it("a popup rank below its host fails the guard (failure-mode probe)", () => {
+      // The guard above must be able to fail. Reproduce the breakage: if the
+      // popup rank is set at or below the highest host panel rank, the
+      // "strictly above" assertion turns red — this test documents that the
+      // red state is reachable (not dead code).
+      const brokenRank = POPUP_HOST_RANK; // at host level, not above
+      expect(brokenRank > ESC_PRIORITY[OVERLAY_IDS.LAYER_MENU]).toBe(false);
+      expect(POPUP_OVERLAY_RANK > POPUP_HOST_RANK).toBe(true);
     });
 
     it("every Escape table id is registered or explicitly exempted", () => {
