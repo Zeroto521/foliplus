@@ -31,7 +31,7 @@ const stripComments = (s: string): string =>
 const DISMISS_ALLOW = new Set(["ui/dismiss.ts"]);
 // Escape capture is shared with the overlay registry's central dispatcher
 // (the registry is a layer-stack key distributor, not a second dismiss copy).
-const ESCAPE_ALLOW = new Set(["ui/dismiss.ts", "core/overlayRegistry.ts"]);
+const ESCAPE_ALLOW = new Set(["ui/dismiss.ts", "core/overlay/overlayRegistry.ts"]);
 
 describe("outside-press dismissal is one primitive", () => {
   it("document pointerdown as outside press lives only in ui/dismiss.ts", () => {

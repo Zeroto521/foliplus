@@ -108,7 +108,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "free-standing list-cursor utility — keydown binding owned by the caller, no control in scope",
   },
   {
-    f: "core/overlayRegistry.ts",
+    f: "core/overlay/overlayRegistry.ts",
     n: 4,
     pairedOff: 0,
     reason:
@@ -126,14 +126,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
+      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C1",
   },
   {
     f: "control/LayerControl/ui/overlayPanel/filter.ts",
     n: 3,
     pairedOff: 0,
     reason:
-      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
+      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
     f: "control/LayerControl/ui/focus/focusMarquee.ts",
@@ -147,7 +147,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 11,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
+      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlay/overlayRegistry in M2-C4",
   },
   {
     f: "control/LayerControl/ui/style/iconColor.ts",
@@ -161,14 +161,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4",
   },
   {
     f: "control/LayerControl/ui/style/index.ts",
     n: 3,
     pairedOff: 0,
     reason:
-      "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
+      "style-panel input / dropdown bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C1",
   },
   {
     f: "ui/slider.ts",
