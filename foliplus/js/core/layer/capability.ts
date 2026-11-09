@@ -123,7 +123,7 @@ const canPaintGlyphOnIcon = (icon: unknown): boolean => {
   const result = safeRead(() => {
     const createIcon = (icon as { createIcon?: unknown }).createIcon;
     if (typeof createIcon !== "function") return false;
-    const output = (createIcon as () => unknown)();
+    const output = (createIcon as () => unknown).call(icon);
     return (
       typeof output === "object" &&
       output !== null &&

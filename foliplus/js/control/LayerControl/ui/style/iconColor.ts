@@ -1,4 +1,4 @@
-// LayerControl UI — per-layer icon color dimension (DOM/panel layer).
+// ui/style/iconColor — per-layer icon color dimension.
 //
 // The icon color is a WHOLE-LAYER choice: the user picks one color from
 // the swatch, and every awesome-markers marker leaf in the layer gets that

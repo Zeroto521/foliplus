@@ -1003,7 +1003,6 @@ const detectCapabilities = (
         stroke: CAP_TIER.NONE,
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
-
         iconColor: CAP_TIER.NONE,
         opacity: CAP_TIER.PANE,
         zoomRange: CAP_TIER.PANE,
@@ -1041,7 +1040,6 @@ const detectCapabilities = (
         stroke: CAP_TIER.NONE,
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
-
         iconColor: CAP_TIER.NONE,
         opacity: CAP_TIER.NATIVE,
         zoomRange,
@@ -1102,7 +1100,6 @@ const detectCapabilities = (
         stroke: carrier.stroke,
         size: carrier.size,
         icon: carrier.icon,
-
         iconColor: carrier.iconColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
@@ -1125,7 +1122,6 @@ const detectCapabilities = (
         stroke: carrier.stroke,
         size: carrier.size,
         icon: carrier.icon,
-
         iconColor: carrier.iconColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
@@ -1145,7 +1141,6 @@ const detectCapabilities = (
       stroke: CAP_TIER.NONE,
       size: CAP_TIER.NONE,
       icon: CAP_TIER.NONE,
-
       iconColor: CAP_TIER.NONE,
       opacity: CAP_TIER.NONE,
       zoomRange: CAP_TIER.NONE,
