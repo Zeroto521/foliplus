@@ -1425,7 +1425,7 @@ describe("OverlayRegistry", () => {
       expect(registry.topmost()).toBe(style.entry);
     });
 
-    // --- task-66: #1011 patch coverage (single Escape dispatcher) ---
+    // --- the single-Escape-dispatcher contract (#1011) ---
 
     it("closes only the rank-highest surface per Escape, then falls to the next", () => {
       const picker = makeEntry({
