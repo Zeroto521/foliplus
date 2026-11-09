@@ -1,3 +1,5 @@
+// platform/debounce — Debounce a function so it fires only after a quiet period.
+
 // Debounce utility for foliplus components.
 // Imported statically by components at build time.
 
