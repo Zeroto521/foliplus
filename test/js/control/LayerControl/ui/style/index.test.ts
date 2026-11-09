@@ -1545,7 +1545,9 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     expect(borderRows(panel)).toHaveLength(1);
-    const row = panel.querySelector(".foliplus-style-border-row") as HTMLElement;
+    const row = panel.querySelector(
+      ".foliplus-style-border-detail .foliplus-style-border-row",
+    ) as HTMLElement;
     expect(row.querySelector(".foliplus-style-border-color-input")).not.toBeNull();
     const width = row.querySelector(
       ".foliplus-style-border-weight-input",

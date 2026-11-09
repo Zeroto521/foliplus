@@ -696,6 +696,8 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
     expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       weight: 3,
+      mode: "solid",
+      ramp: undefined,
     });
   });
 
@@ -703,6 +705,8 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
     expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       weight: 1,
+      mode: "solid",
+      ramp: undefined,
     });
   });
 
