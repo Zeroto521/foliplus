@@ -14,9 +14,9 @@ import {
   type ClassifyMethod,
   METHOD,
   computeBreaks,
-} from "#core/classify.js";
+} from "#core/value/classify.js";
 import { vertexMean } from "#core/geo/index.js";
-import { safeColorScale } from "#core/palette.js";
+import { safeColorScale } from "#core/value/palette.js";
 import type { Logger } from "#platform/type.js";
 
 /** Resolve the H3 resolution for a map zoom level. */

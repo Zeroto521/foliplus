@@ -1,6 +1,6 @@
 // HeatmapControl type definitions — shared data shapes consumed by manager,
 // data aggregation, canvas rendering, and persistence modules.
-import type { ClassifyMethod } from "#core/classify.js";
+import type { ClassifyMethod } from "#core/value/classify.js";
 import type { LayerFilter } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 

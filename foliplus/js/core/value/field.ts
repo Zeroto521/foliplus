@@ -8,8 +8,8 @@
 // excluded. A field whose sample value is non-finite cannot be classified
 // (the breaks algorithm sorts, and non-finite values break the sort), so
 // it is not offered to the picker at all.
-import { walkLeaf } from "./layer/walkLeaf.js";
-import { VALUE_KIND, type ValueKind } from "./valueKind.js";
+import { walkLeaf } from "../layer/walkLeaf.js";
+import { VALUE_KIND, type ValueKind } from "../valueKind.js";
 
 /** Whether a property value can drive a numeric classification.
  *

@@ -3,7 +3,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import {
+  buildClassesRow,
+  buildFieldRow,
+  buildSchemeRow,
+} from "#core/value/rampForm.js";
 
 describe("buildFieldRow", () => {
   it("renders a labelled field dropdown over the current value", () => {
@@ -251,7 +255,7 @@ describe("buildSchemeRow", () => {
 // classes and the consumers keep their own stylesheets geometry-free. These
 // assertions pin the token relationships, not pixel values.
 
-const ROOT = resolve(__dirname, "../../..");
+const ROOT = resolve(__dirname, "../../../..");
 
 /** Read a stylesheet with normalized line endings.
  *
@@ -283,7 +287,7 @@ const blockOf = (source: string, selector: string): string => {
 };
 
 const rampFormSource = readFileSync(
-  resolve(ROOT, "foliplus/js/core/rampForm.ts"),
+  resolve(ROOT, "foliplus/js/core/value/rampForm.ts"),
   "utf-8",
 );
 

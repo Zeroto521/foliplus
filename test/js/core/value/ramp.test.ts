@@ -1,8 +1,8 @@
 // Unit tests for core/ramp — the shared value → color ramp
 // (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD, computeBreaks } from "#core/classify.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { METHOD, computeBreaks } from "#core/value/classify.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
 import {
   buildCategoryRamp,
   buildRamp,
@@ -10,15 +10,15 @@ import {
   colorFor,
   isFiniteNumber,
   leafPropertyValue,
-} from "#core/ramp.js";
+} from "#core/value/ramp.js";
 
 // `computeBreaks` is spied rather than called through so one test can feed
 // buildRamp the single-boundary answer the real classifier never gives: a
 // non-empty input yields two breaks or more, and the empty case short-
 // circuits before `classOf` is reachable. The default is the real
 // implementation, so the other tests are untouched.
-vi.mock("#core/classify.js", async importOriginal => {
-  const actual = await importOriginal<typeof import("#core/classify.js")>();
+vi.mock("#core/value/classify.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("#core/value/classify.js")>();
   return { ...actual, computeBreaks: vi.fn(actual.computeBreaks) };
 });
 

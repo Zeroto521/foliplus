@@ -34,7 +34,7 @@
 // no usable field is dropped whole rather than painted as a misleading solid
 // face.
 import * as CONST from "./const.js";
-import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/value/classify.js";
 import type { FillValueConfig } from "#core/layer/index.js";
 import { VALUE_KIND, isValueKind } from "#core/valueKind.js";
 import { createLogger } from "#platform/log.js";

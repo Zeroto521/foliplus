@@ -9,7 +9,7 @@ import {
   getCategoryColors,
   getColorScale,
   safeColorScale,
-} from "#core/palette.js";
+} from "#core/value/palette.js";
 
 afterEach(() => {
   delete globalThis.chroma;

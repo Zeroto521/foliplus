@@ -2,7 +2,7 @@
 import { loadFeature } from "./fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
 import {
   drawHexLabel,
   drawHexagon,

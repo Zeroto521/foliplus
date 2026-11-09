@@ -47,7 +47,7 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/value/classify.js";
 import {
   CAP_TIER,
   DIM,
@@ -57,7 +57,7 @@ import {
   GEOM_TYPE,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,

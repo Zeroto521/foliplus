@@ -1,6 +1,6 @@
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLASS_COUNT } from "#core/classify.js";
+import { CLASS_COUNT } from "#core/value/classify.js";
 import { dropdownOf } from "#ui/index.js";
 import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";

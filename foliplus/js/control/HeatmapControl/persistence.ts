@@ -4,7 +4,7 @@
 import { AGG } from "./const.js";
 import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";
-import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/value/classify.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
   type LayerFilter,

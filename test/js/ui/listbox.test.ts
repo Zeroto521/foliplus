@@ -6,7 +6,7 @@
 // than left to schemePicker's own tests. The dropdown shape is covered by the
 // shared contract matrix below, which drives every surface the engine owns.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildFieldRow } from "#core/rampForm.js";
+import { buildFieldRow } from "#core/value/rampForm.js";
 import {
   type Dropdown,
   type DropdownSurface,

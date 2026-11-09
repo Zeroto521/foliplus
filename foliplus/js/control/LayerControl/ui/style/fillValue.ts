@@ -8,13 +8,13 @@ import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/value/classify.js";
 import {
   categoricalPropertiesKeys,
   inferFieldKind,
   numericPropertiesKeys,
   resolveField,
-} from "#core/field.js";
+} from "#core/value/field.js";
 import {
   DIM,
   FILL_MODE,
@@ -22,8 +22,8 @@ import {
   type FillValueConfig,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/value/rampForm.js";
 import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   dropdownSurface,

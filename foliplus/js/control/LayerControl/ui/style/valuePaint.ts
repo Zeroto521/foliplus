@@ -55,7 +55,7 @@ import {
   colorFor,
   isFiniteNumber,
   leafPropertyValue,
-} from "#core/ramp.js";
+} from "#core/value/ramp.js";
 import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import { createLogger } from "#platform/log.js";
 

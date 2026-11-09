@@ -6,7 +6,7 @@
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / LabelConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
-import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { type ClassifyMethod, isClassifyMethod } from "#core/value/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** One mode of the value-based fill. Two shapes, discriminated by `kind`:

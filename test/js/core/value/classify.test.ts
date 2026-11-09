@@ -10,7 +10,7 @@ import {
   METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
-} from "#core/classify.js";
+} from "#core/value/classify.js";
 
 afterEach(() => {
   delete globalThis.ss;

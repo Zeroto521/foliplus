@@ -31,7 +31,7 @@ import {
   CLASS_COUNT,
   type ClassifyMethod,
   isClassifyMethod,
-} from "#core/classify.js";
+} from "#core/value/classify.js";
 import { generateId } from "#core/component.js";
 import {
   EVENTS,
@@ -63,7 +63,7 @@ import {
   storeFilter,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
