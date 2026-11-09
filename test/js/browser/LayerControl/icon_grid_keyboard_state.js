@@ -95,6 +95,30 @@ async (action = "state") => {
     await flush();
     return readState();
   }
+  if (action === "rowMetrics") {
+    const row = document.querySelector(".foliplus-style-icon-row");
+    const triggerEl = document.querySelector(".foliplus-style-icon-trigger");
+    const nameEl = document.querySelector(".foliplus-style-icon-trigger-name");
+    if (!row || !triggerEl || !nameEl) return { ok: false, reason: "no-icon-row" };
+    const control = row.querySelector(".foliplus-form-control");
+    const trigRect = triggerEl.getBoundingClientRect();
+    const controlRect = control ? control.getBoundingClientRect() : null;
+    return {
+      ok: true,
+      rowWidth: Math.round(row.getBoundingClientRect().width),
+      controlWidth: controlRect ? Math.round(controlRect.width) : 0,
+      triggerWidth: Math.round(trigRect.width),
+      // The trigger must span its control cell (the shared control column),
+      // so the icon row lines up with every other style/heatmap input row.
+      triggerFillsControl: controlRect
+        ? trigRect.width >= controlRect.width - 2
+        : false,
+      // A long glyph name must ellipsize, never widen the row or clip mid-glyph.
+      nameOverflows: nameEl.scrollWidth > nameEl.clientWidth + 1,
+      nameScrollWidth: nameEl.scrollWidth,
+      nameClientWidth: nameEl.clientWidth,
+    };
+  }
   if (action === "cellRect") {
     const cell = grid?.querySelector(".foliplus-style-icon-cell");
     if (!cell) return { ok: false, reason: "no-grid-cell" };

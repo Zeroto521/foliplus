@@ -856,3 +856,26 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert rect["boxShadow"] and rect["boxShadow"] != "none", rect
             print(f"wrote {out}")
             assert not errors, f"JS errors: {errors}"
+
+    def test_icon_row_input_width_and_ellipsis(self, browser, tmp_path):
+        """The icon trigger fills the control column and a long glyph name
+        ellipsizes instead of overflowing the row (single-icon row detail)."""
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="icon_row_width",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            setup = page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "setup")
+            assert setup and setup.get("ok"), setup
+            metrics = page.evaluate(
+                _js("LayerControl/icon_grid_keyboard_state"), "rowMetrics"
+            )
+            assert metrics and metrics.get("ok"), metrics
+            # The trigger spans the shared control column, so the icon row
+            # lines up with every other style/heatmap input row.
+            assert metrics["triggerFillsControl"], metrics
+            assert not metrics["nameOverflows"], metrics
+            assert not errors, f"JS errors: {errors}"
