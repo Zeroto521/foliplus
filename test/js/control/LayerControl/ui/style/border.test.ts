@@ -2514,7 +2514,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
     });
     const block = openBorderRow(manager, ui, "vec1", leaves);
     changeSelect(modeSelectOf(block), "value");
-    const stored = getIntent(ui, "vec1", "borderValue") as FillValueConfig;
+    const stored = getIntent(ui, "vec1", "borderValue") as ValueConfig;
     expect(stored.kind).toBe("category");
     expect(stored.scheme).toBe("Blues");
   });
@@ -2610,7 +2610,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
     expect(classesSelect).not.toBeNull();
     classesSelect!.value = "5";
     classesSelect!.dispatchEvent(new Event("change"));
-    const updated = getIntent(ui, "vec1", "borderValue") as FillValueConfig;
+    const updated = getIntent(ui, "vec1", "borderValue") as ValueConfig;
     expect(updated.classes).toBe(5);
   });
 
@@ -2655,7 +2655,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
     const v = BORDER_DIMENSION.value(ui, "vec1") as {
-      value?: FillValueConfig;
+      value?: ValueConfig;
     };
     expect(v.value).toEqual(countRamp());
   });
