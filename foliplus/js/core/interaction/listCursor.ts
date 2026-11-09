@@ -54,6 +54,19 @@ type ListCursorOptions = {
   paintOptionContract?: boolean;
 };
 
+/** Keep the active option visible inside its scroll container.
+ *
+ * The scroll semantics are deliberately "nearest": the element scrolls only
+ * as far as needed to bring the active row into view (no centering), so a
+ * long list does not jump the viewport on every keypress. Both focus models
+ * go through this one primitive — the roving listbox engine (ui/listbox.ts
+ * focusOption) and the active-descendant cursor (ListCursor.paint) must never
+ * diverge on "what keeps the active row visible".
+ */
+const ensureActiveVisible = (el: HTMLElement | null): void => {
+  el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+};
+
 let listCursorSeq = 0;
 
 const nextId = (prefix: string) => `${prefix}-${++listCursorSeq}`;
@@ -330,7 +343,10 @@ class ListCursor {
       if (active) this.input.setAttribute("aria-activedescendant", active.id);
       else this.input.removeAttribute("aria-activedescendant");
     }
+    // Keep the active row visible. Both focus models share this contract via
+    // ensureActiveVisible (the roving engine calls it from focusOption).
+    ensureActiveVisible(active);
   }
 }
 
-export { ListCursor };
+export { ListCursor, ensureActiveVisible };
