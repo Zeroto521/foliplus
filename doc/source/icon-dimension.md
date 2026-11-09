@@ -56,51 +56,51 @@ Font Awesome changed names between FA4 (the awesome-markers era most folium code
 folium now loads). This panel uses **FA6 names**; there is **no alias compat** implemented — the table
 below is documentation only, to help you migrate an existing `folium.Icon(icon="...")` value.
 
-| FA4 (old) | FA6 (new) |
-|-----------|-----------|
-| star-o | fa-regular fa-star |
-| star-half-o | fa-star-half-stroke |
-| heart-o | fa-regular fa-heart |
-| bookmark-o | fa-regular fa-bookmark |
-| envelope-o | fa-regular fa-envelope |
-| check-circle-o | fa-regular fa-circle-check |
-| check-square-o | fa-regular fa-square-check |
-| circle-o | fa-regular fa-circle |
-| flag-o | fa-regular fa-flag |
-| bell-o | fa-regular fa-bell |
-| square-o | fa-regular fa-square |
-| triangle | fa-triangle-exclamation |
-| map-o | fa-map |
-| clock-o | fa-clock |
-| calendar-o | fa-calendar-days |
-| user-o | fa-regular fa-user |
-| comment-o | fa-regular fa-comment |
-| file-o | fa-regular fa-file |
-| file-text-o | fa-file-lines |
-| folder-o | fa-regular fa-folder |
-| folder-open-o | fa-folder-open |
-| pencil-square-o | fa-pen-to-square |
-| trash-o | fa-trash-can |
-| dot-circle-o | fa-circle-dot |
-| outbox | fa-paper-plane |
-| hand-up | fa-hand-point-up |
-| hand-down | fa-hand-point-down |
-| hand-left | fa-hand-point-left |
-| hand-right | fa-hand-point-right |
-| resize-full | fa-expand |
-| resize-small | fa-compress |
-| tree-conifer | fa-tree |
-| tree-deciduous | fa-tree-city |
-| money | fa-money-bill-wave |
-| building-o | fa-building |
-| hospital-o | fa-hospital |
-| glass | fa-martini-glass |
-| flask-o | fa-flask |
-| beaker | fa-flask |
-| bar-chart-o | fa-chart-column |
-| indent-left | fa-outdent |
-| indent-right | fa-indent |
-| comments-o | fa-regular fa-comments |
+| FA4 (old)       | FA6 (new)                  |
+| --------------- | -------------------------- |
+| star-o          | fa-regular fa-star         |
+| star-half-o     | fa-star-half-stroke        |
+| heart-o         | fa-regular fa-heart        |
+| bookmark-o      | fa-regular fa-bookmark     |
+| envelope-o      | fa-regular fa-envelope     |
+| check-circle-o  | fa-regular fa-circle-check |
+| check-square-o  | fa-regular fa-square-check |
+| circle-o        | fa-regular fa-circle       |
+| flag-o          | fa-regular fa-flag         |
+| bell-o          | fa-regular fa-bell         |
+| square-o        | fa-regular fa-square       |
+| triangle        | fa-triangle-exclamation    |
+| map-o           | fa-map                     |
+| clock-o         | fa-clock                   |
+| calendar-o      | fa-calendar-days           |
+| user-o          | fa-regular fa-user         |
+| comment-o       | fa-regular fa-comment      |
+| file-o          | fa-regular fa-file         |
+| file-text-o     | fa-file-lines              |
+| folder-o        | fa-regular fa-folder       |
+| folder-open-o   | fa-folder-open             |
+| pencil-square-o | fa-pen-to-square           |
+| trash-o         | fa-trash-can               |
+| dot-circle-o    | fa-circle-dot              |
+| outbox          | fa-paper-plane             |
+| hand-up         | fa-hand-point-up           |
+| hand-down       | fa-hand-point-down         |
+| hand-left       | fa-hand-point-left         |
+| hand-right      | fa-hand-point-right        |
+| resize-full     | fa-expand                  |
+| resize-small    | fa-compress                |
+| tree-conifer    | fa-tree                    |
+| tree-deciduous  | fa-tree-city               |
+| money           | fa-money-bill-wave         |
+| building-o      | fa-building                |
+| hospital-o      | fa-hospital                |
+| glass           | fa-martini-glass           |
+| flask-o         | fa-flask                   |
+| beaker          | fa-flask                   |
+| bar-chart-o     | fa-chart-column            |
+| indent-left     | fa-outdent                 |
+| indent-right    | fa-indent                  |
+| comments-o      | fa-regular fa-comments     |
 
 > ⚠ The FA4 `-o` (outline/regular) names need the **fa-regular** family class. The panel paints the solid
 > family by default, so a regular-only glyph name will **not** render in the panel. Use the solid
@@ -111,6 +111,17 @@ below is documentation only, to help you migrate an existing `folium.Icon(icon="
 - The Icon row is **only for marker layers** (a canvas/leaf with no `setIcon` has no icon capability).
 - It is **separate** from fill (a polygon's fill color/ramp) and from **text labels** (the `label`
   annotation config). An icon is a marker's glyph; fill paints area; a label draws text.
+
+## Icon Color
+
+The style drawer also has an **Icon Color** row, immediately below the **Icon** row. It is a
+whole-layer choice like the glyph: pick one color from the swatch and every awesome-markers marker
+leaf in the layer paints that glyph color. The color and the glyph are orthogonal — both merge into a
+single derived icon, so changing one keeps the other.
+
+The row is only available for an **awesome-markers** carrier (a marker whose icon has a glyph-color
+face). A plain `divIcon` / `iconUrl` marker has no icon-color capability, so the row is hidden for it.
+The panel path is **⋮ (layer menu) → Style → Icon Color**.
 
 ## Quickstart example
 
