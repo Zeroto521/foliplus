@@ -6,7 +6,7 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
-import type { ExportFormat } from "./type.js";
+import type { ExportImageFormat } from "./type.js";
 import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 
 /** Per-format descriptor. */
@@ -222,7 +222,7 @@ const TILE_CONCURRENCY: number = detectConcurrency();
 // Export formats — single source for everything format-specific.
 // ============================================================================
 
-const EXPORT_FORMAT_SPEC: Record<ExportFormat, FormatSpec> = {
+const EXPORT_FORMAT_SPEC: Record<ExportImageFormat, FormatSpec> = {
   png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
   // `ext` is the historical user-visible name — `jpeg`, not `jpg`.
   jpeg: { mime: "image/jpeg", ext: "jpeg", lossy: true, geotiff: false },
@@ -237,10 +237,10 @@ const MIME_LOSSLESS = EXPORT_FORMAT_SPEC.png.mime;
 
 /** Resolve a runtime `CONFIG.format` to a table key. Python's `ExportControl`
  * rejects anything outside `EXPORT_FORMAT_SPEC`, so this only guards misconfiguration. */
-const resolveFormat = (raw: unknown): ExportFormat =>
+const resolveFormat = (raw: unknown): ExportImageFormat =>
   typeof raw === "string" &&
   Object.prototype.hasOwnProperty.call(EXPORT_FORMAT_SPEC, raw)
-    ? (raw as ExportFormat)
+    ? (raw as ExportImageFormat)
     : "png";
 
 /** The record for `CONFIG.format` — no cast, no DEFAULT fallback. */

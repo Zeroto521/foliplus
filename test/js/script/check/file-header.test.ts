@@ -30,6 +30,27 @@ function readRegistry(): string[] {
   return JSON.parse(raw) as string[];
 }
 
+/** Stat the file, treating any error (ENOENT, EACCES, race-delete) as
+ *  "not a file". The caller reports a readable problem string instead of
+ *  letting the stat exception escape as an opaque stack trace. */
+function isRegisteredPathAFile(file: string): boolean {
+  try {
+    return statSync(file).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Check one registered path and push a problem string if it is missing.
+ *  Returns true when the caller should continue to header checks. */
+function isFileOrReport(file: string, rel: string, problems: string[]): boolean {
+  if (!isRegisteredPathAFile(file)) {
+    problems.push(`${rel}: registered but the file does not exist (stale entry)`);
+    return false;
+  }
+  return true;
+}
+
 function headerProblems(file: string, rel: string): string[] {
   const problems: string[] = [];
   const text = readFileSync(file, "utf8");
@@ -70,21 +91,35 @@ function headerProblems(file: string, rel: string): string[] {
   return problems;
 }
 
+/** Check every registered rel path: report any that are missing, then any
+ *  whose header is not canonical. Exported so the stale-entry branch is
+ *  testable with a synthetic registry that names a file that does not exist
+ *  (the crash-in-the-wild shape #989 hit). */
+export function checkRegistryEntries(registry: string[]): string[] {
+  const problems: string[] = [];
+  for (const rel of registry) {
+    const file = join(JS_DIR, `${rel}.ts`);
+    if (!isFileOrReport(file, rel, problems)) continue;
+    for (const p of headerProblems(file, rel)) {
+      problems.push(`${rel}: ${p}`);
+    }
+  }
+  return problems;
+}
+
 describe("file headers follow the canonical form", () => {
   it("every registered file exists and carries the canonical header", () => {
-    const registry = readRegistry();
-    const problems: string[] = [];
-    for (const rel of registry) {
-      const file = join(JS_DIR, `${rel}.ts`);
-      if (!statSync(file).isFile()) {
-        problems.push(`${rel}: registered but the file does not exist (stale entry)`);
-        continue;
-      }
-      for (const p of headerProblems(file, rel)) {
-        problems.push(`${rel}: ${p}`);
-      }
-    }
-    expect(problems).toEqual([]);
+    expect(checkRegistryEntries(readRegistry())).toEqual([]);
+  });
+
+  it("reports a stale registry entry by path + 'does not exist', not ENOENT", () => {
+    // The regression: a registry entry whose file was deleted used to escape
+    // as a raw statSync ENOENT stack. The guard must name the path and say
+    // the file does not exist instead.
+    const rel = "core/layer/filterOwnerGone";
+    expect(checkRegistryEntries([rel])).toEqual([
+      `${rel}: registered but the file does not exist (stale entry)`,
+    ]);
   });
 
   it("platform/ and ui/ top-level non-barrel files are all registered", () => {
@@ -105,7 +140,7 @@ describe("file headers follow the canonical form", () => {
     const registry = readRegistry();
     const missing: string[] = [];
     for (const rel of registry) {
-      if (!statSync(join(JS_DIR, `${rel}.ts`)).isFile()) missing.push(rel);
+      if (!isRegisteredPathAFile(join(JS_DIR, `${rel}.ts`))) missing.push(rel);
     }
     expect(missing).toEqual([]);
   });

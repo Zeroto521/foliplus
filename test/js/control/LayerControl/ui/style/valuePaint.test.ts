@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import { FACE, walkStyleLeaves } from "#control/LayerControl/ui/style/styleBag.js";
@@ -81,7 +81,7 @@ const makeUI = (layer: unknown) =>
     },
   }) as any;
 
-const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
+const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
   field: "value",
   method: METHOD.EQUAL,
   classes: 3,
@@ -149,11 +149,11 @@ it("paints category leaves via buildCategoryRamp, not the numeric ramp", () => {
   // A category config drives the arm down the buildCategoryRamp arm; the
   // leaf's label must end up in the write's declared color slot.
   installChroma(["#aa0000", "#00aa00", "#0000aa"]);
-  const catRamp: FillValueConfig = {
+  const catRamp: ValueConfig = {
     field: "cat",
     kind: "category",
     scheme: DEFAULT_SCHEMES[0],
-  } as FillValueConfig;
+  } as ValueConfig;
   const catDecl: ValueFaceDecl = {
     ...demoDecl,
     readValueConfig: () => catRamp,
@@ -212,11 +212,11 @@ it("restores the author's face when the ramp classifies no leaf", () => {
 
 it("replays the category color on mouseout via the pin getter", () => {
   installChroma(["#aa0000", "#00aa00"]);
-  const catRamp: FillValueConfig = {
+  const catRamp: ValueConfig = {
     field: "cat",
     kind: "category",
     scheme: DEFAULT_SCHEMES[0],
-  } as FillValueConfig;
+  } as ValueConfig;
   const catDecl: ValueFaceDecl = {
     ...demoDecl,
     readValueConfig: () => catRamp,

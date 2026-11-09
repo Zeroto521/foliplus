@@ -5,7 +5,7 @@
 // directly with mock layers.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import {
   applyValueFill,
@@ -86,7 +86,7 @@ const makeUI = (layer: unknown) =>
     },
   }) as any;
 
-const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
+const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
   field: "value",
   method: METHOD.EQUAL,
   classes: 3,
@@ -452,7 +452,7 @@ describe("applyValueFill", () => {
     installChroma(["#111111"]);
     const layer = makeFeatureLayer([{ properties: { count: 5 } }]);
     intentValues = { fillValue: makeRamp({ field: "gone" }) };
-    const resolveStored = (stored: FillValueConfig): FillValueConfig => ({
+    const resolveStored = (stored: ValueConfig): ValueConfig => ({
       ...stored,
       field: "count",
     });
@@ -495,7 +495,7 @@ describe("applyValueFill", () => {
   });
 
   it("reports an unknown method and restores the author's face", () => {
-    // isFillValueConfig rejects an unknown method on read, so this is the
+    // isValueConfig rejects an unknown method on read, so this is the
     // defence-in-depth path: a caller that wrote the record directly still
     // gets a report and the author's fill rather than an equal-split guess.
     installChroma(["#ff0000", "#00ff00"]);
@@ -734,7 +734,7 @@ describe("applyValueFill", () => {
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
     intentValues = {
-      fillValue: { ...ramp, kind: "categorical" } as unknown as FillValueConfig,
+      fillValue: { ...ramp, kind: "categorical" } as unknown as ValueConfig,
     };
     expect(pinGetterOf()()).toBeNull();
   });
