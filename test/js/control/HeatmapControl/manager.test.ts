@@ -3204,18 +3204,11 @@ describe("HeatmapManager — filter contract (range branch)", () => {
 
   describe("3. a stored filter wins over the declaration", () => {
     it("restores the stored filter instead of the declaration", () => {
-      // A record from an earlier session, with its ownership flag.
-      window.localStorage.setItem(
-        CONST.STORAGE.KEY,
-        JSON.stringify({
-          version: CONST.RECORD_VERSION,
-          layerId: "pts",
-          filters: { pts: USER_RANGE },
-          filtersTouched: true,
-        }),
-      );
-
+      // A record from an earlier session, with its ownership flag: the shared
+      // store owns the slot, so the declaration must not re-seed.
       const manager = makeManager({ filter: RANGE } as Partial<ComponentConfig>);
+      manager.filterStore.restore(manager.layerId, "pts", USER_RANGE);
+
       manager.applySavedConfig(manager.loadSavedConfig()!);
       prepare(manager).seedDeclaredFilter();
 
@@ -4513,102 +4506,5 @@ describe("HeatmapManager — persisted per-source filters", () => {
     m.saveConfig();
     const stored = JSON.parse(window.localStorage.getItem(KEY)!);
     expect(stored.filters).toBeUndefined();
-  });
-
-  it("drops malformed persisted filters rather than applying them", () => {
-    const m = makeManager();
-    m.applySavedConfig({
-      filters: {
-        ok: atom,
-        badOp: { kind: "atom", field: "x", op: "nope" },
-        badRange: { kind: "atom", field: "x", op: "between", range: [5, 1] },
-        notObject: 7,
-      },
-    } as never);
-    expect(m.filterStore.sources(m.layerId)).toEqual(["ok"]);
-  });
-
-  it("restores a filter AST that the first render then revalidates", () => {
-    const m = makeManager();
-    m.applySavedConfig({
-      layerId: "layer_a",
-      filters: { layer_a: atom },
-    } as never);
-    // The parser keeps the AST intact; the render-time revalidation clamps
-    // or drops it against the rebuilt snapshot (pinned above).
-    expect(fsGet(m, "layer_a")).toEqual(atom);
-  });
-
-  it("migrates an untouched record's filters as declarations, not owned values", () => {
-    // filtersTouched === false means the user never took the slot: the
-    // persisted values are seeded declarations (the store never persists a
-    // declaration). They must land as declarations so a later user write can
-    // take ownership, and the strip still removes the old fields.
-    const m = makeManager();
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({
-        version: CONST.RECORD_VERSION,
-        layerId: "layer_a",
-        filters: { layer_a: atom },
-        filtersTouched: false,
-      }),
-    );
-
-    m.applySavedConfig(m.loadSavedConfig()!);
-
-    // Declaration migration: the value reads back but the slot is not owned.
-    expect(fsGet(m, "layer_a")).toEqual(atom);
-    expect(m.filterStore.isOwned(m.layerId, "layer_a")).toBe(false);
-    // The old fields are still stripped after a declaration migration.
-    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-    expect(stored.filters).toBeUndefined();
-    expect(stored.filtersTouched).toBeUndefined();
-  });
-
-  it("strips the migrated filters/filtersTouched fields from the old key", () => {
-    const m = makeManager();
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({
-        version: CONST.RECORD_VERSION,
-        layerId: "layer_a",
-        filters: { layer_a: atom },
-        filtersTouched: true,
-        agg: "sum",
-      }),
-    );
-
-    // Apply reads the old fields once (migrating into the store), then
-    // removes them from the persisted record — the filter half lives only
-    // under the shared store key from then on.
-    m.applySavedConfig(m.loadSavedConfig()!);
-
-    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-    expect(stored.filters).toBeUndefined();
-    expect(stored.filtersTouched).toBeUndefined();
-    // The rest of the record survives the strip.
-    expect(stored.agg).toBe("sum");
-    // The migrated filter still reached the store.
-    expect(fsGet(m, "layer_a")).toEqual(atom);
-  });
-
-  it("leaves a record with no filter fields untouched", () => {
-    const m = makeManager();
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({
-        version: CONST.RECORD_VERSION,
-        layerId: "layer_a",
-        agg: "sum",
-      }),
-    );
-
-    m.applySavedConfig(m.loadSavedConfig()!);
-
-    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-    expect(stored.filters).toBeUndefined();
-    expect(stored.filtersTouched).toBeUndefined();
-    expect(stored.agg).toBe("sum");
   });
 });

@@ -330,15 +330,11 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
-            // The filter half moved to FilterStore (the shared per-map
-            // store, one key for every control): style fields stay here,
-            // the filter record lives under FILTER_STORE_KEY and is
-            // restored from there. The old component key's
-            // `filters`/`filtersTouched` are read ONCE on load to migrate
-            // them into the store, then never written here again — a seeded
-            // declaration is no longer persisted (a declaration is a
-            // construction-time constant; the store keeps the user's owned
-            // value under its own key).
+            // The filter half lives in the shared per-map store (one key
+            // for every control, under FILTER_STORE_KEY); the component key
+            // keeps only style fields. A seeded declaration is never
+            // persisted — a declaration is a construction-time constant, and
+            // the store keeps the user's owned value under its own key.
           } satisfies SavedConfig,
           CONFIG.name,
         ),
@@ -1112,10 +1108,10 @@ class HeatmapManager {
    *
    *  Called from the layer-list build once the source is settled and before
    *  the first render. Two gates keep it from overriding the user: a persisted
-   *  record that already owns the filter slot (filtersTouched — including a
-   *  record that says "cleared"), and a restored per-source filter. The
-   *  factory Reset drops the ownership, so the declaration returns with the
-   *  rest of the declared defaults.
+   *  record that already owns the filter slot (including a record that says
+   *  "cleared"), and a restored per-source filter. The factory Reset drops
+   *  the ownership, so the declaration returns with the rest of the declared
+   *  defaults.
    *
    *  Validation is the runtime's, not the declaration's: the AST was parsed by
    *  the same tolerant reader a stored record uses, then it is clamped to the
@@ -1129,9 +1125,7 @@ class HeatmapManager {
    *  written to persistence, never touched. Only a user write (setFilter)
    *  takes the slot and persists; the store keeps the user's owned value
    *  under its own key, and a declaration never survives a reload as a
-   *  filter. The old record's `filters`/`filtersTouched` are migrated ONCE
-   *  on load (a real user choice wins); a declaration-only slot seeds
-   *  fresh each load. */
+   *  filter. A declaration-only slot seeds fresh each load. */
   seedDeclaredFilter(): void {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;

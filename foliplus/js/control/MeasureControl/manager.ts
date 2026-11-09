@@ -41,7 +41,6 @@ import {
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
-import { loadRecord, removeRecord } from "#platform/storage.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";
 
@@ -311,44 +310,7 @@ class MeasureManager {
    *  factory immediately after construction — kept out of the constructor
    *  so deps wiring and state restore are separate phases. */
   init() {
-    this.migrateLegacyFilter();
     this.restoreMeasurements();
-  }
-
-  /** One-way migration of the pre-store filter record.
-   *
-   *  Before the shared filterStore, the type filter lived under its own
-   *  per-map, per-layer key (`foliplus_measure_filter_<containerId>_<layerId>`
-   *  with a `{version, filter, filtersTouched}` record). That key is now
-   *  orphaned: nothing reads or clears it, so a user upgrading with a stored
-   *  filter would silently lose it. This reads the old key once, restores its
-   *  content into the store (owned, so the user's choice wins over the
-   *  declaration — a pre-store record always counts as touched unless it says
-   *  otherwise), then deletes the old key. One-way: the second load has no
-   *  key to read, and the store is the single home afterwards. */
-  private migrateLegacyFilter(): void {
-    const key = `${CONST.FILTER.STORAGE_PREFIX}_${this.map.getContainer().id}_${this.layerId}`;
-    // The old key is consumed, never written again — a reload must not
-    // re-read it (the store record is the home now). A corrupt or non-record
-    // payload carries no usable user state, so only the key removal matters.
-    const record = loadRecord<unknown>(key, this.config.name);
-    if (record && typeof record === "object" && !Array.isArray(record)) {
-      const data = record as Record<string, unknown>;
-      const filter = this.normalizeMeasureFilter(parsePersistedFilter(data.filter));
-      // A record that never says otherwise is the user's own — the pre-store
-      // presence-is-ownership rule (see the old loadFilterState).
-      const touched =
-        typeof data.filtersTouched === "boolean" ? data.filtersTouched : true;
-      // Only an owned record is a user choice worth restoring. A record that
-      // says the user never spoke (filtersTouched === false) just holds a copy
-      // of the declaration at save time — the CONFIG declaration set in the
-      // constructor is the live source, so the stale copy is dropped, exactly
-      // as the old `restore(filter, false)` never overrode the declaration.
-      if (touched) {
-        this.filterStore.restore(this.layerId, "measure", filter);
-      }
-    }
-    removeRecord(key, this.config.name);
   }
 
   // ── Filter capability (measurement type) ───────────────────────────
@@ -532,17 +494,10 @@ class MeasureManager {
     }
   }
 
-  /** Load the committed filter from its own record, plus the explicit
-   *  ownership flag.
-   *
-   *  The flag — not the record's mere existence — decides whether the Python
-   *  declaration may seed: `filtersTouched: true` means "the user owns the
-   *  slot, including a deliberate clear", `false` means "never spoke". A
-   *  corrupt record carries no usable filter and no ownership; values outside
-   *  the current option domain are dropped so a stale condition cannot hide
-   *  every measurement. Records written before the flag existed count as
-   *  touched, preserving the old presence-is-ownership behaviour for users
-   *  upgrading with a stored filter. */
+  /** The declared filter is read from the shared filter store; ownership
+   *  lives there too (isOwned), so the Python declaration seeds only while
+   *  the user has not taken the slot. Values outside the current option
+   *  domain are dropped so a stale condition cannot hide every measurement. */
   /** The Python declaration as the starting filter.
    *
    *  The declaration is validated against the component's whole type domain,

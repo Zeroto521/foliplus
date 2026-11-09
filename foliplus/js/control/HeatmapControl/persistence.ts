@@ -6,7 +6,6 @@ import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
-import { type LayerFilter, parsePersistedFilters } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import * as Storage from "#platform/storage.js";
 import { clampBorderWeight, clampLabelSize } from "#ui/index.js";
@@ -88,13 +87,6 @@ const parseSavedConfig = (raw: unknown): SavedConfig | null => {
   }
   const field = str(data.field);
   if (field !== undefined) out.field = field;
-  const filters = parsePersistedFilters(data.filters);
-  if (filters) out.filters = filters;
-  // Ownership of the filter slot: a record that says the user touched it
-  // keeps the Python declaration out on the next load.
-  if (typeof data.filtersTouched === "boolean") {
-    out.filtersTouched = data.filtersTouched;
-  }
   return out;
 };
 
@@ -116,13 +108,6 @@ interface ManagerLike {
    *  user's pick under it. Optional so plain state objects stay valid. */
   invalidateEffectiveField?: () => void;
   hasScanned: boolean;
-  /** The heatmap's own canvas layer id — the store's layer key. */
-  layerId: string;
-  /** The shared per-map filter store (see core/layer/filterStore). */
-  filterStore: {
-    setDeclaration(layerId: string, name: string, filter: LayerFilter): void;
-    restore(layerId: string, name: string, filter: LayerFilter): void;
-  };
 }
 
 /** Load saved configuration from localStorage, through the runtime schema. */
@@ -132,29 +117,6 @@ const loadSavedConfig = (): SavedConfig | null =>
 /** Remove persisted configuration from localStorage. */
 const clearSavedConfig = (): void => {
   Storage.removeRecord(CONST.STORAGE.KEY, CONFIG.name);
-};
-
-/** Strip the migrated filter fields from the persisted record.
- *
- *  The component key once carried `filters`/`filtersTouched`; those moved to
- *  the shared FilterStore (one record per map under FILTER_STORE_KEY). The
- *  old fields are read once on load to migrate, then become dead weight on
- *  the old key — a later save never writes them, but a reader that only
- *  migrates would keep seeing them forever. Removing them once (and
- *  rewriting the record) closes that gap: the next load has nothing left to
- *  migrate and the record matches what the writer produces. */
-const stripMigratedFilters = (): void => {
-  const raw = Storage.loadRecord<Record<string, unknown> | null>(
-    CONST.STORAGE.KEY,
-    CONFIG.name,
-  );
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
-  const hasFilters = Object.prototype.hasOwnProperty.call(raw, "filters");
-  const hasTouched = Object.prototype.hasOwnProperty.call(raw, "filtersTouched");
-  if (!hasFilters && !hasTouched) return;
-  delete raw.filters;
-  delete raw.filtersTouched;
-  Storage.saveRecord(CONST.STORAGE.KEY, raw, CONFIG.name);
 };
 
 /** Apply a loaded config object to the manager's state.
@@ -192,36 +154,6 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   // it and must not answer the first render.
   mgr.invalidateEffectiveField?.();
   mgr.selectedLayerId = saved.layerId ?? null;
-  // The filter half migrated to FilterStore: the old record's filters are
-  // genuine user-saved state, read ONCE here and restored into the store
-  // (owned, so the user's choice wins over the declaration). A source the
-  // user never touched (filtersTouched === false) is a seeded declaration
-  // that got persisted by an unrelated save — migrate it as a declaration,
-  // not an owned value. The store is single-sourced afterwards; the old key
-  // is never written again (see createPersisted's comment).
-  if (saved.filters && Object.keys(saved.filters).length > 0) {
-    if (saved.filtersTouched === false) {
-      // A record that says the user never took the slot: the persisted values
-      // are just seeded declarations. Capture them as declarations (the store
-      // never persists a declaration), so a later user write wins.
-      for (const [sourceId, filter] of Object.entries(saved.filters)) {
-        mgr.filterStore.setDeclaration(mgr.layerId, sourceId, filter);
-      }
-    } else {
-      // A record that says the user owns the slot: restore each source's
-      // filter as owned (value + touched, no normalize/apply — the draw is
-      // the render path's job). The store's record becomes the home.
-      for (const [sourceId, filter] of Object.entries(saved.filters)) {
-        mgr.filterStore.restore(mgr.layerId, sourceId, filter);
-      }
-    }
-  }
-  // The filter half has moved into the shared store: the component key's
-  // `filters`/`filtersTouched` are dead the moment they are read. Strip them
-  // once so they don't sit forever on the old key (every future load would
-  // otherwise re-read stale filter state; a save would never write them, but
-  // a reader that only migrates would keep seeing them).
-  stripMigratedFilters();
 };
 
 export { applySavedConfig, clearSavedConfig, loadSavedConfig };
