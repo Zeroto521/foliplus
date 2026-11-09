@@ -547,6 +547,20 @@ describe("OverlayRegistry", () => {
       expect(dropdown.closeCalls).toHaveLength(1);
     });
 
+    it("onPress skips a wrong-phase entry via the dismissOn !== phase guard", () => {
+      // Covers the early-continue: an open entry whose dismissOn does not match
+      // the dispatched phase is stepped over (not closed, not consumed).
+      const clickOnly = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        dismissOn: "click",
+        panels: () => [panel("menu")],
+      });
+      registry.register(clickOnly.entry);
+      press(panel("m"), "mousedown");
+      expect(clickOnly.isOpen()).toBe(true);
+      expect(clickOnly.closeCalls).toEqual([]);
+      expect(registry.lastPressInside()).toBe(false);
+    });
     it("consumes before closing: a nested consumer keeps its host open", () => {
       const outside = panel();
       const host = makeEntry({
