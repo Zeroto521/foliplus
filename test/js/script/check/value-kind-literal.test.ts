@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { findBareValueKindLiterals } from "#script/check/value-kind-literal.mjs";
+import { findBareValueKindLiterals, main } from "#script/check/value-kind-literal.mjs";
 
 // VALUE_KIND literal drift guard: the by-value config kind is a persisted
 // vocabulary — `kind: "numeric"` / `kind: "category"` select the ramp arms
@@ -99,5 +99,67 @@ describe("value-kind literals use the VALUE_KIND constant", () => {
     const hits = findBareValueKindLiterals(dir);
     rmSync(dir, { recursive: true, force: true });
     expect(hits).toEqual([]);
+  });
+
+  it("flags a synthetic nullish fallback literal", () => {
+    const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
+    mkdirSync(join(dir, "foliplus", "js", "core", "layer"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "core", "layer", "bad.ts"),
+      'const k = cfg.kind ?? "numeric";\n',
+    );
+    const hits = findBareValueKindLiterals(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("binary");
+  });
+
+  it("flags a synthetic switch-case literal", () => {
+    const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
+    mkdirSync(join(dir, "foliplus", "js", "core", "layer"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "core", "layer", "bad.ts"),
+      'switch (cfg.kind) { case "category": break; }\n',
+    );
+    const hits = findBareValueKindLiterals(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("case");
+  });
+
+  it("ignores a comment mention of the literal", () => {
+    const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
+    mkdirSync(join(dir, "foliplus", "js", "core", "layer"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "core", "layer", "ok.ts"),
+      '// kind: "category" is not a value here.\nconst x = 1;\n',
+    );
+    const hits = findBareValueKindLiterals(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits).toEqual([]);
+  });
+
+  it("main exits 1 on a flagged synthetic tree (CLI semantics)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
+    mkdirSync(join(dir, "foliplus", "js", "core", "layer"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "core", "layer", "bad.ts"),
+      'const x = { kind: "numeric" };\n',
+    );
+    const code = main(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(1);
+  });
+
+  it("main exits 0 on a clean synthetic tree (CLI semantics)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
+    mkdirSync(join(dir, "foliplus", "js", "core", "layer"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "core", "layer", "ok.ts"),
+      "const x = { value: 1 };\n",
+    );
+    const code = main(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(0);
   });
 });
