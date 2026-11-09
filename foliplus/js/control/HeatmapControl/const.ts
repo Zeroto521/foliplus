@@ -46,7 +46,7 @@ const AGG = {
   MAX: "max",
 };
 
-/** Hex-label typography — shared bounds from common/form.js so the layer
+/** Hex-label typography — shared bounds from ui/form.js so the layer
  *  style drawer never redeclares 6/32/11. */
 const LABEL = {
   ...LABEL_SIZE,

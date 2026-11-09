@@ -359,7 +359,7 @@ describe("buildSkeleton", () => {
     ]);
   });
 
-  it("uses the core controlEnv import (not the old common/guard path)", () => {
+  it("uses the core controlEnv import (not the guard path)", () => {
     const ts = skeleton.files.get("foliplus/js/control/FooControl/index.ts");
     expect(ts).toContain('from "#core/controlEnv.js"');
     expect(ts).not.toContain("#core/guard.js");

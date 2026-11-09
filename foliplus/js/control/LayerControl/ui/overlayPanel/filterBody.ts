@@ -231,7 +231,7 @@ const renderEnumBody = (
   control.setAttribute("aria-label", conditionLabel);
 
   // Escape ownership stays with the shared dropdown while its list is open:
-  // common/dropdown claims the key on window capture and stops it there, so one
+  // ui/dropdown claims the key on window capture and stops it there, so one
   // press closes the popup and the next one reaches the LAYER_FILTER panel —
   // "popup first, panel second", with the registry as the only panel
   // dispatcher. If this body ever grows a bespoke portal/popup, register it as

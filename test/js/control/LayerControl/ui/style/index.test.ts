@@ -414,7 +414,7 @@ describe("LayerUI style panel", () => {
     portal.appendChild(row);
     document.body.appendChild(portal);
     // The picker registers its portalled list against its trigger (the
-    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // primitive owns that, platform/portalRoot); the fixture mounts the same
     // registration so the registry's press dispatcher can attribute the press
     // to this drawer. Without it the node is an orphan <body> child and every
     // dismiss predicate rightly calls the press "outside".

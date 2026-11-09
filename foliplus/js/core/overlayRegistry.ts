@@ -221,7 +221,7 @@ const isEditable = (target: Node): boolean => {
 
 /** Containment is asked of the panels only. A node the surface portalled
  *  elsewhere is still inside it, because the panel that owns the trigger it was
- *  mounted for answers through common/portalRoot's ownership check — one
+ *  mounted for answers through platform/portalRoot's ownership check — one
  *  mechanism instead of two lists that can disagree. */
 const entryContains = (entry: OverlayEntry, target: EventTarget | null): boolean => {
   for (const panel of entry.panels()) {

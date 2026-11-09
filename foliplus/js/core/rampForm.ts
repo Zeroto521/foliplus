@@ -43,7 +43,7 @@ type FieldRowOptions = {
   rowAttributes?: Attributes;
   selectAttributes?: Attributes;
   onChange?: (field: string) => void;
-  /** Popup host contract for the bridged dropdown (common/fullscreen's
+  /** Popup host contract for the bridged dropdown (platform/fullscreen's
    *  `dropdownSurface(map.getContainer())`), so an open list follows the
    *  surface covering the trigger. */
   surface?: DropdownSurface;

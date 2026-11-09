@@ -1,4 +1,4 @@
-// Tests for common/sanitize — the SVG allowlist gate feeding every icon sink.
+// Tests for core/sanitize — the SVG allowlist gate feeding every icon sink.
 //
 // Dimension under test: presentation SVG survives; anything executable does not.
 //

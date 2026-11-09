@@ -12,13 +12,13 @@ import type { Projection } from "../type.js";
 import { INTENT, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
 import type { AuthorZoomRange } from "#core/layer/index.js";
-import { createLogger } from "#platform/log.js";
 import {
   intersectsMapZoom,
   isZoomRange,
   unreachableZoomRange,
   unusableZoomRange,
-} from "#platform/zoomRange.js";
+} from "#core/leaflet/index.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
 

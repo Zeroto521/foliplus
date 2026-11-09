@@ -144,7 +144,7 @@ const bindOutsideCollapse = (opts: {
     // dropdown's open list, the scheme picker's) belongs to the panel even
     // though the DOM says otherwise — otherwise the panel collapses out from
     // under the row the user is aiming at. Registration lives with the
-    // primitive (common/portalRoot), so no per-panel selector is needed here
+    // primitive (platform/portalRoot), so no per-panel selector is needed here
     // and a third portal is covered without touching this file.
     if (
       target &&

@@ -70,7 +70,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   return result;
 };
 
-/** Map a canonical spec (`core/hint`, `common/log`, `BaseControl`) to its
+/** Map a canonical spec (`core/hint`, `platform/log`, `BaseControl`) to its
  *  runtime-relative dotted form — the string the shared runtime registers
  *  under on `window.foliplus`. Shared between the shim generator (which
  *  prefixes `foliplus.` for the global lookup) and the build script (which

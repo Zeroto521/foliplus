@@ -16,7 +16,7 @@
 // checks are how one of them ends up not knowing about a portal.
 //
 // Ownership comes from the overlay itself: a portal registers the node it
-// mounted together with the trigger it belongs to (common/portalRoot) while
+// mounted together with the trigger it belongs to (platform/portalRoot) while
 // that node is live, so a new portal is covered everywhere the moment its
 // primitive registers — no panel needs a new selector. The registration is
 // scoped to the owning overlay: a node registered for one panel's trigger is
