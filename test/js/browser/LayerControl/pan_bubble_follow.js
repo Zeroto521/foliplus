@@ -71,6 +71,9 @@ async data => {
     track.dispatchEvent(
       new PointerEvent("pointerup", { ...b, clientX: xOf(target), buttons: 0 }),
     );
+    track.dispatchEvent(
+      new PointerEvent("lostpointercapture", { ...b, clientX: xOf(target) }),
+    );
   };
   // The fresh row spans the full extent, where the fill swallows the rail and
   // no pan segment exists. Open a gap on BOTH sides so the pair is not flush
@@ -100,15 +103,43 @@ async data => {
   );
 
   const bubblesA = live();
+  // Pan toward whichever side still has a gap: a pair flush with the min edge
+  // clamps a left pan (and vice versa), which would leave the bubbles static
+  // and fail the follow assertion.
+  const dir = v0 > lo ? -1 : 1;
+  const nextX = mid + dir * 20;
   track.dispatchEvent(
-    new PointerEvent("pointermove", { ...base, clientX: mid - 20, buttons: 1 }),
+    new PointerEvent("pointermove", { ...base, clientX: nextX, buttons: 1 }),
   );
   await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
   const bubblesB = live();
-  const leftA = bubblesA.map(b => b.style.left);
-  const leftB = bubblesB.map(b => b.style.left);
+  // Track each bubble by element identity: the pool re-parents a reused node,
+  // so DOM order between the two samples is not stable.
+  const leftA = new Map(bubblesA.map(b => [b, b.style.left]));
+  const moved = bubblesA.map(b => {
+    const stillLive = bubblesB.includes(b);
+    return stillLive && leftA.get(b) !== b.style.left;
+  });
+  // Match each live bubble to the thumb it is centred on (nearest thumb x) so
+  // the reported text is per thumb, not per DOM position.
+  const textFor = value => {
+    let best = null;
+    let bestDist = Infinity;
+    for (const b of bubblesB) {
+      const bx = Number.parseFloat(b.style.left) + b.getBoundingClientRect().width / 2;
+      const dist = Math.abs(bx - xOf(value));
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = b;
+      }
+    }
+    return best ? best.textContent : null;
+  };
   track.dispatchEvent(
-    new PointerEvent("pointerup", { ...base, clientX: mid - 20, buttons: 0 }),
+    new PointerEvent("pointerup", { ...base, clientX: nextX, buttons: 0 }),
+  );
+  track.dispatchEvent(
+    new PointerEvent("lostpointercapture", { ...base, clientX: nextX }),
   );
   const afterUp = live();
 
@@ -117,10 +148,10 @@ async data => {
     countA: bubblesA.length,
     countB: bubblesB.length,
     countAfterUp: afterUp.length,
-    moved0: leftA[0] !== leftB[0],
-    moved1: leftA[1] !== leftB[1],
-    text0: bubblesB[0]?.textContent ?? null,
-    text1: bubblesB[1]?.textContent ?? null,
+    moved0: moved[0] ?? false,
+    moved1: moved[1] ?? false,
+    text0: textFor(v0),
+    text1: textFor(v1),
     aria0: thumbs[0].getAttribute("aria-valuenow"),
     aria1: thumbs[1].getAttribute("aria-valuenow"),
   };
