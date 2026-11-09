@@ -26,7 +26,10 @@ const modeMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("#core/lifecycle/mode.js", async () => {
-  const real = (await vi.importActual("#core/lifecycle/mode.js")) as Record<string, unknown>;
+  const real = (await vi.importActual("#core/lifecycle/mode.js")) as Record<
+    string,
+    unknown
+  >;
   return {
     ...real,
     guardBlocked: modeMocks.guardBlocked,

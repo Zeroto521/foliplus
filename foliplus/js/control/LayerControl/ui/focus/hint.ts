@@ -2,8 +2,8 @@
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
 import type { LayerUI } from "../surface.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import { ROLE } from "#core/layer/index.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as

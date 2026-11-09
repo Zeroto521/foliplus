@@ -9,13 +9,13 @@ import type {
   HexFeature,
   SelectedPoint,
 } from "./type.js";
+import { vertexMean } from "#core/geo/index.js";
 import {
   ClassifierDependencyError,
   type ClassifyMethod,
   METHOD,
   computeBreaks,
 } from "#core/value/classify.js";
-import { vertexMean } from "#core/geo/index.js";
 import { safeColorScale } from "#core/value/palette.js";
 import type { Logger } from "#platform/type.js";
 

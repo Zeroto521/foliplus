@@ -39,8 +39,8 @@ import {
 import { COMPONENTS, generateId } from "#core/lifecycle/component.js";
 import { requireFoliplus } from "#core/lifecycle/guard.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/lifecycle/mode.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import type { ControlEnv } from "#core/lifecycle/type.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";

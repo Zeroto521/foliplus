@@ -4,7 +4,6 @@ import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { isFilterCapable } from "./filter.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import { CAP_TIER, sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
@@ -12,6 +11,7 @@ import {
   attachPanel,
   createPanel,
 } from "#core/leaflet/index.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";

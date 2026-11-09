@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { EVENTS, EventBus } from "#foliplus/core/event/index.js";
-import { ModeManager, ensureModes, guardBlocked } from "#foliplus/core/lifecycle/mode.js";
+import {
+  ModeManager,
+  ensureModes,
+  guardBlocked,
+} from "#foliplus/core/lifecycle/mode.js";
 
 // Shared mocks for the ModeManager constructor (bus + map).
 const makeBus = (): any => ({

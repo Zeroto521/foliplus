@@ -4,8 +4,8 @@
 // through the FILL_DIMENSION descriptor; applyValueFill is tested here
 // directly with mock layers.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/value/classify.js";
 import type { ValueConfig } from "#core/layer/intent.js";
+import { METHOD } from "#core/value/classify.js";
 import { DEFAULT_SCHEMES } from "#core/value/palette.js";
 import {
   applyValueFill,

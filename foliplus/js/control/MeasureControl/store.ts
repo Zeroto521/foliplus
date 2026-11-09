@@ -6,8 +6,8 @@
 // class, keys in const.ts STORAGE, no direct Storage access outside.
 import * as CONST from "./const.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import type { ControlEnv } from "#core/lifecycle/type.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import {
   type Persisted,
   createPersisted,

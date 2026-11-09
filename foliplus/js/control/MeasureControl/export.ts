@@ -12,8 +12,8 @@ import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
 import { MODE_MAP } from "./mode/index.js";
 import type { ExportDataFormat } from "./type.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import type { ControlEnv } from "#core/lifecycle/type.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { download } from "#platform/download.js";
 import { formatCoord } from "#platform/format.js";
 

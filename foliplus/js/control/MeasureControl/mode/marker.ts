@@ -13,8 +13,8 @@ import {
   mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
-import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/geo/locationMarker.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/lifecycle/type.js";
 import { throttleRaf } from "#platform/throttle.js";
 

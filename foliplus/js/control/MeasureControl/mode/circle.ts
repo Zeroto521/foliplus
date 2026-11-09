@@ -3,13 +3,13 @@ import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode, mountMeasureDelIcon } from "./base.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/lifecycle/type.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { stopEvent } from "#platform/dom.js";
 
 interface CirclePreviews {

@@ -9,8 +9,8 @@ import {
   polygonLayerWithStyle,
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/value/classify.js";
 import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { METHOD } from "#core/value/classify.js";
 import { DEFAULT_SCHEMES } from "#core/value/palette.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";

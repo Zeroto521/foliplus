@@ -1,12 +1,12 @@
 // Tests for platform/portalRoot — the per-overlay ownership of portalled nodes.
 import type * as L from "leaflet";
 import { afterEach, describe, expect, it } from "vitest";
-import { isInsideOverlay } from "#core/overlay/pressInside.js";
 import {
   OVERLAY_IDS,
   type OverlayEntry,
   ensureOverlayRegistry,
 } from "#core/overlay/overlayRegistry.js";
+import { isInsideOverlay } from "#core/overlay/pressInside.js";
 import { isPortalOf, registerPortalRoot } from "#platform/portalRoot.js";
 
 const node = (className?: string): HTMLElement => {

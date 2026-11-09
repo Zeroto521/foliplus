@@ -34,8 +34,8 @@
 // Naming: the file stem names the module under test (fillValue),
 // consistent with the collision / render perf siblings.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/value/classify.js";
 import type { ValueConfig } from "#core/layer/intent.js";
+import { METHOD } from "#core/value/classify.js";
 import { applyFillToLayer } from "#control/LayerControl/ui/style/fill.js";
 import { walkFillLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 
