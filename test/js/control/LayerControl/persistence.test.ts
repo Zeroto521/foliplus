@@ -1031,6 +1031,36 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("keeps the icon color the user set, with provenance", () => {
+      // The icon color rides the same value-plus-provenance rule as the
+      // border/fill dimensions: only a value WITH an override is a user
+      // choice; a bare iconColor is an author default and stays untouched.
+      seedStorage({
+        layers: {
+          a: { iconColor: "#ff0000", overrides: ["iconColor"] },
+          b: { iconColor: "#12abef", overrides: ["iconColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { iconColor: "#ff0000", overrides: ["iconColor"] },
+        b: { iconColor: "#12abef", overrides: ["iconColor"] },
+      });
+    });
+
+    it("drops an invalid icon color that the swatch could not display", () => {
+      // line 195 arm: isHexColor false -> null (corrupt entry must not leak).
+      seedStorage({
+        layers: {
+          a: { iconColor: "red", overrides: ["iconColor"] },
+          b: { iconColor: "#1234567", overrides: ["iconColor"] },
+          c: { iconColor: "#fff", overrides: ["iconColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        c: { iconColor: "#ffffff", overrides: ["iconColor"] },
+      });
+    });
+
     it("drops border values the UI could not display", () => {
       // A corrupt entry must not leak into <input type=color> nor ask for a
       // width outside the shared bounds: both validators fail closed, and a

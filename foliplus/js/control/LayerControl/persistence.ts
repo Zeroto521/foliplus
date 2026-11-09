@@ -199,6 +199,8 @@ const PARSE_OVERRIDE: Record<
     const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
     return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
   },
+  iconColor: data =>
+    isHexColor(data.iconColor) ? normalizeHexColor(data.iconColor) : null,
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
