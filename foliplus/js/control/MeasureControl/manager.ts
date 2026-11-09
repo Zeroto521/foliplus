@@ -388,8 +388,9 @@ class MeasureManager {
    *  (normalize → store → apply → publish) is the owner's; the control adds
    *  only the label re-plan that follows a visibility change. */
   setFilter(filter: LayerFilter): void {
-    if (!this.filterStore.setFilter(this.layerId, FILTER_SOURCE.MEASURE, filter))
+    if (!this.filterStore.setFilter(this.layerId, FILTER_SOURCE.MEASURE, filter)) {
       return;
+    }
     this.requestLabelPlan();
   }
 

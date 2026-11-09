@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-// Filter-source drift guard: a surface's source name in the shared filterStore
+// Filter-store drift guard: a surface's source name in the shared filterStore
 // is a persistence key — the value is stored in the record and must never be
 // spelled at the call site in a way that can drift from the constant. The
 // well-known names live in FILTER_SOURCE (core/layer/filterStore.ts); a control
