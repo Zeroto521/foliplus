@@ -4,9 +4,8 @@ import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { createPanelControl } from "#core/leaflet/index.js";
+import { bindControlZoomRange, createPanelControl } from "#core/leaflet/index.js";
 import { finalize } from "#platform/finalize.js";
-import { bindControlZoomRange } from "#platform/zoomRange.js";
 
 class HeatmapControl extends defineControl({
   config: CONFIG,

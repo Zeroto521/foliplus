@@ -5,7 +5,7 @@ import {
   intersectsMapZoom,
   isZoomRange,
   readZoomRange,
-} from "#platform/zoomRange.js";
+} from "#core/leaflet/index.js";
 
 type FakeMap = {
   zoom: number;
