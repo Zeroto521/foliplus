@@ -508,9 +508,9 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
   warn.mockRestore();
 });
 
-it("the policy reports the degradation once; the row arm is silent", () => {
+it("the policy reports the degradation once; the row mode is silent", () => {
   // The policy (inZoomRange) is the single place that warns about an
-  // unusable declaration. The row arm (value!) is silent — it falls back to
+  // unusable declaration. The row mode (value!) is silent — it falls back to
   // the map range without warning, so the row never duplicates the report.
   // A unique id keeps the "warn once per layer" dedup from suppressing this
   // call after an earlier test warned for the same id.
@@ -529,7 +529,7 @@ it("the policy reports the degradation once; the row arm is silent", () => {
   });
   trackMembership(fixture.map);
 
-  // The row value does not add a warn (row arm is silent): count before.
+  // The row value does not add a warn (row mode is silent): count before.
   const beforeValue = warn.mock.calls.length;
   expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay-policy-warn")).toEqual({
     min: 0,
