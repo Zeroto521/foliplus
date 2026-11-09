@@ -63,5 +63,6 @@
   "ui/schemePicker",
   "ui/slider",
   "ui/sliderClassName",
+  "ui/styleModeKey",
   "ui/type"
 ]
