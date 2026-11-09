@@ -1,4 +1,4 @@
-import type { ExportFormat } from "./type.js";
+import type { ExportDataFormat } from "./type.js";
 import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
 
 /** Timing / delay constants. */
@@ -132,7 +132,7 @@ const EXPORT_FORMAT = {
 /** Default format for `CONFIG.export_format` — used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
  * `EXPORT_FORMAT`, so this only guards misconfiguration. */
-const DEFAULT_EXPORT_FORMAT: ExportFormat = EXPORT_FORMAT.GEOJSON;
+const DEFAULT_EXPORT_FORMAT: ExportDataFormat = EXPORT_FORMAT.GEOJSON;
 
 /** Standard GeoJSON type names (RFC 7946). */
 const GEOJSON = {

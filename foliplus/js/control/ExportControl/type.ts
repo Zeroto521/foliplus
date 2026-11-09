@@ -14,7 +14,7 @@ interface CropRect {
 }
 
 /** Export format key — mirrors Python's `ExportControl.FORMAT` Literal type. */
-type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
+type ExportImageFormat = "png" | "jpeg" | "webp" | "geotiff";
 
 /** Loaded saved bounds from storage. */
 interface SavedBounds {
@@ -61,4 +61,11 @@ interface TileLoadStats {
   failed: number;
 }
 
-export type { CropRect, ExportFormat, RenderCtx, SavedBounds, TileDesc, TileLoadStats };
+export type {
+  CropRect,
+  ExportImageFormat,
+  RenderCtx,
+  SavedBounds,
+  TileDesc,
+  TileLoadStats,
+};
