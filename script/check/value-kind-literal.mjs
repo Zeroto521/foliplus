@@ -22,13 +22,14 @@
  *   - `filterFeature.ts` FieldKind (`"numeric" | "string" | "boolean"`) —
  *     a FILTER field vocabulary, not the by-value ramp kind.
  *   - FILL_MODE / ICON_KIND values — style-mode / icon-kind vocabularies.
- *     TEMPORARY: the FILL_MODE exclusion exists only because task-41 has NOT
- *     yet renamed FILL_MODE to STYLE_MODE. Once that rename lands (a single
- *     vocabulary for solid/value/original), the literal guard must also flag
- *     FILL_MODE-style values if they are ever spelled bare — remove this
- *     exclusion in the same PR as the rename, and drop the "FILL_MODE is a
- *     separate vocabulary" claim from the header. Do not leave this as a
- *     permanent exception.
+ *     These are NOT excluded by a code path: the guard's literal set is only
+ *     { 'numeric', 'category' } (VALUE_KIND), so FILL_MODE values
+ *     ('solid' / 'value' / 'original') are a DIFFERENT literal set the guard
+ *     never scans. When task-41 renames FILL_MODE to STYLE_MODE, decide
+ *     separately whether the style-mode vocabulary also needs a drift guard;
+ *     if it does, that is a new literal set to scan (or a second guard), not
+ *     the removal of an existing exclusion. Do not claim a FILL_MODE
+ *     exclusion exists here that the code does not implement.
  *
  * Whitelist: `core/valueKind.ts` itself (it DEFINES the constant).
  *
