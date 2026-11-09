@@ -70,9 +70,9 @@ import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
 import type { Logger } from "#platform/type.js";
-import type { CanvasLabelStyle } from "#ui/index.js";
 import {
   BORDER_WEIGHT,
+  type CanvasLabelStyle,
   clampBorderWeight,
   clampLabelSize,
   normalizeHexColor,
