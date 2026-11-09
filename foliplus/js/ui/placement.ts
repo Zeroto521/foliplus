@@ -1,3 +1,4 @@
+// ui/placement — Pure geometry kernel for floating-surface placement.
 /**
  * Pure geometry kernel for floating-surface placement.
  *

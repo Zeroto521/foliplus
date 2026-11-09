@@ -149,6 +149,8 @@ type LayerOverride =
   | "fillMode"
   | "borderColor"
   | "borderWeight"
+  | "borderValue"
+  | "borderStyleMode"
   | "opacity"
   | "zoomRange"
   | "size"
@@ -224,6 +226,14 @@ type LayerIntent = {
   fillMode?: FillMode;
   borderColor?: string;
   borderWeight?: number;
+  /** The value-based stroke config when the layer border is painted by a
+   *  field. Independent of fillValue: an explicit border ramp wins over the
+   *  derived fill ramp. Kept when the active border arm is solid. */
+  borderValue?: FillValueConfig;
+  /** Which border arm the user chose: solid, or by value. Absent defers to
+   *  the fill arm mode (the border follows the fill by default - one ramp
+   *  selection covers both faces). */
+  borderStyleMode?: FillMode;
   opacity?: number;
   zoomRange?: [number, number];
   /** The fixed pixel radius the user set (CircleMarker only). Frozen on
@@ -263,6 +273,14 @@ type PersistedLayerState = {
   borderColor?: string;
   /** The stroke width the user set, in the shared border bounds. */
   borderWeight?: number;
+  /** The value-based stroke config the user set (field / method / classes /
+   *  scheme). Independent of the fill config; absent defers to the fill
+   *  ramp. The border value arm owns the stroke color; the width and stroke
+   *  bit still ride the solid border write. */
+  borderValue?: FillValueConfig;
+  /** Which border arm is active ("solid" | "value"); the inactive config is
+   *  kept so a switch back restores it. Absent defers to the fill arm. */
+  borderStyleMode?: FillMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
@@ -314,6 +332,8 @@ const INTENT = {
   FILL_MODE: "fillMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
+  BORDER_VALUE: "borderValue",
+  BORDER_STYLE_MODE: "borderStyleMode",
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
@@ -338,6 +358,11 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
     value === FILL_MODE.ORIGINAL,
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
+  [INTENT.BORDER_VALUE]: isFillValueConfig,
+  [INTENT.BORDER_STYLE_MODE]: value =>
+    value === FILL_MODE.SOLID ||
+    value === FILL_MODE.VALUE ||
+    value === FILL_MODE.ORIGINAL,
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
   // A finite number only: Infinity cannot reach the leaf, and a non-finite
@@ -362,6 +387,8 @@ const STYLE_KEYS = {
   fillMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
+  borderValue: INTENT.BORDER_VALUE,
+  borderStyleMode: INTENT.BORDER_STYLE_MODE,
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,

@@ -1,3 +1,4 @@
+// platform/dom — DOM helpers and popup/marker utilities for components.
 // DOM helpers and popup/marker utilities for foliplus components.
 //
 // Imported statically by components. Reverse geocoding is NOT imported here —
