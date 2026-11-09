@@ -118,6 +118,7 @@ interface EntryOptions {
   consumePress?: (target: Element, press: OverlayPress) => boolean;
   clearsCursorOnClose?: boolean;
   escPassthroughOnEditable?: boolean;
+  escapeRank?: number;
 }
 
 interface FakeEntry {
@@ -140,6 +141,7 @@ const makeEntry = (options: EntryOptions): FakeEntry => {
     pressPriority: options.pressPriority ?? 0,
     clearsCursorOnClose: options.clearsCursorOnClose,
     escPassthroughOnEditable: options.escPassthroughOnEditable,
+    escapeRank: options.escapeRank,
     dismissOnOutside: options.dismissOnOutside,
     dismissOnInside: options.dismissOnInside,
     consumePress: options.consumePress,
@@ -1421,6 +1423,142 @@ describe("OverlayRegistry", () => {
       escape(child(panel("x")));
       expect(menu.closeCalls).toHaveLength(1);
       expect(registry.topmost()).toBe(style.entry);
+    });
+
+    // --- task-66: #1011 patch coverage (single Escape dispatcher) ---
+
+    it("closes only the rank-highest surface per Escape, then falls to the next", () => {
+      const picker = makeEntry({
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
+        panels: () => [panel("picker")],
+      });
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [panel("menu")],
+      });
+      const style = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        panels: () => [panel("style")],
+      });
+      registry.register(style.entry);
+      registry.register(menu.entry);
+      registry.register(picker.entry);
+      escape(document.body);
+      expect(picker.closeCalls).toHaveLength(1);
+      expect(menu.closeCalls).toHaveLength(0);
+      expect(style.closeCalls).toHaveLength(0);
+      escape(document.body);
+      expect(menu.closeCalls).toHaveLength(1);
+      expect(style.closeCalls).toHaveLength(0);
+      escape(document.body);
+      expect(style.closeCalls).toHaveLength(1);
+    });
+
+    it("escapeRank override outranks the fixed-id table", () => {
+      const style = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        panels: () => [panel("style")],
+      });
+      const popup = makeEntry({
+        id: "layer.attrs",
+        escapeRank: POPUP_OVERLAY_RANK,
+        panels: () => [panel("popup")],
+      });
+      registry.register(style.entry);
+      registry.register(popup.entry);
+      escape(document.body);
+      expect(popup.closeCalls).toHaveLength(1);
+      expect(style.closeCalls).toHaveLength(0);
+    });
+
+    it("falls back to orderOf(id) when escapeRank is absent", () => {
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [panel("menu")],
+      });
+      const style = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        panels: () => [panel("style")],
+      });
+      registry.register(style.entry);
+      registry.register(menu.entry);
+      escape(document.body);
+      expect(menu.closeCalls).toHaveLength(1);
+      expect(style.closeCalls).toHaveLength(0);
+    });
+
+    it("breaks escapeRank ties by registration order (exactly one closes)", () => {
+      // Same escapeRank: rankOf ties, so the sort is stable and preserves
+      // registration order — the first-registered surface closes. Assert only
+      // that exactly one closes (the tie-breaking winner is a Node detail).
+      const first = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        escapeRank: 860,
+        panels: () => [panel("first")],
+      });
+      const second = makeEntry({
+        id: OVERLAY_IDS.LAYER_FILTER,
+        escapeRank: 860,
+        panels: () => [panel("second")],
+      });
+      registry.register(first.entry);
+      registry.register(second.entry);
+      escape(document.body);
+      const totalClosed = first.closeCalls.length + second.closeCalls.length;
+      expect(totalClosed).toBe(1);
+    });
+
+    it("does not treat the inline-rename scope as an overlay surface", () => {
+      expect(OVERLAY_IDS.LAYER_RENAME in OVERLAY_ESCAPE_EXEMPTIONS).toBe(true);
+      const rename = makeEntry({
+        id: OVERLAY_IDS.LAYER_RENAME,
+        panels: () => [panel("rename")],
+      });
+      registry.register(rename.entry);
+      const seen: EscapeHandled[] = [];
+      registry.onEscapeHandled(payload => seen.push(payload));
+      escape(document.body);
+      expect(seen).toHaveLength(1);
+      expect(seen[0].entryId).toBe(OVERLAY_IDS.LAYER_RENAME);
+    });
+
+    it("would fail if rankOf ignored escapeRank (reverse guard)", () => {
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [panel("menu")],
+      });
+      const popup = makeEntry({
+        id: "layer.attrs",
+        escapeRank: POPUP_OVERLAY_RANK,
+        panels: () => [panel("popup")],
+      });
+      registry.register(popup.entry);
+      registry.register(menu.entry);
+      expect(POPUP_OVERLAY_RANK).toBeGreaterThan(orderOf(OVERLAY_IDS.LAYER_MENU));
+      escape(document.body);
+      expect(popup.closeCalls).toHaveLength(1);
+      expect(menu.closeCalls).toHaveLength(0);
+    });
+
+    it("would fail if dispatchEscape closed all surfaces (reverse guard)", () => {
+      const picker = makeEntry({
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
+        panels: () => [panel("picker")],
+      });
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        panels: () => [panel("menu")],
+      });
+      registry.register(menu.entry);
+      registry.register(picker.entry);
+      escape(document.body);
+      expect(picker.closeCalls).toHaveLength(1);
+      expect(menu.closeCalls).toHaveLength(0);
+    });
+
+    it("popup rank exceeds LAYER_MENU (the failure-mode probe stays)", () => {
+      expect(POPUP_OVERLAY_RANK).toBe(POPUP_HOST_RANK + POPUP_ESCAPE_DELTA);
+      expect(POPUP_OVERLAY_RANK).toBeGreaterThan(orderOf(OVERLAY_IDS.LAYER_MENU));
     });
   });
 });
