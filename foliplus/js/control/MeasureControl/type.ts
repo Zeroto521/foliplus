@@ -3,7 +3,7 @@
 // here is erased at build, so sub-modules can import without pulling value code.
 import type { EXPORT_FORMAT } from "./const.js";
 
-type ExportFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
+type ExportDataFormat = (typeof EXPORT_FORMAT)[keyof typeof EXPORT_FORMAT];
 
 /** A label eligible for collision hiding. */
 interface CollidableLabel {
@@ -20,4 +20,4 @@ interface DragBind {
   cleanup: () => void;
 }
 
-export type { CollidableLabel, DragBind, ExportFormat };
+export type { CollidableLabel, DragBind, ExportDataFormat };

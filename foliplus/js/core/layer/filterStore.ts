@@ -54,7 +54,7 @@ interface PersistedSource {
 interface PersistedLayers {
   [layerId: string]: { sources: { [name: string]: PersistedSource } };
 }
-interface PersistedRecord {
+interface FilterStoreRecord {
   version: number;
   layers: PersistedLayers;
 }
@@ -165,7 +165,7 @@ const createFilterStore = (): FilterStore => {
   /** layerId -> source -> declaration. In-memory only (see setDeclaration). */
   const declarations = new Map<string, Map<string, LayerFilter>>();
 
-  const readRecord = (): PersistedRecord => {
+  const readRecord = (): FilterStoreRecord => {
     const loaded = loadRecord<unknown>(FILTER_STORE_KEY);
     // A corrupt or non-record payload (an array, a string, a record missing
     // the layers map) reads back as an empty record — it is not a persistence
@@ -180,10 +180,10 @@ const createFilterStore = (): FilterStore => {
     ) {
       return { version: RECORD_VERSION, layers: {} };
     }
-    return loaded as PersistedRecord;
+    return loaded as FilterStoreRecord;
   };
 
-  const writeRecord = (record: PersistedRecord): void => {
+  const writeRecord = (record: FilterStoreRecord): void => {
     saveRecord(FILTER_STORE_KEY, record);
   };
 
@@ -192,7 +192,7 @@ const createFilterStore = (): FilterStore => {
    *  to read back as un-owned rather than throw or get "fixed" as a side
    *  effect. Callers that intend to change the entry go through commit. */
   const sourceOf = (
-    record: PersistedRecord,
+    record: FilterStoreRecord,
     layerId: string,
     name: string,
   ): PersistedSource =>
