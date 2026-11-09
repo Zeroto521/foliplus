@@ -2263,6 +2263,44 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
+  it("T9b a category border value keeps its kind and does not clamp classes", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    // Give the leaves a category property so "name" resolves as a real
+    // category field (categoryFields walks leaf properties).
+    leaves.forEach(l => {
+      l.feature.properties.name = "alpha";
+    });
+    ui.runtimeStore.setFields("vec1", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    // Seed a category config whose classes sit outside the editable
+    // vocabulary (2..9). The value-detail classes change routes through
+    // writeBorderValue -> persistedBorderValue, whose category branch must
+    // preserve kind and NOT clamp classes (unlike the numeric branch).
+    setIntent(ui, "vec1", "borderValue", {
+      kind: "category",
+      field: "name",
+      method: undefined,
+      classes: 43,
+      scheme: DEFAULT_SCHEMES[0],
+    } as ValueConfig);
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+    const classesSelect = block.querySelector(
+      ".foliplus-style-fill-classes-select",
+    ) as HTMLSelectElement | null;
+    expect(classesSelect).not.toBeNull();
+    classesSelect!.value = "43";
+    classesSelect!.dispatchEvent(new Event("change"));
+    const stored = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(stored.classes).toBe(43);
+    expect(stored.field).toBe("name");
+    expect(stored.scheme).toBe(DEFAULT_SCHEMES[0]);
+  });
+
   it("T10 the value arm carries an explicit user-set border weight", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
