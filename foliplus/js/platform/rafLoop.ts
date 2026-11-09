@@ -1,3 +1,5 @@
+// platform/rafLoop — Self-scheduling animation frame loop for continuous motion.
+
 // Self-scheduling animation frame loop — repeatedly run a tick at ~60Hz
 // until stopped. Used for keyboard-driven continuous movement (e.g. holding
 // an arrow key) where each OS keydown event is too coarse and irregular to

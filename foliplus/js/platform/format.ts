@@ -1,3 +1,4 @@
+// platform/format — Number, date and coordinate formatting for components.
 // Number, date and coordinate formatting for foliplus components.
 // Imported statically by components at build time.
 import { intlLocale } from "./locale.js";
