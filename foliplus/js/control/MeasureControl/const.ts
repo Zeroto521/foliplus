@@ -120,7 +120,6 @@ const RECORD_VERSION = 1;
  *  measurements list so that list's shape (and version) stays unchanged. */
 const FILTER = {
   FIELD: "type",
-  STORAGE_PREFIX: "foliplus_measure_filter",
   RECORD_VERSION: 1,
 };
 
