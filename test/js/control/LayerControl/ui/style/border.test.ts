@@ -2656,4 +2656,49 @@ describe("follow-fill border mode", () => {
     leaf.fireMouseout();
     expect(leaf.options.color).toBe("#123456");
   });
+  it("per-feature ORIGINAL: read-only original rows + width-only row (no colour input)", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(2)];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf1",
+      name: "pf1",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#111111", "#222222"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    const block = buildBorderRow(ui, "pf1") as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, "pf1", block);
+    setIntent(ui, "pf1", "borderStyleMode", "original");
+    const block2 = buildBorderRow(ui, "pf1") as HTMLElement;
+    document.body.appendChild(block2);
+    // No colour input at all (the author has no single colour value).
+    expect(block2.querySelector("input[type=color]")).toBeNull();
+    // The read-only original rows are present: the colours strip box + count.
+    expect(block2.querySelector(".foliplus-style-fill-original-colors")).not.toBeNull();
+    expect(block2.querySelector(".foliplus-style-fill-original-count")).not.toBeNull();
+    // The width input exists and sits in the right column (size row).
+    const weight = block2.querySelector(".foliplus-style-border-weight-input");
+    expect(weight).not.toBeNull();
+    const sizeRow = weight!.closest(".foliplus-style-size-row");
+    expect(sizeRow).not.toBeNull();
+  });
+
+  it("single-colour author ORIGINAL keeps the real swatch (counter-guard)", () => {
+    const leaves = [makeAreaLeaf(1)];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "original");
+    const block = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block);
+    // A single-colour author keeps the colour swatch (inert but present).
+    const swatch = block.querySelector(".foliplus-style-border-color-input");
+    expect(swatch).not.toBeNull();
+    expect((swatch as HTMLInputElement).readOnly).toBe(true);
+    // Width input present too.
+    expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
+  });
 });
