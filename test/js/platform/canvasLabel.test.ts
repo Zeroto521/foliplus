@@ -1,4 +1,4 @@
-// common/canvasLabel unit tests — the one canvas text recipe shared by the
+// ui/canvasLabel unit tests — the one canvas text recipe shared by the
 // heatmap's hex values and LayerControl's label labels.
 import { describe, expect, it, vi } from "vitest";
 import type { CanvasLabelStyle } from "#platform/type.js";

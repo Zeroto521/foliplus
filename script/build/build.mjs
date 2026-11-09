@@ -386,7 +386,7 @@ const main = async () => {
     mkdirSync(buildCss, { recursive: true });
 
     // ── Step 2: Generate shared registry ───────────────────────────
-    // Auto-registers every common/core module on window.foliplus (P5).
+    // Auto-registers every platform/core module on window.foliplus (P5).
     generateSharedRegistry();
 
     // ── Step 3: Discover components & build entries ───────────────

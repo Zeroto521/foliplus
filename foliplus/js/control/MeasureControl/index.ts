@@ -4,13 +4,13 @@ import { MeasureManager } from "./manager.js";
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import {
+  bindControlZoomRange,
   bindFoldToggle,
   bindOutsideCollapse,
   createFoldControl,
 } from "#core/leaflet/index.js";
 import { createIconButton } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
-import { bindControlZoomRange } from "#platform/zoomRange.js";
 
 const MeasureControl = defineControl<MeasureManager>({
   config: CONFIG,

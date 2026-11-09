@@ -83,7 +83,7 @@ class HintManager {
     this.hintMap = new Map();
     this.surfaceScope = surfaceScope;
     // When a covering surface activates (native fullscreen or pseudo-fullscreen,
-    // see common/fullscreen.ts), only that surface's subtree is visible — hints
+    // see platform/fullscreen.ts), only that surface's subtree is visible — hints
     // appended to document.body would be buried under the opaque map. Move
     // them onto the surface (and back again on exit). Pseudo mode changes a
     // class and fires no DOM event, so this subscribes to the shared surface
