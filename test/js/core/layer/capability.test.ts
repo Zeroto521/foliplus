@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import { hasRadiusLeaf } from "#foliplus/core/layer/capability.js";
+import { hasRadiusLeaf, probeLayerCarrier } from "#foliplus/core/layer/capability.js";
 
 // Minimal Leaflet shapes: the size probe reads only `getRadius`, `_radius`
 // and `_mRadius`, so each shape carries just those. The Circle pair is the
@@ -258,5 +258,114 @@ describe("LayerSurface capabilities.size", () => {
     expect(caps.size).toBe("native");
     expect(caps.fill).toBe("none");
     expect(caps.stroke).toBe("none");
+  });
+});
+
+describe("LayerSurface capabilities.iconColor (glyph-color probe)", () => {
+  // A marker whose icon createIcon reads this.options — the awesome-markers contract.
+  // If the probe calls createIcon detached, this is undefined and the call throws,
+  // which safeRead swallows into "none". The probe must call createIcon bound.
+  class AwMarker {
+    options = {
+      icon: {
+        options: { markerColor: "red", iconColor: "white", icon: "star" },
+        createIcon() {
+          const self = this as { options?: Record<string, unknown> };
+          if (!self || !self.options) {
+            throw new TypeError(
+              "Cannot read properties of undefined (reading 'options')",
+            );
+          }
+          return document.createElement("div");
+        },
+      },
+    };
+    setIcon() {
+      return this;
+    }
+  }
+
+  class ImgMarker {
+    options = {
+      icon: {
+        createIcon() {
+          const img = document.createElement("img");
+          img.src = "data:image/png;base64,x";
+          return img;
+        },
+      },
+    };
+    setIcon() {
+      return this;
+    }
+  }
+
+  it("is native for an awesome-markers-style icon (createIcon reads this.options)", () => {
+    expect(makeSurface(new AwMarker()).capabilities.iconColor).toBe("native");
+  });
+
+  it("is native for a plain divIcon (no glyph node yet)", () => {
+    class DivMarker {
+      options = { icon: { createIcon: () => document.createElement("div") } };
+      setIcon() {
+        return this;
+      }
+    }
+    expect(makeSurface(new DivMarker()).capabilities.iconColor).toBe("native");
+  });
+
+  it("is none for an img-based icon (Icon.Default / iconUrl)", () => {
+    expect(makeSurface(new ImgMarker()).capabilities.iconColor).toBe("none");
+  });
+
+  it("is none for a marker with no icon at all", () => {
+    class NoIconMarker {
+      options = {};
+      setIcon() {
+        return this;
+      }
+    }
+    expect(makeSurface(new NoIconMarker()).capabilities.iconColor).toBe("none");
+  });
+
+  it("is none for a non-marker (no setIcon)", () => {
+    expect(makeSurface(new PolyShape()).capabilities.iconColor).toBe("none");
+  });
+
+  it("propagates through a LayerGroup", () => {
+    expect(makeSurface(new GroupShape([new AwMarker()])).capabilities.iconColor).toBe(
+      "native",
+    );
+  });
+
+  it("short-circuits: an img marker next to a div marker still counts", () => {
+    expect(
+      makeSurface(new GroupShape([new ImgMarker(), new AwMarker()])).capabilities
+        .iconColor,
+    ).toBe("native");
+  });
+
+  it("probeLayerCarrier reports iconColor native for the aw marker", () => {
+    expect(probeLayerCarrier(new AwMarker()).iconColor).toBe("native");
+  });
+
+  it("probeLayerCarrier reports iconColor none for an img marker", () => {
+    expect(probeLayerCarrier(new ImgMarker()).iconColor).toBe("none");
+  });
+
+  it("caches the glyph probe result per icon instance", () => {
+    const marker = new AwMarker();
+    expect(probeLayerCarrier(marker).iconColor).toBe("native");
+    expect(probeLayerCarrier(marker).iconColor).toBe("native");
+  });
+
+  it("is none for an icon object whose createIcon is not a function", () => {
+    class OddIconMarker {
+      options = { icon: { createIcon: "not-a-function" } };
+      setIcon() {
+        return this;
+      }
+    }
+    expect(makeSurface(new OddIconMarker()).capabilities.iconColor).toBe("none");
   });
 });
