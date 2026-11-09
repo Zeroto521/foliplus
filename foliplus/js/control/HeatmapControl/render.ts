@@ -6,7 +6,7 @@ import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/inde
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { formatLabelNumber } from "#platform/format.js";
-import type { CanvasLabelStyle } from "#platform/type.js";
+import type { CanvasLabelStyle } from "#ui/index.js";
 import {
   drawCanvasLabel,
   prepareCanvasLabel,

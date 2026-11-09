@@ -39,6 +39,7 @@ export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
 export type {
+  CanvasLabelStyle,
   Dropdown,
   DropdownSurface,
   Placement,

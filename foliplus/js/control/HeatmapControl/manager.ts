@@ -69,7 +69,8 @@ import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
-import type { CanvasLabelStyle, Logger } from "#platform/type.js";
+import type { Logger } from "#platform/type.js";
+import type { CanvasLabelStyle } from "#ui/index.js";
 import {
   BORDER_WEIGHT,
   clampBorderWeight,
