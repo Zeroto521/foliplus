@@ -16,7 +16,7 @@ import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { ListCursor } from "#core/interaction/index.js";
+import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
   PICKER_GLYPHS,
@@ -208,11 +208,16 @@ const bindGlyphGrid = (
 ): void => {
   let grid: HTMLElement | null = null;
   let unbind: (() => void) | null = null;
+  let releaseClaim: (() => void) | null = null;
   const close = () => {
     // Pair the dismissal teardown with the close path (never a synthetic
     // `remove` event): unbind is captured once per open.
     unbind?.();
     unbind = null;
+    // The grid owns the keyboard while it is open: release on close so the
+    // layer list regains its arrows / Enter / Space.
+    releaseClaim?.();
+    releaseClaim = null;
     grid?.remove();
     grid = null;
     trigger.setAttribute("aria-expanded", "false");
@@ -222,9 +227,18 @@ const bindGlyphGrid = (
   const open = () => {
     /* v8 ignore next -- defensive: trigger handler closes before re-opening */
     if (grid) return;
-    grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
+    const built = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
+    grid = built.grid;
+    // While the grid is open it owns the arrow / Home / End / Enter / Space
+    // keys: a press on a focused cell must move the grid cursor, not toggle a
+    // layer row behind the popup. The claim makes the central dispatcher and
+    // every other handler stand aside; released in close().
+    releaseClaim = claimKeys(grid);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
+    // Put focus INTO the grid now that it is in the document — the real
+    // ownership is DOM focus, the claim is only the dispatcher guard.
+    built.focusInitial();
     // Outside press + Escape + focus return, as one primitive. The old
     // implementation got this wrong twice: `once: true` consumed the
     // pointerdown listener on the first press anywhere (so the second outside
@@ -238,7 +252,10 @@ const bindGlyphGrid = (
       containment: target =>
         trigger.contains(target) || (grid as HTMLElement).contains(target),
       onClose: close,
-      escapeTarget: document,
+      // Escape is captured on window (the default), which runs BEFORE the
+      // overlay registry's document-capture dispatcher: the grid is the
+      // innermost open surface, so one Escape closes the grid and leaves the
+      // style panel open (the next Escape closes that).
     });
     grid.dataset.closeOnDoc = "1";
     grid.dataset.closeOnKey = "1";
@@ -257,7 +274,7 @@ const buildGlyphGrid = (
   trigger: HTMLButtonElement,
   close: () => void,
   renderTrigger: () => void,
-): HTMLElement => {
+): { grid: HTMLElement; focusInitial: () => void } => {
   const current = currentGlyph(ui, layerId);
   const grid = dom.el("div", {
     class: CONST.CLASSES.STYLE_ICON_GRID,
@@ -287,6 +304,9 @@ const buildGlyphGrid = (
       commitGlyph(ui, layerId, glyph);
       renderTrigger();
       close();
+      // The grid is gone: hand focus back to the trigger, the element that
+      // opened it (a keyboard commit must not leave focus on a removed cell).
+      trigger.focus();
     };
     cells.push(cell);
     grid.appendChild(cell);
@@ -311,7 +331,19 @@ const buildGlyphGrid = (
     onActivate: (_, el) => (el as HTMLButtonElement).click(),
   });
   cursor.bindKeys(grid);
-  return grid;
+  // The popup must hold DOM focus on open: without it the key press goes to
+  // the element that had focus (a row checkbox, a slider thumb) and toggles
+  // the layer behind the popup — the claim alone cannot redirect a browser's
+  // key, it only stands the dispatcher aside. Focus the current cell (or the
+  // first) once the grid is appended; the cell is a real button so the
+  // roving tabindex contract puts tabindex=0 on it.
+  const focusInitial = (): void => {
+    const initial = current
+      ? cells.findIndex(cell => cell.getAttribute("data-glyph") === current)
+      : -1;
+    cursor.set(initial >= 0 ? initial : 0);
+  };
+  return { grid, focusInitial };
 };
 /** Register icon as a per-layer dimension. The descriptor owns the
  *  intent+persist slot; `commitGlyph` / `resetLayerIcon` stay as thin

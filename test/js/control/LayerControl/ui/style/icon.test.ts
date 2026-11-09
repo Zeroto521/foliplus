@@ -1,5 +1,6 @@
 import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -566,6 +567,111 @@ describe("buildIconRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     const intent = getIntent(ui, "overlay1", DIM.ICON);
     expect(intent).toEqual({ kind: "glyph", value: PICKER_GLYPHS[0] });
+  });
+
+  it("moves focus into the grid on open and owns its keys", () => {
+    // The reported regression: with the grid open, an arrow pressed while the
+    // focus was still on the trigger / a slider thumb bubbled to the
+    // document-level InteractionManager, whose ArrowRight row shortcut toggled
+    // the layer behind the popup. The real fix is DOM focus — the grid takes
+    // focus on open, and the claim is the dispatcher guard that stands the
+    // row shortcut aside while it is open.
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+
+    // A container-bound ArrowRight / Space / Enter shortcut standing in for the
+    // layer row toggle, registered through the real InteractionManager — the
+    // same document-level dispatch the user's key press went through.
+    const toggle = vi.fn();
+    const host = document.createElement("div");
+    host.appendChild(row);
+    document.body.appendChild(host);
+    const cleanup = ensureInteraction(ui.c.map).register("Guard", [
+      { key: "ArrowRight", container: host, handler: toggle as (e: Event) => void },
+      { key: " ", container: host, handler: toggle as (e: Event) => void },
+      { key: "Enter", container: host, handler: toggle as (e: Event) => void },
+    ]);
+
+    // Focus starts on the trigger (the layer row's button), as when the user
+    // opens the grid with the keyboard.
+    // Focus starts on the trigger (the layer row's button), as when the user
+    // opens the grid with the keyboard.
+    trigger.focus();
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+
+    // The open grid owns DOM focus: no manual focus here — the open path put
+    // it on the current (or first) cell.
+    expect(grid.contains(document.activeElement)).toBe(true);
+
+    // ArrowRight on the focused cell: the grid cursor moves, the row toggle
+    // stays silent.
+    const arrow = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    cells[0].dispatchEvent(arrow);
+    expect(document.activeElement).toBe(cells[1]);
+    expect(toggle).not.toHaveBeenCalled();
+    expect(arrow.defaultPrevented).toBe(true);
+
+    // Escape closes the grid and returns focus to the trigger; the row regains
+    // its keys.
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    const after = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    trigger.dispatchEvent(after);
+    expect(toggle).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
+  it("Space/Enter on a grid cell commits and closes without toggling the layer", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const toggle = vi.fn();
+    const host = document.createElement("div");
+    host.appendChild(row);
+    document.body.appendChild(host);
+    const cleanup = ensureInteraction(ui.c.map).register("Guard", [
+      { key: " ", container: host, handler: toggle as (e: Event) => void },
+      { key: "Enter", container: host, handler: toggle as (e: Event) => void },
+    ]);
+
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+
+    // Enter on the focused cell commits + closes; the layer row is untouched.
+    cells[0].dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toEqual({
+      kind: "glyph",
+      value: PICKER_GLYPHS[0],
+    });
+    expect(toggle).not.toHaveBeenCalled();
+
+    cleanup();
   });
 
   it("clamps keyboard navigation at the grid edges", () => {
