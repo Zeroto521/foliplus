@@ -2,7 +2,13 @@
 import type * as L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { type Dropdown, createDropdown, dropdownOf } from "#ui/index.js";
+import {
+  type Dropdown,
+  POPUP_OVERLAY_RANK,
+  createDropdown,
+  dropdownOf,
+  dropdownOverlay,
+} from "#ui/index.js";
 
 // A real registry the bridged fixtures wire in: the single Escape/outside-press
 // dispatcher the production dropdowns now use. It installs document-capture
@@ -1221,5 +1227,45 @@ describe("dropdown: remaining branches", () => {
     expect(select.value).toBe("");
     expect(labelOf(dropdown)).toBe("Choose a layer");
     expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+  });
+
+  describe("dropdownOverlay", () => {
+    it("returns the shared id and rank (not a per-surface copy)", () => {
+      const register = vi.fn(() => () => undefined);
+      const overlay = dropdownOverlay({ register });
+      expect(overlay.id).toBe("foliplus.popup.dropdown");
+      expect(overlay.rank).toBe(POPUP_OVERLAY_RANK);
+    });
+
+    it("passes the entry object through to the registry by identity", () => {
+      const register = vi.fn(() => () => undefined);
+      const overlay = dropdownOverlay({ register });
+      const entry = {
+        id: "layer.attrs",
+        isOpen: () => true,
+        close: () => undefined,
+        panels: () => [],
+        dismissOn: "mousedown",
+        pressPriority: 0,
+      } as const;
+      overlay.register(entry as never);
+      expect(register).toHaveBeenCalledWith(entry);
+    });
+
+    it("returns the registry unregister as-is (transparent passthrough)", () => {
+      const unregister = () => undefined;
+      const register = vi.fn(() => unregister);
+      const overlay = dropdownOverlay({ register });
+      const entry = {
+        id: "layer.attrs",
+        isOpen: () => true,
+        close: () => undefined,
+        panels: () => [],
+        dismissOn: "mousedown",
+        pressPriority: 0,
+      } as const;
+      const returned = overlay.register(entry as never);
+      expect(returned).toBe(unregister);
+    });
   });
 });
