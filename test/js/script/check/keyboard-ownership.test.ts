@@ -219,11 +219,12 @@ describe("keyboard ownership — Arrow/Escape stay in the shared primitives", ()
       // mentions both "addEventListener" and "keydown". This drops the AST
       // walk from ~500 files to the handful that actually register one,
       // keeping the guard well under CI's timeout under parallel load.
-      if (!/(^|[^\w])addEventListener/.test(src) || !/"keydown"|'keydown'/.test(src))
+      if (!/(^|[^\w])addEventListener/.test(src) || !/"keydown"|'keydown'/.test(src)) {
         continue;
+      }
       const source = ts.createSourceFile(
         file,
-        readFileSync(file, "utf-8"),
+        src,
         ts.ScriptTarget.Latest,
         /* setParentNodes */ true,
       );
