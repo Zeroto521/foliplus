@@ -37,7 +37,7 @@ const SIZE = {
 
 /** Defaults for the value-based fill (the fill row). The method / scheme
  *  values only seed the first ramp a user switches to (a stored
- *  `FillValueConfig` always wins); the class-count vocabulary lives in
+ *  `ValueConfig` always wins); the class-count vocabulary lives in
  *  #core/classify and is imported where it is used. */
 const FILL_VALUE = {
   METHOD_DEFAULT: "jenks",
