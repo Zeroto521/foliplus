@@ -5,7 +5,7 @@ import { MeasureStore } from "#control/MeasureControl/store.js";
 
 // Mock Storage + ensureEvents so the store is tested in isolation — the store's
 // own contract is array + id + persist/emit, not the localStorage I/O (covered
-// by common/storage tests) or the event bus wiring (covered by manager tests).
+// by platform/storage tests) or the event bus wiring (covered by manager tests).
 const storage = vi.hoisted(() => ({
   loadRecord: vi.fn(),
   saveRecord: vi.fn(),

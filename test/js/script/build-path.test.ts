@@ -196,7 +196,7 @@ describe("build-path.mjs", () => {
       expect(rules[prefix]).toBe(`${dir}/`);
     }
     // The rewrite is keyed by the alias segment, not the directory name: a
-    // shared spec "#platform/dom.js" becomes "common/dom.js" under the source root.
+    // shared spec "#platform/dom.js" becomes "platform/dom.js" under the source root.
     expect(rules["platform"]).toBe("platform/");
     expect(rules["core"]).toBe("core/");
     expect(rules["ui"]).toBe("ui/");

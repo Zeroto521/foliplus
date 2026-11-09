@@ -63,7 +63,7 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
-  /** Popup host contract for the format dropdown (common/fullscreen's
+  /** Popup host contract for the format dropdown (platform/fullscreen's
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
 }
