@@ -76,6 +76,7 @@ import {
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
+  STYLE_MODE,
   bindLiveColor,
   bindLiveNumber,
   colorInput as formColorInput,
@@ -465,10 +466,15 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
       ariaLabel: ui.T("style_fill"),
     }) as HTMLInputElement;
-    return formRow(
+    const row = formRow(
       ui.T("style_fill"),
       dom.el("div", { class: "foliplus-form-inline" }, colorInput),
       CONST.CLASSES.STYLE_FILL_ROW,
+    );
+    return dom.el(
+      "div",
+      { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
+      row,
     );
   }
 
@@ -483,7 +489,11 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   if (fields.length === 0 && !perFeature) {
     const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
     detail.append(...buildSolidDetail(ui, layerId));
-    return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
+    return dom.el(
+      "div",
+      { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
+      detail,
+    );
   }
 
   // Opening on the original colors writes no intent: the map keeps the
@@ -501,14 +511,14 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       ? [
           {
             value: FILL_MODE.ORIGINAL,
-            label: ui.T("style_fill_per_feature"),
+            label: ui.T(STYLE_MODE.ORIGINAL),
             title: ui.T("style_fill_per_feature_note"),
           },
         ]
       : []),
-    { value: FILL_MODE.SOLID, label: ui.T("style_fill_single") },
+    { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
     ...(fields.length > 0
-      ? [{ value: FILL_MODE.VALUE, label: ui.T("style_fill_by_value") }]
+      ? [{ value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) }]
       : []),
   ];
 
@@ -537,7 +547,12 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
   renderFillDetail(ui, layerId, detail, mode);
 
-  return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, modeRow, detail);
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
+    modeRow,
+    detail,
+  );
 };
 /** Bind the solid mode's two live controls. */
 const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
@@ -601,7 +616,8 @@ const bindFillDetail = (
  *  write path. A color basemap row or a layer with one mode (no numeric field)
  *  has no mode select and only owns the solid controls. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
-  const block = row.closest(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement | null;
+  const block = (row.closest("[data-style-dim='fill']") ??
+    row.closest(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`)) as HTMLElement | null;
   if (!block) {
     // Color basemap: the single swatch row, no modes.
     bindSolidDetail(ui, layerId, row);
@@ -812,6 +828,9 @@ const FILL_DIMENSION = registerDimension<{
 });
 
 export {
+  buildValueDetail,
+  numericFields,
+  resolvedValue,
   applyFillToLayer,
   bindFillRow,
   buildFillRow,
