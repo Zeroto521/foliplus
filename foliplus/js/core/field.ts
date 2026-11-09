@@ -233,11 +233,12 @@ const categoryLabel = (value: unknown): string | undefined => {
 export {
   categoricalPropertiesKeys,
   categoryDomain,
+  categoryLabel,
   inferFieldKind,
   isCategoryValue,
+  isFiniteNumber,
   isNumericValue,
+  leafPropertyValue,
   numericPropertiesKeys,
   resolveField,
 };
-
-export { categoryLabel, isFiniteNumber, leafPropertyValue };
