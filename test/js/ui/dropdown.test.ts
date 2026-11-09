@@ -2,6 +2,7 @@
 import type * as L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
 import {
   type Dropdown,
   POPUP_OVERLAY_RANK,
@@ -27,7 +28,7 @@ const mockOverlay = () => {
   return {
     overlay: {
       register: registry.register.bind(registry),
-      id: "foliplus.popup.dropdown",
+      id: DROPDOWN_OVERLAY_ID,
       rank: 860,
     },
     registry,
@@ -1233,7 +1234,7 @@ describe("dropdown: remaining branches", () => {
     it("returns the shared id and rank (not a per-surface copy)", () => {
       const register = vi.fn(() => () => undefined);
       const overlay = dropdownOverlay({ register });
-      expect(overlay.id).toBe("foliplus.popup.dropdown");
+      expect(overlay.id).toBe(DROPDOWN_OVERLAY_ID);
       expect(overlay.rank).toBe(POPUP_OVERLAY_RANK);
     });
 

@@ -16,7 +16,6 @@ export {
 export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
 export {
-  DROPDOWN_OVERLAY_ID,
   POPUP_ESCAPE_DELTA,
   POPUP_HOST_RANK,
   POPUP_OVERLAY_RANK,

@@ -9,6 +9,7 @@ import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { buildFieldRow } from "#core/rampForm.js";
+import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
 import {
   type Dropdown,
   type DropdownSurface,
@@ -930,6 +931,61 @@ it("constructing without opening binds no document/window listeners", () => {
   expect(afterConstruct).toEqual(before);
   listbox.destroy();
   expect(read()).toEqual(before);
+});
+
+it("registry panels() drops the wrapper once the trigger is detached", () => {
+  // The entry's panels() closure reads wrapper.isConnected at call time.
+  // A trigger removed from the DOM is no longer a containment surface:
+  // the panel list shrinks to the portalled list alone, so an outside
+  // press on the (detached) trigger location cannot count as inside.
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  const cell = document.createElement("div");
+  cell.appendChild(trigger);
+  document.body.appendChild(cell);
+  const registered: { panels: () => Element[] }[] = [];
+  const listbox = createListbox({
+    trigger,
+    items: () => [{ value: "a", label: "Alpha" }],
+    selected: () => [],
+    shape: {
+      rowTag: "button",
+      dataKey: "data-value",
+      selectedClass: "own-selected",
+      disabledAttr: "disabled",
+      activedescendant: "none",
+    },
+    classes: {
+      list: "own-list",
+      row: "own-row",
+      portal: "own-portal",
+      up: "own-up",
+      open: "own-open",
+    },
+    surface: { onSurfaceChange: () => () => {} },
+    dismiss: {
+      kind: "registry",
+      register: entry => {
+        registered.push(entry);
+        return () => {};
+      },
+      id: "x",
+      rank: 1,
+    },
+    onRowActivate: () => {},
+  });
+  listbox.open();
+  expect(registered.length).toBe(1);
+  const entry = registered[0] as { panels: () => Element[] };
+  const wrapper = trigger.parentElement!;
+  const list = listbox.getList()!;
+  expect(entry.panels()).toEqual([wrapper, list]);
+  // Detach the trigger: the wrapper is no longer connected, so the
+  // containment drops to the portalled list only.
+  cell.remove();
+  expect(wrapper.isConnected).toBe(false);
+  expect(entry.panels()).toEqual([list]);
+  listbox.destroy();
 });
 
 it("open then close returns the global listener count to baseline", () => {
@@ -1870,7 +1926,7 @@ const mockOverlay = () => {
   return {
     overlay: {
       register: registry.register.bind(registry),
-      id: "foliplus.popup.dropdown",
+      id: DROPDOWN_OVERLAY_ID,
       rank: 860,
     },
     registered: [] as unknown[],
