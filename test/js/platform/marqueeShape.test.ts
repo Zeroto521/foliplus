@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
+import {
+  type RectCorners,
+  roundedRectOutline,
+} from "#control/LayerControl/ui/focus/marqueeShape.js";
 
 const SQUARE: RectCorners = [
   { u: 0, v: 0 },

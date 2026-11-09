@@ -1,4 +1,4 @@
-// common/type — shared common-layer type definitions.
+// platform/type — shared platform-layer type definitions.
 type LogFn = (message: string, ...args: unknown[]) => void;
 
 /**

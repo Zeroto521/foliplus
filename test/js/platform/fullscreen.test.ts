@@ -6,7 +6,7 @@ import {
   fullscreenSurface,
   onFullscreenSurfaceChange,
   setPseudoFullscreen,
-} from "#common/fullscreen.js";
+} from "#platform/fullscreen.js";
 
 // jsdom ships no real Fullscreen API — stub the document property per test.
 // configurable: true lets each stub replace the previous one.

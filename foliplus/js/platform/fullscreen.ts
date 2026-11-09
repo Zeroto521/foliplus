@@ -1,4 +1,4 @@
-// common/fullscreen — the "covering surface" contract for body-level overlays.
+// platform/fullscreen — the "covering surface" contract for body-level overlays.
 //
 // Native fullscreen renders only the fullscreen element's subtree, and
 // foliplus's pseudo-fullscreen (FullscreenControl.css) covers the viewport
@@ -98,7 +98,7 @@ const setPseudoFullscreen = (container: HTMLElement, active: boolean): void => {
   announceFullscreenSurface();
 };
 
-/** The popup-host contract common/dropdown takes: resolve the covering surface
+/** The popup-host contract ui/dropdown takes: resolve the covering surface
  *  for *scope*, and subscribe to its changes. Consumers pass the result as the
  *  dropdown's `surface`, so a portalled list follows the same contract the
  *  slider bubble and hint toasts use instead of re-deriving it. */

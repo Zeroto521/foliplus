@@ -2,11 +2,11 @@
 // Tracks the active mode of each participating component and emits
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONFIG dependency.
-import { COMPONENTS, assertComponentName } from "#core/component.js";
+import { COMPONENTS, assertComponentName } from "./component.js";
+import { HINT_DURATION } from "./hint.js";
+import { ensureMapFoliplus } from "./mapApi.js";
 import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { suspendMapInteractions } from "#core/layer/util.js";
-import { ensureMapFoliplus } from "#core/mapApi.js";
+import { suspendMapInteractions } from "#core/layer/index.js";
 
 interface ModeChangePayload {
   component: string;

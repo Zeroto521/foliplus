@@ -4,16 +4,16 @@
 // `filterSetter` through the shared Slider. The owner semantics themselves
 // (validation, clamping, per-source attribution) are pinned in
 // test/js/control/HeatmapControl/manager.test.ts.
+import { findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
 import { SLIDER_CLASS } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { findItem, initFixture } from "../fixture.js";
 
 /** A Marker-stamped point layer whose leaves carry `feature.properties`.
  *  The values land on the row's `filterProvider` (see makeOwner below). */

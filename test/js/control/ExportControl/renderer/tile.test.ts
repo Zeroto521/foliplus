@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { calcTiles } from "#control/ExportControl/renderer/tile.js";
 import {
   installTileGlobals,
   makeEPSG3857Mock,
   makeRenderer,
   makeTileLayer,
 } from "./fixture.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { calcTiles } from "#control/ExportControl/renderer/tile.js";
 
 vi.mock("#control/ExportControl/util.js", async () => {
   const actual = await vi.importActual<any>("#control/ExportControl/util.js");

@@ -7,10 +7,9 @@
 // readouts the facade, the original mode and the value mode all read — they are
 // split into this file to break the facade <-> mode import cycle (each mode and
 // the facade import this instead of each other).
-import { METHOD } from "#core/classify.js";
-import type { LayerInfo } from "#core/layer/index.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
 import type { LayerUI } from "../surface.js";
+import { METHOD } from "#core/classify.js";
+import type { FillValueConfig, LayerInfo } from "#core/layer/index.js";
 
 type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
 

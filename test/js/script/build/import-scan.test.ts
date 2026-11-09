@@ -78,32 +78,32 @@ const canonJson = (map: Record<string, string[]>) =>
 
 const EQUIV_CORPUS: Record<string, string> = {
   "Named.ts": [
-    'import { alpha } from "#common/alpha.js";',
+    'import { alpha } from "#platform/alpha.js";',
     'import { beta } from "#core/beta.js";',
-    'import { eps as e, zeta } from "#common/eps.js";',
+    'import { eps as e, zeta } from "#platform/eps.js";',
     'import { type Theta, iota } from "#core/iota.js";',
     'import type { kappa } from "#core/kappa.js";',
     'import { lambda } from "#core/lambda/index.js";',
     'import { BaseControl } from "#foliplus/BaseControl.js";',
   ].join("\n"),
   "Stars.ts": [
-    'import * as Storage from "#common/store.js";',
+    'import * as Storage from "#platform/store.js";',
     'Storage.load("key");',
     'Storage.save("key", 1);',
-    'import * as Icons from "#common/icons.js";',
+    'import * as Icons from "#platform/icons.js";',
     "const a = Icons.ICON_DOWNLOAD;",
     "const b = Icons.ICON_CLOSE;",
   ].join("\n"),
   "sub/nested.ts": 'import { nested } from "#core/nested/index.js";',
   // Both predecessors dropped .d.ts; keep them asserting that.
-  "types.d.ts": 'import { ghost } from "#common/ghost.js";',
+  "types.d.ts": 'import { ghost } from "#platform/ghost.js";',
 };
 
 const EQUIV_REGISTRY_VIEW = {
-  "common/alpha": ["alpha"],
-  "common/eps": ["eps", "zeta"],
-  "common/icons": ["ICON_CLOSE", "ICON_DOWNLOAD"],
-  "common/store": ["load", "save"],
+  "platform/alpha": ["alpha"],
+  "platform/eps": ["eps", "zeta"],
+  "platform/icons": ["ICON_CLOSE", "ICON_DOWNLOAD"],
+  "platform/store": ["load", "save"],
   "core/beta": ["beta"],
   "core/iota": ["iota"],
   "core/lambda": ["lambda"],
@@ -113,8 +113,8 @@ const EQUIV_REGISTRY_VIEW = {
 
 const EQUIV_PLUGIN_VIEW = {
   used: {
-    "#common/alpha.js": ["alpha"],
-    "#common/eps.js": ["eps", "zeta"],
+    "#platform/alpha.js": ["alpha"],
+    "#platform/eps.js": ["eps", "zeta"],
     "#core/beta.js": ["beta"],
     "#core/iota.js": ["iota"],
     "#core/lambda/index.js": ["lambda"],
@@ -122,8 +122,8 @@ const EQUIV_PLUGIN_VIEW = {
     "#foliplus/BaseControl.js": ["BaseControl"],
   },
   starUsed: {
-    "#common/icons.js": ["ICON_CLOSE", "ICON_DOWNLOAD"],
-    "#common/store.js": ["load", "save"],
+    "#platform/icons.js": ["ICON_CLOSE", "ICON_DOWNLOAD"],
+    "#platform/store.js": ["load", "save"],
   },
 } as const;
 
@@ -205,22 +205,22 @@ const DIVERGENCES: DivergenceRow[] = [
   {
     id: "lowercase star prop on a non-`Storage` alias",
     files: {
-      "a.ts": 'import * as Ico from "#common/ico.js";\nconst a = Ico.downloadIcon;\n',
+      "a.ts": 'import * as Ico from "#platform/ico.js";\nconst a = Ico.downloadIcon;\n',
     },
     // The empty entry is the same star-side-effect as "unused star alias": the
     // registry always creates a key for a star spec, then the uppercase-only
     // pass finds nothing in it.
-    registryBefore: { "common/ico": [] },
-    pluginBefore: { "common/ico": ["downloadIcon"] },
+    registryBefore: { "platform/ico": [] },
+    pluginBefore: { "platform/ico": ["downloadIcon"] },
     // Registry matched only `[A-Z]` props plus a hardcoded `Storage.load|save`
     // escape hatch, so a lowercase icon accessor was shimmed but never
     // published. Takes the plugin's any-identifier rule.
-    engineNow: { "common/ico": ["downloadIcon"] },
+    engineNow: { "platform/ico": ["downloadIcon"] },
   },
   {
     id: "unused star alias",
-    files: { "a.ts": 'import * as Unused from "#common/unused.js";\n' },
-    registryBefore: { "common/unused": [] },
+    files: { "a.ts": 'import * as Unused from "#platform/unused.js";\n' },
+    registryBefore: { "platform/unused": [] },
     pluginBefore: {},
     // Registry kept an empty key, which generateRegistry discards anyway
     // (`names.length === 0` → skip), so this is artifact-neutral. Takes the
@@ -230,9 +230,9 @@ const DIVERGENCES: DivergenceRow[] = [
   {
     id: "alias embedded in a longer identifier",
     files: {
-      "a.ts": 'import * as Store2 from "#common/store2.js";\nmyStore2.EXTRA();\n',
+      "a.ts": 'import * as Store2 from "#platform/store2.js";\nmyStore2.EXTRA();\n',
     },
-    registryBefore: { "common/store2": ["EXTRA"] },
+    registryBefore: { "platform/store2": ["EXTRA"] },
     pluginBefore: {},
     // Registry's `alias + "[.]"` had no word boundary, so `myStore2.EXTRA`
     // counted as `Store2.EXTRA`. False positive removed; takes the plugin's
@@ -241,12 +241,12 @@ const DIVERGENCES: DivergenceRow[] = [
   },
   {
     id: ".js source file",
-    files: { "a.js": 'import { fromJs } from "#common/fromjs.js";\n' },
+    files: { "a.js": 'import { fromJs } from "#platform/fromjs.js";\n' },
     registryBefore: {},
-    pluginBefore: { "common/fromjs": ["fromJs"] },
+    pluginBefore: { "platform/fromjs": ["fromJs"] },
     // Registry walked `.ts` only. foliplus/js has no .js file today, so this is
     // inert; the union keeps both predecessors' behavior reachable.
-    engineNow: { "common/fromjs": ["fromJs"] },
+    engineNow: { "platform/fromjs": ["fromJs"] },
   },
   {
     id: "star import of #foliplus",
@@ -256,13 +256,13 @@ const DIVERGENCES: DivergenceRow[] = [
     },
     registryBefore: {},
     pluginBefore: { "foliplus/BaseControl": ["BaseControl"] },
-    // Registry's star regex only allowed `#common|#core`. Takes the plugin.
+    // Registry's star regex only allowed `#platform|#core`. Takes the plugin.
     engineNow: { "foliplus/BaseControl": ["BaseControl"] },
   },
   {
     id: "dot-dir source",
-    files: { ".hidden/x.ts": 'import { hidden } from "#common/hidden.js";\n' },
-    registryBefore: { "common/hidden": ["hidden"] },
+    files: { ".hidden/x.ts": 'import { hidden } from "#platform/hidden.js";\n' },
+    registryBefore: { "platform/hidden": ["hidden"] },
     pluginBefore: {},
     // Registry recursed into dot-dirs, which would pull caches and `.git` into
     // the scan. No dot-dir exists under foliplus/js today. Takes the plugin.
@@ -321,16 +321,16 @@ const PREDECESSOR_BUGS: DivergenceRow[] = [
     id: "one alias reused for two different specs",
     files: {
       "a.ts": 'import * as Geo from "#core/geo.js";\nconst a = Geo.distanceTo;\n',
-      "b.ts": 'import * as Geo from "#common/geo2.js";\nconst b = Geo.bearingOf;\n',
+      "b.ts": 'import * as Geo from "#platform/geo2.js";\nconst b = Geo.bearingOf;\n',
     },
     // Registry kept both keys but emptied both (uppercase-only prop match).
-    registryBefore: { "common/geo2": [], "core/geo": [] },
+    registryBefore: { "platform/geo2": [], "core/geo": [] },
     // Plugin keyed aliases in a flat Map, so the second import overwrote the
     // first: one spec was dropped and the other claimed both props.
-    pluginBefore: { "common/geo2": ["bearingOf", "distanceTo"] },
+    pluginBefore: { "platform/geo2": ["bearingOf", "distanceTo"] },
     // Props are now collected only from the files that imported the spec under
     // that alias — both specs kept, each with its own props.
-    engineNow: { "common/geo2": ["bearingOf"], "core/geo": ["distanceTo"] },
+    engineNow: { "platform/geo2": ["bearingOf"], "core/geo": ["distanceTo"] },
   },
 ];
 
@@ -353,7 +353,10 @@ describe("predecessor bugs — engine diverges from both, deliberately", () => {
     // A regression back to the predecessors would show up as either dropping
     // `typeFoo` (row 1) or losing a spec (row 2). Assert the keys survive.
     const { named, starUsed } = scanSharedImports(freshDir(PREDECESSOR_BUGS[1].files));
-    expect(Object.keys(canonMap(named, starUsed))).toEqual(["common/geo2", "core/geo"]);
+    expect(Object.keys(canonMap(named, starUsed))).toEqual([
+      "core/geo",
+      "platform/geo2",
+    ]);
     const { named: named2, starUsed: star2 } = scanSharedImports(
       freshDir(PREDECESSOR_BUGS[0].files),
     );
@@ -368,7 +371,7 @@ describe("predecessor bugs — engine diverges from both, deliberately", () => {
 describe("canonicalSpec", () => {
   it("strips the hash, the .js extension and a trailing /index", () => {
     expect(canonicalSpec("#core/geo/index.js")).toBe("core/geo");
-    expect(canonicalSpec("#common/dom.js")).toBe("common/dom");
+    expect(canonicalSpec("#platform/dom.js")).toBe("platform/dom");
     expect(canonicalSpec("#foliplus/BaseControl.js")).toBe("foliplus/BaseControl");
     expect(canonicalSpec("#core/index.js")).toBe("core");
     expect(canonicalSpec("#core/layer/api.js")).toBe("core/layer/api");

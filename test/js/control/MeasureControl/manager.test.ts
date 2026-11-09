@@ -1,10 +1,10 @@
+import { makeControlEnv } from "../fixture.js";
+import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { FILTER_STORE_KEY } from "#core/layer/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../fixture.js";
-import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts

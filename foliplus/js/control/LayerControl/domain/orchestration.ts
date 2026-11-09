@@ -7,6 +7,9 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and LabelManager — both LayerControl-local.
+import type { LabelManager } from "../label/index.js";
+import type { LayerPersistence } from "../persistence.js";
+import type { LayerIntentStore } from "./LayerIntentStore.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
   INTENT,
@@ -31,10 +34,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
-import { finalizeEach } from "#common/finalize.js";
-import type { LabelManager } from "../label/index.js";
-import type { LayerPersistence } from "../persistence.js";
-import type { LayerIntentStore } from "./LayerIntentStore.js";
+import { finalizeEach } from "#platform/finalize.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (label) pane when the layer's features expose a labelable

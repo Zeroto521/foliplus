@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Cache } from "#foliplus/common/cache.js";
+import { Cache } from "#foliplus/platform/cache.js";
 
 describe("Cache", () => {
   it("stores and retrieves values", () => {

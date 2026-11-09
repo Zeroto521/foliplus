@@ -17,13 +17,13 @@
  * spelling shared with vitest and the build scripts. No esbuild `target`
  * is set (see that module); adding one would change emitted JS.
  */
+import { pathAliases, resolveJsRoot } from "../build-path.mjs";
+import { resolveVersion } from "../version.mjs";
+import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 import postcss from "postcss";
 import postcssNesting from "postcss-nesting";
-import { pathAliases, resolveJsRoot } from "../build-path.mjs";
-import { resolveVersion } from "../version.mjs";
-import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
 
 /**
  * Build the esbuild config for a given mode. `dev` toggles minification and

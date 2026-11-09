@@ -1,5 +1,14 @@
+import {
+  TEST_ENV,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import {
   HIDDEN,
   LayerRuntimeStore,
@@ -8,7 +17,6 @@ import {
   carrierTargetOf,
   contentPanesOf,
 } from "#core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import {
@@ -21,14 +29,6 @@ import {
 import { LayerUI } from "#control/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#control/LayerControl/ui/intent.js";
 import { intentVisibleOf, projectLayer } from "#control/LayerControl/ui/projection.js";
-import {
-  TEST_ENV,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  polygonLayer,
-  trackMembership,
-} from "./fixture.js";
 
 // The carrier contract promises pane coverage only for layers whose leaves
 // the migrator can relocate (Path / Marker / GridLayer / ImageOverlay). These

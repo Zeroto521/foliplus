@@ -19,14 +19,14 @@
 // touches, and the surface decides what that means (item visibility, an
 // aggregation include set, a leaf hidden-class write).
 import { ensureMapFoliplus } from "#core/mapApi.js";
-import { createLogger } from "#common/log.js";
-import { loadRecord, removeRecord, saveRecord } from "#common/storage.js";
+import { createLogger } from "#platform/log.js";
 import {
   type FilterDimension,
   type LayerFilter,
   type LayerFilterModel,
   filtersEqual,
 } from "./filter.js";
+import { loadRecord, removeRecord, saveRecord } from "#platform/storage.js";
 
 /** The single storage key every layer's filter record lives under. One key,
  *  indexed by layer id inside the record — never a per-surface or per-layer
