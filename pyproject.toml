@@ -37,7 +37,7 @@ Issues = "https://github.com/Zeroto521/foliplus/issues"
 [dependency-groups]
 test = [
   "pytest", "pytest-cov", "pytest-xdist", "pytest-playwright", "codecov",
-  "docutils<0.23",  # sphinx 9 requires docutils<0.23; pinning here keeps the shared uv lock from downgrading sphinx
+  "docutils<0.24",  # sphinx 9 requires docutils<0.24; pinning here keeps the shared uv lock from downgrading sphinx
 ]
 doc = [
   "sphinx",
