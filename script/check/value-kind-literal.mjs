@@ -178,4 +178,6 @@ const runCli = (argv, entry) => {
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-export { findBareValueKindLiterals, main, walk };
+const __entryUrl = fileURLToPath(import.meta.url);
+
+export { findBareValueKindLiterals, main, runCli, __entryUrl, walk };
