@@ -233,7 +233,9 @@ describe("keyboard ownership — Arrow/Escape stay in the shared primitives", ()
   });
 
   it("every EXEMPT path exists in the repo (guards against silent drift)", () => {
-    const missing = EXEMPT.filter(entry => !existsSync(resolve(".", "foliplus", "js", entry)));
+    const missing = EXEMPT.filter(
+      entry => !existsSync(resolve(".", "foliplus", "js", entry)),
+    );
     expect(missing).toEqual([]);
   });
 });
