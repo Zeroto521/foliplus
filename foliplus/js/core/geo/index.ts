@@ -10,3 +10,4 @@ export {
   vertexMean,
 } from "./geodesic.js";
 export type { GeoBounds, LatLngPoint, Rect } from "./type.js";
+export { createLocationMarker } from "./locationMarker.js";
