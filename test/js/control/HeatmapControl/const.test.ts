@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateId } from "#core/component.js";
+import { generateId } from "#core/lifecycle/component.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 
 describe("TIMING", () => {

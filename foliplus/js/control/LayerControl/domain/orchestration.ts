@@ -33,7 +33,10 @@ import {
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
-import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
+import {
+  attributionEntries,
+  refreshAttributions,
+} from "#core/lifecycle/leafletAdapter.js";
 import { finalizeEach } from "#platform/finalize.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus

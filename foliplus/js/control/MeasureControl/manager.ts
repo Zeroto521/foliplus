@@ -12,7 +12,6 @@ import { MODE_MAP, type MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
-import { COMPONENTS, generateId } from "#core/component.js";
 import {
   EVENTS,
   type EventBus,
@@ -20,8 +19,6 @@ import {
   ensureEvents,
   publish,
 } from "#core/event/index.js";
-import { requireFoliplus } from "#core/guard.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
 import {
   type FilterEnumDimension,
   type FilterOwner,
@@ -38,7 +35,10 @@ import {
   hideDelIcons,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
+import { COMPONENTS, generateId } from "#core/lifecycle/component.js";
+import { requireFoliplus } from "#core/lifecycle/guard.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import type { ControlEnv } from "#core/type.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import * as Storage from "#platform/storage.js";

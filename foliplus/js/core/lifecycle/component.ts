@@ -1,4 +1,4 @@
-// core/component — canonical component name constants.
+// core/lifecycle/component — canonical component name constants.
 // Single source of truth for every foliplus component identity.
 // Components use CONFIG.name (runtime, from Python) for self-reference;
 // cross-component references use COMPONENTS.xxx (compile-time constant).

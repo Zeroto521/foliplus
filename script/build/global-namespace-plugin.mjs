@@ -98,6 +98,8 @@ const runtimeTarget = spec => {
   if (spec === "core/hint") return "hint";
   if (spec.startsWith("platform/")) return `platform.${spec.split("/").at(-1)}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
+  if (spec === "core/overlay/hint") return "hint";
+  if (spec.startsWith("core/lifecycle/")) return `core.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
     return sub === "index" ? `#${spec}` : `core.${sub}`;

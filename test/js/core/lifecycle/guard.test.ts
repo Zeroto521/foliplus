@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { requireFoliplus } from "#core/guard.js";
+import { requireFoliplus } from "#core/lifecycle/guard.js";
 
 describe("requireFoliplus", () => {
   afterEach(() => {

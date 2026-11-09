@@ -1,8 +1,8 @@
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
-import { defineControl } from "#core/defineControl.js";
 import { requireLayerAPI } from "#core/layer/index.js";
 import { createFoldControl } from "#core/leaflet/index.js";
+import { defineControl } from "#core/lifecycle/defineControl.js";
 
 // Browser tests inject a synchronous rafLoop scheduler on window before
 // instantiation to make rafLoop deterministic (see

@@ -108,14 +108,14 @@ describe("registryUsedExports", () => {
   it("scans core imports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
-        import { COMPONENTS } from "#core/component.js";
+        import { COMPONENTS } from "#core/lifecycle/component.js";
         import { ensureHint } from "#core/overlay/hint.js";
         import { EventBus } from "#core/event/index.js";
       `,
     });
     const result = usedExports(dir);
-    expect(result["core/component"]).toContain("COMPONENTS");
-    expect(result["core/hint"]).toContain("ensureHint");
+    expect(result["core/lifecycle/component"]).toContain("COMPONENTS");
+    expect(result["core/overlay/hint"]).toContain("ensureHint");
     expect(result["core/event"]).toContain("EventBus");
   });
 
@@ -254,7 +254,7 @@ describe("generateRegistry", () => {
       "core/mode.ts": `export const ModeManager = {};`,
       "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/index.ts": `
-        import { COMPONENTS } from "#core/component.js";
+        import { COMPONENTS } from "#core/lifecycle/component.js";
         import { ensureHint } from "#core/overlay/hint.js";
         import { ModeManager } from "#core/mode.js";
         import { dom } from "#platform/dom.js";

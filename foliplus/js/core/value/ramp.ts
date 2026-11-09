@@ -1,4 +1,4 @@
-// core/ramp — the shared value → color ramp: ordered class breaks, the
+// core/value/ramp — the shared value → color ramp: ordered class breaks, the
 // scheme's per-class colors, and the value → class bisection.
 //
 // Consumed today by LayerControl's value-based fill (ui/style/fillValue.ts),

@@ -146,7 +146,7 @@ const ALLOWED: ReadonlyArray<{
     reason: "type-only NumberStyle contract, erased at compile time",
   },
   {
-    file: "core/defineControl.ts",
+    file: "core/lifecycle/defineControl.ts",
     spec: "#foliplus/BaseControl.js",
     reason: "BaseControl is the shared base class (see SHARED_MODULE_EXACTS)",
   },

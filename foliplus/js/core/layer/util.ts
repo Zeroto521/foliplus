@@ -5,7 +5,7 @@ import {
   layerIcon,
   layerMap,
   reinitInteraction,
-} from "../leafletAdapter.js";
+} from "../lifecycle/leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";

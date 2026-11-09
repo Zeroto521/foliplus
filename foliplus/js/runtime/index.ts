@@ -24,15 +24,19 @@
 // esbuild rewrites this import to the real generated registry inside .build/
 // (see resolveSharedRegistryPlugin). Tests keep importing the stub.
 import "./_shared-registry.js";
-import { COMPONENTS, assertComponentName, generateId } from "#core/component.js";
 import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
+import {
+  COMPONENTS,
+  assertComponentName,
+  generateId,
+} from "#core/lifecycle/component.js";
+import { ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import {
   HINT_DURATION,
   HintManager,
   ensureHint,
   registerHintIcon,
 } from "#core/overlay/hint.js";
-import { ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 
 // -- Global namespace bootstrap --

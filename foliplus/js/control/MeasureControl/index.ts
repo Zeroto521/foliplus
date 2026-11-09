@@ -1,7 +1,6 @@
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
-import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import {
   bindControlZoomRange,
@@ -9,6 +8,7 @@ import {
   bindOutsideCollapse,
   createFoldControl,
 } from "#core/leaflet/index.js";
+import { defineControl } from "#core/lifecycle/defineControl.js";
 import { createIconButton } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 

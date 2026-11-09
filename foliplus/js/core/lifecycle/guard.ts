@@ -1,4 +1,4 @@
-// core/guard — per-map foliplus namespace accessor.
+// core/lifecycle/guard — per-map foliplus namespace accessor.
 //
 // `requireFoliplus(map)` returns the per-map `MapFoliplus` namespace or
 // throws when the runtime hasn't seeded it yet. Callers that used to write

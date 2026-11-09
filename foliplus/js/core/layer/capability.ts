@@ -14,7 +14,7 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
-import { isPixelRadiusLeaf } from "../leafletAdapter.js";
+import { isPixelRadiusLeaf } from "../lifecycle/leafletAdapter.js";
 import { isMigratableLeaf } from "./carrier.js";
 import { someLeaf, walkLeaf } from "./walkLeaf.js";
 

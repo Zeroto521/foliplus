@@ -14,7 +14,7 @@ import {
   getRendererContainer,
   getRendererFor,
   layerShadow,
-} from "../leafletAdapter.js";
+} from "../lifecycle/leafletAdapter.js";
 import { PaneLedger } from "./PaneLedger.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";

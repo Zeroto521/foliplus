@@ -1,4 +1,4 @@
-// core/overlayRegistry — one dispatcher for the floating surfaces.
+// core/overlay/overlayRegistry — one dispatcher for the floating surfaces.
 //
 // Why this is split from core/overlay.ts: that module is the stable leaf
 // predicate ("is this press inside my panel plus my portals") and already

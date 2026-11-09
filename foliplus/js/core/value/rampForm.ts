@@ -1,4 +1,4 @@
-// core/rampForm — the shared Field / Classes / Scheme rows used by both
+// core/value/rampForm — the shared Field / Classes / Scheme rows used by both
 // classified schemes in the product: LayerControl's value-based fill detail
 // and HeatmapControl's classification panel.
 //

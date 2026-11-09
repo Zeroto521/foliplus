@@ -361,8 +361,8 @@ describe("buildSkeleton", () => {
 
   it("uses the core controlEnv import (not the guard path)", () => {
     const ts = skeleton.files.get("foliplus/js/control/FooControl/index.ts");
-    expect(ts).toContain('from "#core/controlEnv.js"');
-    expect(ts).not.toContain("#core/guard.js");
+    expect(ts).toContain('from "#core/lifecycle/controlEnv.js"');
+    expect(ts).not.toContain("#core/lifecycle/guard.js");
   });
 
   it("only references design tokens that exist in token.css", () => {
@@ -446,7 +446,7 @@ describe("scaffoldControl", () => {
         join(tmpRoot, "foliplus", "js", "control", "FooControl", "index.ts"),
         "utf-8",
       ),
-    ).toContain('from "#core/controlEnv.js"');
+    ).toContain('from "#core/lifecycle/controlEnv.js"');
   });
 
   it("is idempotent on a second run without --force", () => {

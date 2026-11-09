@@ -118,7 +118,9 @@ describe("sharedGlobalNamespace", () => {
   // Every other core-root single file reaches its namespace through the general
   // rule; component and mode no longer carry manual entries.
   it("maps component.js to foliplus.core.component", () => {
-    expect(sharedGlobalNamespace("#core/component.js")).toBe("foliplus.core.component");
+    expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
+      "foliplus.core.component",
+    );
   });
 
   it("maps mode.js to foliplus.core.mode", () => {
@@ -126,7 +128,7 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps controlEnv.js to foliplus.core.controlEnv", () => {
-    expect(sharedGlobalNamespace("#core/controlEnv.js")).toBe(
+    expect(sharedGlobalNamespace("#core/lifecycle/controlEnv.js")).toBe(
       "foliplus.core.controlEnv",
     );
   });
@@ -138,7 +140,7 @@ describe("sharedGlobalNamespace", () => {
   it("maps leafletAdapter.js to foliplus.core.leafletAdapter", () => {
     // A core-root single file, so the general rule must cover it: the #platform
     // fallback would build "foliplus.platform.#core/leafletAdapter".
-    expect(sharedGlobalNamespace("#core/leafletAdapter.js")).toBe(
+    expect(sharedGlobalNamespace("#core/lifecycle/leafletAdapter.js")).toBe(
       "foliplus.core.leafletAdapter",
     );
   });
@@ -206,22 +208,23 @@ describe("sharedGlobalNamespace across the production tree", () => {
 
   it("gives hint, and only hint, a namespace outside foliplus.core", () => {
     // runtime/index.ts publishes `hint` directly on window.foliplus (the
-    // Object.assign block), while component and mode are assigned under
-    // foliplus.core. The general rule returns foliplus.core.<name> for every
-    // other core-root file, so hint is the sole exception — and a new
-    // core-root file must reach its namespace through that rule rather than by
-    // adding an entry. `#core/overlay/hint.js` → foliplus.core.hint would read a
-    // namespace nothing publishes.
+    // Object.assign block); after the core clustering it lives at core/overlay/hint
+    // and is served by the explicit overlay/hint branch in runtimeTarget. The
+    // general rule covers every other core-root single file, so nothing is
+    // off-rule now — and a new core-root file must reach its namespace through
+    // that rule rather than by adding an entry.
     const singles = readdirSync(resolve(JS_DIR, "core"), { withFileTypes: true })
       .filter(f => f.isFile() && f.name.endsWith(".ts"))
       .map(f => f.name.replace(/\.ts$/, ""));
     const offRule = singles.filter(
       name => sharedGlobalNamespace(`#core/${name}.js`) !== `foliplus.core.${name}`,
     );
-    expect(offRule).toEqual(["hint"]);
+    expect(offRule).toEqual([]);
     expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe("foliplus.hint");
     // The two that used to carry manual entries, now served by the rule.
-    expect(sharedGlobalNamespace("#core/component.js")).toBe("foliplus.core.component");
+    expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
+      "foliplus.core.component",
+    );
     expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
   });
 
