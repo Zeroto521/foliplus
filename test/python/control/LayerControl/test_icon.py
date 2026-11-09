@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import folium
 import pytest
@@ -740,6 +741,11 @@ class TestIconBrowser(LayerControlBrowserBase):
                     _js("LayerControl/icon_grid_keyboard_state"), "openGrid"
                 )
 
+            def focus_first_cell():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "focusFirstCell"
+                )
+
             # (a) focus on the trigger → Enter opens the grid → focus enters it.
             focus_trigger()
             page.keyboard.press("Enter")
@@ -759,6 +765,18 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert moved["focusInGrid"] is True, moved
             assert moved["layerChecked"] is True, moved
             assert moved["sliderValue"] == before_value, moved
+
+            # Focus-ring contract: a grid cell shows the shared ring, not the
+            # browser default outline (outline-style must be none and the ring's
+            # box-shadow must be present).
+            focus_first_cell()
+            page.wait_for_timeout(80)
+            ring = state()["focusStyle"]
+            assert ring is not None, "no focused cell to read focus style from"
+            assert ring["outlineStyle"] == "none", ring
+            assert ring["boxShadow"] and ring["boxShadow"] != "none", ring
+            # The ring's color must be the focus token (resolved accent).
+            assert ring["focusColor"], ring
 
             # Escape closes + returns focus to the trigger.
             page.keyboard.press("Escape")
@@ -793,3 +811,48 @@ class TestIconBrowser(LayerControlBrowserBase):
 
             assert not errors, f"JS errors: {errors}"
             assert not errors, errors
+
+    def test_icon_grid_focus_ring_screenshot(self, browser, tmp_path):
+        """Capture the glyph grid cell focus ring for the before/after evidence.
+
+        Only runs when FOLIPLUS_SHOT_DIR is set (the CI never sets it): opens
+        the grid, focuses a cell, and writes a clipped screenshot of the cell
+        plus its computed outline/box-shadow so the before (browser default
+        black outline) and after (shared focus ring) can be compared.
+        """
+        import os
+
+        shot_dir = os.environ.get("FOLIPLUS_SHOT_DIR")
+        if not shot_dir:
+            pytest.skip("FOLIPLUS_SHOT_DIR not set")
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="icon_grid_focusring",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            setup = page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "setup")
+            assert setup and setup.get("ok"), setup
+            page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "focusTrigger")
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(80)
+            rect = page.evaluate(
+                _js("LayerControl/icon_grid_keyboard_state"), "cellRect"
+            )
+            assert rect and rect.get("ok"), rect
+            out = Path(shot_dir) / "icon-grid-focusring.png"
+            page.screenshot(
+                path=str(out),
+                clip={
+                    "x": max(0, rect["x"] - 16),
+                    "y": max(0, rect["y"] - 16),
+                    "width": rect["width"] + 32,
+                    "height": rect["height"] + 32,
+                },
+            )
+            assert rect["outlineStyle"] == "none", rect
+            assert rect["boxShadow"] and rect["boxShadow"] != "none", rect
+            print(f"wrote {out}")
+            assert not errors, f"JS errors: {errors}"

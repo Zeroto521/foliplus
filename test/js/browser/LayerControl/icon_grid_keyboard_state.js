@@ -35,6 +35,19 @@ async (action = "state") => {
     const allChecks = Array.from(document.querySelectorAll(".foliplus-checkbox")).map(
       c => ({ checked: c.checked, aria: c.getAttribute("aria-checked") }),
     );
+    // Focus-ring contract: a focused grid cell must show the shared ring, not
+    // the browser default outline. Read the computed style of the focused cell.
+    const focusedCell = active instanceof HTMLElement ? active : null;
+    const focusedInGrid = focusedCell && grid?.contains(focusedCell);
+    const focusStyle = focusedInGrid
+      ? {
+          outlineStyle: getComputedStyle(focusedCell).outlineStyle,
+          boxShadow: getComputedStyle(focusedCell).boxShadow,
+          focusColor: getComputedStyle(focusedCell)
+            .getPropertyValue("--foliplus-focus-color")
+            .trim(),
+        }
+      : null;
     return {
       ok: true,
       gridOpen: !!grid && grid.isConnected,
@@ -49,6 +62,7 @@ async (action = "state") => {
       triggerExpanded: trigger.getAttribute("aria-expanded"),
       layerChecked: checkbox ? checkbox.checked : null,
       allChecks,
+      focusStyle,
     };
   };
 
@@ -73,6 +87,27 @@ async (action = "state") => {
     trigger.click();
     await flush();
     return readState();
+  }
+  if (action === "focusFirstCell") {
+    const cell = grid?.querySelector(".foliplus-style-icon-cell");
+    if (!cell) return { ok: false, reason: "no-grid-cell" };
+    cell.focus();
+    await flush();
+    return readState();
+  }
+  if (action === "cellRect") {
+    const cell = grid?.querySelector(".foliplus-style-icon-cell");
+    if (!cell) return { ok: false, reason: "no-grid-cell" };
+    const r = cell.getBoundingClientRect();
+    return {
+      ok: true,
+      x: r.x,
+      y: r.y,
+      width: r.width,
+      height: r.height,
+      outlineStyle: getComputedStyle(cell).outlineStyle,
+      boxShadow: getComputedStyle(cell).boxShadow,
+    };
   }
   return readState();
 };
