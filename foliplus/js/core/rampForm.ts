@@ -50,7 +50,7 @@ type FieldRowOptions = {
   surface?: DropdownSurface;
   /** Overlay-registry hook (single Escape dispatcher). When present, the open
    *  list registers with the per-map registry instead of binding its own keydown. */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
 };
 
 type FieldRow = {
@@ -77,7 +77,7 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
     nativeSelect: select,
     ariaLabel: opts.ariaLabel,
     ...opts.surface,
-    ...(opts.overlay ? { overlay: opts.overlay } : {}),
+    overlay: opts.overlay,
   });
 
   const row = formRow(opts.label, dropdown.element, opts.rowClass);
@@ -165,7 +165,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     nativeSelect: methodSelect,
     ariaLabel: opts.methodAriaLabel,
     ...opts.surface,
-    ...(opts.overlay ? { overlay: opts.overlay } : {}),
+    overlay: opts.overlay,
   });
   const classesDropdown = createDropdown({
     nativeSelect: classesSelect,
@@ -174,7 +174,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     // width contract (form.css) has to size it.
     className: "foliplus-classes-select",
     ...opts.surface,
-    ...(opts.overlay ? { overlay: opts.overlay } : {}),
+    overlay: opts.overlay,
   });
 
   const row = formRow(

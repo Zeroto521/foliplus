@@ -5,6 +5,8 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 
+const fakeOverlay = { register: () => () => undefined };
+
 describe("buildFieldRow", () => {
   it("renders a labelled field dropdown over the current value", () => {
     const { row, select, dropdown } = buildFieldRow({
@@ -12,6 +14,7 @@ describe("buildFieldRow", () => {
       ariaLabel: "Field",
       fields: ["count", "score"],
       value: "score",
+      overlay: fakeOverlay,
     });
 
     expect(row.classList.contains("foliplus-form-row")).toBe(true);
@@ -31,6 +34,7 @@ describe("buildFieldRow", () => {
       ariaLabel: "Field",
       fields: ["count", "score"],
       value: "removed",
+      overlay: fakeOverlay,
     });
 
     expect(select.value).toBe("count");
@@ -45,6 +49,7 @@ describe("buildFieldRow", () => {
       ariaLabel: "Field",
       fields: [],
       value: "value",
+      overlay: fakeOverlay,
     });
 
     expect(select.options.length).toBe(0);
@@ -64,6 +69,7 @@ describe("buildFieldRow", () => {
       rowAttributes: { "data-row": "" },
       selectAttributes: { "data-select": "" },
       onChange,
+      overlay: fakeOverlay,
     });
 
     expect(row.classList.contains("extra-row")).toBe(true);
@@ -97,6 +103,7 @@ describe("buildClassesRow", () => {
       classesValue: 5,
       methodLabel,
       ...overrides,
+      overlay: fakeOverlay,
     });
 
   it("labels the row by method and names both controls distinctly", () => {
@@ -409,5 +416,24 @@ describe("field row (stylesheet contract)", () => {
       ".foliplus-form-select {",
     );
     expect(fieldSelect).toContain("width: 100%");
+  });
+
+  it("injects the overlay into the dropdown (reverse guard)", () => {
+    const register = vi.fn(() => () => undefined);
+    const overlay = { register, id: "test.overlay", rank: 860 };
+    const { dropdown } = buildFieldRow({
+      label: "Field",
+      ariaLabel: "Field",
+      fields: ["count", "score"],
+      value: "count",
+      overlay,
+    });
+    // The dropdown was created with the overlay: opening it should call register
+    // with an entry that carries the escapeRank.
+    dropdown.open();
+    expect(register).toHaveBeenCalledTimes(1);
+    const entry = register.mock.calls[0]?.[0];
+    expect(entry).toBeDefined();
+    expect(entry.escapeRank).toBeDefined();
   });
 });
