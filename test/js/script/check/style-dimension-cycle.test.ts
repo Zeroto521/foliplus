@@ -9,10 +9,10 @@ import { describe, expect, it } from "vitest";
 // stroke face to re-apply after a fill commit) must go through the neutral
 // replay.ts bridge instead.
 //
-// The fixed DAG edge is border.ts → fill.ts (border reads the fill mode/value
+// The fixed DAG edge is border.ts -> fill.ts (border reads the fill mode/value
 // to decide its own mode). The cycle was created by the NEW direction
-// (fill.ts → border.ts); forbidding that one direction keeps the pair acyclic,
-// because border→fill can never be removed.
+// (fill.ts -> border.ts); forbidding that one direction keeps the pair acyclic,
+// because border->fill can never be removed.
 const STYLE_DIR = resolve(
   process.cwd(),
   "foliplus",
@@ -23,7 +23,7 @@ const STYLE_DIR = resolve(
   "style",
 );
 
-describe("style dimensions stay a DAG (no fill → border cycle)", () => {
+describe("style dimensions stay a DAG (no fill -> border cycle)", () => {
   it("fill.ts does not import border.ts (the cycle-forming direction)", () => {
     const src = readFileSync(resolve(STYLE_DIR, "fill.ts"), "utf-8");
     expect(src).not.toMatch(/from ".\/border\.js"/);
