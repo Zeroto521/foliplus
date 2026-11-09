@@ -1,3 +1,5 @@
+// platform/cssvar — Read a CSS custom property value from a container element.
+
 // CSS custom property reader for foliplus components.
 // Imported statically by components at build time.
 

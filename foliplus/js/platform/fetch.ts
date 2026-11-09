@@ -1,3 +1,5 @@
+// platform/fetch — Shared fetch helpers for geocode and search providers.
+
 // Shared fetch helpers for foliplus components.
 // Pure helpers (no module-level state) — imported by geocode and SearchControl.
 

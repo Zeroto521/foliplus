@@ -1,3 +1,4 @@
+// ui/scrollIntoView — the one primitive that keeps the active row visible.
 /** ensureActiveVisible — scroll the active row into view within its scroll
  *  container (the "block: nearest" semantics shared by the roving listbox and
  *  the list cursor).

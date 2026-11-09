@@ -1,5 +1,5 @@
 // Leaflet DOM adapter — the one Leaflet-touching helper that dom.ts used to
-// carry. Kept out of common/ so the common layer stays DOM-pure.
+// carry. Kept out of platform/ so the platform layer stays DOM-pure.
 // Cancel Leaflet's mapPane pan translation on an overlay canvas, so the canvas
 // stays put in the container while its contents are drawn in container
 // coordinates. The heatmap's and the label labels' canvases both ride

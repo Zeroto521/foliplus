@@ -517,7 +517,7 @@ describe("LayerUI filter panel", () => {
       ) as HTMLButtonElement;
     const labelOf = (item: HTMLElement): string =>
       triggerOf(item).querySelector(".foliplus-dropdown-label")?.textContent ?? "";
-    /** The open popup is portalled out of the panel (common/dropdown), so it is
+    /** The open popup is portalled out of the panel (ui/dropdown), so it is
      *  queried from the document rather than from the row. */
     const listOf = (): HTMLElement | null =>
       document.querySelector(".foliplus-dropdown-list");

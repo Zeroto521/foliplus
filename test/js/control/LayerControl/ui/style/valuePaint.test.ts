@@ -19,7 +19,7 @@ import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import { FACE, walkStyleLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 import {
   type ValueFaceDecl,
-  applyValuePaint,
+  paintByValue,
 } from "#control/LayerControl/ui/style/valuePaint.js";
 
 vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
@@ -97,14 +97,14 @@ const demoDecl: ValueFaceDecl = {
   dim: "demoDim",
   face: FACE.STROKE,
   colorKey: "color",
-  opacity: { key: "opacity", read: () => 0.5 },
+  flatScalar: { key: "opacity", read: () => 0.5 },
   walkLeaves: walkStyleLeaves,
   isValueActive: () => true,
   readValueConfig: () => makeRamp(),
   logLabel: "value-based demo:",
 };
 
-describe("applyValuePaint", () => {
+describe("paintByValue", () => {
   it("paints the declared face, not a hardcoded fill face", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
@@ -112,7 +112,7 @@ describe("applyValuePaint", () => {
       { properties: { value: 9 } },
     ]);
 
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
+    paintByValue(makeUI(layer), "demo1", makeRamp(), demoDecl);
 
     for (const leaf of layer.leaves) {
       const call = (leaf.setStyle as any).mock.calls[0][0];
@@ -132,7 +132,7 @@ describe("applyValuePaint", () => {
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyValuePaint(makeUI(layer), "demo1", ramp, demoDecl);
+    paintByValue(makeUI(layer), "demo1", ramp, demoDecl);
 
     expect(pinStyleOnHighlight).toHaveBeenCalledTimes(1);
     expect((pinStyleOnHighlight as ReturnType<typeof vi.fn>).mock.calls[0][1]).toBe(
@@ -163,7 +163,7 @@ it("paints category leaves via buildCategoryRamp, not the numeric ramp", () => {
     { properties: { cat: "beta" } },
     { properties: { cat: "alpha" } }, // duplicate label — first-seen wins
   ]);
-  applyValuePaint(makeUI(layer), "demo1", catRamp, catDecl);
+  paintByValue(makeUI(layer), "demo1", catRamp, catDecl);
   // Both distinct labels got painted (the walk visited them)
   const painted = layer.leaves.map(l => (l.setStyle as any).mock.calls[0]?.[0]);
   expect(painted[0].color).toBeDefined();
@@ -180,7 +180,7 @@ it("warns and skips the write when chroma throws on the scheme", () => {
     },
   } as never;
   const layer = makeFeatureLayer([{ properties: { value: 1 } }]);
-  applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
+  paintByValue(makeUI(layer), "demo1", makeRamp(), demoDecl);
   expect(warnSpy).toHaveBeenCalled();
   // The arm skipped the paint (color key absent from the write) and ran
   // the restore path — the leaf's author color is what setStyle received.
@@ -201,7 +201,7 @@ it("restores the author's face when the ramp classifies no leaf", () => {
     { properties: { value: 1 } },
     { properties: { value: 99 } },
   ]);
-  applyValuePaint(makeUI(layer), "demo1", makeRamp(), demoDecl);
+  paintByValue(makeUI(layer), "demo1", makeRamp(), demoDecl);
   // The restore path ran — the author's color (unchanged) is what setStyle
   // received, not a ramp color. The arm skipped the paint.
   for (const leaf of layer.leaves) {
@@ -222,36 +222,36 @@ it("replays the category color on mouseout via the pin getter", () => {
     readValueConfig: () => catRamp,
   };
   const layer = makeFeatureLayer([{ properties: { cat: "alpha" } }]);
-  applyValuePaint(makeUI(layer), "demo1", catRamp, catDecl);
+  paintByValue(makeUI(layer), "demo1", catRamp, catDecl);
   const out = pinGetterOf(0)();
   expect(out).not.toBeNull();
   expect(out!.color).toBeDefined();
 });
 
-describe("a face without a user opacity", () => {
-  // The opacity arm must be optional per face: a dimension with no user opacity
-  // (e.g. a stroke that has no width-as-opacity slot) passes null and the paint
-  // writes/replays only the color. A no-opacity face is the only way to reach
-  // the paint's opacity-skipping branches.
-  const noOpacityDecl: ValueFaceDecl = {
+describe("a face without a user flatScalar", () => {
+  // The flatScalar arm must be optional per face: a dimension with no user flatScalar
+  // (e.g. a stroke that has no width-as-flatScalar slot) passes null and the paint
+  // writes/replays only the color. A no-flatScalar face is the only way to reach
+  // the paint's flatScalar-skipping branches.
+  const noflatScalarDecl: ValueFaceDecl = {
     dim: "demoDim",
     face: FACE.STROKE,
     colorKey: "color",
-    opacity: null,
+    flatScalar: null,
     walkLeaves: walkStyleLeaves,
     isValueActive: () => true,
     readValueConfig: () => makeRamp(),
     logLabel: "value-based demo:",
   };
 
-  it("writes the ramp color without an opacity slot", () => {
+  it("writes the ramp color without a flatScalar slot", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
       { properties: { value: 9 } },
     ]);
 
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+    paintByValue(makeUI(layer), "demo1", makeRamp(), noflatScalarDecl);
 
     for (const leaf of layer.leaves) {
       const call = (leaf.setStyle as any).mock.calls[0][0];
@@ -261,11 +261,11 @@ describe("a face without a user opacity", () => {
     }
   });
 
-  it("replays the declared color without an opacity slot for an in-domain numeric leaf", () => {
+  it("replays the declared color without a flatScalar slot for an in-domain numeric leaf", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
 
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+    paintByValue(makeUI(layer), "demo1", makeRamp(), noflatScalarDecl);
 
     const out = pinGetterOf(0)();
     expect(out).not.toBeNull();
@@ -273,28 +273,28 @@ describe("a face without a user opacity", () => {
     expect(out!.opacity).toBeUndefined();
   });
 
-  it("returns null for an out-of-reach leaf when the face has no opacity", () => {
+  it("returns null for an out-of-reach leaf when the face has no flatScalar", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const features = [{ properties: { value: 5 } }];
     const layer = makeFeatureLayer(features);
-    applyValuePaint(makeUI(layer), "demo1", makeRamp(), noOpacityDecl);
+    paintByValue(makeUI(layer), "demo1", makeRamp(), noflatScalarDecl);
 
     // The live value turns non-finite after the cache was built: the pin has
-    // nothing to replay and, with no user opacity, nothing to add on top.
+    // nothing to replay and, with no user flatScalar, nothing to add on top.
     features[0].properties.value = NaN;
     expect(pinGetterOf(0)()).toBeNull();
   });
 
-  it("replays a categorical color without an opacity slot", () => {
+  it("replays a categorical color without a flatScalar slot", () => {
     installChroma(["#e41a1c", "#377eb8"]);
     const layer = makeFeatureLayer([{ properties: { kind: "forest" } }]);
     const ramp = makeRamp({ kind: "category", field: "kind" });
     const catDecl: ValueFaceDecl = {
-      ...noOpacityDecl,
+      ...noflatScalarDecl,
       readValueConfig: () => ramp,
     };
 
-    applyValuePaint(makeUI(layer), "demo1", ramp, catDecl);
+    paintByValue(makeUI(layer), "demo1", ramp, catDecl);
 
     const out = pinGetterOf(0)();
     expect(out).not.toBeNull();

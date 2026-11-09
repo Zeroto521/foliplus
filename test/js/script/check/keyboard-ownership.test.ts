@@ -33,6 +33,11 @@ const EXEMPT: string[] = [
   "control/ExportControl/crop.ts",
 ];
 const SOURCE_EXT = new Set([".ts", ".tsx"]);
+// Resolve EXEMPT drift once, at import time, not per-test: vitest workers may
+// run both `it` blocks in parallel and both pay the fs.existsSync cost.
+const MISSING_EXEMPT: string[] = EXEMPT.filter(
+  entry => !existsSync(resolve(".", "foliplus", "js", entry)),
+);
 const SKIP_DIR = new Set(["node_modules", "dist", ".venv", ".git", "coverage"]);
 
 function walk(dir: string, out: string[]): string[] {
@@ -209,9 +214,17 @@ describe("keyboard ownership — Arrow/Escape stay in the shared primitives", ()
     for (const file of files) {
       const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
       if (EXEMPT.some(a => rel.endsWith(a))) continue;
+      const src = readFileSync(file, "utf-8");
+      // Cheap string prefilter: a keydown callback can only exist if the file
+      // mentions both "addEventListener" and "keydown". This drops the AST
+      // walk from ~500 files to the handful that actually register one,
+      // keeping the guard well under CI's timeout under parallel load.
+      if (!/(^|[^\w])addEventListener/.test(src) || !/"keydown"|'keydown'/.test(src)) {
+        continue;
+      }
       const source = ts.createSourceFile(
         file,
-        readFileSync(file, "utf-8"),
+        src,
         ts.ScriptTarget.Latest,
         /* setParentNodes */ true,
       );
@@ -233,9 +246,7 @@ describe("keyboard ownership — Arrow/Escape stay in the shared primitives", ()
   });
 
   it("every EXEMPT path exists in the repo (guards against silent drift)", () => {
-    const missing = EXEMPT.filter(
-      entry => !existsSync(resolve(".", "foliplus", "js", entry)),
-    );
-    expect(missing).toEqual([]);
+    // Computed once at module load; see MISSING_EXEMPT below.
+    expect(MISSING_EXEMPT).toEqual([]);
   });
 });

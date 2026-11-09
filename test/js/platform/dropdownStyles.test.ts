@@ -1,4 +1,4 @@
-// Stylesheet contract for the shared select replacement (common/dropdown.ts).
+// Stylesheet contract for the shared select replacement (ui/dropdown.ts).
 //
 // This is the ONLY test that catches the placeholder-ink regression: the
 // muted rule must be a COMPOUND class (trigger + placeholder), because the
