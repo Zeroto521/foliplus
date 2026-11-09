@@ -443,6 +443,33 @@ describe("OverlayRegistry", () => {
       press(firstPanel, "mousedown");
       expect(entry.isOpen()).toBe(false);
     });
+
+    // --- owningEntry containment walk (moved here from dismiss.ts by #1011) ---
+
+    it("returns the open entry whose panel contains the node", () => {
+      const own = panel("own");
+      const entry = makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, panels: () => [own] });
+      registry.register(entry.entry);
+      expect(registry.owningEntry(child(own))).toBe(entry.entry);
+    });
+
+    it("returns null when the node sits in a closed entry panel", () => {
+      // Only the OPEN set is walked: a closed entry panel is not owned.
+      const own = panel("own");
+      const entry = makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, panels: () => [own] });
+      registry.register(entry.entry);
+      entry.entry.close({ restoreFocus: false });
+      expect(registry.owningEntry(child(own))).toBeNull();
+    });
+
+    it("returns null for a null target without walking the open set", () => {
+      const walkSpy = vi.spyOn(
+        registry as unknown as { orderedOpenEntries: () => unknown },
+        "orderedOpenEntries",
+      );
+      expect(registry.owningEntry(null)).toBeNull();
+      expect(walkSpy).not.toHaveBeenCalled();
+    });
   });
 
   // ───────────────────────────── presses ─────────────────────────────
