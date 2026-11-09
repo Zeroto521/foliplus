@@ -40,12 +40,25 @@ async data => {
   // The fresh row starts at full extent, where the fill swallows the rail
   // (no pan region). Drag the lower thumb inward first to open a segment the
   // pan can grab.
-  const dragThumb = (index, from, to) => {
+  // Mirror the clamp probe's drag path: read the track rect fresh inside the
+  // drag (the panel may still be settling when the row first mounts), press
+  // on the thumb at its current value, and drive the move/up through the
+  // track so the primitive's real pointer path runs.
+  const driveThumb = (index, target) => {
+    const track = host.querySelector(".foliplus-slider-track");
+    const rect = track.getBoundingClientRect();
+    const lo = Number(thumbs[0].getAttribute("aria-valuemin"));
+    const hi = Number(thumbs[thumbs.length - 1].getAttribute("aria-valuemax"));
+    const xOf = value => {
+      const fraction = hi === lo ? 0 : (value - lo) / (hi - lo);
+      return rect.left + rect.width * Math.max(0, Math.min(1, fraction));
+    };
+    const from = Number(thumbs[index].getAttribute("aria-valuenow"));
     const b = {
       bubbles: true,
       cancelable: true,
       clientY: rect.top + rect.height / 2,
-      pointerId: 21,
+      pointerId: 17,
       pointerType: "mouse",
       button: 0,
     };
@@ -53,14 +66,19 @@ async data => {
       new PointerEvent("pointerdown", { ...b, clientX: xOf(from), buttons: 1 }),
     );
     track.dispatchEvent(
-      new PointerEvent("pointermove", { ...b, clientX: xOf(to), buttons: 1 }),
+      new PointerEvent("pointermove", { ...b, clientX: xOf(target), buttons: 1 }),
     );
     track.dispatchEvent(
-      new PointerEvent("pointerup", { ...b, clientX: xOf(to), buttons: 0 }),
+      new PointerEvent("pointerup", { ...b, clientX: xOf(target), buttons: 0 }),
     );
   };
-  const v0Start = Number(thumbs[0].getAttribute("aria-valuenow"));
-  dragThumb(0, v0Start, v0Start + 3);
+  // The fresh row spans the full extent, where the fill swallows the rail and
+  // no pan segment exists. Open a gap on BOTH sides so the pair is not flush
+  // with an edge; a flush pair clamps the very first pan step and the bubbles
+  // would not move.
+  driveThumb(0, Number(thumbs[0].getAttribute("aria-valuenow")) + 3);
+  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+  driveThumb(1, Number(thumbs[1].getAttribute("aria-valuenow")) - 3);
   await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
 
   // The pan region is between the two thumbs; a press at the track's
