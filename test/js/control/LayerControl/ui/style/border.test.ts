@@ -2457,3 +2457,116 @@ describe("value-detail and shell wiring coverage", () => {
     expect(getIntent(ui, "vec1", "borderWeight")).toBe(6);
   });
 });
+
+// ── FOLLOW_FILL (border follows the fill's single colour) ──
+// The follow mode is a *derived* paint: the border reads the fill's current
+// single colour through the intent (never a copy), so a fill edit recomputes
+// the border on the next flush. It is offered only where the border is an
+// outline over a filled face (polygon/point); a line's border is its own
+// primary colour and keeps the original/single/value triad.
+describe("follow-fill border mode", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#010101", "#020202", "#030303"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  /** A genuine areal leaf: the border is the outline, the fill owns the face. */
+  const makeAreaLeaf = (count: number, opts: Record<string, unknown> = {}): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polygon() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true, ...opts };
+    leaf.feature = { geometry: { type: "Polygon" }, properties: { count } };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  /** A genuine line leaf: the border is the element's own primary colour. */
+  const makeLineLeaf = (count: number): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polyline() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+    leaf.feature = { geometry: { type: "LineString" }, properties: { count } };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  const openRow = (id: string, leaves: any[]) => {
+    registerFeatureLayer(manager, ui, id, leaves);
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+  const selectOf = (block: HTMLElement) =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+
+  it("polygon: FOLLOW_FILL IS offered in the mode options", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    const block = openRow("poly1", leaves);
+    const values = Array.from(selectOf(block)!.options).map(o => o.value);
+    expect(values).toContain("followFill");
+    // by_value is NOT offered on a non-line (existing contract).
+    expect(values).not.toContain("value");
+  });
+
+  it("line: FOLLOW_FILL is NOT offered (no fill to follow)", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    const block = openRow("line1", leaves);
+    const values = Array.from(selectOf(block)!.options).map(o => o.value);
+    expect(values).not.toContain("followFill");
+    // by_value IS offered on a line (existing contract).
+    expect(values).toContain("value");
+  });
+
+  it("display falls back to ORIGINAL when the fill is not single, but the stored mode survives", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    openRow("poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    setIntent(ui, "poly1", "fillMode", "value"); // fill becomes by-value
+    const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block2);
+    const select2 = selectOf(block2);
+    // Display arm falls back to ORIGINAL (no single colour to follow).
+    expect(select2!.value).toBe("original");
+    // Persistence keeps followFill.
+    expect(getIntent(ui, "poly1", "borderStyleMode")).toBe("followFill");
+  });
+
+  it("derived paint: followFill reads the fill's single colour, not a copy", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#00ff00" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillColor", "#123456");
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    // The border paints the fill's colour (derived) — the borderColor intent
+    // stays absent so a later fill edit recomputes the border.
+    leaves.forEach(leaf => {
+      const call = leaf.setStyle.mock.calls.at(-1)?.[0];
+      expect(call.color).toBe("#123456");
+    });
+    expect(getIntent(ui, "poly1", "borderColor")).toBeUndefined();
+  });
+});

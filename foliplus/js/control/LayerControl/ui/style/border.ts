@@ -24,7 +24,12 @@
 // paints through `setStyle` or through a component's own canvas.
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { buildValueDetail, displayFillMode, numericFields, resolvedValue } from "./fill.js";
+import {
+  buildValueDetail,
+  displayFillMode,
+  numericFields,
+  resolvedValue,
+} from "./fill.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -659,7 +664,10 @@ const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   // a by-value fill would set up a second classifier that fights the border's
   // own - both read as the author's stroke; the stored mode survives so the
   // follow resumes when the fill returns to single.
-  if (stored === FILL_MODE.FOLLOW_FILL && displayFillMode(ui, layerId) !== FILL_MODE.SOLID) {
+  if (
+    stored === FILL_MODE.FOLLOW_FILL &&
+    displayFillMode(ui, layerId) !== FILL_MODE.SOLID
+  ) {
     return FILL_MODE.ORIGINAL;
   }
   return stored;
