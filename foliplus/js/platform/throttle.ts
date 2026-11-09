@@ -1,3 +1,5 @@
+// platform/throttle — RAF throttling helper (one invocation per animation frame).
+
 // RAF throttling helper — run a function at most once per animation frame.
 // Imported statically by components. Replaces the repeated
 // inline requestAnimationFrame/cancelAnimationFrame bookkeeping (e.g.

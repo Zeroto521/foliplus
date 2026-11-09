@@ -1,3 +1,5 @@
+// platform/download — File download anchor owner with a centralised revoke policy.
+
 // File download — the single place that owns a download anchor. Producers
 // hand over a blob and a filename; centralising the anchor lifecycle here
 // means the revoke policy cannot drift between components.
