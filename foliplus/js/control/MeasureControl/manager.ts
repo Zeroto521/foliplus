@@ -23,6 +23,7 @@ import {
 import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
+  FILTER_SOURCE,
   type FilterEnumDimension,
   type FilterStore,
   type LayerFilter,
@@ -137,7 +138,7 @@ class MeasureManager {
    *  measurements record so that record's shape stays unchanged. */
   private get measureFilter(): LayerFilter {
     return this.normalizeMeasureFilter(
-      this.filterStore.getFilter(this.layerId, "measure"),
+      this.filterStore.getFilter(this.layerId, FILTER_SOURCE.MEASURE),
     );
   }
   /** Whether the user owns the filter slot (see the filter record's
@@ -146,7 +147,7 @@ class MeasureManager {
    *  factory Reset deletes the record and clears it, so the declaration
    *  returns with the factory defaults. */
   get filtersTouched(): boolean {
-    return this.filterStore.isOwned(this.layerId, "measure");
+    return this.filterStore.isOwned(this.layerId, FILTER_SOURCE.MEASURE);
   }
 
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
@@ -217,7 +218,7 @@ class MeasureManager {
     // declaration warns exactly once); the store serves it as the starting
     // condition until the user takes the slot.
     this.filterStore = ensureFilterStore(this.map);
-    this.filterStore.registerHost(this.layerId, "measure", {
+    this.filterStore.registerHost(this.layerId, FILTER_SOURCE.MEASURE, {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>
@@ -227,7 +228,7 @@ class MeasureManager {
     });
     this.filterStore.setDeclaration(
       this.layerId,
-      "measure",
+      FILTER_SOURCE.MEASURE,
       this.declaredMeasureFilter(),
     );
     // The config defaults were read above — snapshot them before any runtime
@@ -368,7 +369,7 @@ class MeasureManager {
 
   /** The model the shared filter panel renders for this layer. */
   filterModel(): LayerFilterModel {
-    const model = this.filterStore.filterModel(this.layerId, "measure");
+    const model = this.filterStore.filterModel(this.layerId, FILTER_SOURCE.MEASURE);
     return { ...model, filter: this.normalizeMeasureFilter(model.filter) };
   }
 
@@ -387,7 +388,8 @@ class MeasureManager {
    *  (normalize → store → apply → publish) is the owner's; the control adds
    *  only the label re-plan that follows a visibility change. */
   setFilter(filter: LayerFilter): void {
-    if (!this.filterStore.setFilter(this.layerId, "measure", filter)) return;
+    if (!this.filterStore.setFilter(this.layerId, FILTER_SOURCE.MEASURE, filter))
+      return;
     this.requestLabelPlan();
   }
 
@@ -541,7 +543,7 @@ class MeasureManager {
    *  returns to the declaration, and the current filter is set to the
    *  declaration — both in this session and on reload. */
   private clearFilter(): void {
-    this.filterStore.reset(this.layerId, "measure");
+    this.filterStore.reset(this.layerId, FILTER_SOURCE.MEASURE);
   }
 
   /** Explicit label re-plan entry point for filter-driven visibility changes. */

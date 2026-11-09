@@ -127,6 +127,7 @@ export {
 export {
   createFilterStore,
   ensureFilterStore,
+  FILTER_SOURCE,
   FILTER_STORE_KEY,
 } from "./filterStore.js";
 export type { FilterSourceHost, FilterStore } from "./filterStore.js";

@@ -33,6 +33,15 @@ import { loadRecord, removeRecord, saveRecord } from "#platform/storage.js";
  *  key assembled at the call site. */
 const FILTER_STORE_KEY = "foliplus_filter_store";
 
+/** The well-known source names a surface registers under. A control whose
+ *  filter surface is a single fixed slot (MeasureControl's type filter) names
+ *  it here instead of spelling the string at every call site, so a typo cannot
+ *  silently create a second record entry. A surface keyed by a dynamic source
+ *  id (HeatmapControl's selected layer) does not need an entry. */
+const FILTER_SOURCE = {
+  MEASURE: "measure",
+} as const;
+
 const log = createLogger("filterStore");
 
 /** The persisted record: one entry per layer, one source entry per surface.
@@ -390,5 +399,5 @@ const ensureFilterStore = (map: L.Map): FilterStore => {
   return api.filterStore;
 };
 
-export { createFilterStore, ensureFilterStore, FILTER_STORE_KEY };
+export { createFilterStore, ensureFilterStore, FILTER_SOURCE, FILTER_STORE_KEY };
 export type { FilterSourceHost, FilterStore };

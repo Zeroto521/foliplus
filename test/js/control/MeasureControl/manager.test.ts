@@ -2,7 +2,7 @@ import { makeControlEnv } from "../fixture.js";
 import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { FILTER_STORE_KEY } from "#core/layer/index.js";
+import { FILTER_SOURCE, FILTER_STORE_KEY } from "#core/layer/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
 
@@ -66,7 +66,7 @@ const readStoreRecord = (): any => {
 
 /** Read one layer's measure source from the shared store record. */
 const measureSourceOf = (record: any, layerId: string): any =>
-  record?.layers?.[layerId]?.sources?.["measure"];
+  record?.layers?.[layerId]?.sources?.[FILTER_SOURCE.MEASURE];
 
 /** The per-surface storage key is gone: the store record is read by layerId. */
 const filterStorageKey = (manager: any): string => {
