@@ -2,7 +2,7 @@
 // Each test file imports initMocks and calls it inside beforeEach.
 import { makeControlEnv } from "../fixture.js";
 import { vi } from "vitest";
-import type { ControlEnv } from "#core/type.js";
+import type { ControlEnv } from "#core/lifecycle/type.js";
 import { isDragSyntheticClick } from "#control/MeasureControl/edit.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 

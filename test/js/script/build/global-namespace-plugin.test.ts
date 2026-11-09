@@ -124,7 +124,7 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps mode.js to foliplus.core.mode", () => {
-    expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
+    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe("foliplus.core.mode");
   });
 
   it("maps controlEnv.js to foliplus.core.controlEnv", () => {
@@ -225,7 +225,7 @@ describe("sharedGlobalNamespace across the production tree", () => {
     expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
       "foliplus.core.component",
     );
-    expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
+    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe("foliplus.core.mode");
   });
 
   it("is never called for a bare core or common domain barrel", () => {

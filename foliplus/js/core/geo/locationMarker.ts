@@ -1,12 +1,12 @@
-// Location marker — a popup-attached pin for a single lng/lat.
+// core/geo/locationMarker — a popup-attached pin for a single lng/lat.
 //
 // Lives in core/ (not platform/) because it reaches Leaflet's private
 // `_closeButton` field to title the popup close button. That reach goes
 // through #core/leafletAdapter.setPopupCloseTitle; the guard test enforces
 // that platform/ never imports from #core/, and adapter is the one module
 // allowed to hold private-field reaches. Callers in LocateControl,
-// MeasureControl and SearchControl import this from #core/locationMarker.js.
-import { setPopupCloseTitle } from "./lifecycle/leafletAdapter.js";
+// MeasureControl and SearchControl import this from #core/geo/locationMarker.js.
+import { setPopupCloseTitle } from "../lifecycle/leafletAdapter.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import { buildPopupEl } from "#platform/dom.js";
 import * as SVGs from "#platform/icon.js";

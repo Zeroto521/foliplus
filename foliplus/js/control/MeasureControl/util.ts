@@ -3,7 +3,7 @@
 import * as CONST from "./const.js";
 import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
-import type { ControlEnv } from "#core/type.js";
+import type { ControlEnv } from "#core/lifecycle/type.js";
 import { cssVar } from "#platform/cssvar.js";
 import { buildPopupEl } from "#platform/dom.js";
 import {

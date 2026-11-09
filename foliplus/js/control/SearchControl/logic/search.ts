@@ -20,8 +20,8 @@ import {
   resolveProvider,
 } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/overlay/hint.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import { guardBlocked } from "#core/mode.js";
+import { createLocationMarker } from "#core/geo/locationMarker.js";
+import { guardBlocked } from "#core/lifecycle/mode.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { debounce } from "#platform/debounce.js";
 import { fetchWithTimeout } from "#platform/fetch.js";

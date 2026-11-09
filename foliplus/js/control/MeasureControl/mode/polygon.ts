@@ -8,7 +8,7 @@ import {
   bindMapEvents,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
-import type { ControlEnv } from "#core/type.js";
+import type { ControlEnv } from "#core/lifecycle/type.js";
 import { stopEvent } from "#platform/dom.js";
 
 // ==================== Polygon Area Mode ====================

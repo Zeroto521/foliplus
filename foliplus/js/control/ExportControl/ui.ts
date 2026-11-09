@@ -7,7 +7,7 @@ import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { COMPONENTS } from "#core/lifecycle/component.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/lifecycle/mode.js";
 import { HINT_DURATION } from "#core/overlay/hint.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";

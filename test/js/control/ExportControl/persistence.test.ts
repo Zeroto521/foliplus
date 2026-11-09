@@ -20,8 +20,8 @@ vi.mock("#platform/locale.js", async () => {
   };
 });
 
-vi.mock("#core/mode.js", async () => {
-  const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
+vi.mock("#core/lifecycle/mode.js", async () => {
+  const real = (await vi.importActual("#core/lifecycle/mode.js")) as Record<string, unknown>;
   return {
     ...real,
     guardBlocked: vi.fn(() => false),

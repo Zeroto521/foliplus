@@ -1,4 +1,4 @@
-// core/type — shared core-layer type definitions.
+// core/lifecycle/type — shared core-layer type definitions.
 import type { Logger } from "#platform/type.js";
 
 /** Environment handed to `setup` / `createManager` and carried on the

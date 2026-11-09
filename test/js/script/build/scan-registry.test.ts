@@ -256,7 +256,7 @@ describe("generateRegistry", () => {
       "control/MyComponent/index.ts": `
         import { COMPONENTS } from "#core/lifecycle/component.js";
         import { ensureHint } from "#core/overlay/hint.js";
-        import { ModeManager } from "#core/mode.js";
+        import { ModeManager } from "#core/lifecycle/mode.js";
         import { dom } from "#platform/dom.js";
       `,
     });

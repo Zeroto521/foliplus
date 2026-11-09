@@ -30,7 +30,7 @@ import {
   assertComponentName,
   generateId,
 } from "#core/lifecycle/component.js";
-import { ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
+import { ModeManager, ensureModes, guardBlocked } from "#core/lifecycle/mode.js";
 import {
   HINT_DURATION,
   HintManager,

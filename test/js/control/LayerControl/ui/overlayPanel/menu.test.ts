@@ -2,7 +2,7 @@ import { attachedPanel, findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nativeConsumesKey } from "#core/interaction/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";

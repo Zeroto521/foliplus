@@ -5,8 +5,8 @@ import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
 import { type SearchControlCtx } from "./util.js";
 import { fromWgs84 } from "#core/geo/index.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import { guardBlocked } from "#core/mode.js";
+import { createLocationMarker } from "#core/geo/locationMarker.js";
+import { guardBlocked } from "#core/lifecycle/mode.js";
 import * as Icons from "#platform/icon.js";
 import { createPersisted, loadVersioned, saveVersioned } from "#platform/storage.js";
 

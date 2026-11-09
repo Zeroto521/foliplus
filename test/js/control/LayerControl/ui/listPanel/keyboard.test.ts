@@ -10,7 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/overlay/hint.js";
 import { ROLE } from "#core/layer/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
