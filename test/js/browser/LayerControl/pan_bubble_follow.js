@@ -83,14 +83,14 @@ async data => {
 
   const bubblesA = live();
   track.dispatchEvent(
-    new PointerEvent("pointermove", { ...base, clientX: mid + 20, buttons: 1 }),
+    new PointerEvent("pointermove", { ...base, clientX: mid - 20, buttons: 1 }),
   );
   await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
   const bubblesB = live();
   const leftA = bubblesA.map(b => b.style.left);
   const leftB = bubblesB.map(b => b.style.left);
   track.dispatchEvent(
-    new PointerEvent("pointerup", { ...base, clientX: mid + 20, buttons: 0 }),
+    new PointerEvent("pointerup", { ...base, clientX: mid - 20, buttons: 0 }),
   );
   const afterUp = live();
 
