@@ -101,7 +101,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
   // Both template selects keep their markup and stay the value/change bridge;
-  // the visible controls are the shared dropdowns (common/dropdown.ts).
+  // the visible controls are the shared dropdowns (ui/dropdown.ts).
   // Every popup follows the surface covering its trigger (native fullscreen or
   // this control's pseudo-fullscreen fallback), so the list is never parked
   // under the opaque map.

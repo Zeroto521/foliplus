@@ -1,4 +1,4 @@
-// Engine-contract tests for the shared listbox engine (common/listbox.ts).
+// Engine-contract tests for the shared listbox engine (ui/listbox.ts).
 //
 // These exercise the engine directly with a picker-shaped listbox (rowTag=div,
 // data-scheme-name, foliplus-is-active, aria-disabled, activedescendant=trigger)

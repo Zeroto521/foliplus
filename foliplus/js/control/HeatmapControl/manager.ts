@@ -776,7 +776,7 @@ class HeatmapManager {
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
    *  values are the same the label canvas reads — both go through
-   *  common/canvasLabel — so a hex value and an label label render as one
+   *  ui/canvasLabel — so a hex value and an label label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
