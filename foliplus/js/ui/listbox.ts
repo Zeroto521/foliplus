@@ -23,8 +23,8 @@
 // divergence source: each has a contract-test case on both sides.
 import { bindDismiss } from "./dismiss.js";
 import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import { ensureActiveVisible } from "./scrollIntoView.js";
 import type { DropdownSurface } from "./type.js";
-import { ensureActiveVisible } from "#core/interaction/index.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,

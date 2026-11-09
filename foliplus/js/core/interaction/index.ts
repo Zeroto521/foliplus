@@ -7,4 +7,4 @@ export {
   nativeClass,
   nativeConsumesKey,
 } from "./inputOwnership.js";
-export { ListCursor, ensureActiveVisible } from "./listCursor.js";
+export { ListCursor } from "./listCursor.js";

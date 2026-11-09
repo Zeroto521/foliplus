@@ -14,6 +14,7 @@
  * generated for `aria-activedescendant`.
  */
 import { keyOwner, nativeConsumesKey } from "./inputOwnership.js";
+import { ensureActiveVisible } from "#ui/index.js";
 
 type ListCursorMode = "roving" | "active-descendant";
 type ListCursorRoles = {
@@ -63,10 +64,6 @@ type ListCursorOptions = {
  * focusOption) and the active-descendant cursor (ListCursor.paint) must never
  * diverge on "what keeps the active row visible".
  */
-const ensureActiveVisible = (el: HTMLElement | null): void => {
-  el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-};
-
 let listCursorSeq = 0;
 
 const nextId = (prefix: string) => `${prefix}-${++listCursorSeq}`;
@@ -349,4 +346,4 @@ class ListCursor {
   }
 }
 
-export { ListCursor, ensureActiveVisible };
+export { ListCursor };
