@@ -1442,5 +1442,34 @@ describe("OverlayRegistry", () => {
       expect(registry.topmostPress()?.id).toBe(OVERLAY_IDS.LAYER_MENU);
       expect(registry.topmostEscape()?.id).toBe(OVERLAY_IDS.LAYER_PICKER_DROPDOWN);
     });
+
+    it("topmostPress tie-breaks equal pressPriority by registration order", () => {
+      // pressOrderedEntries uses a stable sort: equal priorities keep the map's
+      // insertion order. Two live entries cannot rely on it as a contract, but
+      // the query must still be deterministic for a given registration order.
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, pressPriority: 5 }).entry,
+      );
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_MENU, pressPriority: 5 }).entry,
+      );
+      expect(registry.topmostPress()?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    });
+
+    it("topmostPress returns null when no entries are open", () => {
+      expect(registry.topmostPress()).toBeNull();
+    });
+
+    it("topmostEscape excludes a closed claimsEscape:false entry (isOpen filter)", () => {
+      const popup = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        claimsEscape: false,
+        open: false,
+      });
+      registry.register(popup.entry);
+      // A closed entry never appears in either query regardless of capability.
+      expect(registry.topmostEscape()).toBeNull();
+      expect(registry.topmostPress()).toBeNull();
+    });
   });
 });
