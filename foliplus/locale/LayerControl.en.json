@@ -122,5 +122,5 @@
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
   "LayerControl.filter_empty": "No numeric fields on this layer",
   "LayerControl.style_border_mode": "Border Mode",
-  "LayerControl.style_border_follow_fill": "Follow fill"
+  "LayerControl.style_border_follow_fill": "Follow Fill"
 }

@@ -27,6 +27,7 @@ import {
   resetLayerBorder,
 } from "#control/LayerControl/ui/style/border.js";
 import {
+  FILL_DIMENSION,
   applyFillToLayer,
   commitFillColor,
 } from "#control/LayerControl/ui/style/fill.js";
@@ -2458,12 +2459,13 @@ describe("value-detail and shell wiring coverage", () => {
   });
 });
 
-// ── FOLLOW_FILL (border follows the fill's single colour) ──
-// The follow mode is a *derived* paint: the border reads the fill's current
-// single colour through the intent (never a copy), so a fill edit recomputes
-// the border on the next flush. It is offered only where the border is an
-// outline over a filled face (polygon/point); a line's border is its own
-// primary colour and keeps the original/single/value triad.
+// ── FOLLOW_FILL (border follows each leaf's current fill colour) ──
+// The follow mode is a *derived* paint: the border reads each leaf's live
+// fill colour (solid, value-classified, or author per-feature) — never a
+// copy into the border intent, so a fill edit recomputes the border on the
+// next flush. It is offered only where the border is an outline over a
+// filled face (polygon/point); a line's border is its own primary colour
+// and keeps the original/single/value triad.
 describe("follow-fill border mode", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -2540,33 +2542,92 @@ describe("follow-fill border mode", () => {
     expect(values).toContain("value");
   });
 
-  it("display falls back to ORIGINAL when the fill is not single, but the stored mode survives", () => {
+  it("display holds FOLLOW_FILL across every fill state (no solid-only fallback)", () => {
     const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
     openRow("poly1", leaves);
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
-    setIntent(ui, "poly1", "fillMode", "value"); // fill becomes by-value
+    // Fill goes by-value (a state the old fallback collapsed to ORIGINAL).
+    setIntent(ui, "poly1", "fillMode", "value");
     const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
     document.body.appendChild(block2);
     const select2 = selectOf(block2);
-    // Display arm falls back to ORIGINAL (no single colour to follow).
-    expect(select2!.value).toBe("original");
+    // Follow holds: the select still reads followFill, not original.
+    expect(select2!.value).toBe("followFill");
     // Persistence keeps followFill.
     expect(getIntent(ui, "poly1", "borderStyleMode")).toBe("followFill");
   });
 
-  it("derived paint: followFill reads the fill's single colour, not a copy", () => {
-    const leaves = [makeAreaLeaf(1, { fillColor: "#00ff00" })];
+  it("derived paint: followFill reads the leaf's current fill colour, not a copy", () => {
+    // The leaf's live fill paint is the single source. Simulate the fill
+    // having been applied (solid colour lands in leaf.options.fillColor).
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
     registerFeatureLayer(manager, ui, "poly1", leaves);
     setIntent(ui, "poly1", "fillMode", "solid");
     setIntent(ui, "poly1", "fillColor", "#123456");
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     applyBorderToLayer(ui, "poly1");
-    // The border paints the fill's colour (derived) — the borderColor intent
-    // stays absent so a later fill edit recomputes the border.
+    // The border paints the leaf's fill colour (derived) — the borderColor
+    // intent stays absent so a later fill edit recomputes the border.
     leaves.forEach(leaf => {
       const call = leaf.setStyle.mock.calls.at(-1)?.[0];
       expect(call.color).toBe("#123456");
     });
     expect(getIntent(ui, "poly1", "borderColor")).toBeUndefined();
+  });
+
+  it("per-feature fill + follow: each leaf paints its own fill colour", () => {
+    const leaves = [
+      makeAreaLeaf(1, { fillColor: "#111111" }),
+      makeAreaLeaf(5, { fillColor: "#222222" }),
+    ];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    const colors = leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0].color);
+    expect(colors[0]).toBe("#111111");
+    expect(colors[1]).toBe("#222222");
+    expect(colors[0]).not.toBe(colors[1]);
+  });
+
+  it("fill colour change: the border re-derives on the next apply", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#111111");
+    leaves[0].options.fillColor = "#abcdef";
+    applyBorderToLayer(ui, "poly1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("fill write triggers a border re-apply when the border follows fill", () => {
+    // The lead's critical contract: editing the fill (colour, mode, value)
+    // must re-derive a follow-fill border on the SAME commit path — no
+    // extra listener, no cross-face event.
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    // The user edits the fill colour through the dimension write.
+    FILL_DIMENSION.write!(ui, "poly1", { color: "#abcdef" });
+    flushStyleDimApply(FACE.FILL, "poly1");
+    flushStyleDimApply(FACE.STROKE, "poly1");
+    // The border follow-fill replay fired and re-derived the leaf's stroke.
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+    // The border colour intent stays absent (derived, not copied).
+    expect(getIntent(ui, "poly1", "borderColor")).toBeUndefined();
+  });
+
+  it("follow DOM: no colour input, width-only row in the right column", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    const block = openRow("poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block2);
+    expect(block2.querySelector("input[type=color]")).toBeNull();
+    const weight = block2.querySelector(".foliplus-style-border-weight-input");
+    expect(weight).not.toBeNull();
+    const sizeRow = weight!.closest(".foliplus-style-size-row");
+    expect(sizeRow).not.toBeNull();
   });
 });
