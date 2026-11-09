@@ -496,6 +496,26 @@ describe("Slider primitive", () => {
     expect(bubble.classList.contains("is-on")).toBe(false);
   });
 
+  it("ignores a show for a thumb the slider no longer has", () => {
+    const { slider } = make({ min: 0, max: 10, value: 4, label: "x" });
+    // An out-of-range index finds no thumb: the bubble path must no-op rather
+    // than create a bubble for a missing anchor.
+    (slider as unknown as { showBubble: (i: number) => void }).showBubble(99);
+    expect(document.querySelector(`.${SLIDER_CLASS.BUBBLE}`)).toBeNull();
+  });
+
+  it("skips bubbles whose anchor left the pool", () => {
+    const { slider } = make({ min: 0, max: 10, value: 4, label: "x" });
+    // An anchor that is no longer in the pool (e.g. hidden by an owner
+    // switch) must be skipped on refresh, not crash the frame.
+    (slider as unknown as { bubbleAnchors: Set<HTMLElement> }).bubbleAnchors.add(
+      document.createElement("div"),
+    );
+    expect(() =>
+      (slider as unknown as { updateBubbles: () => void }).updateBubbles(),
+    ).not.toThrow();
+  });
+
   it("keeps the bubble text in step with keyboard steps", () => {
     const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
     const thumbEl = thumb(host);
