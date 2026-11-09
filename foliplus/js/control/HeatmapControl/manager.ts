@@ -69,9 +69,10 @@ import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
-import type { CanvasLabelStyle, Logger } from "#platform/type.js";
+import type { Logger } from "#platform/type.js";
 import {
   BORDER_WEIGHT,
+  type CanvasLabelStyle,
   clampBorderWeight,
   clampLabelSize,
   normalizeHexColor,
@@ -776,7 +777,7 @@ class HeatmapManager {
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
    *  values are the same the label canvas reads — both go through
-   *  common/canvasLabel — so a hex value and an label label render as one
+   *  ui/canvasLabel — so a hex value and an label label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;

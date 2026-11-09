@@ -214,6 +214,10 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the JS layer import-boundary rules (foliplus/js), a tree guard not a script module",
   "check/task-number-drift":
     "the internal-task-number drift guard over foliplus/js + test/ source, a tree guard not a script module",
+  "check/keyboard-ownership":
+    "the Arrow/Escape keyboard-ownership guard over foliplus/js source, a tree guard not a script module",
+  "check/file-header":
+    "the canonical file-header guard over foliplus/js source (registry file-header.canonical.json), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

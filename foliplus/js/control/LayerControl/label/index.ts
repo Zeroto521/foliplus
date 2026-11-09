@@ -32,8 +32,8 @@ import type { NumberStyle } from "#foliplus/config-schema.js";
 import { finalize } from "#platform/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
-import type { CanvasLabelStyle } from "#platform/type.js";
 import {
+  type CanvasLabelStyle,
   clampLabelSize,
   normalizeHexColor,
   resolveCanvasLabelStyle,
