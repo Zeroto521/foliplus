@@ -11,6 +11,7 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
@@ -168,6 +169,17 @@ describe("captureAuthorIcon / resetIconLeaves", () => {
     expect(leaf.options.icon).not.toBeUndefined();
   });
 
+  it("resetIconLeaves leaves a leaf with no captured icon untouched", () => {
+    const leaf = makeMarker(); // never captured
+    expect(() => resetIconLeaves(makeMarkerGroup(leaf))).not.toThrow();
+    expect(leaf.setIcon).not.toHaveBeenCalled();
+  });
+
+  it("resetIconLeaves skips a non-icon leaf in the walk", () => {
+    const leaf = { options: {} }; // no setIcon -> not an icon leaf
+    expect(() => resetIconLeaves(makeMarkerGroup(leaf))).not.toThrow();
+  });
+
   it("detaches the glyph element before restoring the author icon", () => {
     const leaf = makeMarker({ a: 1 });
     captureAuthorIcon(leaf);
@@ -196,6 +208,24 @@ describe("applyIconToLeaves", () => {
   it("skips a non-marker leaf in the walk", () => {
     const leaf = { options: {} };
     expect(() => applyIconToLeaves(makeMarkerGroup(leaf), "star")).not.toThrow();
+  });
+
+  it("applyIconColorToLeaves skips a non-icon leaf in the walk", () => {
+    const leaf = { options: {} };
+    expect(() =>
+      applyIconColorToLeaves(makeMarkerGroup(leaf), "#ff0000", null),
+    ).not.toThrow();
+  });
+
+  it("applyIconColorToLeaves captures each author once and derives in one construction", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const mA = makeMarker(author);
+    applyIconColorToLeaves(makeMarkerGroup(mA), "#00ff00", "star");
+    expect(mA.setIcon).toHaveBeenCalledTimes(1);
+    const div = mA.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgb(0, 255, 0)");
+    expect(inner.className).toContain("fa-star");
   });
 });
 

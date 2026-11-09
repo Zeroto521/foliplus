@@ -352,4 +352,20 @@ describe("LayerSurface capabilities.iconColor (glyph-color probe)", () => {
   it("probeLayerCarrier reports iconColor none for an img marker", () => {
     expect(probeLayerCarrier(new ImgMarker()).iconColor).toBe("none");
   });
+
+  it("caches the glyph probe result per icon instance", () => {
+    const marker = new AwMarker();
+    expect(probeLayerCarrier(marker).iconColor).toBe("native");
+    expect(probeLayerCarrier(marker).iconColor).toBe("native");
+  });
+
+  it("is none for an icon object whose createIcon is not a function", () => {
+    class OddIconMarker {
+      options = { icon: { createIcon: "not-a-function" } };
+      setIcon() {
+        return this;
+      }
+    }
+    expect(makeSurface(new OddIconMarker()).capabilities.iconColor).toBe("none");
+  });
 });

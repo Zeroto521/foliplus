@@ -189,6 +189,15 @@ describe("layerCanIconColor", () => {
     expect(layerCanIconColor(ui, "overlay1")).toBe(true);
   });
 
+  it("authorIconColor short-circuits after the first painted leaf", () => {
+    const a = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "#3366ff" }));
+    const b = makeMarker({ type: "school" }, makeAuthorIcon({ iconColor: "#ff0000" }));
+    const { ui: u2 } = fixtureWithMarkers([a, b]);
+    const row = buildIconColorRow(u2, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#3366ff");
+  });
+
   it("accepts a plain divIcon carrier (div-based, glyph insertable)", () => {
     // Lead decision 1: a div-type icon (plain DivIcon / awesome-markers) can
     // hold a glyph node even if the author drew none — the probe is "native".
@@ -222,6 +231,15 @@ describe("layerCanIconColor", () => {
   it("declines a layer not in the registry", () => {
     expect(layerCanIconColor(ui, "nope")).toBe(false);
   });
+
+  it("authorIconColor walks past a layer that left the map", () => {
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
+    const row = buildIconColorRow(ui, "overlay1");
+    expect(row).not.toBeNull();
+    const input = row!.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#ffffff");
+    vi.restoreAllMocks();
+  });
 });
 
 describe("buildIconColorRow", () => {
@@ -246,6 +264,15 @@ describe("buildIconColorRow", () => {
     expect(row).not.toBeNull();
     expect(row!.classList.contains(CONST.CLASSES.STYLE_ICON_COLOR_ROW)).toBe(true);
     expect(row!.querySelector("input[type=color]")).not.toBeNull();
+  });
+
+  it("wraps the swatch in the shared inline flex shell", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=color]")!;
+    expect(input.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
+    expect(
+      input.parentElement!.parentElement!.classList.contains("foliplus-form-control"),
+    ).toBe(true);
   });
 
   it("returns null for an <img>-based icon (capability gate negative)", () => {

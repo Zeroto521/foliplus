@@ -1047,6 +1047,20 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("drops an invalid icon color that the swatch could not display", () => {
+      // line 195 arm: isHexColor false -> null (corrupt entry must not leak).
+      seedStorage({
+        layers: {
+          a: { iconColor: "red", overrides: ["iconColor"] },
+          b: { iconColor: "#1234567", overrides: ["iconColor"] },
+          c: { iconColor: "#fff", overrides: ["iconColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        c: { iconColor: "#ffffff", overrides: ["iconColor"] },
+      });
+    });
+
     it("drops border values the UI could not display", () => {
       // A corrupt entry must not leak into <input type=color> nor ask for a
       // width outside the shared bounds: both validators fail closed, and a

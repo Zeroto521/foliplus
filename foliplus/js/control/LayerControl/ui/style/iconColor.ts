@@ -28,7 +28,7 @@ import {
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
-import { colorInput, formRow } from "#ui/index.js";
+import { colorInput, formRow, inlineControls } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The row gate: the layer must be in the registry, then its surface must
@@ -126,7 +126,7 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
   }) as HTMLInputElement;
   const row = formRow(
     ui.T("style_icon_color"),
-    input,
+    inlineControls(input),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
   input.addEventListener("input", () => {
