@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, resolve } from "path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -23,8 +23,8 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = resolve(".");
 const SOURCE_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 const EXEMPT: string[] = [
-  "common/dom.ts",
-  "common/floating.ts",
+  "platform/dom.ts",
+  "platform/floating.ts",
   "core/interaction/listCursor.ts",
   "core/overlayRegistry.ts",
   "ui/dismiss.ts",
@@ -230,5 +230,10 @@ describe("keyboard ownership — Arrow/Escape stay in the shared primitives", ()
       visit(source);
     }
     expect(hits).toEqual([]);
+  });
+
+  it("every EXEMPT path exists in the repo (guards against silent drift)", () => {
+    const missing = EXEMPT.filter(entry => !existsSync(resolve(".", "foliplus", "js", entry)));
+    expect(missing).toEqual([]);
   });
 });
