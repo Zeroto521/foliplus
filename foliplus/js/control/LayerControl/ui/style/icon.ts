@@ -310,8 +310,15 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   }
 
   const intent = getIntent(ui, layerId, INTENT.ICON);
-  if (intent?.kind !== ICON_KIND.GLYPH) return;
-  applyIconToLeaves(layer, intent.value);
+  if (intent?.kind === ICON_KIND.GLYPH) {
+    applyIconToLeaves(layer, intent.value);
+    return;
+  }
+  // No single glyph is stored. A switch back from the by-value mode must
+  // restore the author icons — the by-value walk already painted the leaves,
+  // and a bare return would leave them by-value coloured with no single glyph
+  // to paint over them.
+  resetIconLeaves(layer);
 };
 
 /** Write the layer's glyph and replay the walk (single mode). Also records the

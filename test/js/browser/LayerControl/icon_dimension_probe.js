@@ -24,7 +24,7 @@ async (arg = []) => {
   const iconRow = iconBlock?.querySelector(".foliplus-style-icon-row") ?? null;
   if (!iconRow) return { panel: true, iconRow: false };
   // The single-mode trigger lives in the detail beneath the mode row (the
-  // by-value mode arm added the mode selector above it), so scope the trigger
+  // by-value mode added the mode selector above it), so scope the trigger
   // and the grid by the block, not by the first icon row.
   const trigger = iconBlock.querySelector(".foliplus-style-icon-trigger");
   if (!trigger) return { panel: true, iconRow: true, trigger: false };

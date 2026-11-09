@@ -1595,4 +1595,35 @@ describe("icon by-value mode", () => {
     // false and the row builder returns null (the caller renders nothing).
     expect(buildIconRow(ui, "does-not-exist")).toBeNull();
   });
+  it("switching from by value to single without a stored glyph restores the author icons", () => {
+    // Reproduce the lead's bug: a by-value paint followed by a bare mode
+    // switch back to single (no single glyph ever committed) must restore the
+    // author icons. The old apply path returned early with no single intent,
+    // leaving the by-value glyphs on the leaves.
+    const config = {
+      kind: "numeric" as const,
+      field: "population",
+      method: "equal" as const,
+      classes: 2,
+      glyphs: ["circle", "square"],
+    };
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.BY_VALUE, value: config });
+    flushIcon("overlay1");
+    const layer = ui.c.findLayer("overlay1") as any;
+    const leaves: any[] = [];
+    layer.eachLayer((leaf: any) => leaves.push(leaf));
+    // Every leaf was painted with a derived icon (not the author icon).
+    for (const leaf of leaves) {
+      expect(leaf.options.icon).not.toBe(author);
+    }
+    // Switch back to single with no stored glyph: the mode write schedules an
+    // apply that must restore the author icons.
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: ICON_MODE.SINGLE });
+    flushIcon("overlay1");
+    for (const leaf of leaves) {
+      expect(leaf.options.icon).toBe(author);
+    }
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe(ICON_MODE.SINGLE);
+    expect(getIntent(ui, "overlay1", INTENT.ICON)).toBeUndefined();
+  });
 });

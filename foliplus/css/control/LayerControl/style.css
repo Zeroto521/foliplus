@@ -238,7 +238,7 @@
   border-color: var(--foliplus-accent-primary);
 }
 
-/* Icon by-value detail: the arm's rows (field / method+classes / glyph
+/* Icon by-value detail: the mode's rows (field / method+classes / glyph
    scheme) stack under the mode row on the same grid as the fill detail. */
 .foliplus-style-icon-detail {
   display: flex;

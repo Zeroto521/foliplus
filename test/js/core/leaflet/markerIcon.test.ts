@@ -301,7 +301,7 @@ describe("applyIconByValueToLeaves", () => {
     expect(mB.options.icon).toBe(author);
   });
 
-  it("keeps the author icon when the field is non-numeric for a numeric arm", () => {
+  it("keeps the author icon when the field is non-numeric for a numeric mode", () => {
     const author = makeAuthorIcon();
     const mA = makeFeatureMarker({ value: "x" }, author);
     applyIconByValueToLeaves(makeMarkerGroup(mA), NUMERIC);
