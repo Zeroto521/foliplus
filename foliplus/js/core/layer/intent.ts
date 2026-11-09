@@ -7,6 +7,7 @@
 // IntentRow / LoadSource / LabelConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { VALUE_KIND } from "#core/valueKind.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** One mode of the value-based fill. Two shapes, discriminated by `kind`:
@@ -99,7 +100,7 @@ const isValueConfig = (value: unknown): value is ValueConfig => {
   const data = value as Record<string, unknown>;
   const isName = (v: unknown): v is string =>
     typeof v === "string" && v.trim().length > 0;
-  if (data.kind === "category") {
+  if (data.kind === VALUE_KIND.CATEGORY) {
     return (
       isName(data.field) &&
       isName(data.scheme) &&
@@ -111,7 +112,7 @@ const isValueConfig = (value: unknown): value is ValueConfig => {
           data.classes <= 9))
     );
   }
-  if (data.kind !== undefined && data.kind !== "numeric") return false;
+  if (data.kind !== undefined && data.kind !== VALUE_KIND.NUMERIC) return false;
   return (
     isName(data.field) &&
     isClassifyMethod(data.method) &&
