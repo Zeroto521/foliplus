@@ -8,7 +8,7 @@
 // (Projection / AppliedProjection) were sunk to core/layer — the
 // barrel below re-exports them so every existing `LayerControl/type` import
 // keeps working unchanged. `PersistedLayerState` is also imported locally
-// because `PersistedRecord.layers` names it directly.
+// because `LayerPersistedRecord.layers` names it directly.
 import type { ProjectionDelta } from "./ui/apply.js";
 import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
@@ -40,7 +40,7 @@ export type {
  *  segment is dropped and the next write re-stamps it. Older records, which
  *  have no `version` at all, fall through the same branch and are stamped on
  *  the next write — no migration, no data loss on read. */
-type PersistedRecord = {
+type LayerPersistedRecord = {
   version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
@@ -150,4 +150,4 @@ type LayerDimension<D = unknown> = {
   contentChange: ContentChangePolicy;
 };
 
-export type { LayerDimension, PersistedRecord };
+export type { LayerDimension, LayerPersistedRecord };

@@ -41,7 +41,7 @@ interface PersistedSource {
 interface PersistedLayers {
   [layerId: string]: { sources: { [name: string]: PersistedSource } };
 }
-interface PersistedRecord {
+interface FilterStoreRecord {
   version: number;
   layers: PersistedLayers;
 }
@@ -104,13 +104,13 @@ const createFilterStore = (): FilterStore => {
    *  the per-layer state lives in the persisted record. */
   const hosts = new Map<string, FilterSourceHost>();
 
-  const readRecord = (): PersistedRecord =>
-    loadRecord<PersistedRecord>(FILTER_STORE_KEY) ?? {
+  const readRecord = (): FilterStoreRecord =>
+    loadRecord<FilterStoreRecord>(FILTER_STORE_KEY) ?? {
       version: RECORD_VERSION,
       layers: {},
     };
 
-  const writeRecord = (record: PersistedRecord): void => {
+  const writeRecord = (record: FilterStoreRecord): void => {
     saveRecord(FILTER_STORE_KEY, record);
   };
 
@@ -119,7 +119,7 @@ const createFilterStore = (): FilterStore => {
    *  to read back as un-owned rather than throw or get "fixed" as a side
    *  effect. Callers that intend to change the entry go through commit. */
   const sourceOf = (
-    record: PersistedRecord,
+    record: FilterStoreRecord,
     layerId: string,
     name: string,
   ): PersistedSource =>

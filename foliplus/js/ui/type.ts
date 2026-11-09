@@ -34,7 +34,7 @@ interface DropdownSurface {
 }
 
 /** An axis-aligned rectangle in surface coordinates. */
-interface Rect {
+interface PlacementBox {
   top: number;
   right: number;
   bottom: number;
@@ -156,7 +156,7 @@ interface SliderOptions {
 export type {
   Dropdown,
   DropdownSurface,
-  Rect,
+  PlacementBox,
   SurfaceSize,
   PlacementOpts,
   Placement,
