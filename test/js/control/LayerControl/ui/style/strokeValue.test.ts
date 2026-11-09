@@ -142,8 +142,8 @@ describe("applyValueStroke", () => {
     expect(paintByValue).toHaveBeenCalledTimes(1);
     // The declaration tells the shared mode the stroke face: DIM.BORDER + the
     // stroke face + the color slot + the style-leaf walker.
-    const [ui, layerId, value, decl] = (paintByValue as ReturnType<typeof vi.fn>)
-      .mock.calls[0];
+    const [ui, layerId, value, decl] = (paintByValue as ReturnType<typeof vi.fn>).mock
+      .calls[0];
     expect(ui).toBeDefined();
     expect(layerId).toBe("overlay1");
     expect(value).toEqual(ramp);

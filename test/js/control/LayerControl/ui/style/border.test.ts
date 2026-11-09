@@ -1,3 +1,4 @@
+import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
@@ -37,7 +38,6 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A Leaflet vector leaf: an `options` bag plus the `setStyle` writer the
  *  border walk looks for. `on` is part of the leaf surface too — the
