@@ -6,9 +6,9 @@
 // One row per layer id, O(1) lookup, dropped symmetrically with the intent row
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
-import type { LabelField } from "#core/label/index.js";
 import type { LayerFilterFeatures } from "./filterFeature.js";
 import type { LayerSnapshot, Projection } from "./type.js";
+import type { LabelField } from "#core/label/index.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
  *  identity the last write landed on. Recording carrier is what closes

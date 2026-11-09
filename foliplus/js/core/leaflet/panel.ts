@@ -3,14 +3,13 @@
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar
 // (cssvar.js) directly instead of reading them from the runtime global.
-import { cssVar } from "#common/cssvar.js";
-import { dom } from "#common/dom.js";
-import { bindFloatingGestures } from "#common/floating.js";
-import { ICON_CLOSE } from "#common/icon.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { isPortalOf } from "#common/portalRoot.js";
-import { throttleRaf } from "#common/throttle.js";
-import { closeButton, computePlacement } from "#ui/index.js";
+import { cssVar } from "#platform/cssvar.js";
+import { dom } from "#platform/dom.js";
+import { bindFloatingGestures } from "#platform/floating.js";
+import { ICON_CLOSE } from "#platform/icon.js";
+import { isPortalOf } from "#platform/portalRoot.js";
+import { throttleRaf } from "#platform/throttle.js";
+import { PANEL_CLASS, closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
@@ -145,7 +144,7 @@ const bindOutsideCollapse = (opts: {
     // dropdown's open list, the scheme picker's) belongs to the panel even
     // though the DOM says otherwise — otherwise the panel collapses out from
     // under the row the user is aiming at. Registration lives with the
-    // primitive (common/portalRoot), so no per-panel selector is needed here
+    // primitive (platform/portalRoot), so no per-panel selector is needed here
     // and a third portal is covered without touching this file.
     if (
       target &&

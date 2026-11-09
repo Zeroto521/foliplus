@@ -1,9 +1,9 @@
-// common/log — namespaced diagnostics. Covers the `[<name>] ` shape shared by
+// platform/log — namespaced diagnostics. Covers the `[<name>] ` shape shared by
 // log lines and thrown messages, plus argument forwarding. Thrown values stay
 // plain `new Error(...)` / `new TypeError(...)`, so instanceof/name/stack come
 // from the runtime, not from here.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -8,13 +8,13 @@
 // (`foliplus.label*`), which is why `T` here must be an *unscoped* translator
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
-import { dom } from "#common/dom.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
 import {
   DEFAULT_LABEL_COLOR,
   type DropdownSurface,
   LABEL_SIZE,
+  PANEL_CLASS,
   bindLiveColor,
   bindLiveNumber,
   createDropdown,
@@ -63,7 +63,7 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
-  /** Popup host contract for the format dropdown (common/fullscreen's
+  /** Popup host contract for the format dropdown (platform/fullscreen's
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
 }

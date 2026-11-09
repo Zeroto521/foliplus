@@ -4,7 +4,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
-import { formatCoord } from "#common/format.js";
+import { formatCoord } from "#platform/format.js";
 
 /** Minimal ctrl interface for locate logic. `T`, `_` and `config` come from
  *  the control instance (defineControl hands them off via ControlEnv) so

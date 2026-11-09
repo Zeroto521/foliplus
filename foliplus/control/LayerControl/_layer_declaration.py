@@ -5,9 +5,13 @@ from collections.abc import Mapping
 from folium.map import Layer
 
 from foliplus._declaration import (
+    FILL_KEY,
+    FILTER_KEY,
     FOLDER_KEY,
+    LABEL_KEY,
     ZOOM_RANGE_KEY,
     normalise_folder,
+    normalise_layer_filter,
     normalise_zoom_range,
     warn_foliplus,
 )
@@ -18,7 +22,7 @@ from foliplus._declaration import (
 #: layer options); zoom_range and folder are normalised here into CONFIG
 #: data[].zoomRange / data[].folder so the visibility and grouping policies
 #: read one CONF fact instead of the raw namespace.
-FOLIPLUS_KEYS = frozenset({"fill", "label", FOLDER_KEY, ZOOM_RANGE_KEY})
+FOLIPLUS_KEYS = frozenset({FILL_KEY, LABEL_KEY, FILTER_KEY, FOLDER_KEY, ZOOM_RANGE_KEY})
 
 
 def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None:
@@ -68,7 +72,7 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
-        elif key in {"fill", "label"} and not isinstance(value, dict):
+        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY} and not isinstance(value, dict):
             warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
@@ -124,4 +128,28 @@ def declared_folder(item: Layer, layer_name: str) -> str | None:
         namespace.get(FOLDER_KEY),
         owner="LayerControl",
         subject=f"layer {layer_name!r}",
+    )
+
+
+def declared_filter(item: Layer, layer_name: str) -> dict[str, object] | None:
+    """Normalise one layer ``foliplus={"filter": {...}}`` into the shared AST.
+
+    Returns the filter AST when the declaration is usable, else ``None``:
+    "not declared" and "declared but invalid" are the same state downstream -
+    the layer starts unfiltered, never filtered-to-empty.
+
+    Mirrors :func:`declared_zoom_range`: the same namespace read, the same
+    unknown-key warning family, and the same single read point that owns the
+    warning for layers. The shared reader in :mod:`foliplus._declaration` owns
+    the ``filter`` shape and the warning family, so layering the same rules
+    here and on the controls cannot drift.
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_layer_filter(
+        namespace.get(FILTER_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['filter']",
     )

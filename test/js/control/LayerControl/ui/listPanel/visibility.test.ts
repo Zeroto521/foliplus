@@ -1,3 +1,10 @@
+import {
+  TEST_ENV,
+  attachedPanel,
+  initFixture,
+  installLeafletGlobals,
+  polygonLayer,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HIDDEN, ROLE } from "#core/layer/const.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
@@ -16,13 +23,6 @@ import {
   toggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { intentVisibleOf } from "#control/LayerControl/ui/projection.js";
-import {
-  TEST_ENV,
-  attachedPanel,
-  initFixture,
-  installLeafletGlobals,
-  polygonLayer,
-} from "../fixture.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility

@@ -3,6 +3,7 @@
 // events and timers, so every test arms with a real registry entry and the
 // handlers re-resolve positions at each use; the real-fixture matrix covers
 // what can happen between dragstart and drop.
+import { attachedPanel, initFixture } from "../fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -19,7 +20,6 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "#control/LayerControl/ui/listPanel/index.js";
-import { attachedPanel, initFixture } from "../fixture.js";
 
 const dragEvent = (target: HTMLElement, dataTransfer = {}): DragEvent =>
   ({

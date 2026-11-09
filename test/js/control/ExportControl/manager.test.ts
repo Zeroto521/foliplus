@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureHint } from "#core/hint.js";
-import * as downloadMod from "#common/download.js";
+import * as downloadMod from "#platform/download.js";
 import { ExportManager } from "#control/ExportControl/manager.js";
 import { ExportRenderer } from "#control/ExportControl/renderer/index.js";
 
@@ -15,8 +15,8 @@ const modeMocks = vi.hoisted(() => ({
 // compile-time literal, not window.CONFIG, so no per-test locale_tables can
 // change it.  Substitute the two progress strings and pass everything else
 // through unchanged (CONFIG.name is "SearchControl" here, from setup.ts).
-vi.mock("#common/locale.js", async () => {
-  const real = await vi.importActual("#common/locale.js");
+vi.mock("#platform/locale.js", async () => {
+  const real = await vi.importActual("#platform/locale.js");
   const TABLES: Record<string, string> = {
     status_exporting: "Exporting map...",
     status_progress: "Exporting map... ({pct}%)",

@@ -1,3 +1,4 @@
+import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
 import { sliderOf } from "#ui/index.js";
@@ -6,7 +7,6 @@ import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
 import { clampPct } from "#control/LayerControl/ui/style/opacity.js";
 import { getDimension } from "#control/LayerControl/ui/style/registry.js";
-import { initFixture } from "../fixture.js";
 
 describe("opacityToPct clamp boundary (via OPACITY_DIMENSION.row)", () => {
   let manager: LayerController;

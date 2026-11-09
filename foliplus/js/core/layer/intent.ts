@@ -149,10 +149,13 @@ type LayerOverride =
   | "fillMode"
   | "borderColor"
   | "borderWeight"
+  | "borderValue"
+  | "borderStyleMode"
   | "opacity"
   | "zoomRange"
   | "size"
-  | "icon";
+  | "icon"
+  | "iconColor";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -224,6 +227,14 @@ type LayerIntent = {
   fillMode?: FillMode;
   borderColor?: string;
   borderWeight?: number;
+  /** The value-based stroke config when the layer border is painted by a
+   *  field. Independent of fillValue: an explicit border ramp wins over the
+   *  derived fill ramp. Kept when the active border arm is solid. */
+  borderValue?: FillValueConfig;
+  /** Which border arm the user chose: solid, or by value. Absent defers to
+   *  the fill arm mode (the border follows the fill by default - one ramp
+   *  selection covers both faces). */
+  borderStyleMode?: FillMode;
   opacity?: number;
   zoomRange?: [number, number];
   /** The fixed pixel radius the user set (CircleMarker only). Frozen on
@@ -233,6 +244,11 @@ type LayerIntent = {
   /** The marker-icon override: one glyph name for every marker leaf;
    *  absent = the author's icons stay. */
   icon?: IconIntent;
+  /** The marker color the user set in the style panel (a single hex for
+   *  every marker leaf, the glyph color face).
+   *  LayerControl owns the write — a self-managed dimension, see
+   *  ui/style/iconColor.ts. */
+  iconColor?: string;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -263,6 +279,14 @@ type PersistedLayerState = {
   borderColor?: string;
   /** The stroke width the user set, in the shared border bounds. */
   borderWeight?: number;
+  /** The value-based stroke config the user set (field / method / classes /
+   *  scheme). Independent of the fill config; absent defers to the fill
+   *  ramp. The border value arm owns the stroke color; the width and stroke
+   *  bit still ride the solid border write. */
+  borderValue?: FillValueConfig;
+  /** Which border arm is active ("solid" | "value"); the inactive config is
+   *  kept so a switch back restores it. Absent defers to the fill arm. */
+  borderStyleMode?: FillMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
@@ -276,6 +300,10 @@ type PersistedLayerState = {
    *  name for every marker leaf). LayerControl owns the write — a
    *  self-managed dimension, see ui/style/icon.ts. */
   icon?: IconIntent;
+  /** The marker color the user set in the style panel (a single hex for
+   *  every marker leaf). LayerControl owns the write — a self-managed
+   *  dimension, see ui/style/iconColor.ts. */
+  iconColor?: string;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -314,10 +342,13 @@ const INTENT = {
   FILL_MODE: "fillMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
+  BORDER_VALUE: "borderValue",
+  BORDER_STYLE_MODE: "borderStyleMode",
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
   SIZE: "size",
   ICON: "icon",
+  ICON_COLOR: "iconColor",
   NAME: "name",
   LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -338,6 +369,11 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
     value === FILL_MODE.ORIGINAL,
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
+  [INTENT.BORDER_VALUE]: isFillValueConfig,
+  [INTENT.BORDER_STYLE_MODE]: value =>
+    value === FILL_MODE.SOLID ||
+    value === FILL_MODE.VALUE ||
+    value === FILL_MODE.ORIGINAL,
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
   // A finite number only: Infinity cannot reach the leaf, and a non-finite
@@ -345,6 +381,10 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // still advertising provenance.
   [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.ICON]: isIconIntent,
+  // A display-ready hex only: the color lands in an inline style, so any
+  // non-hex would paint an invalid `color:` that the browser ignores.
+  [INTENT.ICON_COLOR]: value =>
+    typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
 };
@@ -362,10 +402,13 @@ const STYLE_KEYS = {
   fillMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
+  borderValue: INTENT.BORDER_VALUE,
+  borderStyleMode: INTENT.BORDER_STYLE_MODE,
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
   size: INTENT.SIZE,
   icon: INTENT.ICON,
+  iconColor: INTENT.ICON_COLOR,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export {

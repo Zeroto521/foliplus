@@ -1,13 +1,21 @@
+import {
+  GridLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+} from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { DIM } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { registerPortalRoot } from "#platform/portalRoot.js";
 import { sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -32,14 +40,6 @@ import { coerceAnnotationFields } from "#control/LayerControl/ui/style/label.js"
 import { clampPct, resetLayerOpacity } from "#control/LayerControl/ui/style/opacity.js";
 import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#control/LayerControl/ui/style/zoomRange.js";
-import {
-  GridLayer,
-  attachedPanel,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  oneOverlay,
-} from "../fixture.js";
 
 // The carrier contract promises pane coverage only to migratable families
 // (Path / Marker / GridLayer / ImageOverlay). Style-row stubs for vector
@@ -414,7 +414,7 @@ describe("LayerUI style panel", () => {
     portal.appendChild(row);
     document.body.appendChild(portal);
     // The picker registers its portalled list against its trigger (the
-    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // primitive owns that, platform/portalRoot); the fixture mounts the same
     // registration so the registry's press dispatcher can attribute the press
     // to this drawer. Without it the node is an orphan <body> child and every
     // dismiss predicate rightly calls the press "outside".
@@ -1237,7 +1237,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("canvas layers with opacityBake 'redraw' keep CSS on the slider commit", () => {
-    // Heatmap arm (default): CSS live feedback, bake deferred to redraw.
+    // Heatmap mode (default): CSS live feedback, bake deferred to redraw.
     manager.registerLayer({
       id: "heat1",
       name: "Heat",
@@ -1254,14 +1254,14 @@ describe("LayerUI style panel", () => {
 
     sliderOf(host)!.setValue(40);
 
-    // CSS arm for live feedback; layerAlpha is stored for the next redraw.
+    // CSS mode for live feedback; layerAlpha is stored for the next redraw.
     expect(li.canvas!.style.opacity).toBe("0.4");
     expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
     expect(li.opacity).toBe(0.4);
   });
 
   it("canvas layers with opacityBake 'commit' bake and clear CSS", () => {
-    // Color-face arm: bake on the commit itself, CSS cleared.
+    // Color-face mode: bake on the commit itself, CSS cleared.
     manager.registerLayer({
       id: "color1",
       name: "Color",
@@ -1283,7 +1283,7 @@ describe("LayerUI style panel", () => {
     expect(li.opacity).toBe(0.4);
   });
 
-  it("commit arm fires onOpacity when the layer registered one (branch cover)", () => {
+  it("commit mode fires onOpacity when the layer registered one (branch cover)", () => {
     const onOpacity = vi.fn();
     manager.registerLayer({
       id: "color2",
@@ -1545,7 +1545,9 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     expect(borderRows(panel)).toHaveLength(1);
-    const row = panel.querySelector(".foliplus-style-border-row") as HTMLElement;
+    const row = panel.querySelector(
+      ".foliplus-style-border-detail .foliplus-style-border-row",
+    ) as HTMLElement;
     expect(row.querySelector(".foliplus-style-border-color-input")).not.toBeNull();
     const width = row.querySelector(
       ".foliplus-style-border-weight-input",

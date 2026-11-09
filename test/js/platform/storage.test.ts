@@ -6,7 +6,7 @@ import {
   removeRecord,
   saveRecord,
   saveVersioned,
-} from "#common/storage.js";
+} from "#platform/storage.js";
 
 // jsdom implements Storage#getOwnPropertyDescriptor as a trap that throws on
 // any descriptor rewrite, so vi.spyOn(localStorage, "setItem") silently no-ops

@@ -1,4 +1,4 @@
-// Tests for common/sanitize — the SVG allowlist gate feeding every icon sink.
+// Tests for core/sanitize — the SVG allowlist gate feeding every icon sink.
 //
 // Dimension under test: presentation SVG survives; anything executable does not.
 //
@@ -8,7 +8,7 @@
 // are namespace-agnostic.
 import { describe, expect, it } from "vitest";
 
-const mod = await import("#common/sanitize.js");
+const mod = await import("#core/sanitize.js");
 const { parseSVG, safeSVG } = mod;
 
 /** Re-parse through the same `innerHTML` sink the real callers use. */

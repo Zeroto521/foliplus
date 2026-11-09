@@ -2,9 +2,9 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
-import { createLogger } from "#common/log.js";
 import { EVENT_POLICY, EVENT_POLICY_KIND, type EventPolicy } from "./const.js";
 import type { EventPayloadMap } from "./type.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("EventBus");
 
@@ -388,7 +388,7 @@ class EventBus {
  *  the local mutation in between, then `throwIfFailed()` once at the end — so
  *  a throwing consumer cannot cut off the later events or the local commit.
  *
- *  This is the event-bus counterpart of `#common/finalize`: a teardown runs
+ *  This is the event-bus counterpart of `#platform/finalize.js`: a teardown runs
  *  `finalize` (no policy — every step must run), an event fan-out uses this
  *  class (each failure resolved by the event's declared policy). Both keep the
  *  first failure and raise it once at the boundary; do not re-derive a third

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Cache } from "#foliplus/common/cache.js";
-import { dom } from "#foliplus/common/dom.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { Cache } from "#foliplus/platform/cache.js";
+import { dom } from "#foliplus/platform/dom.js";
 import { HISTORY } from "#control/SearchControl/const.js";
 import { bindEvents, initFromUrl } from "#control/SearchControl/interaction.js";
 
@@ -155,6 +155,37 @@ describe("bindEvents", () => {
     );
     expect(ctrl.selectedIdx).toBe(0);
     expect(ctrl.inp.value).toBe("One");
+  });
+
+  it("keeps the active row visible while navigating (scrollIntoView guard)", () => {
+    const ctrl = makeCtrl();
+    ctrl.panelWrap = dom.el("div");
+    const mk = (text: string) =>
+      dom.el(
+        "div",
+        { class: "foliplus-search-result-item" },
+        dom.el("span", { class: "foliplus-search-result-text" }, text),
+      );
+    const one = mk("One");
+    const two = mk("Two");
+    ctrl.panelWrap.append(one, two);
+    // jsdom has no layout: scrollIntoView is undefined. Provide it so the
+    // shared ensureActiveVisible contract is observable at the SearchControl
+    // surface (the cursor's paint step owns it).
+    const spy = vi.fn();
+    (two as unknown as { scrollIntoView: (o?: unknown) => void }).scrollIntoView = spy;
+    bindEvents(ctrl);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    // First ArrowDown lands on index 0 — scrolls row One.
+    expect(ctrl.selectedIdx).toBe(0);
+    ctrl.inp.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    // Second ArrowDown lands on index 1 (row Two) — the active row stays visible.
+    expect(ctrl.selectedIdx).toBe(1);
+    expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
   });
 
   it("ArrowDown on an empty panel does not change selection", () => {

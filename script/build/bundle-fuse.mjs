@@ -36,8 +36,6 @@
  * that ships — which will not trip the fuse but will mislead anyone
  * reading the numbers.
  */
-import { resolve } from "path";
-import { pathToFileURL } from "url";
 import { help } from "../args.mjs";
 import { OK, STATUS, WARN } from "../glyph.mjs";
 import {
@@ -50,6 +48,8 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 
 // Absolute brotli-byte ceiling per artifact. Each value is `2 * measured`
 // at the commit that set it (50d0723d), rounded up to the nearest 5 KB.

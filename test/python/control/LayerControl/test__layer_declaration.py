@@ -25,8 +25,10 @@ from conftest import feature_collection
 from foliplus import LayerControl
 from foliplus.control.LayerControl._layer_declaration import (
     FOLIPLUS_KEYS,
+    declared_filter,
     declared_folder,
     declared_zoom_range,
+    foliplus_namespace,
 )
 
 _EMPTY = json.dumps(feature_collection())
@@ -409,3 +411,74 @@ def test_third_party_and_own_layer_share_folder_zero_warning():
     declared = [entry for entry in data if "folder" in entry]
     assert len(declared) == 2
     assert all(entry["folder"] == "Shared" for entry in declared)
+
+
+def test_declared_filter_range_reaches_conf():
+    layer = _geo(
+        name="Pop", foliplus={"filter": {"field": "pop", "min": 0, "max": 100}}
+    )
+    html = _render(layer)
+    data = _conf(html)["data"]
+    entry = next(e for e in data if e.get("name") == "Pop")
+    assert entry["filter"] == {
+        "kind": "atom",
+        "field": "pop",
+        "op": "between",
+        "range": [0, 100],
+    }
+
+
+def test_declared_filter_enum_reaches_conf():
+    layer = _geo(
+        name="Cat", foliplus={"filter": {"field": "cat", "values": ["A", "B"]}}
+    )
+    html = _render(layer)
+    data = _conf(html)["data"]
+    entry = next(e for e in data if e.get("name") == "Cat")
+    assert entry["filter"] == {"kind": "enum", "field": "cat", "values": ["A", "B"]}
+
+
+def test_undeclared_filter_absent_from_conf():
+    layer = _geo(name="Plain")
+    html = _render(layer)
+    data = _conf(html)["data"]
+    entry = next(e for e in data if e.get("name") == "Plain")
+    assert "filter" not in entry
+
+
+def test_malformed_filter_treated_as_undeclared():
+    layer = _geo(name="Bad", foliplus={"filter": {"min": 0, "max": 1}})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        html = _render(layer)
+    assert any("filter" in str(w.message) for w in caught)
+    data = _conf(html)["data"]
+    entry = next(e for e in data if e.get("name") == "Bad")
+    assert "filter" not in entry
+
+
+def test_third_source_reuses_shared_normaliser():
+    # A third declaration source (a hypothetical 'demo' control) reuses the
+    # shared normalise_layer_filter without touching the shared layer: it
+    # reads the same friendly shape through the same namespace helper and gets
+    # the same AST as LayerControl, so a per-layer filter means the same thing
+    # on every source. This is the proof the shared layer needs no third
+    # source-specific branch.
+    from foliplus._declaration import normalise_layer_filter
+
+    layer = _geo(
+        name="Pop", foliplus={"filter": {"field": "pop", "min": 0, "max": 100}}
+    )
+
+    def demo_declared_filter(item, name):
+        namespace = foliplus_namespace(item, name)
+        if namespace is None:
+            return None
+        return normalise_layer_filter(
+            namespace.get("filter"),
+            owner="Demo",
+            subject=f"layer {name!r}",
+            source="demo['filter']",
+        )
+
+    assert demo_declared_filter(layer, "Pop") == declared_filter(layer, "Pop")

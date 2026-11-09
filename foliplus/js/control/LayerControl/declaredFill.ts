@@ -33,10 +33,11 @@
 // rest of the declaration survives), and a declaration that names a ramp but
 // no usable field is dropped whole rather than painted as a misleading solid
 // face.
-import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "./const.js";
+import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/classify.js";
+import type { FillValueConfig } from "#core/layer/index.js";
+import { VALUE_KIND, isValueKind } from "#core/valueKind.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
 
@@ -181,7 +182,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   // an unrecognized kind drops the declaration whole — the persistence reader
   // applies the same rule, so a kind this client cannot build is never
   // misapplied as a numeric ramp.
-  if (data.kind !== undefined && data.kind !== "numeric" && data.kind !== "category") {
+  if (data.kind !== undefined && !isValueKind(data.kind)) {
     reject(
       invalid,
       layerId,
@@ -191,7 +192,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     return { invalid };
   }
 
-  if (data.kind === "category") {
+  if (data.kind === VALUE_KIND.CATEGORY) {
     // A categorical mode needs its qualitative palette — the one key beyond the
     // field a category ramp cannot build without. A missing scheme is a hard
     // rejection for an *explicit* category: the author chose the mode, so there
@@ -222,7 +223,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     }
     return {
       declared: {
-        kind: "category",
+        kind: VALUE_KIND.CATEGORY,
         field,
         method: CONST.FILL_VALUE.METHOD_DEFAULT,
         classes: CLASS_COUNT.DEFAULT,

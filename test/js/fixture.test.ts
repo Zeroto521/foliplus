@@ -5,10 +5,10 @@
 // constructor on `window.L` that production code touches is exercised here so
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
+import { makeLayerUIMock, restoreNativeFetch } from "./fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
-import { makeLayerUIMock, restoreNativeFetch } from "./fixture.js";
 
 // LayerUI keeps its fields private, so the completeness gate reads the mock
 // through this explicit view instead of a `Record<string, unknown>` cast,

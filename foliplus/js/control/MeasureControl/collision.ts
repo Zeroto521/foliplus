@@ -14,8 +14,8 @@
 // so the chip keeps its layout box — important so a later plan that frees the
 // space can restore it in place, and so the PNG exporter still sees it during the
 // split second before hiding.
-import { type Box, planVisible } from "#core/label/index.js";
 import type { CollidableLabel } from "./type.js";
+import { type Box, planVisible } from "#core/label/index.js";
 
 /** Result of a placement pass — how many chips were hidden and which ones, so
  *  callers (export, telemetry, other controls) can reason about the outcome. */

@@ -4,16 +4,16 @@
 // `filterSetter` through the shared Slider. The owner semantics themselves
 // (validation, clamping, per-source attribution) are pinned in
 // test/js/control/HeatmapControl/manager.test.ts.
+import { findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
 import { SLIDER_CLASS } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { findItem, initFixture } from "../fixture.js";
 
 /** A Marker-stamped point layer whose leaves carry `feature.properties`.
  *  The values land on the row's `filterProvider` (see makeOwner below). */
@@ -315,9 +315,9 @@ describe("LayerUI filter panel", () => {
     });
 
     it("names the range group with the shared condition caption", () => {
-      // Both arms expose the condition caption as the control's accessible
+      // Both branches expose the condition caption as the control's accessible
       // name: here the dual-thumb slider host is a named group, and the enum
-      // arm names its dropdown with the same panel vocabulary.
+      // branch names its dropdown with the same panel vocabulary.
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
@@ -517,7 +517,7 @@ describe("LayerUI filter panel", () => {
       ) as HTMLButtonElement;
     const labelOf = (item: HTMLElement): string =>
       triggerOf(item).querySelector(".foliplus-dropdown-label")?.textContent ?? "";
-    /** The open popup is portalled out of the panel (common/dropdown), so it is
+    /** The open popup is portalled out of the panel (ui/dropdown), so it is
      *  queried from the document rather than from the row. */
     const listOf = (): HTMLElement | null =>
       document.querySelector(".foliplus-dropdown-list");
@@ -1942,7 +1942,11 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
         clientY: 7,
         button: 0,
       } as MouseEventInit);
-    track.dispatchEvent(pointer("pointerdown", 25));
+    // Grab the lower thumb itself: the committed band [10,20] spans x 0..50,
+    // and a press in that segment now pans the pair (the pan feature's grab
+    // region). The echo-suppression contract is what this test covers, so it
+    // drags the handle instead of the band.
+    track.dispatchEvent(pointer("pointerdown", 0));
     track.dispatchEvent(pointer("pointermove", 25));
     track.dispatchEvent(pointer("pointerup", 25));
 

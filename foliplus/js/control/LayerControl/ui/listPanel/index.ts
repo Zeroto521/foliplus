@@ -9,8 +9,6 @@
 //
 // Cross-subsystem and intra-subsystem callers all take LayerUI and reach
 // into `ui.listPanel.*` directly; no module receives a bare ListPanel.
-import type { ListCursor } from "#core/interaction/index.js";
-import type { LayerInfo } from "#core/layer/index.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -70,6 +68,8 @@ import {
   syncToggleAllFromCount,
   toggleAll,
 } from "./visibility.js";
+import type { ListCursor } from "#core/interaction/index.js";
+import type { LayerInfo } from "#core/layer/index.js";
 
 /** View subsystem that owns the panel's row layout state: which groups are
  *  folded, which rows are checked, where the roving keyboard cursor sits,

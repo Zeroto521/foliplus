@@ -1,4 +1,4 @@
-// Engine-contract tests for the shared listbox engine (common/listbox.ts).
+// Engine-contract tests for the shared listbox engine (ui/listbox.ts).
 //
 // These exercise the engine directly with a picker-shaped listbox (rowTag=div,
 // data-scheme-name, foliplus-is-active, aria-disabled, activedescendant=trigger)
@@ -2680,5 +2680,33 @@ describe("listbox row contract: keyboard + focus restore", () => {
       );
     // No type-ahead: typing "g" does not jump to Gamma.
     expect(document.activeElement).toBe(els[0]);
+  });
+});
+
+describe("listbox engine: focused row stays visible (scrollIntoView guard)", () => {
+  it("scrolls the focused row into view with nearest semantics", () => {
+    const { listbox } = makePicker([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+      { value: "c", label: "Gamma" },
+    ]);
+    listbox.open();
+    const els = rows(listbox);
+    // jsdom has no layout: scrollIntoView is undefined on rows. Provide it so
+    // the shared ensureActiveVisible contract is observable.
+    const spy = vi.fn();
+    (els[1] as unknown as { scrollIntoView: (o?: unknown) => void }).scrollIntoView =
+      spy;
+    // Move focus to the second row via ArrowDown from the first.
+    els[0].focus();
+    els[0].dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(els[1]);
+    expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
   });
 });

@@ -11,6 +11,7 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
@@ -84,7 +85,7 @@ const makeAuthorIcon = (
     className: string;
     bg: string;
     size: [number, number];
-    markerColor: string;
+    iconColor: string;
     withShadow: boolean;
   }> = {},
 ) => {
@@ -92,12 +93,12 @@ const makeAuthorIcon = (
     className: opts.className ?? "awesome-marker",
     bg: opts.bg ?? "url(icon.png) -24px 0",
     size: opts.size ?? ([36, 46] as [number, number]),
-    markerColor: opts.markerColor ?? "blue",
+    iconColor: opts.iconColor ?? "blue",
     withShadow: opts.withShadow ?? true,
   };
   const author: any = {
     options: {
-      markerColor: cfg.markerColor,
+      iconColor: cfg.iconColor,
       className: cfg.className,
       iconSize: cfg.size,
       iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
@@ -168,6 +169,17 @@ describe("captureAuthorIcon / resetIconLeaves", () => {
     expect(leaf.options.icon).not.toBeUndefined();
   });
 
+  it("resetIconLeaves leaves a leaf with no captured icon untouched", () => {
+    const leaf = makeMarker(); // never captured
+    expect(() => resetIconLeaves(makeMarkerGroup(leaf))).not.toThrow();
+    expect(leaf.setIcon).not.toHaveBeenCalled();
+  });
+
+  it("resetIconLeaves skips a non-icon leaf in the walk", () => {
+    const leaf = { options: {} }; // no setIcon -> not an icon leaf
+    expect(() => resetIconLeaves(makeMarkerGroup(leaf))).not.toThrow();
+  });
+
   it("detaches the glyph element before restoring the author icon", () => {
     const leaf = makeMarker({ a: 1 });
     captureAuthorIcon(leaf);
@@ -197,28 +209,80 @@ describe("applyIconToLeaves", () => {
     const leaf = { options: {} };
     expect(() => applyIconToLeaves(makeMarkerGroup(leaf), "star")).not.toThrow();
   });
+
+  it("applyIconColorToLeaves skips a non-icon leaf in the walk", () => {
+    const leaf = { options: {} };
+    expect(() =>
+      applyIconColorToLeaves(makeMarkerGroup(leaf), "#ff0000", null),
+    ).not.toThrow();
+  });
+
+  it("applyIconColorToLeaves captures each author once and derives in one construction", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const mA = makeMarker(author);
+    applyIconColorToLeaves(makeMarkerGroup(mA), "#00ff00", "star");
+    expect(mA.setIcon).toHaveBeenCalledTimes(1);
+    const div = mA.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgb(0, 255, 0)");
+    expect(inner.className).toContain("fa-star");
+  });
 });
 
 describe("authorGlyphName", () => {
-  it("returns the first recognized author glyph name", () => {
+  it("returns the first valid author glyph name with its verdict", () => {
     const withGlyph = makeMarker({ options: { icon: "star" } });
     const plain = makeMarker({ options: {} });
-    expect(authorGlyphName(makeMarkerGroup(plain, withGlyph))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(plain, withGlyph))).toEqual({
+      name: "star",
+      valid: true,
+    });
   });
-  it("returns null when no leaf declares a known glyph", () => {
+  it("returns null when no leaf declares a glyph name", () => {
     const plain = makeMarker({ options: {} });
     expect(authorGlyphName(makeMarkerGroup(plain))).toBeNull();
   });
-  it("stops walking after the first recognized glyph (short-circuit)", () => {
+  it("stops walking after the first valid glyph (short-circuit)", () => {
     const withGlyph = makeMarker({ options: { icon: "star" } });
     const after = makeMarker({ options: { icon: "heart" } });
     // The second recognized leaf is never read: the walk returns at the first.
-    expect(authorGlyphName(makeMarkerGroup(withGlyph, after))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(withGlyph, after))).toEqual({
+      name: "star",
+      valid: true,
+    });
   });
   it("skips a non-icon leaf and keeps walking", () => {
     const poly = { options: {} };
     const withGlyph = makeMarker({ options: { icon: "star" } });
-    expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toBe("star");
+    expect(authorGlyphName(makeMarkerGroup(poly, withGlyph))).toEqual({
+      name: "star",
+      valid: true,
+    });
+  });
+  it("returns an invalid author name with valid=false instead of dropping it", () => {
+    // A syntactically invalid declaration (spaces) must surface raw — the UI
+    // shows the unavailable state, not the author-original label.
+    const bad = makeMarker({ options: { icon: "not an icon" } });
+    expect(authorGlyphName(makeMarkerGroup(bad))).toEqual({
+      name: "not an icon",
+      valid: false,
+    });
+  });
+  it("prefers a valid declaration over an earlier invalid one", () => {
+    const bad = makeMarker({ options: { icon: "not an icon" } });
+    const good = makeMarker({ options: { icon: "star" } });
+    expect(authorGlyphName(makeMarkerGroup(bad, good))).toEqual({
+      name: "star",
+      valid: true,
+    });
+  });
+  it("keeps the first invalid declaration when a later one is also invalid", () => {
+    const bad1 = makeMarker({ options: { icon: "not an icon" } });
+    const bad2 = makeMarker({ options: { icon: "also not an icon" } });
+    expect(authorGlyphName(makeMarkerGroup(bad1, bad2))).toEqual({
+      name: "not an icon",
+      valid: false,
+    });
   });
 });
 
@@ -287,8 +351,10 @@ describe("buildMarkerIcon", () => {
     expect(buildMarkerIcon({ author, glyph: "circle" })).toBe(author);
   });
 
-  it("carries the author inner <i> class and colour into the glyph", () => {
-    const author = makeAuthorIcon();
+  it("carries the author inner <i> class and color into the glyph", () => {
+    // The author declares no options.iconColor, so the inner <i> inline color
+    // is the fallback and must carry into the glyph.
+    const author = makeAuthorIcon({ iconColor: "" });
     author.createIcon = vi.fn(() => {
       const div = document.createElement("div");
       div.className = "awesome-marker";
@@ -302,16 +368,50 @@ describe("buildMarkerIcon", () => {
     expect(inner.style.color).toBe("rgb(255, 255, 255)");
   });
 
-  it("defaults the glyph colour to white when the author has none", () => {
-    const author = makeAuthorIcon();
+  it("defaults the glyph color to white when the author has none", () => {
+    const author = makeAuthorIcon({ iconColor: "" });
     const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
     expect(derived.createIcon().querySelector("i")?.style.color).toBe(
       "rgb(255, 255, 255)",
     );
   });
 
+  it("uses the author iconColor when the inner <i> declares no inline color", () => {
+    // The author declares options.iconColor (the glyph-color face on options)
+    // with NO inline style on the inner <i>. The derive must read that declared
+    // glyph color, not fall through to white — otherwise Reset/derive loses an
+    // awesome-markers-only author paint.
+    const author = makeAuthorIcon({ iconColor: "red" });
+    author.createIcon = vi.fn(() => {
+      const div = document.createElement("div");
+      div.className = "awesome-marker";
+      div.innerHTML = '<i class="fa fa-map-marker"></i>';
+      return div;
+    });
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const inner = derived.createIcon().querySelector("i");
+    expect(inner.style.color).toBe("red");
+  });
+
+  it("prefers the author inner inline color over the declared iconColor", () => {
+    // The inner <i> inline color is the author's actual painted glyph (the
+    // same paint the author's createIcon produced) and WINS over a declared
+    // options.iconColor — the derive must reproduce the author's real glyph,
+    // not an option the author may have set but never painted.
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    author.createIcon = vi.fn(() => {
+      const div = document.createElement("div");
+      div.className = "awesome-marker";
+      div.innerHTML = '<i class="fa icon-white" style="color: rgb(255, 0, 0)"></i>';
+      return div;
+    });
+    const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+    const inner = derived.createIcon().querySelector("i");
+    expect(inner.style.color).toBe("rgb(255, 0, 0)");
+  });
+
   it("defaults to white and no author paint when the author div has no inner <i>", () => {
-    const author = makeAuthorIcon();
+    const author = makeAuthorIcon({ iconColor: "" });
     author.createIcon = vi.fn(() => {
       const div = document.createElement("div");
       div.className = "awesome-marker";

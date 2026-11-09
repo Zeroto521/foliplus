@@ -11,10 +11,10 @@
 // and is reported in the PR body from a Chromium profile. A stub ctx is the
 // honest lower bound: a real 2d context is slower, so if this already
 // exceeds 16ms the dual path is mandatory.
+import { loadFeature } from "../fixture.js";
 import { describe, expect, it } from "vitest";
 import { drawHexagon } from "#control/HeatmapControl/render.js";
 import type { HexFeature } from "#control/HeatmapControl/type.js";
-import { loadFeature } from "../fixture.js";
 
 const baseFeature = loadFeature("common", "hexagon_fuzhou") as unknown as HexFeature;
 

@@ -8,17 +8,17 @@
 // so a change on either input reaches the map through exactly one path.
 //
 // Nothing in this file touches the map, the registry, or storage.
+import type { Projection } from "../type.js";
+import { INTENT, getIntent } from "./intent.js";
+import type { LayerUI } from "./surface.js";
 import type { AuthorZoomRange } from "#core/layer/index.js";
-import { createLogger } from "#common/log.js";
 import {
   intersectsMapZoom,
   isZoomRange,
   unreachableZoomRange,
   unusableZoomRange,
-} from "#common/zoomRange.js";
-import type { Projection } from "../type.js";
-import { INTENT, getIntent } from "./intent.js";
-import type { LayerUI } from "./surface.js";
+} from "#core/leaflet/index.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
 

@@ -6,7 +6,7 @@
 //
 // These functions operate on Leaflet maps and coordinate systems.
 import { internalLayers, layerUrl } from "#core/leafletAdapter.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 // coord.ts has no CONFIG — it is shared across components and core — so the
 // library name is the only prefix that is correct here.

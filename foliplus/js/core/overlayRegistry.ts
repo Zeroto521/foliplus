@@ -21,8 +21,8 @@
 // ESC_PRIORITY (higher rank = closer to the top), used to pick the owning
 // entry and as the deterministic fallback when two open entries contain the
 // same target. Registration order is never the order surfaces are consulted.
-import { isInsideOverlay } from "#core/overlay.js";
-import { createLogger } from "#common/log.js";
+import { isInsideOverlay } from "./overlay.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("Overlay");
 
@@ -111,6 +111,7 @@ interface EscapeHandled {
 const OVERLAY_IDS = {
   LAYER_RENAME: "layer.rename",
   LAYER_PICKER_DROPDOWN: "layer.style.picker.dropdown",
+  BORDER_PICKER_DROPDOWN: "layer.style.border.picker.dropdown",
   HEATMAP_PICKER_DROPDOWN: "heatmap.picker.dropdown",
   LAYER_MENU: "layer.menu",
   LAYER_FILTER: "layer.filter",
@@ -137,6 +138,7 @@ type OverlayId = (typeof OVERLAY_IDS)[keyof typeof OVERLAY_IDS];
 const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
   [OVERLAY_IDS.LAYER_RENAME]: 900,
   [OVERLAY_IDS.LAYER_PICKER_DROPDOWN]: 850,
+  [OVERLAY_IDS.BORDER_PICKER_DROPDOWN]: 845,
   [OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN]: 840,
   [OVERLAY_IDS.LAYER_MENU]: 800,
   [OVERLAY_IDS.LAYER_FILTER]: 700,
@@ -219,7 +221,7 @@ const isEditable = (target: Node): boolean => {
 
 /** Containment is asked of the panels only. A node the surface portalled
  *  elsewhere is still inside it, because the panel that owns the trigger it was
- *  mounted for answers through common/portalRoot's ownership check — one
+ *  mounted for answers through platform/portalRoot's ownership check — one
  *  mechanism instead of two lists that can disagree. */
 const entryContains = (entry: OverlayEntry, target: EventTarget | null): boolean => {
   for (const panel of entry.panels()) {

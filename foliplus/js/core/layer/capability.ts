@@ -99,6 +99,54 @@ const hasSetStyleLeaf = (node: unknown): boolean => someLeaf(node, hasSetStyle);
 const hasSetIcon = (node: unknown): boolean =>
   safeRead(() => typeof (node as { setIcon?: unknown }).setIcon) === "function";
 
+/** A per-icon cache for the glyph-color probe: createIcon can be expensive
+ *  (it builds a DOM node), so the same icon instance is probed once. Keyed
+ *  by the icon object, not the leaf, because every marker leaf owns its own
+ *  icon instance and the probe result is a property of the icon type, not of
+ *  the leaf. */
+const glyphCapableIcon = new WeakMap<object, boolean>();
+
+/** Whether one icon instance can carry a glyph node — the honest carrier
+ *  check for the glyph-color axis. "Can carry a glyph" means the authored
+ *  icon's `createIcon()` output is a DOM Element that is not an
+ *  `HTMLImageElement` — i.e. a div-type icon (awesome-markers / a plain
+ *  DivIcon we can paint), not an `<img>`-based `Icon.Default` /
+ *  `iconUrl`. A div-type icon can hold an inner `<i>` glyph node even if
+ *  the author drew none (our derive inserts one), so the probe answers
+ *  "native" for a bare divIcon too. Same throwing-getter guard as
+ *  `hasSetIcon` — a hostile getter answers nothing rather than walking
+ *  mid-flight. */
+const canPaintGlyphOnIcon = (icon: unknown): boolean => {
+  if (typeof icon !== "object" || icon === null) return false;
+  const cached = glyphCapableIcon.get(icon);
+  if (cached !== undefined) return cached;
+  const result = safeRead(() => {
+    const createIcon = (icon as { createIcon?: unknown }).createIcon;
+    if (typeof createIcon !== "function") return false;
+    const output = (createIcon as () => unknown).call(icon);
+    return (
+      typeof output === "object" &&
+      output !== null &&
+      output instanceof Element &&
+      !(output instanceof HTMLImageElement)
+    );
+  });
+  const decided = result === true;
+  glyphCapableIcon.set(icon, decided);
+  return decided;
+};
+
+/** Whether the leaf is a glyph-color carrier: a runtime `setIcon` whose
+ *  authored icon can paint a glyph (div-based, not `<img>`-based). Same
+ *  throwing-getter guard as `hasSetIcon` — a hostile getter answers
+ *  nothing rather than walking mid-flight. */
+const hasIconColorLeaf = (node: unknown): boolean =>
+  safeRead(
+    () =>
+      typeof (node as { setIcon?: unknown }).setIcon === "function" &&
+      canPaintGlyphOnIcon((node as { options?: { icon?: unknown } }).options?.icon),
+  ) === true;
+
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
@@ -135,6 +183,8 @@ interface LayerCarrierProbe {
   size: "native" | "none";
   /** Any leaf owns a runtime `setIcon` — the marker icon carrier. */
   icon: "native" | "none";
+  /** Any leaf is an awesome-markers carrier (setIcon + div-based authored icon). */
+  iconColor: "native" | "none";
   /** The full-tree migratable audit: "mixed" is the degrade signal. */
   migratable: "ok" | "mixed" | "empty";
 }
@@ -144,6 +194,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
   let fill = false;
   let radius = false;
   let icon = false;
+  let iconColor = false;
   let known = 0;
   let unknown = 0;
   walkLeaf(node, leaf => {
@@ -151,6 +202,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     if (!fill && isArealStyleLeaf(leaf)) fill = true;
     if (!radius && isPixelRadiusLeaf(leaf)) radius = true;
     if (!icon && hasSetIcon(leaf)) icon = true;
+    if (!iconColor && hasIconColorLeaf(leaf)) iconColor = true;
     if (isMigratableLeaf(leaf)) known += 1;
     else unknown += 1;
   });
@@ -159,6 +211,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     fill: fill ? "native" : "none",
     size: radius ? "native" : "none",
     icon: icon ? "native" : "none",
+    iconColor: iconColor ? "native" : "none",
     migratable: unknown > 0 ? "mixed" : known > 0 ? "ok" : "empty",
   };
 };

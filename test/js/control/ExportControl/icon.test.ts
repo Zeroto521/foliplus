@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as CommonIcons from "#common/icon.js";
+import * as CommonIcons from "#platform/icon.js";
 import * as SVGs from "#control/ExportControl/icon.js";
 
 describe("CAMERA", () => {

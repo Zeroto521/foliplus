@@ -1,6 +1,6 @@
 // LayerControl UI — Mutual-exclusion overlay teardown.
-import { EVENTS, publish } from "#core/event/index.js";
 import type { LayerUI } from "./surface.js";
+import { EVENTS, publish } from "#core/event/index.js";
 
 /**
  * Tear down every surface that competes for the same spot: the map's own

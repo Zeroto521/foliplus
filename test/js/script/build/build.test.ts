@@ -99,7 +99,7 @@ describe.skipIf(!distReady)("build artifacts", () => {
       resolve(distDir, "foliplus-ExportControl.min.js"),
       "utf-8",
     );
-    expect(content).toContain("foliplus.common");
+    expect(content).toContain("foliplus.platform");
   });
 
   it("component JS does NOT bundle common modules", () => {

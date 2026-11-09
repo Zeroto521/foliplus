@@ -3,18 +3,17 @@
 // ui/style.ts. Owns the delegation probe used by the ⋮ menu, and the
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
-import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
-import { DIM } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { BORDER_WEIGHT } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
-import * as SVGs from "#control/LayerControl/icon.js";
 import type { LayerUI } from "../surface.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, gatedRows } from "./registry.js";
+import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
+import { DIM } from "#core/layer/index.js";
+import { createRowPanel } from "#core/leaflet/index.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { BORDER_WEIGHT, PANEL_CLASS } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
+import * as SVGs from "#control/LayerControl/icon.js";
 
 /** The delegated drawer's Layer-row order: `DIM_ORDER` minus the
  *  component-write rows. `fill` and `border` write through `setStyle`,
@@ -24,7 +23,12 @@ import { DIM_ORDER, gatedRows } from "./registry.js";
  *  rendering path at all. Only LayerControl-owned rows (opacity, zoomRange)
  *  ride the delegated sweep; they survive a component's redraw. */
 const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
-  key => key !== DIM.FILL && key !== DIM.BORDER && key !== DIM.SIZE && key !== DIM.ICON,
+  key =>
+    key !== DIM.FILL &&
+    key !== DIM.BORDER &&
+    key !== DIM.SIZE &&
+    key !== DIM.ICON &&
+    key !== DIM.ICON_COLOR,
 );
 
 /** Whether the layer delegates its style to the drawer via styleSetters

@@ -36,7 +36,7 @@ describe("isInsideOverlay", () => {
   it("answers outside for a portalled node no overlay registered", () => {
     const { panel, portal, portalRow } = mount();
     // Outside the panel's subtree and unregistered: only ownership can make
-    // this node part of the overlay (common/portalRoot), and nobody claimed it.
+    // this node part of the overlay (platform/portalRoot), and nobody claimed it.
     expect(panel.contains(portalRow)).toBe(false);
     expect(isInsideOverlay(portal, panel)).toBe(false);
     expect(isInsideOverlay(portalRow, panel)).toBe(false);

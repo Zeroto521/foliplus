@@ -10,12 +10,8 @@
 // component's translator) and their own change wiring: the heatmap recomputes
 // hexagons, the layer repaints leaves. Only the DOM row + control references
 // are shared, so no cross-component innerHTML template exists.
-import {
-  CLASS_COUNT_VALUES,
-  type ClassifyMethod,
-  METHOD_ORDER,
-} from "#core/classify.js";
-import { dom } from "#common/dom.js";
+import { CLASS_COUNT_VALUES, type ClassifyMethod, METHOD_ORDER } from "./classify.js";
+import { dom } from "#platform/dom.js";
 import {
   type Dropdown,
   type DropdownSurface,
@@ -47,7 +43,7 @@ type FieldRowOptions = {
   rowAttributes?: Attributes;
   selectAttributes?: Attributes;
   onChange?: (field: string) => void;
-  /** Popup host contract for the bridged dropdown (common/fullscreen's
+  /** Popup host contract for the bridged dropdown (platform/fullscreen's
    *  `dropdownSurface(map.getContainer())`), so an open list follows the
    *  surface covering the trigger. */
   surface?: DropdownSurface;

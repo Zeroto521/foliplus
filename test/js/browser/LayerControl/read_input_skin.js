@@ -14,7 +14,7 @@
 // The label body collapses under the toggle until the user turns labels on, so
 // the probe clicks the Label row's checkbox first (the delegated change handler
 // reveals the body synchronously). The method select only exists in the
-// by-value fill arm; the probe does not switch arms — the caller opens the
+// by-value fill mode; the probe does not switch modes — the caller opens the
 // ramp layer so value is the default.
 () => {
   const read = el => {

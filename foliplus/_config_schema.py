@@ -491,9 +491,9 @@ def field_spec_in(*args: Any) -> FieldSpec | None:
 
 
 def evaluate(arg: Any) -> Any:
-    """Resolve one ``Union`` arm that may still be a string.
+    """Resolve one ``Union`` branch that may still be a string.
 
-    With `from __future__ import annotations` the arm of a spelled-out union
+    With `from __future__ import annotations` the branch of a spelled-out union
     (``list[str] | None``) can reach the reflector as the string ``"None"``
     rather than the type. Resolve it against the module's globals so a
     nullable union is recognized the same way whether it is spelled
@@ -518,9 +518,9 @@ def is_nullable(hint: Any) -> bool:
         return is_nullable(get_args(hint)[0])
     if origin not in (Union, UnionType):
         return False
-    arms = [evaluate(a) for a in get_args(hint)]
-    non_null = [a for a in arms if a is not type(None)]
-    return len(non_null) == 1 and len(non_null) != len(arms)
+    branches = [evaluate(a) for a in get_args(hint)]
+    non_null = [a for a in branches if a is not type(None)]
+    return len(non_null) == 1 and len(non_null) != len(branches)
 
 
 def resolve_tag(
@@ -574,19 +574,19 @@ def resolve_tag(
         return tag, values, nullable, meta or inner_meta
 
     if origin in (Union, UnionType):
-        arms = [evaluate(a) for a in get_args(hint)]
-        non_null = [a for a in arms if a is not type(None)]
-        nullable = len(non_null) != len(arms)
+        branches = [evaluate(a) for a in get_args(hint)]
+        non_null = [a for a in branches if a is not type(None)]
+        nullable = len(non_null) != len(branches)
         if len(non_null) == 1:
-            # A FieldSpec may sit on the non-null arm rather than outside the
+            # A FieldSpec may sit on the non-null branch rather than outside the
             # union (`Annotated[dict, FieldSpec(...)] | None`, and the spelled
-            # `Optional[Annotated[...]]` form alike). Resolving the arm takes
+            # `Optional[Annotated[...]]` form alike). Resolving the branch takes
             # the spec back out so the caller's ts/name/note survive the null
-            # arm — a spec already carried in `meta` by an outer Annotated
+            # branch — a spec already carried in `meta` by an outer Annotated
             # layer wins.
             tag, values, inner_nullable, inner_meta = resolve_tag(non_null[0], meta)
             return tag, values, nullable or inner_nullable, meta or inner_meta
-        # A union of two unrelated arms is not a JSON shape: the caller must
+        # A union of two unrelated branches is not a JSON shape: the caller must
         # name it. ProviderConfig's `str | dict` reaches here as
         # `str | TypedDict` and carries FieldSpec(ts=...) for exactly this.
         raise ValueError(

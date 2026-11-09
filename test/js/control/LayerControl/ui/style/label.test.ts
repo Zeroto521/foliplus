@@ -5,6 +5,7 @@
 // scheduling contract — when a rebuild is queued, when it is dropped, when
 // it is flushed, and when the config gate keeps it from ever running. The
 // real walk and its cost live in the label suite and the perf test.
+import { initFixture } from "../fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -15,7 +16,6 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
 
 // The base layer every fixture carries — the hub's BASE early-return must
 // not be what keeps a replay from running.

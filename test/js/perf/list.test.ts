@@ -34,8 +34,8 @@
 // a regression that rebuilds the list per move — ~2.4 rebuilds for the up+down
 // round — measures 0.4×, i.e. ~20× past the gate. The other two tests pin the
 // operation counts, so the ratio is never the only evidence.
-import { describe, expect, it, vi } from "vitest";
 import { attachedPanel, initFixture } from "../control/LayerControl/ui/fixture.js";
+import { describe, expect, it, vi } from "vitest";
 
 const benchData = (overlays: number, bases: number) => [
   ...Array.from({ length: overlays }, (_, i) => ({

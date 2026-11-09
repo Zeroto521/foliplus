@@ -1,13 +1,13 @@
 // SearchControl shared type definitions — decoupled from the entry module.
 // Sub-modules (event.ts, logic.ts) import these instead of the index entry
 // to avoid a type-level circular dependency (index → event → index).
+import { type MODE, type SearchSource } from "./const.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import type { ListCursor } from "#core/interaction/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
-import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/debounce.js";
-import type { Floating } from "#common/floating.js";
-import { type MODE, type SearchSource } from "./const.js";
+import type { Cache } from "#platform/cache.js";
+import type { Debounced } from "#platform/debounce.js";
+import type { Floating } from "#platform/floating.js";
 
 /** Search type: coordinate pair or address keyword. */
 type SearchType = (typeof MODE)[keyof typeof MODE];

@@ -486,7 +486,7 @@ class TestHeatmapDropdownPanelBrowser:
 
 
 def _polygon_layer() -> folium.GeoJson:
-    """Overlay layer with a numeric property, for the style drawer's ramp arm."""
+    """Overlay layer with a numeric property, for the style drawer's ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",
@@ -503,7 +503,7 @@ def _points_group() -> folium.FeatureGroup:
 
 
 def _centre(page, selector: str) -> dict:
-    return page.evaluate(_js("common/read_element_centre"), selector)
+    return page.evaluate(_js("platform/read_element_centre"), selector)
 
 
 def _outside_press_make_page(browser, tmp_path):
@@ -542,7 +542,7 @@ class TestSchemePickerOutsidePressBrowser:
             # Press the collapsed LayerControl control. Its own toggle calls
             # L.DomEvent.stop, so only the capture-phase document listener can
             # see the press and dismiss the dropdown.
-            state = page.evaluate(_js("common/read_picker_panel_state"))
+            state = page.evaluate(_js("platform/read_picker_panel_state"))
             assert state["layer"]["collapsed"], state
 
             clicked = page.evaluate(_js("LayerControl/click_collapsed_layer_toggle"))
@@ -553,7 +553,7 @@ class TestSchemePickerOutsidePressBrowser:
             page.wait_for_selector(
                 ".foliplus-scheme-picker-portal", state="detached", timeout=3000
             )
-            after = page.evaluate(_js("common/read_picker_panel_state"))
+            after = page.evaluate(_js("platform/read_picker_panel_state"))
             assert after["open"] is False, after
             assert after["heatmap"]["expanded"], after
             assert not errors, f"JS errors: {errors}"

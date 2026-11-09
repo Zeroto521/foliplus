@@ -16,18 +16,6 @@
  *   node script/build/build.mjs --sonda      # build + generate one combined sonda report (HTML treemap)
  *   node script/build/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
-import { spawnSync } from "child_process";
-import { build } from "esbuild";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "fs";
-import { basename, resolve } from "path";
-import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { resolveJsRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
@@ -40,6 +28,18 @@ import {
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
+import { spawnSync } from "child_process";
+import { build } from "esbuild";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import { basename, resolve } from "path";
+import { pathToFileURL } from "url";
 
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
@@ -386,7 +386,7 @@ const main = async () => {
     mkdirSync(buildCss, { recursive: true });
 
     // ── Step 2: Generate shared registry ───────────────────────────
-    // Auto-registers every common/core module on window.foliplus (P5).
+    // Auto-registers every platform/core module on window.foliplus (P5).
     generateSharedRegistry();
 
     // ── Step 3: Discover components & build entries ───────────────

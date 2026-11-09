@@ -2,8 +2,8 @@
 // Pure types: the shapes `EVENTS` names, keyed by the event constants so a
 // payload and its event name cannot drift apart. Lives beside `const.ts`
 // because the map is keyed by that dictionary's values.
-import type { LayerKind } from "#core/layer/index.js";
 import type { EVENTS } from "./const.js";
+import type { LayerKind } from "#core/layer/index.js";
 
 /** One layer's registry/membership change: who (`id`) and what it is (`kind`).
  *  Both fields are stamped by the emitter from the registry entry, so a

@@ -1,3 +1,4 @@
+// ui/placement — Pure geometry kernel for floating-surface placement.
 /**
  * Pure geometry kernel for floating-surface placement.
  *
@@ -13,52 +14,7 @@
  * measuring `anchor` / `surface` / `bounds` and for writing the returned
  * `top` / `left` / `side` / `maxWidth` / `maxHeight` back onto the element.
  */
-
-interface Rect {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
-interface SurfaceSize {
-  width: number;
-  height: number;
-}
-
-interface PlacementOpts {
-  /**
-   * Minimum number of rows the caller wants visible. The surface height is
-   * floored at `minRows * rowHeight` when the caller insists on keeping a
-   * set of rows on screen.
-   */
-  minRows?: number;
-  /** Height of a single row, paired with `minRows`. */
-  rowHeight?: number;
-  /** Gap between the anchor and the floating surface. Defaults to 0. */
-  gap?: number;
-  /**
-   * Width strategy: `"anchor"` uses the anchor's width, a number uses that
-   * fixed width, and the default (omitted) uses the surface's natural width.
-   * The result is reported as `maxWidth`, which shrinks to the bounds when
-   * the preferred width does not fit.
-   */
-  width?: "anchor" | number;
-  /**
-   * Optional natural (content) size, overriding `surface` for the width and
-   * height caps. Use this when the caller measures a provisional size but
-   * knows the content's true natural size.
-   */
-  natural?: SurfaceSize;
-}
-
-interface Placement {
-  top: number;
-  left: number;
-  side: "below" | "above";
-  maxWidth: number;
-  maxHeight: number;
-}
+import type { Placement, PlacementOpts, Rect, SurfaceSize } from "./type.js";
 
 /**
  * Clamp `value` into `[min, max]`. When `min > max` (a degenerate range, e.g.
@@ -167,4 +123,3 @@ const computePlacement = (
 };
 
 export { clamp, computePlacement, intersect, isDegenerate };
-export type { Placement, PlacementOpts, Rect, SurfaceSize };

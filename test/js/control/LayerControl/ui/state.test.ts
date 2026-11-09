@@ -1,11 +1,21 @@
+import {
+  GridLayer,
+  TEST_ENV,
+  TileLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  polygonLayerWithStyle,
+} from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -28,16 +38,6 @@ import {
   unmarkOverride,
 } from "#control/LayerControl/ui/state.js";
 import { flushStyleDimApplies } from "#control/LayerControl/ui/style/styleBag.js";
-import {
-  GridLayer,
-  TEST_ENV,
-  TileLayer,
-  attachedPanel,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  polygonLayerWithStyle,
-} from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
@@ -1007,7 +1007,7 @@ describe("LayerUI opacity restore / retention", () => {
 
     u.applyUserState("heat");
 
-    // Default "redraw" arm: CSS live + layerAlpha stored for the next paint.
+    // Default "redraw" branch: CSS live + layerAlpha stored for the next paint.
     expect(canvas.style.opacity).toBe("0.25");
     expect(getLayerAlpha(canvas)).toBeCloseTo(0.25);
     expect(m.layerRegistry.get("heat")?.opacity).toBe(0.25);
@@ -1302,10 +1302,12 @@ describe("event-driven row refresh", () => {
       ui.onLayerItemCountChange("overlay1");
       flushStyleDimApplies("overlay1");
 
+      // The fill walk and the border follow-walk (C8: a fill value ramp
+      // derives the border) each paint once; both are coalesced per frame.
       for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     });
 
-    it("rides the solid arm onto the same new features", () => {
+    it("rides the solid mode onto the same new features", () => {
       const leaves = attachFeatures([1, 2, 3]);
       seedIntentMap(ui, "fillColor", { overlay1: "#abcdef" });
       seedIntentMap(ui, "fillMode", { overlay1: "solid" });
@@ -1513,7 +1515,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("treats an unknown override key as live (forward-compat default)", () => {
-    // LayerOverride is closed today; the default arm of hasLiveValue /
+    // LayerOverride is closed today; the default branch of hasLiveValue /
     // LayerIntentStore.hasLive is the forward-compat path so a future dimension
     // without a typed guard is not silently dropped by markOverride — and
     // toPersisted writes only the marker (no LIVE rule yet), keeping the

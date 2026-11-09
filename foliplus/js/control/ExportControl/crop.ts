@@ -1,11 +1,11 @@
 // ExportControl crop box editing — pointer drag, keyboard nudge, pixel limit.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { rafLoop } from "#common/rafLoop.js";
 import * as CONST from "./const.js";
 import { registerDrag } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
+import { rafLoop } from "#platform/rafLoop.js";
 
 /** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
 const nudgeDirection = (key: string): { x: number; y: number } =>

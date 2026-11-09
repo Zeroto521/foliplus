@@ -26,6 +26,7 @@ from foliplus._declaration import (
     enum_atom,
     json_number,
     normalise_folder,
+    normalise_layer_filter,
     normalise_zoom_range,
     normalize_declared_filter,
     range_atom,
@@ -552,3 +553,70 @@ def test_guard_catches_late_module_bindings(source: str, shape: str) -> None:
     """
     late = _late_module_bindings(ast.parse(source))
     assert late, f"guard missed a late {shape} binding"
+
+
+def test_normalise_layer_filter_forms():
+    assert normalise_layer_filter(
+        {"field": "pop", "min": 0, "max": 100}, owner="Owner"
+    ) == {
+        "kind": "atom",
+        "field": "pop",
+        "op": "between",
+        "range": [0, 100],
+    }
+    assert normalise_layer_filter(
+        {"field": "cat", "values": ["A", "B", "A"]}, owner="Owner"
+    ) == {
+        "kind": "enum",
+        "field": "cat",
+        "values": ["A", "B"],
+    }
+    assert normalise_layer_filter(None, owner="Owner") is None
+
+
+def test_normalise_layer_filter_invalid_warns():
+    # Non-mapping and malformed shapes warn once and read as undeclared. The
+    # dedup store is cleared per shape: two shapes can share a reason (e.g. a
+    # missing and a non-string field both say 'field'), and the second would
+    # otherwise be suppressed as a repeat.
+    for raw in (
+        ["x"],
+        {"min": 0, "max": 1},
+        {"field": "x", "values": ["A"], "min": 0},
+        {"field": "pop", "min": 10, "max": 1},
+        {"field": "x", "values": []},
+        {"field": "x", "foo": 1},
+        {"field": 1, "min": 0, "max": 1},
+    ):
+        _declaration.foliplus_reports.clear()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert (
+                normalise_layer_filter(raw, owner="Owner", subject="layer 'L'") is None
+            )
+            assert any("filter" in str(w.message) for w in caught), (
+                raw,
+                [str(w.message) for w in caught],
+            )
+
+
+def test_normalise_layer_filter_extra_shape_branches():
+    # Branches the forms/invalid tests above do not reach: a 'values' payload
+    # that is not a list, a non-string 'values' entry, a declaration with a
+    # valid field but neither min/max nor values, and a non-finite bound.
+    for raw in (
+        {"field": "cat", "values": "A"},  # values as a bare string
+        {"field": "cat", "values": ["A", 3]},  # non-string entry
+        {"field": "cat"},  # valid field, no form chosen
+        {"field": "pop", "min": 0, "max": float("inf")},  # non-finite bound
+    ):
+        _declaration.foliplus_reports.clear()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert (
+                normalise_layer_filter(raw, owner="Owner", subject="layer 'L'") is None
+            )
+            assert any("filter" in str(w.message) for w in caught), (
+                raw,
+                [str(w.message) for w in caught],
+            )

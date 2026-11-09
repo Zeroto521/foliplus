@@ -1,11 +1,6 @@
 // LayerControl UI — Row keyboard events (navigation, toggle, menu).
 // The roving cursor state lives in ./cursor.js; this module owns the key
 // handler and the mousedown/dblclick listeners that call into it.
-import { HINT_DURATION } from "#core/hint.js";
-import { isNativeControl } from "#core/interaction/index.js";
-import { ROLE } from "#core/layer/index.js";
-import { isInsideOverlay } from "#core/overlay.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
 import { runMenuAction } from "../overlayPanel/menu.js";
@@ -19,6 +14,11 @@ import {
   syncActiveItem,
 } from "./cursor.js";
 import { toggleFold } from "./drag.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { isNativeControl } from "#core/interaction/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /**
  * Mousedown outside the panel drops the keyboard cursor — the pointer

@@ -1,53 +1,4 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import {
-  METHOD as CLASSIFY_METHOD,
-  CLASS_COUNT,
-  type ClassifyMethod,
-  isClassifyMethod,
-} from "#core/classify.js";
-import { generateId } from "#core/component.js";
-import {
-  EVENTS,
-  type EventBus,
-  SettledOperation,
-  ensureEvents,
-  publish,
-} from "#core/event/index.js";
-import { bareFieldName } from "#core/label/index.js";
-import {
-  type FilterOwner,
-  type LayerFilter,
-  type LayerFilterModel,
-  type LayerSnapshot,
-  NO_FEATURE_TREE_KINDS,
-  createFilterOwner,
-  dropFilterForField,
-  filterKey,
-  filterStep,
-  normalizeFilter,
-  parsePersistedFilter,
-  pickFilterField,
-  revalidateStoredFilter,
-  selectIndices,
-  serializedFilters,
-  snapshotFromPoints,
-  storeFilter,
-} from "#core/layer/index.js";
-import { bindMapSync } from "#core/leaflet/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { createLogger } from "#common/log.js";
-import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
-import type { CanvasLabelStyle, Logger } from "#common/type.js";
-import {
-  BORDER_WEIGHT,
-  clampBorderWeight,
-  clampLabelSize,
-  normalizeHexColor,
-} from "#ui/index.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
@@ -75,6 +26,57 @@ import type {
   SelectedPoint,
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
+import {
+  METHOD as CLASSIFY_METHOD,
+  CLASS_COUNT,
+  type ClassifyMethod,
+  isClassifyMethod,
+} from "#core/classify.js";
+import { generateId } from "#core/component.js";
+import {
+  EVENTS,
+  type EventBus,
+  SettledOperation,
+  ensureEvents,
+  publish,
+} from "#core/event/index.js";
+import { bareFieldName } from "#core/label/index.js";
+import {
+  type FilterOwner,
+  type LayerFilter,
+  type LayerFilterModel,
+  type LayerSnapshot,
+  NO_FEATURE_TREE_KINDS,
+  createFilterOwner,
+  dropFilterForField,
+  filterKey,
+  filterStep,
+  getLayerAlpha,
+  normalizeFilter,
+  parsePersistedFilter,
+  pickFilterField,
+  revalidateStoredFilter,
+  selectIndices,
+  serializedFilters,
+  setLayerAlpha,
+  snapshotFromPoints,
+  storeFilter,
+} from "#core/layer/index.js";
+import { bindMapSync } from "#core/leaflet/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
+import { type Debounced, debounce } from "#platform/debounce.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { createLogger } from "#platform/log.js";
+import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
+import type { Logger } from "#platform/type.js";
+import {
+  BORDER_WEIGHT,
+  type CanvasLabelStyle,
+  clampBorderWeight,
+  clampLabelSize,
+  normalizeHexColor,
+} from "#ui/index.js";
 
 /** Adopt a method name only when it is one of the four the classifier
  *  implements; anything else falls back to the documented default. The Python
@@ -775,7 +777,7 @@ class HeatmapManager {
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
    *  values are the same the label canvas reads — both go through
-   *  common/canvasLabel — so a hex value and an label label render as one
+   *  ui/canvasLabel — so a hex value and an label label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;

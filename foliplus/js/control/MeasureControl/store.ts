@@ -4,6 +4,7 @@
 // and LAYER_ITEM_COUNT_CHANGE emission. Call sites (modes, ui, export) go
 // through this store, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
+import * as CONST from "./const.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
@@ -12,8 +13,7 @@ import {
   createPersisted,
   loadVersioned,
   saveVersioned,
-} from "#common/storage.js";
-import * as CONST from "./const.js";
+} from "#platform/storage.js";
 
 /** Central store for all measurements. Owns the array, the id counter, the
  * persist-failure notification, and LAYER_ITEM_COUNT_CHANGE emission. Callers

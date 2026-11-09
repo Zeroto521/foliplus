@@ -1,4 +1,8 @@
 // LayerControl UI — Layer attributes panel.
+import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
+import { displayName } from "../listPanel/rowView.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
 import { EVENTS } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import {
@@ -10,15 +14,11 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import { formatNumber, formatTimestamp } from "#common/format.js";
+import { dom } from "#platform/dom.js";
+import { formatNumber, formatTimestamp } from "#platform/format.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
-import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
-import { displayName } from "../listPanel/rowView.js";
-import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata

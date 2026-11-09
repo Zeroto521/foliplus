@@ -1,7 +1,7 @@
 // LayerControl interaction — keyboard navigation + overflow-menu click handlers.
-import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
 import type { LayerUI } from "./ui/surface.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {

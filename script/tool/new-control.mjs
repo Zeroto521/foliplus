@@ -16,12 +16,12 @@
  *   README.md, test/python/test_locale.py
  * Auto-derived (no patch): test_build.py COMPONENTS, vitest index.ts glob.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, relative, resolve } from "path";
-import { pathToFileURL } from "url";
 import { help, parseArgs as parseArgsCore } from "../args.mjs";
 import { repoRoot } from "../build-path.mjs";
 import { FAIL, OK } from "../glyph.mjs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, relative, resolve } from "path";
+import { pathToFileURL } from "url";
 
 const ROOT = repoRoot(import.meta.url);
 
@@ -268,7 +268,7 @@ class ${name}(BaseControl):
     `foliplus/js/control/${name}/index.ts`,
     `import { createControlEnv } from "#core/controlEnv.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#platform/locale.js";
 
 // ==================== Runtime Guard ====================
 createControlEnv(CONFIG);

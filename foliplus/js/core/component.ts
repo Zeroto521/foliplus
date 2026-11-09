@@ -2,7 +2,7 @@
 // Single source of truth for every foliplus component identity.
 // Components use CONFIG.name (runtime, from Python) for self-reference;
 // cross-component references use COMPONENTS.xxx (compile-time constant).
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");
 

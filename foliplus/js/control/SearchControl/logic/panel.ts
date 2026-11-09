@@ -6,14 +6,14 @@
 //
 // `map` is a free variable injected by the Python-side IIFE wrapper —
 // same mechanism as ./search.ts; declared in type/global.d.ts.
-import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { cssVar } from "#common/cssvar.js";
-import { dom } from "#common/dom.js";
-import { mountFloating } from "#common/floating.js";
-import { computePlacement } from "#ui/placement.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
+import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
+import { cssVar } from "#platform/cssvar.js";
+import { dom } from "#platform/dom.js";
+import { mountFloating } from "#platform/floating.js";
+import { applyOptionRowA11y, computePlacement, nextOptionId } from "#ui/index.js";
 
 // listCursor lives on SearchControl but not on SearchControlState; panel.ts
 // only touches it at panel-lifecycle boundaries (destroy on teardown, refresh
@@ -135,28 +135,31 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
 
   // Retained so Enter reuses the keyboard selection instead of re-geocoding.
   ctrl.currentItems = results;
-
   results.forEach((item: ResultItem, idx: number) => {
-    dom.el(
-      "div",
-      {
-        class: CLASSES.RESULT_ITEM,
-        "data-index": String(idx),
-        // Keyboard nav reads `data-query` to fill the input. History items
-        // carry their panel display (addrDisplay / coordDisplay); suggestions
-        // omit it and fall back to RESULT_TEXT in interaction.ts.
-        "data-query": item.query,
-        parent: ctrl.panelWrap,
-        onmousedown: (event: Event) => {
-          event.stopPropagation();
-          event.preventDefault();
-          // Panel closes only if the click actually places a marker. A
-          // mode-lock refusal leaves the panel open so the user sees the
-          // hint and can retry once the blocking mode clears.
-          if (item.onClick()) removePanel(ctrl);
-        },
+    const row = dom.el("div", {
+      class: CLASSES.RESULT_ITEM,
+      "data-index": String(idx),
+      // Keyboard nav reads `data-query` to fill the input. History items
+      // carry their panel display (addrDisplay / coordDisplay); suggestions
+      // omit it and fall back to RESULT_TEXT in interaction.ts.
+      "data-query": item.query,
+      parent: ctrl.panelWrap,
+      onmousedown: (event: Event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        // Panel closes only if the click actually places a marker. A
+        // mode-lock refusal leaves the panel open so the user sees the
+        // hint and can retry once the blocking mode clears.
+        if (item.onClick()) removePanel(ctrl);
       },
+    });
+    // The option contract (role/tabindex/aria-selected) comes from the
+    // shared row builder; the stable id feeds aria-activedescendant.
+    applyOptionRowA11y({ el: row, selected: false, id: nextOptionId("search-row") });
+    row.appendChild(
       dom.el("span", { class: CLASSES.RESULT_ICON }, { html: item.icon }),
+    );
+    row.appendChild(
       dom.el(
         "div",
         { class: CLASSES.RESULT_CONTENT },

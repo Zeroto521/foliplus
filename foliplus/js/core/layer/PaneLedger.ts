@@ -18,7 +18,7 @@
 // TypeScript `private`, never an ES `#` field: component bundles are inlined
 // into a Jinja2 template at render time and `class X { #f` would open a
 // `{#` comment tag. Same rule as PaneManager (see its header).
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("PaneLedger");
 

@@ -18,7 +18,7 @@
   "compilerOptions": {
     "types": ["vitest/globals", "node"],
     "paths": {
-      "#common/*": ["../../foliplus/js/common/*"],
+      "#platform/*": ["../../foliplus/js/platform/*"],
       "#core/*": ["../../foliplus/js/core/*"],
       "#ui/*": ["../../foliplus/js/ui/*"],
       "#control/*": ["../../foliplus/js/control/*"],

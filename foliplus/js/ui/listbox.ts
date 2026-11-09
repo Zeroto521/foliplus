@@ -1,7 +1,7 @@
-// common/listbox — the ONE listbox engine behind every self-built dropdown.
+// ui/listbox — the ONE listbox engine behind every self-built dropdown.
 //
-// The shared select replacement (common/dropdown) and the scheme picker
-// (common/schemePicker) grew up as two parallel implementations that shared
+// The shared select replacement (ui/dropdown) and the scheme picker
+// (ui/schemePicker) grew up as two parallel implementations that shared
 // only their ARIA contract text. Each bug needed the same fix twice (#832's
 // wheel fix, #824's disabled affordance), and the divergence was a *conscious*
 // decision (see schemePicker's note at :199-222): element <div> vs <button>,
@@ -21,24 +21,18 @@
 //
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
-import { dom } from "#common/dom.js";
+import { bindDismiss } from "./dismiss.js";
+import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import { ensureActiveVisible } from "./scrollIntoView.js";
+import type { DropdownSurface } from "./type.js";
+import { dom } from "#platform/dom.js";
 import {
   type Floating,
   bindFloatingGestures,
   mountFloating,
-} from "#common/floating.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
-import { throttleRaf } from "#common/throttle.js";
-import { bindDismiss } from "./dismiss.js";
-
-/** The three ARIA attributes shared by every option row. The engine paints
- *  the exact trio the dropdown and picker have always painted, so existing
- *  call sites and tests are untouched. */
-const applyOptionA11y = (el: HTMLElement, opts: { selected: boolean }): void => {
-  el.setAttribute("role", "option");
-  el.setAttribute("tabindex", "-1");
-  el.setAttribute("aria-selected", opts.selected ? "true" : "false");
-};
+} from "#platform/floating.js";
+import { registerPortalRoot } from "#platform/portalRoot.js";
+import { throttleRaf } from "#platform/throttle.js";
 
 /** One option row, mirroring the native <option> fields the panels already use. */
 interface ListboxItem {
@@ -78,14 +72,9 @@ type ListboxRowShape = {
 };
 
 /** The popup-host contract: where an open popup mounts and how it hears that
- *  the covering surface changed. Consumers pass common/fullscreen's
+ *  the covering surface changed. Consumers pass platform/fullscreen's
  *  dropdownSurface(scope); builders that create listboxes on a consumer's
  *  behalf (core/rampForm, core/label) forward it untouched. */
-interface DropdownSurface {
-  resolveHost?: (() => HTMLElement | null) | null;
-  onSurfaceChange?: ((cb: () => void) => () => void) | null;
-}
-
 /**
  * Dismiss ownership. Phase 1 (S-A..S-E): the engine is the ONLY implementation
  * of outside-press / Escape / one-at-a-time, so its "local" port is a single
@@ -205,8 +194,6 @@ const MIN_ROWS_BELOW = 2;
 
 let idCounter = 0;
 const nextListId = (): string => `foliplus-listbox-${String(++idCounter)}`;
-let rowIdCounter = 0;
-const nextRowId = (): string => `foliplus-listbox-row-${String(++rowIdCounter)}`;
 
 interface InternalState {
   trigger: HTMLElement;
@@ -289,7 +276,7 @@ const focusOption = (state: InternalState, index: number): void => {
   if (!option) return;
   option.focus();
   // A clamped popup scrolls internally; keep the focused row visible.
-  option.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  ensureActiveVisible(option);
   // The picker tracks the focused row on the trigger; the dropdown does not.
   if (state.spec.shape.activedescendant === "trigger") {
     // buildRow assigns a stable id to every row of the trigger shape, so the
@@ -321,9 +308,9 @@ const buildRow = (
   }
   // The picker shape tracks the focused row on the trigger via
   // aria-activedescendant, so its rows need stable ids to reference.
-  if (shape.activedescendant === "trigger") attrs.id = nextRowId();
+  if (shape.activedescendant === "trigger") attrs.id = nextOptionId("listbox-row");
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
-  applyOptionA11y(row, { selected });
+  applyOptionRowA11y({ el: row, selected, id: attrs.id });
   row.classList.toggle(shape.selectedClass, selected);
   // The trigger shape tracks the focused row via aria-activedescendant. A
   // click (or a programmatic .focus()) focuses a row directly, bypassing
@@ -762,5 +749,4 @@ const createListbox = (spec: ListboxSpec): Listbox => {
   return listbox;
 };
 
-export { applyOptionA11y, createListbox };
-export type { DropdownSurface };
+export { createListbox };

@@ -21,13 +21,13 @@
  *
  * Auth: `CODECOV_TOKEN` env (same GHA secret the coverage uploads use).
  */
-import { readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
-import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { repoRoot } from "../build-path.mjs";
 import { OK, WARN } from "../glyph.mjs";
 import { buildCodecovPayload, payloadToJson } from "./codecov-bundle-report.mjs";
+import { readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 
 const ROOT = repoRoot(import.meta.url);
 

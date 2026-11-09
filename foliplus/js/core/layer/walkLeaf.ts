@@ -22,8 +22,8 @@
 // value carried on a container's own options (a folium `foliplus={...}`
 // declaration) is invisible to them. `findNode` is `findLeaf`'s
 // container-level counterpart — the only node-level short-circuit here.
-import { internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import * as CONST from "./const.js";
+import { internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 
 type UnknownLayer = L.Layer | unknown;
 

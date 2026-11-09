@@ -13,8 +13,8 @@
 // TypeScript `private`, never an ES `#` field: component bundles are inlined
 // into a Jinja2 template at render time (see PaneManager's header for the
 // `{#` comment-tag failure this avoids).
-import { createLogger } from "#common/log.js";
 import type { LayerSurface } from "./LayerSurface.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("SurfaceIndex");
 

@@ -50,7 +50,7 @@
   }
 }
 /* ── Fill mode block ──────────────────────────────────────────
-   The mode row selects the fill arm; its detail rows sit flush underneath,
+   The mode row selects the fill mode; its detail rows sit flush underneath,
    same label column. No divider: the rows are one group with the mode row. */
 .foliplus-style-fill-detail {
   display: flex;
@@ -59,11 +59,11 @@
 }
 
 /* Original-colors detail: the author's own presentation, read-only. Every row
-   is a FORM_ROW on the same label/control grid as the by-value arm, and the
+   is a FORM_ROW on the same label/control grid as the by-value mode, and the
    control cell holds a box with the form-control frame — so the readout lands
    on the same right edge as the select it replaces instead of spilling across
    the panel. No chevron, no focus ring and no hover/active feedback: nothing
-   in this arm opens, toggles or edits. */
+   in this mode opens, toggles or edits. */
 .foliplus-style-fill-readonly {
   display: flex;
   align-items: center;
@@ -114,7 +114,7 @@
 }
 
 /* The strip is the same height and border as the by-value scheme bar
-   (common/scheme-picker.css), so the two arms' color preview reads alike. */
+   (common/scheme-picker.css), so the two modes' color preview reads alike. */
 .foliplus-style-fill-original-strip {
   flex: 1;
   height: var(--foliplus-scheme-picker-bar-height);
@@ -227,6 +227,12 @@
 .foliplus-style-icon-cell:hover {
   background: var(--foliplus-menu-row-hover-bg);
   color: var(--foliplus-menu-row-hover-ink);
+}
+
+.foliplus-style-icon-cell:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+  border-radius: var(--foliplus-radius-sm);
 }
 
 .foliplus-style-icon-cell .foliplus-marker-glyph {

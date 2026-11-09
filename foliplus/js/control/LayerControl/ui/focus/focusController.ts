@@ -9,7 +9,7 @@
 // Signature contract: modules that exclusively touch focus state (focus.ts,
 // focusMarquee.ts) receive a FocusController. Cross-subsystem code takes
 // LayerUI and reaches into `ui.focusController.*`.
-import type { FinalizeStep } from "#common/finalize.js";
+import type { FinalizeStep } from "#platform/finalize.js";
 
 class FocusController {
   /** Temporary rectangle overlay drawn while a focus is in progress. */

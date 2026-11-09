@@ -1,5 +1,5 @@
-import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
 import type { ExportFormat } from "./type.js";
+import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
 
 /** Timing / delay constants. */
 const TIMING = {

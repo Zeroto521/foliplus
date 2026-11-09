@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_REVOKE_DELAY, download } from "#common/download.js";
+import { DEFAULT_REVOKE_DELAY, download } from "#platform/download.js";
 
 describe("download", () => {
   let createdUrls: string[];

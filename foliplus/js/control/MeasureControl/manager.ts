@@ -1,4 +1,17 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
+import { mapProjector, placeLabels } from "./collision.js";
+import * as CONST from "./const.js";
+import * as Export from "./export.js";
+import * as SVGs from "./icon.js";
+import {
+  registerActiveEscape,
+  registerExportClick,
+  registerInteractions,
+} from "./interaction.js";
+import { MODE_MAP, type MeasureMode } from "./mode/index.js";
+import { MeasureStore } from "./store.js";
+import type { CollidableLabel } from "./type.js";
+import * as Util from "./util.js";
 import { COMPONENTS, generateId } from "#core/component.js";
 import {
   EVENTS,
@@ -27,23 +40,10 @@ import {
 } from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
-import { finalize, finalizeEach } from "#common/finalize.js";
-import * as Storage from "#common/storage.js";
-import { throttleRaf } from "#common/throttle.js";
-import type { Logger } from "#common/type.js";
-import { mapProjector, placeLabels } from "./collision.js";
-import * as CONST from "./const.js";
-import * as Export from "./export.js";
-import * as SVGs from "./icon.js";
-import {
-  registerActiveEscape,
-  registerExportClick,
-  registerInteractions,
-} from "./interaction.js";
-import { MODE_MAP, type MeasureMode } from "./mode/index.js";
-import { MeasureStore } from "./store.js";
-import type { CollidableLabel } from "./type.js";
-import * as Util from "./util.js";
+import { finalize, finalizeEach } from "#platform/finalize.js";
+import * as Storage from "#platform/storage.js";
+import { throttleRaf } from "#platform/throttle.js";
+import type { Logger } from "#platform/type.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
  *  This is the filter's whole domain and its option order: the panel offers

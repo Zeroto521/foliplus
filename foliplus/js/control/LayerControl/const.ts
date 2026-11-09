@@ -1,5 +1,5 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
-import { NUMBER_FORMAT } from "#common/format.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 /** Timing / delay constants. */
@@ -173,6 +173,16 @@ const CLASSES = {
   STYLE_BORDER_ROW: "foliplus-style-border-row",
   STYLE_BORDER_COLOR_INPUT: "foliplus-style-border-color-input",
   STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",
+  /** Border mode block: the mode row plus the active arm's detail rows —
+   *  the same block/detail shape as the fill mode block, so the two rows
+   *  read identically. The mode select is three-state on a line (original /
+   *  single / by value) and two-state on polygon/point (original / single),
+   *  and the detail rows reuse the STYLE_FILL_* control classes
+   *  (they describe the control shape, not the dimension). */
+  STYLE_BORDER_MODE_SELECT: "foliplus-style-border-mode-select",
+  STYLE_BORDER_DETAIL: "foliplus-style-border-detail",
+  STYLE_BORDER_BLOCK: "foliplus-style-border-block",
+
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
@@ -216,6 +226,7 @@ const CLASSES = {
   STYLE_SIZE_ROW: "foliplus-style-size-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
+  STYLE_ICON_COLOR_ROW: "foliplus-style-icon-color-row",
   /** The icon row's trigger button (shows the current glyph or 「原始」). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",

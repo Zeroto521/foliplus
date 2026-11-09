@@ -386,7 +386,7 @@ def test_docstring_documents_the_min_max_mapping_form() -> None:
 
 
 def test_docstring_declares_api_misuse_raises_valueerror() -> None:
-    """A filter key, no bound field, or the other arm raises at the cell."""
+    """A filter key, no bound field, or the other branch raises at the cell."""
     assert "``ValueError``" in _FLAT
     assert "``field`` key inside ``filter``" in _FLAT
     assert '``agg="count"``' in _FLAT

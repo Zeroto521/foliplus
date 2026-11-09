@@ -52,11 +52,11 @@
 // overwrite. This registry is currently an internal surface only — the
 // public extensibility API (a `registerDimension` re-exported from
 // `LayerControl/index.ts`) is deferred.
-import { DIM, type IntentKey } from "#core/layer/index.js";
-import { createLogger } from "#common/log.js";
-import type { LayerDimension } from "#control/LayerControl/type.js";
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
+import { DIM, type IntentKey } from "#core/layer/index.js";
+import { createLogger } from "#platform/log.js";
+import type { LayerDimension } from "#control/LayerControl/type.js";
 
 const log = createLogger("LayerControl");
 
@@ -105,6 +105,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  */
 const DIM_ORDER = [
   DIM.ICON,
+  DIM.ICON_COLOR,
   DIM.FILL,
   DIM.SIZE,
   DIM.BORDER,

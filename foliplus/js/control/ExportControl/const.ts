@@ -6,8 +6,8 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
-import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import type { ExportFormat } from "./type.js";
+import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 
 /** Per-format descriptor. */
 interface FormatSpec {

@@ -1,8 +1,9 @@
+import { makeControlEnv } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reverseGeocode } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { stopEvent } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
+import { stopEvent } from "#platform/dom.js";
+import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import {
   bindNodeDrag,
@@ -11,7 +12,6 @@ import {
   markDragSyntheticClick,
 } from "#control/MeasureControl/edit.js";
 import * as Util from "#control/MeasureControl/util.js";
-import { makeControlEnv } from "../fixture.js";
 
 vi.mock("#core/geocode/index.js", () => ({
   reverseGeocode: vi.fn(),

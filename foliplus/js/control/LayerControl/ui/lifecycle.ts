@@ -2,9 +2,6 @@
 // ready-signal re-entry. Split out of ui/index.ts (34.2). The LayerUI class
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
-import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { ROLE, sectionOf } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "../const.js";
 import { handleMoreClick, registerInteractions } from "../interaction.js";
 import {
@@ -69,6 +66,9 @@ import {
   scheduleStyleDimApply,
 } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
+import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
+import { ROLE, sectionOf } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 
 /**
  * Attach UI to the given container div.

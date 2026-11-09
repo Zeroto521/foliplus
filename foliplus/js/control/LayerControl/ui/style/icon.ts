@@ -12,7 +12,11 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
-import { ListCursor } from "#core/interaction/index.js";
+import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
+import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
   PICKER_GLYPHS,
@@ -21,19 +25,16 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  type AuthorGlyph,
+  applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
-import { dom } from "#common/dom.js";
-import { bindDismiss } from "#ui/dismiss.js";
-import { formRow } from "#ui/index.js";
+import { dom } from "#platform/dom.js";
+import { bindDismiss, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
-import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;
@@ -54,7 +55,12 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  applyIconToLeaves(layer, intent.value);
+  // Merge the current marker color into the SAME derived-icon
+  // construction (the color is a separate dimension, but setIcon
+  // replaces the whole icon, so a glyph edit must carry the current
+  // color and a color edit must carry the current glyph).
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  applyIconToLeaves(layer, intent.value, typeof color === "string" ? color : undefined);
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
@@ -77,6 +83,13 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   resetIconLeaves(layer);
+  // Orthogonal: a user-set marker color survives a glyph reset. Re-derive
+  // the color on the freshly restored author icons so the color and the
+  // glyph never split across two writes.
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  if (typeof color === "string") {
+    applyIconColorToLeaves(layer, color, currentGlyph(ui, layerId));
+  }
 };
 /** The current glyph name for the row, or null when the layer still shows
  *  the author's icon (uncovered). */
@@ -85,11 +98,13 @@ const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
   return intent?.kind === ICON_KIND.GLYPH ? intent.value : null;
 };
 /** The author's own glyph name when the layer's marker icon declares one
- *  we can render (awesome-markers/Leaflet put the name in
+ *  (awesome-markers/Leaflet put the name in
  *  `leaf.options.icon.options.icon`). Used for the row preview only — the
  *  write semantics are unchanged: an uncovered layer keeps the author icon.
- *  Walks leaves and returns the first recognized name, or null. */
-const authorGlyphName = (ui: LayerUI, layerId: string): string | null => {
+ *  Walks leaves and returns the first declared name with its syntax verdict
+ *  (a valid name wins, else the first invalid declaration so a typo is never
+ *  silently dropped), or null when no leaf declares a string icon name. */
+const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   return authorGlyphNameOnLayer(layer);
@@ -126,20 +141,24 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   trigger.append(glyphBox, nameBox);
 
   const renderTrigger = () => {
-    // Covered: the user's glyph. Uncovered: the author's recognized glyph
+    // Covered: the user's glyph. Uncovered: the author's declared glyph
     // (preview only — the write is still the author icon), else the
     // author-original label.
     const userGlyph = currentGlyph(ui, layerId);
-    const authorName = userGlyph ? null : authorGlyphName(ui, layerId);
+    const author = userGlyph ? null : authorGlyphName(ui, layerId);
     const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
-    const value = userGlyph ?? authorName ?? null;
+    const value = userGlyph ?? author?.name ?? null;
     const glyph = value ? resolveGlyph(value) : null;
     // The user's picked/persisted glyph renders in the panel's fa-solid family;
     // an author-declared glyph renders under the author's own prefix
     // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
     // a name the map actually draws is never reported unavailable.
     const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
-    if (value && glyph && available) {
+    // An author-declared name that fails glyph syntax is NEVER renderable, no
+    // matter what the stylesheet paints — it gets its own unavailable state
+    // rather than silently reading as the author-original label.
+    const authorInvalid = !userGlyph && author !== null && !author.valid;
+    if (value && glyph && available && !authorInvalid) {
       // The name is syntactically valid AND the loaded stylesheet paints it:
       // the happy path — show the glyph and its name.
       glyphBox.innerHTML = glyphHtml(glyph);
@@ -147,18 +166,24 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
       trigger.title = value;
       trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else if (value) {
-      // A name we cannot render: either the stylesheet does not paint it (a
-      // syntactically valid but unsupported name) or it fails glyph syntax.
+      // A name we cannot render. Two distinct reasons, two messages: an
+      // author-invalid name (syntax failed — a typo, never paintable) vs a
+      // syntactically valid name the loaded stylesheet does not paint.
       // Never silently show "Original" or a blank tofu — surface the actual
       // name in an explicit unavailable state (dashed-outline circle preview)
       // with a title/aria-label explaining the fallback.
       glyphBox.innerHTML = `<span class="${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}" aria-hidden="true"></span>`;
       nameBox.textContent = value;
-      const hint = ui.T("style_icon_unavailable").replace("{name}", value);
+      const hint = (
+        authorInvalid ? ui.T("style_icon_invalid") : ui.T("style_icon_unavailable")
+      ).replace("{name}", value);
       trigger.title = hint;
       trigger.setAttribute("aria-label", hint);
       trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
+      // No user glyph and no author-declared name: the true author-original
+      // label. (An author-invalid declaration never reaches here — author.name
+      // is non-null, so value is non-null and the unavailable branch above owns it.)
       glyphBox.innerHTML = "";
       nameBox.textContent = ui.T("style_icon_original");
       trigger.title = ui.T("style_icon_original");
@@ -183,11 +208,16 @@ const bindGlyphGrid = (
 ): void => {
   let grid: HTMLElement | null = null;
   let unbind: (() => void) | null = null;
+  let releaseClaim: (() => void) | null = null;
   const close = () => {
     // Pair the dismissal teardown with the close path (never a synthetic
     // `remove` event): unbind is captured once per open.
     unbind?.();
     unbind = null;
+    // The grid owns the keyboard while it is open: release on close so the
+    // layer list regains its arrows / Enter / Space.
+    releaseClaim?.();
+    releaseClaim = null;
     grid?.remove();
     grid = null;
     trigger.setAttribute("aria-expanded", "false");
@@ -197,9 +227,18 @@ const bindGlyphGrid = (
   const open = () => {
     /* v8 ignore next -- defensive: trigger handler closes before re-opening */
     if (grid) return;
-    grid = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
+    const built = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
+    grid = built.grid;
+    // While the grid is open it owns the arrow / Home / End / Enter / Space
+    // keys: a press on a focused cell must move the grid cursor, not toggle a
+    // layer row behind the popup. The claim makes the central dispatcher and
+    // every other handler stand aside; released in close().
+    releaseClaim = claimKeys(grid);
     trigger.setAttribute("aria-expanded", "true");
     row.appendChild(grid);
+    // Put focus INTO the grid now that it is in the document — the real
+    // ownership is DOM focus, the claim is only the dispatcher guard.
+    built.focusInitial();
     // Outside press + Escape + focus return, as one primitive. The old
     // implementation got this wrong twice: `once: true` consumed the
     // pointerdown listener on the first press anywhere (so the second outside
@@ -213,7 +252,10 @@ const bindGlyphGrid = (
       containment: target =>
         trigger.contains(target) || (grid as HTMLElement).contains(target),
       onClose: close,
-      escapeTarget: document,
+      // Escape is captured on window (the default), which runs BEFORE the
+      // overlay registry's document-capture dispatcher: the grid is the
+      // innermost open surface, so one Escape closes the grid and leaves the
+      // style panel open (the next Escape closes that).
     });
     grid.dataset.closeOnDoc = "1";
     grid.dataset.closeOnKey = "1";
@@ -232,7 +274,7 @@ const buildGlyphGrid = (
   trigger: HTMLButtonElement,
   close: () => void,
   renderTrigger: () => void,
-): HTMLElement => {
+): { grid: HTMLElement; focusInitial: () => void } => {
   const current = currentGlyph(ui, layerId);
   const grid = dom.el("div", {
     class: CONST.CLASSES.STYLE_ICON_GRID,
@@ -250,6 +292,7 @@ const buildGlyphGrid = (
         role: "gridcell",
         title: glyph,
         "data-glyph": glyph,
+        id: nextOptionId("icon-cell"),
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
       { html: glyphHtml(glyph) },
@@ -261,6 +304,9 @@ const buildGlyphGrid = (
       commitGlyph(ui, layerId, glyph);
       renderTrigger();
       close();
+      // The grid is gone: hand focus back to the trigger, the element that
+      // opened it (a keyboard commit must not leave focus on a removed cell).
+      trigger.focus();
     };
     cells.push(cell);
     grid.appendChild(cell);
@@ -278,11 +324,26 @@ const buildGlyphGrid = (
     mode: "roving",
     cols: GLYPH_GRID_COLS,
     roles: { list: "grid", item: "gridcell" },
+    // Cells carry their own role/id from the shared id source below; the
+    // cursor only paints focus + aria-activedescendant.
+    paintOptionContract: false,
     // Enter/Space on a focused cell commits + closes (the cell's click).
     onActivate: (_, el) => (el as HTMLButtonElement).click(),
   });
   cursor.bindKeys(grid);
-  return grid;
+  // The popup must hold DOM focus on open: without it the key press goes to
+  // the element that had focus (a row checkbox, a slider thumb) and toggles
+  // the layer behind the popup — the claim alone cannot redirect a browser's
+  // key, it only stands the dispatcher aside. Focus the current cell (or the
+  // first) once the grid is appended; the cell is a real button so the
+  // roving tabindex contract puts tabindex=0 on it.
+  const focusInitial = (): void => {
+    const initial = current
+      ? cells.findIndex(cell => cell.getAttribute("data-glyph") === current)
+      : -1;
+    cursor.set(initial >= 0 ? initial : 0);
+  };
+  return { grid, focusInitial };
 };
 /** Register icon as a per-layer dimension. The descriptor owns the
  *  intent+persist slot; `commitGlyph` / `resetLayerIcon` stay as thin
@@ -315,6 +376,7 @@ export {
   applyIconToLayer,
   buildIconRow,
   commitGlyph,
+  currentGlyph,
   layerCanIcon,
   resetLayerIcon,
 };

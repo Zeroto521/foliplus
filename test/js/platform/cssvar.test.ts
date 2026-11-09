@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { cssVar } from "#common/cssvar.js";
+import { cssVar } from "#platform/cssvar.js";
 
 describe("cssVar", () => {
   let el: HTMLElement;

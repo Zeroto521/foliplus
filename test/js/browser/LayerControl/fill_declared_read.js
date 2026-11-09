@@ -1,9 +1,9 @@
 // Read the fill row of a layer whose fill the author *declared*
-// (`foliplus={"fill": {...}}`): which arm the row opens on, the values it
+// (`foliplus={"fill": {...}}`): which mode the row opens on, the values it
 // states, and the colors actually painted on the map.
 //
 // Separate from `fill_author_read` on purpose: that probe describes the
-// read-only "Original Colors" arm (#781), this one the declared by-value arm
+// read-only "Original Colors" mode (#781), this one the declared by-value mode
 // (#789). A declaration is not user intent, so the readouts here are the same
 // control values the panel renders — no stored record is touched.
 () => {
@@ -25,7 +25,7 @@
     field: fieldSelect ? fieldSelect.value : null,
     classes: classesSelect ? classesSelect.value : null,
     schemeTitle: schemeTrigger ? schemeTrigger.title : null,
-    // The declared ramp is the by-value arm: no solid swatch, and no
+    // The declared ramp is the by-value mode: no solid swatch, and no
     // "Original Colors" option on a layer the author did not paint per feature.
     hasSwatch: !!panel?.querySelector(".foliplus-style-fill-color-input"),
     originalAvailable: !!modeSelect?.querySelector('option[value="original"]'),

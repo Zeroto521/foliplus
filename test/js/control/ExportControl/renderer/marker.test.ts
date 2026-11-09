@@ -1,13 +1,3 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#control/ExportControl/const.js";
-import {
-  collectPaneRoots,
-  renderFontAwesome,
-  renderMarkers,
-  renderRemaining,
-  renderTextLabels,
-} from "#control/ExportControl/renderer/marker.js";
-import * as UTIL from "#control/ExportControl/util.js";
 import {
   makeRenderer,
   pinBox,
@@ -19,6 +9,16 @@ import {
   withLayerPanes,
   withStyle,
 } from "./fixture.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#control/ExportControl/const.js";
+import {
+  collectPaneRoots,
+  renderFontAwesome,
+  renderMarkers,
+  renderRemaining,
+  renderTextLabels,
+} from "#control/ExportControl/renderer/marker.js";
+import * as UTIL from "#control/ExportControl/util.js";
 
 type MockCtx = CanvasRenderingContext2D & {
   drawImage: { mock: { calls: any[][] } };

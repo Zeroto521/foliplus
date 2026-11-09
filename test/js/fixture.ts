@@ -47,8 +47,8 @@ import { resolve } from "node:path";
 import { vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { createLogger } from "#common/log.js";
+import { createScopedTranslator, createTranslator } from "#platform/locale.js";
+import { createLogger } from "#platform/log.js";
 // Direct import, not the domain barrel: fixture.ts loads during vitest setup,
 // before the `window.map` mock exists, and the barrel pulls in orchestration.ts
 // whose const.ts reads `map.getContainer()` at module load. LayerIntentStore

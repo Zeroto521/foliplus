@@ -1,3 +1,4 @@
+import { runCli, trapExit } from "../fixture.js";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -20,7 +21,6 @@ import {
   scaffoldControl,
   splitArgv,
 } from "#script/tool/new-control.mjs";
-import { runCli, trapExit } from "../fixture.js";
 
 type NewControlArgs = {
   help: boolean;
@@ -359,10 +359,10 @@ describe("buildSkeleton", () => {
     ]);
   });
 
-  it("uses the core controlEnv import (not the old common/guard path)", () => {
+  it("uses the core controlEnv import (not the guard path)", () => {
     const ts = skeleton.files.get("foliplus/js/control/FooControl/index.ts");
     expect(ts).toContain('from "#core/controlEnv.js"');
-    expect(ts).not.toContain("#common/guard.js");
+    expect(ts).not.toContain("#core/guard.js");
   });
 
   it("only references design tokens that exist in token.css", () => {

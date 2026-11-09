@@ -17,11 +17,11 @@
  *
  * This module has no CLI of its own — it is imported by the two gates.
  */
+import { parseArgs as parseArgsCore } from "../args.mjs";
+import { repoRoot } from "../build-path.mjs";
 import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { brotliCompressSync } from "zlib";
-import { parseArgs as parseArgsCore } from "../args.mjs";
-import { repoRoot } from "../build-path.mjs";
 
 const ROOT = repoRoot(import.meta.url);
 

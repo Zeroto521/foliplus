@@ -16,7 +16,7 @@
 // checks are how one of them ends up not knowing about a portal.
 //
 // Ownership comes from the overlay itself: a portal registers the node it
-// mounted together with the trigger it belongs to (common/portalRoot) while
+// mounted together with the trigger it belongs to (platform/portalRoot) while
 // that node is live, so a new portal is covered everywhere the moment its
 // primitive registers — no panel needs a new selector. The registration is
 // scoped to the owning overlay: a node registered for one panel's trigger is
@@ -24,7 +24,7 @@
 // scope (it answers "inside" for a popup another panel owns — the same
 // press-stealing bug from the other side), which is why this predicate takes
 // no selector.
-import { isPortalOf } from "#common/portalRoot.js";
+import { isPortalOf } from "#platform/portalRoot.js";
 
 /** True when `target` belongs to the overlay owned by `panel`: a descendant of
  *  the panel itself, or a node some overlay registered as its portal root while

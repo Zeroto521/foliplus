@@ -64,7 +64,7 @@ class LayerControlBrowserBase:
 
     @staticmethod
     def _ramp_layer() -> folium.GeoJson:
-        """A polygon layer with a numeric property, for the fill ramp arm."""
+        """A polygon layer with a numeric property, for the fill ramp mode."""
         return folium.GeoJson(
             json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
             name="Polygon data",
@@ -73,9 +73,9 @@ class LayerControlBrowserBase:
     @staticmethod
     def _declared_ramp_layer() -> folium.GeoJson:
         """A polygon layer with a declared value fill (numeric property),
-        so the style panel opens on the by-value arm and the method select
+        so the style panel opens on the by-value mode and the method select
         is present. A plain layer with only a numeric property falls to the
-        solid arm (no declared ramp), which has no method select."""
+        solid mode (no declared ramp), which has no method select."""
         data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
         for i, feat in enumerate(data["features"]):
             feat["properties"] = {"score": 10 + i}

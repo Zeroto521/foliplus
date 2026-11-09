@@ -1,6 +1,13 @@
 // Value-based fill rendering and its editable "按值着色 / Color by value" UI — the
 // FILL declaration and the value mode's presentation share this file. The paint
 // engine (the shared by-value mode) lives in valuePaint.ts.
+import { INTENT, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { authorFill, methodLabel } from "./fillAuthor.js";
+import { layerFields } from "./label.js";
+import { getDimension } from "./registry.js";
+import { FACE, walkFillLeaves } from "./styleBag.js";
+import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
@@ -8,27 +15,25 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
-import { DIM } from "#core/layer/index.js";
-import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
+import {
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+} from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
+} from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
-import { INTENT, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { authorFill, methodLabel } from "./fillAuthor.js";
-import { layerFields } from "./label.js";
-import { getDimension } from "./registry.js";
-import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, applyValuePaint } from "./valuePaint.js";
 
 const resolveFillMode = (
   ui: LayerUI,
@@ -44,7 +49,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
   dim: DIM.FILL,
   face: FACE.FILL,
   colorKey: "fillColor",
-  opacity: {
+  flatScalar: {
     key: "fillOpacity",
     read: (ui, layerId) => getIntent(ui, layerId, INTENT.FILL_OPACITY),
   },
@@ -74,7 +79,7 @@ const applyValueFill = (
   liveValue: () => FillValueConfig | undefined = () =>
     FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
-  applyValuePaint(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
+  paintByValue(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
 };
 
 export {
@@ -99,9 +104,9 @@ const log = createLogger("foliplus");
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
 const persistedValue = (value: FillValueConfig): FillValueConfig =>
-  value.kind === "category"
+  isCategoryKind(value.kind)
     ? {
-        kind: "category",
+        kind: VALUE_KIND.CATEGORY,
         field: value.field,
         // method/classes are type-required (the union stays assignable to
         // the numeric ValueConfig) but unused at runtime on a category.
@@ -110,7 +115,7 @@ const persistedValue = (value: FillValueConfig): FillValueConfig =>
         scheme: value.scheme,
       }
     : {
-        kind: "numeric",
+        kind: VALUE_KIND.NUMERIC,
         field: value.field,
         method: value.method,
         classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
@@ -188,7 +193,7 @@ const resolvedValue = (
         ...value,
         field: resolveField(
           value.field,
-          (value.kind ?? "numeric") === "category"
+          isCategoryKind(value.kind)
             ? categoryFields(ui, layerId)
             : numericFields(ui, layerId),
         ),
@@ -249,10 +254,10 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
       return undefined;
     }
     config =
-      inferred === "category"
+      inferred === VALUE_KIND.CATEGORY
         ? {
             ...declared,
-            kind: "category",
+            kind: VALUE_KIND.CATEGORY,
             // An inferred categorical column needs a qualitative palette. The
             // author who named none gets the category default; a named scheme
             // is the author's choice and is kept verbatim on either mode.
@@ -261,17 +266,16 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
                 ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
                 : declared.scheme,
           }
-        : { ...declared, kind: "numeric" };
+        : { ...declared, kind: VALUE_KIND.NUMERIC };
   }
   // The declaration kind selects the candidate set: a category value fill
   // needs its column among the categorical fields, a numeric value fill among
   // the numeric ones. A declaration whose field vanished from the matching
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
-  const fields =
-    (config.kind ?? "numeric") === "category"
-      ? categoryFields(ui, layerId)
-      : numericFields(ui, layerId);
+  const fields = isCategoryKind(config.kind)
+    ? categoryFields(ui, layerId)
+    : numericFields(ui, layerId);
   return fields.includes(config.field) ? config : undefined;
 };
 
@@ -312,7 +316,7 @@ const defaultValueConfig = (
   field: string,
   classes: number = CLASS_COUNT.DEFAULT,
 ): FillValueConfig => ({
-  kind: "numeric",
+  kind: VALUE_KIND.NUMERIC,
   field,
   method: CONST.FILL_VALUE.METHOD_DEFAULT,
   classes,

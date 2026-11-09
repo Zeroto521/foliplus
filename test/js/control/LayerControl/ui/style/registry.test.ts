@@ -11,6 +11,7 @@
 // happen exactly once per file to avoid collisions. That registration
 // is at file scope below; every test after it can rely on the test dim
 // being present.
+import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
@@ -35,7 +36,6 @@ import {
   ZOOM_RANGE_DIMENSION,
   resetLayerZoomRange,
 } from "#control/LayerControl/ui/style/zoomRange.js";
-import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";
 const testDim = {
@@ -129,7 +129,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind !== "none")
       .map(d => d.key)
       .sort();
-    expect(replaying).toEqual(["border", "fill", "icon", "label", "size"]);
+    expect(replaying).toEqual(["border", "fill", "icon", "iconColor", "label", "size"]);
     // Every face of the coalescer is claimed by exactly one frame policy —
     // a face nobody schedules would strand late leaves; a face claimed
     // twice would fight over one queue slot.
@@ -137,7 +137,7 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind === "frame")
       .map(d => (d.contentChange as { face: string }).face)
       .sort();
-    expect(faces).toEqual(["fill", "icon", "label", "size", "stroke"]);
+    expect(faces).toEqual(["fill", "icon", "iconColor", "label", "size", "stroke"]);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
@@ -360,11 +360,17 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
     // Pinned so a future edit to the constant cannot silently widen the
     // delegated sweep past the rows a delegated layer does not own: fill and
     // border write through setStyle, size through setRadius, icon through
-    // setIcon.
+    // setIcon, iconColor through setIcon (color and glyph share ONE
+    // icon construction, so marker color is LayerControl-owned like icon).
     expect([...DELEGATED_DIM_ORDER]).toEqual(["opacity", "zoomRange"]);
     expect([...DELEGATED_DIM_ORDER]).toEqual(
       [...DIM_ORDER].filter(
-        k => k !== "fill" && k !== "border" && k !== "size" && k !== "icon",
+        k =>
+          k !== "fill" &&
+          k !== "border" &&
+          k !== "size" &&
+          k !== "icon" &&
+          k !== "iconColor",
       ),
     );
   });
@@ -696,6 +702,8 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
     expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       weight: 3,
+      mode: "solid",
+      ramp: undefined,
     });
   });
 
@@ -703,6 +711,8 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
     expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       weight: 1,
+      mode: "solid",
+      ramp: undefined,
     });
   });
 

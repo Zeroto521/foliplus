@@ -3,7 +3,7 @@
 // makeCtrl builds the HeatmapControlUI state object carrying its own CONFIG so
 // the UI functions can be exercised with per-instance configuration.
 import { vi } from "vitest";
-import { createScopedTranslator, createTranslator } from "#common/locale.js";
+import { createScopedTranslator, createTranslator } from "#platform/locale.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 

@@ -1,3 +1,4 @@
+// ui/style/valuePaint.ts — the face-independent by-value style mode shared by every LayerControl style dimension that paints a leaf by a feature value.
 /**
  * The by-value style mode — the face-independent skeleton shared by every
  * LayerControl style dimension that paints a leaf by a feature value.
@@ -5,12 +6,12 @@
  * This is the LayerControl style subsystem's shared mechanism, NOT a
  * fill-specific implementation. The face-specific surface — which style slot
  * the ramp color lands in (`colorKey`), which leaf walker reaches the carrier
- * leaves (`walkLeaves`), the user's opacity for this face (`opacity`, or null
- * for a face without one), the highlight dimension (`dim`), the write face
- * (`face`), and the two face-level live readers (`isValueActive`,
+ * leaves (`walkLeaves`), the user's scalar flatScalar for this face (`flatScalar`, or
+ * null for a face without one), the highlight dimension (`dim`), the write
+ * face (`face`), and the two face-level live readers (`isValueActive`,
  * `readValueConfig`) — is injected as a `ValueFaceDecl`. The mode body
  * contains no FILL/STROKE literal and no face branch: a new dimension
- * declares its own `ValueFaceDecl` and calls `applyValuePaint`.
+ * declares its own `ValueFaceDecl` and calls `paintByValue`.
  * Sibling arms (borderValue / size / icon) reuse it directly.
  *
  * If a NON-LayerControl component ever needs to paint by value, that is a
@@ -21,13 +22,13 @@
  * (`scheduleStyleDimApply`) coalesces the whole apply to at most one per
  * frame, so a scheme drag does not trigger a walk per input step.
  *
- * The user's flat-mode opacity (e.g. solid-mode `fillOpacity`) rides along on
- * every leaf of this face, including ones the value ramp cannot classify:
- * the ramp replaces only the color, so dropping the opacity here would make a
- * mode switch back to the flat mode silently lose it, and a valueless leaf
- * would keep the author's opacity next to the user's on a classifiable
- * neighbour of the same layer. When a face has no user opacity (`opacity` is
- * null) nothing rides along.
+ * The user's flat-mode scalar flatScalar (e.g. solid-mode `fillOpacity`, or the
+ * stroke's `weight`) rides along on every leaf of this face, including ones
+ * the value ramp cannot classify: the ramp replaces only the color, so
+ * dropping the flatScalar here would make a mode switch back to the flat mode
+ * silently lose it, and a valueless leaf would keep the author's flatScalar next
+ * to the user's on a classifiable neighbour of the same layer. When a face
+ * has no user flatScalar (`flatScalar` is null) nothing rides along.
  *
  * Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
  * reads the live value config and the cached breaks. If the config changed
@@ -35,16 +36,6 @@
  * getter returns null so the author's face stays in force — the next
  * scheduler tick rebuilds the cache.
  */
-import type { FillValueConfig } from "#core/layer/intent.js";
-import {
-  buildCategoryRamp,
-  buildRamp,
-  categoryLabel,
-  colorFor,
-  isFiniteNumber,
-  leafPropertyValue,
-} from "#core/ramp.js";
-import { createLogger } from "#common/log.js";
 import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
@@ -56,6 +47,17 @@ import {
   styleDimOverAuthor,
   styleDimPayload,
 } from "./styleBag.js";
+import type { FillValueConfig } from "#core/layer/index.js";
+import {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+} from "#core/ramp.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");
 
@@ -76,7 +78,7 @@ type CollectedLeaf = {
  *  cache. An explicit "numeric" is read as the same typing as absence — the
  *  persistence reader strips it, so the two spellings are one config. */
 const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
-  (a.kind ?? "numeric") === (b.kind ?? "numeric") &&
+  (a.kind ?? VALUE_KIND.NUMERIC) === (b.kind ?? VALUE_KIND.NUMERIC) &&
   a.field === b.field &&
   a.method === b.method &&
   a.classes === b.classes &&
@@ -85,14 +87,16 @@ const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
 /** The leaf walker: visits exactly the carrier leaves for the mode's face. */
 type ValueLeafWalker = (node: StyleCarrier, fn: (leaf: StyleSetter) => void) => void;
 
-/** The face's user opacity: the style slot it writes to plus the live reader.
- *  Paired rather than a bare slot so the mode never branches on "does this face
- *  have an opacity" — a face without one passes `null` and the mode simply
- *  skips it. */
-type ValueOpacity = {
-  /** The style slot the user's opacity lands in (e.g. `fillOpacity`). */
+/** The face's live scalar: the one style property this face owns that
+ *  is not replaced by the ramp but must ride every leaf (the fill's
+ *  `fillOpacity`, the stroke's `weight`) — the style slot it writes to plus
+ *  the live reader. Paired rather than a bare slot so the mode never branches
+ *  on "does this face have a flatScalar" — a face without one passes `null` and
+ *  the mode simply skips it. */
+type FlatScalar = {
+  /** The style slot the flatScalar lands in (e.g. `fillOpacity`, `weight`). */
   key: string;
-  /** The live reader for this face's opacity intent. */
+  /** The live reader for this face's flatScalar intent. */
   read: (ui: LayerUI, layerId: string) => number | undefined;
 };
 
@@ -106,8 +110,8 @@ type ValueFaceDecl = {
   face: StyleFace;
   /** The style slot the ramp color lands in (`fillColor`, `color`...). */
   colorKey: string;
-  /** The user's opacity for this face, or null when the face has none. */
-  opacity: ValueOpacity | null;
+  /** The user's scalar flatScalar for this face, or null when the face has none. */
+  flatScalar: FlatScalar | null;
   /** The leaf walker reaching only the carrier leaves for this face. */
   walkLeaves: ValueLeafWalker;
   /** Whether the value mode is active for a layer (the face's mode check). */
@@ -123,7 +127,7 @@ type ValueFaceDecl = {
  *  Two-pass walk: collect `feature.properties[field]` values, then write
  *  per-leaf color via styleBag. Every carrier leaf is written on every apply:
  *  one the value ramp can classify gets the ramp's color, one it cannot gets the
- *  author's own color and visibility bit back, and both get the user's opacity.
+ *  author's own color and visibility bit back, and both get the user's flatScalar.
  *
  *  Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
  *  reads the live value intent and uses the cached breaks to re-derive the
@@ -133,7 +137,7 @@ type ValueFaceDecl = {
  *
  *  The face-specific surface is the `decl`; the two optional readers default
  *  to the decl's own readers so a caller can drive the mode with a decl alone. */
-const applyValuePaint = (
+const paintByValue = (
   ui: LayerUI,
   layerId: string,
   value: FillValueConfig,
@@ -159,8 +163,8 @@ const applyValuePaint = (
 
   // Live reader: the pin replays whatever the user has since chosen, not the
   // value frozen at build time.
-  const readOpacity = (): number | undefined =>
-    decl.opacity !== null ? decl.opacity.read(ui, layerId) : undefined;
+  const readflatScalar = (): number | undefined =>
+    decl.flatScalar !== null ? decl.flatScalar.read(ui, layerId) : undefined;
 
   // ── Pass 1: collect values ──
   // The collection is local to this call on purpose. A module-level scratch
@@ -171,7 +175,7 @@ const applyValuePaint = (
   const values: number[] = [];
   const categories: string[] = [];
   const collected: CollectedLeaf[] = [];
-  const category = value.kind === "category";
+  const category = isCategoryKind(value.kind);
   const seenCategories = new Set<string>();
   decl.walkLeaves(layer, leaf => {
     const read = leafPropertyValue(leaf, value.field);
@@ -222,10 +226,10 @@ const applyValuePaint = (
   // Iterating the collection instead of re-walking the tree: the two passes
   // then share one leaf order and no shared state.
   for (const { leaf, value: leafValue, category: leafCategory } of collected) {
-    const opacity = readOpacity();
+    const flatScalar = readflatScalar();
     const write: Record<string, unknown> = {};
-    if (opacity !== undefined && decl.opacity !== null) {
-      write[decl.opacity.key] = opacity;
+    if (flatScalar !== undefined && decl.flatScalar !== null) {
+      write[decl.flatScalar.key] = flatScalar;
     }
     const paint = category
       ? catScale !== null && leafCategory !== undefined
@@ -238,13 +242,13 @@ const applyValuePaint = (
       // The value ramp owns this leaf's color, so the face's visibility bit
       // is lit and the author's color is replaced. The payload stays minimal:
       // a named color replaces whatever the previous mode left in that slot,
-      // and the opacity is named only when the user chose one, so the
+      // and the flatScalar is named only when the user chose one, so the
       // author's stays in force.
       write[decl.colorKey] = paint;
       commitStyleDim(leaf, write, decl.face);
     } else {
       // Outside the value ramp's reach: the author's color and visibility
-      // bit ride the merge untouched, but the user's opacity still does.
+      // bit ride the merge untouched, but the user's flatScalar still does.
       commitStyleDimMerged(leaf, write, decl.face, false);
     }
 
@@ -263,7 +267,7 @@ const applyValuePaint = (
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameValueConfig(currentValue, value)) return null;
-      const op = readOpacity();
+      const replayScalar = readflatScalar();
       const curVal = leafPropertyValue(leaf, value.field);
       if (category && catScale !== null) {
         const label = categoryLabel(curVal);
@@ -272,7 +276,7 @@ const applyValuePaint = (
           return styleDimPayload(
             {
               [decl.colorKey]: color,
-              ...(decl.opacity ? { [decl.opacity.key]: op } : {}),
+              ...(decl.flatScalar ? { [decl.flatScalar.key]: replayScalar } : {}),
             },
             decl.face,
           );
@@ -281,26 +285,31 @@ const applyValuePaint = (
       if (!category && scale !== null && isFiniteNumber(curVal)) {
         // The face's visibility bit rides the replay too — folium's
         // resetStyle would otherwise re-apply the author's hollow flag on
-        // mouseout and hide the fill. The opacity replays alongside it so the
-        // hover restore does not drop the user's transparency.
+        // mouseout and hide the fill. The flatScalar replays alongside it so the
+        // hover restore does not drop the user's scalar.
         return styleDimPayload(
           {
             [decl.colorKey]: colorFor(scale, curVal),
-            ...(decl.opacity ? { [decl.opacity.key]: op } : {}),
+            ...(decl.flatScalar ? { [decl.flatScalar.key]: replayScalar } : {}),
           },
           decl.face,
         );
       }
       // Out of the value ramp's reach: folium's restore already gave the author's
       // color and visibility bit back, so the only thing worth re-applying on
-      // top of it is the user's opacity. With none chosen there is nothing
+      // top of it is the user's flatScalar. With none chosen there is nothing
       // to add, and null lets the restore stand instead of rewriting it.
-      if (decl.opacity === null) return null;
-      if (op === undefined) return null;
-      return styleDimOverAuthor(leaf, { [decl.opacity.key]: op }, decl.face, false);
+      if (decl.flatScalar === null) return null;
+      if (replayScalar === undefined) return null;
+      return styleDimOverAuthor(
+        leaf,
+        { [decl.flatScalar.key]: replayScalar },
+        decl.face,
+        false,
+      );
     });
   }
 };
 
-export { applyValuePaint };
+export { paintByValue };
 export type { ValueFaceDecl };

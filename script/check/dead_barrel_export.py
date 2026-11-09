@@ -426,13 +426,13 @@ def _resolve_import(from_file: str, specifier: str, repo_root: str) -> str | Non
 
     Handles:
     - Relative paths: ``./x.js``, ``../x.js``
-    - Path aliases: ``#common/x.js``, ``#core/x.js``, ``#foliplus/x.js``
+    - Path aliases: ``#platform/x.js``, ``#core/x.js``, ``#foliplus/x.js``
     - Extension: ``.js`` → ``.ts``
     - Directory: ``./x.js`` → ``./x/index.ts`` if x is a directory
     """
-    if specifier.startswith("#common/"):
-        base = Path(repo_root) / "foliplus/js/common"
-        spec = specifier[len("#common/") :]
+    if specifier.startswith("#platform/"):
+        base = Path(repo_root) / "foliplus/js/platform"
+        spec = specifier[len("#platform/") :]
     elif specifier.startswith("#core/"):
         base = Path(repo_root) / "foliplus/js/core"
         spec = specifier[len("#core/") :]

@@ -10,10 +10,10 @@
 //
 // The form row / label / control builders are NOT here: `core/rampForm` (the
 // Heatmap + LayerControl shared field/classes/scheme rows) depends on the
-// `common/form.ts` ones, so those stay in common and ui/ only adds what a
+// `platform/form.ts` ones, so those stay in platform and ui/ only adds what a
 // panel needs and core never imports.
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { PANEL_CLASS } from "./panelClassName.js";
+import { dom } from "#platform/dom.js";
 
 /** One read-only value box: the form-control frame with no interaction.
  *  `aria-disabled` defaults to true — the box cannot be opened, toggled or

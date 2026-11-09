@@ -1,4 +1,4 @@
-// Switches the style drawer's fill row to the by-value arm and reports the live
+// Switches the style drawer's fill row to the by-value mode and reports the live
 // centre of the scheme trigger.
 //
 // The picker opens on a real press, and the regression this supports lives in
@@ -13,7 +13,7 @@ async () => {
   if (mode.value !== "value") {
     mode.value = "value";
     mode.dispatchEvent(new Event("change", { bubbles: true }));
-    // The row rebuilds its detail for the new arm; let it settle so the trigger
+    // The row rebuilds its detail for the new mode; let it settle so the trigger
     // measured below is the live one with its picker bound.
     await new Promise(resolve => {
       requestAnimationFrame(() => requestAnimationFrame(resolve));

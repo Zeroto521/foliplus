@@ -27,9 +27,6 @@
  *
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { pathToFileURL } from "url";
 import { help } from "../args.mjs";
 import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 import {
@@ -42,6 +39,9 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, resolve } from "path";
+import { pathToFileURL } from "url";
 
 // A threshold breach is a policy decision, not a broken check. The report —
 // the table and the tree of who exceeded — is the thing that must reach the

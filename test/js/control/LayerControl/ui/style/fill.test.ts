@@ -1,7 +1,8 @@
+import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
 import { dropdownOf } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -28,7 +29,6 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
  *  with their own setStyle. The leaves are `L.Polygon` instances so the areal
@@ -2916,7 +2916,7 @@ describe("fill row — original colors", () => {
     // real option, named like the arm it selects.
     expect(option).not.toBeNull();
     expect(option!.disabled).toBe(false);
-    expect(option!.textContent).toBe("LayerControl.style_fill_per_feature");
+    expect(option!.textContent).toBe("LayerControl.style_mode_original");
     // Opening writes no intent: the map keeps the author's own paint until the
     // user picks an arm.
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
@@ -3556,7 +3556,7 @@ describe("fill row — original colors option", () => {
     // colors can be left and come back to.
     expect(select.value).toBe("original");
     expect(option.disabled).toBe(false);
-    expect(option.textContent).toBe("LayerControl.style_fill_per_feature");
+    expect(option.textContent).toBe("LayerControl.style_mode_original");
     expect(select.querySelector('option[value="solid"]')).not.toBeNull();
     expect(select.querySelector('option[value="value"]')).not.toBeNull();
     // The explanation is a tooltip on the control, not a paragraph in the

@@ -1,9 +1,9 @@
+import { makeControlEnv } from "../fixture.js";
+import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
-import { makeControlEnv } from "../fixture.js";
-import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 
 // Label-collision lifecycle tests mock the collision module. It must be
 // hoisted + mocked before MeasureManager is imported, because manager.ts
@@ -2487,12 +2487,12 @@ describe("MeasureManager — type filter", () => {
   });
 });
 
-// ── Cross-arm filter contract (enum arm) ──────────────────────────────
+// ── Cross-branch filter contract (enum branch) ──────────────────────────────
 //
 // The other half of a mirrored pair. The sibling
 // test/js/control/HeatmapControl/manager.test.ts pins the same rows against
-// the range arm; the describe/it structure is identical on purpose, so a
-// change that moves one arm without the other fails here instead of in a
+// the range branch; the describe/it structure is identical on purpose, so a
+// change that moves one branch without the other fails here instead of in a
 // user report.
 //
 // The rows, in order:

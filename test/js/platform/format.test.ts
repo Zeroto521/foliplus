@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cssVar } from "#common/cssvar.js";
-import { debounce } from "#common/debounce.js";
+import { cssVar } from "#platform/cssvar.js";
+import { debounce } from "#platform/debounce.js";
 import {
   LAT_LNG_PRECISION,
   NUMBER_FORMAT,
@@ -9,7 +9,7 @@ import {
   formatLatLng,
   formatNumber,
   formatTimestamp,
-} from "#common/format.js";
+} from "#platform/format.js";
 
 describe("NUMBER_FORMAT", () => {
   it("covers every NumberStyle key", () => {

@@ -1383,7 +1383,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
             ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-            assert ready["ok"], f"the ramp arm did not settle: {ready}"
+            assert ready["ok"], f"the ramp mode did not settle: {ready}"
             page.mouse.click(ready["triggerX"], ready["triggerY"])
             page.wait_for_selector(
                 ".foliplus-scheme-picker-portal", state="attached", timeout=3000
@@ -1460,7 +1460,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             self._open_style_ramp(page)
             # The label section makes the card tall enough to scroll inside
             # itself. Expand it before the list opens: the toggle re-renders the
-            # drawer, which would rebuild the ramp arm and drop an already-open
+            # drawer, which would rebuild the ramp mode and drop an already-open
             # picker.
             tall = page.evaluate(
                 _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
@@ -1661,13 +1661,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
-        """The by-value arm repaints the map, and solid flattens it back.
+        """The by-value mode repaints the map, and solid flattens it back.
 
-        The ramp arm maps each polygon's numeric property to a color, so the
+        The ramp mode maps each polygon's numeric property to a color, so the
         rendered SVG carries one fill per value. Reading the panel's color bar
         only proves the DOM changed; this reads the map's own path elements
         under the leaflet-map-pane and asserts the real paint. Switching to the
-        solid arm flattens every polygon to the same fill, so the distinct
+        solid mode flattens every polygon to the same fill, so the distinct
         painted-fill set collapses to one — the negative control that a single
         color really is one color, and that "ramp" was what made them differ.
         """
@@ -1680,13 +1680,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
 
-            # The ramp arm is the default for a numeric field, but set it
-            # explicitly so the assertion targets the arm, not an accident of
+            # The ramp mode is the default for a numeric field, but set it
+            # explicitly so the assertion targets the mode, not an accident of
             # the default.
             set_mode = page.evaluate(
                 _js("LayerControl/set_fill_mode"), {"mode": "value"}
             )
-            assert set_mode["ok"], f"could not enter the value arm: {set_mode}"
+            assert set_mode["ok"], f"could not enter the value mode: {set_mode}"
             page.wait_for_timeout(300)
 
             ramp = page.evaluate(_js("LayerControl/read_map_fills"))
@@ -1694,24 +1694,24 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"expected at least the three polygons painted, got {ramp}"
             )
             assert ramp["present"] >= 3, (
-                f"the ramp arm did not paint distinct per-value fills: {ramp}"
+                f"the ramp mode did not paint distinct per-value fills: {ramp}"
             )
             assert len(ramp["fills"]) >= 3, (
-                f"the ramp arm did not paint at least three distinct colors: {ramp}"
+                f"the ramp mode did not paint at least three distinct colors: {ramp}"
             )
 
-            # Negative control: the solid arm paints every polygon the same
+            # Negative control: the solid mode paints every polygon the same
             # fill, so the distinct painted-fill set collapses to one value.
             set_mode = page.evaluate(
                 _js("LayerControl/set_fill_mode"), {"mode": "solid"}
             )
-            assert set_mode["ok"], f"could not enter the solid arm: {set_mode}"
+            assert set_mode["ok"], f"could not enter the solid mode: {set_mode}"
             page.wait_for_timeout(300)
 
             solid = page.evaluate(_js("LayerControl/read_map_fills"))
-            assert solid["count"] >= 3, f"the solid arm dropped polygons: {solid}"
+            assert solid["count"] >= 3, f"the solid mode dropped polygons: {solid}"
             assert solid["present"] == 1, (
-                f"the solid arm did not flatten to one fill: {solid}"
+                f"the solid mode did not flatten to one fill: {solid}"
             )
             assert not errors, f"JS errors: {errors}"
 

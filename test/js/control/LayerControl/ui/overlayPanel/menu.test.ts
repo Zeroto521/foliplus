@@ -1,3 +1,4 @@
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nativeConsumesKey } from "#core/interaction/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
@@ -11,7 +12,6 @@ import {
   MENU_ACTIONS,
   handleMenuClick,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
-import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI menu", () => {
   let manager: LayerController;

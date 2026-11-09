@@ -1,6 +1,6 @@
+import { loadGeoJSON } from "../fixture.js";
 import { describe, expect, it } from "vitest";
 import { createPhoton } from "#core/geocode/photon.js";
-import { loadGeoJSON } from "../fixture.js";
 
 const provider = createPhoton();
 

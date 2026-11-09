@@ -240,14 +240,14 @@ def rule_for(hint: Any) -> Rule | None:
     if origin is Literal:
         return choice_rule(get_args(hint))
     if origin is Union or origin is UnionType:
-        arms = get_args(hint)
-        values = [arm for arm in arms if arm is not NoneType]
+        branches = get_args(hint)
+        values = [branch for branch in branches if branch is not NoneType]
         if len(values) != 1:
             return None
         inner = rule_for(values[0])
         if inner is None:
             return None
-        return optional(inner) if len(values) != len(arms) else inner
+        return optional(inner) if len(values) != len(branches) else inner
     return None
 
 

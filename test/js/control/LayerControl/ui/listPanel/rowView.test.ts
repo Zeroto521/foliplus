@@ -1,8 +1,9 @@
+import { findItem, initFixture } from "../fixture.js";
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
-import * as Icons from "#common/icon.js";
+import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -16,7 +17,6 @@ import {
   syncToggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { intentVisibleOf, projectLayer } from "#control/LayerControl/ui/projection.js";
-import { findItem, initFixture } from "../fixture.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
 

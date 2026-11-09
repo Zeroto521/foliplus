@@ -15,10 +15,10 @@
  * The parsing and the split are pure so they can be asserted directly; only
  * `runTsc` and the `main` shell touch the filesystem or the exit status.
  */
+import { repoRoot } from "./build-path.mjs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { repoRoot } from "./build-path.mjs";
 
 const REPO_ROOT = repoRoot(import.meta.url);
 

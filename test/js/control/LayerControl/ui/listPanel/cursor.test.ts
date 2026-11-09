@@ -1,3 +1,4 @@
+import { attachWithGroup, attachedPanel, findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
@@ -19,7 +20,6 @@ import {
   syncActiveItem,
   syncListCursor,
 } from "#control/LayerControl/ui/listPanel/cursor.js";
-import { attachWithGroup, attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI cursor (pure cursor primitives)", () => {
   let manager: LayerController;

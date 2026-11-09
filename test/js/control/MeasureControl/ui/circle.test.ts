@@ -1,7 +1,7 @@
+import { installStubs, makeMgr } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as UI from "#control/MeasureControl/ui/index.js";
-import { installStubs, makeMgr } from "./fixture.js";
 
 // Mock delete-icon helpers — capture the click callback so tests can trigger it.
 // Keep the original exports via importOriginal and override the function helpers.

@@ -1,14 +1,14 @@
 // ExportControl bounds persistence + map lock — storage restore/save and pan/zoom freeze.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { COORD_BOUNDS, type GeoBounds, boundsToRect } from "#core/geo/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { createScopedTranslator } from "#common/locale.js";
-import * as Storage from "#common/storage.js";
-import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import type { SavedBounds } from "./type.js";
+import { COORD_BOUNDS, type GeoBounds, boundsToRect } from "#core/geo/index.js";
+import { HINT_DURATION } from "#core/hint.js";
+import { createScopedTranslator } from "#platform/locale.js";
+import * as Storage from "#platform/storage.js";
+import { nextFrame } from "#platform/throttle.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);

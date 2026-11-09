@@ -1,4 +1,6 @@
+import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -20,7 +22,6 @@ import {
   writeIntentKeys,
 } from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
 
 // The shared L stub (test/js/setup.ts) defines no Icon key. The default-icon
 // panel test routes through the core markerIcon module, which reads
@@ -332,6 +333,53 @@ describe("buildIconRow", () => {
     vi.clearAllMocks();
   });
 
+  it("shows the unavailable state (invalid hint) for a syntax-invalid author name", () => {
+    // The author declares a name that fails glyph syntax (spaces): it is never
+    // renderable, so the trigger must show the unavailable state with the RAW
+    // name and the invalid-hint title — not the silent author-original label.
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "not an icon" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { manager: m12, ui: u12 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u12, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(true);
+    expect(
+      trigger.querySelector(`.${CONST.CLASSES.STYLE_ICON_UNAVAILABLE_GLYPH}`),
+    ).not.toBeNull();
+    expect(trigger.textContent).toContain("not an icon");
+    expect(trigger.title).toContain(
+      u12.T("style_icon_invalid").replace("{name}", "not an icon"),
+    );
+    m12?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("does not show the unavailable state when the author declares no icon", () => {
+    // A marker with no author icon name: the trigger must keep the
+    // author-original label and NOT misreport an unavailable state.
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { manager: m13, ui: u13 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u13, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+    expect(trigger.textContent).toContain(u13.T("style_icon_original"));
+    m13?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
   it("stops the author glyph walk at the first recognized name", () => {
     // A multi-marker group where the FIRST marker declares a known glyph: the
     // walk must short-circuit (found already set) and not inspect later leaves.
@@ -521,6 +569,111 @@ describe("buildIconRow", () => {
     expect(intent).toEqual({ kind: "glyph", value: PICKER_GLYPHS[0] });
   });
 
+  it("moves focus into the grid on open and owns its keys", () => {
+    // The reported regression: with the grid open, an arrow pressed while the
+    // focus was still on the trigger / a slider thumb bubbled to the
+    // document-level InteractionManager, whose ArrowRight row shortcut toggled
+    // the layer behind the popup. The real fix is DOM focus — the grid takes
+    // focus on open, and the claim is the dispatcher guard that stands the
+    // row shortcut aside while it is open.
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+
+    // A container-bound ArrowRight / Space / Enter shortcut standing in for the
+    // layer row toggle, registered through the real InteractionManager — the
+    // same document-level dispatch the user's key press went through.
+    const toggle = vi.fn();
+    const host = document.createElement("div");
+    host.appendChild(row);
+    document.body.appendChild(host);
+    const cleanup = ensureInteraction(ui.c.map).register("Guard", [
+      { key: "ArrowRight", container: host, handler: toggle as (e: Event) => void },
+      { key: " ", container: host, handler: toggle as (e: Event) => void },
+      { key: "Enter", container: host, handler: toggle as (e: Event) => void },
+    ]);
+
+    // Focus starts on the trigger (the layer row's button), as when the user
+    // opens the grid with the keyboard.
+    // Focus starts on the trigger (the layer row's button), as when the user
+    // opens the grid with the keyboard.
+    trigger.focus();
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+
+    // The open grid owns DOM focus: no manual focus here — the open path put
+    // it on the current (or first) cell.
+    expect(grid.contains(document.activeElement)).toBe(true);
+
+    // ArrowRight on the focused cell: the grid cursor moves, the row toggle
+    // stays silent.
+    const arrow = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    cells[0].dispatchEvent(arrow);
+    expect(document.activeElement).toBe(cells[1]);
+    expect(toggle).not.toHaveBeenCalled();
+    expect(arrow.defaultPrevented).toBe(true);
+
+    // Escape closes the grid and returns focus to the trigger; the row regains
+    // its keys.
+    grid.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    const after = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    trigger.dispatchEvent(after);
+    expect(toggle).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
+  it("Space/Enter on a grid cell commits and closes without toggling the layer", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const toggle = vi.fn();
+    const host = document.createElement("div");
+    host.appendChild(row);
+    document.body.appendChild(host);
+    const cleanup = ensureInteraction(ui.c.map).register("Guard", [
+      { key: " ", container: host, handler: toggle as (e: Event) => void },
+      { key: "Enter", container: host, handler: toggle as (e: Event) => void },
+    ]);
+
+    trigger.click();
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    const cells = [
+      ...grid.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`),
+    ] as HTMLElement[];
+
+    // Enter on the focused cell commits + closes; the layer row is untouched.
+    cells[0].dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toEqual({
+      kind: "glyph",
+      value: PICKER_GLYPHS[0],
+    });
+    expect(toggle).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("clamps keyboard navigation at the grid edges", () => {
     const row = buildIconRow(ui, "overlay1")!;
     document.body.appendChild(row);
@@ -689,6 +842,59 @@ describe("buildIconRow", () => {
     removeSpy.mockRestore();
   });
 });
+
+describe("glyph grid cell contract (id single-source + role kept)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = fixtureWithMarkers([
+      makeMarker({ type: "school" }, makeAuthorIcon()),
+      makeMarker({ type: "hospital" }, makeAuthorIcon()),
+    ]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("gives every cell a single-source id and keeps gridcell role", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const cells = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    expect(cells.length).toBeGreaterThan(0);
+    cells.forEach(cell => {
+      // id comes from the shared ui/optionRow source, never foliplus-opt-.
+      expect(cell.id).toMatch(/^foliplus-icon-cell-\d+$/);
+      // the grid role survives the cursor (paintOptionContract: false).
+      expect(cell.getAttribute("role")).toBe("gridcell");
+    });
+    // roving tabindex: exactly one cell is the tab stop.
+    const tabStops = [...cells].filter(c => (c as HTMLElement).tabIndex === 0);
+    expect(tabStops.length).toBe(1);
+  });
+
+  it("marks the current glyph cell with aria-current, not aria-selected", () => {
+    writeIntentKeys(ui, "overlay1", [[DIM.ICON, { kind: "glyph", value: "star" }]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const cells = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ICON_CELL}`);
+    const current = [...cells].find(c => c.getAttribute("data-glyph") === "star")!;
+    expect(current.getAttribute("aria-current")).toBe("true");
+    expect(current.hasAttribute("aria-selected")).toBe(false);
+  });
+});
+
 describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -733,6 +939,24 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     resetLayerIcon(ui, "overlay1");
     flushIcon("overlay1");
     expect(school.options.icon).toBe(authorIcon);
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
+  });
+
+  it("reset re-derives a surviving icon color onto the restored author icon", () => {
+    // The icon color is orthogonal to the glyph: resetting the glyph must not
+    // lose a user-set color. resetLayerIcon restores the author icon then
+    // re-applies the ICON_COLOR intent, so the marker ends up with the color
+    // painted on the freshly restored chassis.
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#12abef"]]);
+    commitGlyph(ui, "overlay1", "star");
+    flushIcon("overlay1");
+    expect(school.options.icon).not.toBe(authorIcon);
+    resetLayerIcon(ui, "overlay1");
+    flushIcon("overlay1");
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.style.color).toBe("rgb(18, 171, 239)");
     expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 

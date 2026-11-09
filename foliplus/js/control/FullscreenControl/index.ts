@@ -1,10 +1,10 @@
-import { defineControl } from "#core/defineControl.js";
-import { ensureHint } from "#core/hint.js";
-import { createIconButton, dom } from "#common/dom.js";
 import { FULLSCREEN_CHANGE } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
+import { defineControl } from "#core/defineControl.js";
+import { ensureHint } from "#core/hint.js";
+import { createIconButton, dom } from "#platform/dom.js";
 
 const FullscreenControl = defineControl({
   config: CONFIG,

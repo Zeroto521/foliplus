@@ -1,7 +1,3 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
-import { join, resolve } from "path";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PrettierOptions,
   buildConfigFixture,
@@ -9,6 +5,10 @@ import {
   main,
   resolveSchemaJson,
 } from "./emit-config-fixture.mjs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Shape matches foliplus/_config_schema.py's dump. Two controls share the `filename`
 // key with different defaults — the regression the per-control grouping fixes.

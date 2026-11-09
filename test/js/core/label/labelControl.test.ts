@@ -4,7 +4,7 @@
 // refresh mirrors a remote write, and where its vocabulary resolves from.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderLabelControls } from "#core/label/index.js";
-import { createTranslator } from "#common/locale.js";
+import { createTranslator } from "#platform/locale.js";
 
 interface Values {
   labelShow?: boolean;

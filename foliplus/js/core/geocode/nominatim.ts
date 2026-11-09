@@ -2,8 +2,8 @@
 // geocode provider. NOMINATIM / nominatimUrl / formatAddress are pure helpers
 // imported statically by components; createNominatim builds the provider
 // (URL builder + response normalizer) consumed by the registry.
-import { getMapCrsType } from "#core/geo/coord.js";
 import type { GeocodeProvider, SuggestItem } from "./type.js";
+import { getMapCrsType } from "#core/geo/coord.js";
 
 // ── Geocode constants ───────────────────────────────────────────
 const NOMINATIM = {

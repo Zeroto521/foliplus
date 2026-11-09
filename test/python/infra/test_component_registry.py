@@ -201,10 +201,10 @@ class TestScaffoldWiring:
         assert '"new-control"' in text and "script/tool/new-control.mjs" in text
 
     def test_scaffold_uses_core_control_env(self):
-        """After #289 createControlEnv lives in #core/controlEnv, not #common/guard."""
+        """After #289 createControlEnv lives in #core/controlEnv, not #core/guard.js."""
         text = _read(ROOT / "script" / "tool" / "new-control.mjs")
         assert "#core/controlEnv.js" in text
-        assert "#common/guard.js" not in text
+        assert "#core/guard.js" not in text
 
     def test_scaffold_script_exists(self):
         assert (ROOT / "script" / "tool" / "new-control.mjs").is_file()

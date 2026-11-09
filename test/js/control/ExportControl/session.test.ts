@@ -1,14 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import * as downloadMod from "#common/download.js";
+import * as downloadMod from "#platform/download.js";
 import { ExportManager, canvasToBlob } from "#control/ExportControl/manager.js";
 
 const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
 }));
 
-vi.mock("#common/locale.js", async () => {
-  const real = await vi.importActual("#common/locale.js");
+vi.mock("#platform/locale.js", async () => {
+  const real = await vi.importActual("#platform/locale.js");
   const TABLES: Record<string, string> = {
     status_exporting: "Exporting map...",
     status_progress: "Exporting map... ({pct}%)",

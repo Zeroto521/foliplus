@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPseudoFullscreen } from "#common/fullscreen.js";
-import { SLIDER_CLASS, Slider, type SliderOptions, sliderOf } from "#ui/index.js";
+import { setPseudoFullscreen } from "#platform/fullscreen.js";
+import {
+  SLIDER_CLASS,
+  Slider,
+  type SliderOptions,
+  finishSlidersIn,
+  sliderOf,
+} from "#ui/index.js";
 
 const hosts: HTMLElement[] = [];
 
@@ -259,7 +265,7 @@ describe("Slider primitive", () => {
   it("clamps a normal range at the neighbour through the pointer path", () => {
     const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
     const track = stubTrack(host);
-    track.dispatchEvent(pointer("pointerdown", 25));
+    track.dispatchEvent(pointer("pointerdown", 10));
     track.dispatchEvent(pointer("pointermove", 95));
     expect(sliderOf(host)!.value).toEqual([80, 80]);
     track.dispatchEvent(pointer("pointerup", 95));
@@ -325,7 +331,7 @@ describe("Slider primitive", () => {
   it("clamps a normal range at the neighbour through the pointer path", () => {
     const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
     const track = stubTrack(host);
-    track.dispatchEvent(pointer("pointerdown", 25));
+    track.dispatchEvent(pointer("pointerdown", 10));
     track.dispatchEvent(pointer("pointermove", 95));
     expect(sliderOf(host)!.value).toEqual([80, 80]);
     track.dispatchEvent(pointer("pointerup", 95));
@@ -420,9 +426,9 @@ describe("Slider primitive", () => {
   it("picks the nearer thumb for a press on the rail", () => {
     const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
     const track = stubTrack(host);
-    track.dispatchEvent(pointer("pointerdown", 70));
-    expect(sliderOf(host)!.value).toEqual([20, 70]);
-    track.dispatchEvent(pointer("pointerup", 70));
+    track.dispatchEvent(pointer("pointerdown", 90));
+    expect(sliderOf(host)!.value).toEqual([20, 90]);
+    track.dispatchEvent(pointer("pointerup", 90));
   });
 
   it("slides a collapsed pair from a press on the stack and separates on the open side", () => {
@@ -644,7 +650,7 @@ describe("Slider primitive", () => {
   it("clamps the upper thumb when it is dragged below the lower one", () => {
     const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
     const track = stubTrack(host);
-    track.dispatchEvent(pointer("pointerdown", 75)); // picks the upper thumb
+    track.dispatchEvent(pointer("pointerdown", 90)); // picks the upper thumb
     track.dispatchEvent(pointer("pointermove", 5));
     expect(sliderOf(host)!.value).toEqual([20, 20]);
     track.dispatchEvent(pointer("pointerup", 5));
@@ -834,7 +840,7 @@ describe("Slider primitive", () => {
       change,
     });
     const track = stubTrack(host);
-    const first = pointer("pointerdown", 25);
+    const first = pointer("pointerdown", 10);
     Object.defineProperty(first, "pointerId", { value: 1 });
     track.dispatchEvent(first);
     // A second finger on the other thumb must not take over the session.
@@ -1042,5 +1048,231 @@ describe("Slider primitive", () => {
 
     const nonFinite = make({ min: 5, max: 10, value: Number.NaN, label: "x" });
     expect(sliderOf(nonFinite.host)!.value).toBe(5);
+  });
+});
+describe("Slider middle-segment pan", () => {
+  it("pans both thumbs together, preserving the width", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("keeps the width unchanged across several pan steps", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 40));
+    track.dispatchEvent(pointer("pointermove", 45));
+    track.dispatchEvent(pointer("pointermove", 35));
+    const [lo, hi] = sliderOf(host)!.value as [number, number];
+    expect(hi - lo).toBe(60);
+    track.dispatchEvent(pointer("pointerup", 35));
+  });
+
+  it("clamps a pan at the lower bound", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", -100));
+    expect(sliderOf(host)!.value).toEqual([0, 60]);
+    track.dispatchEvent(pointer("pointerup", -100));
+  });
+
+  it("clamps a pan at the upper bound", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 200));
+    expect(sliderOf(host)!.value).toEqual([40, 100]);
+    track.dispatchEvent(pointer("pointerup", 200));
+  });
+
+  it("syncs aria-valuenow for both thumbs while panning", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(thumb(host, 0).getAttribute("aria-valuenow")).toBe("30");
+    expect(thumb(host, 1).getAttribute("aria-valuenow")).toBe("90");
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("does not move on a pure click of the middle segment", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointerup", 50));
+    expect(sliderOf(host)!.value).toEqual([20, 80]);
+    expect(change).not.toHaveBeenCalled();
+  });
+
+  it("releases pointer capture when the pan is released", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    const release = vi.fn();
+    track.releasePointerCapture = release;
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointerup", 50));
+    expect(release).toHaveBeenCalled();
+  });
+
+  it("still drags a single thumb when pressed on it", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    thumb(host, 0).dispatchEvent(pointer("pointerdown", 22));
+    track.dispatchEvent(pointer("pointermove", 40));
+    expect(sliderOf(host)!.value).toEqual([40, 80]);
+    track.dispatchEvent(pointer("pointerup", 40));
+  });
+
+  it("emits input while panning and change on release", () => {
+    const input = vi.fn();
+    const change = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      input,
+      change,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(input).toHaveBeenCalledWith([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+    expect(change).toHaveBeenCalledWith([30, 90]);
+  });
+
+  it("ignores a pan press when disabled", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      disabled: true,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([20, 80]);
+  });
+
+  it("pans correctly in RTL, mirroring the direction and keeping the width", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    // RTL: value 20 paints at 80% (right), value 80 at 20% (left); the pan
+    // segment is the px span between them. A press at 50 then a move left to
+    // 40 raises both values (mirrored direction), width unchanged.
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 40));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    const [lo, hi] = sliderOf(host)!.value as [number, number];
+    expect(hi - lo).toBe(60);
+    track.dispatchEvent(pointer("pointerup", 40));
+  });
+
+  it("clears the hover grab cursor when the pointer leaves the track", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointermove", 50));
+    expect(track.classList.contains(SLIDER_CLASS.CAN_PAN)).toBe(true);
+    track.dispatchEvent(new Event("pointerleave"));
+    expect(track.classList.contains(SLIDER_CLASS.CAN_PAN)).toBe(false);
+  });
+
+  it("keeps a pan active when the pointer leaves the track mid-drag", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    expect(track.classList.contains(SLIDER_CLASS.IS_PANNING)).toBe(true);
+    // A leave mid-drag is not the pointer leaving the segment (the pan holds
+    // pointer capture): the panning state must survive until the release.
+    track.dispatchEvent(new Event("pointerleave"));
+    expect(track.classList.contains(SLIDER_CLASS.IS_PANNING)).toBe(true);
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("ignores a second press while a pan is active", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    // A second press must not re-anchor the pan: the delta stays measured
+    // from the first press, so a move lands where the first press led.
+    track.dispatchEvent(pointer("pointerdown", 30));
+    track.dispatchEvent(pointer("pointermove", 60));
+    expect(sliderOf(host)!.value).toEqual([30, 90]);
+    track.dispatchEvent(pointer("pointerup", 60));
+  });
+
+  it("does not re-emit when a pan is already pinned at the extent edge", () => {
+    const input = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [0, 60],
+      label: "x",
+      input,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 30));
+    // Already at the lower clamp: a further push left clamps to the same
+    // pair, so no write and no input event may fire.
+    track.dispatchEvent(pointer("pointermove", -20));
+    expect(sliderOf(host)!.value).toEqual([0, 60]);
+    expect(input).not.toHaveBeenCalled();
+    track.dispatchEvent(pointer("pointerup", -20));
+  });
+
+  it("keeps a thumb draggable when the pair spans the whole extent", () => {
+    // A full-extent pair has no rail to grab: the fill swallows the track,
+    // so the pan feature must yield and a press still drags the nearer
+    // thumb (the filter panel's initial state stays settable).
+    const { host } = make({ min: 10, max: 30, value: [10, 30], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 25));
+    track.dispatchEvent(pointer("pointermove", 25));
+    const [lo, hi] = sliderOf(host)!.value as [number, number];
+    // Press x=25 on a 100px rail over 10..30 maps to value 15, nearest the
+    // lower thumb; the guard let the press fall through to a thumb drag.
+    expect([lo, hi]).toEqual([15, 30]);
+    track.dispatchEvent(pointer("pointerup", 25));
+  });
+});
+describe("Slider teardown and keyboard edges", () => {
+  it("finishes every slider inside a removed root", () => {
+    // finishSlidersIn walks a container and calls finish on each slider
+    // host found there; a slider removed from the document must not be
+    // left holding a live pointer capture or a stale bubble.
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const before = sliderOf(host)!.value;
+    // finishSlidersIn queries descendants for the root class, so hand it a
+    // container that holds the slider host rather than the host itself.
+    const container = document.createElement("div");
+    container.appendChild(host);
+    finishSlidersIn(container);
+    expect(sliderOf(host)!.value).toBe(before);
+  });
+
+  it("moves the value down in RTL with the Down key, mirroring the visual", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 40, label: "x" });
+    // Vertical keys keep value semantics (down subtracts) even in a
+    // mirrored row; only the horizontal keys follow the visual direction.
+    press(thumb(host), "ArrowDown");
+    expect(sliderOf(host)!.value).toBe(39);
   });
 });

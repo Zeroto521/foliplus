@@ -1,8 +1,8 @@
+import { loadFeature } from "../fixture.js";
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import { CircleMode } from "#control/MeasureControl/mode/index.js";
-import { loadFeature } from "../fixture.js";
-import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 // Capture attachCircleUI's opts so the start/restore callbacks
 // (onDelete, onUpdate, onEnd) can be exercised directly.

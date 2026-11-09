@@ -9,7 +9,7 @@
 // default and must mirror this list — the Python docstring names the same
 // seven palettes, so a drift on either side is a bug that surfaces the
 // moment a user's saved state asks for a scheme neither side lists.
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");
 

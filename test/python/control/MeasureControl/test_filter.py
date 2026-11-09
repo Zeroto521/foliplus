@@ -471,7 +471,7 @@ def test_non_string_values_warn_and_leave_the_filter_undeclared(declaration):
 
 
 def test_a_mapping_is_not_a_measure_declaration():
-    # The range arm belongs to HeatmapControl; Measure's panel dimension is the
+    # The range branch belongs to HeatmapControl; Measure's panel dimension is the
     # measurement type, so a field/min-max mapping has no row to render it on.
     with pytest.warns(UserWarning, match="must be a list of value names"):
         conf = _render(filter={"field": "type", "min": 1, "max": 2})
@@ -588,9 +588,9 @@ def test_docstring_declares_an_unknown_name_rejects_the_whole_list() -> None:
     assert "reported once" in _FLAT.lower()
 
 
-def test_docstring_declares_the_range_arm_as_warned_and_ignored() -> None:
-    """A mapping is the other arm: warned once and treated as undeclared."""
-    assert "a mapping (the range arm)" in _FLAT.lower()
+def test_docstring_declares_the_range_branch_as_warned_and_ignored() -> None:
+    """A mapping is the other branch: warned once and treated as undeclared."""
+    assert "a mapping (the range branch)" in _FLAT.lower()
     assert "``HeatmapControl``" in _FLAT
     assert "treated as" in _FLAT.lower()
     assert "undeclared" in _FLAT.lower()

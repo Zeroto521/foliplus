@@ -2,7 +2,7 @@
 // strip around its row and flips upward only when that strip is the tighter
 // side. A long panel still scrolls inside its own content box.
 //
-// `ramp` switches the fill detail to the by-value arm and the label section is
+// `ramp` switches the fill detail to the by-value mode and the label section is
 // expanded when the layer offers it, so the card is genuinely long: the
 // measured cap then has to make the content itself scrollable.
 ({ ramp } = {}) => {

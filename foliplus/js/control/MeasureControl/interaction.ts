@@ -1,6 +1,6 @@
 // MeasureControl interaction — keyboard + mouse event registration.
-import { ensureInteraction } from "#core/interaction/index.js";
 import type { MeasureManager } from "./manager.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 
 const registerInteractions = (mgr: MeasureManager): (() => void) => {
   const interaction = ensureInteraction(mgr.map);

@@ -1,11 +1,6 @@
-// Tests for the shared select replacement (common/dropdown.ts).
+// Tests for the shared select replacement (ui/dropdown.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  type Dropdown,
-  applyOptionA11y,
-  createDropdown,
-  dropdownOf,
-} from "#ui/index.js";
+import { type Dropdown, createDropdown, dropdownOf } from "#ui/index.js";
 
 // The class names are the module's DOM contract (its table stays private), so
 // the tests pin them by literal name, exactly like the stylesheet does.
@@ -86,35 +81,6 @@ const key = (
 };
 
 // ── Bridged (native select) mode ──────────────────────────────────────
-
-describe("applyOptionA11y — the shared option-row ARIA contract", () => {
-  it("paints role, tabindex and aria-selected on the row", () => {
-    const el = document.createElement("div");
-    applyOptionA11y(el, { selected: true });
-    expect(el.getAttribute("role")).toBe("option");
-    expect(el.getAttribute("tabindex")).toBe("-1");
-    expect(el.getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("reflects an unselected row as aria-selected=false", () => {
-    const el = document.createElement("div");
-    applyOptionA11y(el, { selected: false });
-    expect(el.getAttribute("aria-selected")).toBe("false");
-  });
-
-  it("leaves data-*, disabled and the selected class to the caller", () => {
-    const el = document.createElement("button");
-    // The helper must not touch anything beyond the ARIA trio — the
-    // divergent data key, disabled semantics and selected class stay the
-    // caller's (see the divergence note on renderOptions).
-    applyOptionA11y(el, { selected: true });
-    expect(el.hasAttribute("data-value")).toBe(false);
-    expect(el.hasAttribute("data-scheme-name")).toBe(false);
-    expect(el.hasAttribute("disabled")).toBe(false);
-    expect(el.hasAttribute("aria-disabled")).toBe(false);
-    expect(el.className).toBe("");
-  });
-});
 
 describe("dropdown: bridged single select", () => {
   it("moves the select out of the tab order and shows its current label", () => {
@@ -223,7 +189,7 @@ describe("dropdown: bridged single select", () => {
   });
 
   it("mounts the open popup on the injected covering surface", () => {
-    // The panels pass common/fullscreen's dropdownSurface: in pseudo/fullscreen
+    // The panels pass platform/fullscreen's dropdownSurface: in pseudo/fullscreen
     // mode the list must mount into the covering container, not <body>, or the
     // opaque map paints over it.
     const host = document.createElement("div");

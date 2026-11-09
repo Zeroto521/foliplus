@@ -8,9 +8,9 @@
 //
 // The pane is created lazily on first show so a color that never gets
 // checked does not allocate a canvas or a pane in the DOM.
-import type { CreateColorAPI } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./surface.js";
+import type { CreateColorAPI } from "#core/layer/index.js";
 
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {

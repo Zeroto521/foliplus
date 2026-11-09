@@ -1,8 +1,8 @@
-// Horizontal slider primitive — one thumb or two, foliplus chrome, no deps.
+// ui/slider — horizontal slider primitive: one thumb or two, foliplus chrome, no deps.
 //
 // The widget owns the interaction model that native <input type=range> cannot
 // express: a single control with two thumbs that never cross. Everything
-// geometric is CSS (common/slider.css); this module owns values, pointer and
+// geometric is CSS (foliplus/css/slider.css); this module owns values, pointer and
 // keyboard handling, and the ARIA contract.
 //
 // The value readout is NOT rendered inside the row: the bubble is a singleton
@@ -13,63 +13,16 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { dom } from "#common/dom.js";
-import { finalize } from "#common/finalize.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
-import { SLIDER_CLASS } from "#common/sliderClassName.js";
+import { SLIDER_CLASS } from "./sliderClassName.js";
+import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
+import { dom } from "#platform/dom.js";
+import { finalize } from "#platform/finalize.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
 
 /** One thumb (number) or a range (min/max pair). */
-type SliderValue = number | [number, number];
-
-/** A readout dot on the rail. Its ring reports coverage: accent where the
- *  selected span reaches it, gray where it does not. */
-interface SliderMark {
-  at: number;
-  tone?: "limit" | "current";
-}
-
-/** The "where am I" readout under the rail (map zoom, playback position...).
- *  Not a value: it never moves a thumb. */
-interface SliderCurrent {
-  at: number;
-  text: string;
-  /** Hide the label when it would sit closer than this (percentage points)
-   *  to either end, where the limit's own number already says it. */
-  hideGapPct?: number;
-}
-
-interface SliderOptions {
-  min: number;
-  max: number;
-  /** Value step. Defaults to 1. */
-  step?: number;
-  value: SliderValue;
-  /** Accessible name for the control (single) or its group (range). */
-  label: string;
-  /** Accessible names for the two thumbs of a range. */
-  labels?: [string, string];
-  /** Rendered value, also the aria-valuetext. Defaults to a rounded number. */
-  format?: (value: number) => string;
-  /** Dots on the rail, in value units. */
-  marks?: SliderMark[];
-  /** The two fixed numbers under the rail's ends. */
-  values?: { min: string; max: string };
-  /** The moving readout under the rail, if this row has one. */
-  current?: SliderCurrent | null;
-  /** Live value while dragging / arrowing. */
-  input?: (value: SliderValue) => void;
-  /** Settled value: pointer release, or a keyboard step. */
-  change?: (value: SliderValue) => void;
-  /** Renders the control inert: no pointer, no keyboard, aria-disabled. */
-  disabled?: boolean;
-  /** Id of a description element, announced with the control (and, for a
-   *  range, with the group). */
-  describedBy?: string;
-}
-
 const INSTANCES = new WeakMap<HTMLElement, Slider>();
 
 /** The slider rendered inside *host*, if any. */
@@ -122,7 +75,7 @@ const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
   // Native fullscreen and pseudo enter/exit both announce through
-  // common/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
+  // platform/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
   // so a `fullscreenchange` listener alone would leave the bubble on <body>
   // under the opaque map.
   // Page-lifetime singleton: the bubble and this subscription are
@@ -207,7 +160,16 @@ class Slider {
   private rtl: boolean;
   private bubbleFrame = 0;
   private active = -1;
-  private drag: { id: number; index: number; dirty: boolean } | null = null;
+  private drag: {
+    id: number;
+    index: number;
+    dirty: boolean;
+    /** A pan translates both thumbs; a single drag moves one. */
+    pan?: boolean;
+    /** Pan capture: the press position and the pair as it was. */
+    startClientX?: number;
+    startValues?: [number, number];
+  } | null = null;
 
   constructor(host: HTMLElement, options: SliderOptions) {
     this.opts = {
@@ -578,6 +540,11 @@ class Slider {
     this.track.addEventListener("pointermove", this.onPointerMove);
     this.track.addEventListener("pointerup", this.onPointerUp);
     this.track.addEventListener("pointercancel", this.onPointerUp);
+    this.track.addEventListener("pointerleave", () => {
+      // A pan holds pointer capture, so a leave mid-drag is not the pointer
+      // leaving the segment; only the idle hover cursor clears here.
+      if (!this.drag) this.track.classList.remove(SLIDER_CLASS.CAN_PAN);
+    });
     this.track.addEventListener("lostpointercapture", this.onLostCapture);
     this.thumbs.forEach((thumb, index) => {
       thumb.addEventListener("pointerdown", event => this.onThumbDown(event, index));
@@ -590,6 +557,12 @@ class Slider {
   private readonly onTrackDown = (event: PointerEvent): void => {
     if (this.disabled) return;
     if (event.button !== undefined && event.button !== 0) return;
+    // A press in the segment between the thumbs pans the pair; anywhere else
+    // on the rail still moves the nearer thumb as before.
+    if (this.range && this.hitFill(event.clientX)) {
+      this.beginPan(event);
+      return;
+    }
     this.begin(event, this.pickThumb(event.clientX), false);
   };
 
@@ -632,14 +605,46 @@ class Slider {
     this.showBubble(index);
   }
 
+  /** Start a pan: a press in the segment between the thumbs grabs the whole
+   *  range. The pair is captured as it was and every later move applies the
+   *  same delta to both, so the width never changes. */
+  private beginPan(event: PointerEvent): void {
+    if (this.drag) return;
+    event.preventDefault();
+    this.drag = {
+      id: event.pointerId,
+      index: 0,
+      dirty: false,
+      pan: true,
+      startClientX: event.clientX,
+      startValues: [this.values[0], this.values[1]],
+    };
+    try {
+      this.track.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is an optimisation; the element listeners still fire.
+    }
+    // The whole segment is the grab region: mark the track (not the fill,
+    // which stays pointer-events: none) so the cursor reads grabbing and the
+    // fill transition is disabled while the pan runs. No single thumb is
+    // focused or bubbled — a pan moves the pair, not one of them.
+    this.track.classList.add(SLIDER_CLASS.IS_PANNING);
+    this.track.classList.remove(SLIDER_CLASS.CAN_PAN);
+  }
+
   /** Close the live pointer session: release the drag flag and the thumb's
    *  visual state, and commit the last value when the drag actually moved. */
   private endSession(commit: boolean): void {
     const drag = this.drag;
     if (!drag) return;
     this.drag = null;
-    this.thumbs[drag.index]?.classList.remove(SLIDER_CLASS.DRAGGING);
-    this.hideBubble();
+    // A pan marks the track; a single drag marks only the active thumb.
+    if (drag.pan) {
+      this.track.classList.remove(SLIDER_CLASS.IS_PANNING);
+    } else {
+      this.thumbs[drag.index]?.classList.remove(SLIDER_CLASS.DRAGGING);
+      this.hideBubble();
+    }
     if (commit && drag.dirty) this.emit("change");
   }
 
@@ -647,9 +652,16 @@ class Slider {
     // Explicit null check, not `!== this.drag?.id`: both sides are undefined
     // for a synthetic mouse event and a missing drag would pass that compare.
     const drag = this.drag;
-    if (!drag) return;
+    if (!drag) {
+      // No session: show a grab cursor while the pointer sits in the pan
+      // segment, pointer elsewhere. One hit test drives both the press and
+      // the cursor, so a press and the cursor can never disagree.
+      this.updateTrackCursor(event.clientX);
+      return;
+    }
     if (event.pointerId !== drag.id) return;
-    this.setFromClientX(event.clientX, drag.index);
+    if (drag.pan) this.panByClientX(event.clientX);
+    else this.setFromClientX(event.clientX, drag.index);
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
@@ -662,6 +674,7 @@ class Slider {
       // Already released.
     }
     this.endSession(true);
+    this.updateTrackCursor(event.clientX);
   };
 
   private readonly onLostCapture = (event: PointerEvent): void => {
@@ -684,6 +697,36 @@ class Slider {
     const x0 = (rect.width * this.pct(this.values[0])) / 100;
     const x1 = (rect.width * this.pct(this.values[1])) / 100;
     return Math.abs(x1 - x0) <= 8;
+  }
+
+  /** Whether *clientX* falls strictly between the two thumbs — the rail
+   *  segment a press treats as a pan target. A collapsed pair has no such
+   *  segment; a press there still splits the stack as before. This is the
+   *  single hit test for the pan: onTrackDown routes a press, and the hover
+   *  cursor reads the same test, so a press can never pan where the cursor
+   *  said grab. */
+  private hitFill(clientX: number): boolean {
+    if (!this.range || this.isOverlapping()) return false;
+    // A segment spanning the whole extent leaves no rail to grab either
+    // thumb: the fill would swallow the rail, so the pan feature yields and
+    // the press keeps dragging the nearer thumb (full-extent sliders like the
+    // filter panel's initial state must stay settable).
+    if (this.values[0] <= this.opts.min && this.values[1] >= this.opts.max) {
+      return false;
+    }
+    const rect = this.track.getBoundingClientRect();
+    if (rect.width <= 0) return false;
+    const xa = rect.left + (rect.width * this.visualPct(this.values[0])) / 100;
+    const xb = rect.left + (rect.width * this.visualPct(this.values[1])) / 100;
+    return clientX > Math.min(xa, xb) && clientX < Math.max(xa, xb);
+  }
+
+  /** Reflect whether *clientX* sits in the pan segment by toggling the track
+   *  cursor class: grab while the pointer can pan, pointer (the class falls
+   *  off) elsewhere. Class-based, never inline style. */
+  private updateTrackCursor(clientX: number): void {
+    const can = this.range && !this.disabled && !this.drag && this.hitFill(clientX);
+    this.track.classList.toggle(SLIDER_CLASS.CAN_PAN, can);
   }
 
   /** Which thumb a press at *clientX* is meant for, and whether the answer
@@ -724,6 +767,29 @@ class Slider {
     }
     this.applyValue(index, next);
     // Only reachable from the two drag paths, both of which set `this.drag`.
+    this.drag!.dirty = true;
+    this.sync();
+    this.emit("input");
+  }
+
+  /** Translate the pair by the pointer's movement since the press, preserving
+   *  the width and clamping so neither end leaves [min, max]. */
+  private panByClientX(clientX: number): void {
+    const drag = this.drag;
+    if (!drag?.pan) return;
+    const [startLo, startHi] = drag.startValues!;
+    const width = startHi - startLo;
+    // Pointer delta in value units (valueAt already mirrors RTL).
+    const delta = this.valueAt(clientX) - this.valueAt(drag.startClientX!);
+    const nextLo = clamp(
+      this.round(startLo + delta),
+      this.opts.min,
+      this.opts.max - width,
+    );
+    const nextHi = nextLo + width;
+    if (nextLo === this.values[0] && nextHi === this.values[1]) return;
+    this.values[0] = nextLo;
+    this.values[1] = nextHi;
     this.drag!.dirty = true;
     this.sync();
     this.emit("input");
@@ -836,4 +902,3 @@ class Slider {
 }
 
 export { Slider, finishSlidersIn, sliderOf };
-export type { SliderOptions };

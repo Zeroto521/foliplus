@@ -1,7 +1,7 @@
 // ExportControl interaction — keyboard + pointer event registration.
-import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 
 // Keys that confirm / reset / nudge the crop box. They require map container
 // focus (so typing into other inputs elsewhere doesn't move the box) and are

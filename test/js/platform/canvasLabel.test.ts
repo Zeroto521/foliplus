@@ -1,4 +1,4 @@
-// common/canvasLabel unit tests — the one canvas text recipe shared by the
+// ui/canvasLabel unit tests — the one canvas text recipe shared by the
 // heatmap's hex values and LayerControl's label labels.
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -6,8 +6,8 @@ import {
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
   withLabelPaint,
-} from "#common/canvasLabel.js";
-import type { CanvasLabelStyle } from "#common/type.js";
+} from "#ui/canvasLabel.js";
+import type { CanvasLabelStyle } from "#ui/index.js";
 
 /** A container carrying the shared --foliplus-label-* tokens (jsdom reads inline
  *  custom properties through getComputedStyle, the same way the real page

@@ -38,13 +38,13 @@ describe("build-path.mjs", () => {
   it("pathAliases pins the shared # import prefixes", () => {
     const alias = pathAliases(ROOT);
     expect(Object.keys(alias)).toEqual([
-      "#common",
+      "#platform",
       "#core",
       "#ui",
       "#control",
       "#foliplus",
     ]);
-    expect(alias["#common"]).toBe(resolve(ROOT, "foliplus/js/common"));
+    expect(alias["#platform"]).toBe(resolve(ROOT, "foliplus/js/platform"));
     expect(alias["#core"]).toBe(resolve(ROOT, "foliplus/js/core"));
     expect(alias["#ui"]).toBe(resolve(ROOT, "foliplus/js/ui"));
     expect(alias["#control"]).toBe(resolve(ROOT, "foliplus/js/control"));
@@ -55,7 +55,7 @@ describe("build-path.mjs", () => {
     const shared = pathAliases(ROOT) as Record<string, string>;
     const test = testPathAliases(ROOT) as Record<string, string>;
     expect(test["#script"]).toBe(resolve(ROOT, "script"));
-    expect(test["#common"]).toBe(shared["#common"]);
+    expect(test["#platform"]).toBe(shared["#platform"]);
     expect(shared["#script"]).toBeUndefined();
   });
 
@@ -70,26 +70,30 @@ describe("build-path.mjs", () => {
     // package.json cannot import this module for Node resolution, so the JSON
     // file remains the runtime source. This test is the drift check (#518
     // class): a hand-edit to either side fails here instead of at build time.
+    // Full equality (not toMatchObject): an alias ADDED to package.json without
+    // a build-path entry — or renamed on one side only — fails here too, so
+    // ALIAS_TO_REL is the one place a tier rename is made (#979 bound only
+    // build-path to import-boundary; this closes the package.json side).
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
-    expect(pkg.imports).toMatchObject(PACKAGE_IMPORTS);
+    expect(pkg.imports).toEqual(PACKAGE_IMPORTS);
     // The glob table derives from the same mapping the aliases do, so every
     // specifier appears in both shapes with the same target directory.
-    expect(PACKAGE_IMPORTS["#common/*"]).toBe("./foliplus/js/common/*");
+    expect(PACKAGE_IMPORTS["#platform/*"]).toBe("./foliplus/js/platform/*");
     expect(PACKAGE_IMPORTS["#ui/*"]).toBe("./foliplus/js/ui/*");
     expect(PACKAGE_IMPORTS["#control/*"]).toBe("./foliplus/js/control/*");
     expect(PACKAGE_IMPORTS["#script/*"]).toBe("./script/*");
   });
 
-  it("SHARED_MODULE_PREFIXES is #common/#core only — #foliplus is aliased but not shared", () => {
-    // The alias table has five entries (#common/#core/#ui/#control/#foliplus), but only
-    // #common and #core have their whole namespace published on
+  it("SHARED_MODULE_PREFIXES is #platform/#core only — #foliplus is aliased but not shared", () => {
+    // The alias table has five entries (#platform/#core/#ui/#control/#foliplus), but only
+    // #platform and #core have their whole namespace published on
     // window.foliplus. #foliplus/BaseControl.js is shared by exact name
     // (see SHARED_MODULE_EXACTS); every other #foliplus/* path — a component
     // importing its own const.js or config-schema.js — bundles normally
     // through esbuild's alias and must NOT be externalized. The old test
     // asserted the alias table and the shared set were equal; that
     // assumption is what externalized self-imports as empty shims.
-    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["common", "core", "ui"]);
+    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["core", "platform", "ui"]);
     for (const prefix of SHARED_MODULE_PREFIXES) {
       expect(Object.keys(pathAliases(ROOT))).toContain(`#${prefix}`);
     }
@@ -98,7 +102,7 @@ describe("build-path.mjs", () => {
 
   it("SHARED_MODULE_EXACTS names only #foliplus/BaseControl.js", () => {
     // The single escape hatch: BaseControl is imported from
-    // #foliplus/BaseControl.js (not #core/… or #common/…), but the runtime
+    // #foliplus/BaseControl.js (not #core/… or #platform/…), but the runtime
     // publishes it on window.foliplus.BaseControl, so it must still be
     // externalized.
     expect(SHARED_MODULE_EXACTS).toEqual(["#foliplus/BaseControl.js"]);
@@ -107,7 +111,7 @@ describe("build-path.mjs", () => {
   it("SHARED_SPEC_REGEX_SOURCE matches the shared set and rejects non-shared #foliplus/*", () => {
     const re = new RegExp(`^(${SHARED_SPEC_REGEX_SOURCE})$`);
     // Shared prefixes
-    expect(re.test("#common/dom.js")).toBe(true);
+    expect(re.test("#platform/dom.js")).toBe(true);
     expect(re.test("#core/hint.js")).toBe(true);
     expect(re.test("#core/layer/LayerFactory.js")).toBe(true);
     // Exact shared spec
@@ -120,7 +124,7 @@ describe("build-path.mjs", () => {
     // Unrelated aliases
     expect(re.test("#script/build.mjs")).toBe(false);
     expect(re.test("#core")).toBe(false); // bare prefix without /
-    expect(re.test("#common")).toBe(false);
+    expect(re.test("#platform")).toBe(false);
     expect(re.test("#foliplus/BaseControl.js")).toBe(true); // exact, sanity
   });
 
@@ -154,7 +158,7 @@ describe("build-path.mjs", () => {
     // A hand-edit to any one of them fails here instead of silently
     // externalizing or mis-routing an import at build time.
     expect(Object.keys(ALIAS_TO_REL)).toEqual([
-      "#common",
+      "#platform",
       "#core",
       "#ui",
       "#control",
@@ -192,8 +196,8 @@ describe("build-path.mjs", () => {
       expect(rules[prefix]).toBe(`${dir}/`);
     }
     // The rewrite is keyed by the alias segment, not the directory name: a
-    // shared spec "#common/dom.js" becomes "common/dom.js" under the source root.
-    expect(rules["common"]).toBe("common/");
+    // shared spec "#platform/dom.js" becomes "platform/dom.js" under the source root.
+    expect(rules["platform"]).toBe("platform/");
     expect(rules["core"]).toBe("core/");
     expect(rules["ui"]).toBe("ui/");
   });

@@ -1,8 +1,4 @@
 // SearchControl event binding — standalone functions called with `this` as ctrl.
-import { ListCursor, ensureInteraction } from "#core/interaction/index.js";
-import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
-import { guardBlocked } from "#core/mode.js";
-import type { ControlEnv } from "#core/type.js";
 import { CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
@@ -12,6 +8,10 @@ import {
   searchCoord,
 } from "./logic/index.js";
 import type { SearchControl } from "./type.js";
+import { ListCursor, ensureInteraction } from "#core/interaction/index.js";
+import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
+import { guardBlocked } from "#core/mode.js";
+import type { ControlEnv } from "#core/type.js";
 
 /** Full ctrl type for interaction — SearchControl instance + control ctx. */
 type InteractionCtrl = SearchControl & ControlEnv;
@@ -39,6 +39,9 @@ const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
     activeClass: CLASSES.ACTIVE,
     mode: "active-descendant",
     input: ctrl.inp,
+    // Rows already carry the option contract from renderResults
+    // (ui/optionRow): the cursor only paints focus + aria-activedescendant.
+    paintOptionContract: false,
     onMove: (i, el) => {
       ctrl.selectedIdx = i;
       if (el) ctrl.inp.value = resultItemValue(el);

@@ -1,3 +1,4 @@
+import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
@@ -11,7 +12,6 @@ import {
   PolygonMode,
   PreviewMode,
 } from "#control/MeasureControl/mode/index.js";
-import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 
 beforeEach(initMocks);
 

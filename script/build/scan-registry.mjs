@@ -2,10 +2,10 @@
 /**
  * Generate _shared-registry.ts by scanning component imports.
  *
- * Scans component .ts files for imports from #core/*, #common/*, and
+ * Scans component .ts files for imports from #core/*, #platform/*, and
  * #foliplus/BaseControl.js — both targeted named imports and import * as
  * (resolved via property-access patterns).  Output registers only the
- * exports used by components on window.foliplus.core / .common / BaseControl,
+ * exports used by components on window.foliplus.core / .platform / BaseControl,
  * enabling esbuild to tree-shake unused exports from component bundles.
  *
  * The scan is script/build/import-scan.mjs, shared with
@@ -22,12 +22,12 @@
  *
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { pathToFileURL } from "url";
 import { help, parseArgs } from "../args.mjs";
 import { repoRoot, resolveJsRoot } from "../build-path.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { dirname, resolve } from "path";
+import { pathToFileURL } from "url";
 
 const SCAN_SPEC = {
   root: {
@@ -56,7 +56,7 @@ mkdirSync(buildJs, { recursive: true });
 
 /** Walk a component dir and return `{ canonicalSpec: [names...] }` — named and
  *  star-import usage merged, keyed the way this registry is generated from
- *  (`core/geo`, `common/dom`). Named `registryUsedExports` rather than
+ *  (`core/geo`, `platform/dom`). Named `registryUsedExports` rather than
  *  `scanImports`: the actual scan is script/build/import-scan.mjs, and this is only
  *  the registry's adapter over it. */
 const registryUsedExports = dir => {
@@ -105,7 +105,7 @@ const parseExportNames = list =>
 
 /** Resolve a relative specifier in an `export * from` clause to an existing
  *  source file. `./mod.js` may live on disk as `mod.ts`; a bare specifier
- *  (an alias such as `#common/dom.js`) is left to esbuild and returns null. */
+ *  (an alias such as `#platform/dom.js`) is left to esbuild and returns null. */
 const resolveModuleSpecifier = (dir, spec) => {
   if (!spec.startsWith(".")) return null;
   const base = resolve(dir, spec);
@@ -199,10 +199,10 @@ const assertBarrelExports = (sourceDir, barrelName, names) => {
 const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   const sourceDir = srcDirParam;
   const buildDir = buildJsParam;
-  const commonDir = resolve(sourceDir, "common");
+  const commonDir = resolve(sourceDir, "platform");
   const uiDir = resolve(sourceDir, "ui");
   const coreDir = resolve(sourceDir, "core");
-  // common/ is flat (the engines moved to ui/), so a plain readdir (like ui/ and
+  // platform/ is flat (the engines moved to ui/), so a plain readdir (like ui/ and
   // the core single-file list) collects the modules. No subdir recursion.
   const commonModules = readdirSync(commonDir)
     .filter(f => f.endsWith(".ts") && f !== "index.ts")
@@ -248,7 +248,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     "// Scans component imports for targeted named imports (Tree Shaking).",
     "window.foliplus = window.foliplus || {};",
     "window.foliplus.core = {};",
-    "window.foliplus.common = {};",
+    "window.foliplus.platform = {};",
     "window.foliplus.ui = {};",
   ];
 
@@ -285,10 +285,10 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   }
 
   for (const name of commonModules) {
-    const names = usedExports[`common/${name}`] || [];
+    const names = usedExports[`platform/${name}`] || [];
     if (names.length === 0) continue;
-    lines.push(`import { ${names.join(", ")} } from "#common/${name}.js";`);
-    lines.push(`window.foliplus.common["${name}"] = { ${names.join(", ")} };`);
+    lines.push(`import { ${names.join(", ")} } from "#platform/${name}.js";`);
+    lines.push(`window.foliplus.platform["${name}"] = { ${names.join(", ")} };`);
   }
 
   for (const name of uiModules) {

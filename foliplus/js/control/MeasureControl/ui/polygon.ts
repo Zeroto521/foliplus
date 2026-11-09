@@ -1,6 +1,4 @@
 // MeasureControl polygon UI — finalized polygon edit bindings: nodes, segment labels, centroid, drag, overlay, delete.
-import { toggleDelIcon } from "#core/leaflet/index.js";
-import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
@@ -13,6 +11,8 @@ import {
   findPointIndex,
   resortLayers,
 } from "./helper.js";
+import { toggleDelIcon } from "#core/leaflet/index.js";
+import { stopEvent } from "#platform/dom.js";
 
 /** Options for attachPolygonUI. */
 interface PolygonAttachOpts {

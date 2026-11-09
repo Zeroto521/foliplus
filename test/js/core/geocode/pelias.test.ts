@@ -1,6 +1,6 @@
+import { loadGeoJSON } from "../fixture.js";
 import { describe, expect, it } from "vitest";
 import { createPelias } from "#core/geocode/pelias.js";
-import { loadGeoJSON } from "../fixture.js";
 
 const provider = createPelias();
 

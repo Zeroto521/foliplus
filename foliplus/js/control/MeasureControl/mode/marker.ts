@@ -1,7 +1,3 @@
-import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import type { ControlEnv } from "#core/type.js";
-import { throttleRaf } from "#common/throttle.js";
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -17,6 +13,10 @@ import {
   mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
+import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
+import { createLocationMarker } from "#core/locationMarker.js";
+import type { ControlEnv } from "#core/type.js";
+import { throttleRaf } from "#platform/throttle.js";
 
 // ==================== Marker Mode ====================
 /** Marker placement mode. Places a geocoded marker on click. */
@@ -136,7 +136,7 @@ class MarkerMode extends MeasureMode {
    * to the ✕ lifecycle in both callers.
    *
    * Named `commitMeasurement` rather than `finalize`: this commits one
-   * measurement to the map and the store, while `#common/finalize` is the
+   * measurement to the map and the store, while `#platform/finalize.js` is the
    * teardown-step runner — same word, unrelated job.
    */
   private static commitMeasurement(

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as Storage from "#common/storage.js";
+import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/ExportControl/const.js";
 import { ExportManager } from "#control/ExportControl/manager.js";
 
-vi.mock("#common/locale.js", async () => {
-  const real = await vi.importActual("#common/locale.js");
+vi.mock("#platform/locale.js", async () => {
+  const real = await vi.importActual("#platform/locale.js");
   const TABLES: Record<string, string> = {
     hint_restore: "Restored saved crop area",
     hint_locked: "Locked: resize with the handles",
@@ -36,8 +36,8 @@ const throttleMocks = vi.hoisted(() => {
   return { callbacks };
 });
 
-vi.mock("#common/throttle.js", async () => {
-  const real = await vi.importActual("#common/throttle.js");
+vi.mock("#platform/throttle.js", async () => {
+  const real = await vi.importActual("#platform/throttle.js");
   return {
     ...real,
     nextFrame: (fn: () => void) => {

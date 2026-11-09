@@ -1,3 +1,10 @@
+import {
+  makeMockCtx,
+  makeRenderer,
+  pinBox,
+  positionedRC,
+  stubLoad,
+} from "./fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   renderCanvasElement,
@@ -6,13 +13,6 @@ import {
   snapshotPaneCanvases,
 } from "#control/ExportControl/renderer/canvas.js";
 import * as UTIL from "#control/ExportControl/util.js";
-import {
-  makeMockCtx,
-  makeRenderer,
-  pinBox,
-  positionedRC,
-  stubLoad,
-} from "./fixture.js";
 
 vi.mock("#control/ExportControl/util.js", async () => {
   const actual = await vi.importActual<any>("#control/ExportControl/util.js");

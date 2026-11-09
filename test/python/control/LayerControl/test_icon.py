@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import folium
 import pytest
@@ -690,4 +691,191 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
                 f"Reset did not restore the author icon: {reset}"
             )
+
+    def test_icon_grid_owns_keyboard_while_open(self, browser, tmp_path):
+        """The open glyph grid owns DOM focus and the keyboard.
+
+        The reported regression: with the grid open, an arrow / Space / Enter
+        pressed while focus was still on the trigger or a slider thumb bubbled
+        to the document-level dispatcher and toggled the layer row behind the
+        popup. The real fix is focus — the grid takes focus on open — with the
+        key claim as the dispatcher guard. Three scenarios, driven with the
+        real browser keyboard:
+          (a) focus on the trigger, Enter opens → focus lands in the grid,
+              ArrowRight only moves the grid cursor (layer visibility and the
+              slider value are untouched);
+          (b) focus on the opacity slider thumb (the user's reproduction) →
+              open → arrows only move the grid, slider value unchanged;
+          (c) Enter/Space on a cell commits the glyph and closes the grid
+              without toggling the layer; Escape closes and returns focus to
+              the trigger.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="icon_grid_keyboard",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            setup = page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "setup")
+            assert setup and setup.get("ok"), setup
+
+            def state():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "state"
+                )
+
+            def focus_trigger():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "focusTrigger"
+                )
+
+            def focus_slider():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "focusSlider"
+                )
+
+            def open_grid():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "openGrid"
+                )
+
+            def focus_first_cell():
+                return page.evaluate(
+                    _js("LayerControl/icon_grid_keyboard_state"), "focusFirstCell"
+                )
+
+            # (a) focus on the trigger → Enter opens the grid → focus enters it.
+            focus_trigger()
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(80)
+            opened = state()
+            assert opened["gridOpen"] is True, opened
+            assert opened["focusInGrid"] is True, (
+                f"focus did not enter the grid on open: {opened}"
+            )
+            assert opened["layerChecked"] is True, opened
+
+            # ArrowRight only moves the grid cursor; layer + slider untouched.
+            before_value = state()["sliderValue"]
+            page.keyboard.press("ArrowRight")
+            page.wait_for_timeout(80)
+            moved = state()
+            assert moved["focusInGrid"] is True, moved
+            assert moved["layerChecked"] is True, moved
+            assert moved["sliderValue"] == before_value, moved
+
+            # Focus-ring contract: a grid cell shows the shared ring, not the
+            # browser default outline (outline-style must be none and the ring's
+            # box-shadow must be present).
+            focus_first_cell()
+            page.wait_for_timeout(80)
+            ring = state()["focusStyle"]
+            assert ring is not None, "no focused cell to read focus style from"
+            assert ring["outlineStyle"] == "none", ring
+            assert ring["boxShadow"] and ring["boxShadow"] != "none", ring
+            # The ring's color must be the focus token (resolved accent).
+            assert ring["focusColor"], ring
+
+            # Escape closes + returns focus to the trigger.
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(80)
+            closed = state()
+            assert closed["gridOpen"] is False, closed
+            assert closed["focusOnTrigger"] is True, closed
+
+            # (b) focus on the opacity slider thumb (the user's reproduction) →
+            # open → arrows only move the grid, slider value unchanged.
+            focus_slider()
+            open_grid()
+            page.wait_for_timeout(80)
+            from_slider = state()
+            assert from_slider["gridOpen"] is True, from_slider
+            assert from_slider["focusInGrid"] is True, from_slider
+            slider_before = state()["sliderValue"]
+            page.keyboard.press("ArrowRight")
+            page.wait_for_timeout(80)
+            after = state()
+            assert after["focusInGrid"] is True, after
+            assert after["sliderValue"] == slider_before, after
+            assert after["layerChecked"] is True, after
+
+            # (c) Enter on a cell commits + closes; layer visibility unchanged.
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(80)
+            committed = state()
+            assert committed["gridOpen"] is False, committed
+            assert committed["layerChecked"] is True, committed
+            assert committed["focusOnTrigger"] is True, committed
+
+            assert not errors, f"JS errors: {errors}"
             assert not errors, errors
+
+    def test_icon_grid_focus_ring_screenshot(self, browser, tmp_path):
+        """Capture the glyph grid cell focus ring for the before/after evidence.
+
+        Only runs when FOLIPLUS_SHOT_DIR is set (the CI never sets it): opens
+        the grid, focuses a cell, and writes a clipped screenshot of the cell
+        plus its computed outline/box-shadow so the before (browser default
+        black outline) and after (shared focus ring) can be compared.
+        """
+        import os
+
+        shot_dir = os.environ.get("FOLIPLUS_SHOT_DIR")
+        if not shot_dir:
+            pytest.skip("FOLIPLUS_SHOT_DIR not set")
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="icon_grid_focusring",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            setup = page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "setup")
+            assert setup and setup.get("ok"), setup
+            page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "focusTrigger")
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(80)
+            rect = page.evaluate(
+                _js("LayerControl/icon_grid_keyboard_state"), "cellRect"
+            )
+            assert rect and rect.get("ok"), rect
+            out = Path(shot_dir) / "icon-grid-focusring.png"
+            page.screenshot(
+                path=str(out),
+                clip={
+                    "x": max(0, rect["x"] - 16),
+                    "y": max(0, rect["y"] - 16),
+                    "width": rect["width"] + 32,
+                    "height": rect["height"] + 32,
+                },
+            )
+            assert rect["outlineStyle"] == "none", rect
+            assert rect["boxShadow"] and rect["boxShadow"] != "none", rect
+            print(f"wrote {out}")
+            assert not errors, f"JS errors: {errors}"
+
+    def test_icon_row_input_width_and_ellipsis(self, browser, tmp_path):
+        """The icon trigger fills the control column and a long glyph name
+        ellipsizes instead of overflowing the row (single-icon row detail)."""
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._icon_marker_layer(),
+            slug="icon_row_width",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            setup = page.evaluate(_js("LayerControl/icon_grid_keyboard_state"), "setup")
+            assert setup and setup.get("ok"), setup
+            metrics = page.evaluate(
+                _js("LayerControl/icon_grid_keyboard_state"), "rowMetrics"
+            )
+            assert metrics and metrics.get("ok"), metrics
+            # The trigger spans the shared control column, so the icon row
+            # lines up with every other style/heatmap input row.
+            assert metrics["triggerFillsControl"], metrics
+            assert not metrics["nameOverflows"], metrics
+            assert not errors, f"JS errors: {errors}"

@@ -3045,7 +3045,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
             # The layer declares a value fill, so the panel opens on the
-            # by-value arm and the method select is present; the probe reveals
+            # by-value mode and the method select is present; the probe reveals
             # the label body under its toggle before reading the label-size
             # number.
             data = page.evaluate(_js("LayerControl/read_input_skin"))

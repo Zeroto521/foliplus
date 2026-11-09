@@ -2,7 +2,7 @@
 // Each test file owns its own vi.hoisted/vi.mock/beforeEach; those are
 // compile-time directives that cannot be factored out.
 import { vi } from "vitest";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#platform/locale.js";
 
 /** A CONFIG for the measure UI with the delete-icon locale the UI renders
  *  (ComponentName-prefixed keys, like the Python bridge emits). */

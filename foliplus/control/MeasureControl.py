@@ -183,7 +183,7 @@ class MeasureControl(BaseControl):
     | An empty list                              | Reported once with a warning; treated as   |
     |                                            | undeclared.                                |
     +--------------------------------------------+--------------------------------------------+
-    | A mapping (the range arm)                  | Reported once with a warning; treated as   |
+    | A mapping (the range branch)               | Reported once with a warning; treated as   |
     |                                            | undeclared — range filters belong to       |
     |                                            | ``HeatmapControl``.                        |
     +--------------------------------------------+--------------------------------------------+

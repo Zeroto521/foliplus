@@ -1,17 +1,17 @@
-// common/dropdown — the shared replacement for a native single/multi select.
+// ui/dropdown — the shared replacement for a native single/multi select.
 //
-// This module is now an ADAPTER over the one listbox engine (common/listbox.ts).
+// This module is now an ADAPTER over the one listbox engine (ui/listbox.ts).
 // The engine owns every mechanism — row rendering skeleton, the ARIA listbox
 // contract, keyboard walk, positioning/flip/clamp, portal mount + surface
 // re-seat, wheel containment, focus restore, teardown, outside-press/Escape
 // ownership — and this file owns only the *dropdown* value model and trigger
 // appearance (the bridged native select, the standalone item list, the label
 // button). The six historical shape divergences from the scheme picker are
-// explicit engine config (common/listbox.ts), so a bug fix lands in one place.
+// explicit engine config (ui/listbox.ts), so a bug fix lands in one place.
 //
 // Trigger: a <button> that keeps the existing `.foliplus-form-select` chrome
-// (common/form.css). Popup: joins the shared floating-menu shell
-// (common/menu.css) for border, background, shadow and item states;
+// (ui/form.css). Popup: joins the shared floating-menu shell
+// (ui/menu.css) for border, background, shadow and item states;
 // dropdown.css adds only what the shell leaves per-component (anchoring,
 // option rows, the multi-select check slot).
 //
@@ -23,9 +23,11 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
-import { dom } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
-import { type DropdownSurface, applyOptionA11y, createListbox } from "./listbox.js";
+import { createListbox } from "./listbox.js";
+import { applyOptionRowA11y } from "./optionRow.js";
+import type { Dropdown, DropdownSurface } from "./type.js";
+import { dom } from "#platform/dom.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("dropdown");
 
@@ -68,23 +70,6 @@ interface DropdownOptions extends DropdownSurface {
   selectedLabel?: (labels: readonly string[]) => string;
   onChange?: (value: string, values: readonly string[]) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
-}
-
-interface Dropdown {
-  element: HTMLElement;
-  trigger: HTMLButtonElement;
-  getList(): HTMLElement | null;
-  isOpen(): boolean;
-  getValue(): string;
-  getValues(): readonly string[];
-  setValue(value: string): void;
-  setValues(values: readonly string[]): void;
-  refresh(): void;
-  setHint(text: string): void;
-  open(): void;
-  close(opts?: { restoreFocus?: boolean }): void;
-  toggle(): void;
-  destroy(): void;
 }
 
 interface InternalState {
@@ -401,5 +386,4 @@ const activateRow = (state: InternalState, index: number): void => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { applyOptionA11y, createDropdown, dropdownOf };
-export type { Dropdown, DropdownSurface };
+export { applyOptionRowA11y, createDropdown, dropdownOf };

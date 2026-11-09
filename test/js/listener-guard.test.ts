@@ -59,14 +59,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason: "the only sanctioned entry point — `on()` is the sole implementation",
   },
   {
-    f: "common/fetch.ts",
+    f: "platform/fetch.ts",
     n: 1,
     pairedOff: 0,
     reason:
       "signal.addEventListener('abort', ...) is AbortSignal composition, not a DOM listener — no control instance in scope",
   },
   {
-    f: "common/dom.ts",
+    f: "platform/dom.ts",
     n: 2,
     pairedOff: 0,
     reason:
@@ -80,7 +80,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "two calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The other two are the row-panel placement singleton (window scroll capture + resize): one pair for the whole page, bound on the first pinned card and shared by every card since, re-placing the open cards from live rects. The factory is free-standing (no mounting signal), and the singleton has no per-instance teardown to pair the removal with — a per-card pair would re-register the same two document listeners for every open panel",
   },
   {
-    f: "common/fullscreen.ts",
+    f: "platform/fullscreen.ts",
     n: 1,
     pairedOff: 0,
     reason:
@@ -112,7 +112,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 4,
     pairedOff: 0,
     reason:
-      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason common/fullscreen.ts is on this list for",
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture press listener, the click phase's two halves installed together (one capture probe for outside presses — a target's own stopPropagation must not hide them — and one bubble listener for inside presses), and one document keydown-capture Escape listener — installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason platform/fullscreen.ts is on this list for",
   },
   {
     f: "control/ExportControl/session.ts",
@@ -150,6 +150,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
+    f: "control/LayerControl/ui/style/iconColor.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
+  },
+  {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,
@@ -165,10 +172,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/slider.ts",
-    n: 10,
+    n: 11,
     pairedOff: 0,
     reason:
-      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through common/fullscreen's shared subscription",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through platform/fullscreen's shared subscription",
   },
   {
     f: "control/MeasureControl/mode/circle.ts",
@@ -203,10 +210,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "the ONE outside-press + Escape dismissal primitive (task-32): document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
+      "the ONE outside-press + Escape dismissal primitive: document pointerdown capture + escapeTarget keydown capture, bound by bindDismiss and paired by its returned unbind. Every popup (listbox ownDismiss branch, icon glyph grid) binds through this — external dismissal must exist here and nowhere else. The primitive is free-standing (returns its own unbind closure), no BaseControl mounting signal in scope",
   },
   {
-    f: "common/floating.ts",
+    f: "platform/floating.ts",
     n: 11,
     pairedOff: 0,
     reason:
@@ -683,7 +690,7 @@ describe("the listener allow-list guard still bites", () => {
 describe("floating gesture containment", () => {
   // A touch/wheel gesture over a floating surface must never reach Leaflet's
   // map handlers (they would pan/zoom the map instead of scrolling the
-  // panel). bindFloatingGestures (common/floating.ts) is the ONE mechanism;
+  // panel). bindFloatingGestures (platform/floating.ts) is the ONE mechanism;
   // mountFloating auto-binds it. Two invariants:
   //   A. Every mountFloating caller gets the containment automatically (the
   //      bind lives inside mountFloating in floating.ts) — no caller may
@@ -727,7 +734,7 @@ describe("floating gesture containment", () => {
     // may still exist (bindFloatingTouch/bindFloatingWheel are the legacy
     // building blocks the unified entry replaces).
     expect(
-      gesturesByFile.get("common/floating.ts"),
+      gesturesByFile.get("platform/floating.ts"),
       "floating.ts binds its own unified entry",
     ).toBe(1);
   });

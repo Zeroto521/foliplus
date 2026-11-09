@@ -1,13 +1,6 @@
 // LayerUI shell (ui/index.ts) — attach sequence, event subscriptions, and the
 // thin delegates to the ui/* modules. DOM interaction specifics live in the
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { ROLE } from "#core/layer/index.js";
-import * as CONST from "#control/LayerControl/const.js";
-import { LayerController } from "#control/LayerControl/controller.js";
-import { LayerUI } from "#control/LayerControl/ui/index.js";
-import { getIntent, seedIntentMap } from "#control/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
   attachedPanel,
@@ -16,6 +9,13 @@ import {
   installLeafletGlobals,
   makePane,
 } from "./fixture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { ROLE } from "#core/layer/index.js";
+import * as CONST from "#control/LayerControl/const.js";
+import { LayerController } from "#control/LayerControl/controller.js";
+import { LayerUI } from "#control/LayerControl/ui/index.js";
+import { getIntent, seedIntentMap } from "#control/LayerControl/ui/intent.js";
 
 describe("LayerUI shell — event subscriptions", () => {
   let manager: LayerController;

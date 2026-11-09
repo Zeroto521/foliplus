@@ -1,7 +1,7 @@
 // script/build/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
 // Component bundles externalize shared-module imports to the global namespace
 // exposed by foliplus-common.min.js:
-//   - #common/*  → window.foliplus.common.<mod>
+//   - #platform/*  → window.foliplus.platform.<mod>
 //   - #core/*    → window.foliplus.core.<sub>  (or .hint for the top-level hint)
 //   - #foliplus/BaseControl.js → window.foliplus.BaseControl
 // Other #foliplus/* paths (a component's own const.js, icon.js,
@@ -17,13 +17,13 @@
 // are never declared, so they cannot appear in the bundle. The scan itself
 // lives in script/build/import-scan.mjs — the same engine
 // script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
-import { existsSync, readFileSync } from "fs";
-import { dirname, resolve } from "path";
 import { SHARED_SPEC_REGEX_SOURCE, namespacePrefixRules } from "../build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
 } from "./import-scan.mjs";
+import { existsSync, readFileSync } from "fs";
+import { dirname, resolve } from "path";
 
 const DECL_RE =
   /export\s+(?:const|let|var|function|class|async\s+function)\s+([A-Za-z_$][\w$]*)/g;
@@ -70,7 +70,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
   return result;
 };
 
-/** Map a canonical spec (`core/hint`, `common/log`, `BaseControl`) to its
+/** Map a canonical spec (`core/hint`, `platform/log`, `BaseControl`) to its
  *  runtime-relative dotted form — the string the shared runtime registers
  *  under on `window.foliplus`. Shared between the shim generator (which
  *  prefixes `foliplus.` for the global lookup) and the build script (which
@@ -80,7 +80,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  runtime publishes it at the top level (`foliplus.hint`, not
  *  `foliplus.core.hint`) in the `Object.assign(window.foliplus, …)` block
  *  in runtime/index.ts. Everything else follows `core.<sub>` /
- *  `common.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
+ *  `platform.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
  *  bare top-level export.
  *
  *  When the canonical form still carries a `#` — which only happens for the
@@ -88,7 +88,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  `sharedGlobalNamespace` produces an invalid JS identifier in the shim
  *  name. The build fails loudly rather than shipping a stale artifact. */
 // Same-name collision guard lives upstream in scan-registry.mjs, which
-// canonicalizes every shared module to the flat key (common.<name> /
+// canonicalizes every shared module to the flat key (platform.<name> /
 // ui.<name>) before this plugin sees the spec. Two subdirectory modules with
 // the same last segment would have collided there and aborted the build, so
 // no per-spec fallback is needed here — the registry is the single source of
@@ -96,7 +96,7 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec === "core/hint") return "hint";
-  if (spec.startsWith("common/")) return `common.${spec.split("/").at(-1)}`;
+  if (spec.startsWith("platform/")) return `platform.${spec.split("/").at(-1)}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
@@ -108,7 +108,7 @@ const runtimeTarget = spec => {
 
 /** Map a shared-module specifier to the global namespace holding its exports:
  *  foliplus.BaseControl / foliplus.hint / foliplus.core.<mod> /
- *  foliplus.common.<mod>. The shim generated below reads exactly this string,
+ *  foliplus.platform.<mod>. The shim generated below reads exactly this string,
  *  so a wrong value makes the import resolve to `undefined` at runtime while
  *  the build still prints a tick for it.
  *

@@ -1,5 +1,5 @@
 // Leaflet-touching shared modules — the Leaflet-facing side of the shared
-// layer. Kept out of common/ so the common layer stays DOM/map-pure.
+// layer. Kept out of platform/ so the platform layer stays DOM/map-pure.
 export {
   DEL_ICON_CHAR,
   DEL_ICON_MARKER_ANCHOR,
@@ -32,6 +32,7 @@ export {
 } from "./panel.js";
 export {
   applyIconToLeaves,
+  applyIconColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,
@@ -39,6 +40,7 @@ export {
   isIconLeaf,
   resetIconLeaves,
 } from "./markerIcon.js";
+export type { AuthorGlyph } from "./markerIcon.js";
 export {
   PICKER_GLYPHS,
   glyphAvailable,
@@ -46,3 +48,12 @@ export {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+export {
+  HIDDEN_CLASS,
+  bindControlZoomRange,
+  intersectsMapZoom,
+  isZoomRange,
+  readZoomRange,
+  unreachableZoomRange,
+  unusableZoomRange,
+} from "./zoomRange.js";

@@ -14,6 +14,7 @@
  * generated for `aria-activedescendant`.
  */
 import { keyOwner, nativeConsumesKey } from "./inputOwnership.js";
+import { ensureActiveVisible } from "#ui/index.js";
 
 type ListCursorMode = "roving" | "active-descendant";
 type ListCursorRoles = {
@@ -46,8 +47,23 @@ type ListCursorOptions = {
   cols?: number;
   onMove?: (index: number, el: HTMLElement | null) => void;
   onActivate?: (index: number, el: HTMLElement) => void;
+  /** Paint the option contract (role/aria-selected/id/tabindex) on rows.
+   *  True by default for the shared roving/listbox cursor. Set false when
+   *  the rows already carry the contract from a shared builder (SearchControl
+   *  uses ui/optionRow) — the cursor then only paints activeClass and
+   *  aria-activedescendant, never re-writing the row's role or selection. */
+  paintOptionContract?: boolean;
 };
 
+/** Keep the active option visible inside its scroll container.
+ *
+ * The scroll semantics are deliberately "nearest": the element scrolls only
+ * as far as needed to bring the active row into view (no centering), so a
+ * long list does not jump the viewport on every keypress. Both focus models
+ * go through this one primitive — the roving listbox engine (ui/listbox.ts
+ * focusOption) and the active-descendant cursor (ListCursor.paint) must never
+ * diverge on "what keeps the active row visible".
+ */
 let listCursorSeq = 0;
 
 const nextId = (prefix: string) => `${prefix}-${++listCursorSeq}`;
@@ -64,6 +80,7 @@ class ListCursor {
   private cols: number;
   private onMove: ListCursorOptions["onMove"];
   private onActivate: ListCursorOptions["onActivate"];
+  private paintOptionContract: boolean;
   private _index = -1;
   private bound: { target: HTMLElement; type: string; fn: EventListener }[] = [];
 
@@ -79,6 +96,7 @@ class ListCursor {
     this.cols = opts.cols ?? 1;
     this.onMove = opts.onMove;
     this.onActivate = opts.onActivate;
+    this.paintOptionContract = opts.paintOptionContract ?? true;
 
     this.root.setAttribute("role", this.listRole);
     this.applyRovingTabindex();
@@ -286,8 +304,10 @@ class ListCursor {
   private applyRovingTabindex(): void {
     const list = this.items();
     list.forEach((el, i) => {
-      if (!el.id) el.id = nextId("foliplus-opt");
-      el.setAttribute("role", this.itemRole);
+      if (this.paintOptionContract) {
+        if (!el.id) el.id = nextId("foliplus-opt");
+        el.setAttribute("role", this.itemRole);
+      }
       if (this.mode === "roving") {
         el.tabIndex =
           this._index === -1 ? (i === 0 ? 0 : -1) : i === this._index ? 0 : -1;
@@ -302,6 +322,15 @@ class ListCursor {
     list.forEach((el, i) => {
       const on = i === this._index;
       el.classList.toggle(this.activeClass, on);
+      // aria-selected is the cursor's to own: the option-row builder paints
+      // the contract once at build (role/tabindex/aria-selected=false), but a
+      // row must flip to "true" when the cursor lands on it even when
+      // paintOptionContract is false (SearchControl builds rows with the
+      // shared builder, then sets paintOptionContract:false — without this
+      // flip aria-selected would stay dead at "false" while activeClass and
+      // aria-activedescendant move, diverging from the shared listbox rows
+      // which do flip it). Grid cells (itemRole="gridcell") are excluded:
+      // they carry aria-current, not aria-selected.
       if (this.itemRole === "option") {
         el.setAttribute("aria-selected", on ? "true" : "false");
       }
@@ -311,6 +340,9 @@ class ListCursor {
       if (active) this.input.setAttribute("aria-activedescendant", active.id);
       else this.input.removeAttribute("aria-activedescendant");
     }
+    // Keep the active row visible. Both focus models share this contract via
+    // ensureActiveVisible (the roving engine calls it from focusOption).
+    ensureActiveVisible(active);
   }
 }
 

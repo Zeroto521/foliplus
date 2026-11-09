@@ -1,6 +1,6 @@
-// Shared color-scheme picker — a thin adapter over the one listbox engine.
+// ui/schemePicker — shared color-scheme picker: a thin adapter over the one listbox engine.
 //
-// The engine (common/listbox.ts) owns the dropdown lifecycle, keyboard
+// The engine (ui/listbox.ts) owns the dropdown lifecycle, keyboard
 // navigation, outside-click dismissal, focus return, portal/inline mounting
 // and aria-activedescendant tracking. This adapter only supplies the value
 // model (scheme + hidden select), the color-bar drawing, the trigger label,
@@ -8,9 +8,10 @@
 // behavior.
 //
 // Does NOT import any Heatmap or LayerControl module.
-import { dom } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
 import { createListbox } from "./listbox.js";
+import type { SchemePicker } from "./type.js";
+import { dom } from "#platform/dom.js";
+import { createLogger } from "#platform/log.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
@@ -61,8 +62,8 @@ interface SchemePickerOptions {
    *  pseudo-fullscreen fallback's own transitions, which emit no
    *  fullscreenchange). The picker re-seats its dropdown into the new host
    *  whenever the callback fires; the returned function unsubscribes on
-   *  close/destroy. Consumers wire this to the shared common/fullscreen
-   *  contract — common/** must not import core/**. */
+   *  close/destroy. Consumers wire this to the shared platform/fullscreen
+   *  contract — platform/** must not import core/**. */
   onSurfaceChange?: (cb: () => void) => () => void;
   /** Called when the dropdown opens or closes, with the dropdown element
    *  (or null when closed). Useful for consumers that need to track the
@@ -87,28 +88,6 @@ interface SchemePickerOptions {
    *  specific). Disabled entries keep their focus and aria-disabled semantics;
    *  this only gives a mouse user the reason on hover. */
   disabledHint?: string;
-}
-
-interface SchemePicker {
-  /** Set the selected scheme without closing the dropdown or triggering
-   *  onChange. Use to programmatically update the display. */
-  setValue(name: string): void;
-  /** Select a scheme: close the dropdown, update all DOM, and call onChange. */
-  selectScheme(name: string): void;
-  /** Update the number of classes and redraw all color bars. */
-  setNumClasses(n: number): void;
-  /** Redraw color bars in an open dropdown (e.g. after numClasses changes). */
-  refresh(): void;
-  /** Toggle the dropdown open/close. */
-  toggle(): void;
-  /** Close the dropdown. Set restoreFocus to false when the close was
-   *  triggered by outside-click, data-clear, or destroy — those should
-   *  not yank the user's focus back to the trigger. */
-  close(opts?: { restoreFocus?: boolean }): void;
-  /** Get the current dropdown element (null when closed). */
-  getDropdown(): HTMLElement | null;
-  /** Destroy all listeners, timers, and DOM elements. */
-  destroy(): void;
 }
 
 // Owner map: prevents two pickers from binding the same trigger (which
@@ -440,4 +419,3 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
 };
 
 export { createSchemePicker };
-export type { SchemePicker };

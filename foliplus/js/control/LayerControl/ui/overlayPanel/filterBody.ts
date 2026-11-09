@@ -16,9 +16,13 @@ import type {
   LayerFilter,
   LayerFilterModel,
 } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { type DropdownSurface, Slider, createDropdown } from "#ui/index.js";
+import { dom } from "#platform/dom.js";
+import {
+  type DropdownSurface,
+  PANEL_CLASS,
+  Slider,
+  createDropdown,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** What a body may use from the panel: translations, the owner write bridge,
@@ -108,7 +112,7 @@ const renderRangeBody = (
     deps.T("filter_field"),
     readOnlyField(dim.field),
   ).row;
-  // The condition row uses the same shared "Range" wording on both arms.
+  // The condition row uses the same shared "Range" wording on both branches.
   const conditionLabel = deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {
@@ -227,7 +231,7 @@ const renderEnumBody = (
   control.setAttribute("aria-label", conditionLabel);
 
   // Escape ownership stays with the shared dropdown while its list is open:
-  // common/dropdown claims the key on window capture and stops it there, so one
+  // ui/dropdown claims the key on window capture and stops it there, so one
   // press closes the popup and the next one reaches the LAYER_FILTER panel —
   // "popup first, panel second", with the registry as the only panel
   // dispatcher. If this body ever grows a bespoke portal/popup, register it as

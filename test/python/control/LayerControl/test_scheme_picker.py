@@ -54,7 +54,7 @@ _WARN_PRELUDE = """
 
 
 def _polygon_layer() -> folium.GeoJson:
-    """Overlay layer with a numeric property, for the style drawer's ramp arm."""
+    """Overlay layer with a numeric property, for the style drawer's ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",
@@ -90,7 +90,7 @@ def _expose_heatmap(html: str) -> str:
 def _make_flip_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     # Polygon first: it is the first overlay row, so the style drawer opens on a
-    # layer that actually has a fill row (the point group has no fill arm).
+    # layer that actually has a fill row (the point group has no fill mode).
     _polygon_layer().add_to(m)
     _points_group().add_to(m)
     # The heatmap panel grows up from the bottom edge, so its scheme row is the
@@ -121,12 +121,12 @@ def _open_layer_list(page) -> dict:
     )
     panel_ready(page)
     # Open the polygon's row, not the first overlay row: the point group sorts
-    # first and has no fill arm.
+    # first and has no fill mode.
     opened = page.evaluate(snippet("LayerControl/dropdown_open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
@@ -134,8 +134,8 @@ def _open_layer_list(page) -> dict:
     # Wait for the portal to be positioned and stable across a frame before
     # measuring. Reading the rect immediately after "attached" can observe a
     # pre-layout box, making the flip verdict disagree with the rule on timing.
-    page.wait_for_function(_js("common/wait_scheme_dropdown_settled"), timeout=5000)
-    return page.evaluate(_js("common/read_scheme_dropdown_placement"))
+    page.wait_for_function(_js("platform/wait_scheme_dropdown_settled"), timeout=5000)
+    return page.evaluate(_js("platform/read_scheme_dropdown_placement"))
 
 
 def _open_heatmap_list(page) -> dict:
@@ -161,8 +161,8 @@ def _open_heatmap_list(page) -> dict:
     )
     # Same settle-wait as _open_layer_list: the portal must be positioned and
     # stable before measuring, or the flip verdict flakes on layout timing.
-    page.wait_for_function(_js("common/wait_scheme_dropdown_settled"), timeout=5000)
-    return page.evaluate(_js("common/read_scheme_dropdown_placement"))
+    page.wait_for_function(_js("platform/wait_scheme_dropdown_settled"), timeout=5000)
+    return page.evaluate(_js("platform/read_scheme_dropdown_placement"))
 
 
 def _close(page) -> None:
@@ -236,7 +236,7 @@ class TestSchemeDropdownFlipBrowser:
             assert first["ok"], first
             page.set_viewport_size({"width": 900, "height": 420})
             page.wait_for_timeout(150)
-            after = page.evaluate(_js("common/read_scheme_dropdown_placement"))
+            after = page.evaluate(_js("platform/read_scheme_dropdown_placement"))
             assert after["ok"], after
             assert after["ruleHolds"], after
             assert after["dropdown"]["top"] != first["dropdown"]["top"], (
@@ -281,7 +281,7 @@ def _make_order_page(browser, tmp_path, layer_first: bool):
 
 
 def _state(page) -> dict:
-    return page.evaluate(_js("common/read_picker_panel_state"))
+    return page.evaluate(_js("platform/read_picker_panel_state"))
 
 
 def _wait_closed(page) -> None:
@@ -291,7 +291,7 @@ def _wait_closed(page) -> None:
 
 
 def _close_centre(page, selector: str) -> dict:
-    return page.evaluate(_js("common/read_element_centre"), selector)
+    return page.evaluate(_js("platform/read_element_centre"), selector)
 
 
 def _open_heatmap_dropdown(page) -> None:
@@ -324,7 +324,7 @@ def _open_style_dropdown(page) -> None:
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     # Wait for the picker's open state to be *committed*, not merely for the
     # portal node to be in the DOM. On Linux headless the open state lands a
@@ -361,7 +361,7 @@ class TestPickerCloseBrowser:
     def test_heatmap_outside_press_closes_both(self, browser, tmp_path):
         with use_page(_make_close_page, browser, tmp_path) as (page, errors):
             _open_heatmap_dropdown(page)
-            box = page.evaluate(_js("common/read_map_centre"))
+            box = page.evaluate(_js("platform/read_map_centre"))
             page.mouse.click(box["x"], box["y"])
             _wait_closed(page)
             state = _state(page)
@@ -381,7 +381,7 @@ class TestPickerCloseBrowser:
 
     def test_collapse_in_pseudo_fullscreen_closes_the_list(self, browser, tmp_path):
         with use_page(_make_close_page, browser, tmp_path) as (page, errors):
-            entered = page.evaluate(_js("common/set_pseudo_fullscreen"), True)
+            entered = page.evaluate(_js("platform/set_pseudo_fullscreen"), True)
             assert entered["ok"], entered
             assert entered["pseudo"], entered
             _open_heatmap_dropdown(page)
@@ -392,15 +392,15 @@ class TestPickerCloseBrowser:
             _wait_closed(page)
             state = _state(page)
             assert state["portalCount"] == 0, state
-            page.evaluate(_js("common/set_pseudo_fullscreen"), False)
+            page.evaluate(_js("platform/set_pseudo_fullscreen"), False)
             assert not errors, f"JS errors: {errors}"
 
     def test_removing_the_control_closes_the_list(self, browser, tmp_path):
         with use_page(_make_close_page, browser, tmp_path) as (page, errors):
             _open_heatmap_dropdown(page)
-            page.evaluate(_js("common/remove_heatmap_control"))
+            page.evaluate(_js("platform/remove_heatmap_control"))
             _wait_closed(page)
-            assert not page.evaluate(_js("common/has_heatmap_control"))
+            assert not page.evaluate(_js("platform/has_heatmap_control"))
             assert not errors, f"JS errors: {errors}"
 
     def test_style_drawer_close_closes_the_list(self, browser, tmp_path):
@@ -434,7 +434,7 @@ class TestPickerCloseBrowser:
         """Choosing a scheme must not swallow the press that follows."""
         with use_page(_make_close_page, browser, tmp_path) as (page, errors):
             _open_heatmap_dropdown(page)
-            rows = page.evaluate(_js("common/read_scheme_dropdown_rows"))
+            rows = page.evaluate(_js("platform/read_scheme_dropdown_rows"))
             assert rows["ok"], rows
             page.mouse.click(rows["targetX"], rows["targetY"])
             _wait_closed(page)
@@ -486,7 +486,7 @@ class TestPickerCloseBrowser:
 
 
 def _ramp_layer() -> folium.GeoJson:
-    """A polygon layer with a numeric property, for the fill ramp arm."""
+    """A polygon layer with a numeric property, for the fill ramp mode."""
     return folium.GeoJson(
         json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
         name="Polygon data",
@@ -523,7 +523,7 @@ def _make_host_page(browser, tmp_path, *, pseudo: bool):
 
 
 def _open_ramp(page) -> None:
-    """Expand the layer control, open the style drawer and settle the ramp arm."""
+    """Expand the layer control, open the style drawer and settle the ramp mode."""
     page.evaluate(_js("LayerControl/open_panel"))
     page.wait_for_selector(
         ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
@@ -537,7 +537,7 @@ def _open_ramp(page) -> None:
 def _open_list(page) -> dict:
     """Press the scheme trigger and return the live list geometry."""
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-    assert ready["ok"], f"the ramp arm did not settle: {ready}"
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
     page.mouse.click(ready["triggerX"], ready["triggerY"])
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
@@ -743,9 +743,9 @@ def _measure(page, trigger: str) -> dict:
     genuine product bug), the wait resolves a diagnostics object instead of
     silently passing, and this fails loudly with the widths/lane evidence.
     """
-    settled = page.evaluate(_js("common/wait_scheme_picker_settled"), trigger)
+    settled = page.evaluate(_js("platform/wait_scheme_picker_settled"), trigger)
     assert settled is True, f"picker width did not settle: {settled}"
-    return page.evaluate(_js("common/measure_scheme_strip"), trigger)
+    return page.evaluate(_js("platform/measure_scheme_strip"), trigger)
 
 
 def _assert_invariant(sample: dict) -> None:

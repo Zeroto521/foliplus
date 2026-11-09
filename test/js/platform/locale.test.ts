@@ -3,7 +3,7 @@ import {
   createScopedTranslator,
   createTranslator,
   intlLocale,
-} from "#common/locale.js";
+} from "#platform/locale.js";
 
 describe("intlLocale", () => {
   it("maps the short project codes to full BCP-47 tags", () => {

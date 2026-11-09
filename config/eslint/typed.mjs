@@ -36,10 +36,10 @@
 //
 // @see https://typescript-eslint.io/rules/no-floating-promises/
 // @see https://typescript-eslint.io/rules/consistent-type-exports/
+import base from "./base.mjs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
-import base from "./base.mjs";
 
 const importPlugin = (await import("eslint-plugin-import")).default;
 

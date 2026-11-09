@@ -1,3 +1,4 @@
+import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerInfo, ROLE } from "#core/layer/index.js";
@@ -20,7 +21,6 @@ import {
   toggleFold,
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
-import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 
 const makeUi = () =>
   ({

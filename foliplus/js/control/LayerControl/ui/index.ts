@@ -1,12 +1,5 @@
 // LayerControl UI — class shell: state, lifecycle, event wiring, delegates.
 // Heavy lifting lives in `ui/*` modules; this class owns state and delegates.
-import { type EventBus, ensureEvents } from "#core/event/index.js";
-import {
-  type CreateColorAPI,
-  type LayerInfo,
-  LayerRuntimeStore,
-} from "#core/layer/index.js";
-import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
@@ -70,6 +63,7 @@ import {
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
 import { applyIconToLayer } from "./style/icon.js";
+import { applyIconColorToLayer } from "./style/iconColor.js";
 import {
   applyStyleLabelState,
   closeStylePanel,
@@ -85,6 +79,13 @@ import {
   setStyleApplyFailureReporter,
 } from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
+import { type EventBus, ensureEvents } from "#core/event/index.js";
+import {
+  type CreateColorAPI,
+  type LayerInfo,
+  LayerRuntimeStore,
+} from "#core/layer/index.js";
+import type { Logger } from "#platform/type.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:
@@ -316,6 +317,7 @@ class LayerUI implements LayerUISurface {
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
       applyIconToLayer(this, layerId);
+      applyIconColorToLayer(this, layerId);
     }
     // Author-declared fills are read-time defaults, not stored overrides, so
     // the provenance loop above never reaches a layer the user left alone.
