@@ -925,4 +925,16 @@ describe("claimKeys — a floating surface owns the keys it claimed", () => {
   it("isKeyClaimed returns false for a null owner", () => {
     expect(isKeyClaimed(null, "ArrowRight")).toBe(false);
   });
+
+  it("a second release after the first emptied the claim is a no-op (early return)", () => {
+    const first = claimKeys(root);
+    const second = claimKeys(root);
+    // Release the first: it removes every shared key and deletes the entry.
+    first();
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+    // The second release runs against a deleted entry: current is undefined
+    // and the release returns without touching anything. No throw, no leak.
+    second();
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+  });
 });
