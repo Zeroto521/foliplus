@@ -26,11 +26,10 @@
 // (the border dimension's write path) owns where the stroke config and the
 // active mode live, and supplies the live readers. The engine paints
 // exactly what it is asked to.
-import { DIM } from "#core/layer/index.js";
-import { type FillMode, type FillValueConfig } from "#core/layer/intent.js";
 import type { LayerUI } from "../surface.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
+import { DIM, type FillMode, type FillValueConfig } from "#core/layer/index.js";
 
 /** The stroke mode in force. An absent mode defers to whether a value config
  *  exists — the pre-mode record shape, where a config alone meant "paint

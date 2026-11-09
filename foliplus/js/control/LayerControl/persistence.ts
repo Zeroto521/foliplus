@@ -1,7 +1,14 @@
-import type { FolderOrder } from "#core/layer/folderOrder.js";
+import * as CONST from "./const.js";
+import type {
+  LabelConfig,
+  LayerOverride,
+  PersistedLayerState,
+  PersistedRecord,
+} from "./type.js";
 import {
   FILL_MODE,
   type FillValueConfig,
+  type FolderOrder,
   isFillValueConfig,
   isIconIntent,
 } from "#core/layer/index.js";
@@ -10,13 +17,6 @@ import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import * as Storage from "#platform/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
-import * as CONST from "./const.js";
-import type {
-  LabelConfig,
-  LayerOverride,
-  PersistedLayerState,
-  PersistedRecord,
-} from "./type.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that

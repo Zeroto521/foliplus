@@ -22,38 +22,6 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // label label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
-import {
-  CAP_TIER,
-  DIM,
-  FILL_MODE,
-  type FillMode,
-  type FillValueConfig,
-  GEOM_TYPE,
-} from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { dom } from "#platform/dom.js";
-import {
-  dropdownSurface,
-  fullscreenSurface,
-  onFullscreenSurfaceChange,
-} from "#platform/fullscreen.js";
-import { PANEL_CLASS } from "#ui/panelClassName.js";
-import {
-  BORDER_WEIGHT,
-  type SchemePicker,
-  bindLiveColor,
-  bindLiveNumber,
-  colorInput,
-  createSchemePicker,
-  dropdownOf,
-  inlineControls,
-  normalizeHexColor,
-  numberInput,
-} from "#ui/index.js";
-import { STYLE_MODE } from "#ui/styleModeKey.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
@@ -79,6 +47,38 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import {
+  CAP_TIER,
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+  GEOM_TYPE,
+} from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
+import { dom } from "#platform/dom.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#platform/fullscreen.js";
+import {
+  BORDER_WEIGHT,
+  PANEL_CLASS,
+  STYLE_MODE,
+  type SchemePicker,
+  bindLiveColor,
+  bindLiveNumber,
+  colorInput,
+  createSchemePicker,
+  dropdownOf,
+  inlineControls,
+  normalizeHexColor,
+  numberInput,
+} from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's

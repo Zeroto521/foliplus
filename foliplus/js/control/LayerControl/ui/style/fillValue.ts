@@ -1,6 +1,13 @@
 // Value-based fill rendering and its editable "按值着色 / Color by value" UI — the
 // FILL declaration and the value mode's presentation share this file. The paint
 // engine (the shared by-value mode) lives in valuePaint.ts.
+import { INTENT, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { authorFill, methodLabel } from "./fillAuthor.js";
+import { layerFields } from "./label.js";
+import { getDimension } from "./registry.js";
+import { FACE, walkFillLeaves } from "./styleBag.js";
+import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   categoricalPropertiesKeys,
@@ -8,12 +15,16 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/field.js";
-import { DIM } from "#core/layer/index.js";
-import { FILL_MODE, type FillMode, type FillValueConfig } from "#core/layer/intent.js";
-import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
+import {
+  DIM,
+  FILL_MODE,
+  type FillMode,
+  type FillValueConfig,
+} from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
+import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   dropdownSurface,
   fullscreenSurface,
@@ -23,13 +34,6 @@ import { createLogger } from "#platform/log.js";
 import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
-import { INTENT, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { authorFill, methodLabel } from "./fillAuthor.js";
-import { layerFields } from "./label.js";
-import { getDimension } from "./registry.js";
-import { FACE, walkFillLeaves } from "./styleBag.js";
-import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 
 const resolveFillMode = (
   ui: LayerUI,
@@ -269,10 +273,9 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
   // the numeric ones. A declaration whose field vanished from the matching
   // set is not re-pointed — the whole declaration steps aside, same as a
   // numeric declaration whose column is gone.
-  const fields =
-    isCategoryKind(config.kind)
-      ? categoryFields(ui, layerId)
-      : numericFields(ui, layerId);
+  const fields = isCategoryKind(config.kind)
+    ? categoryFields(ui, layerId)
+    : numericFields(ui, layerId);
   return fields.includes(config.field) ? config : undefined;
 };
 
