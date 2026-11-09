@@ -4,8 +4,8 @@
 // importing the build orchestrator (or esbuild, whose WASM entry trips an
 // environment invariant under jsdom). build.mjs binds it to the real source
 // dir; tests bind it to a temp dir.
-import { readFileSync } from "fs";
 import { transformSource } from "./compress.mjs";
+import { readFileSync } from "fs";
 
 const normPath = p => p.replaceAll("\\", "/");
 

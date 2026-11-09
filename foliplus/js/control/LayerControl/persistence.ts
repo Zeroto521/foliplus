@@ -7,8 +7,8 @@ import {
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import * as Storage from "#common/storage.js";
+import { type Debounced, debounce } from "#platform/debounce.js";
+import * as Storage from "#platform/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "./const.js";
 import type {

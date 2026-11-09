@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Cache } from "#foliplus/common/cache.js";
-import { dom } from "#foliplus/common/dom.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { Cache } from "#foliplus/platform/cache.js";
+import { dom } from "#foliplus/platform/dom.js";
 import { HISTORY } from "#control/SearchControl/const.js";
 import { bindEvents, initFromUrl } from "#control/SearchControl/interaction.js";
 

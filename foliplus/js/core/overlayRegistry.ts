@@ -21,8 +21,8 @@
 // ESC_PRIORITY (higher rank = closer to the top), used to pick the owning
 // entry and as the deterministic fallback when two open entries contain the
 // same target. Registration order is never the order surfaces are consulted.
-import { isInsideOverlay } from "#core/overlay.js";
-import { createLogger } from "#common/log.js";
+import { isInsideOverlay } from "./overlay.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("Overlay");
 

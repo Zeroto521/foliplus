@@ -10,7 +10,7 @@
 // native select: the visible mode list is the panel's one popup recipe, and the
 // select stays the value/change carrier the panel's delegation reads. The
 // detail slot is one element — callers replace its children on a mode switch.
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import {
   type Dropdown,
   type DropdownSurface,

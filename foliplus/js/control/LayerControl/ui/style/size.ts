@@ -35,14 +35,14 @@
 // face — a radius write is a direct `setRadius` — but it shares the queue, so
 // a typing burst across the field lands one walk instead of one per leaf per
 // keystroke, and a bulk add of leaves to one layer coalesces the same way.
-import { CAP_TIER, DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
-import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
-import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
+import { CAP_TIER, DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
+import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
+import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** The author's radius per leaf — captured on the layer's first write, and by
  *  reset time the only copy of it (`setRadius` mutates `_radius` in place).

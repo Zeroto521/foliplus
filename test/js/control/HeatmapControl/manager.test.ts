@@ -1,17 +1,3 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLASS_COUNT, METHOD } from "#core/classify.js";
-import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
-import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { BORDER_WEIGHT } from "#ui/index.js";
-import * as CONST from "#control/HeatmapControl/const.js";
-import { HeatmapManager } from "#control/HeatmapControl/manager.js";
-import {
-  type HeatmapControlUI,
-  rebuildLayerDropdown,
-} from "#control/HeatmapControl/ui.js";
-import type { LayerController } from "#control/LayerControl/controller.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import {
   loadGeometry,
@@ -20,6 +6,20 @@ import {
   makeManager,
   makeManagerOn,
 } from "./fixture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
+import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { BORDER_WEIGHT } from "#ui/index.js";
+import * as CONST from "#control/HeatmapControl/const.js";
+import { HeatmapManager } from "#control/HeatmapControl/manager.js";
+import {
+  type HeatmapControlUI,
+  rebuildLayerDropdown,
+} from "#control/HeatmapControl/ui.js";
+import type { LayerController } from "#control/LayerControl/controller.js";
 
 afterEach(() => {
   delete globalThis.h3;
@@ -125,7 +125,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
   it("redrawHeatmap drops slider CSS so the bake never double-compounds (R11)", () => {
     const m = makeManager();
     const canvas = document.createElement("canvas");
-    canvas.style.opacity = "0.4"; // live slider arm left this on
+    canvas.style.opacity = "0.4"; // live slider mode left this on
     m.overlay = {
       canvas,
       ctx: {
@@ -1070,7 +1070,7 @@ describe("event-bus bindings", () => {
   });
 
   it("a bare LAYER_CHANGE (no payload) still triggers onLayerChange", async () => {
-    // Defense arm for the handler's `!payload` fallback: third-party or
+    // Defense branch for the handler's `!payload` fallback: third-party or
     // legacy code may emit LAYER_CHANGE with no payload (the pre-refactor
     // shape). The handler can't gate on kind — it falls through to the
     // full onLayerChange sweep. Pins the fallback so a future refactor
@@ -2125,7 +2125,7 @@ describe("NO_OP_ENV T fallback", () => {
   });
 });
 
-describe("onOpacity callback (R11 redraw arm)", () => {
+describe("onOpacity callback (R11 redraw branch)", () => {
   it("clears CSS opacity and calls redrawHeatmap", () => {
     const m = makeManager();
     const canvas = document.createElement("canvas");
@@ -2754,7 +2754,7 @@ describe("effective aggregation field - the auto default never becomes a record"
 });
 
 // ── Declared-filter fixtures ──────────────────────────────────────────
-// Shared by the guard tests below and the cross-arm matrix at the end.
+// Shared by the guard tests below and the cross-branch matrix at the end.
 
 /** A valid numeric-range atom on the fixture's snapshot field. */
 const RANGE = {
@@ -2813,8 +2813,8 @@ const userWrite = (manager: any, filter: LayerFilter = USER_RANGE) => {
 
 // ── Declared filter guards (HeatmapManager) ───────────────────────────
 //
-// The matrix below pins the cross-arm rows; these are the Heatmap-only
-// guards the range arm needs: clamping to the snapshot extent, timing versus
+// The matrix below pins the cross-branch rows; these are the Heatmap-only
+// guards the range branch needs: clamping to the snapshot extent, timing versus
 // data defects, and the field/aggregation coupling.
 describe("HeatmapManager — declared filter guards", () => {
   beforeEach(() => window.localStorage.clear());
@@ -2891,7 +2891,7 @@ describe("HeatmapManager — declared filter guards", () => {
   });
 
   it("a snapshot that was never built is not a data problem either", () => {
-    // The other arm of the same timing check: no snapshot object at all (the
+    // The other branch of the same timing check: no snapshot object at all (the
     // cache is cleared on a source or content change and the seed can run
     // before getSelectedPoints rebuilds it). Still not a declaration defect.
     const manager = seedable(RANGE);
@@ -3105,12 +3105,12 @@ describe("HeatmapManager — declared filter guards", () => {
   });
 });
 
-// ── Cross-arm filter contract (range arm) ─────────────────────────────
+// ── Cross-branch filter contract (range branch) ─────────────────────────────
 //
 // One half of a mirrored pair. The sibling
 // test/js/control/MeasureControl/manager.test.ts pins the same rows against
-// the enum arm; the describe/it structure is identical on purpose, so a
-// change that moves one arm without the other fails here instead of in a
+// the enum branch; the describe/it structure is identical on purpose, so a
+// change that moves one branch without the other fails here instead of in a
 // user report.
 //
 // The rows, in order:
@@ -3122,7 +3122,7 @@ describe("HeatmapManager — declared filter guards", () => {
 //   5. an unusable declaration warns once and never leaves a half-open state;
 //   6. a saved filter round-trips through persistence;
 //   7. the dimension carries values only — captions are panel chrome.
-describe("HeatmapManager — filter contract (range arm)", () => {
+describe("HeatmapManager — filter contract (range branch)", () => {
   beforeEach(() => window.localStorage.clear());
 
   afterEach(() => {
@@ -3245,7 +3245,7 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it("rejects the other arm whole instead of coercing it", () => {
+    it("rejects the other branch whole instead of coercing it", () => {
       const manager = seedable({
         kind: "enum",
         field: "score",
@@ -3256,7 +3256,7 @@ describe("HeatmapManager — filter contract (range arm)", () => {
       manager.seedDeclaredFilter();
 
       // No partial range and no enum leaking into the numeric slot: the wrong
-      // arm is undeclared, not coerced.
+      // branch is undeclared, not coerced.
       expect(manager.layerFilters.has("pts")).toBe(false);
       expect(warn).toHaveBeenCalledTimes(1);
     });

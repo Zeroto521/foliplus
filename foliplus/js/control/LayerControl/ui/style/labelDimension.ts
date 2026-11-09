@@ -14,15 +14,19 @@
 // `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
+import type { LayerUI } from "../surface.js";
+import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
+import { registerDimension } from "./registry.js";
+import { FACE } from "./styleBag.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { dom } from "#platform/dom.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
+  PANEL_CLASS,
   clampLabelSize,
   createDropdown,
   colorInput as formColorInput,
@@ -34,10 +38,6 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LabelConfig } from "#control/LayerControl/type.js";
-import type { LayerUI } from "../surface.js";
-import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
-import { registerDimension } from "./registry.js";
-import { FACE } from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry label content: the layer
  *  is registered (precondition guard) and its surface declared a label

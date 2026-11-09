@@ -1,15 +1,15 @@
+import * as CONST from "../const.js";
+import type { MeasureManager } from "../manager.js";
+import { attachDistanceUI } from "../ui/index.js";
+import * as Util from "../util.js";
+import { PreviewMode } from "./base.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { stopEvent } from "#common/dom.js";
-import * as CONST from "../const.js";
-import type { MeasureManager } from "../manager.js";
-import { attachDistanceUI } from "../ui/index.js";
-import * as Util from "../util.js";
-import { PreviewMode } from "./base.js";
+import { stopEvent } from "#platform/dom.js";
 
 // ==================== Distance Mode ====================
 /** Distance measurement mode. Click to place nodes, double-click/context to finish. */

@@ -1,11 +1,11 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
-import { createLogger } from "#common/log.js";
-import { safeSVG } from "#common/sanitize.js";
 import { ROLE } from "./const.js";
 import { type FolderOrder, fullDisplayOrder } from "./folderOrder.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
+import { safeSVG } from "#core/sanitize.js";
+import { createLogger } from "#platform/log.js";
 
 // Mutating methods blocked on the read-only view.
 const log = createLogger("LayerInfoRegistry");
@@ -232,6 +232,12 @@ class LayerInfoRegistry {
       // re-registration that does not resend it keeps the declared range
       // (`existingLi.zoomRange`).
       zoomRange: opts.zoomRange ?? existingLi?.zoomRange ?? null,
+      // The per-layer declared filter (CONF `data[].filter`, or a third-party
+      // registerLayer call), carried the same way `zoomRange` is: it is the
+      // declared default that becomes the layer's initial committed filter
+      // (seeded by the controller at init). A re-registration that omits it
+      // keeps the previous committed filter (`existingLi.filter`).
+      filter: opts.filter ?? existingLi?.filter,
       // Declared folder (CONF `data[].folder`, or a third-party JS
       // registerLayer call). Python's normalise_folder already validated the
       // CONF value, so this guards the direct-JS path: a non-string or blank

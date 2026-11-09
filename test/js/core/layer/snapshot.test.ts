@@ -16,7 +16,7 @@ import {
   extractMarkerFields,
   snapshotFromPoints,
 } from "#core/layer/snapshot.js";
-import { createLogger } from "#common/log.js";
+import { createLogger } from "#platform/log.js";
 
 // Minimal Leaflet classes for `instanceof` checks in the builder. The
 // base setup does not install `L.Marker` (only `L.marker` factory and

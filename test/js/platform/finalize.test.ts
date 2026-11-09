@@ -6,7 +6,7 @@ import {
   type FinalizeStep,
   finalize,
   finalizeEach,
-} from "#common/finalize.js";
+} from "#platform/finalize.js";
 
 describe("finalize", () => {
   it("runs every step in order and reports nothing on success", () => {

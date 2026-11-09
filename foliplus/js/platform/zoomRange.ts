@@ -1,5 +1,4 @@
-// Declarative zoom-range gate for a whole control (HeatmapControl /
-// MeasureControl).
+// platform/zoomRange — declarative zoom-range gate for a whole control.
 //
 // A control's zoom_range={...} declaration is a visibility window over the
 // map's zoom level: inside it the control is available, outside it the
@@ -19,7 +18,7 @@ interface DeclaredZoomRange {
   max: number;
 }
 
-/** The shared hidden state (common/reset.css). */
+/** The shared hidden state (foliplus/reset.css). */
 const HIDDEN_CLASS = "foliplus-hidden";
 
 /** Whether `raw` is a usable declaration: both ends integer zoom levels, in

@@ -6,12 +6,13 @@ from branca.element import Element
 from folium.map import Layer
 
 from foliplus._config_schema import FieldSpec
+from foliplus._declaration import FILTER_KEY
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._layer_declaration import declared_folder, declared_zoom_range
+from ._layer_declaration import declared_filter, declared_folder, declared_zoom_range
 
 
 class LayerControl(BaseControl):
@@ -177,13 +178,13 @@ class LayerControl(BaseControl):
     +=============+=================================================+====================================================================================================================================================================+
     | ``field``   | required — naming one turns value-based fill on | the numeric or categorical feature property to classify                                                                                                            |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``kind``    | inferred from the layer's own values            | the arm (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops the declaration |
+    | ``kind``    | inferred from the layer's own values            | the variant (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops it          |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``method``  | ``jenks``                                       | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)                                                                                           |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``classes`` | ``6``                                           | number of classes, an integer from 2 to 9 (the panel's maximum)                                                                                                    |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``scheme``  | ``Viridis`` (``Set3`` for a category arm)       | palette name (the style panel's own candidates)                                                                                                                    |
+    | ``scheme``  | ``Viridis`` (``Set3`` for a category variant)   | palette name (the style panel's own candidates)                                                                                                                    |
     +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
     How a ``fill`` declaration is resolved:
@@ -384,6 +385,9 @@ class LayerControl(BaseControl):
             folder = declared_folder(item, item.layer_name)
             if folder is not None:
                 entry["folder"] = folder
+            filter_decl = declared_filter(item, item.layer_name)
+            if filter_decl is not None:
+                entry[FILTER_KEY] = filter_decl
             data.append(entry)
 
         # A folder name shared by several layers is a grouping intent, not a

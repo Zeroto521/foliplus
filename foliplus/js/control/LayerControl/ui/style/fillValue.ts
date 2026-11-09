@@ -18,8 +18,8 @@ import {
   dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
-import { createLogger } from "#common/log.js";
+} from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";

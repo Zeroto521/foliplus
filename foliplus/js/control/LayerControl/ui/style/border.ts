@@ -33,13 +33,13 @@ import {
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+} from "#platform/fullscreen.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import {
   BORDER_WEIGHT,
   type SchemePicker,

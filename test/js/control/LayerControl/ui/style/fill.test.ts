@@ -1,7 +1,8 @@
+import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASS_COUNT } from "#core/classify.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
 import { dropdownOf } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -28,7 +29,6 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
  *  with their own setStyle. The leaves are `L.Polygon` instances so the areal

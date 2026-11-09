@@ -1,5 +1,8 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import * as CONST from "./const.js";
+import { type HeatmapManager } from "./manager.js";
+import { panelContentHTML } from "./template.js";
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -7,21 +10,18 @@ import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { safeColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import { dom } from "#common/dom.js";
+import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
-} from "#common/fullscreen.js";
+} from "#platform/fullscreen.js";
 import {
   type SchemePicker,
   createDropdown,
   createSchemePicker,
   dropdownOf,
 } from "#ui/index.js";
-import * as CONST from "./const.js";
-import { type HeatmapManager } from "./manager.js";
-import { panelContentHTML } from "./template.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {

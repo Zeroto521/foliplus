@@ -1,4 +1,4 @@
-// common/log — namespaced foliplus diagnostics.
+// platform/log — namespaced foliplus diagnostics.
 /* eslint-disable no-console -- this module IS the console wrapper */
 // Every foliplus console message and thrown error message carries a `[<name>]`
 // prefix so output is greppable and attributable at a glance. Components pass

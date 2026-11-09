@@ -1,5 +1,14 @@
+import {
+  TEST_ENV,
+  attachWithGroup,
+  attachedPanel,
+  initFixture,
+  polygonLayer,
+  trackMembership,
+} from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
+import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import {
   FALLBACK_PANE_PREFIX,
@@ -8,8 +17,7 @@ import {
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
 import * as coreLayer from "#foliplus/core/layer/index.js";
-import { getLayerAlpha } from "#common/canvasAlpha.js";
-import * as Storage from "#common/storage.js";
+import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   LayerController,
@@ -26,14 +34,6 @@ import {
   saveNamesState,
   saveState,
 } from "#control/LayerControl/ui/state.js";
-import {
-  TEST_ENV,
-  attachWithGroup,
-  attachedPanel,
-  initFixture,
-  polygonLayer,
-  trackMembership,
-} from "./ui/fixture.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -1036,7 +1036,7 @@ describe("LayerController", () => {
   });
 
   it("onLayerAdd stays silent when no pending entry can claim the arriving layer", () => {
-    // The other arm: a registration that already carries its layer is not
+    // The other branch: a registration that already carries its layer is not
     // "late", so an unrelated add must not manufacture a change — and a
     // pending entry whose resolved object is a *different* layer must not
     // claim it either.
@@ -2634,7 +2634,7 @@ describe("LayerController", () => {
     const fresh = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas: fresh });
 
-    // Default "redraw" arm: CSS live + layerAlpha stored.
+    // Default "redraw" branch: CSS live + layerAlpha stored.
     expect(fresh.style.opacity).toBe("0.4");
     expect(getLayerAlpha(fresh)).toBeCloseTo(0.4);
     expect(manager.layerRegistry.get("heat")?.opacity).toBe(0.4);

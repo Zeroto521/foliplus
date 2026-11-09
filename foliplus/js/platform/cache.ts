@@ -1,4 +1,4 @@
-// common/cache — FIFO-bounded cache container with optional TTL expiry.
+// platform/cache — FIFO-bounded cache container with optional TTL expiry.
 // Generic, stateless container (instances hold state). Shared by the runtime
 // geocoder, SearchControl suggestions and ExportControl bitmap loading — the
 // latter passes an optional eviction hook to release GPU resources on removal.

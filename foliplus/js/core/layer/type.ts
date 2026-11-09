@@ -133,7 +133,7 @@ interface LayerCapabilities {
    *      the layer's option, not a pane.
    *    - "pane"   — we own a pane (or canvas face) for this layer. Vector
    *      children take one CSS write on the pane; self-drawn canvases bake
-   *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
+   *      layerAlpha into their draws (R11, `#core/layer/canvasAlpha.js`) so a large
    *      canvas does not force a GPU composite buffer. The tier still reports
    *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier belongs to a separate
    *      capabilities concern.
@@ -231,6 +231,12 @@ interface RegisterLayerOpts {
    *  field carries the author's display spelling — the grouping identity is
    *  `normalizeFolderName(folder)`. */
   folder?: string | null;
+  /** Author's declared filter (CONFIG `data[].filter`, normalised by Python's
+   *  `normalise_layer_filter` to the shared filter AST). This is the declared
+   *  default that becomes the layer's initial committed filter; the controller
+   *  keeps the `filter` slot in sync with the write-through. Absent means the
+   *  author did not declare one. */
+  filter?: LayerFilter | null;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
   baseInsert?: "top" | "bottom";
@@ -256,7 +262,7 @@ interface RegisterLayerOpts {
    *  to re-render under the new layerAlpha. Optional: CSS-opacity carriers
    *  (vector panes, tile layers) need no redraw hook. */
   onOpacity?: ((opacity: number) => void) | null;
-  /** R11 bake policy for self-drawn canvases (see `#common/canvasAlpha`).
+  /** R11 bake policy for self-drawn canvases (see `#core/layer/canvasAlpha.js`).
    *  The slider path must not regress: a full redraw of a ≥5k layer on every
    *  commit is jank, while a CSS style write is O(1).
    *    - "commit"  — bake layerAlpha and redraw on the slider commit itself.
@@ -265,7 +271,7 @@ interface RegisterLayerOpts {
    *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
    *      the CSS so the two never compound. Default; heatmap uses this.
-   *  Drawers must always read layerAlpha via the shared helper so both arms
+   *  Drawers must always read layerAlpha via the shared helper so both paths
    *  of the dual path render the same pixels. */
   opacityBake?: "commit" | "redraw";
   canvas?: HTMLCanvasElement | null;

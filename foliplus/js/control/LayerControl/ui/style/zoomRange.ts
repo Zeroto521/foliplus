@@ -7,11 +7,6 @@
 //
 // Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
-import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { Slider, sliderOf } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import {
   NO_DELTA,
   type ProjectionDelta,
@@ -28,6 +23,10 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
+import { dom } from "#platform/dom.js";
+import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Whether the layer's surface can honestly carry a zoom-range write.
  *  Pure capability check: capabilities.zoomRange !== "none".

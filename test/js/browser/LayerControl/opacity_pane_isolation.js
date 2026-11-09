@@ -195,7 +195,7 @@ fixtures => {
   // R11: the label canvas bakes layerAlpha; read it back from the shared
   // helper (same one the drawers use). Pane CSS is NOT the label carrier.
   const labelCanvas = labelPane ? labelPane.querySelector("canvas") : null;
-  const bakeApi = window.foliplus?.common?.canvasAlpha;
+  const bakeApi = window.foliplus?.core?.layer;
   const annotatedLabelBakeAlpha =
     labelCanvas && bakeApi ? bakeApi.getLayerAlpha(labelCanvas) : null;
 

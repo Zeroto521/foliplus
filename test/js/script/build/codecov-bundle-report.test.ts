@@ -26,9 +26,9 @@ const makeMetafile = () => ({
     },
     "foliplus/js/SearchControl/logic.ts": {
       bytes: 1200,
-      imports: [{ path: "foliplus/js/common/cache.ts", kind: "import-statement" }],
+      imports: [{ path: "foliplus/js/platform/cache.ts", kind: "import-statement" }],
     },
-    "foliplus/js/common/cache.ts": {
+    "foliplus/js/platform/cache.ts": {
       bytes: 400,
       imports: [],
     },
@@ -40,13 +40,13 @@ const makeMetafile = () => ({
       inputs: {
         "foliplus/js/SearchControl/index.ts": { bytesInOutput: 500 },
         "foliplus/js/SearchControl/logic.ts": { bytesInOutput: 900 },
-        "foliplus/js/common/cache.ts": { bytesInOutput: 300 },
+        "foliplus/js/platform/cache.ts": { bytesInOutput: 300 },
       },
     },
     "foliplus/dist/foliplus-SearchControl.min.css": {
       bytes: 400,
       inputs: {
-        "foliplus/js/common/cache.ts": { bytesInOutput: 40 },
+        "foliplus/js/platform/cache.ts": { bytesInOutput: 40 },
       },
     },
     "foliplus/dist/foliplus-SearchControl.min.js.map": {
@@ -192,7 +192,7 @@ describe("buildCodecovPayload mapping", () => {
       root: tmp,
       gzipOf: () => 1,
     });
-    const cache = payload.modules.find(m => m.name.endsWith("common/cache.ts"));
+    const cache = payload.modules.find(m => m.name.endsWith("platform/cache.ts"));
     expect(cache).toBeDefined();
     // 300 (js) + 40 (css)
     expect(cache!.size).toBe(340);

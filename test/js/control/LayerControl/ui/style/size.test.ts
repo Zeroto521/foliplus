@@ -1,7 +1,8 @@
+import { findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { DIM } from "#core/layer/index.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -19,7 +20,6 @@ import {
   resetLayerSize,
 } from "#control/LayerControl/ui/style/size.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { findItem, initFixture } from "../fixture.js";
 
 // A pixel-radius leaf: Leaflet's CircleMarker, which keeps its radius in
 // `options.radius` and `_radius` and writes both through `setRadius`.
