@@ -882,4 +882,47 @@ describe("claimKeys — a floating surface owns the keys it claimed", () => {
     release();
     expect(nativeConsumesKey(cell, "PageDown")).toBe(false);
   });
+
+  it("a second claim on the same root merges its key set", () => {
+    const first = claimKeys(root, new Set(["ArrowRight"]));
+    const second = claimKeys(root, new Set(["PageDown"]));
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(true);
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    // Releasing the first leaves the second's keys claimed.
+    first();
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    second();
+    expect(isKeyClaimed(cell, "PageDown")).toBe(false);
+  });
+
+  it("isKeyClaimed walks a non-HTMLElement ancestor without throwing", () => {
+    // A claim root may be reached through an SVG ancestor (the walk uses
+    // parentElement, which an SVG <g> is not an HTMLElement for).
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const inner = document.createElement("button");
+    inner.type = "button";
+    svg.appendChild(inner);
+    root.appendChild(svg);
+    const release = claimKeys(root);
+    expect(isKeyClaimed(inner, "ArrowRight")).toBe(true);
+    // Release from the non-HTMLElement path too.
+    release();
+    expect(isKeyClaimed(inner, "ArrowRight")).toBe(false);
+  });
+
+  it("release-then-reclaim starts a fresh claim", () => {
+    const first = claimKeys(root);
+    first();
+    // After release the WeakMap entry is gone; a new claim must rebuild it.
+    const second = claimKeys(root, new Set(["PageDown"]));
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+    second();
+    expect(isKeyClaimed(cell, "PageDown")).toBe(false);
+  });
+
+  it("isKeyClaimed returns false for a null owner", () => {
+    expect(isKeyClaimed(null, "ArrowRight")).toBe(false);
+  });
 });
