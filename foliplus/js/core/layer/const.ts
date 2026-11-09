@@ -114,6 +114,7 @@ const DIM = {
   FILL: "fill",
   SIZE: "size",
   ICON: "icon",
+  ICON_COLOR: "iconColor",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
   LABEL: "label",

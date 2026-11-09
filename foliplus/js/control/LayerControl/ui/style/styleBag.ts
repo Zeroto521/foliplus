@@ -69,6 +69,7 @@ const FACE = {
   STROKE: "stroke",
   SIZE: "size",
   ICON: "icon",
+  ICON_COLOR: "iconColor",
   LABEL: "label",
 } as const;
 

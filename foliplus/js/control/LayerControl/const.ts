@@ -37,7 +37,7 @@ const SIZE = {
 
 /** Defaults for the value-based fill (the fill row). The method / scheme
  *  values only seed the first ramp a user switches to (a stored
- *  `FillValueConfig` always wins); the class-count vocabulary lives in
+ *  `ValueConfig` always wins); the class-count vocabulary lives in
  *  #core/classify and is imported where it is used. */
 const FILL_VALUE = {
   METHOD_DEFAULT: "jenks",
@@ -226,6 +226,7 @@ const CLASSES = {
   STYLE_SIZE_ROW: "foliplus-style-size-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
+  STYLE_ICON_COLOR_ROW: "foliplus-style-icon-color-row",
   /** The icon row's trigger button (shows the current glyph or 「原始」). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",

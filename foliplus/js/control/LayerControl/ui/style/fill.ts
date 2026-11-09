@@ -67,10 +67,10 @@ import {
   DIM,
   FILL_MODE,
   type FillMode,
-  type FillValueConfig,
   type LayerInfo,
   type LayerOverride,
   ROLE,
+  type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
@@ -730,7 +730,7 @@ const FILL_DIMENSION = registerDimension<{
   mode: FillMode;
   /** The value-based fill config. Kept while the active mode is solid, so a
    *  mode switch back restores it; undefined when never set. */
-  value?: FillValueConfig;
+  value?: ValueConfig;
 }>({
   key: DIM.FILL,
   gate: layerCanFill,

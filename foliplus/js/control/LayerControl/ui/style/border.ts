@@ -53,8 +53,8 @@ import {
   DIM,
   FILL_MODE,
   type FillMode,
-  type FillValueConfig,
   GEOM_TYPE,
+  type ValueConfig,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
@@ -183,10 +183,8 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
  *  derivation (the former C8 cross-face rule is gone). A line layer's
  *  border paints by its own value config; a polygon/point layer's border is
  *  only the outline and never classifies by value (two states only). */
-const effectiveBorderValue = (
-  ui: LayerUI,
-  layerId: string,
-): FillValueConfig | undefined => getIntent(ui, layerId, INTENT.BORDER_VALUE);
+const effectiveBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
+  getIntent(ui, layerId, INTENT.BORDER_VALUE);
 
 /** The mode the border row shows and the stroke paints.
  *
@@ -229,7 +227,7 @@ const borderValueForUi = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-): FillValueConfig => {
+): ValueConfig => {
   const stored = resolvedValue(
     ui,
     layerId,
@@ -248,7 +246,7 @@ const borderValueForUi = (
 /** Persist a border value config in the shape the validator accepts. Mirrors
  *  fill's persistedValue: clamps the numeric class count into the editable
  *  vocabulary, keeps a category record's optional method/classes as-is. */
-const persistedBorderValue = (value: FillValueConfig): FillValueConfig =>
+const persistedBorderValue = (value: ValueConfig): ValueConfig =>
   value.kind === "category"
     ? {
         kind: "category",
@@ -286,10 +284,10 @@ const writeBorderMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean 
 const writeBorderValue = (
   ui: LayerUI,
   layerId: string,
-  patch: Partial<FillValueConfig>,
-): FillValueConfig => {
+  patch: Partial<ValueConfig>,
+): ValueConfig => {
   const fields = numericFields(ui, layerId);
-  const next: FillValueConfig = persistedBorderValue({
+  const next: ValueConfig = persistedBorderValue({
     ...borderValueForUi(ui, layerId, fields),
     ...patch,
   });
@@ -834,7 +832,7 @@ const bindBorderValueDetail = (
   ) as HTMLSelectElement;
   methodSelect.onchange = () =>
     writeBorderValue(ui, layerId, {
-      method: methodSelect.value as FillValueConfig["method"],
+      method: methodSelect.value as ValueConfig["method"],
     });
 
   const classesSelect = detail.querySelector(
@@ -927,7 +925,7 @@ const BORDER_DIMENSION = registerDimension<{
   color: string;
   weight: number;
   mode: FillMode;
-  value?: FillValueConfig;
+  value?: ValueConfig;
 }>({
   key: DIM.BORDER,
   gate: layerCanBorder,
