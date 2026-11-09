@@ -1,3 +1,5 @@
+// platform/icon — Shared SVG icons for the foliplus runtime.
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared SVG Icons for the foliplus runtime.
 // These are loaded once per map as part of the shared header. Component-specific

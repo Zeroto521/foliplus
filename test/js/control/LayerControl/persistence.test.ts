@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isFillValueConfig } from "#core/layer/intent.js";
+import { FILL_MODE, isFillValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
@@ -1589,5 +1589,89 @@ describe("LayerPersistence", () => {
       save.mockRestore();
       vi.useRealTimers();
     });
+  });
+});
+
+describe("borderStyleMode value domain", () => {
+  // The border mode is a closed domain (solid / value / original). The parser
+  // must keep a legal literal and drop anything else — a corrupt stored value
+  // cannot leak a broken border mode through provenance.
+  it("accepts solid / value / original borderStyleMode literals", () => {
+    for (const mode of [
+      FILL_MODE.SOLID,
+      FILL_MODE.VALUE,
+      FILL_MODE.ORIGINAL,
+    ] as const) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderStyleMode: mode, overrides: ["borderStyleMode"] } },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        borderStyleMode: mode,
+        overrides: ["borderStyleMode"],
+      });
+    }
+  });
+
+  it("drops a borderStyleMode outside the domain rather than leaking it", () => {
+    // The parser returns null for a bad literal and the marker is dropped
+    // with it; with only that marker invalid the layer has no overrides and
+    // reads absent — same contract as the fillMode "ramp" case.
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: { a: { borderStyleMode: "ramp", overrides: ["borderStyleMode"] } },
+    });
+    expect(makePersistence().load().layers.a).toBeUndefined();
+  });
+});
+
+describe("borderValue parse", () => {
+  // The border's value config rides the same parseFillValue path as the
+  // fill's (one predicate, one shape) — but the PARSE_OVERRIDE key is its
+  // own arrow, so a borderValue record must be exercised on its own to
+  // prove the key is wired. The fillValue suite owns the shared validator's
+  // edge cases; this block proves the border key dispatches to it.
+  it("keeps a legal numeric borderValue record", () => {
+    seedStorage({
+      version: RECORD_VERSION,
+      layers: {
+        a: {
+          borderValue: {
+            field: "count",
+            method: "quantile",
+            classes: 5,
+            scheme: "Reds",
+          },
+          overrides: ["borderValue"],
+        },
+      },
+    });
+    const loaded = makePersistence().load().layers.a;
+    expect(loaded).toEqual({
+      borderValue: {
+        kind: undefined,
+        field: "count",
+        method: "quantile",
+        classes: 5,
+        scheme: "Reds",
+      },
+      overrides: ["borderValue"],
+    });
+  });
+
+  it("drops a borderValue outside the shared validator's domain", () => {
+    for (const bad of [
+      { field: "", method: "equal", classes: 3, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 1, scheme: "Reds" },
+      { field: "count", method: "equal", classes: 3, scheme: "" },
+      "Reds",
+      null,
+    ]) {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { borderValue: bad, overrides: ["borderValue"] } },
+      });
+      expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+    }
   });
 });

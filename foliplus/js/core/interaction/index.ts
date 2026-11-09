@@ -2,6 +2,8 @@
 export { ensureInteraction } from "./interactionManager.js";
 export {
   OWNER_KEYS,
+  claimKeys,
+  isKeyClaimed,
   isNativeControl,
   keyOwner,
   nativeClass,
