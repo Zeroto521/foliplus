@@ -1,7 +1,13 @@
 // Unit tests for core/layer/intent — the per-layer intent domain, focused
 // on the value-based fill ramp's two arms (numeric / category).
 import { describe, expect, it } from "vitest";
-import { isFillValueConfig, isIconIntent } from "#core/layer/intent.js";
+import {
+  FILL_MODE,
+  INTENT,
+  LIVE,
+  isFillValueConfig,
+  isIconIntent,
+} from "#core/layer/intent.js";
 
 const NUMERIC = {
   kind: "numeric",
@@ -91,5 +97,34 @@ describe("isIconIntent", () => {
     expect(isIconIntent({ kind: "glyph", value: 42 })).toBe(false);
     expect(isIconIntent({ kind: "glyph", value: null })).toBe(false);
     expect(isIconIntent({ kind: "glyph" })).toBe(false);
+  });
+});
+
+describe("LIVE border-mode value domain", () => {
+  // The border mode is a closed value domain: solid / value / original. A
+  // stored or in-flight literal outside it must fail the LIVE guard so the
+  // row falls back to the author's border rather than advertising a broken
+  // provenance marker (the persistence parser has the matching null drop).
+  it("accepts only the three legal border-mode literals", () => {
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.SOLID)).toBe(true);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.VALUE)).toBe(true);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.ORIGINAL)).toBe(true);
+  });
+
+  it("rejects anything outside the border-mode domain", () => {
+    expect(LIVE[INTENT.BORDER_STYLE_MODE]("ramp")).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE]("SOLID")).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE]("Original")).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](undefined)).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](null)).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](123)).toBe(false);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE]({})).toBe(false);
+  });
+
+  it("does not let a rejected literal through the FILL_MODE guard either", () => {
+    // Same closed domain for the fill arm — keep both in one place so the
+    // value-domain invariant cannot drift between the two arms.
+    expect(LIVE[INTENT.FILL_MODE]("ramp")).toBe(false);
+    expect(LIVE[INTENT.FILL_MODE](FILL_MODE.ORIGINAL)).toBe(true);
   });
 });

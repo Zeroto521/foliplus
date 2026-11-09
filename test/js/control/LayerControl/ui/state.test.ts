@@ -1302,6 +1302,8 @@ describe("event-driven row refresh", () => {
       ui.onLayerItemCountChange("overlay1");
       flushStyleDimApplies("overlay1");
 
+      // The fill walk and the border follow-walk (C8: a fill value ramp
+      // derives the border) each paint once; both are coalesced per frame.
       for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(1);
     });
 

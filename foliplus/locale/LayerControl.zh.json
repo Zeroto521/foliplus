@@ -82,13 +82,13 @@
   "LayerControl.style_fill": "填充颜色",
   "LayerControl.style_fill_opacity": "填充透明度",
   "LayerControl.style_fill_mode": "填充模式",
-  "LayerControl.style_fill_single": "单一颜色",
-  "LayerControl.style_fill_per_feature": "原始配色",
+  "LayerControl.style_mode_single": "单一颜色",
+  "LayerControl.style_mode_by_value": "按值着色",
+  "LayerControl.style_mode_original": "原始配色",
   "LayerControl.style_fill_per_feature_note": "在 geopandas.GeoDataFrame.explore 中按要素逐条设置的颜色。编辑填充会覆盖它；重置可恢复。",
   "LayerControl.style_fill_original_continuous": "原始 · 连续",
   "LayerControl.style_fill_original_levels": "原始 · {n} 级",
   "LayerControl.style_fill_original_colors": "原始 · {n} 色",
-  "LayerControl.style_fill_by_value": "按值着色",
   "LayerControl.style_fill_field": "字段",
   "LayerControl.style_fill_classes": "分级数",
   "LayerControl.style_fill_classes_out_of_range": "图层声明的分级数，超出可编辑范围 2–9；编辑后收敛到该范围。",
@@ -120,5 +120,6 @@
   "LayerControl.filter_clear_tooltip": "清除该图层的筛选",
   "LayerControl.filter_clear_disabled": "当前没有筛选",
   "LayerControl.filter_row_title": "{kept} / {total} 已筛选 · {type}",
-  "LayerControl.filter_empty": "该图层没有数值字段"
+  "LayerControl.filter_empty": "该图层没有数值字段",
+  "LayerControl.style_border_mode": "边框模式"
 }
