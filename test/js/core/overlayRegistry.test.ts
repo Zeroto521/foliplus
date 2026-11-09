@@ -117,6 +117,7 @@ interface EntryOptions {
   consumePress?: (target: Element, press: OverlayPress) => boolean;
   clearsCursorOnClose?: boolean;
   escPassthroughOnEditable?: boolean;
+  claimsEscape?: boolean;
 }
 
 interface FakeEntry {
@@ -139,6 +140,7 @@ const makeEntry = (options: EntryOptions): FakeEntry => {
     pressPriority: options.pressPriority ?? 0,
     clearsCursorOnClose: options.clearsCursorOnClose,
     escPassthroughOnEditable: options.escPassthroughOnEditable,
+    claimsEscape: options.claimsEscape,
     dismissOnOutside: options.dismissOnOutside,
     dismissOnInside: options.dismissOnInside,
     consumePress: options.consumePress,
@@ -1344,6 +1346,101 @@ describe("OverlayRegistry", () => {
       escape(child(panel("x")));
       expect(menu.closeCalls).toHaveLength(1);
       expect(registry.topmost()).toBe(style.entry);
+    });
+  });
+
+  describe("capability queries (Card A: claimsEscape)", () => {
+    it("topmostEscape skips entries with claimsEscape false", () => {
+      // use the shared registry from beforeEach
+      const pressOnly = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        pressPriority: 900,
+        claimsEscape: false, // outside-press-only surface
+        open: true,
+      });
+      const escapeCapable = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        pressPriority: 10,
+      });
+      registry.register(pressOnly.entry);
+      registry.register(escapeCapable.entry);
+
+      expect(registry.topmostEscape()?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+      // topmost() (legacy alias) still returns the highest-ESC_PRIORITY entry
+      // regardless of capability: style(500) outranks nothing here, but the
+      // point is the legacy alias does not filter by claimsEscape.
+      expect(registry.topmost()?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+    });
+
+    it("topmostEscape returns null when every open entry has claimsEscape false", () => {
+      // use the shared registry from beforeEach
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, claimsEscape: false }).entry,
+      );
+      expect(registry.topmostEscape()).toBeNull();
+    });
+
+    it("topmostEscape defaults claimsEscape to true (omitting it claims Escape)", () => {
+      // use the shared registry from beforeEach
+      registry.register(makeEntry({ id: OVERLAY_IDS.LAYER_MENU }).entry); // no claimsEscape field
+      expect(registry.topmostEscape()?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+    });
+
+    it("dispatchEscape skips a claimsEscape:false entry and closes the next esc claimer", () => {
+      // use the shared registry from beforeEach
+      const popup = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        pressPriority: 900,
+        claimsEscape: false,
+      });
+      const panel = makeEntry({ id: OVERLAY_IDS.LAYER_MENU, pressPriority: 10 });
+      registry.register(popup.entry);
+      registry.register(panel.entry);
+      const seen: EscapeHandled[] = [];
+      registry.onEscapeHandled(payload => seen.push(payload));
+
+      escape(document.body);
+      expect(seen).toHaveLength(1);
+      expect(seen[0]?.entryId).toBe(OVERLAY_IDS.LAYER_MENU);
+      expect(popup.isOpen()).toBe(true); // not the esc target
+      expect(panel.isOpen()).toBe(false); // the esc claimer closed
+      expect(panel.closeCalls).toEqual([true]);
+    });
+
+    it("topmostEscape respects ESC_PRIORITY within the escape-claiming subset", () => {
+      // use the shared registry from beforeEach
+      // menu(800) outranks style(500); picker dropdown(850) outranks both.
+      // Insert menu with claimsEscape:false so the query must pick picker.
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN, pressPriority: 1 }).entry,
+      );
+      registry.register(
+        makeEntry({
+          id: OVERLAY_IDS.LAYER_MENU,
+          pressPriority: 999,
+          claimsEscape: false,
+        }).entry,
+      );
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, pressPriority: 500 }).entry,
+      );
+      expect(registry.topmostEscape()?.id).toBe(OVERLAY_IDS.LAYER_PICKER_DROPDOWN);
+    });
+
+    it("topmostPress sorts by pressPriority (independent of ESC_PRIORITY)", () => {
+      // use the shared registry from beforeEach
+      // picker has the highest ESC_PRIORITY, but the lowest pressPriority
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN, pressPriority: 1 }).entry,
+      );
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_STYLE, pressPriority: 50 }).entry,
+      );
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_MENU, pressPriority: 100 }).entry,
+      );
+      expect(registry.topmostPress()?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+      expect(registry.topmostEscape()?.id).toBe(OVERLAY_IDS.LAYER_PICKER_DROPDOWN);
     });
   });
 });

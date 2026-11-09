@@ -87,6 +87,11 @@ interface OverlayEntry {
    *  (inline rename). The dispatcher does not close it and lets the event
    *  continue to the editor. */
   escPassthroughOnEditable?: boolean;
+  /** Whether this surface claims Escape ordering (default true). Set false
+   *  for entries that register only for outside-press or click-bubble
+   *  dismissal (a glyph grid popup, a bridged-select listbox) — they must
+   *  not participate in the Escape layer stack. */
+  claimsEscape?: boolean;
 }
 
 /** Payload of every Escape the dispatcher finished with, handled or not. */
@@ -187,6 +192,13 @@ interface OverlayRegistry {
   owningEntry(target: EventTarget | null): OverlayEntry | null;
   /** Highest-ranked open entry, or null. */
   topmost(): OverlayEntry | null;
+  /** Highest-ranked open entry that claims Escape, or null. Entries with
+   *  claimsEscape: false (outside-press-only surfaces) are excluded. */
+  topmostEscape(): OverlayEntry | null;
+  /** Highest-priority open entry for press dispatch, or null. Sorted by
+   *  pressPriority (never the Escape rank table); Card B will narrow this to
+   *  entries with a press predicate once dismiss migrates onto the registry. */
+  topmostPress(): OverlayEntry | null;
   /** Whether the latest press landed inside any open surface. Overwritten on
    *  every press (not only on change), replacing the old shared boolean. */
   lastPressInside(): boolean;
@@ -289,6 +301,14 @@ class OverlayRegistryImpl implements OverlayRegistry {
 
   topmost(): OverlayEntry | null {
     return this.orderedOpenEntries()[0] ?? null;
+  }
+
+  topmostEscape(): OverlayEntry | null {
+    return this.orderedOpenEntries().find(e => e.claimsEscape !== false) ?? null;
+  }
+
+  topmostPress(): OverlayEntry | null {
+    return this.pressOrderedEntries()[0] ?? null;
   }
 
   lastPressInside(): boolean {
@@ -499,7 +519,7 @@ class OverlayRegistryImpl implements OverlayRegistry {
     // owner-by-target rule would close the style panel while its picker popup
     // is open (one Escape tearing down two layers); the ESC_PRIORITY table is
     // the one ordering contract, so use it here too.
-    const top = this.topmost();
+    const top = this.topmostEscape();
     if (!top) {
       this.notifyEscape({ handled: false, entryId: null, target, origin: "capture" });
       return;
