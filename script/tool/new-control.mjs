@@ -12,7 +12,7 @@
  *   npm run new-control -- FooControl
  *
  * Registration points (auto-patched):
- *   foliplus/__init__.py, core/component.ts, doc/source/api.rst,
+ *   foliplus/__init__.py, core/lifecycle/component.ts, doc/source/api.rst,
  *   README.md, test/python/test_locale.py
  * Auto-derived (no patch): test_build.py COMPONENTS, vitest index.ts glob.
  */
@@ -398,7 +398,7 @@ const scaffoldControl = (opts, root = ROOT) => {
   }
 
   patchFile(abs("foliplus", "__init__.py"), t => patchInitPy(t, name));
-  patchFile(abs("foliplus", "js", "core", "component.ts"), t =>
+  patchFile(abs("foliplus", "js", "core", "lifecycle", "component.ts"), t =>
     patchComponentTs(t, name),
   );
   patchFile(abs("doc", "source", "api.rst"), t => patchApiRst(t, name));
