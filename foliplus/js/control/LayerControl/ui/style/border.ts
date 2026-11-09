@@ -37,6 +37,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { registerFaceReplay } from "./replay.js";
 import { buildModeRow } from "./row.js";
 import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
@@ -339,6 +340,10 @@ const derivedFillColor = (node: StyleSetter): string | undefined => {
 };
 
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
+  // Register this UI's stroke replay once (idempotent): a follow-fill border
+  // re-derives from the leaf's current fill, and the fill writer asks for
+  // this replay by face — no direct fill → border import, no cycle.
+  registerFaceReplay(ui, FACE.STROKE, id => applyBorderToLayer(ui, id));
   // Value mode: when the derived border mode is 'value' and a value exists,
   // delegate the whole face to the stroke engine. The engine owns the
   // per-leaf classification, the merged author+value write, and the
@@ -1053,7 +1058,6 @@ const BORDER_DIMENSION = registerDimension<{
 
 export {
   applyBorderToLayer,
-  scheduleBorderApply,
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,

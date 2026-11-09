@@ -22,7 +22,6 @@
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { scheduleBorderApply } from "./border.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { buildOriginalDetail } from "./fillOriginal.js";
 import {
@@ -47,6 +46,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { replayFace } from "./replay.js";
 import { buildModeRow } from "./row.js";
 import {
   FACE,
@@ -770,7 +770,7 @@ const FILL_DIMENSION = registerDimension<{
     // the border replay rides here — no extra listener, no cross-face
     // event. Only when the stored border mode is follow-fill.
     if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) === FILL_MODE.FOLLOW_FILL) {
-      scheduleBorderApply(ui, layerId);
+      replayFace(ui, layerId, FACE.STROKE);
     }
   },
   /** Cohesive reset: cancel trailing apply, clear both fill overrides,
