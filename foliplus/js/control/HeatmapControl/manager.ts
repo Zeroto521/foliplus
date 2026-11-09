@@ -1,52 +1,4 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import {
-  METHOD as CLASSIFY_METHOD,
-  CLASS_COUNT,
-  type ClassifyMethod,
-  isClassifyMethod,
-} from "#core/classify.js";
-import { generateId } from "#core/component.js";
-import {
-  EVENTS,
-  type EventBus,
-  SettledOperation,
-  ensureEvents,
-  publish,
-} from "#core/event/index.js";
-import { bareFieldName } from "#core/label/index.js";
-import {
-  type FilterSourceHost,
-  type FilterStore,
-  type LayerFilter,
-  type LayerFilterModel,
-  type LayerSnapshot,
-  NO_FEATURE_TREE_KINDS,
-  dropStaleFilter,
-  ensureFilterStore,
-  filterKey,
-  filterStep,
-  getLayerAlpha,
-  normalizeFilter,
-  parsePersistedFilter,
-  pickFilterField,
-  selectIndices,
-  setLayerAlpha,
-  snapshotFromPoints,
-} from "#core/layer/index.js";
-import { bindMapSync } from "#core/leaflet/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
-import { type Debounced, debounce } from "#platform/debounce.js";
-import { NUMBER_FORMAT } from "#platform/format.js";
-import { createLogger } from "#platform/log.js";
-import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
-import type { CanvasLabelStyle, Logger } from "#platform/type.js";
-import {
-  BORDER_WEIGHT,
-  clampBorderWeight,
-  clampLabelSize,
-  normalizeHexColor,
-} from "#ui/index.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
@@ -90,25 +42,23 @@ import {
 } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
-  type FilterOwner,
+  type FilterSourceHost,
+  type FilterStore,
   type LayerFilter,
   type LayerFilterModel,
   type LayerSnapshot,
   NO_FEATURE_TREE_KINDS,
-  createFilterOwner,
-  dropFilterForField,
+  dropStaleFilter,
+  ensureFilterStore,
   filterKey,
   filterStep,
   getLayerAlpha,
   normalizeFilter,
   parsePersistedFilter,
   pickFilterField,
-  revalidateStoredFilter,
   selectIndices,
-  serializedFilters,
   setLayerAlpha,
   snapshotFromPoints,
-  storeFilter,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";

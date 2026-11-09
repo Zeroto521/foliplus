@@ -18,14 +18,14 @@
 // No DOM, no Leaflet. The host's `apply` is the only carrier the store
 // touches, and the surface decides what that means (item visibility, an
 // aggregation include set, a leaf hidden-class write).
-import { ensureMapFoliplus } from "#core/mapApi.js";
-import { createLogger } from "#platform/log.js";
 import {
   type FilterDimension,
   type LayerFilter,
   type LayerFilterModel,
   filtersEqual,
 } from "./filter.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
+import { createLogger } from "#platform/log.js";
 import { loadRecord, removeRecord, saveRecord } from "#platform/storage.js";
 
 /** The single storage key every layer's filter record lives under. One key,
