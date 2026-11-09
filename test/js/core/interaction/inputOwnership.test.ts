@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OWNER_KEYS,
+  claimKeys,
   ensureInteraction,
+  isKeyClaimed,
   isNativeControl,
   keyOwner,
   nativeClass,
@@ -794,5 +796,133 @@ describe("combobox trigger — the migrated select owns the select's keys", () =
     // role=option has no row in the ARIA table: it activates, it does not own
     // the arrows — the open list's own handler claims those and stops them.
     expect(nativeClass(option)).toBe("activate");
+  });
+});
+describe("claimKeys — a floating surface owns the keys it claimed", () => {
+  let root: HTMLElement;
+  let cell: HTMLButtonElement;
+
+  beforeEach(() => {
+    root = document.createElement("div");
+    root.className = "foliplus-icon-grid";
+    cell = document.createElement("button");
+    cell.type = "button";
+    cell.setAttribute("role", "gridcell");
+    root.appendChild(cell);
+    document.body.appendChild(root);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("a claimed surface consumes the surface keys for a descendant press", () => {
+    const release = claimKeys(root);
+    // A grid cell is a <button> ("activate": Enter/Space only) — the arrows
+    // would fall through to the layer row. The claim answers them as owned.
+    for (const key of [
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Home",
+      "End",
+      "Enter",
+      " ",
+    ]) {
+      expect(nativeConsumesKey(cell, key), key).toBe(true);
+      expect(isKeyClaimed(cell, key), key).toBe(true);
+    }
+    // Escape stays foliplus-owned no matter the claim.
+    expect(nativeConsumesKey(cell, "Escape")).toBe(false);
+    release();
+  });
+
+  it("release returns the keys to the native table", () => {
+    const release = claimKeys(root);
+    expect(nativeConsumesKey(cell, "ArrowRight")).toBe(true);
+    release();
+    // After release the cell is a plain button again: arrows fall through.
+    expect(nativeConsumesKey(cell, "ArrowRight")).toBe(false);
+    expect(nativeConsumesKey(cell, "Enter")).toBe(true);
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+  });
+
+  it("a press outside the claimed surface is unaffected", () => {
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    const release = claimKeys(root);
+    expect(nativeConsumesKey(outside, "ArrowRight")).toBe(false);
+    expect(isKeyClaimed(outside, "ArrowRight")).toBe(false);
+    release();
+  });
+
+  it("a claim root with a non-descendant owner does not leak to siblings", () => {
+    const sibling = document.createElement("button");
+    sibling.type = "button";
+    root.appendChild(sibling);
+    const release = claimKeys(root);
+    // Both descendants are inside the root → both owned.
+    expect(nativeConsumesKey(sibling, "ArrowDown")).toBe(true);
+    release();
+    expect(nativeConsumesKey(sibling, "ArrowDown")).toBe(false);
+  });
+
+  it("release is idempotent", () => {
+    const release = claimKeys(root);
+    release();
+    release();
+    expect(nativeConsumesKey(cell, "ArrowRight")).toBe(false);
+  });
+
+  it("custom key sets are honoured and released", () => {
+    const release = claimKeys(root, new Set(["PageDown"]));
+    expect(nativeConsumesKey(cell, "PageDown")).toBe(true);
+    expect(nativeConsumesKey(cell, "ArrowRight")).toBe(false);
+    release();
+    expect(nativeConsumesKey(cell, "PageDown")).toBe(false);
+  });
+
+  it("a second claim on the same root merges its key set", () => {
+    const first = claimKeys(root, new Set(["ArrowRight"]));
+    const second = claimKeys(root, new Set(["PageDown"]));
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(true);
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    // Releasing the first leaves the second's keys claimed.
+    first();
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    second();
+    expect(isKeyClaimed(cell, "PageDown")).toBe(false);
+  });
+
+  it("isKeyClaimed walks a non-HTMLElement ancestor without throwing", () => {
+    // A claim root may be reached through an SVG ancestor (the walk uses
+    // parentElement, which an SVG <g> is not an HTMLElement for).
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const inner = document.createElement("button");
+    inner.type = "button";
+    svg.appendChild(inner);
+    root.appendChild(svg);
+    const release = claimKeys(root);
+    expect(isKeyClaimed(inner, "ArrowRight")).toBe(true);
+    // Release from the non-HTMLElement path too.
+    release();
+    expect(isKeyClaimed(inner, "ArrowRight")).toBe(false);
+  });
+
+  it("release-then-reclaim starts a fresh claim", () => {
+    const first = claimKeys(root);
+    first();
+    // After release the WeakMap entry is gone; a new claim must rebuild it.
+    const second = claimKeys(root, new Set(["PageDown"]));
+    expect(isKeyClaimed(cell, "PageDown")).toBe(true);
+    expect(isKeyClaimed(cell, "ArrowRight")).toBe(false);
+    second();
+    expect(isKeyClaimed(cell, "PageDown")).toBe(false);
+  });
+
+  it("isKeyClaimed returns false for a null owner", () => {
+    expect(isKeyClaimed(null, "ArrowRight")).toBe(false);
   });
 });
