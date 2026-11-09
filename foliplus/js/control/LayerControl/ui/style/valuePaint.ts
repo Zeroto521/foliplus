@@ -47,7 +47,7 @@ import {
   styleDimOverAuthor,
   styleDimPayload,
 } from "./styleBag.js";
-import type { FillValueConfig } from "#core/layer/index.js";
+import type { ValueConfig } from "#core/layer/index.js";
 import {
   buildCategoryRamp,
   buildRamp,
@@ -77,7 +77,7 @@ type CollectedLeaf = {
  *  same-named config for a different kind must not repaint off a numeric
  *  cache. An explicit "numeric" is read as the same typing as absence — the
  *  persistence reader strips it, so the two spellings are one config. */
-const sameValueConfig = (a: FillValueConfig, b: FillValueConfig): boolean =>
+const sameValueConfig = (a: ValueConfig, b: ValueConfig): boolean =>
   (a.kind ?? VALUE_KIND.NUMERIC) === (b.kind ?? VALUE_KIND.NUMERIC) &&
   a.field === b.field &&
   a.method === b.method &&
@@ -115,9 +115,9 @@ type ValueFaceDecl = {
   /** The leaf walker reaching only the carrier leaves for this face. */
   walkLeaves: ValueLeafWalker;
   /** Whether the value mode is active for a layer (the face's mode check). */
-  isValueActive: (ui: LayerUI, layerId: string, value: FillValueConfig) => boolean;
+  isValueActive: (ui: LayerUI, layerId: string, value: ValueConfig) => boolean;
   /** The live value config for this face (the pin's default live reader). */
-  readValueConfig: (ui: LayerUI, layerId: string) => FillValueConfig | undefined;
+  readValueConfig: (ui: LayerUI, layerId: string) => ValueConfig | undefined;
   /** The diagnostic label for a ramp build failure (the face's prose). */
   logLabel: string;
 };
@@ -140,17 +140,16 @@ type ValueFaceDecl = {
 const paintByValue = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig,
+  value: ValueConfig,
   decl: ValueFaceDecl,
   /** Resolve a stored config's field against the layer's current fields. The
    *  caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing. Identity by
    *  default — a caller with no field list has nothing to resolve. */
-  resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
+  resolveStored: (stored: ValueConfig) => ValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
    *  or the author's declared value fill when the user has not chosen one. */
-  liveValue: () => FillValueConfig | undefined = () =>
-    decl.readValueConfig(ui, layerId),
+  liveValue: () => ValueConfig | undefined = () => decl.readValueConfig(ui, layerId),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and

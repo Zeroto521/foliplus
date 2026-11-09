@@ -26,6 +26,7 @@ import {
 } from "#core/leaflet/glyphSource.js";
 import {
   type AuthorGlyph,
+  applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
@@ -54,7 +55,12 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  applyIconToLeaves(layer, intent.value);
+  // Merge the current marker color into the SAME derived-icon
+  // construction (the color is a separate dimension, but setIcon
+  // replaces the whole icon, so a glyph edit must carry the current
+  // color and a color edit must carry the current glyph).
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  applyIconToLeaves(layer, intent.value, typeof color === "string" ? color : undefined);
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
@@ -77,6 +83,13 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   resetIconLeaves(layer);
+  // Orthogonal: a user-set marker color survives a glyph reset. Re-derive
+  // the color on the freshly restored author icons so the color and the
+  // glyph never split across two writes.
+  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  if (typeof color === "string") {
+    applyIconColorToLeaves(layer, color, currentGlyph(ui, layerId));
+  }
 };
 /** The current glyph name for the row, or null when the layer still shows
  *  the author's icon (uncovered). */
@@ -363,6 +376,7 @@ export {
   applyIconToLayer,
   buildIconRow,
   commitGlyph,
+  currentGlyph,
   layerCanIcon,
   resetLayerIcon,
 };

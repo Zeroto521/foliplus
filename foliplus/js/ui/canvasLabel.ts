@@ -5,8 +5,8 @@
 // --foliplus-label-* tokens. One resolver and one drawer, so the two can never drift:
 // same font, same fill, same halo — an label label and a hex value over
 // the same feature read as one language.
+import type { CanvasLabelStyle } from "./type.js";
 import { cssVar } from "#platform/cssvar.js";
-import type { CanvasLabelStyle } from "#platform/type.js";
 
 /** Resolve the canvas label style from the --foliplus-label-* tokens on `root` — the one
  *  place a page restyles map-label typography, for the heatmap's hex values and

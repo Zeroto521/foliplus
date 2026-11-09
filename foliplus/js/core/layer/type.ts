@@ -127,6 +127,15 @@ interface LayerCapabilities {
    *  Probe-derived and re-read on each audit (`refreshCapabilities`) — same
    *  contract as `stroke` / `fill`. */
   icon: "native" | "none";
+  /** Whether the layer's tree has a marker-color carrier (awesome-markers):
+   *    - "native" — any leaf owns a runtime `setIcon` whose authored icon
+   *      can paint a glyph (a div-based authored icon). The write walks
+   *      `eachLayer` and re-derives the icon with the user's color.
+   *    - "none"   — no awesome-markers carrier. A plain divIcon / iconUrl,
+   *      vector paths, canvas, MarkerCluster and the color basemap fall out.
+   *
+   *  Probe-derived and re-read on each audit — same contract as `icon`. */
+  iconColor: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes

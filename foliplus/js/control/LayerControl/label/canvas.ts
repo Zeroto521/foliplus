@@ -9,8 +9,8 @@
 import { type PlannedLabel } from "./layout.js";
 import { setLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
-import type { CanvasLabelStyle } from "#platform/type.js";
 import {
+  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,

@@ -35,7 +35,7 @@
 // consistent with the collision / render perf siblings.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { ValueConfig } from "#core/layer/intent.js";
 import { applyFillToLayer } from "#control/LayerControl/ui/style/fill.js";
 import { walkFillLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 
@@ -137,7 +137,7 @@ afterEach(() => {
   delete globalThis.chroma;
 });
 
-const valueConfig = (nClasses = 6): FillValueConfig => ({
+const valueConfig = (nClasses = 6): ValueConfig => ({
   field: "value",
   method: METHOD.EQUAL,
   classes: nClasses,

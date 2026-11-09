@@ -7,7 +7,7 @@
 // this slice adds no persistence or intent-key edits.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillMode, FillValueConfig } from "#core/layer/intent.js";
+import type { FillMode, ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import {
@@ -96,7 +96,7 @@ const makeUI = (layer: unknown) =>
     },
   }) as any;
 
-const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
+const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
   field: "value",
   method: METHOD.EQUAL,
   classes: 3,
@@ -104,7 +104,7 @@ const makeRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => 
   ...overrides,
 });
 
-const liveValueOf = (ramp: FillValueConfig | undefined) => () => ramp;
+const liveValueOf = (ramp: ValueConfig | undefined) => () => ramp;
 const liveModeOf = (mode: FillMode | undefined) => () => mode;
 
 describe("resolveStrokeMode", () => {
@@ -891,7 +891,7 @@ describe("applyValueStroke", () => {
         ["classes", 5],
         ["scheme", DEFAULT_SCHEMES[1]],
       ] as const) {
-        liveValueVal = { ...ramp, [key]: value } as FillValueConfig;
+        liveValueVal = { ...ramp, [key]: value } as ValueConfig;
         expect(pinGetterOf()()).toBeNull();
       }
     });
@@ -899,7 +899,7 @@ describe("applyValueStroke", () => {
     it("resolves the stored field the same way before comparing", () => {
       installChroma(["#111111"]);
       const layer = makeLayer(makeLeaf({ properties: { count: 5 } }));
-      const resolveStored = (stored: FillValueConfig): FillValueConfig => ({
+      const resolveStored = (stored: ValueConfig): ValueConfig => ({
         ...stored,
         field: "count",
       });
