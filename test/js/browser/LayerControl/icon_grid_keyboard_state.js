@@ -1,4 +1,4 @@
-// Keyboard-ownership probe for the open glyph grid (task-26).
+// Keyboard-ownership probe for the open glyph grid.
 //
 // Actions:
 //   "setup"          — open panel + style panel, return the icon row/trigger.
