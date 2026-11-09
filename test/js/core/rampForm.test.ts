@@ -5,7 +5,11 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 
-const fakeOverlay = { register: () => () => undefined };
+const fakeOverlay = {
+  id: "test.overlay",
+  rank: 860,
+  register: () => () => undefined,
+};
 
 describe("buildFieldRow", () => {
   it("renders a labelled field dropdown over the current value", () => {
@@ -432,8 +436,9 @@ describe("field row (stylesheet contract)", () => {
     // with an entry that carries the escapeRank.
     dropdown.open();
     expect(register).toHaveBeenCalledTimes(1);
-    const entry = register.mock.calls[0]?.[0];
+    const entry = (register as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
+      { escapeRank?: unknown } | undefined;
     expect(entry).toBeDefined();
-    expect(entry.escapeRank).toBeDefined();
+    expect(entry?.escapeRank).toBeDefined();
   });
 });
