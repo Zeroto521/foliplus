@@ -218,6 +218,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the Arrow/Escape keyboard-ownership guard over foliplus/js source, a tree guard not a script module",
   "check/file-header":
     "the canonical file-header guard over foliplus/js source (registry file-header.canonical.json), a tree guard not a script module",
+  "check/style-dimension-cycle":
+    "the style-dimension DAG guard over foliplus/js source (no fill → border cycle), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the
