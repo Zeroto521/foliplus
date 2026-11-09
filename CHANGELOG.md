@@ -31,6 +31,7 @@
 - `LayerControl`: hovering the style drawer keeps its owner row highlighted instead of dropping the highlight ([#883](https://github.com/Zeroto521/foliplus/pull/883))
 - `LayerControl`: a pre-v4 record's legacy top-level `annotations` label segment is no longer read (**Breaking**: a label config that only it carried is dropped on load) ([#949](https://github.com/Zeroto521/foliplus/pull/949))
 - `CSS`: panel inputs share one frame and one font step instead of three hand-written copies ([#952](https://github.com/Zeroto521/foliplus/pull/952))
+- `JS runtime`: the shared primitives tier is renamed from `common` to `platform`, so `window.foliplus.common.*` becomes `window.foliplus.platform.*` (**Breaking** for custom JS that read the old namespace) ([#991](https://github.com/Zeroto521/foliplus/pull/991))
 
 ### Removed
 
