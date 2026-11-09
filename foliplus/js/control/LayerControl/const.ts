@@ -227,6 +227,10 @@ const CLASSES = {
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
   STYLE_ICON_COLOR_ROW: "foliplus-style-icon-color-row",
+  /** The opacity number field on the icon-color row — its own class so the
+   *  shared number-field commit handler and the tests can tell it from the
+   *  fill-opacity and size fields. */
+  STYLE_ICON_COLOR_OPACITY_NUMBER: "foliplus-style-icon-color-opacity-number",
   /** The icon row's trigger button (shows the current glyph or 「原始」). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",

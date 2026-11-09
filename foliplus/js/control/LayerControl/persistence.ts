@@ -201,6 +201,15 @@ const PARSE_OVERRIDE: Record<
   },
   iconColor: data =>
     isHexColor(data.iconColor) ? normalizeHexColor(data.iconColor) : null,
+  iconColorOpacity: data => {
+    const value = data.iconColorOpacity;
+    return typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 100
+      ? value
+      : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

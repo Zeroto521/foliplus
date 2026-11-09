@@ -16,6 +16,7 @@ import {
   applyIconColorToLayer,
   buildIconColorRow,
   commitIconColor,
+  commitIconColorOpacity,
   layerCanIconColor,
   resetLayerIconColor,
 } from "#control/LayerControl/ui/style/iconColor.js";
@@ -275,6 +276,29 @@ describe("buildIconColorRow", () => {
     ).toBe(true);
   });
 
+  it("renders the glyph-opacity number field on the same inline shell", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
+    expect(input.value).toBe("100");
+  });
+
+  it("shows the user's stored opacity when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 50]]);
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(input.value).toBe("50");
+  });
+
+  it("commits a user opacity from the number field", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    input.value = "25";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(25);
+  });
+
   it("returns null for an <img>-based icon (capability gate negative)", () => {
     const img = makeMarker({ type: "school" }, makeImgAuthor());
     const { ui: u6 } = fixtureWithMarkers([img]);
@@ -340,6 +364,20 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     vi.useRealTimers();
   });
 
+  it("commitIconColorOpacity stores a rounded 0-100 integer", () => {
+    commitIconColorOpacity(ui, "overlay1", 50);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(50);
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
+  });
+
+  it("commitIconColorOpacity ignores an out-of-range value", () => {
+    commitIconColorOpacity(ui, "overlay1", 150);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+    commitIconColorOpacity(ui, "overlay1", -5);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+  });
+
   it("commit writes the intent and schedules an apply", () => {
     commitIconColor(ui, "overlay1", "#00ff00");
     const intent = getIntent(ui, "overlay1", INTENT.ICON_COLOR);
@@ -402,6 +440,7 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     // fallback). The glyph is re-derived in the SAME construction.
     expect(inner.style.color).toBe("blue");
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
   });
 
   it("reset preserves a user-set glyph (orthogonal)", () => {
@@ -524,10 +563,21 @@ describe("iconColor dimension descriptor", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
   });
-  it("value returns the stored user color, else undefined", () => {
+  it("value returns the stored user color and opacity, else undefined", () => {
     expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toBeUndefined();
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ value: "#ff0000" });
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({
+      value: "#ff0000",
+      opacity: 40,
+    });
+  });
+  it("write stores the opacity and schedules an apply", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 60 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(60);
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
   });
   it("write stores the color and schedules an apply", () => {
     ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: "#00ff00" });

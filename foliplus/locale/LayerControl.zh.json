@@ -101,6 +101,7 @@
   "LayerControl.style_size": "大小",
   "LayerControl.style_icon": "图标",
   "LayerControl.style_icon_color": "图标颜色",
+  "LayerControl.style_icon_color_opacity": "图标透明度",
   "LayerControl.style_icon_original": "原始",
   "LayerControl.style_icon_unavailable": "图标「{name}」未被支持，已保留原始图标。",
   "LayerControl.style_icon_invalid": "图标名「{name}」无效，已保留原始图标。",
