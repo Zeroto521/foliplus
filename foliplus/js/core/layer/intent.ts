@@ -59,6 +59,11 @@ const FILL_MODE = {
   SOLID: "solid",
   VALUE: "value",
   ORIGINAL: "original",
+  // The border follows the fill's colour: reads the fill's current paint
+  // (never a copy), so a fill edit recomputes the border. Only valid while
+  // the fill is original/solid; a by-value fill falls back (two value
+  // paths would classify independently and fight).
+  FOLLOW_FILL: "followFill",
 } as const;
 type FillMode = (typeof FILL_MODE)[keyof typeof FILL_MODE];
 

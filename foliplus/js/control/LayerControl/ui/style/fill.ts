@@ -828,6 +828,7 @@ const FILL_DIMENSION = registerDimension<{
 });
 
 export {
+  displayFillMode,
   buildValueDetail,
   numericFields,
   resolvedValue,

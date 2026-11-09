@@ -24,7 +24,7 @@
 // paints through `setStyle` or through a component's own canvas.
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
+import { buildValueDetail, displayFillMode, numericFields, resolvedValue } from "./fill.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -340,8 +340,17 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // so the colour override is treated as absent and the walk below restores
   // each leaf's captured author face (mirror of fill's original mode). It stays
   // in the intent record, so a later switch back to solid still restores it.
-  const original = effectiveBorderMode(ui, layerId) === FILL_MODE.ORIGINAL;
-  const color = original ? undefined : getIntent(ui, layerId, INTENT.BORDER_COLOR);
+  const mode = effectiveBorderMode(ui, layerId);
+  const original = mode === FILL_MODE.ORIGINAL;
+  // FOLLOW_FILL paints the border with the fill's current colour (single mode
+  // only - displayBorderMode falls back otherwise). Never a copy: the intent
+  // stays absent, so a fill edit recomputes the border through contentChange.
+  const followFill = mode === FILL_MODE.FOLLOW_FILL;
+  const color = original
+    ? undefined
+    : followFill
+      ? getIntent(ui, layerId, INTENT.FILL_COLOR)
+      : getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
@@ -647,6 +656,14 @@ const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   if (stored === FILL_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
     return FILL_MODE.ORIGINAL;
   }
+  // FOLLOW_FILL holds only while the fill itself paints one flat colour
+  // (single). A per-feature (original) fill has no single colour to follow, and
+  // a by-value fill would set up a second classifier that fights the border's
+  // own - both read as the author's stroke; the stored mode survives so the
+  // follow resumes when the fill returns to single.
+  if (stored === FILL_MODE.FOLLOW_FILL && displayFillMode(ui, layerId) !== FILL_MODE.SOLID) {
+    return FILL_MODE.ORIGINAL;
+  }
   return stored;
 };
 
@@ -669,10 +686,15 @@ const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
 /** The detail mode the border block renders for the current display mode:
  *  'original' and 'solid' both show the solid controls; only an explicit
  *  'value' choice shows the value controls. */
-const borderDetailMode = (ui: LayerUI, layerId: string): FillMode =>
-  displayBorderMode(ui, layerId) === FILL_MODE.VALUE
-    ? FILL_MODE.VALUE
-    : FILL_MODE.SOLID;
+const borderDetailMode = (ui: LayerUI, layerId: string): FillMode => {
+  const display = displayBorderMode(ui, layerId);
+  if (display === FILL_MODE.VALUE) return FILL_MODE.VALUE;
+  // FOLLOW_FILL paints a derived (read-only) colour - the ORIGINAL branch
+  // already renders the inert colorInput + author colour, which is exactly
+  // what a followed border needs.
+  if (display === FILL_MODE.FOLLOW_FILL) return FILL_MODE.ORIGINAL;
+  return FILL_MODE.SOLID;
+};
 
 const renderBorderDetail = (
   ui: LayerUI,
@@ -716,9 +738,17 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     return block;
   }
   const carriesValue = borderCarriesValue(ui, layerId);
+  // FOLLOW_FILL is offered only where the border is an outline over a filled
+  // face (polygon/point). A line's border IS its primary colour - there is no
+  // fill to follow, so a fourth option would be a permanently-falling-back
+  // dead entry on a line.
+  const canFollowFill = !carriesValue;
   const options = [
     { value: FILL_MODE.ORIGINAL, label: ui.T(STYLE_MODE.ORIGINAL) },
     { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
+    ...(canFollowFill
+      ? [{ value: FILL_MODE.FOLLOW_FILL, label: ui.T("style_border_follow_fill") }]
+      : []),
     ...(carriesValue
       ? [{ value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) }]
       : []),
