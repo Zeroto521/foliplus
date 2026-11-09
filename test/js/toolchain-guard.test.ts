@@ -219,7 +219,7 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   "check/file-header":
     "the canonical file-header guard over foliplus/js source (registry file-header.canonical.json), a tree guard not a script module",
   "check/style-dimension-cycle":
-    "the style-dimension DAG guard over foliplus/js source (no fill → border cycle), a tree guard not a script module",
+    "the fill ⇒ border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border → fill stays legal)",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

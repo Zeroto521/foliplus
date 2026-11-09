@@ -2619,8 +2619,6 @@ describe("follow-fill border mode", () => {
   });
 
   it("follow DOM: no colour input, width-only row in the right column", () => {
-    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
-    const block = openRow("poly1", leaves);
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
     document.body.appendChild(block2);
@@ -2629,5 +2627,33 @@ describe("follow-fill border mode", () => {
     expect(weight).not.toBeNull();
     const sizeRow = weight!.closest(".foliplus-style-size-row");
     expect(sizeRow).not.toBeNull();
+  });
+
+  it("derivedFillColor falls back through the three-arm chain", () => {
+    const fillLeaf = makeAreaLeaf(1, { fillColor: "#123456" });
+    const propLeaf = makeAreaLeaf(2);
+    delete propLeaf.options.fillColor;
+    propLeaf.feature.properties.__folium_color = "#654321";
+    const strokeLeaf = makeAreaLeaf(3);
+    delete strokeLeaf.options.fillColor;
+    const leaves = [fillLeaf, propLeaf, strokeLeaf];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    const colors = leaves.map(l => l.setStyle.mock.calls.at(-1)?.[0].color);
+    expect(colors[0]).toBe("#123456");
+    expect(colors[1]).toBe("#654321");
+    expect(colors[2]).toBe("#ff0000");
+  });
+
+  it("highlight replay re-derives the follow-fill colour (pin followFill arm)", () => {
+    const leaf = makeHighlightLeaf("#ff0000", 2);
+    leaf.options.fillColor = "#123456";
+    manager.registerLayer({ id: "poly1", name: "P", layer: leaf });
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    expect(leaf.options.color).toBe("#123456");
+    leaf.fireMouseout();
+    expect(leaf.options.color).toBe("#123456");
   });
 });

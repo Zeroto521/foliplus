@@ -24,12 +24,7 @@
 // paints through `setStyle` or through a component's own canvas.
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import {
-  buildValueDetail,
-  displayFillMode,
-  numericFields,
-  resolvedValue,
-} from "./fill.js";
+import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -43,6 +38,7 @@ import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
   type StyleCarrier,
+  type StyleSetter,
   cancelStyleDimApply,
   commitStyleDim,
   flushStyleDimApply,
@@ -53,7 +49,6 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
-import type { StyleSetter } from "./styleBag.js";
 import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   CAP_TIER,
