@@ -29,7 +29,7 @@
 import type { LayerUI } from "../surface.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
-import { DIM, type FillMode, type FillValueConfig } from "#core/layer/index.js";
+import { DIM, type FillMode, type ValueConfig } from "#core/layer/index.js";
 
 /** The stroke mode in force. An absent mode defers to whether a value config
  *  exists — the pre-mode record shape, where a config alone meant "paint
@@ -39,7 +39,7 @@ import { DIM, type FillMode, type FillValueConfig } from "#core/layer/index.js";
  *  replay guard agree with the apply path on what the map should show. */
 const resolveStrokeMode = (
   mode: FillMode | undefined,
-  ramp: FillValueConfig | undefined,
+  ramp: ValueConfig | undefined,
 ): FillMode => mode ?? (ramp !== undefined ? ("value" as const) : ("solid" as const));
 
 /** Apply a value-based stroke to one layer — the stroke face's call through
@@ -50,20 +50,20 @@ const resolveStrokeMode = (
 const applyValueStroke = (
   ui: LayerUI,
   layerId: string,
-  valueConfig: FillValueConfig,
+  valueConfig: ValueConfig,
   /** Resolve a stored config's field against the layer's current fields.
    *  The caller resolves the config it paints with, so the highlight pin must
    *  resolve the live record the same way before comparing: a stored field the
    *  data no longer offers would otherwise compare unequal to the resolved one
    *  and the mouseout replay would drop the value color. Identity by default —
    *  a caller with no field list has nothing to resolve. */
-  resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
+  resolveStored: (stored: ValueConfig) => ValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live user intent,
    *  or the author's declared value stroke when the user has not chosen one.
    *  Without it a declared value stroke would be dropped by folium's
    *  `resetStyle` on the first hover, leaving the author's flat face under a
    *  by-value panel. */
-  liveValue: () => FillValueConfig | undefined,
+  liveValue: () => ValueConfig | undefined,
   /** The live active mode the pin reads on mouseout — the caller owns the
    *  stored mode, so the pin asks for it rather than importing an intent key
    *  that does not exist yet. A mode that is not "value" returns null so a
