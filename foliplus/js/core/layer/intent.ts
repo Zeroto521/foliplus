@@ -24,7 +24,7 @@ import type { NumberStyle } from "#foliplus/config-schema.js";
  *
  *  A record that asks for a `kind` this client cannot build is dropped whole
  *  by the persistence reader rather than misapplied as a numeric ramp. */
-type FillValueConfig =
+type ValueConfig =
   | {
       /** How the drive property is typed. Absent = "numeric". */
       kind?: "numeric";
@@ -94,7 +94,7 @@ type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
  *  them, and a category does not classify so they cannot be wrong in a way
  *  that affects the ramp). A `kind` outside the two drops the record whole
  *  rather than misapplying it as a numeric ramp. */
-const isFillValueConfig = (value: unknown): value is FillValueConfig => {
+const isValueConfig = (value: unknown): value is ValueConfig => {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
   const isName = (v: unknown): v is string =>
@@ -220,7 +220,7 @@ type LayerIntent = {
   fillOpacity?: number;
   /** The value-based fill config when the layer is painted by a field.
    *  Kept when the active mode is solid — the mode switch back restores it. */
-  fillValue?: FillValueConfig;
+  fillValue?: ValueConfig;
   /** Which fill mode the user chose: a single color, a value ramp, or the
    *  layer author's own per-feature colors. Absent means solid — the mode that
    *  predates the ramp. */
@@ -230,7 +230,7 @@ type LayerIntent = {
   /** The value-based stroke config when the layer border is painted by a
    *  field. Independent of fillValue: an explicit border ramp wins over the
    *  derived fill ramp. Kept when the active border arm is solid. */
-  borderValue?: FillValueConfig;
+  borderValue?: ValueConfig;
   /** Which border arm the user chose: solid, or by value. Absent defers to
    *  the fill arm mode (the border follows the fill by default - one ramp
    *  selection covers both faces). */
@@ -269,7 +269,7 @@ type PersistedLayerState = {
   /** The value-based fill config the user set (field / method / classes /
    *  scheme). The ramp mode owns the color; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
-  fillValue?: FillValueConfig;
+  fillValue?: ValueConfig;
   /** Which fill mode is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
   fillMode?: FillMode;
@@ -283,7 +283,7 @@ type PersistedLayerState = {
    *  scheme). Independent of the fill config; absent defers to the fill
    *  ramp. The border value arm owns the stroke color; the width and stroke
    *  bit still ride the solid border write. */
-  borderValue?: FillValueConfig;
+  borderValue?: ValueConfig;
   /** Which border arm is active ("solid" | "value"); the inactive config is
    *  kept so a switch back restores it. Absent defers to the fill arm. */
   borderStyleMode?: FillMode;
@@ -362,14 +362,14 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
-  [INTENT.FILL_VALUE]: isFillValueConfig,
+  [INTENT.FILL_VALUE]: isValueConfig,
   [INTENT.FILL_MODE]: value =>
     value === FILL_MODE.SOLID ||
     value === FILL_MODE.VALUE ||
     value === FILL_MODE.ORIGINAL,
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
-  [INTENT.BORDER_VALUE]: isFillValueConfig,
+  [INTENT.BORDER_VALUE]: isValueConfig,
   [INTENT.BORDER_STYLE_MODE]: value =>
     value === FILL_MODE.SOLID ||
     value === FILL_MODE.VALUE ||
@@ -411,19 +411,11 @@ const STYLE_KEYS = {
   iconColor: INTENT.ICON_COLOR,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export {
-  FILL_MODE,
-  ICON_KIND,
-  INTENT,
-  isFillValueConfig,
-  isIconIntent,
-  LIVE,
-  STYLE_KEYS,
-};
+export { FILL_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
 export type {
   LabelConfig,
   FillMode,
-  FillValueConfig,
+  ValueConfig,
   IconIntent,
   IntentKey,
   IntentRow,

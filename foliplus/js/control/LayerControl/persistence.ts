@@ -7,10 +7,10 @@ import type {
 } from "./type.js";
 import {
   FILL_MODE,
-  type FillValueConfig,
   type FolderOrder,
-  isFillValueConfig,
+  type ValueConfig,
   isIconIntent,
+  isValueConfig,
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
 import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
@@ -120,20 +120,20 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  *  padding; keeping them as stored leaves any stray space visible in the
  *  record instead of normalising it away.
  *
- *  The bounds themselves live in `isFillValueConfig`, shared with the LIVE
+ *  The bounds themselves live in `isValueConfig`, shared with the LIVE
  *  presence rule. `kind` accepts absence, "numeric" or "category". An
  *  explicit "numeric" is the default and is stripped, so the stored record
  *  keeps reading "kindless = numeric"; a category record keeps its kind so
  *  the apply path dispatches on it after a reload. */
-const parseFillValue = (raw: unknown): FillValueConfig | null => {
-  if (!isFillValueConfig(raw)) return null;
+const parseFillValue = (raw: unknown): ValueConfig | null => {
+  if (!isValueConfig(raw)) return null;
   return {
     kind: isCategoryKind(raw.kind) ? VALUE_KIND.CATEGORY : undefined,
     field: raw.field,
     method: raw.method,
     scheme: raw.scheme,
     classes: raw.classes,
-  } as FillValueConfig;
+  } as ValueConfig;
 };
 
 /** A border width inside the shared bounds — the same constants the number
