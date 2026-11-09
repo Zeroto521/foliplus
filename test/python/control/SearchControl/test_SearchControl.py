@@ -547,7 +547,6 @@ class TestSearchControlBrowser:
 
             assert not errors, f"JS errors: {errors}"
 
-
     def test_keyboard_keeps_active_row_visible(self, browser, tmp_path):
         """ArrowDown navigation keeps the active history row inside the panel
         viewport (the list cursor scrolls the panel, not the map)."""
@@ -564,6 +563,8 @@ class TestSearchControlBrowser:
             assert result["anyScrolled"], result
             assert result["allActiveInView"], result
             assert not errors, f"JS errors: {errors}"
+
+
 def _panel_up(geom: dict) -> bool:
     """True when the panel carries the up class (the class-list form).
 
