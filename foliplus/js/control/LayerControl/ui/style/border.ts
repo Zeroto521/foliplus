@@ -58,6 +58,7 @@ import {
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
+import { VALUE_KIND } from "#core/valueKind.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
@@ -235,7 +236,7 @@ const borderValueForUi = (
   );
   if (stored) return stored;
   return {
-    kind: "numeric",
+    kind: VALUE_KIND.NUMERIC,
     field: borderSeedField(ui, layerId, fields),
     method: CONST.FILL_VALUE.METHOD_DEFAULT,
     classes: CLASS_COUNT.DEFAULT,
@@ -247,16 +248,16 @@ const borderValueForUi = (
  *  fill's persistedValue: clamps the numeric class count into the editable
  *  vocabulary, keeps a category record's optional method/classes as-is. */
 const persistedBorderValue = (value: ValueConfig): ValueConfig =>
-  value.kind === "category"
+  value.kind === VALUE_KIND.CATEGORY
     ? {
-        kind: "category",
+        kind: VALUE_KIND.CATEGORY,
         field: value.field,
         method: value.method,
         classes: value.classes,
         scheme: value.scheme,
       }
     : {
-        kind: "numeric",
+        kind: VALUE_KIND.NUMERIC,
         field: value.field,
         method: value.method,
         classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, value.classes)),
