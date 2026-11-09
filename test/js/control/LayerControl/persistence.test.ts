@@ -3,11 +3,11 @@ import { FILL_MODE, isValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
-import type { PersistedRecord } from "#control/LayerControl/type.js";
+import type { LayerPersistedRecord } from "#control/LayerControl/type.js";
 
 const makePersistence = () => new LayerPersistence();
 
-const emptyRecord = (): PersistedRecord => ({
+const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
@@ -26,8 +26,8 @@ const seedStorage = (record: unknown) => {
  *  -- the record under assertion is then the one handed to the spy. */
 const spySave = () => vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
 
-const lastRecord = (save: ReturnType<typeof spySave>): PersistedRecord =>
-  save.mock.calls.at(-1)![1] as PersistedRecord;
+const lastRecord = (save: ReturnType<typeof spySave>): LayerPersistedRecord =>
+  save.mock.calls.at(-1)![1] as LayerPersistedRecord;
 
 describe("LayerPersistence", () => {
   beforeEach(() => {
@@ -65,11 +65,11 @@ describe("LayerPersistence", () => {
 
     it("round-trips every section the record declares", () => {
       // Forward-compat guard: parseRecord must copy through every section of
-      // PersistedRecord, because the write rebuilds the record through it.
+      // LayerPersistedRecord, because the write rebuilds the record through it.
       // Add a dimension to the type and forget the parser, and this test fails
       // on the new field — the silent-loss case has no other visible symptom.
       const ids = ["a", "b"];
-      const record: PersistedRecord = {
+      const record: LayerPersistedRecord = {
         version: RECORD_VERSION,
         order: ids,
         removed: [],

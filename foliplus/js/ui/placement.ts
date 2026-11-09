@@ -14,7 +14,7 @@
  * measuring `anchor` / `surface` / `bounds` and for writing the returned
  * `top` / `left` / `side` / `maxWidth` / `maxHeight` back onto the element.
  */
-import type { Placement, PlacementOpts, Rect, SurfaceSize } from "./type.js";
+import type { Placement, PlacementBox, PlacementOpts, SurfaceSize } from "./type.js";
 
 /**
  * Clamp `value` into `[min, max]`. When `min > max` (a degenerate range, e.g.
@@ -31,7 +31,7 @@ const clamp = (value: number, min: number, max: number): number => {
  * yields a degenerate rectangle (`top >= bottom` or `left >= right`), which
  * {@link isDegenerate} detects.
  */
-const intersect = (a: Rect, b: Rect): Rect => ({
+const intersect = (a: PlacementBox, b: PlacementBox): PlacementBox => ({
   top: Math.max(a.top, b.top),
   right: Math.min(a.right, b.right),
   bottom: Math.min(a.bottom, b.bottom),
@@ -39,11 +39,11 @@ const intersect = (a: Rect, b: Rect): Rect => ({
 });
 
 /** True when a rectangle has zero or negative area. */
-const isDegenerate = (rect: Rect): boolean =>
+const isDegenerate = (rect: PlacementBox): boolean =>
   rect.top >= rect.bottom || rect.left >= rect.right;
 
-const widthOf = (r: Rect): number => r.right - r.left;
-const heightOf = (r: Rect): number => r.bottom - r.top;
+const widthOf = (r: PlacementBox): number => r.right - r.left;
+const heightOf = (r: PlacementBox): number => r.bottom - r.top;
 
 /**
  * Place a floating surface relative to an anchor within a set of bounds.
@@ -65,9 +65,9 @@ const heightOf = (r: Rect): number => r.bottom - r.top;
  * 6. Returns `side` so the adapter can choose the arrow / transform.
  */
 const computePlacement = (
-  anchor: Rect,
+  anchor: PlacementBox,
   surface: SurfaceSize,
-  bounds: Rect,
+  bounds: PlacementBox,
   opts: PlacementOpts = {},
 ): Placement => {
   const gap = opts.gap ?? 0;

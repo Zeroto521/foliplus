@@ -325,7 +325,7 @@ type IntentRow = {
 
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
- *  `PersistedRecord` (order / removed / foldedRoles stay outside the
+ *  `LayerPersistedRecord` (order / removed / foldedRoles stay outside the
  *  store); label config rides `layers[id].label`. */
 type LoadSource = {
   renamedNames?: Record<string, string>;
