@@ -37,8 +37,38 @@ async data => {
     return rect.left + rect.width * Math.max(0, Math.min(1, frac));
   };
   const live = () => [...document.querySelectorAll(".foliplus-slider-bubble.is-on")];
+  // The fresh row starts at full extent, where the fill swallows the rail
+  // (no pan region). Drag the lower thumb inward first to open a segment the
+  // pan can grab.
+  const dragThumb = (index, from, to) => {
+    const b = {
+      bubbles: true,
+      cancelable: true,
+      clientY: rect.top + rect.height / 2,
+      pointerId: 21,
+      pointerType: "mouse",
+      button: 0,
+    };
+    thumbs[index].dispatchEvent(
+      new PointerEvent("pointerdown", { ...b, clientX: xOf(from), buttons: 1 }),
+    );
+    track.dispatchEvent(
+      new PointerEvent("pointermove", { ...b, clientX: xOf(to), buttons: 1 }),
+    );
+    track.dispatchEvent(
+      new PointerEvent("pointerup", { ...b, clientX: xOf(to), buttons: 0 }),
+    );
+  };
+  const v0Start = Number(thumbs[0].getAttribute("aria-valuenow"));
+  dragThumb(0, v0Start, v0Start + 3);
+  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
 
-  const mid = (xOf(lo) + xOf(hi)) / 2;
+  // The pan region is between the two thumbs; a press at the track's
+  // geometric centre may fall outside it (thumb 0 can sit left of centre),
+  // which would grab a thumb instead of panning the pair.
+  const v0 = Number(thumbs[0].getAttribute("aria-valuenow"));
+  const v1 = Number(thumbs[1].getAttribute("aria-valuenow"));
+  const mid = (xOf(v0) + xOf(v1)) / 2;
   const base = {
     bubbles: true,
     cancelable: true,
