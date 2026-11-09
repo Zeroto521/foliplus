@@ -186,15 +186,13 @@ const buildMarkerIcon = (opts: {
     return opts.author;
   }
   if (isDefaultIcon) {
+    // The default chassis carries no author paint to inherit, so paint the
+    // glyph explicitly — white when neither the user nor the author named a
+    // color, the same default the derive path uses. One color, one alpha.
+    const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
     return L.divIcon({
       className: "foliplus-marker-default",
-      html: glyphHtml(
-        glyph,
-        "",
-        typeof opts.color === "string"
-          ? `color:${composeColorAlpha(opts.color, opts.opacity ?? 100)}`
-          : "",
-      ),
+      html: glyphHtml(glyph, "", `color:${defaultPaint}`),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });

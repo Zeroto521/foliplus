@@ -398,6 +398,41 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     expect(school.setIcon).not.toHaveBeenCalled();
     expect(school.options.icon).toBe(authorIcon);
   });
+  it("apply with only an opacity keeps the author color and changes the alpha", () => {
+    // The author paints an iconColor hex; an opacity-only write must keep
+    // that color and only change the alpha (compose needs a parsable hex —
+    // a named author color is not a glyph source).
+    const blueAuthor = makeAuthorIcon({ iconColor: "#0000ff" });
+    const blueSchool = makeMarker({ type: "school" }, blueAuthor);
+    const { manager: m2, ui: ui2 } = fixtureWithMarkers([blueSchool]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui2, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    applyIconColorToLayer(ui2, "overlay1");
+    flushIconColor("overlay1");
+    const div = blueSchool.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgba(0, 0, 255, 0.4)");
+    expect(getIntent(ui2, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+    expect(getIntent(ui2, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(40);
+    m2?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+  it("apply with only an opacity and no author paint falls back to white", () => {
+    const bareAuthor = makeAuthorIcon({ iconColor: "" });
+    const bareSchool = makeMarker({ type: "school" }, bareAuthor);
+    const { manager: m3, ui: ui3 } = fixtureWithMarkers([bareSchool]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui3, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    applyIconColorToLayer(ui3, "overlay1");
+    flushIconColor("overlay1");
+    const div = bareSchool.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgba(255, 255, 255, 0.4)");
+    m3?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
 
   it("merged construction: setting a glyph then a color keeps both", () => {
     // Simulate the glyph dimension having already written its intent.
@@ -573,6 +608,14 @@ describe("iconColor dimension descriptor", () => {
       opacity: 40,
     });
   });
+  it("value reports only the opacity when the color was never written", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({
+      value: undefined,
+      opacity: 40,
+    });
+  });
+
   it("write stores the opacity and schedules an apply", () => {
     ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 60 });
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(60);
@@ -589,6 +632,13 @@ describe("iconColor dimension descriptor", () => {
     ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: undefined });
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
   });
+  it("write ignores an out-of-range opacity", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 150 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: -5 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+  });
+
   it("reset clears the persisted color", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     ICON_COLOR_DIMENSION.reset!(ui, "overlay1");
@@ -607,6 +657,13 @@ describe("iconColor dimension descriptor", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     expect(policy.when!(ui, "overlay1")).toBe(true);
   });
+  it("contentChange when is also true once only an opacity intent exists", () => {
+    const policy = ICON_COLOR_DIMENSION.contentChange;
+    if (policy.kind !== "frame") throw new Error("expected a frame policy");
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(policy.when!(ui, "overlay1")).toBe(true);
+  });
+
   it("row builds the swatch row for a capable carrier", () => {
     const row = ICON_COLOR_DIMENSION.row(ui, "overlay1") as HTMLElement;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ICON_COLOR_ROW)).toBe(true);

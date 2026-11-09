@@ -229,6 +229,15 @@ describe("applyIconToLeaves", () => {
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
     expect(inner.className).toContain("fa-star");
   });
+  it("applyIconColorToLeaves falls back to the circle glyph when none is given", () => {
+    const author = makeAuthorIcon({ iconColor: "" });
+    const m = makeMarker(author);
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", null);
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    const div = m.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-circle");
+  });
 });
 
 describe("authorGlyphName", () => {
@@ -462,6 +471,26 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
   });
+});
+it("paints a user color and opacity on the default-icon divIcon branch", () => {
+  const author = makeDefaultIconAuthor();
+  const derived = buildMarkerIcon({
+    author,
+    glyph: "star",
+    color: "#ff0000",
+    opacity: 50,
+  }) as any;
+  expect(derived).toBeInstanceOf((window.L as any).DivIcon);
+  // The style string carries the composed rgba paint.
+  expect(derived.options.html).toContain("color:rgba(255, 0, 0, 0.5)");
+});
+it("paints a default-icon author white when the user sets no color", () => {
+  const author = makeDefaultIconAuthor();
+  const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
+  expect(derived).toBeInstanceOf((window.L as any).DivIcon);
+  // No user color, no opacity — the default-icon branch paints the glyph
+  // white (the same default the derive path uses), never an empty style.
+  expect(derived.options.html).toContain("color:#fff");
 });
 
 it("paints a user color at the user's opacity", () => {
