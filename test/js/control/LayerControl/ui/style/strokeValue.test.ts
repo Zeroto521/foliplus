@@ -794,6 +794,29 @@ describe("applyValueStroke", () => {
     }
   });
 
+  it("carries an explicit weight through the flatScalar slot", () => {
+    // Line 82: weight !== undefined builds a flatScalar that rides every leaf
+    // alongside the ramp color. The border dimension passes its live width;
+    // without it the author's width stays in force (color-only write).
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const leaf = makeLeaf({ properties: { value: 5 } });
+    const layer = makeLayer(leaf);
+    applyValueStroke(
+      makeUI(layer),
+      "overlay1",
+      makeRamp(),
+      undefined,
+      liveValueOf(makeRamp()),
+      liveModeOf("value"),
+      6,
+    );
+
+    // The leaf write carries the weight AND the value color.
+    const call = (leaf.setStyle as any).mock.calls[0][0];
+    expect(call.weight).toBe(6);
+    expect(call.color).toBeDefined();
+  });
+
   describe("pin replay", () => {
     it("replays the value stroke on mouseout when the config matches", () => {
       installChroma(["#ff0000", "#00ff00", "#0000ff"]);

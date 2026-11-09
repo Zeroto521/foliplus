@@ -8,6 +8,7 @@ import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import {
+  clearIntent,
   getIntent,
   seedIntentMap,
   setIntent,
@@ -1082,6 +1083,76 @@ describe("applyBorderToLayer", () => {
       stroke: true,
     });
     expect(orphan.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("restores the author's stroke when ORIGINAL mode has no override but the bag was captured", () => {
+    // Line 364: ORIGINAL mode owns no user colour — the colour override is
+    // treated as absent, and the walk restores each leaf's captured author
+    // face. A leaf that was committed before (bag captured) must be restored,
+    // not skipped.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    // Commit a colour first so the style bag captures the author face.
+    commitBorderNow(ui, "vec1", "color", "#abcdef");
+    // Now switch to ORIGINAL and clear the override: no user colour/weight in
+    // force, but the bag exists, so restoreStyleDim must run.
+    setIntent(ui, "vec1", "borderStyleMode", "original");
+    clearIntent(ui, "vec1", "borderColor");
+    clearIntent(ui, "vec1", "borderWeight");
+    leaf.setStyle.mockClear();
+
+    applyBorderToLayer(ui, "vec1");
+
+    // The author's green face was restored (not the user's #abcdef).
+    expect(leaf.setStyle).toHaveBeenCalled();
+    expect(leaf.options.color).toBe("#00ff00");
+  });
+
+  it("shows the stored colour as SOLID when no mode is stored", () => {
+    // Line 643: pre-mode record shape — a stored colour without a mode means
+    // the user already painted the solid mode, so displayBorderMode must
+    // resolve to SOLID rather than ORIGINAL (which would hide the user's
+    // colour behind the author's).
+    const leaf = makeLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    setIntent(ui, "vec1", "borderColor", "#ff0000");
+    // No borderStyleMode intent.
+
+    const row = buildBorderRow(ui, "vec1");
+    const swatch = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement;
+    expect(swatch.value).toBe("#ff0000");
+  });
+
+  it("resolves the live stroke config through the value arm's callbacks", () => {
+    // Lines 331-333: the value arm derives live config closures (resolveStored,
+    // effectiveBorderValue, effectiveBorderMode) so the pin's getter agrees
+    // with the paint. Exercise them through a real value-mode apply.
+    installChroma(["#111111", "#222222", "#333333"]);
+    const leaf = makeFeatureLeaf(5);
+    registerFeatureLayer(manager, ui, "vec1", [leaf]);
+    setIntent(ui, "vec1", "borderValue", countRamp());
+    setIntent(ui, "vec1", "borderStyleMode", "value");
+
+    applyBorderToLayer(ui, "vec1");
+
+    const strokeCall = leaf.setStyle.mock.calls.at(-1)?.[0];
+    expect(strokeCall).toMatchObject({ stroke: true });
+    expect(typeof strokeCall.color).toBe("string");
+
+    // Fire the highlight pin's mouseout replay: this runs the value arm's
+    // live-config closures (resolveStored, effectiveBorderValue,
+    // effectiveBorderMode) so the replay agrees with the paint.
+    const mouseout = (leaf.on as any).mock.calls.find(
+      ([evt]: [string]) => evt === "mouseout",
+    )?.[1];
+    expect(mouseout).toBeDefined();
+    leaf.setStyle.mockClear();
+    mouseout();
+    const replayCall = leaf.setStyle.mock.calls.at(-1)?.[0];
+    expect(replayCall).toMatchObject({ stroke: true });
+    expect(typeof replayCall.color).toBe("string");
   });
 });
 
@@ -2256,5 +2327,133 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const select = modeSelectOf(block);
     const values = Array.from(select!.options).map(o => o.value);
     expect(values).not.toContain("value"); // by_value absent on a polygon
+  });
+});
+
+describe("value-detail and shell wiring coverage", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#010101", "#020202", "#030303"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  const openBorderRow = (
+    manager: LayerController,
+    ui: LayerUI,
+    id: string,
+    leaves: ReturnType<typeof makeFeatureLeaf>[],
+  ) => {
+    registerFeatureLayer(manager, ui, id, leaves);
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+  const modeSelectOf = (block: HTMLElement) =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+  const changeSelect = (sel: HTMLSelectElement | null, value: string) => {
+    expect(sel).not.toBeNull();
+    sel!.value = value;
+    sel!.dispatchEvent(new Event("change"));
+  };
+
+  it("binds the value detail's scheme picker and field select", () => {
+    // Lines 770-800: createSchemePicker resolveHost/onChange, the overlay
+    // register callbacks, and the field select's onchange. Drive the real
+    // picker through the trigger and the field select through a change.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // Field select: changing it writes the border value field.
+    const fieldSelect = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement;
+    fieldSelect.value = "count";
+    fieldSelect.dispatchEvent(new Event("change"));
+    expect(getIntent(ui, "vec1", "borderValue")).toMatchObject({ field: "count" });
+
+    // Scheme picker: trigger click opens the dropdown, item click writes the
+    // scheme, outside click closes through the overlay registry.
+    const trigger = block.querySelector(
+      ".foliplus-style-scheme-trigger",
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const item = document.querySelector(
+      '.foliplus-scheme-picker-item[data-scheme-name="Reds"]',
+    ) as HTMLElement;
+    expect(item).not.toBeNull();
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(getIntent(ui, "vec1", "borderValue")).toMatchObject({ scheme: "Reds" });
+  });
+
+  it("closes the border scheme picker on outside click through the overlay registry", () => {
+    // Lines 788-790: the overlay register's isOpen/panels/close callbacks.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    const trigger = block.querySelector(
+      ".foliplus-style-scheme-trigger",
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+  });
+
+  it("binds a bare shell row without a block through bindBorderRowShell", () => {
+    // Lines 850-858: bindBorderRow's no-block branch binds the row shell
+    // directly (a row outside a mode block). Drive the color and weight
+    // controls to exercise the onChangeColor/onChangeWeight/onFlush closures.
+    const leaf = makeLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+
+    const row = buildBorderRowShell({
+      rowClass: "foliplus-style-border-row",
+      label: ui.T("border"),
+      color: "#00ff00",
+      weight: 3,
+      hasColorInput: true,
+      hasWeightInput: true,
+      className: "foliplus-style-border-color-input",
+      weightClassName: "foliplus-style-border-weight-input",
+      colorAria: ui.T("style_border_color"),
+      weightAria: ui.T("style_border_weight"),
+    });
+    document.body.appendChild(row);
+    // The bare row is not inside a data-style-dim block: bindBorderRow takes
+    // the no-block branch and binds the shell directly.
+    bindBorderRow(ui, "vec1", row);
+
+    const swatch = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement;
+    swatch.value = "#abcdef";
+    swatch.dispatchEvent(new Event("input", { bubbles: true }));
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    expect(getIntent(ui, "vec1", "borderColor")).toBe("#abcdef");
+
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    weight.value = "6";
+    weight.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(getIntent(ui, "vec1", "borderWeight")).toBe(6);
   });
 });
