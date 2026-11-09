@@ -142,6 +142,22 @@ async data => {
   );
   const afterUp = live();
 
+  // Match each live bubble to the thumb it is centered on (nearest thumb x):
+  // the pool re-parents a reused node, so DOM order between the two samples
+  // is not stable and index-based text would swap the two values.
+  const textFor = value => {
+    let best = null;
+    let bestDist = Infinity;
+    for (const b of bubblesB) {
+      const bx = Number.parseFloat(b.style.left);
+      const dist = Math.abs(bx - xOf(value));
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = b;
+      }
+    }
+    return best ? best.textContent : null;
+  };
   ui.closeStylePanel(false);
   return {
     countA: bubblesA.length,
@@ -149,8 +165,8 @@ async data => {
     countAfterUp: afterUp.length,
     moved0: moved[0] ?? false,
     moved1: moved[1] ?? false,
-    text0: bubblesB[0]?.textContent ?? null,
-    text1: bubblesB[1]?.textContent ?? null,
+    text0: textFor(Number(thumbs[0].getAttribute("aria-valuenow"))),
+    text1: textFor(Number(thumbs[1].getAttribute("aria-valuenow"))),
     aria0: thumbs[0].getAttribute("aria-valuenow"),
     aria1: thumbs[1].getAttribute("aria-valuenow"),
   };
