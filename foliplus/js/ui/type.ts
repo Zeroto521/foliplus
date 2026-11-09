@@ -34,7 +34,7 @@ interface DropdownSurface {
 }
 
 /** An axis-aligned rectangle in surface coordinates. */
-interface Rect {
+interface PlacementBox {
   top: number;
   right: number;
   bottom: number;
@@ -153,10 +153,24 @@ interface SliderOptions {
   describedBy?: string;
 }
 
+/** Everything drawing a canvas label needs, resolved from the tokens. */
+interface CanvasLabelStyle {
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: string;
+  /** Ready for `ctx.font`. Derived from the three fields above so a caller that
+   *  measures text for layout uses the very same numbers this draw will. */
+  font: string;
+  color: string;
+  haloColor: string;
+  haloWidth: number;
+}
+
 export type {
+  CanvasLabelStyle,
   Dropdown,
   DropdownSurface,
-  Rect,
+  PlacementBox,
   SurfaceSize,
   PlacementOpts,
   Placement,

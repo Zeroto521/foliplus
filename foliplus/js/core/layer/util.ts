@@ -219,6 +219,7 @@ const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "label"> = {
   // `setIcon` write would change the individual markers but not the cluster
   // bubbles — half the layer. Do not "fix" this to "native".
   icon: CONST.CAP_TIER.NONE,
+  iconColor: CONST.CAP_TIER.NONE,
   opacity: CONST.CAP_TIER.NONE,
   zoomRange: CONST.CAP_TIER.NONE,
   visibility: CONST.CAP_TIER.NATIVE,

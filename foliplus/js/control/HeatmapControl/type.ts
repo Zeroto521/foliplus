@@ -1,7 +1,6 @@
 // HeatmapControl type definitions — shared data shapes consumed by manager,
 // data aggregation, canvas rendering, and persistence modules.
 import type { ClassifyMethod } from "#core/value/classify.js";
-import type { LayerFilter } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
@@ -67,16 +66,6 @@ interface SavedConfig {
   labelSize?: number;
   labelFormat?: NumberStyle;
   field?: string;
-  /** Per-source-layer committed filters, keyed by source layer id. The AST
-   *  is plain JSON; the panel's record survives a reload and is re-validated
-   *  against the rebuilt snapshot before it can exclude a point. */
-  filters?: Record<string, LayerFilter>;
-  /** Whether the user has ever touched the filter slot — set a filter or
-   *  explicitly cleared one. A Python-declared filter seeds only while this
-   *  is absent: once the user owns the slot (including owning "no filter"),
-   *  the declaration must not come back on reload. The factory Reset drops
-   *  the ownership, so the declaration returns with the other defaults. */
-  filtersTouched?: boolean;
 }
 
 export type {

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/value/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { DIM } from "#core/layer/const.js";
-import type { FillValueConfig } from "#core/layer/intent.js";
+import type { ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/value/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -1901,7 +1901,7 @@ const makeFeatureGroup = (...leaves: any[]): any => ({
 });
 
 /** A numeric ramp config for the field the fixture leaves carry. */
-const countRamp = (overrides: Partial<FillValueConfig> = {}): FillValueConfig => ({
+const countRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
   kind: "numeric",
   field: "count",
   method: METHOD.EQUAL,
@@ -2227,7 +2227,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     const target = "quantile";
     methodSelect!.value = target;
     methodSelect!.dispatchEvent(new Event("change"));
-    const updated = getIntent(ui, "vec1", "borderValue") as FillValueConfig;
+    const updated = getIntent(ui, "vec1", "borderValue") as ValueConfig;
     expect(updated.method).toBe(target);
   });
 
@@ -2246,7 +2246,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     classesSelect!.dispatchEvent(new Event("change"));
     expect(classesSelect!.querySelector('option[value="99"]')).toBeNull();
     expect(classesSelect!.value).toBe("4");
-    const updated = getIntent(ui, "vec1", "borderValue") as FillValueConfig;
+    const updated = getIntent(ui, "vec1", "borderValue") as ValueConfig;
     expect(updated.classes).toBe(4);
   });
 

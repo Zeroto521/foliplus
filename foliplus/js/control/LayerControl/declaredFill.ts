@@ -35,7 +35,7 @@
 // face.
 import * as CONST from "./const.js";
 import { CLASS_COUNT, METHOD_ORDER, isClassifyMethod } from "#core/value/classify.js";
-import type { FillValueConfig } from "#core/layer/index.js";
+import type { ValueConfig } from "#core/layer/index.js";
 import { VALUE_KIND, isValueKind } from "#core/valueKind.js";
 import { createLogger } from "#platform/log.js";
 
@@ -55,7 +55,7 @@ type FoliplusOptions = {
  *  there, never in the parse layer). `method` / `classes` / `scheme` took
  *  the panel defaults where the author stayed silent, so a declaration and a
  *  later panel edit compare on the same shape. */
-type DeclaredFill = FillValueConfig;
+type DeclaredFill = ValueConfig;
 
 type DeclaredFillRead = {
   declared?: DeclaredFill;
@@ -200,7 +200,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     // default (CATEGORY_SCHEME_DEFAULT in fill.ts, slice ②), where the author
     // did not pick a kind at all. method/classes are irrelevant (a category is
     // not ordered, so "classify" has no meaning) and deliberately not
-    // validated, the same rule isFillValueConfig applies to a persisted
+    // validated, the same rule isValueConfig applies to a persisted
     // category record; they are kept at the type level so the union stays
     // assignable to the numeric RampConfig.
     if (data.scheme === undefined) {
@@ -235,7 +235,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
 
   // numeric (kind absent or "numeric"): validate the classifier inputs, each
   // key degrading on its own with defaults where the author stayed silent.
-  let method: FillValueConfig["method"] = CONST.FILL_VALUE.METHOD_DEFAULT;
+  let method: ValueConfig["method"] = CONST.FILL_VALUE.METHOD_DEFAULT;
   if (data.method !== undefined) {
     if (isClassifyMethod(data.method)) method = data.method;
     else {

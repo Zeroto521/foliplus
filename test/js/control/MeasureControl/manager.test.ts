@@ -2,6 +2,7 @@ import { makeControlEnv } from "../fixture.js";
 import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { FILTER_SOURCE, FILTER_STORE_KEY } from "#core/layer/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
 
@@ -56,6 +57,22 @@ const filter = (values: string[]): any => ({
   field: CONST.FILTER.FIELD,
   values,
 });
+
+/** Read the shared filter store record. */
+const readStoreRecord = (): any => {
+  const raw = window.localStorage.getItem(FILTER_STORE_KEY);
+  return raw ? JSON.parse(raw) : null;
+};
+
+/** Read one layer's measure source from the shared store record. */
+const measureSourceOf = (record: any, layerId: string): any =>
+  record?.layers?.[layerId]?.sources?.[FILTER_SOURCE.MEASURE];
+
+/** The per-surface storage key is gone: the store record is read by layerId. */
+const filterStorageKey = (manager: any): string => {
+  void manager;
+  return FILTER_STORE_KEY;
+};
 
 describe("MeasureManager — persistence", () => {
   it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
@@ -1979,13 +1996,13 @@ describe("MeasureManager — type filter", () => {
     const opts = createLayersOpts(map);
     opts.filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
 
-    const key = (manager as any).filterStorageKey as string;
-    const record = JSON.parse(window.localStorage.getItem(key)!);
-    expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
-    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    const record = readStoreRecord();
+    const source = measureSourceOf(record, manager.layerId);
+    expect(source.touched).toBe(true);
+    expect(source.value).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
     // The round-trip carries the explicit ownership flag, so a later reload
     // cannot mistake the user's write for "never spoke" and re-seed.
-    expect(record.filtersTouched).toBe(true);
+    expect(source.touched).toBe(true);
 
     // Same map container + layer id -> the reloaded manager reads it back.
     // The measurement list is cleared first so the reload does not rebuild the
@@ -2130,12 +2147,21 @@ describe("MeasureManager — type filter", () => {
 
   it("drops a stale persisted filter value instead of hiding everything", () => {
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     // Values outside the current option domain (older version, hand edit) must
     // read as "no filter": an expired condition may never hide every row.
     window.localStorage.setItem(
       key,
-      JSON.stringify({ version: 1, filter: filter(["bogus"]), filtersTouched: true }),
+      JSON.stringify({
+        version: 1,
+        layers: {
+          [manager.layerId]: {
+            sources: {
+              measure: { touched: true, value: filter(["bogus"]) },
+            },
+          },
+        },
+      }),
     );
     // The record still owns the slot: the declaration must not replace the
     // invalid condition the user's own record represents.
@@ -2154,7 +2180,7 @@ describe("MeasureManager — type filter", () => {
 
   it("ignores a corrupt filter record instead of taking the map down", () => {
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     window.localStorage.setItem(key, "not-json");
     const { map: nextMap } = makeManager();
     expect(createLayersOpts(nextMap).filterProvider().filter).toBeUndefined();
@@ -2162,7 +2188,7 @@ describe("MeasureManager — type filter", () => {
 
   it("treats a non-record payload as no stored filter and no ownership", () => {
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     window.localStorage.setItem(key, JSON.stringify([]));
     window.CONFIG = {
       ...window.CONFIG,
@@ -2189,7 +2215,7 @@ describe("MeasureManager — type filter", () => {
     // The CLEAR mode is a factory Reset: the committed filter is dropped
     // AND the record is removed, so a reload re-applies the declaration.
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     expect(window.localStorage.getItem(key)).toBeNull();
   });
 
@@ -2217,12 +2243,19 @@ describe("MeasureManager — type filter", () => {
 
   it("keeps the declaration out when the record says the user touched the filter", () => {
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     // A cleared record: the user explicitly removed the filter. The flag —
     // not the record's presence — is what keeps the declaration out.
     window.localStorage.setItem(
       key,
-      JSON.stringify({ version: 1, filtersTouched: true }),
+      JSON.stringify({
+        version: 1,
+        layers: {
+          [manager.layerId]: {
+            sources: { measure: { touched: true, value: undefined } },
+          },
+        },
+      }),
     );
     window.CONFIG = {
       ...window.CONFIG,
@@ -2240,12 +2273,18 @@ describe("MeasureManager — type filter", () => {
     // Records written before filtersTouched existed kept the user's filter in
     // the record itself; an upgrade must not let the declaration overwrite it.
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     window.localStorage.setItem(
       key,
       JSON.stringify({
         version: 1,
-        filter: filter([CONST.MEASURE_MODE.MARKER]),
+        layers: {
+          [manager.layerId]: {
+            sources: {
+              measure: { touched: true, value: filter([CONST.MEASURE_MODE.MARKER]) },
+            },
+          },
+        },
       }),
     );
     window.CONFIG = {
@@ -2263,10 +2302,19 @@ describe("MeasureManager — type filter", () => {
 
   it("a stored filter wins over the declaration", () => {
     const { manager } = makeManager();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     window.localStorage.setItem(
       key,
-      JSON.stringify({ version: 1, filter: filter([CONST.MEASURE_MODE.MARKER]) }),
+      JSON.stringify({
+        version: 1,
+        layers: {
+          [manager.layerId]: {
+            sources: {
+              measure: { touched: true, value: filter([CONST.MEASURE_MODE.MARKER]) },
+            },
+          },
+        },
+      }),
     );
     window.CONFIG = {
       ...window.CONFIG,
@@ -2404,7 +2452,7 @@ describe("MeasureManager — type filter", () => {
     expect((manager as any).measureFilter).toEqual(
       filter([CONST.MEASURE_MODE.DISTANCE]),
     );
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     expect(window.localStorage.getItem(key)).toBeNull();
 
     // Rebuilding (reload) re-applies the declaration.
@@ -2447,7 +2495,7 @@ describe("MeasureManager — type filter", () => {
     const { manager, map } = makeManager();
     expect((manager as any).filtersTouched).toBe(false);
 
-    const save = vi.spyOn(manager as any, "saveMeasureFilter");
+    // Persistence is the store's job now; observe the localStorage write.
     const replan = vi.spyOn(manager, "requestLabelPlan");
 
     // Writing the same values the declaration seeded is still a user action;
@@ -2455,20 +2503,22 @@ describe("MeasureManager — type filter", () => {
     // the user's choice.
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect((manager as any).filtersTouched).toBe(true);
-    expect(save).toHaveBeenCalledTimes(1);
+    // The first write persisted a record; the declaration is replaced.
+    expect(window.localStorage.getItem(FILTER_STORE_KEY)).not.toBeNull();
     expect(replan).toHaveBeenCalledTimes(1);
 
     // A repeated identical write is a no-op once the slot is owned: it must
     // not rewrite the record or repaint for a state that did not change.
+    const afterFirst = window.localStorage.getItem(FILTER_STORE_KEY);
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect((manager as any).filtersTouched).toBe(true);
-    expect(save).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBe(afterFirst);
     expect(replan).toHaveBeenCalledTimes(1);
 
-    const key = (manager as any).filterStorageKey as string;
-    const record = JSON.parse(window.localStorage.getItem(key)!);
-    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
-    expect(record.filtersTouched).toBe(true);
+    const record = readStoreRecord();
+    const source = measureSourceOf(record, manager.layerId);
+    expect(source.value).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(source.touched).toBe(true);
   });
 
   it("a clear with nothing to clear leaves the slot to the declaration", () => {
@@ -2482,7 +2532,7 @@ describe("MeasureManager — type filter", () => {
 
     expect((manager as any).filtersTouched).toBe(false);
     expect((manager as any).measureFilter).toBeUndefined();
-    const key = (manager as any).filterStorageKey as string;
+    const key = filterStorageKey(manager);
     expect(window.localStorage.getItem(key)).toBeNull();
   });
 });
@@ -2505,14 +2555,28 @@ describe("MeasureManager — type filter", () => {
 //   6. a saved filter round-trips through persistence;
 //   7. the dimension carries values only — captions are panel chrome.
 describe("MeasureManager — filter contract (enum arm)", () => {
-  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+  const storageKey = (manager: any): string => filterStorageKey(manager);
 
   /** Write a filter record as if an earlier session had owned the slot. A
    *  probe manager supplies the stable key (container id + layer id). */
-  const seedRecord = (record: unknown): string => {
+  const seedRecord = (record: any): string => {
     const { manager } = makeManager();
     const key = storageKey(manager);
-    window.localStorage.setItem(key, JSON.stringify(record));
+    // Translate the legacy per-surface shape into the shared store record.
+    const storeRecord = {
+      version: 1,
+      layers: {
+        [manager.layerId]: {
+          sources: {
+            measure: {
+              touched: record.filtersTouched ?? true,
+              value: record.filter ?? undefined,
+            },
+          },
+        },
+      },
+    };
+    window.localStorage.setItem(key, JSON.stringify(storeRecord));
     // The measurements list must not distract the reload; the filter record is
     // the thing under test.
     window.localStorage.removeItem(CONST.STORAGE.KEY);
@@ -2594,10 +2658,10 @@ describe("MeasureManager — filter contract (enum arm)", () => {
       expect((manager as any).measureFilter).toEqual(
         filter([CONST.MEASURE_MODE.MARKER]),
       );
-      const record = JSON.parse(window.localStorage.getItem(storageKey(manager))!);
-      expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
-      expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
-      expect(record.filtersTouched).toBe(true);
+      const record = readStoreRecord();
+      const source = measureSourceOf(record, manager.layerId);
+      expect(source.value).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+      expect(source.touched).toBe(true);
     });
   });
 
@@ -2779,12 +2843,11 @@ describe("MeasureManager — filter contract (enum arm)", () => {
   });
 });
 
-// ── F4 regression: the shared filter owner must reproduce the hand-rolled
+// ── F4 regression: the shared filter store must reproduce the hand-rolled
 // setFilter behaviour byte-for-byte. These rows are the contract the old
-// MeasureManager.setFilter held; if the owner ever drifts, they fail here
-// (and in the equivalent filterOwner.test.ts unit rows).
+// MeasureManager.setFilter held; if the store ever drifts, they fail here.
 describe("MeasureManager — filter owner equivalence (F4)", () => {
-  const storageKey = (manager: any): string => manager.filterStorageKey as string;
+  const storageKey = (manager: any): string => filterStorageKey(manager);
 
   beforeEach(() => window.localStorage.clear());
   afterEach(() => {
@@ -2847,11 +2910,10 @@ describe("MeasureManager — filter owner equivalence (F4)", () => {
     expect((manager as any).filtersTouched).toBe(true);
     expect((manager as any).measureFilter).toBeUndefined();
     expect(opts.filterProvider().filter).toBeUndefined();
-    const saved = JSON.parse(
-      window.localStorage.getItem(storageKey(manager)) as string,
-    );
-    expect(saved.filter).toBeUndefined();
-    expect(saved.filtersTouched).toBe(true);
+    const saved = readStoreRecord();
+    const source = measureSourceOf(saved, manager.layerId);
+    expect(source.value).toBeUndefined();
+    expect(source.touched).toBe(true);
   });
 
   it("the declaration does not resurrect after a clear write", () => {

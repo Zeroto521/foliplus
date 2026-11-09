@@ -19,7 +19,7 @@ import {
   DIM,
   FILL_MODE,
   type FillMode,
-  type FillValueConfig,
+  type ValueConfig,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
@@ -38,7 +38,7 @@ import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig | undefined,
+  value: ValueConfig | undefined,
 ): FillMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ??
   (value !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
@@ -67,16 +67,16 @@ const FILL_FACE_DECL: ValueFaceDecl = {
 const applyValueFill = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig,
+  value: ValueConfig,
   /** Resolve a stored config's field against the layer's current fields. The
    *  caller resolves the config it paints with, so the mode's highlight pin
    *  must resolve the live record the same way before comparing. Identity by
    *  default — a caller with no field list has nothing to resolve. */
-  resolveStored: (stored: FillValueConfig) => FillValueConfig = stored => stored,
+  resolveStored: (stored: ValueConfig) => ValueConfig = stored => stored,
   /** The config the highlight pin replays on mouseout: the live fillValue
    *  intent, or the author's declared value fill when the user has not
    *  chosen one. */
-  liveValue: () => FillValueConfig | undefined = () =>
+  liveValue: () => ValueConfig | undefined = () =>
     FILL_FACE_DECL.readValueConfig(ui, layerId),
 ): void => {
   paintByValue(ui, layerId, value, FILL_FACE_DECL, resolveStored, liveValue);
@@ -103,7 +103,7 @@ const log = createLogger("foliplus");
 /** The record a user write may persist: the class count is clamped to the
  *  range the persistence validator accepts, so a declared or seeded config can
  *  never produce a record the next load rejects. */
-const persistedValue = (value: FillValueConfig): FillValueConfig =>
+const persistedValue = (value: ValueConfig): ValueConfig =>
   isCategoryKind(value.kind)
     ? {
         kind: VALUE_KIND.CATEGORY,
@@ -185,8 +185,8 @@ const categoryFields = (ui: LayerUI, layerId: string): string[] => {
 const resolvedValue = (
   ui: LayerUI,
   layerId: string,
-  value: FillValueConfig | undefined,
-): FillValueConfig | undefined =>
+  value: ValueConfig | undefined,
+): ValueConfig | undefined =>
   value === undefined
     ? undefined
     : {
@@ -232,7 +232,7 @@ const warnDeclaredFillInference = (
  *  field vanished is not silently re-pointed at another column; the whole
  *  declaration falls back to the per-feature paint / built-in default
  *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined => {
+const declaredFill = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const layerInfo = ui.c.layerRegistry.get(layerId);
@@ -246,7 +246,7 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
   // mode the values can drive. A field that cannot drive one kind (mixed
   // number/category values) or drives none (all null / no feature) drops the
   // declaration whole rather than painting one mode over a mismatched column.
-  let config: FillValueConfig = declared;
+  let config: ValueConfig = declared;
   if (declared.kind === undefined) {
     const inferred = inferFieldKind(layer, declared.field);
     if (inferred === "mixed" || inferred === "empty") {
@@ -287,15 +287,12 @@ const declaredFill = (ui: LayerUI, layerId: string): FillValueConfig | undefined
  *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredValue = (ui: LayerUI, layerId: string): FillValueConfig | undefined =>
+const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   declaredFill(ui, layerId);
 
 /** The value config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared value fill. */
-const effectiveFillValue = (
-  ui: LayerUI,
-  layerId: string,
-): FillValueConfig | undefined =>
+const effectiveFillValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
 
 /** Whether a declaration names a value mode — the cheap form for gates that run
@@ -315,7 +312,7 @@ const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
 const defaultValueConfig = (
   field: string,
   classes: number = CLASS_COUNT.DEFAULT,
-): FillValueConfig => ({
+): ValueConfig => ({
   kind: VALUE_KIND.NUMERIC,
   field,
   method: CONST.FILL_VALUE.METHOD_DEFAULT,
@@ -354,7 +351,7 @@ const valueForUi = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-): FillValueConfig => {
+): ValueConfig => {
   const stored = resolvedValue(ui, layerId, getIntent(ui, layerId, INTENT.FILL_VALUE));
   if (stored) return stored;
   const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
@@ -389,10 +386,10 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
 const writeFillValue = (
   ui: LayerUI,
   layerId: string,
-  patch: Partial<FillValueConfig>,
-): FillValueConfig => {
+  patch: Partial<ValueConfig>,
+): ValueConfig => {
   const fields = numericFields(ui, layerId);
-  const next: FillValueConfig = persistedValue({
+  const next: ValueConfig = persistedValue({
     ...valueForUi(ui, layerId, fields),
     ...patch,
   });
@@ -409,7 +406,7 @@ const buildValueDetail = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
-  value: FillValueConfig,
+  value: ValueConfig,
 ): HTMLElement[] => {
   const field = buildFieldRow({
     label: ui.T("style_fill_field"),
@@ -549,7 +546,7 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   ) as HTMLSelectElement;
   methodSelect.onchange = () =>
     writeFillValue(ui, layerId, {
-      method: methodSelect.value as FillValueConfig["method"],
+      method: methodSelect.value as ValueConfig["method"],
     });
 
   const classesSelect = detail.querySelector(

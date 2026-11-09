@@ -15,7 +15,7 @@ import { type ClassifyMethod, computeBreaks } from "./classify.js";
 import { isCategoryValue } from "./field.js";
 import { SCHEME_FALLBACK_COLOR, getCategoryColors, getColorScale } from "./palette.js";
 
-/** The three inputs a ramp is built from — the persisted FillValueConfig's
+/** The three inputs a ramp is built from — the persisted ValueConfig's
  *  values minus field, which selects the property key and is the caller's
  *  business, not the classifier's. */
 type RampConfig = {
