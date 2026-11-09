@@ -65,7 +65,11 @@ if (!foliplus.isInitialized) {
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });
 
-  // Core module - single file, manually registered.
+  // Core module - single file, manually registered. These two live at
+  // core/lifecycle/component and core/lifecycle/mode; after the clustering the
+  // shims read them from foliplus.core.lifecycle (the namespace scan-registry
+  // folds the whole lifecycle sub into), so these manual publications are the
+  // runtime's own entry points — kept for direct callers, not for shims.
   if (!foliplus.core) foliplus.core = {};
   foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
   // Mode module - single file, manually registered.

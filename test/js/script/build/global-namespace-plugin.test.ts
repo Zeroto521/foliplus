@@ -72,16 +72,34 @@ describe("runtimeTarget", () => {
     expect(runtimeTarget("BaseControl")).toBe("BaseControl");
   });
 
-  it("keeps core/hint at the top level", () => {
-    expect(runtimeTarget("core/hint")).toBe("hint");
-  });
-
   it("maps core subdirectories to core.<sub>", () => {
     expect(runtimeTarget("core/layer")).toBe("core.layer");
     expect(runtimeTarget("core/layer/index")).toBe("core.layer");
     expect(runtimeTarget("core/layer/LayerFactory")).toBe("core.layer");
-    expect(runtimeTarget("core/component")).toBe("core.component");
     expect(runtimeTarget("core/event")).toBe("core.event");
+  });
+
+  it("maps every core subdirectory deep path to core.<sub> (not a flattened core.<last>)", () => {
+    // Regression guard for the 452 browser failures: a component import of
+    // #core/<sub>/<file>.js shims to foliplus.core.<sub> — the namespace
+    // scan-registry folds the sub's used exports into. A runtimeTarget
+    // special case that flattens the deep path onto core.<last> (e.g.
+    // core/lifecycle/defineControl → core.defineControl) leaves the shim
+    // reading a namespace nobody publishes and crashes every component.
+    const coreDir = resolve(JS_DIR, "core");
+    const subs = readdirSync(coreDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    expect(subs.length).toBeGreaterThan(0);
+    for (const sub of subs) {
+      // A deep file path inside the sub, and the barrel path, must both land
+      // on core.<sub> — never core.<last>, never a flattened single name.
+      expect(runtimeTarget(`core/${sub}/file`)).toBe(`core.${sub}`);
+      expect(runtimeTarget(`core/${sub}/index`)).toBe(`core.${sub}`);
+      expect(sharedGlobalNamespace(`#core/${sub}/file.js`)).toBe(
+        `foliplus.core.${sub}`,
+      );
+    }
   });
 
   it("maps platform subdirectories to platform.<sub>", () => {
@@ -111,38 +129,39 @@ describe("sharedGlobalNamespace", () => {
     );
   });
 
-  it("maps hint.js to foliplus.hint", () => {
-    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe("foliplus.hint");
-  });
-
-  // Every other core-root single file reaches its namespace through the general
-  // rule; component and mode no longer carry manual entries.
-  it("maps component.js to foliplus.core.component", () => {
-    expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
-      "foliplus.core.component",
+  it("maps overlay hint to foliplus.core.overlay", () => {
+    // The clustered hint module lives at core/overlay/hint; the general
+    // core/<sub> rule maps it to core.overlay — the namespace scan-registry
+    // publishes HINT_DURATION/ensureHint under. It is no longer a top-level
+    // foliplus.hint special case.
+    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe(
+      "foliplus.core.overlay",
     );
   });
 
-  it("maps mode.js to foliplus.core.mode", () => {
-    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe("foliplus.core.mode");
-  });
-
-  it("maps controlEnv.js to foliplus.core.controlEnv", () => {
+  // Every lifecycle module (component, mode, controlEnv, leafletAdapter, …) is
+  // served by the general core/<sub> rule → core.lifecycle; scan-registry folds
+  // the whole sub into foliplus.core.lifecycle. No per-file manual entries.
+  it("maps lifecycle modules to foliplus.core.lifecycle", () => {
+    expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
+      "foliplus.core.lifecycle",
+    );
+    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe(
+      "foliplus.core.lifecycle",
+    );
     expect(sharedGlobalNamespace("#core/lifecycle/controlEnv.js")).toBe(
-      "foliplus.core.controlEnv",
+      "foliplus.core.lifecycle",
+    );
+    expect(sharedGlobalNamespace("#core/lifecycle/leafletAdapter.js")).toBe(
+      "foliplus.core.lifecycle",
+    );
+    expect(sharedGlobalNamespace("#core/lifecycle/defineControl.js")).toBe(
+      "foliplus.core.lifecycle",
     );
   });
 
   it("maps the label barrel to foliplus.core.label", () => {
     expect(sharedGlobalNamespace("#core/label/index.js")).toBe("foliplus.core.label");
-  });
-
-  it("maps leafletAdapter.js to foliplus.core.leafletAdapter", () => {
-    // A core-root single file, so the general rule must cover it: the #platform
-    // fallback would build "foliplus.platform.#core/leafletAdapter".
-    expect(sharedGlobalNamespace("#core/lifecycle/leafletAdapter.js")).toBe(
-      "foliplus.core.leafletAdapter",
-    );
   });
 
   it("maps core subdirectory to foliplus.core.sub", () => {
@@ -206,26 +225,30 @@ describe("sharedGlobalNamespace across the production tree", () => {
     }
   });
 
-  it("gives hint, and only hint, a namespace outside foliplus.core", () => {
-    // runtime/index.ts publishes `hint` directly on window.foliplus (the
-    // Object.assign block); after the core clustering it lives at core/overlay/hint
-    // and is served by the explicit overlay/hint branch in runtimeTarget. The
-    // general rule covers every other core-root single file, so nothing is
-    // off-rule now — and a new core-root file must reach its namespace through
-    // that rule rather than by adding an entry.
-    const singles = readdirSync(resolve(JS_DIR, "core"), { withFileTypes: true })
-      .filter(f => f.isFile() && f.name.endsWith(".ts"))
-      .map(f => f.name.replace(/\.ts$/, ""));
-    const offRule = singles.filter(
-      name => sharedGlobalNamespace(`#core/${name}.js`) !== `foliplus.core.${name}`,
+  it("serves every core subdirectory file by its core.<sub> rule", () => {
+    // After the clustering there are no core-root single files (they moved into
+    // value/overlay/lifecycle/…), so nothing is off-rule. Every deep file under
+    // a core subdirectory must reach its namespace through the general rule —
+    // a new core-root file must do the same rather than by adding a special case.
+    const coreDir = resolve(JS_DIR, "core");
+    const subs = readdirSync(coreDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    expect(subs.length).toBeGreaterThan(0);
+    for (const sub of subs) {
+      expect(sharedGlobalNamespace(`#core/${sub}/index.js`)).toBe(
+        `foliplus.core.${sub}`,
+      );
+    }
+    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe(
+      "foliplus.core.overlay",
     );
-    expect(offRule).toEqual([]);
-    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe("foliplus.hint");
-    // The two that used to carry manual entries, now served by the rule.
     expect(sharedGlobalNamespace("#core/lifecycle/component.js")).toBe(
-      "foliplus.core.component",
+      "foliplus.core.lifecycle",
     );
-    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe("foliplus.core.mode");
+    expect(sharedGlobalNamespace("#core/lifecycle/mode.js")).toBe(
+      "foliplus.core.lifecycle",
+    );
   });
 
   it("is never called for a bare core or common domain barrel", () => {
