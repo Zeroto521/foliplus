@@ -1,4 +1,4 @@
-// platform/zoomRange — declarative zoom-range gate for a whole control.
+// core/leaflet/zoomRange — declarative zoom-range gate for a whole control.
 //
 // A control's zoom_range={...} declaration is a visibility window over the
 // map's zoom level: inside it the control is available, outside it the
@@ -10,7 +10,7 @@
 // This is intentionally tiny and dependency-free: the caller passes the map,
 // its own container and logger. It never writes Leaflet's native
 // `minZoom/maxZoom`, exactly like the layer policy.
-import type { Logger } from "./type.js";
+import type { Logger } from "#platform/type.js";
 
 /** The one shape carried from Python: both ends are integer zoom levels. */
 interface DeclaredZoomRange {
