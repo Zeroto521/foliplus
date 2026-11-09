@@ -119,7 +119,7 @@ export {
   FILL_MODE,
   ICON_KIND,
   INTENT,
-  isFillValueConfig,
+  isValueConfig,
   isIconIntent,
   LIVE,
   STYLE_KEYS,
@@ -145,7 +145,7 @@ export type { Projection } from "./type.js";
 export type {
   FillMode,
   LabelConfig,
-  FillValueConfig,
+  ValueConfig,
   IconIntent,
   IntentKey,
   IntentRow,

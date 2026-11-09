@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FILL_MODE, isFillValueConfig } from "#core/layer/intent.js";
+import { FILL_MODE, isValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
@@ -713,7 +713,7 @@ describe("LayerPersistence", () => {
         [false, null],
       ];
       for (const [ok, config] of cases) {
-        expect(isFillValueConfig(config), JSON.stringify(config)).toBe(ok);
+        expect(isValueConfig(config), JSON.stringify(config)).toBe(ok);
         seedStorage({
           version: RECORD_VERSION,
           layers: { a: { fillValue: config, overrides: ["fillValue"] } },
