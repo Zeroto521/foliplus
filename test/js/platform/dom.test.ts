@@ -7,7 +7,7 @@ import {
   removeInlineEditInput,
   stopEvent,
   updateItemLabel,
-} from "#common/dom.js";
+} from "#platform/dom.js";
 
 describe("dom.el", () => {
   it("creates a basic element with tag", () => {

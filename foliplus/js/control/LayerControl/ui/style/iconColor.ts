@@ -17,6 +17,11 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel row.
+import { INTENT, getIntent } from "../intent.js";
+import type { LayerUI } from "../surface.js";
+import { currentGlyph } from "./icon.js";
+import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
   applyIconColorToLeaves,
@@ -26,11 +31,6 @@ import {
 import { colorInput } from "#ui/form.js";
 import { formRow } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { INTENT, getIntent } from "../intent.js";
-import type { LayerUI } from "../surface.js";
-import { currentGlyph } from "./icon.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
-import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain

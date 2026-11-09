@@ -1,6 +1,3 @@
-import { defineControl } from "#core/defineControl.js";
-import { createPanelControl } from "#core/leaflet/index.js";
-import type { LayerData } from "#foliplus/config-schema.js";
 import {
   LayerController,
   installBringToFrontPatch,
@@ -8,6 +5,9 @@ import {
 } from "./controller.js";
 import * as SVGs from "./icon.js";
 import { LayerUI } from "./ui/index.js";
+import { defineControl } from "#core/defineControl.js";
+import { createPanelControl } from "#core/leaflet/index.js";
+import type { LayerData } from "#foliplus/config-schema.js";
 
 const LayerControl = defineControl<LayerController>({
   config: CONFIG,

@@ -3,14 +3,14 @@
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
 // assembly in index.ts.
-import { type LabelField, isNumericField } from "#core/label/index.js";
-import { NUMBER_FORMAT } from "#common/format.js";
-import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
-import type { LabelConfig } from "#control/LayerControl/type.js";
 import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
+import { type LabelField, isNumericField } from "#core/label/index.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
+import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
+import type { LabelConfig } from "#control/LayerControl/type.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { locateMe } from "#control/LocateControl/logic.js";
 
-vi.mock("#common/locale.js", () => ({
+vi.mock("#platform/locale.js", () => ({
   createTranslator: () => (k: string) => k,
   createScopedTranslator: () => (k: string) => k,
 }));

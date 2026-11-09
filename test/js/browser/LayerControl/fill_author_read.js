@@ -1,4 +1,4 @@
-// Read the fill row's original-colors arm: the read-only detail (column,
+// Read the fill row's original-colors mode: the read-only detail (column,
 // ordered colors, count), the controls that must NOT be there, and the fill
 // colors actually painted on the map.
 () => {

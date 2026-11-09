@@ -45,8 +45,8 @@
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import { finalize } from "#common/finalize.js";
-import { createLogger } from "#common/log.js";
+import { finalize } from "#platform/finalize.js";
+import { createLogger } from "#platform/log.js";
 
 const log = createLogger("BaseControl");
 

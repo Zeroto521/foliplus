@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
-import { createScopedTranslator } from "#common/locale.js";
+import { createScopedTranslator } from "#platform/locale.js";
 import * as CONST from "#control/ExportControl/const.js";
 import { type CropState, ExportManager } from "#control/ExportControl/manager.js";
 import {

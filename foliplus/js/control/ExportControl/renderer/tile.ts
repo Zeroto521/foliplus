@@ -1,9 +1,9 @@
 // Tile-coordinate maths and the concurrent tile draw pass.
 // Moved from renderer.ts — calcTiles, tilePositions, renderTileLayer.
-import { layerUrl } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import { isVisible, loadImageBitmap } from "../util.js";
+import { layerUrl } from "#core/leafletAdapter.js";
 
 /** Calculate tile coordinates covering geo bounds at a given zoom. */
 const calcTiles = (

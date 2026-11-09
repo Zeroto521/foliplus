@@ -1,9 +1,9 @@
+import { attachedPanel, findItem, initFixture } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { attachedPanel, findItem, initFixture } from "./fixture.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a
 // `map.foliplus` reference, so it has to be mocked to flip the block on.

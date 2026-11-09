@@ -11,6 +11,7 @@
 // happen exactly once per file to avoid collisions. That registration
 // is at file scope below; every test after it can rely on the test dim
 // being present.
+import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
@@ -35,7 +36,6 @@ import {
   ZOOM_RANGE_DIMENSION,
   resetLayerZoomRange,
 } from "#control/LayerControl/ui/style/zoomRange.js";
-import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";
 const testDim = {

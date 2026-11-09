@@ -2,6 +2,14 @@
 // sequence and the layer-count-change refresh. These are the null-guard rails
 // in the two public functions, not the happy path (which the shell test and
 // the individual handler suites already exercise).
+import {
+  attachedPanel,
+  findItem,
+  initFixture,
+  oneOverlay,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,14 +37,6 @@ import {
   hasStyleDimApply,
   scheduleStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import {
-  attachedPanel,
-  findItem,
-  initFixture,
-  oneOverlay,
-  polygonLayer,
-  trackMembership,
-} from "./fixture.js";
 
 vi.mock("#control/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<
@@ -219,7 +219,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("clears the count column when the count is null but the column exists", () => {
-      // The else-if arm: refreshAllCounts and onLayerItemCountChange both take
+      // The else-if branch: refreshAllCounts and onLayerItemCountChange both take
       // the empty-text path when the column is present but the count is not.
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
       const item = findItem(ui, "overlay1");
@@ -256,7 +256,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("clears the count column for every overlay row when no count is available", () => {
-      // Exercises the else-if arm across the full sweep.
+      // Exercises the else-if branch across the full sweep.
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
       const item = findItem(ui, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
@@ -840,7 +840,7 @@ describe("onLayerItemCountChange — the registry replays", () => {
     areal.setStyle.mockClear();
 
     const syncRun = vi.fn();
-    // No built-in dimension declares the sync arm; a test dimension takes it.
+    // No built-in dimension declares the sync branch; a test dimension takes it.
     // Registration is per module graph, and this is the file's last test.
     registerDimension({
       key: "test.dim.sync-policy",

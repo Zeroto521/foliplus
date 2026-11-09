@@ -2,16 +2,16 @@
 // The canvas is stubbed (it is the browser tests' job to verify drawing), and
 // the map is a stub carrying the panes, the container box and the projection
 // the plan needs.
+import { loadGeometry } from "../fixture.js";
+import { initFixture } from "../ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { NUMBER_FORMAT } from "#common/format.js";
+import { NUMBER_FORMAT } from "#platform/format.js";
 import { LABEL_SIZE } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LabelManager } from "#control/LayerControl/label/index.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
-import { loadGeometry } from "../fixture.js";
-import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
   interface MockCanvas {
@@ -339,7 +339,7 @@ describe("LabelManager — config", () => {
     mgr.setConfig("a", { ...CONFIG, size: 12 });
     // Wire the generic data-layer filter's hidden-leaf check (the controller
     // calls setHiddenCheck once after construction); a not-hidden leaf is
-    // still painted — this exercises the check's call arm.
+    // still painted — this exercises the check's call branch.
     // The controller wires the hidden-leaf check from the generic filter's
     // hidden set; a hidden leaf is skipped by the label walk (no label).
     const check = vi.fn(() => true);
@@ -356,7 +356,7 @@ describe("LabelManager — config", () => {
     const mgr = new LabelManager({ map, layerFind: () => group });
     // Size != 12 keeps the layerSpec short-circuit out of the way, so the
     // label walk reaches the check with hiddenCheck still null — the
-    // optional-chain skip arm (no filter wired = draw everything).
+    // optional-chain skip branch (no filter wired = draw everything).
     mgr.setConfig("a", { ...CONFIG, size: 11 });
     mgr.renderLabels("a");
     expect(painted(0)).toHaveLength(1);
@@ -956,7 +956,7 @@ describe("LabelManager — render & plan", () => {
   });
 
   it("repaints every layer on a bare LAYER_CHANGE (third-party payload-less emit)", () => {
-    // Defense arm for the handler's `!payload` fallback: when an emit arrives
+    // Defense branch for the handler's `!payload` fallback: when an emit arrives
     // with no payload (legacy / third-party code, or a pre-refactor emit), the
     // handler can't know which layer moved — it falls back to a full repaint
     // rather than guessing wrong. Pins the fallback so a future refactor can't

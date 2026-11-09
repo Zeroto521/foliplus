@@ -1,6 +1,6 @@
-// Shared color-scheme picker — a thin adapter over the one listbox engine.
+// ui/schemePicker — shared color-scheme picker: a thin adapter over the one listbox engine.
 //
-// The engine (common/listbox.ts) owns the dropdown lifecycle, keyboard
+// The engine (ui/listbox.ts) owns the dropdown lifecycle, keyboard
 // navigation, outside-click dismissal, focus return, portal/inline mounting
 // and aria-activedescendant tracking. This adapter only supplies the value
 // model (scheme + hidden select), the color-bar drawing, the trigger label,
@@ -8,10 +8,10 @@
 // behavior.
 //
 // Does NOT import any Heatmap or LayerControl module.
-import { dom } from "#common/dom.js";
-import { createLogger } from "#common/log.js";
 import { createListbox } from "./listbox.js";
 import type { SchemePicker } from "./type.js";
+import { dom } from "#platform/dom.js";
+import { createLogger } from "#platform/log.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
@@ -62,8 +62,8 @@ interface SchemePickerOptions {
    *  pseudo-fullscreen fallback's own transitions, which emit no
    *  fullscreenchange). The picker re-seats its dropdown into the new host
    *  whenever the callback fires; the returned function unsubscribes on
-   *  close/destroy. Consumers wire this to the shared common/fullscreen
-   *  contract — common/** must not import core/**. */
+   *  close/destroy. Consumers wire this to the shared platform/fullscreen
+   *  contract — platform/** must not import core/**. */
   onSurfaceChange?: (cb: () => void) => () => void;
   /** Called when the dropdown opens or closes, with the dropdown element
    *  (or null when closed). Useful for consumers that need to track the

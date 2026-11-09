@@ -4,6 +4,7 @@
 // and negative carriers, the merged single-construction derive (color and
 // glyph never split across two writes), Reset restoring the author paint
 // without clearing a user glyph, and the persistence parser.
+import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -20,7 +21,6 @@ import {
 } from "#control/LayerControl/ui/style/iconColor.js";
 import { writeIntentKeys } from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { initFixture } from "../fixture.js";
 
 // The shared L stub (test/js/setup.ts) defines no Icon key. The core
 // markerIcon module reads L.Icon.Default; provide a minimal Default class so
