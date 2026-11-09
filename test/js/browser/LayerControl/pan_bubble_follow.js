@@ -108,39 +108,27 @@ async data => {
     new PointerEvent("pointerdown", { ...base, clientX: mid, buttons: 1 }),
   );
 
+  // Position is rAF-merged by design (updateBubbles schedules one
+  // requestAnimationFrame for all live bubbles), so a left read right after
+  // dispatching the move is still the pre-move value. Await two frames after
+  // each move before sampling, then compare the placed positions.
+  const twoFrames = () =>
+    new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))),
+    );
+  await twoFrames();
   const bubblesA = live();
-  // Pan toward whichever side still has a gap: a pair flush with the min edge
-  // clamps a left pan (and vice versa), which would leave the bubbles static
-  // and fail the follow assertion.
-  const dir = v0 > lo ? -1 : 1;
-  const nextX = mid + dir * 20;
+  const leftA = new Map(bubblesA.map(b => [b, b.getBoundingClientRect().left]));
   track.dispatchEvent(
     new PointerEvent("pointermove", { ...base, clientX: nextX, buttons: 1 }),
   );
-  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+  await twoFrames();
   const bubblesB = live();
-  // Track each bubble by element identity: the pool re-parents a reused node,
-  // so DOM order between the two samples is not stable.
-  const leftA = new Map(bubblesA.map(b => [b, b.style.left]));
+  const leftB = new Map(bubblesB.map(b => [b, b.getBoundingClientRect().left]));
   const moved = bubblesA.map(b => {
     const stillLive = bubblesB.includes(b);
-    return stillLive && leftA.get(b) !== b.style.left;
+    return stillLive && leftA.get(b) !== leftB.get(b);
   });
-  // Match each live bubble to the thumb it is centred on (nearest thumb x) so
-  // the reported text is per thumb, not per DOM position.
-  const textFor = value => {
-    let best = null;
-    let bestDist = Infinity;
-    for (const b of bubblesB) {
-      const bx = Number.parseFloat(b.style.left);
-      const dist = Math.abs(bx - xOf(value));
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = b;
-      }
-    }
-    return best ? best.textContent : null;
-  };
   track.dispatchEvent(
     new PointerEvent("pointerup", { ...base, clientX: nextX, buttons: 0 }),
   );
@@ -156,8 +144,8 @@ async data => {
     countAfterUp: afterUp.length,
     moved0: moved[0] ?? false,
     moved1: moved[1] ?? false,
-    text0: textFor(v0),
-    text1: textFor(v1),
+    text0: bubblesB[0]?.textContent ?? null,
+    text1: bubblesB[1]?.textContent ?? null,
     aria0: thumbs[0].getAttribute("aria-valuenow"),
     aria1: thumbs[1].getAttribute("aria-valuenow"),
   };
