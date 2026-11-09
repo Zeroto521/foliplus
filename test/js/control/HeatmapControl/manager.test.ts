@@ -1,17 +1,3 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLASS_COUNT, METHOD } from "#core/classify.js";
-import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
-import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { BORDER_WEIGHT } from "#ui/index.js";
-import * as CONST from "#control/HeatmapControl/const.js";
-import { HeatmapManager } from "#control/HeatmapControl/manager.js";
-import {
-  type HeatmapControlUI,
-  rebuildLayerDropdown,
-} from "#control/HeatmapControl/ui.js";
-import type { LayerController } from "#control/LayerControl/controller.js";
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import {
   loadGeometry,
@@ -20,6 +6,20 @@ import {
   makeManager,
   makeManagerOn,
 } from "./fixture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
+import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { BORDER_WEIGHT } from "#ui/index.js";
+import * as CONST from "#control/HeatmapControl/const.js";
+import { HeatmapManager } from "#control/HeatmapControl/manager.js";
+import {
+  type HeatmapControlUI,
+  rebuildLayerDropdown,
+} from "#control/HeatmapControl/ui.js";
+import type { LayerController } from "#control/LayerControl/controller.js";
 
 afterEach(() => {
   delete globalThis.h3;

@@ -70,10 +70,10 @@ async () => {
   // container itself, so a wheel over the list bubbles to it and Leaflet's
   // scrollWheelZoom fires. Activate pseudo mode so the test covers the real case.
   const map = window.map;
-  const common = window.foliplus && window.foliplus.common;
+  const platform = window.foliplus && window.foliplus.platform;
   const container = map.getContainer();
-  if (common && common.fullscreen && common.fullscreen.setPseudoFullscreen) {
-    common.fullscreen.setPseudoFullscreen(container, true);
+  if (platform && platform.fullscreen && platform.fullscreen.setPseudoFullscreen) {
+    platform.fullscreen.setPseudoFullscreen(container, true);
     await wait(40);
   }
   const hosted = list.parentElement;

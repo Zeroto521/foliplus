@@ -24,7 +24,7 @@
 // scope (it answers "inside" for a popup another panel owns — the same
 // press-stealing bug from the other side), which is why this predicate takes
 // no selector.
-import { isPortalOf } from "#common/portalRoot.js";
+import { isPortalOf } from "#platform/portalRoot.js";
 
 /** True when `target` belongs to the overlay owned by `panel`: a descendant of
  *  the panel itself, or a node some overlay registered as its portal root while

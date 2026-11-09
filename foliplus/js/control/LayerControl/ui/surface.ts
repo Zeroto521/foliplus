@@ -18,15 +18,15 @@
 //
 // Keep it to what the `ui/*` modules actually read. Anything needing the
 // constructor or the class identity takes the class type from `ui/index.js`.
-import { type EventBus } from "#core/event/index.js";
-import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.js";
-import type { Logger } from "#common/type.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
 import type { ProjectionBatch } from "./apply.js";
 import type { FocusController } from "./focus/focusController.js";
 import type { ListPanel } from "./listPanel/index.js";
 import type { OverlayPanel } from "./overlayPanel/index.js";
+import { type EventBus } from "#core/event/index.js";
+import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.js";
+import type { Logger } from "#platform/type.js";
 
 /** What the `ui/*` modules read off the shell. See the header for the cycle
  *  this interface breaks, and `ui/index.js` for the class it mirrors. */

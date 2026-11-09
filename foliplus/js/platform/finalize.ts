@@ -1,4 +1,4 @@
-// common/finalize — run a teardown as a list of named, isolated steps.
+// platform/finalize — run a teardown as a list of named, isolated steps.
 //
 // A teardown is a list of things that must ALL happen: drop the gesture, detach
 // from the map, remove the row, unload the label. Written as inline

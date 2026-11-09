@@ -1,12 +1,21 @@
 // ui/ — panel appearance composition layer.
 //
 // Single export surface for the panel UI primitives. Consumers and tests
-// import from "#ui/index.js" — never from a specific ui module directly —
+// import from "./index.js" — never from a specific ui module directly —
 // so the panel shell owns the namespace shape and a module rename here does
 // not ripple through call sites. The index *is* the directory's export point;
 // a re-export layer beyond it (an alias module forwarding another file, or a
 // second barrel) is what the layering keeps out.
 export { buttonRow, closeButton, panelButton, sectionDivider } from "./panelChrome.js";
+export {
+  drawCanvasLabel,
+  prepareCanvasLabel,
+  resolveCanvasLabelStyle,
+  withLabelPaint,
+} from "./canvasLabel.js";
+export { bindDismiss } from "./dismiss.js";
+export { nextOptionId } from "./optionRow.js";
+export { PANEL_CLASS } from "./panelClassName.js";
 export { applyOptionRowA11y, createDropdown, dropdownOf } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
 export {
@@ -28,7 +37,7 @@ export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
-export { SLIDER_CLASS } from "#common/sliderClassName.js";
+export { SLIDER_CLASS } from "./sliderClassName.js";
 export type {
   Dropdown,
   DropdownSurface,

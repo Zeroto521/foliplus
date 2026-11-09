@@ -65,6 +65,13 @@ export {
   countFeatureGeometry,
 } from "./util.js";
 export {
+  drawAlpha,
+  getLayerAlpha,
+  setLayerAlpha,
+  withCanvasLayerAlpha,
+  withLayerAlpha,
+} from "./canvasAlpha.js";
+export {
   isContainerNode,
   someLeaf,
   walkLeaf,
@@ -136,6 +143,7 @@ export type {
 } from "./filterFeature.js";
 export type { Projection } from "./type.js";
 export type {
+  FillMode,
   LabelConfig,
   FillValueConfig,
   IconIntent,

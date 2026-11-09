@@ -1,3 +1,14 @@
+import {
+  GridLayer,
+  attachWithGroup,
+  attachedPanel,
+  findItem,
+  initFixture,
+  makePane,
+  oneOverlay,
+  polygonLayerWith,
+  polygonLayerWithoutBounds,
+} from "../fixture.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,17 +39,6 @@ import {
 } from "#control/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#control/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#control/LayerControl/ui/projection.js";
-import {
-  GridLayer,
-  attachWithGroup,
-  attachedPanel,
-  findItem,
-  initFixture,
-  makePane,
-  oneOverlay,
-  polygonLayerWith,
-  polygonLayerWithoutBounds,
-} from "../fixture.js";
 
 // ── Interaction-manager teardown ─────────────────────────────────────
 // Every fixture attaches a panel, so LayerControl registers its keyboard

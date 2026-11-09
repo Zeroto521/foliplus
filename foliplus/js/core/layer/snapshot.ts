@@ -22,9 +22,9 @@
 // never silently shadows a `value` field. A same-key collision between
 // an explicit contract and a numeric `properties` entry warns once per
 // layer so a silently dropped value is not invisible.
-import type { Logger } from "#common/type.js";
 import type { LabelAwareLayer, LayerSnapshot, SnapshotPoint } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";
+import type { Logger } from "#platform/type.js";
 
 /** Extended marker carrying the folium data contract. Mirrors
  *  `HeatmapPointMarker` on the component side; kept as its own type here

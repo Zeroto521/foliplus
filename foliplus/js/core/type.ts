@@ -1,5 +1,5 @@
 // core/type — shared core-layer type definitions.
-import type { Logger } from "#common/type.js";
+import type { Logger } from "#platform/type.js";
 
 /** Environment handed to `setup` / `createManager` and carried on the
  *  generated control instance (`ctrl.config` / `ctrl.T` / `ctrl._` / `ctrl.log`).

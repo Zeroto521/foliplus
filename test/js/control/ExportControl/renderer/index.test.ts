@@ -19,16 +19,6 @@
 //     `LayerController` as `map.foliplus.LayerAPI` — because a hand-built list
 //     is exactly what hid the P1 defect: the resolver must split the shadow out
 //     of the list the controller really returns.
-import L from "leaflet";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#control/ExportControl/const.js";
-import * as CANVAS from "#control/ExportControl/renderer/canvas.js";
-import {
-  ExportRenderer,
-  isCorsBlocked,
-} from "#control/ExportControl/renderer/index.js";
-import * as UTIL from "#control/ExportControl/util.js";
-import { LayerController } from "#control/LayerControl/controller.js";
 import {
   MockTileLayer,
   captureSources,
@@ -43,6 +33,16 @@ import {
   tilesNearCenter,
   withPixels,
 } from "./fixture.js";
+import L from "leaflet";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#control/ExportControl/const.js";
+import * as CANVAS from "#control/ExportControl/renderer/canvas.js";
+import {
+  ExportRenderer,
+  isCorsBlocked,
+} from "#control/ExportControl/renderer/index.js";
+import * as UTIL from "#control/ExportControl/util.js";
+import { LayerController } from "#control/LayerControl/controller.js";
 
 // index.ts binds its logger and translator to CONFIG.name at module-import
 // time, so the component name has to be set before the import resolves —

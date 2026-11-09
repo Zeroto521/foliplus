@@ -27,6 +27,10 @@
 // click propagation, so bubble-phase never reaches `document`), and the entry's
 // live panels answer "is this press mine" — no per-panel outside handler and no
 // panel-level keydown live here.
+import { displayName } from "../listPanel/rowView.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
+import { type FilterBody, dimensionShapeKey, renderBody } from "./filterBody.js";
 import { EVENTS } from "#core/event/index.js";
 import type {
   FilterDimension,
@@ -43,17 +47,18 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { dom } from "#common/dom.js";
-import { formatNumber } from "#common/format.js";
-import { dropdownSurface } from "#common/fullscreen.js";
-import { PANEL_CLASS } from "#common/panelClassName.js";
-import { buttonRow, finishSlidersIn, panelButton, sectionDivider } from "#ui/index.js";
+import { dom } from "#platform/dom.js";
+import { formatNumber } from "#platform/format.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import {
+  PANEL_CLASS,
+  buttonRow,
+  finishSlidersIn,
+  panelButton,
+  sectionDivider,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { displayName } from "../listPanel/rowView.js";
-import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
-import { type FilterBody, dimensionShapeKey, renderBody } from "./filterBody.js";
 
 /** Format a count for the result readout: exact, grouped whole numbers
  *  ("2,500"), never a compact abbreviation. The readout answers "how many of

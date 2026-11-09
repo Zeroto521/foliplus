@@ -13,6 +13,7 @@
 // The intent vocabulary (INTENT / LIVE / STYLE_KEYS / IntentKey) and the
 // intent-domain types sunk to `core/layer/intent.ts` — re-exported
 // here so every `ui/intent.js` import keeps working unchanged.
+import type { LayerUI } from "./surface.js";
 import {
   ICON_KIND,
   INTENT,
@@ -23,7 +24,6 @@ import {
   type LayerIntent,
   STYLE_KEYS,
 } from "#core/layer/index.js";
-import type { LayerUI } from "./surface.js";
 
 /** Write one intent dimension (value only — no provenance mark). */
 const setIntent = <K extends IntentKey>(

@@ -2,6 +2,7 @@
 // Every UI function reads its config from the injected ctrl.config / ctrl.T
 // (set by the fixture), never from the ambient window.CONFIG — these tests
 // therefore prove both the behavior and the per-instance CONFIG injection.
+import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +19,6 @@ import {
   resetPanel,
   setupObserver,
 } from "#control/HeatmapControl/ui.js";
-import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
 function setup(config: ComponentConfig = makeConfig()) {

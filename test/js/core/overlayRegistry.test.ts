@@ -14,7 +14,7 @@ import {
   ensureOverlayRegistry,
   orderOf,
 } from "#core/overlayRegistry.js";
-import { registerPortalRoot } from "#common/portalRoot.js";
+import { registerPortalRoot } from "#platform/portalRoot.js";
 
 /** The id value every register call site produces, across the source tree.
  *  Two shapes exist:
