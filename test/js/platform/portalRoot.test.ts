@@ -1,4 +1,4 @@
-// Tests for common/portalRoot — the per-overlay ownership of portalled nodes.
+// Tests for platform/portalRoot — the per-overlay ownership of portalled nodes.
 import type * as L from "leaflet";
 import { afterEach, describe, expect, it } from "vitest";
 import { isInsideOverlay } from "#core/overlay.js";

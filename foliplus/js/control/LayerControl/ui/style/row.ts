@@ -6,7 +6,7 @@
 // size-by-value dimensions reuse it so every mode row has the same label
 // column, ARIA and spacing.
 //
-// The control is the shared dropdown (common/dropdown.ts) bridged to a hidden
+// The control is the shared dropdown (ui/dropdown.ts) bridged to a hidden
 // native select: the visible mode list is the panel's one popup recipe, and the
 // select stays the value/change carrier the panel's delegation reads. The
 // detail slot is one element — callers replace its children on a mode switch.
@@ -50,7 +50,7 @@ const buildModeRow = (spec: {
   /** Currently active mode value. */
   value: string;
   options: readonly ModeRowOption[];
-  /** Popup host contract for the bridged dropdown (see common/dropdown). */
+  /** Popup host contract for the bridged dropdown (see ui/dropdown). */
   surface?: DropdownSurface;
 }): ModeRow => {
   const select = selectInput({
