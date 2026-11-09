@@ -11,7 +11,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import { DIM } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { NUMBER_FORMAT } from "#platform/format.js";

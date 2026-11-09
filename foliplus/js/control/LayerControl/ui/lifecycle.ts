@@ -68,7 +68,7 @@ import {
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { ROLE, sectionOf } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 
 /**
  * Attach UI to the given container div.

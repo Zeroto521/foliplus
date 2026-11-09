@@ -4,7 +4,7 @@
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI } from "./type.js";
-import { ensureHint } from "#core/hint.js";
+import { ensureHint } from "#core/overlay/hint.js";
 import { createLogger } from "#platform/log.js";
 
 /**

@@ -4,7 +4,7 @@ import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { isFilterCapable } from "./filter.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { CAP_TIER, sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,

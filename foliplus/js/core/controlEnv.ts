@@ -2,7 +2,7 @@
 // Lives in core (not common) because it depends on the hint icon registry;
 // common must stay free of #core imports.
 import { requireRuntime } from "./guard.js";
-import { registerHintIcon } from "./hint.js";
+import { registerHintIcon } from "./overlay/hint.js";
 
 /**
  * Create the standard control environment (runtime guard + hint icon registration).

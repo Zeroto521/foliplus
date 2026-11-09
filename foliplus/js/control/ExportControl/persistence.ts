@@ -5,7 +5,7 @@ import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import type { SavedBounds } from "./type.js";
 import { COORD_BOUNDS, type GeoBounds, boundsToRect } from "#core/geo/index.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import * as Storage from "#platform/storage.js";
 import { nextFrame } from "#platform/throttle.js";

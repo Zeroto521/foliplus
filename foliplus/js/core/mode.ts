@@ -3,7 +3,7 @@
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONFIG dependency.
 import { COMPONENTS, assertComponentName } from "./component.js";
-import { HINT_DURATION } from "./hint.js";
+import { HINT_DURATION } from "./overlay/hint.js";
 import { ensureMapFoliplus } from "./mapApi.js";
 import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
 import { suspendMapInteractions } from "#core/layer/index.js";

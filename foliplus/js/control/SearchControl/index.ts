@@ -10,7 +10,7 @@ import {
 import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
-import { ensureHint } from "#core/hint.js";
+import { ensureHint } from "#core/overlay/hint.js";
 import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { Cache } from "#platform/cache.js";

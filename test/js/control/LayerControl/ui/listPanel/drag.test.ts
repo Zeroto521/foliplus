@@ -6,8 +6,8 @@
 import { attachedPanel, initFixture } from "../fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";

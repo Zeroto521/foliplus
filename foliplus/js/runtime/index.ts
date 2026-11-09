@@ -31,7 +31,7 @@ import {
   HintManager,
   ensureHint,
   registerHintIcon,
-} from "#core/hint.js";
+} from "#core/overlay/hint.js";
 import { ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 

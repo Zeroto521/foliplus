@@ -1,6 +1,6 @@
 import { afterEach, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
-import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";

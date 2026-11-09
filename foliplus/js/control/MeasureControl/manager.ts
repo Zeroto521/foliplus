@@ -21,7 +21,7 @@ import {
   publish,
 } from "#core/event/index.js";
 import { requireFoliplus } from "#core/guard.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import {
   type FilterEnumDimension,
   type FilterOwner,

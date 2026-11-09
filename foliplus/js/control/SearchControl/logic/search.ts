@@ -19,7 +19,7 @@ import {
   markRequest,
   resolveProvider,
 } from "#core/geocode/index.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";

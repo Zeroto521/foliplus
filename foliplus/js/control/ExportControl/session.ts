@@ -9,7 +9,7 @@ import { resolveExportBackground } from "./util.js";
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
 import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { dom } from "#platform/dom.js";
 import { download } from "#platform/download.js";

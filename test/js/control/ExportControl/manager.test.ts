@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureHint } from "#core/hint.js";
+import { ensureHint } from "#core/overlay/hint.js";
 import * as downloadMod from "#platform/download.js";
 import { ExportManager } from "#control/ExportControl/manager.js";
 import { ExportRenderer } from "#control/ExportControl/renderer/index.js";

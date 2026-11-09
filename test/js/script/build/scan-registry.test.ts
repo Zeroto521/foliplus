@@ -109,7 +109,7 @@ describe("registryUsedExports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
         import { COMPONENTS } from "#core/component.js";
-        import { ensureHint } from "#core/hint.js";
+        import { ensureHint } from "#core/overlay/hint.js";
         import { EventBus } from "#core/event/index.js";
       `,
     });
@@ -255,7 +255,7 @@ describe("generateRegistry", () => {
       "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/index.ts": `
         import { COMPONENTS } from "#core/component.js";
-        import { ensureHint } from "#core/hint.js";
+        import { ensureHint } from "#core/overlay/hint.js";
         import { ModeManager } from "#core/mode.js";
         import { dom } from "#platform/dom.js";
       `,

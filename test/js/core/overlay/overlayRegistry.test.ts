@@ -13,7 +13,7 @@ import {
   type OverlayRegistry,
   ensureOverlayRegistry,
   orderOf,
-} from "#core/overlayRegistry.js";
+} from "#core/overlay/overlayRegistry.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 
 /** The id value every register call site produces, across the source tree.
@@ -33,7 +33,7 @@ const registeredEscapeIds = (): Set<string> => {
   // Anchor at the repo root via the test file, not cwd: vitest runs from the
   // repo root today, but a caller that changes cwd (or a packaged run) must not
   // silently scan nothing and report "all registered".
-  const root = resolve(import.meta.dirname, "../../../foliplus/js");
+  const root = resolve(import.meta.dirname, "../../../../foliplus/js");
   const files: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

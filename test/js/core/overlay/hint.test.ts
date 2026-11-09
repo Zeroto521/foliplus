@@ -4,7 +4,7 @@ import {
   HintManager,
   ensureHint,
   registerHintIcon,
-} from "#core/hint.js";
+} from "#core/overlay/hint.js";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
 
 beforeEach(() => {

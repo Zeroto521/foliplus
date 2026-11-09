@@ -1,8 +1,8 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
-import { ensureMapFoliplus } from "./mapApi.js";
-import { parseSVG } from "./sanitize.js";
+import { ensureMapFoliplus } from "../mapApi.js";
+import { parseSVG } from "../sanitize.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";

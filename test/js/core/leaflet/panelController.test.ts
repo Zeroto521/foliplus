@@ -14,7 +14,7 @@ import {
   attachPanel,
   createPanel,
 } from "#core/leaflet/panelController.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 
 /** A map stand-in: the registry only needs the unload hook. */
 const makeMap = () => {

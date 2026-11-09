@@ -112,7 +112,7 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps hint.js to foliplus.hint", () => {
-    expect(sharedGlobalNamespace("#core/hint.js")).toBe("foliplus.hint");
+    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe("foliplus.hint");
   });
 
   // Every other core-root single file reaches its namespace through the general
@@ -210,7 +210,7 @@ describe("sharedGlobalNamespace across the production tree", () => {
     // foliplus.core. The general rule returns foliplus.core.<name> for every
     // other core-root file, so hint is the sole exception — and a new
     // core-root file must reach its namespace through that rule rather than by
-    // adding an entry. `#core/hint.js` → foliplus.core.hint would read a
+    // adding an entry. `#core/overlay/hint.js` → foliplus.core.hint would read a
     // namespace nothing publishes.
     const singles = readdirSync(resolve(JS_DIR, "core"), { withFileTypes: true })
       .filter(f => f.isFile() && f.name.endsWith(".ts"))
@@ -219,7 +219,7 @@ describe("sharedGlobalNamespace across the production tree", () => {
       name => sharedGlobalNamespace(`#core/${name}.js`) !== `foliplus.core.${name}`,
     );
     expect(offRule).toEqual(["hint"]);
-    expect(sharedGlobalNamespace("#core/hint.js")).toBe("foliplus.hint");
+    expect(sharedGlobalNamespace("#core/overlay/hint.js")).toBe("foliplus.hint");
     // The two that used to carry manual entries, now served by the rule.
     expect(sharedGlobalNamespace("#core/component.js")).toBe("foliplus.core.component");
     expect(sharedGlobalNamespace("#core/mode.js")).toBe("foliplus.core.mode");
@@ -443,7 +443,7 @@ describe("scanSharedImports", () => {
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       [
-        'import { ensureHint, HINT_DURATION } from "#core/hint.js";',
+        'import { ensureHint, HINT_DURATION } from "#core/overlay/hint.js";',
         'import { BaseControl } from "#foliplus/BaseControl.js";',
         'import { dom, createIconButton } from "#platform/dom.js";',
         'import { createTranslator } from "#platform/locale.js";',
@@ -457,8 +457,8 @@ describe("scanSharedImports", () => {
     );
     try {
       const { used, starUsed } = scanSharedImports(base);
-      expect(used.has("#core/hint.js")).toBe(true);
-      expect(used.get("#core/hint.js")).toEqual(
+      expect(used.has("#core/overlay/hint.js")).toBe(true);
+      expect(used.get("#core/overlay/hint.js")).toEqual(
         new Set(["ensureHint", "HINT_DURATION"]),
       );
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
@@ -544,13 +544,13 @@ describe("scanSharedImports", () => {
     fs.mkdirSync(base, { recursive: true });
     fs.writeFileSync(
       path.join(base, "comp.ts"),
-      'import { ensureHint as H } from "#core/hint.js";',
+      'import { ensureHint as H } from "#core/overlay/hint.js";',
       "utf-8",
     );
     try {
       const { used } = scanSharedImports(base);
-      expect(used.has("#core/hint.js")).toBe(true);
-      expect(used.get("#core/hint.js")).toEqual(new Set(["ensureHint"]));
+      expect(used.has("#core/overlay/hint.js")).toBe(true);
+      expect(used.get("#core/overlay/hint.js")).toEqual(new Set(["ensureHint"]));
     } finally {
       fs.rmSync(base, { recursive: true, force: true });
     }

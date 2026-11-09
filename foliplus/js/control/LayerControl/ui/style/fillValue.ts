@@ -21,7 +21,7 @@ import {
   type FillMode,
   type FillValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/value/rampForm.js";
 import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";

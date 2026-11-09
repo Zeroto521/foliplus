@@ -6,7 +6,7 @@ import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
 import { COMPONENTS } from "#core/component.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { createIconButton, dom } from "#platform/dom.js";

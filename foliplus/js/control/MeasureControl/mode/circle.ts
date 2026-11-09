@@ -3,7 +3,7 @@ import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
 import { PreviewMode, mountMeasureDelIcon } from "./base.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import {
   type MapEventHandlers,
   bindMapEvents,

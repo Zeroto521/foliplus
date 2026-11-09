@@ -56,7 +56,7 @@ import {
   type FillValueConfig,
   GEOM_TYPE,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
 import { dom } from "#platform/dom.js";
 import {

@@ -2,7 +2,7 @@
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
 import type { LayerUI } from "../surface.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/hint.js";
 import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
