@@ -18,14 +18,20 @@ async data => {
   ctrl.mgr.enforceOrder();
 
   ui.openStylePanel("pan_bubble");
-  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
-
-  const row = document.querySelector(".foliplus-style-zoom-range-row");
-  if (!row) return { error: "zoom range row not rendered" };
-  const host = row.querySelector(".foliplus-style-zoom-range-control");
+  // A freshly-mounted row has no layout yet, and the slider's valueAt() treats
+  // a zero-width track as "no move" — a drag started too early silently does
+  // nothing. Wait until the track actually has measurable width.
+  let track = null;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    const row = document.querySelector(".foliplus-style-zoom-range-row");
+    const host = row?.querySelector(".foliplus-style-zoom-range-control");
+    track = host?.querySelector(".foliplus-slider-track") ?? null;
+    if (track && track.getBoundingClientRect().width > 0) break;
+  }
+  if (!track) return { error: "zoom range row not rendered" };
+  const host = track.closest(".foliplus-style-zoom-range-control");
   if (!host) return { error: "zoom range host not rendered" };
-  const track = host.querySelector(".foliplus-slider-track");
-  if (!track) return { error: "track not found" };
   const thumbs = [...host.querySelectorAll(".foliplus-slider-thumb")];
   if (thumbs.length !== 2) return { error: "expected 2 thumbs" };
 
@@ -126,7 +132,7 @@ async data => {
     let best = null;
     let bestDist = Infinity;
     for (const b of bubblesB) {
-      const bx = Number.parseFloat(b.style.left) + b.getBoundingClientRect().width / 2;
+      const bx = Number.parseFloat(b.style.left);
       const dist = Math.abs(bx - xOf(value));
       if (dist < bestDist) {
         bestDist = dist;
