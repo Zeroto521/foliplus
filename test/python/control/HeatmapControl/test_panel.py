@@ -32,8 +32,8 @@ layout, no stacking order and no elementFromPoint.
 from __future__ import annotations
 
 import json
-
 from pathlib import Path
+
 import folium
 import pytest
 from conftest import (
