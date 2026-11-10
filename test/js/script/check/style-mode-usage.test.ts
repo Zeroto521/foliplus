@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { check, classifyLine, inventory } from "#script/check/style-mode-usage.mjs";
+import {
+  check,
+  classifyLine,
+  inventory,
+  legacyAliasCheck,
+} from "#script/check/style-mode-usage.mjs";
 
 // task-41 step 4 survey + migration-completeness gate: style-mode-usage.mjs
 // inventories FILL_MODE / FillMode occurrences in production foliplus/js/**.ts
@@ -118,5 +123,60 @@ describe("style-mode-usage inventory", () => {
     const fromRoot = inventory(dir);
     rmSync(dir, { recursive: true, force: true });
     expect(fromRoot.length).toBeGreaterThan(0);
+  });
+});
+
+describe("legacy-alias guard (--check-legacy-alias)", () => {
+  it("passes when the only code 'fillMode' is the LEGACY_FILL_MODE_KEY definition", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      'const LEGACY_FILL_MODE_KEY = "fillMode";\nconst m = data.fillStyleMode ?? data[LEGACY_FILL_MODE_KEY];\n',
+    );
+    const { failing, sites } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(false);
+    expect(sites.filter(s => s.fatal)).toHaveLength(0);
+  });
+
+  it("fails when a second bare 'fillMode' appears in code outside the definition", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      'const LEGACY_FILL_MODE_KEY = "fillMode";\nconst x = data.fillMode;\n',
+    );
+    const { failing, sites } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(true);
+    expect(sites.filter(s => s.fatal)).toHaveLength(1);
+  });
+
+  it("tolerates comment mentions of 'fillMode' (reported, not fatal)", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      '// the old key was fillMode\nconst LEGACY_FILL_MODE_KEY = "fillMode";\n',
+    );
+    const { failing, sites } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(false);
+    expect(sites.some(s => !s.fatal && /fillMode/.test(s.text))).toBe(true);
+  });
+
+  it("treats a multi-line JSDoc block as comment, not code", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      '/**\n * the old fillMode key\n */\nconst LEGACY_FILL_MODE_KEY = "fillMode";\n',
+    );
+    const { failing } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(false);
+  });
+
+  it("fails on a bare 'fillMode' inside a string template in code", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      'const LEGACY_FILL_MODE_KEY = "fillMode";\nconst key = `fillMode`;\n',
+    );
+    const { failing } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(true);
   });
 });

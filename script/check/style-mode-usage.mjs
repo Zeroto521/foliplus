@@ -229,20 +229,128 @@ const check = (root = process.cwd()) => {
   return { failing, perFace };
 };
 
+/**
+ * Strip comments from a line, tracking block-comment state across lines.
+ * @param {string} line source line
+ * @param {boolean} inBlock whether the line starts inside a block comment
+ * @returns {{code: string, comment: string, inBlock: boolean}}
+ */
+const stripComments = (line, inBlock) => {
+  let code = line;
+  let comment = "";
+  let inBlockNow = inBlock;
+  let i = 0;
+  while (i < code.length) {
+    if (inBlockNow) {
+      const end = code.indexOf("*/", i);
+      if (end === -1) {
+        comment += code.slice(i);
+        code = code.slice(0, i);
+        break;
+      }
+      comment += code.slice(i, end + 2);
+      code = code.slice(0, i) + code.slice(end + 2);
+      inBlockNow = false;
+      continue;
+    }
+    const block = code.indexOf("/*", i);
+    const lineC = code.indexOf("//", i);
+    if (block === -1 && lineC === -1) break;
+    if (lineC !== -1 && (block === -1 || lineC < block)) {
+      comment += code.slice(lineC);
+      code = code.slice(0, lineC);
+      break;
+    }
+    const end = code.indexOf("*/", block);
+    if (end === -1) {
+      comment += code.slice(block);
+      code = code.slice(0, block);
+      inBlockNow = true;
+      break;
+    }
+    comment += code.slice(block, end + 2);
+    code = code.slice(0, block) + code.slice(end + 2);
+    i = block;
+  }
+  return { code, comment, inBlock: inBlockNow };
+};
+
+/**
+ * Legacy-alias assertion. The pre-rename key "fillMode" is a persistence
+ * literal that must survive exactly once — the LEGACY_FILL_MODE_KEY
+ * definition in persistence.ts (the single compat read point, consumed by
+ * readLegacyFillMode and the provenance-normalization map). A second copy
+ * or a dropped mapping means the migration is no longer single-sourced and
+ * the one-way read can drift from the write. Comments are reported but not
+ * fatal.
+ * @returns {{failing: boolean, sites: {file: string, line: number, text: string, fatal: boolean}[]}}
+ */
+const legacyAliasCheck = (root = process.cwd()) => {
+  const targets = walk(path.join(root, "foliplus", "js"));
+  const allowedDef = /LEGACY_FILL_MODE_KEY\s*=\s*["']fillMode["']/;
+  const sites = [];
+  for (const file of targets) {
+    const rel = path.relative(root, file).split(path.sep).join("/");
+    const content = fs.readFileSync(file, "utf8");
+    const lines = content.split("\n");
+    let inBlock = false;
+    lines.forEach((line, idx) => {
+      // Track block-comment state on EVERY line so a multi-line JSDoc is not
+      // mistaken for code. This must run before the fillMode filter.
+      const stripped = stripComments(line, inBlock);
+      inBlock = stripped.inBlock;
+      if (!/\bfillMode\b/.test(line)) return;
+      if (/\bfillMode\b/.test(stripped.comment)) {
+        sites.push({
+          file: rel,
+          line: idx + 1,
+          text: line.trim().slice(0, 90),
+          fatal: false,
+        });
+        return;
+      }
+      if (allowedDef.test(stripped.code)) {
+        sites.push({
+          file: rel,
+          line: idx + 1,
+          text: line.trim().slice(0, 90),
+          fatal: false,
+        });
+        return;
+      }
+      sites.push({
+        file: rel,
+        line: idx + 1,
+        text: line.trim().slice(0, 90),
+        fatal: true,
+      });
+    });
+  }
+  const failing = sites.some(s => s.fatal);
+  return { failing, sites };
+};
+
 const parseArgs = argv => {
   let json = false;
   let checkMode = false;
+  let legacyAlias = false;
   let root = process.cwd();
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--json") json = true;
     else if (argv[i] === "--check") checkMode = true;
+    else if (argv[i] === "--check-legacy-alias") legacyAlias = true;
     else if (argv[i] === "--root" && argv[i + 1]) root = argv[++i];
   }
-  return { json, checkMode, root };
+  return { json, checkMode, legacyAlias, root };
 };
 
 const main = (argv = process.argv.slice(2)) => {
-  const { json, checkMode, root } = parseArgs(argv);
+  const { json, checkMode, legacyAlias, root } = parseArgs(argv);
+  if (legacyAlias) {
+    const { failing, sites } = legacyAliasCheck(root);
+    console.log(JSON.stringify({ failing, sites }, null, 2));
+    return failing ? 1 : 0;
+  }
   if (checkMode) {
     const { failing, perFace } = check(root);
     console.log(JSON.stringify({ failing, perFace }, null, 2));
@@ -264,4 +372,4 @@ const runCli = entry => {
 };
 runCli(process.argv[1]);
 
-export { check, classifyLine, inventory, main, walk };
+export { check, classifyLine, inventory, legacyAliasCheck, main, walk };

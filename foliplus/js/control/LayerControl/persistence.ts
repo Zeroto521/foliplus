@@ -167,6 +167,18 @@ const isHexColor = (value: unknown): value is string =>
  *  `Record<LayerOverride, …>` is the extension pin — a new dimension without
  *  a parser is a compile error, and {@link OVERRIDE_VALUES} derives from this
  *  table so the vocabulary cannot drift. */
+/**
+ * The ONE legacy read point for the pre-rename key. The fill style mode
+ * key moved fillMode → fillStyleMode (INTENT.FILL_MODE spells the new key);
+ * a record written before the rename still carries the old key. Only this
+ * helper may read it — the guard script/check/style-mode-usage.mjs
+ * (--check-legacy-alias) asserts the literal appears nowhere else in
+ * production, so a second copy or a dropped mapping is a build failure.
+ */
+const LEGACY_FILL_MODE_KEY = "fillMode";
+const readLegacyFillMode = (data: Record<string, unknown>): unknown =>
+  data[LEGACY_FILL_MODE_KEY];
+
 const PARSE_OVERRIDE: Record<
   LayerOverride,
   (data: Record<string, unknown>) => unknown | null
@@ -182,7 +194,7 @@ const PARSE_OVERRIDE: Record<
     // before the rename still reads as the active style mode. The new key
     // wins when both exist (a record mid-migration is already on the new
     // shape). The value vocabulary is unchanged, so no literal remap.
-    const mode = data.fillStyleMode ?? data.fillMode;
+    const mode = data.fillStyleMode ?? readLegacyFillMode(data);
     return mode === STYLE_MODE.SOLID ||
       mode === STYLE_MODE.VALUE ||
       mode === STYLE_MODE.ORIGINAL
@@ -266,7 +278,7 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const declared = Array.isArray(declaredRaw)
     ? OVERRIDE_VALUES.filter(override =>
         declaredRaw
-          .map((m: unknown) => (m === "fillMode" ? "fillStyleMode" : m))
+          .map((m: unknown) => (m === LEGACY_FILL_MODE_KEY ? "fillStyleMode" : m))
           .includes(override),
       )
     : [];

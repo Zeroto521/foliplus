@@ -4,10 +4,13 @@ import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
 import type { LayerPersistedRecord } from "#control/LayerControl/type.js";
+import { legacyAliasCheck } from "#script/check/style-mode-usage.mjs";
 
 // Migration test: fillMode -> fillStyleMode one-way key adoption
 // (see prior summary for the contract). The persisted VALUES are unchanged,
 // so this is a KEY rename, not a shape change - no RECORD_VERSION bump.
+
+const REPO_ROOT = process.cwd();
 
 const makePersistence = () => new LayerPersistence();
 
@@ -78,7 +81,24 @@ describe("styleMode key migration (task-41 step 3 acceptance)", () => {
     vi.useRealTimers();
   });
 
-  it.todo("deleting the old-key compat read makes Case 1 red (guard)");
+  it("the old key survives only in the single legacy read point (guard)", () => {
+    // Source-level assertion: the bare "fillMode" literal is allowed only in
+    // the LEGACY_FILL_MODE_KEY definition (persistence.ts) and in comments.
+    // A second code copy or a dropped mapping is a build failure — the
+    // --check-legacy-alias rule of script/check/style-mode-usage.mjs.
+    // This replaces the old todo: deleting the compat branch is caught by
+    // case 1 (old key reads as the active style mode); duplicating or
+    // relocating the literal is caught here.
+    const { failing, sites } = legacyAliasCheck(REPO_ROOT);
+    expect(failing).toBe(false);
+    // Exactly one code site: the LEGACY_FILL_MODE_KEY definition.
+    // The single code site is the LEGACY_FILL_MODE_KEY definition; all
+    // other mentions are comments (the guard already reported them non-fatal).
+    const codeSites = sites.filter(s => /LEGACY_FILL_MODE_KEY\s*=/.test(s.text));
+    expect(codeSites).toHaveLength(1);
+    expect(codeSites[0].file).toBe("foliplus/js/control/LayerControl/persistence.ts");
+    expect(codeSites[0].fatal).toBe(false);
+  });
 
   it("reads an old record that carries no version field", () => {
     seedStorage({
