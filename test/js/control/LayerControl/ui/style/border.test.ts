@@ -3104,7 +3104,7 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  it("polygon: { original, single, followFill } — never by-value", () => {
+  it("polygon: { original, single, follow-fill } — never by-value", () => {
     registerGeometryLayer("g_polygon", "polygon");
     expectGeometryType("g_polygon", "polygon");
     expect(modeValues(openBorderRow("g_polygon"))).toEqual([
@@ -3114,7 +3114,7 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  it("point: { original, single, followFill } — never by-value", () => {
+  it("point: { original, single, follow-fill } — never by-value", () => {
     registerGeometryLayer("g_point", "point");
     expectGeometryType("g_point", "point");
     expect(modeValues(openBorderRow("g_point"))).toEqual([
@@ -3151,11 +3151,11 @@ describe("border options per geometry", () => {
   });
 
   it("guard 1: the option set is asserted exactly, so an extra illegal option fails", () => {
-    // The product's set for a polygon is [original, solid]. A hypothetical
-    // regression that adds by-value there would make modeValues return
-    // [original, solid, value] — which toEqual rejects. The assertion here is
-    // the same equality the matrix tests use; it documents that containment
-    // would NOT catch the extra.
+    // The product's set for a polygon is [original, solid, followFill]. A
+    // hypothetical regression that adds by-value there would make modeValues
+    // return [original, solid, followFill, value] — which toEqual rejects. The
+    // assertion here is the same equality the matrix tests use; it documents
+    // that containment would NOT catch the extra.
     registerGeometryLayer("g_guard1", "polygon");
     const actual = modeValues(openBorderRow("g_guard1"));
     const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
