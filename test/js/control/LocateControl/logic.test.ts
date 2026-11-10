@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import { locateMe } from "#control/LocateControl/logic.js";
 
 vi.mock("#platform/locale.js", () => ({

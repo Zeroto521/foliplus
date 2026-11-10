@@ -5,7 +5,7 @@
 // bundles this module into foliplus-common.min.js exactly once).
 //
 // These functions operate on Leaflet maps and coordinate systems.
-import { internalLayers, layerUrl } from "#core/leafletAdapter.js";
+import { internalLayers, layerUrl } from "#core/lifecycle/index.js";
 import { createLogger } from "#platform/log.js";
 
 // coord.ts has no CONFIG — it is shared across components and core — so the

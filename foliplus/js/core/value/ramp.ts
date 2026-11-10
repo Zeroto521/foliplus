@@ -1,0 +1,177 @@
+// core/value/ramp — the shared value → color ramp: ordered class breaks, the
+// scheme's per-class colors, and the value → class bisection.
+//
+// Consumed today by LayerControl's value-based fill (ui/style/fillValue.ts),
+// which owns the layer walk, the styleBag commit, and the highlight pin.
+// By-value icon and by-value size reuse the same three pieces, so they live
+// here rather than inside the fill dimension — the classifier (classify.ts)
+// and the palette (palette.ts) are already shared, the bisect was the last
+// piece of the ramp that was not.
+//
+// breaks.length - 1 is the class count: computeBreaks returns one boundary
+// per class plus the final bound, so colors is requested for the span, not
+// for the raw classes config (a 6-class quantile is 7 breaks, 6 colors).
+import { type ClassifyMethod, computeBreaks } from "./classify.js";
+import { isCategoryValue } from "./field.js";
+import { SCHEME_FALLBACK_COLOR, getCategoryColors, getColorScale } from "./palette.js";
+
+/** The three inputs a ramp is built from — the persisted ValueConfig's
+ *  values minus field, which selects the property key and is the caller's
+ *  business, not the classifier's. */
+type RampConfig = {
+  method: ClassifyMethod;
+  classes: number;
+  scheme: string;
+};
+
+/** A built ramp: ordered breaks, per-class colors, and the value → class
+ *  index bisection. classOf always returns a non-negative index. */
+type ValueRamp = {
+  breaks: number[];
+  colors: string[];
+  classOf: (value: number) => number;
+};
+
+/** Build the ramp for a set of values under a method/classes/scheme config.
+ *
+ *  Empty input yields an empty ramp (breaks and colors both empty, classOf
+ *  → 0) rather than throwing — the caller checks colors.length before
+ *  painting, and an empty array is the honest "nothing to classify" answer.
+ *  classes is capped at the value count: asking for 9 classes over 2
+ *  features is a request the classifier cannot honor, and capping here keeps
+ *  every consumer consistent.
+ *
+ *  classOf bisects the non-decreasing breaks the way the heatmap's
+ *  valueToClassIdx does (first break at or above the value wins the class)
+ *  and clamps to the last class for values beyond the final boundary — the
+ *  two ends are the only places a value can fall outside. */
+const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
+  // Empty input short-circuits before the palette call: chroma answers a
+  // zero-color request with the scheme's two endpoints, so an empty ramp
+  // would come back carrying real colors and colorFor would paint one of
+  // them instead of the fallback grey. The contract holds only if the array
+  // is actually empty.
+  if (values.length === 0) {
+    return { breaks: [], colors: [], classOf: () => 0 };
+  }
+  const nClasses = Math.min(config.classes, values.length);
+  const breaks = computeBreaks(values, nClasses, config.method);
+  const colors = getColorScale(config.scheme, Math.max(0, breaks.length - 1));
+  const classOf = (value: number): number => {
+    // `computeBreaks` only ever returns 0 breaks (empty input, short-
+    // circuited above) or 2+ breaks (n === 1 answers [v, v]; n >= 2 with a
+    // 2-9 class request answers at least two). A single-boundary answer is
+    // therefore unconstructible here, so classOf can assume at least two
+    // breaks and bisect without a floor branch — a value past the final
+    // break takes the last class.
+    let lo = 1;
+    let hi = breaks.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (value <= breaks[mid]) hi = mid;
+      else lo = mid + 1;
+    }
+    return value <= breaks[lo] ? lo - 1 : breaks.length - 2;
+  };
+  return { breaks, colors, classOf };
+};
+
+/** The color for one value under a built ramp, carrying the two fallbacks
+ *  a consumer would otherwise each re-derive: chroma (and its jsdom stub)
+ *  may return fewer colors than requested, so an out-of-bounds class index
+ *  takes the last available color; an empty ramp degrades to the product's
+ *  shared fallback grey, the same value an unreadable heatmap border uses. */
+const colorFor = (ramp: ValueRamp, value: number): string =>
+  ramp.colors[ramp.classOf(value)] ??
+  ramp.colors[ramp.colors.length - 1] ??
+  SCHEME_FALLBACK_COLOR;
+
+/** A built categorical ramp: an exact category → color map plus the one
+ *  "other" color every category not in the domain falls back to. */
+type CategoryRamp = {
+  colors: Map<string, string>;
+  other: string;
+};
+
+/** Build the category → color ramp for a set of distinct category values
+ *  under a qualitative scheme.
+ *
+ *  Each category takes the scheme's next discrete color in first-seen order.
+ *  When the category count exceeds the scheme's discrete count, the extra
+ *  categories take the scheme's *last* color rather than cycling back to the
+ *  first — the same out-of-bounds fallback `colorFor` uses, so a category
+ *  past the palette's end is painted consistently rather than by a second,
+ *  separate cycling rule.
+ *
+ *  Empty input yields an empty map and the fallback grey as `other` — the
+ *  caller checks `colors.size` before painting, and an empty map is the
+ *  honest "nothing to classify" answer. */
+const buildCategoryRamp = (values: string[], scheme: string): CategoryRamp => {
+  const colors = new Map<string, string>();
+  if (values.length === 0) {
+    return { colors, other: SCHEME_FALLBACK_COLOR };
+  }
+  const palette = getCategoryColors(scheme, values.length);
+  values.forEach((value, index) => {
+    // The same out-of-bounds fallback `colorFor` uses: chroma (and its jsdom
+    // stub) may return fewer colors than the category count, and a category
+    // past the palette's end takes the last available color rather than
+    // cycling back to the first (a repeated first color would be as
+    // confusing as a repeated last one, and cycling is a second, separate
+    // behavior to reason about).
+    colors.set(
+      value,
+      palette[index] ?? palette[palette.length - 1] ?? SCHEME_FALLBACK_COLOR,
+    );
+  });
+  return { colors, other: SCHEME_FALLBACK_COLOR };
+};
+
+/** A leaf that may carry a `feature` envelope (GeoJSON data). The ramp's
+ *  sampling reads only this envelope; a full Leaflet path (a `StyleSetter`) is
+ *  assignable to it because the property is optional, so callers pass the
+ *  walk's leaf without a cast. */
+type StyleLeaf = {
+  feature?: { properties?: Record<string, unknown> };
+};
+
+/** Read a leaf's `feature.properties[key]` value, if any.
+ *
+ *  The three reads walk into a third-party object, so each hop is its own
+ *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
+ *  is a throwing getter simply has no value. Letting it propagate aborts the
+ *  whole layer's collection — no healthy sibling gets colored. Only the read
+ *  is inside the boundary; `buildRamp`, `colorFor` and `setStyle` stay
+ *  outside it (a classifier or write failure is a different class of
+ *  problem). Shared by the value-based fill and the value-stroke dimension. */
+const leafPropertyValue = (leaf: unknown, key: string): unknown => {
+  try {
+    const feature = (leaf as StyleLeaf | null | undefined)?.feature;
+    const properties = feature?.properties;
+    return properties?.[key];
+  } catch {
+    return undefined;
+  }
+};
+
+/** Whether a property value can drive a numeric classification. */
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/** A value that can be a categorical label. A non-empty string is a label
+ *  as-is; a boolean too (the fill kind inference types booleans as category),
+ *  stringified for the palette lookup ("true" / "false"). Anything else (a
+ *  number, null, an empty string, an object) reads as "no label". */
+const categoryLabel = (value: unknown): string | undefined => {
+  if (typeof value === "boolean") return String(value);
+  return isCategoryValue(value) ? value : undefined;
+};
+
+export {
+  buildCategoryRamp,
+  buildRamp,
+  categoryLabel,
+  colorFor,
+  isFiniteNumber,
+  leafPropertyValue,
+};

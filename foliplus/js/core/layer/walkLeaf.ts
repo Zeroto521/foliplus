@@ -23,7 +23,7 @@
 // declaration) is invisible to them. `findNode` is `findLeaf`'s
 // container-level counterpart — the only node-level short-circuit here.
 import * as CONST from "./const.js";
-import { internalLayers, isGroupLike } from "#core/leafletAdapter.js";
+import { internalLayers, isGroupLike } from "#core/lifecycle/leafletAdapter.js";
 
 type UnknownLayer = L.Layer | unknown;
 

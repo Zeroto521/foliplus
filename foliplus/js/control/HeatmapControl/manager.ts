@@ -27,13 +27,6 @@ import type {
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 import {
-  METHOD as CLASSIFY_METHOD,
-  CLASS_COUNT,
-  type ClassifyMethod,
-  isClassifyMethod,
-} from "#core/classify.js";
-import { generateId } from "#core/component.js";
-import {
   EVENTS,
   type EventBus,
   SettledOperation,
@@ -61,7 +54,14 @@ import {
   snapshotFromPoints,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { generateId } from "#core/lifecycle/index.js";
+import {
+  METHOD as CLASSIFY_METHOD,
+  CLASS_COUNT,
+  type ClassifyMethod,
+  SCHEME_FALLBACK_COLOR,
+  isClassifyMethod,
+} from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";

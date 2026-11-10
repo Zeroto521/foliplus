@@ -15,7 +15,7 @@ import {
   buildLayerSnapshot,
   extractMarkerFields,
   snapshotFromPoints,
-} from "#core/layer/snapshot.js";
+} from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 
 // Minimal Leaflet classes for `instanceof` checks in the builder. The

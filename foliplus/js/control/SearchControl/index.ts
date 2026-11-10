@@ -8,11 +8,10 @@ import {
   removePanel,
 } from "./logic/index.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
-import { defineControl } from "#core/defineControl.js";
 import type { SuggestItem } from "#core/geocode/index.js";
-import { ensureHint } from "#core/hint.js";
 import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
-import { ensureMapFoliplus } from "#core/mapApi.js";
+import { defineControl, ensureMapFoliplus } from "#core/lifecycle/index.js";
+import { ensureHint } from "#core/overlay/index.js";
 import { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import { createIconButton, dom } from "#platform/dom.js";

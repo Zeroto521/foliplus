@@ -19,14 +19,14 @@
 import type * as ChromaJs from "chroma-js";
 import type * as GeoJSON from "geojson";
 import type * as Leaflet from "leaflet";
-import type { EventBus as CoreEventBus } from "#core/event/EventBus.js";
+import type { EventBus as CoreEventBus } from "#core/event/index.js";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
-import type { ModeManager as CoreModeManager } from "#core/mode.js";
+import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#platform/locale.js";
 

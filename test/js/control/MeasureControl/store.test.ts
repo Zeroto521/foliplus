@@ -34,7 +34,7 @@ vi.mock("#core/event/index.js", () => ({
     events.emit(event, payload),
 }));
 
-vi.mock("#core/hint.js", () => ({
+vi.mock("#core/overlay/hint.js", () => ({
   HINT_DURATION: { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 },
 }));
 

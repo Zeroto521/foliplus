@@ -4,7 +4,7 @@ import {
   hasFillLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,
-} from "#core/layer/capability.js";
+} from "#core/layer/index.js";
 import {
   isStyleSetter,
   pinStyleOnHighlight,

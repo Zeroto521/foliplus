@@ -12,7 +12,7 @@ import {
 // VALUE_KIND literal drift guard: the by-value config kind is a persisted
 // vocabulary — `kind: "numeric"` / `kind: "category"` select the ramp arms
 // and are stored in the record, so they must never be spelled at a call site
-// in a way that can drift from VALUE_KIND (core/valueKind.ts). A typo at a
+// in a way that can drift from VALUE_KIND (core/value/valueKind.ts). A typo at a
 // call site would silently misread or miswrite a persisted record.
 //
 // Scope: production `foliplus/js/**\*.ts` ONLY. Tests simulate persisted
@@ -23,7 +23,7 @@ import {
 //
 // Exclusions (separate vocabularies): filterFeature.ts FieldKind
 // (numeric/string/boolean — a FILTER field vocabulary), FILL_MODE / ICON_KIND
-// values (style-mode / icon-kind vocabularies). Whitelist: core/valueKind.ts
+// values (style-mode / icon-kind vocabularies). Whitelist: core/value/valueKind.ts
 // (defines the constant).
 
 const REPO_ROOT = process.cwd();
@@ -31,7 +31,7 @@ const REPO_ROOT = process.cwd();
 describe("value-kind literals use the VALUE_KIND constant", () => {
   it("keeps VALUE_KIND pinned to the persisted values", () => {
     const vk = readFileSync(
-      resolve(REPO_ROOT, "foliplus", "js", "core", "valueKind.ts"),
+      resolve(REPO_ROOT, "foliplus", "js", "core", "value", "valueKind.ts"),
       "utf-8",
     );
     expect(vk).toMatch(/NUMERIC: "numeric"/);
@@ -100,9 +100,9 @@ describe("value-kind literals use the VALUE_KIND constant", () => {
 
   it("ignores a synthetic whitelisted valueKind.ts literal", () => {
     const dir = mkdtempSync(join(tmpdir(), "value-kind-"));
-    mkdirSync(join(dir, "foliplus", "js", "core"), { recursive: true });
+    mkdirSync(join(dir, "foliplus", "js", "core", "value"), { recursive: true });
     writeFileSync(
-      join(dir, "foliplus", "js", "core", "valueKind.ts"),
+      join(dir, "foliplus", "js", "core", "value", "valueKind.ts"),
       'const VALUE_KIND = { NUMERIC: "numeric", CATEGORY: "category" };\n',
     );
     const hits = findBareValueKindLiterals(dir);

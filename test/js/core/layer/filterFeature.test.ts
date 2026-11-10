@@ -11,7 +11,7 @@
 //  ③ no properties → in total, not filterable; has properties but only
 //     non-filterable values → in total, not filterable.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildFilterFeatures, filterLeafSet } from "#core/layer/filterFeature.js";
+import { buildFilterFeatures, filterLeafSet } from "#core/layer/index.js";
 
 // Minimal Leaflet classes for the `instanceof` checks in the builder. The
 // base setup does not install these, so this file brings its own stubs.

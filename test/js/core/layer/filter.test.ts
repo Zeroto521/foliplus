@@ -14,6 +14,8 @@
 import { describe, expect, it } from "vitest";
 import {
   type LayerFilter,
+  type LayerSnapshot,
+  type SnapshotPoint,
   buildFilterModel,
   dropFilterForField,
   dropStaleFilter,
@@ -33,8 +35,7 @@ import {
   selectIndices,
   serializedFilters,
   storeFilter,
-} from "#core/layer/filter.js";
-import type { LayerSnapshot, SnapshotPoint } from "#core/layer/type.js";
+} from "#core/layer/index.js";
 
 const makePt = (fields: Record<string, number> = {}): SnapshotPoint => ({
   lat: 0,

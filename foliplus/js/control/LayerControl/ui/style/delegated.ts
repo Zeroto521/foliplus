@@ -10,7 +10,7 @@ import { DIM_ORDER, gatedRows } from "./registry.js";
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import { BORDER_WEIGHT, PANEL_CLASS, dropdownOverlay } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureHint } from "#core/hint.js";
+import { ensureHint } from "#core/overlay/index.js";
 import * as downloadMod from "#platform/download.js";
 import { ExportManager } from "#control/ExportControl/manager.js";
 import { ExportRenderer } from "#control/ExportControl/renderer/index.js";
@@ -29,8 +29,11 @@ vi.mock("#platform/locale.js", async () => {
   };
 });
 
-vi.mock("#core/mode.js", async () => {
-  const real = (await vi.importActual("#core/mode.js")) as Record<string, unknown>;
+vi.mock("#core/lifecycle/mode.js", async () => {
+  const real = (await vi.importActual("#core/lifecycle/mode.js")) as Record<
+    string,
+    unknown
+  >;
   return {
     ...real,
     guardBlocked: modeMocks.guardBlocked,
