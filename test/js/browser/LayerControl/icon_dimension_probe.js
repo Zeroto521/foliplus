@@ -22,7 +22,8 @@ async (arg = []) => {
   if (!panel) return { panel: false };
   const iconRow = panel.querySelector(".foliplus-style-icon-row");
   if (!iconRow) return { panel: true, iconRow: false };
-  const trigger = iconRow.querySelector(".foliplus-style-icon-trigger");
+  const trigger = panel.querySelector(".foliplus-style-icon-trigger");
+  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1) return { panel: true, iconRow: true, trigger: false, reason: "not-unique-trigger" };
   if (!trigger) return { panel: true, iconRow: true, trigger: false };
 
   const flush = () =>
@@ -56,7 +57,7 @@ async (arg = []) => {
 
   if (glyph && !readGrid) {
     trigger.click();
-    const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+    const grid = panel.querySelector(".foliplus-style-icon-grid");
     const cell = grid?.querySelector(
       `.foliplus-style-icon-cell[data-glyph="${glyph}"]`,
     );
@@ -76,7 +77,7 @@ async (arg = []) => {
   if (readGrid) {
     trigger.click();
     await flush();
-    const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+    const grid = panel.querySelector(".foliplus-style-icon-grid");
     const cells = grid
       ? Array.from(grid.querySelectorAll(".foliplus-style-icon-cell"))
       : [];

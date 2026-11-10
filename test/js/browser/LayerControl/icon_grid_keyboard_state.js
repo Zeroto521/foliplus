@@ -15,9 +15,10 @@ async (action = "state") => {
   if (!panel) return { ok: false, reason: "no-style-panel" };
   const iconRow = panel.querySelector(".foliplus-style-icon-row");
   if (!iconRow) return { ok: false, reason: "no-icon-row" };
-  const trigger = iconRow.querySelector(".foliplus-style-icon-trigger");
+  const trigger = panel.querySelector(".foliplus-style-icon-trigger");
+  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1) return { ok: false, reason: "no-icon-trigger" };
   if (!trigger) return { ok: false, reason: "no-icon-trigger" };
-  const grid = iconRow.querySelector(".foliplus-style-icon-grid");
+  const grid = panel.querySelector(".foliplus-style-icon-grid");
   const slider = panel.querySelector("[role=slider]");
 
   const readState = () => {
@@ -100,25 +101,27 @@ async (action = "state") => {
     const triggerEl = document.querySelector(".foliplus-style-icon-trigger");
     const nameEl = document.querySelector(".foliplus-style-icon-trigger-name");
     if (!row || !triggerEl || !nameEl) return { ok: false, reason: "no-icon-row" };
-    const control = row.querySelector(".foliplus-form-control");
-    const trigRect = triggerEl.getBoundingClientRect();
+    // The trigger's own control cell: the single-glyph detail's formRow wraps
+    // the trigger in the same shared control column as every other style row.
+    // Reading the enclosing cell (never null, never pre-layout) keeps the
+    // contract honest — the trigger spans the control column.
+    const control = triggerEl.closest(".foliplus-form-control");
     const controlRect = control ? control.getBoundingClientRect() : null;
+    const trigRect = triggerEl.getBoundingClientRect();
     return {
       ok: true,
       rowWidth: Math.round(row.getBoundingClientRect().width),
       controlWidth: controlRect ? Math.round(controlRect.width) : 0,
       triggerWidth: Math.round(trigRect.width),
-      // The trigger must span its control cell (the shared control column),
-      // so the icon row lines up with every other style/heatmap input row.
       triggerFillsControl: controlRect
         ? trigRect.width >= controlRect.width - 2
         : false,
-      // A long glyph name must ellipsize, never widen the row or clip mid-glyph.
       nameOverflows: nameEl.scrollWidth > nameEl.clientWidth + 1,
       nameScrollWidth: nameEl.scrollWidth,
       nameClientWidth: nameEl.clientWidth,
     };
   }
+
   if (action === "cellRect") {
     const cell = grid?.querySelector(".foliplus-style-icon-cell");
     if (!cell) return { ok: false, reason: "no-grid-cell" };
