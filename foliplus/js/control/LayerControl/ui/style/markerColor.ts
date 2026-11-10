@@ -31,7 +31,8 @@ import {
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
-import { formRow, inlineControls, selectInput } from "#ui/index.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { createDropdown, formRow, inlineControls, selectInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The row gate: the layer must be in the registry, then its surface must
@@ -145,9 +146,17 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
       label: name,
     })),
   }) as HTMLSelectElement;
+  // The visible picker is the shared dropdown; the select stays mounted
+  // (hidden) as the value/change bridge the panel delegates on, so Escape /
+  // layering / portal semantics match every other style dropdown.
+  const dropdown = createDropdown({
+    nativeSelect: select,
+    ariaLabel: ui.T("style_marker_color"),
+    ...dropdownSurface(ui.c.map.getContainer()),
+  });
   const row = formRow(
     ui.T("style_marker_color"),
-    inlineControls(select),
+    inlineControls(dropdown.element),
     CONST.CLASSES.STYLE_MARKER_COLOR_ROW,
   );
   select.addEventListener("change", () => {

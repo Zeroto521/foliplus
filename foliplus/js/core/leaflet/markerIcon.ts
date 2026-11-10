@@ -119,23 +119,30 @@ const buildMarkerIcon = (opts: {
     author instanceof L.Icon.Default ||
     author.createIcon?.() instanceof HTMLImageElement;
   const glyph = resolveGlyph(opts.glyph);
-  // An invalid (non-syntax) name renders nothing of ours: keep the author
-  // icon (honest degradation, never a substituted symbol).
-  if (!glyph) return opts.author;
-  // A syntactically valid name the loaded FA stylesheet does not paint is
-  // also an honest degradation — warn once per name (the CSS is static, so
-  // the availability probe is cached) and keep the author's original icon
-  // rather than render a blank tofu. */
-  if (!glyphAvailable(glyph)) {
-    if (!warnedGlyphs.has(glyph)) {
-      warnedGlyphs.add(glyph);
-      log.warn(
-        `glyph "${glyph}" is not in the loaded FontAwesome stylesheet — keeping the author icon`,
-      );
-    }
+  // The glyph and the chassis are orthogonal. A chassis-color write
+  // (markerColor) must still re-derive the chassis even when the glyph name
+  // is not a painted FA6 name — the author's own inner glyph is kept, and
+  // only the chassis (pin background) changes. A glyph-only write degrades
+  // honestly to the author icon (no substituted symbol, no tofu).
+  const glyphRenderable = glyph !== null && glyphAvailable(glyph);
+  if (glyph !== null && !glyphRenderable && !warnedGlyphs.has(glyph)) {
+    warnedGlyphs.add(glyph);
+    log.warn(
+      `glyph "${glyph}" is not in the loaded FontAwesome stylesheet — keeping the author glyph`,
+    );
+  }
+  const wantChassis = opts.markerColor !== undefined;
+  if (!wantChassis && !glyphRenderable) {
+    // A pure glyph write (no chassis change) with a non-renderable name keeps
+    // the author's icon — the honest degradation, never a substituted symbol.
     return opts.author;
   }
   if (isDefaultIcon) {
+    // The default chassis is an <img> — there is no awesome-markers sprite
+    // to re-color, and a non-renderable glyph would be tofu. A chassis write
+    // cannot reach here (the capability gate admits div-based icons only),
+    // so keep the author icon when the glyph isn't renderable.
+    if (!glyphRenderable) return opts.author;
     return L.divIcon({
       className: "foliplus-marker-default",
       html: glyphHtml(glyph),
@@ -157,10 +164,17 @@ const buildMarkerIcon = (opts: {
     // `awesome-marker-icon-<color>` from `options.markerColor`), so the
     // sprite — gradient, stroke, offsets — is never re-created in CSS.
     if (opts.markerColor !== undefined) {
-      (this as { options?: { markerColor?: string } }).options = {
-        ...(author as { options?: object }).options,
-        markerColor: opts.markerColor,
-      };
+      // A shallow spread would drop the awesome-markers DEFAULT options
+      // (className: "awesome-marker", iconSize, anchors, shadow...) that the
+      // constructor inherits through the prototype chain — the re-derived
+      // class came out as "awesome-marker-icon-blue undefined". Inherit the
+      // author's options object so the defaults stay reachable, then
+      // override just the chassis color on top.
+      const authorOptions = (author as { options?: object }).options;
+      (this as { options?: { markerColor?: string } }).options = Object.assign(
+        Object.create(authorOptions ?? null),
+        { markerColor: opts.markerColor },
+      );
     }
     const div = author.createIcon?.call(this) as HTMLElement | undefined;
     if (!div) return div;
@@ -204,7 +218,12 @@ const buildMarkerIcon = (opts: {
           !cls.startsWith("glyphicon"),
       )
       .join(" ");
-    div.innerHTML = glyphHtml(glyph, authorClass, `color:${iconColor}`);
+    // A chassis-only write with a non-renderable glyph name keeps the
+    // author's inner glyph verbatim — only the chassis (pin background)
+    // re-derives. The glyph is honest degradation, never a substituted symbol.
+    if (glyphRenderable) {
+      div.innerHTML = glyphHtml(glyph, authorClass, `color:${iconColor}`);
+    }
     return div;
   };
   return derived;

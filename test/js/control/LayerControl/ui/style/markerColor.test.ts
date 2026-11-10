@@ -266,12 +266,20 @@ describe("buildMarkerColorRow", () => {
     expect(row!.querySelector("select")).not.toBeNull();
   });
 
-  it("wraps the select in the shared inline flex shell", () => {
+  it("wraps the dropdown in the shared inline flex shell", () => {
     const row = buildMarkerColorRow(ui, "overlay1")!;
     const select = row.querySelector("select")!;
-    expect(select.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
+    // The select lives inside the shared dropdown wrapper (trigger + hidden
+    // native select); that wrapper sits in the shared inline flex shell.
+    const dropdown = select.closest(".foliplus-dropdown");
+    expect(dropdown).not.toBeNull();
+    expect(dropdown!.parentElement!.classList.contains("foliplus-form-inline")).toBe(
+      true,
+    );
     expect(
-      select.parentElement!.parentElement!.classList.contains("foliplus-form-control"),
+      dropdown!.parentElement!.parentElement!.classList.contains(
+        "foliplus-form-control",
+      ),
     ).toBe(true);
   });
 
