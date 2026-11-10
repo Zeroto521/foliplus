@@ -17,7 +17,9 @@ import {
   authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
+  composeColorAlpha,
   isIconLeaf,
+  parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
 
@@ -226,6 +228,15 @@ describe("applyIconToLeaves", () => {
     const inner = div.querySelector("i") as HTMLElement;
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
     expect(inner.className).toContain("fa-star");
+  });
+  it("applyIconColorToLeaves falls back to the circle glyph when none is given", () => {
+    const author = makeAuthorIcon({ iconColor: "" });
+    const m = makeMarker(author);
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", null);
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    const div = m.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-circle");
   });
 });
 
@@ -459,6 +470,114 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("foliplus-marker-glyph");
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
+  });
+});
+it("paints a user color and opacity on the default-icon divIcon branch", () => {
+  const author = makeDefaultIconAuthor();
+  const derived = buildMarkerIcon({
+    author,
+    glyph: "star",
+    color: "#ff0000",
+    opacity: 50,
+  }) as any;
+  expect(derived).toBeInstanceOf((window.L as any).DivIcon);
+  // The style string carries the composed rgba paint.
+  expect(derived.options.html).toContain("color:rgba(255, 0, 0, 0.5)");
+});
+it("paints a default-icon author white when the user sets no color", () => {
+  const author = makeDefaultIconAuthor();
+  const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
+  expect(derived).toBeInstanceOf((window.L as any).DivIcon);
+  // No user color, no opacity — the default-icon branch paints the glyph
+  // white (the same default the derive path uses), never an empty style.
+  expect(derived.options.html).toContain("color:#fff");
+});
+
+it("paints a user color at the user's opacity", () => {
+  const author = makeAuthorIcon({ iconColor: "" });
+  const derived = buildMarkerIcon({
+    author,
+    glyph: "star",
+    color: "#ff0000",
+    opacity: 50,
+  }) as any;
+  expect(derived.createIcon().querySelector("i")?.style.color).toBe(
+    "rgba(255, 0, 0, 0.5)",
+  );
+});
+it("paints a user color opaque by default", () => {
+  const author = makeAuthorIcon({ iconColor: "" });
+  const derived = buildMarkerIcon({ author, glyph: "star", color: "#12abef" }) as any;
+  // jsdom normalizes the inline style color to rgb().
+  expect(derived.createIcon().querySelector("i")?.style.color).toBe(
+    "rgb(18, 171, 239)",
+  );
+});
+it("keeps the author's translucent alpha when only the color is re-derived", () => {
+  // The author's inner <i> paints rgba(0, 255, 0, 0.4) inline; re-deriving
+  // the glyph (no user color/opacity) must carry that alpha, not reset to 1.
+  const author = makeAuthorIcon({ iconColor: "" });
+  author.createIcon = vi.fn(() => {
+    const div = document.createElement("div");
+    div.className = "awesome-marker";
+    div.innerHTML =
+      '<i class="fa fa-map-marker" style="color: rgba(0, 255, 0, 0.4)"></i>';
+    return div;
+  });
+  const derived = buildMarkerIcon({ author, glyph: "star" }) as any;
+  expect(derived.createIcon().querySelector("i")?.style.color).toBe(
+    "rgba(0, 255, 0, 0.4)",
+  );
+});
+it("paints a user color at opacity 0 as fully transparent", () => {
+  const author = makeAuthorIcon({ iconColor: "" });
+  const derived = buildMarkerIcon({
+    author,
+    glyph: "star",
+    color: "#0000ff",
+    opacity: 0,
+  }) as any;
+  expect(derived.createIcon().querySelector("i")?.style.color).toBe(
+    "rgba(0, 0, 255, 0)",
+  );
+});
+describe("parseColorAlpha / composeColorAlpha", () => {
+  it("parses a 6-digit hex as opaque", () => {
+    expect(parseColorAlpha("#12abef")).toEqual({ hex: "#12abef", alpha: 100 });
+  });
+  it("expands a 3-digit hex and lowercases", () => {
+    expect(parseColorAlpha("#ABC")).toEqual({ hex: "#aabbcc", alpha: 100 });
+  });
+  it("parses a normalized rgb() as opaque", () => {
+    expect(parseColorAlpha("rgb(255, 0, 0)")).toEqual({ hex: "#ff0000", alpha: 100 });
+  });
+  it("parses a normalized rgba() with a 0-1 alpha", () => {
+    expect(parseColorAlpha("rgba(255, 0, 0, 0.5)")).toEqual({
+      hex: "#ff0000",
+      alpha: 50,
+    });
+  });
+  it("rounds a fractional rgba alpha to a whole percent", () => {
+    expect(parseColorAlpha("rgba(18, 171, 239, 0.33)")).toEqual({
+      hex: "#12abef",
+      alpha: 33,
+    });
+  });
+  it("returns null for a named color, CSS variable, or empty string", () => {
+    expect(parseColorAlpha("blue")).toBeNull();
+    expect(parseColorAlpha("var(--x)")).toBeNull();
+    expect(parseColorAlpha("")).toBeNull();
+    expect(parseColorAlpha("  ")).toBeNull();
+  });
+  it("composes an opaque alpha as the bare hex", () => {
+    expect(composeColorAlpha("#12abef", 100)).toBe("#12abef");
+  });
+  it("composes a translucent alpha as rgba with a 0-1 fraction", () => {
+    expect(composeColorAlpha("#ff0000", 50)).toBe("rgba(255, 0, 0, 0.5)");
+    expect(composeColorAlpha("#12abef", 33)).toBe("rgba(18, 171, 239, 0.33)");
+  });
+  it("composes 0 alpha as fully transparent", () => {
+    expect(composeColorAlpha("#0000ff", 0)).toBe("rgba(0, 0, 255, 0)");
   });
 });
 

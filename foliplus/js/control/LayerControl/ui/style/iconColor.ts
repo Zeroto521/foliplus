@@ -17,7 +17,7 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel row.
-import { INTENT, getIntent } from "../intent.js";
+import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
@@ -28,7 +28,13 @@ import {
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
-import { colorInput, formRow, inlineControls } from "#ui/index.js";
+import {
+  bindLiveNumber,
+  colorInput,
+  formRow,
+  inlineControls,
+  numberInput,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The row gate: the layer must be in the registry, then its surface must
@@ -65,20 +71,46 @@ const authorIconColor = (ui: LayerUI, layerId: string): string | null => {
  *  in ONE construction with the current glyph. A missing intent is a no-op —
  *  a layer the user never touched keeps exactly what the author declared. */
 const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
-  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  if (typeof color !== "string") return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
+  const colorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const opacityIntent = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  const hasColor = typeof colorIntent === "string";
+  const hasOpacity = typeof opacityIntent === "number";
+  // A missing intent is a no-op — a layer the user never touched keeps
+  // exactly what the author declared.
+  if (!hasColor && !hasOpacity) return;
   // The glyph is orthogonal: a user glyph wins, else the author's own
   // glyph name (the core falls back to the author icon's inner glyph), so a
   // color write never forces a glyph the author never drew.
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
-  applyIconColorToLeaves(layer, color, glyph);
+  // The color: the user's, else the author's own paint (an opacity-only
+  // write must keep the author's color and only change the alpha), else
+  // white — the same default the derive path uses.
+  const authorColor = authorIconColor(ui, layerId);
+  const color = hasColor ? colorIntent : (authorColor ?? "#ffffff");
+  applyIconColorToLeaves(layer, color, glyph, hasOpacity ? opacityIntent : undefined);
 };
 /** Write the layer's color and replay the walk. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR, color]]);
+  scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
+    applyIconColorToLayer(ui, layerId),
+  );
+};
+/** Write the layer's glyph opacity (0-100) and replay the walk. Stored as
+ *  the integer itself — a 100 the user chose is kept, because the author may
+ *  have painted a translucent alpha and clearing on 100 would silently
+ *  restore it. */
+const commitIconColorOpacity = (
+  ui: LayerUI,
+  layerId: string,
+  opacity: number,
+): void => {
+  const value = Math.round(opacity);
+  if (!(value >= 0 && value <= 100)) return;
+  writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR_OPACITY, value]]);
   scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
     applyIconColorToLayer(ui, layerId),
   );
@@ -91,12 +123,14 @@ const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
  *  resetting the color must NOT clear a user-set glyph. */
 const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   if (!ui.c.layerRegistry.has(layerId)) return;
-  resetIntentKeys(ui, layerId, [INTENT.ICON_COLOR]);
+  resetIntentKeys(ui, layerId, [INTENT.ICON_COLOR, INTENT.ICON_COLOR_OPACITY]);
   cancelStyleDimApply(FACE.ICON_COLOR, layerId, ui);
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  // Re-derive with the author paint: drop the color intent, then walk with
-  // the current glyph so the glyph survives the color reset.
+  // Re-derive with the author paint: drop both intents, then walk with the
+  // current glyph so the glyph survives the color reset. The derive parses
+  // the author's own alpha when the color is author-derived (no user
+  // opacity), so an author paint that is translucent stays translucent.
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   const authorColor = authorIconColor(ui, layerId);
@@ -114,7 +148,9 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   }
 };
 
-/** Build the icon-color row: a swatch input. */
+/** Build the icon-color row: a swatch input plus a glyph-opacity number
+ *  field, on the same inline flex shell every other [color | number] style
+ *  row uses (see fill.ts / border.ts). */
 const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!layerCanIconColor(ui, layerId)) return null;
   const current = getIntent(ui, layerId, INTENT.ICON_COLOR);
@@ -124,9 +160,18 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     value,
     ariaLabel: ui.T("style_icon_color"),
   }) as HTMLInputElement;
+  const storedOpacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  const opacityInput = numberInput({
+    value: typeof storedOpacity === "number" ? storedOpacity : 100,
+    min: 0,
+    max: 100,
+    step: 1,
+    className: CONST.CLASSES.STYLE_ICON_COLOR_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_icon_color_opacity"),
+  }) as HTMLInputElement;
   const row = formRow(
     ui.T("style_icon_color"),
-    inlineControls(input),
+    inlineControls(input, opacityInput),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
   input.addEventListener("input", () => {
@@ -134,22 +179,47 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;
     commitIconColor(ui, layerId, next);
   });
+  bindLiveNumber(opacityInput, {
+    min: 0,
+    max: 100,
+    fallback: 100,
+    onCommit: nextOpacity => commitIconColorOpacity(ui, layerId, nextOpacity),
+  });
   return row;
 };
 
 /** Register icon-color as a per-layer dimension. */
-const ICON_COLOR_DIMENSION = registerDimension<{ value?: string }>({
+const ICON_COLOR_DIMENSION = registerDimension<{
+  value?: string;
+  opacity?: number;
+}>({
   key: DIM.ICON_COLOR,
   gate: layerCanIconColor,
   value: (ui, layerId) => {
     const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-    return typeof color === "string" ? { value: color } : undefined;
+    const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+    return typeof color === "string" || typeof opacity === "number"
+      ? {
+          value: typeof color === "string" ? color : undefined,
+          opacity: typeof opacity === "number" ? opacity : undefined,
+        }
+      : undefined;
   },
   row: (ui, layerId) => buildIconColorRow(ui, layerId) as HTMLElement,
   write: (ui, layerId, patch) => {
     const color = patch.value;
-    if (typeof color !== "string") return;
-    writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR, color]]);
+    const opacity = patch.opacity;
+    if (typeof color !== "string" && typeof opacity !== "number") return;
+    const keys: Array<readonly [IntentKey, unknown]> = [];
+    if (typeof color === "string") keys.push([INTENT.ICON_COLOR, color]);
+    if (typeof opacity === "number") {
+      const value = Math.round(opacity);
+      if (value >= 0 && value <= 100) {
+        keys.push([INTENT.ICON_COLOR_OPACITY, value]);
+      }
+    }
+    if (keys.length === 0) return;
+    writeIntentKeys(ui, layerId, keys);
     scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
       applyIconColorToLayer(ui, layerId),
     );
@@ -157,12 +227,17 @@ const ICON_COLOR_DIMENSION = registerDimension<{ value?: string }>({
   reset: (ui, layerId) => resetLayerIconColor(ui, layerId),
   valueSource: (ui, layerId) => {
     if (!layerCanIconColor(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR) ? "user" : "author";
+    return ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR) ||
+      ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR_OPACITY)
+      ? "user"
+      : "author";
   },
   contentChange: {
     kind: "frame",
     face: FACE.ICON_COLOR,
-    when: (ui, layerId) => getIntent(ui, layerId, INTENT.ICON_COLOR) !== undefined,
+    when: (ui, layerId) =>
+      getIntent(ui, layerId, INTENT.ICON_COLOR) !== undefined ||
+      getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY) !== undefined,
     run: (ui, layerId) => applyIconColorToLayer(ui, layerId),
   },
 });
@@ -172,6 +247,7 @@ export {
   applyIconColorToLayer,
   buildIconColorRow,
   commitIconColor,
+  commitIconColorOpacity,
   layerCanIconColor,
   resetLayerIconColor,
 };
