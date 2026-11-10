@@ -165,4 +165,38 @@ const glyphHtml = (name: string, extraClass = "", style = ""): string => {
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;
 };
 
-export { PICKER_GLYPHS, glyphAvailable, glyphHtml, isGlyphSyntax, resolveGlyph };
+/** The preset glyph schemes the by-value icon panel seeds from. Each name is
+ *  a curated list of marker glyphs; the panel's scheme select maps a name to
+ *  its list. A by-value config stores the resolved glyph list itself (not the
+ *  scheme name), so the scheme is a UI convenience, not a persisted key. */
+const GLYPH_SCHEMES = {
+  /** Five distinct marker shapes — the default for a by-value numeric icon. */
+  SHAPES: ["circle", "square", "diamond", "star", "triangle-exclamation"],
+  /** Four arrow directions, for an ordered/categorical direction field. */
+  DIRECTIONS: ["arrow-up", "arrow-down", "arrow-left", "arrow-right"],
+  /** Three status glyphs, for a small categorical domain. */
+  STATUS: ["circle-check", "circle-info", "circle-xmark"],
+} as const;
+
+/** The default glyph scheme name the by-value icon panel seeds with. */
+const GLYPH_SCHEME_DEFAULT = "SHAPES";
+
+/** The ordered scheme names, in display order (the panel lists them). */
+const GLYPH_SCHEME_ORDER: readonly string[] = ["SHAPES", "DIRECTIONS", "STATUS"];
+
+/** Resolve a scheme name to its glyph list, or undefined for an unknown name
+ *  (the panel then degrades to the default scheme rather than rendering an
+ *  empty list). */
+const glyphScheme = (name: string): readonly string[] | undefined =>
+  (GLYPH_SCHEMES as Record<string, readonly string[]>)[name];
+
+export {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
+  PICKER_GLYPHS,
+  glyphAvailable,
+  glyphHtml,
+  glyphScheme,
+  isGlyphSyntax,
+  resolveGlyph,
+};

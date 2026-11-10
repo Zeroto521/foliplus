@@ -11,6 +11,7 @@ import {
   resolveGlyph,
 } from "#core/leaflet/glyphSource.js";
 import {
+  applyIconByValueToLeaves,
   applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName,
@@ -637,5 +638,146 @@ describe("glyphSource", () => {
   it("keeps the 40-slot shortcut grid", () => {
     expect(PICKER_GLYPHS).toContain("star");
     expect(PICKER_GLYPHS.length).toBe(40);
+  });
+});
+
+describe("applyIconByValueToLeaves", () => {
+  const glyphs = ["circle", "square", "diamond"];
+  const makeFeatureMarker = (props: Record<string, unknown>, icon?: unknown): any => {
+    const leaf = makeMarker(icon);
+    leaf.feature = { properties: props };
+    return leaf;
+  };
+  const makeGroup = (...markers: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const marker of markers) fn(marker);
+    }),
+  });
+
+  it("applies one derived icon per marker leaf with glyph + color + opacity", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ count: 1 }, author);
+    const m2 = makeFeatureMarker({ count: 9 }, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(
+      group,
+      {
+        kind: "numeric",
+        field: "count",
+        method: "equal",
+        classes: 3,
+        glyphs,
+      },
+      "#12abef",
+      50,
+    );
+    expect(m1.setIcon).toHaveBeenCalledTimes(1);
+    expect(m2.setIcon).toHaveBeenCalledTimes(1);
+    const d1 = m1.options.icon;
+    const d2 = m2.options.icon;
+    expect(Object.getPrototypeOf(d1)).toBe(author);
+    expect(Object.getPrototypeOf(d2)).toBe(author);
+    // The single construction carries the color at the opacity.
+    const i1 = d1.createIcon().querySelector("i") as HTMLElement;
+    expect(i1.style.color).toBe("rgba(18, 171, 239, 0.5)");
+  });
+
+  it("maps numeric values to class glyphs", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ count: 1 }, author);
+    const m2 = makeFeatureMarker({ count: 9 }, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(group, {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      glyphs,
+    });
+    const g1 = m1.options.icon.createIcon().querySelector("i") as HTMLElement;
+    const g2 = m2.options.icon.createIcon().querySelector("i") as HTMLElement;
+    expect(g1.className).not.toBe(g2.className);
+  });
+
+  it("maps distinct categories to glyphs in first-seen order", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ kind: "a" }, author);
+    const m2 = makeFeatureMarker({ kind: "b" }, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(group, {
+      kind: "category",
+      field: "kind",
+      method: "equal",
+      classes: 2,
+      glyphs,
+    });
+    const g1 = m1.options.icon.createIcon().querySelector("i") as HTMLElement;
+    const g2 = m2.options.icon.createIcon().querySelector("i") as HTMLElement;
+    expect(g1.className).toContain("fa-circle");
+    expect(g2.className).toContain("fa-square");
+  });
+
+  it("falls back to the last glyph when categories exceed the glyph count", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ kind: "a" }, author);
+    const m2 = makeFeatureMarker({ kind: "b" }, author);
+    const m3 = makeFeatureMarker({ kind: "c" }, author);
+    const group = makeGroup(m1, m2, m3);
+    applyIconByValueToLeaves(group, {
+      kind: "category",
+      field: "kind",
+      method: "equal",
+      classes: 2,
+      glyphs: ["circle", "square"],
+    });
+    const g3 = m3.options.icon.createIcon().querySelector("i") as HTMLElement;
+    expect(g3.className).toContain("fa-square");
+  });
+
+  it("keeps the author icon for a leaf whose value is missing", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ count: 1 }, author);
+    const m2 = makeFeatureMarker({}, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(group, {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      glyphs,
+    });
+    // m2 has no count: it keeps the author icon (no derived icon).
+    expect(m2.options.icon).toBe(author);
+    expect(m1.options.icon).not.toBe(author);
+  });
+
+  it("skips a non-marker leaf in the walk", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ count: 1 }, author);
+    const poly = { options: {}, setStyle: vi.fn(), getLatLngs: () => [] };
+    const group = makeGroup(m1, poly as any);
+    applyIconByValueToLeaves(group, {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      glyphs,
+    });
+    expect(m1.setIcon).toHaveBeenCalledTimes(1);
+    expect((poly as any).setIcon).toBeUndefined();
+  });
+
+  it("is a no-op on an empty leaf walk", () => {
+    const group = makeGroup();
+    expect(() =>
+      applyIconByValueToLeaves(group, {
+        kind: "numeric",
+        field: "count",
+        method: "equal",
+        classes: 3,
+        glyphs,
+      }),
+    ).not.toThrow();
   });
 });

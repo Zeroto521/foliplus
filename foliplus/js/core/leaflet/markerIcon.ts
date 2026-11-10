@@ -31,8 +31,17 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { type IconValueConfig } from "#core/layer/index.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/ramp.js";
+import {
+  type CategoryGlyphRamp,
+  type ValueGlyphRamp,
+  buildCategoryGlyphRamp,
+  buildGlyphRamp,
+  glyphFor,
+} from "#core/value/index.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");
@@ -313,6 +322,76 @@ const applyIconColorToLeaves = (
  *  authored icons come from the WeakMap, never from a re-read — a re-read
  *  would restore the user's own choice, and a layer that never wrote has
  *  nothing to restore anyway. */
+/** Apply a field-driven glyph ramp to every marker leaf in ONE construction
+ *  per leaf: the glyph, the color and the opacity land in a single
+ *  `buildMarkerIcon` call and a single `setIcon`, never two successive
+ *  writes (the whole-layer icon dimension and the color dimension are
+ *  separate keys, but a leaf's icon object is one thing — a "swap glyph then
+ *  paint color" sequence would flash and read back stale).
+ *
+ *  Two passes: the first collects the drive values (numbers or labels) and
+ *  builds the glyph ramp once; the second paints every leaf with
+ *  `glyphFor(ramp, value)` (or the category map lookup). A leaf whose field
+ *  value is absent or unclassifiable keeps its author icon — no fallback
+ *  glyph is invented. The ramp is built from the collect step, so the
+ *  classification kernel runs once, not per leaf. */
+const applyIconByValueToLeaves = (
+  layer: L.Layer,
+  config: IconValueConfig,
+  color?: string,
+  opacity?: number,
+): void => {
+  const leaves: L.Marker[] = [];
+  walkLeaf(layer, leaf => {
+    if (isIconLeaf(leaf)) leaves.push(leaf);
+  });
+  if (leaves.length === 0) return;
+  const isCategory = config.kind === "category";
+  const values: (number | string)[] = [];
+  const seen = new Set<string>();
+  for (const leaf of leaves) {
+    const raw = leafPropertyValue(leaf, config.field);
+    if (isCategory) {
+      const label = categoryLabel(raw);
+      if (label !== undefined && !seen.has(label)) {
+        seen.add(label);
+        values.push(label);
+      }
+    } else if (isFiniteNumber(raw)) {
+      values.push(raw);
+    }
+  }
+  const glyphMap = isCategory
+    ? buildCategoryGlyphRamp(values as string[], config.glyphs)
+    : buildGlyphRamp(values as number[], {
+        method: config.method,
+        classes: config.classes,
+        glyphs: config.glyphs,
+      });
+  for (const leaf of leaves) {
+    captureAuthorIcon(leaf);
+    const author = authorIcon.get(leaf);
+    if (author === undefined) continue;
+    let glyph: string | undefined;
+    const raw = leafPropertyValue(leaf, config.field);
+    if (isCategory) {
+      const label = categoryLabel(raw);
+      glyph =
+        label !== undefined
+          ? ((glyphMap as CategoryGlyphRamp).glyphs.get(label) ??
+            (glyphMap as CategoryGlyphRamp).other)
+          : undefined;
+    } else {
+      glyph = isFiniteNumber(raw)
+        ? glyphFor(glyphMap as ValueGlyphRamp, raw)
+        : undefined;
+    }
+    if (glyph === undefined) continue;
+    const derived = buildMarkerIcon({ author, glyph, color, opacity });
+    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+  }
+};
+
 const resetIconLeaves = (layer: L.Layer): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -385,6 +464,7 @@ const authorGlyphPrefix = (layer: L.Layer): string | null => {
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
+  applyIconByValueToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,

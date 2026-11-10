@@ -123,5 +123,12 @@
   "LayerControl.filter_row_title": "{kept} / {total} 已筛选 · {type}",
   "LayerControl.filter_empty": "该图层没有数值字段",
   "LayerControl.style_border_mode": "边框模式",
-  "LayerControl.style_border_follow_fill": "跟随填充"
+  "LayerControl.style_border_follow_fill": "跟随填充",
+  "LayerControl.style_icon_mode": "图标模式",
+  "LayerControl.style_icon_single": "单一",
+  "LayerControl.style_icon_by_value": "按值",
+  "LayerControl.style_icon_field": "字段",
+  "LayerControl.style_icon_classes": "分类数",
+  "LayerControl.style_icon_classes_out_of_range": "分类数超出可编辑范围——选择值以替换。",
+  "LayerControl.style_icon_scheme": "字形方案"
 }

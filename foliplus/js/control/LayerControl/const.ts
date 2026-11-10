@@ -247,6 +247,20 @@ const CLASSES = {
   STYLE_ICON_CELL: "foliplus-style-icon-cell",
   /** The selected cell's highlight. */
   STYLE_ICON_CELL_SELECTED: "foliplus-style-icon-cell-selected",
+  /** The icon mode select (single / by value). */
+  STYLE_ICON_MODE_SELECT: "foliplus-style-icon-mode-select",
+  /** The detail slot beneath the mode row (the active mode's controls). */
+  STYLE_ICON_DETAIL: "foliplus-style-icon-detail",
+  /** The by-value field select. */
+  STYLE_ICON_FIELD_SELECT: "foliplus-style-icon-field-select",
+  /** The by-value method select. */
+  STYLE_ICON_METHOD_SELECT: "foliplus-style-icon-method-select",
+  /** The by-value class-count select. */
+  STYLE_ICON_CLASSES_SELECT: "foliplus-style-icon-classes-select",
+  /** The by-value glyph-scheme select. */
+  STYLE_ICON_SCHEME_SELECT: "foliplus-style-icon-scheme-select",
+  /** The icon row's outer block (mode row + detail). */
+  STYLE_ICON_BLOCK: "foliplus-style-icon-block",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",

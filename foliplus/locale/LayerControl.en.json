@@ -123,5 +123,12 @@
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
   "LayerControl.filter_empty": "No numeric fields on this layer",
   "LayerControl.style_border_mode": "Border Mode",
-  "LayerControl.style_border_follow_fill": "Follow Fill"
+  "LayerControl.style_border_follow_fill": "Follow Fill",
+  "LayerControl.style_icon_mode": "Icon mode",
+  "LayerControl.style_icon_single": "Single",
+  "LayerControl.style_icon_by_value": "By value",
+  "LayerControl.style_icon_field": "Field",
+  "LayerControl.style_icon_classes": "Classes",
+  "LayerControl.style_icon_classes_out_of_range": "Class count is outside the editable range — pick a value to replace it.",
+  "LayerControl.style_icon_scheme": "Glyph scheme"
 }

@@ -119,11 +119,15 @@ export {
   FILL_MODE,
   ICON_KIND,
   INTENT,
+  ICON_MODE,
   isValueConfig,
   isIconIntent,
+  isIconMode,
+  isIconValueConfig,
   LIVE,
   STYLE_KEYS,
 } from "./intent.js";
+export type { IconMode, IconValueConfig } from "./intent.js";
 export {
   createFilterStore,
   ensureFilterStore,

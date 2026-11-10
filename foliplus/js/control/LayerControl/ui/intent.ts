@@ -16,8 +16,11 @@
 import type { LayerUI } from "./surface.js";
 import {
   ICON_KIND,
+  ICON_MODE,
   INTENT,
   type IconIntent,
+  type IconMode,
+  type IconValueConfig,
   type IntentKey,
   LIVE,
   type LayerInfo,
@@ -79,6 +82,7 @@ const seedAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
 
 export {
   ICON_KIND,
+  ICON_MODE,
   INTENT,
   LIVE,
   clearIntent,
@@ -89,4 +93,4 @@ export {
   seedIntentMap,
   setIntent,
 };
-export type { IconIntent, IntentKey };
+export type { IconIntent, IconMode, IconValueConfig, IntentKey };

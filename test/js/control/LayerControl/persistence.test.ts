@@ -1230,6 +1230,73 @@ describe("LayerPersistence", () => {
         f: { icon: { kind: "glyph", value: "star" }, overrides: ["icon"] },
       });
     });
+
+    it("restores an icon by-value config and drops a malformed one", () => {
+      const good = {
+        kind: "numeric",
+        field: "count",
+        method: "equal",
+        classes: 3,
+        glyphs: ["circle", "square", "diamond"],
+      };
+      const goodCat = {
+        kind: "category",
+        field: "kind",
+        glyphs: ["circle", "square"],
+      };
+      seedStorage({
+        layers: {
+          a: {
+            iconValue: good,
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          b: {
+            iconValue: { ...good, classes: 1 },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          c: {
+            iconValue: goodCat,
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          d: {
+            iconValue: { ...good, glyphs: ["circle"] },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          e: {
+            iconValue: "nope",
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          f: {
+            iconMode: "byValue",
+            overrides: ["iconMode"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: {
+          iconValue: good,
+          iconMode: "byValue",
+          overrides: ["iconValue", "iconMode"],
+        },
+        c: {
+          iconValue: goodCat,
+          iconMode: "byValue",
+          overrides: ["iconValue", "iconMode"],
+        },
+        // b/d/e carry a malformed iconValue (dropped) but a valid iconMode
+        // (kept) — each override key validates independently.
+        b: { iconMode: "byValue", overrides: ["iconMode"] },
+        d: { iconMode: "byValue", overrides: ["iconMode"] },
+        e: { iconMode: "byValue", overrides: ["iconMode"] },
+        f: { iconMode: "byValue", overrides: ["iconMode"] },
+      });
+    });
+
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {

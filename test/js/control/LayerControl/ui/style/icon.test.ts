@@ -1385,3 +1385,155 @@ describe("icon rehydrate drift guard", () => {
     expect(probed).toContain("fa-solid fa-no-such-glyph");
   });
 });
+
+describe("icon by-value mode", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let authorIcon: any;
+  let school: any;
+  let hospital: any;
+
+  const glyphs = ["circle", "square", "diamond"];
+  const valueConfig = {
+    kind: "numeric" as const,
+    field: "count",
+    method: "equal" as const,
+    classes: 3,
+    glyphs,
+  };
+
+  beforeEach(() => {
+    authorIcon = makeAuthorIcon();
+    school = makeMarker({ type: "school", count: 1 }, authorIcon);
+    hospital = makeMarker({ type: "hospital", count: 9 }, authorIcon);
+    ({ manager, ui } = fixtureWithMarkers([school, hospital]));
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const modeSelect = (row: HTMLElement) =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_ICON_MODE_SELECT}`) as HTMLSelectElement;
+
+  it("offers the by-value option when the layer has a numeric field", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    expect(select.querySelector('option[value="single"]')).not.toBeNull();
+    expect(select.querySelector('option[value="byValue"]')).not.toBeNull();
+    expect(select.value).toBe("single");
+  });
+
+  it("omits the by-value option when the layer has no numeric field", () => {
+    // A layer whose features carry only non-numeric properties: the field
+    // cache says "name" is non-numeric AND the leaf snapshot finds no
+    // numeric property, so no by-value option can be offered.
+    delete school.feature.properties.count;
+    delete hospital.feature.properties.count;
+    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    expect(select.querySelector('option[value="byValue"]')).toBeNull();
+    expect(select.querySelector('option[value="single"]')).not.toBeNull();
+  });
+
+  it("reads by-value when only a value config is stored (displayIconMode fallback)", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_VALUE, valueConfig]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    expect(modeSelect(row).value).toBe("byValue");
+    // The value detail (field/classes/scheme) renders, not the glyph grid.
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`),
+    ).not.toBeNull();
+  });
+
+  it("key isolation: an icon-mode write never writes the color keys", () => {
+    const spy = vi.spyOn(ui.intentStore, "setRaw");
+    ICON_DIMENSION.write!(ui, "overlay1", { mode: "byValue", value: valueConfig });
+    const written = spy.mock.calls.map(c => c[1] as string);
+    expect(written).toContain(INTENT.ICON_VALUE);
+    expect(written).toContain(INTENT.ICON_MODE);
+    expect(written).not.toContain(INTENT.ICON_COLOR);
+    expect(written).not.toContain(INTENT.ICON_COLOR_OPACITY);
+    vi.restoreAllMocks();
+  });
+
+  it("key isolation: a single-glyph write never writes the color keys", () => {
+    const spy = vi.spyOn(ui.intentStore, "setRaw");
+    commitGlyph(ui, "overlay1", "star");
+    const written = spy.mock.calls.map(c => c[1] as string);
+    expect(written).toContain(INTENT.ICON);
+    expect(written).toContain(INTENT.ICON_MODE);
+    expect(written).not.toContain(INTENT.ICON_COLOR);
+    expect(written).not.toContain(INTENT.ICON_COLOR_OPACITY);
+    vi.restoreAllMocks();
+  });
+
+  it("key isolation: a color write never writes the value/mode keys", () => {
+    const dim = getDimension(DIM.ICON_COLOR);
+    const spy = vi.spyOn(ui.intentStore, "setRaw");
+    dim?.write!(ui, "overlay1", { value: "#12abef" });
+    const written = spy.mock.calls.map(c => c[1] as string);
+    expect(written).toContain(INTENT.ICON_COLOR);
+    expect(written).not.toContain(INTENT.ICON_VALUE);
+    expect(written).not.toContain(INTENT.ICON_MODE);
+    vi.restoreAllMocks();
+  });
+
+  it("invariant: by-value apply calls setIcon exactly once per marker leaf", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_MODE, "byValue"],
+      [INTENT.ICON_VALUE, valueConfig],
+    ]);
+    applyIconToLayer(ui, "overlay1");
+    expect(school.setIcon).toHaveBeenCalledTimes(1);
+    expect(hospital.setIcon).toHaveBeenCalledTimes(1);
+    // The one derived icon carries glyph + color in a single construction.
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    expect(Object.getPrototypeOf(written)).toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.className).toContain("fa-circle");
+  });
+
+  it("maps each value to its class glyph and paints by value", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_MODE, "byValue"],
+      [INTENT.ICON_VALUE, valueConfig],
+    ]);
+    applyIconToLayer(ui, "overlay1");
+    const g0 = school.options.icon.createIcon().querySelector("i") as HTMLElement;
+    const g1 = hospital.options.icon.createIcon().querySelector("i") as HTMLElement;
+    // count=1 vs count=9 under 3 equal classes land in different glyphs.
+    expect(g0.className).not.toBe(g1.className);
+  });
+
+  it("reset clears all three icon keys and re-derives a surviving color", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_COLOR, "#12abef"],
+      [INTENT.ICON_MODE, "byValue"],
+      [INTENT.ICON_VALUE, valueConfig],
+    ]);
+    applyIconToLayer(ui, "overlay1");
+    expect(school.options.icon).not.toBe(authorIcon);
+    resetLayerIcon(ui, "overlay1");
+    flushIcon("overlay1");
+    expect(getIntent(ui, "overlay1", INTENT.ICON)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBeUndefined();
+    // The color survives reset and is repainted onto the restored author.
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.style.color).toBe("rgb(18, 171, 239)");
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBe("#12abef");
+  });
+});

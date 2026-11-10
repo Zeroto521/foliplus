@@ -4,7 +4,7 @@
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
 // Set round-trip. Values and behavior must match the pre-store twin.
 import { describe, expect, it } from "vitest";
-import { FILL_MODE, ICON_KIND, STYLE_KEYS } from "#core/layer/index.js";
+import { FILL_MODE, ICON_KIND, ICON_MODE, STYLE_KEYS } from "#core/layer/index.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { LayerPersistence } from "#control/LayerControl/persistence.js";
 import type { LayerOverride, PersistedLayerState } from "#control/LayerControl/type.js";
@@ -541,6 +541,13 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
     icon: { kind: ICON_KIND.GLYPH, value: "map-pin" },
     iconColor: "#abcdef",
     iconColorOpacity: 40,
+    iconValue: {
+      field: "count",
+      method: "quantile",
+      classes: 4,
+      glyphs: ["circle", "square", "diamond", "star"],
+    },
+    iconMode: ICON_MODE.BY_VALUE,
   };
 
   beforeEach(() => {
@@ -551,7 +558,7 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
   });
 
   it("pins the matrix to every STYLE_KEYS dimension (vocabulary count)", () => {
-    expect(overrideKeys.length).toBe(15);
+    expect(overrideKeys.length).toBe(17);
     for (const ov of overrideKeys) {
       expect(VALUE).toHaveProperty(ov);
     }

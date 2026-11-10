@@ -76,6 +76,16 @@ const ICON_KIND = {
 } as const;
 type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
 
+/** The icon override's mode axis. Two modes, like the fill:
+ *  - **single**: one glyph for every marker leaf (the original icon
+ *    dimension).
+ *  - **byValue**: a field drives one glyph per class (the glyph ramp). */
+const ICON_MODE = {
+  SINGLE: "single",
+  BY_VALUE: "byValue",
+} as const;
+type IconMode = (typeof ICON_MODE)[keyof typeof ICON_MODE];
+
 /** Whether a value is a ramp config this client can build. Two branches,
  *  discriminated by `kind`:
  *
@@ -162,7 +172,9 @@ type LayerOverride =
   | "size"
   | "icon"
   | "iconColor"
-  | "iconColorOpacity";
+  | "iconColorOpacity"
+  | "iconValue"
+  | "iconMode";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -220,6 +232,65 @@ const isIconIntent = (value: unknown): boolean =>
   (value as { kind?: unknown }).kind === ICON_KIND.GLYPH &&
   typeof (value as { value?: unknown }).value === "string";
 
+/** The value-based icon config when the icon is painted by a field.
+ *  Two arms, discriminated by `kind`:
+ *
+ *  - **numeric** (`kind: "numeric"` or absent): a number property split
+ *    into ordered classes, one glyph per class. `glyphs.length` must equal
+ *    `classes` so every class has a distinct glyph.
+ *  - **category**: a label property painted by distinct glyphs in first-seen
+ *    order. `glyphs.length` must be >= the distinct count (surplus glyphs
+ *    are ignored; classes beyond the list use the last glyph). */
+type IconValueConfig =
+  | {
+      /** How the drive property is typed. Absent = "numeric". */
+      kind?: "numeric";
+      field: string;
+      method: ClassifyMethod;
+      classes: number;
+      /** One glyph name per class, in class order. */
+      glyphs: string[];
+    }
+  | {
+      kind: "category";
+      field: string;
+      /** The glyph list painted over distinct labels in first-seen order. */
+      glyphs: string[];
+      /** The category arm keeps a method/classes slot for the union to stay
+       *  assignable to the numeric read path; values are unused at runtime. */
+      method: ClassifyMethod;
+      classes: number;
+    };
+
+const isIconMode = (value: unknown): value is IconMode =>
+  value === ICON_MODE.SINGLE || value === ICON_MODE.BY_VALUE;
+
+const isIconValueConfig = (value: unknown): value is IconValueConfig => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  const isName = (v: unknown): v is string =>
+    typeof v === "string" && v.trim().length > 0;
+  if (!isName(data.field)) return false;
+  const glyphs = data.glyphs;
+  if (!Array.isArray(glyphs) || glyphs.length === 0) return false;
+  if (!glyphs.every(g => typeof g === "string" && g.trim().length > 0)) return false;
+  if (data.kind === "category") {
+    return isName(data.field) && Array.isArray(data.glyphs) && data.glyphs.length > 0;
+  }
+  if (data.kind !== undefined && data.kind !== "numeric") return false;
+  return (
+    isName(data.field) &&
+    isClassifyMethod(data.method) &&
+    typeof data.classes === "number" &&
+    Number.isInteger(data.classes) &&
+    data.classes >= 2 &&
+    data.classes <= 9 &&
+    Array.isArray(data.glyphs) &&
+    data.glyphs.length === data.classes &&
+    data.glyphs.every(g => typeof g === "string" && g.trim().length > 0)
+  );
+};
+
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;
@@ -263,6 +334,13 @@ type LayerIntent = {
    *  user's chosen alpha). LayerControl owns the write — same self-managed
    *  dimension as iconColor. */
   iconColorOpacity?: number;
+  /** The value-based icon config when the icon is painted by a field.
+   *  Kept when the active mode is single — the mode switch back restores it. */
+  iconValue?: IconValueConfig;
+  /** Which icon mode the user chose: one glyph for every marker leaf, or a
+   *  field-driven glyph ramp. Absent means single — the mode that predates
+   *  the ramp. */
+  iconMode?: IconMode;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -320,6 +398,13 @@ type PersistedLayerState = {
   iconColor?: string;
   /** The marker glyph opacity the user set (0-100 integer); absent = 100. */
   iconColorOpacity?: number;
+  /** The value-based icon config the user set (field / method / classes /
+   *  glyphs). The glyph ramp mode owns the icon; the single mode still rides
+   *  the same override set. */
+  iconValue?: IconValueConfig;
+  /** Which icon mode is active ("single" | "byValue"); the inactive config is
+   *  kept rather than cleared so a switch back restores it. */
+  iconMode?: IconMode;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -368,6 +453,8 @@ const INTENT = {
   ICON_COLOR_OPACITY: "iconColorOpacity",
   NAME: "name",
   LABEL: "label",
+  ICON_VALUE: "iconValue",
+  ICON_MODE: "iconMode",
 } as const satisfies Record<string, keyof LayerIntent>;
 
 type IntentKey = keyof LayerIntent;
@@ -407,6 +494,8 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // could not display back.
   [INTENT.ICON_COLOR_OPACITY]: value =>
     typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100,
+  [INTENT.ICON_VALUE]: value => isIconValueConfig(value),
+  [INTENT.ICON_MODE]: value => isIconMode(value),
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
 };
@@ -432,14 +521,29 @@ const STYLE_KEYS = {
   icon: INTENT.ICON,
   iconColor: INTENT.ICON_COLOR,
   iconColorOpacity: INTENT.ICON_COLOR_OPACITY,
+  iconValue: INTENT.ICON_VALUE,
+  iconMode: INTENT.ICON_MODE,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { FILL_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
+export {
+  FILL_MODE,
+  ICON_KIND,
+  ICON_MODE,
+  INTENT,
+  isValueConfig,
+  isIconIntent,
+  isIconMode,
+  isIconValueConfig,
+  LIVE,
+  STYLE_KEYS,
+};
 export type {
   LabelConfig,
   FillMode,
   ValueConfig,
   IconIntent,
+  IconMode,
+  IconValueConfig,
   IntentKey,
   IntentRow,
   LayerIntent,

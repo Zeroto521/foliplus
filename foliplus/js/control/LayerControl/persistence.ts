@@ -10,6 +10,8 @@ import {
   type FolderOrder,
   type ValueConfig,
   isIconIntent,
+  isIconMode,
+  isIconValueConfig,
   isValueConfig,
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
@@ -211,6 +213,12 @@ const PARSE_OVERRIDE: Record<
       ? value
       : null;
   },
+
+  iconValue: data => {
+    const value = data.iconValue;
+    return isIconValueConfig(value) ? value : null;
+  },
+  iconMode: data => (isIconMode(data.iconMode) ? data.iconMode : null),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
