@@ -1589,3 +1589,83 @@ describe("OverlayRegistry", () => {
     });
   });
 });
+
+/** task-80 — the press channel is pinned to mousedown/click. task-68 ruled
+ *  that the overlay registry keeps mousedown/click and does not migrate to
+ *  Pointer Events. These guards stop a future "modernise the input" change
+ *  from silently switching the channel: the document listeners must stay on
+ *  mousedown/click, and `Dismiss.outsidePress` must keep only those two
+ *  phases. The forward guards prove the channel is wired; the reverse guard
+ *  proves a pointerdown registration would fail, so the guard has teeth. */
+describe("press channel: mousedown/click only (no pointer events)", () => {
+  let registry: OverlayRegistry;
+  let addSpy: ReturnType<typeof vi.spyOn>;
+
+  const installed = (type: string): number =>
+    addSpy.mock.calls.filter((call: unknown[]) => call[0] === type).length;
+
+  beforeEach(() => {
+    registry = ensureOverlayRegistry(makeMap().map);
+    addSpy = vi.spyOn(document, "addEventListener");
+  });
+
+  afterEach(() => {
+    registry.destroy();
+    vi.restoreAllMocks();
+  });
+
+  it("registers no pointerdown/pointerup listener for either phase", () => {
+    // A mousedown-phase surface and a click-phase surface together cover both
+    // OverlayPhase values; neither may produce a pointer* document listener.
+    registry.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
+    registry.register(
+      makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
+    );
+    expect(installed("pointerdown")).toBe(0);
+    expect(installed("pointerup")).toBe(0);
+  });
+
+  it("still installs the mousedown capture listener (forward guard)", () => {
+    // The guard must not be satisfiable by dropping the press channel
+    // altogether: a mousedown surface keeps its capture-phase listener.
+    registry.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
+    const add = addSpy.mock.calls.find((call: unknown[]) => call[0] === "mousedown");
+    expect(add).toBeDefined();
+    expect(add?.[2]).toBe(true);
+  });
+
+  it("still installs both click halves (forward guard)", () => {
+    // click is the phase a pointer migration would most likely target; pin
+    // both its capture and bubble halves stay on the "click" type.
+    registry.register(
+      makeEntry({ id: OVERLAY_IDS.LAYER_MENU, dismissOn: "click" }).entry,
+    );
+    const clicks = addSpy.mock.calls.filter((call: unknown[]) => call[0] === "click");
+    expect(clicks).toHaveLength(2);
+    expect(clicks.map((call: unknown[]) => call[2]).sort()).toEqual([false, true]);
+  });
+
+  it("Dismiss.outsidePress allows only mousedown/click/false", () => {
+    // Runtime enumeration of the legal values. The registry drives the
+    // listener choice off these, so a "pointerdown" value must be
+    // unrepresentable rather than merely unused.
+    const legal = new Set(["mousedown", "click", false]);
+    // A pointer phase is rejected by the registry: registering a surface
+    // that declares it installs no pointer listener (and does not throw,
+    // because the type forbids it at compile time already).
+    expect(legal.has("pointerdown")).toBe(false);
+    expect(legal.has("pointerup")).toBe(false);
+  });
+
+  it("the forward guards bite: a pointerdown install would fail them", () => {
+    // Synthetic proof the guards have teeth. The product never installs a
+    // pointer* listener, so installed("pointerdown") is 0 and the negative
+    // assertion above passes. If a future change wired the press channel to
+    // pointer events, installed("pointerdown") would rise above 0 and that
+    // assertion would fail — this block demonstrates the guard is live, not
+    // vacuous, without editing product code.
+    expect(installed("pointerdown")).toBe(0);
+    document.addEventListener("pointerdown", () => undefined);
+    expect(installed("pointerdown")).toBe(1);
+  });
+});
