@@ -1,7 +1,7 @@
 import { makeControlEnv } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reverseGeocode } from "#core/geocode/index.js";
-import type { ControlEnv } from "#core/lifecycle/type.js";
+import { type ControlEnv } from "#core/lifecycle/index.js";
 import { stopEvent } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/MeasureControl/const.js";

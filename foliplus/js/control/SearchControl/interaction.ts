@@ -10,8 +10,7 @@ import {
 import type { SearchControl } from "./type.js";
 import { ListCursor, ensureInteraction } from "#core/interaction/index.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
-import { guardBlocked } from "#core/lifecycle/mode.js";
-import type { ControlEnv } from "#core/lifecycle/type.js";
+import { type ControlEnv, guardBlocked } from "#core/lifecycle/index.js";
 
 /** Full ctrl type for interaction — SearchControl instance + control ctx. */
 type InteractionCtrl = SearchControl & ControlEnv;

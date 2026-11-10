@@ -6,7 +6,7 @@ import {
 import * as SVGs from "./icon.js";
 import { LayerUI } from "./ui/index.js";
 import { createPanelControl } from "#core/leaflet/index.js";
-import { defineControl } from "#core/lifecycle/defineControl.js";
+import { defineControl } from "#core/lifecycle/index.js";
 import type { LayerData } from "#foliplus/config-schema.js";
 
 const LayerControl = defineControl<LayerController>({

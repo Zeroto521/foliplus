@@ -3,7 +3,7 @@
 import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import { isVisible, loadImageBitmap } from "../util.js";
-import { layerUrl } from "#core/lifecycle/leafletAdapter.js";
+import { layerUrl } from "#core/lifecycle/index.js";
 
 /** Calculate tile coordinates covering geo bounds at a given zoom. */
 const calcTiles = (

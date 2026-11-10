@@ -20,7 +20,7 @@ import {
   markRequest,
   resolveProvider,
 } from "#core/geocode/index.js";
-import { guardBlocked } from "#core/lifecycle/mode.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/hint.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { debounce } from "#platform/debounce.js";

@@ -32,7 +32,7 @@ import {
   resolveGlyph,
 } from "./glyphSource.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/lifecycle/leafletAdapter.js";
+import { detachMarkerIcons } from "#core/lifecycle/index.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");

@@ -27,10 +27,12 @@ import "./_shared-registry.js";
 import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
 import {
   COMPONENTS,
+  ModeManager,
   assertComponentName,
+  ensureModes,
   generateId,
-} from "#core/lifecycle/component.js";
-import { ModeManager, ensureModes, guardBlocked } from "#core/lifecycle/mode.js";
+  guardBlocked,
+} from "#core/lifecycle/index.js";
 import {
   HINT_DURATION,
   HintManager,

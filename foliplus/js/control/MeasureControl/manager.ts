@@ -36,10 +36,15 @@ import {
   hideDelIcons,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
-import { COMPONENTS, generateId } from "#core/lifecycle/component.js";
-import { requireFoliplus } from "#core/lifecycle/guard.js";
-import { type ModeManager, ensureModes, guardBlocked } from "#core/lifecycle/mode.js";
-import type { ControlEnv } from "#core/lifecycle/type.js";
+import {
+  COMPONENTS,
+  type ControlEnv,
+  type ModeManager,
+  ensureModes,
+  generateId,
+  guardBlocked,
+  requireFoliplus,
+} from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/hint.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";

@@ -26,7 +26,7 @@ import type {
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
-import type { ModeManager as CoreModeManager } from "#core/lifecycle/mode.js";
+import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#platform/locale.js";
 

@@ -2,7 +2,7 @@
 import { fromWgs84 } from "#core/geo/index.js";
 import { createLocationMarker } from "#core/geo/locationMarker.js";
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
-import { guardBlocked } from "#core/lifecycle/mode.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/hint.js";
 import { formatCoord } from "#platform/format.js";
 

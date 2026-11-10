@@ -54,7 +54,7 @@ import {
   snapshotFromPoints,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
-import { generateId } from "#core/lifecycle/component.js";
+import { generateId } from "#core/lifecycle/index.js";
 import {
   METHOD as CLASSIFY_METHOD,
   CLASS_COUNT,

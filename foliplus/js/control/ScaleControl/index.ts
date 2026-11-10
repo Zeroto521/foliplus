@@ -1,5 +1,4 @@
-import { defineControl } from "#core/lifecycle/defineControl.js";
-import { primeControlMap } from "#core/lifecycle/leafletAdapter.js";
+import { defineControl, primeControlMap } from "#core/lifecycle/index.js";
 import { dom } from "#platform/dom.js";
 
 const ScaleControl = defineControl({

@@ -3,7 +3,7 @@ import { buildEditOverlay } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 import { mountDelIcon, toggleDelIcon } from "#core/leaflet/index.js";
-import type { ControlEnv } from "#core/lifecycle/type.js";
+import { type ControlEnv } from "#core/lifecycle/index.js";
 import type { Logger } from "#platform/type.js";
 
 class MeasureMode {
