@@ -129,7 +129,15 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind !== "none")
       .map(d => d.key)
       .sort();
-    expect(replaying).toEqual(["border", "fill", "icon", "iconColor", "label", "size"]);
+    expect(replaying).toEqual([
+      "border",
+      "fill",
+      "icon",
+      "iconColor",
+      "label",
+      "markerColor",
+      "size",
+    ]);
     // Every face of the coalescer is claimed by exactly one frame policy —
     // a face nobody schedules would strand late leaves; a face claimed
     // twice would fight over one queue slot.
@@ -137,7 +145,15 @@ describe("LayerControl style-panel dimension registry", () => {
       .filter(d => d.contentChange.kind === "frame")
       .map(d => (d.contentChange as { face: string }).face)
       .sort();
-    expect(faces).toEqual(["fill", "icon", "iconColor", "label", "size", "stroke"]);
+    expect(faces).toEqual([
+      "fill",
+      "icon",
+      "iconColor",
+      "label",
+      "markerColor",
+      "size",
+      "stroke",
+    ]);
   });
 
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
@@ -370,7 +386,8 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
           k !== "border" &&
           k !== "size" &&
           k !== "icon" &&
-          k !== "iconColor",
+          k !== "iconColor" &&
+          k !== "markerColor",
       ),
     );
   });
