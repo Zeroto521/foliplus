@@ -2,6 +2,7 @@ import type * as L from "leaflet";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_DISMISS, type Dismiss } from "#core/leaflet/panelController.js";
 import {
   ESC_PRIORITY,
   type EscapeHandled,
@@ -1590,13 +1591,13 @@ describe("OverlayRegistry", () => {
   });
 });
 
-/** task-80 — the press channel is pinned to mousedown/click. task-68 ruled
- *  that the overlay registry keeps mousedown/click and does not migrate to
- *  Pointer Events. These guards stop a future "modernise the input" change
- *  from silently switching the channel: the document listeners must stay on
- *  mousedown/click, and `Dismiss.outsidePress` must keep only those two
- *  phases. The forward guards prove the channel is wired; the reverse guard
- *  proves a pointerdown registration would fail, so the guard has teeth. */
+/** The press channel is pinned to mousedown/click (#1043). The overlay
+ *  registry keeps mousedown/click and does not migrate to Pointer Events.
+ *  These guards stop a future "modernise the input" change from silently
+ *  switching the channel: the document listeners must stay on mousedown/click,
+ *  and `Dismiss.outsidePress` must keep only those two phases. The forward
+ *  guards prove the channel is wired; the reverse guard proves a pointerdown
+ *  registration would fail, so the guard has teeth. */
 describe("press channel: mousedown/click only (no pointer events)", () => {
   let registry: OverlayRegistry;
   let addSpy: ReturnType<typeof vi.spyOn>;
@@ -1645,16 +1646,23 @@ describe("press channel: mousedown/click only (no pointer events)", () => {
     expect(clicks.map((call: unknown[]) => call[2]).sort()).toEqual([false, true]);
   });
 
-  it("Dismiss.outsidePress allows only mousedown/click/false", () => {
-    // Runtime enumeration of the legal values. The registry drives the
-    // listener choice off these, so a "pointerdown" value must be
-    // unrepresentable rather than merely unused.
-    const legal = new Set(["mousedown", "click", false]);
-    // A pointer phase is rejected by the registry: registering a surface
-    // that declares it installs no pointer listener (and does not throw,
-    // because the type forbids it at compile time already).
-    expect(legal.has("pointerdown")).toBe(false);
-    expect(legal.has("pointerup")).toBe(false);
+  it("Dismiss.outsidePress still allows only mousedown/click/false", () => {
+    // Exhaustiveness over the product union — NOT a hand-copied Set. The
+    // EXHAUSTIVE object is a mapped-type witness over the string phases:
+    // adding a pointer member to Dismiss["outsidePress"] makes this literal
+    // miss a key and TS fails the compile here. The drift guard is the
+    // compiler. DEFAULT_DISMISS re-reads the product constant.
+    type OutsidePress = NonNullable<Dismiss["outsidePress"]>;
+    type Phase = Exclude<OutsidePress, false>;
+    const EXHAUSTIVE: { [K in Phase]: true } = {
+      mousedown: true,
+      click: true,
+    };
+    void EXHAUSTIVE;
+    expect(DEFAULT_DISMISS.outsidePress).toBe("mousedown");
+    if (DEFAULT_DISMISS.outsidePress !== false) {
+      expect(EXHAUSTIVE[DEFAULT_DISMISS.outsidePress]).toBe(true);
+    }
   });
 
   it("the forward guards bite: a pointerdown install would fail them", () => {
