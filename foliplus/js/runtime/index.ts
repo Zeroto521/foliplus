@@ -24,15 +24,21 @@
 // esbuild rewrites this import to the real generated registry inside .build/
 // (see resolveSharedRegistryPlugin). Tests keep importing the stub.
 import "./_shared-registry.js";
-import { COMPONENTS, assertComponentName, generateId } from "#core/component.js";
-import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/geocoder.js";
+import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/index.js";
+import {
+  COMPONENTS,
+  ModeManager,
+  assertComponentName,
+  ensureModes,
+  generateId,
+  guardBlocked,
+} from "#core/lifecycle/index.js";
 import {
   HINT_DURATION,
   HintManager,
   ensureHint,
   registerHintIcon,
-} from "#core/hint.js";
-import { ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
+} from "#core/overlay/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
 
 // -- Global namespace bootstrap --
@@ -61,7 +67,11 @@ if (!foliplus.isInitialized) {
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });
 
-  // Core module - single file, manually registered.
+  // Core module - single file, manually registered. These two live at
+  // core/lifecycle/component and core/lifecycle/mode; after the clustering the
+  // shims read them from foliplus.core.lifecycle (the namespace scan-registry
+  // folds the whole lifecycle sub into), so these manual publications are the
+  // runtime's own entry points — kept for direct callers, not for shims.
   if (!foliplus.core) foliplus.core = {};
   foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
   // Mode module - single file, manually registered.

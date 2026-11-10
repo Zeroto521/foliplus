@@ -26,7 +26,7 @@ const EXEMPT: string[] = [
   "platform/dom.ts",
   "platform/floating.ts",
   "core/interaction/listCursor.ts",
-  "core/overlayRegistry.ts",
+  "core/overlay/overlayRegistry.ts",
   "ui/listbox.ts",
   "ui/slider.ts",
   "control/ExportControl/crop.ts",

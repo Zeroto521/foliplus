@@ -48,7 +48,7 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";

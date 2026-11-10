@@ -9,14 +9,14 @@ import type {
   HexFeature,
   SelectedPoint,
 } from "./type.js";
+import { vertexMean } from "#core/geo/index.js";
 import {
   ClassifierDependencyError,
   type ClassifyMethod,
   METHOD,
   computeBreaks,
-} from "#core/classify.js";
-import { vertexMean } from "#core/geo/index.js";
-import { safeColorScale } from "#core/palette.js";
+  safeColorScale,
+} from "#core/value/index.js";
 import type { Logger } from "#platform/type.js";
 
 /** Resolve the H3 resolution for a map zoom level. */

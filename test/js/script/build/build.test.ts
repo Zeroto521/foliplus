@@ -91,7 +91,11 @@ describe.skipIf(!distReady)("build artifacts", () => {
       resolve(distDir, "foliplus-ScaleControl.min.js"),
       "utf-8",
     );
-    expect(content).toContain("foliplus.core.defineControl");
+    // The control factory lives in core/lifecycle/defineControl; after the
+    // clustering the shim reads it from the foliplus.core.lifecycle namespace
+    // (the sub scan-registry folds into), so the externalisation marker is the
+    // lifecycle namespace, not a flattened core.defineControl.
+    expect(content).toContain("foliplus.core.lifecycle");
   });
 
   it("component JS externalizes common modules", () => {

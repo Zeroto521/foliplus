@@ -14,10 +14,9 @@ import {
   syncActiveItem,
 } from "./cursor.js";
 import { toggleFold } from "./drag.js";
-import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
-import { isInsideOverlay } from "#core/overlay.js";
+import { HINT_DURATION, isInsideOverlay } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /**

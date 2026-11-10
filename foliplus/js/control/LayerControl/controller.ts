@@ -55,7 +55,7 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
+import { hasAttachedPath, isGroupLike } from "#core/lifecycle/index.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
