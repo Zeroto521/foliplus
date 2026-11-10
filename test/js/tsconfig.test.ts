@@ -74,6 +74,10 @@ const NARROW_CASTS = [
   // (the capability gate), so the dimension registry's row slot narrows with a
   // cast — the same shape every other style row uses.
   { f: "control/LayerControl/ui/style/iconColor.ts", n: 1 },
+  // The marker chassis row factory: buildMarkerColorRow returns
+  // HTMLElement | null (the capability gate), so the dimension registry's
+  // row slot narrows with a cast — the same shape every other style row uses.
+  { f: "control/LayerControl/ui/style/markerColor.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
 

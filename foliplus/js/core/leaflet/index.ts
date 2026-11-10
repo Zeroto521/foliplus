@@ -35,6 +35,7 @@ export {
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
+  applyMarkerColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,

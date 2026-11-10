@@ -147,6 +147,21 @@ const hasIconColorLeaf = (node: unknown): boolean =>
       canPaintGlyphOnIcon((node as { options?: { icon?: unknown } }).options?.icon),
   ) === true;
 
+/** Whether the leaf is a chassis-color carrier: a runtime `setIcon` whose
+ *  authored icon is an AwesomeMarkers (it declares a `markerColor` option —
+ *  the sprite background preset). A bare divIcon, an `L.Icon.Default`
+ *  (`<img>`) and a plain `iconUrl` marker all answer "none": their chassis
+ *  is not the awesome-markers sprite, so changing the preset would not paint
+ *  anything. Same throwing-getter guard as `hasSetIcon` — a hostile getter
+ *  answers nothing rather than walking mid-flight. */
+const hasMarkerColorLeaf = (node: unknown): boolean =>
+  safeRead(
+    () =>
+      typeof (node as { setIcon?: unknown }).setIcon === "function" &&
+      typeof (node as { options?: { icon?: { options?: { markerColor?: unknown } } } })
+        .options?.icon?.options?.markerColor === "string",
+  ) === true;
+
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
@@ -185,6 +200,11 @@ interface LayerCarrierProbe {
   icon: "native" | "none";
   /** Any leaf is an awesome-markers carrier (setIcon + div-based authored icon). */
   iconColor: "native" | "none";
+  /** Any leaf is a chassis-color carrier: a runtime setIcon whose authored
+   *  icon is a div-based AwesomeMarkers (declares a markerColor option). A
+   *  bare divIcon / L.Icon.Default img answers "none" — the chassis is the
+   *  sprite background, not a paintable glyph face. */
+  markerColor: "native" | "none";
   /** The full-tree migratable audit: "mixed" is the degrade signal. */
   migratable: "ok" | "mixed" | "empty";
 }
@@ -195,6 +215,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
   let radius = false;
   let icon = false;
   let iconColor = false;
+  let markerColor = false;
   let known = 0;
   let unknown = 0;
   walkLeaf(node, leaf => {
@@ -203,6 +224,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     if (!radius && isPixelRadiusLeaf(leaf)) radius = true;
     if (!icon && hasSetIcon(leaf)) icon = true;
     if (!iconColor && hasIconColorLeaf(leaf)) iconColor = true;
+    if (!markerColor && hasMarkerColorLeaf(leaf)) markerColor = true;
     if (isMigratableLeaf(leaf)) known += 1;
     else unknown += 1;
   });
@@ -212,6 +234,7 @@ const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
     size: radius ? "native" : "none",
     icon: icon ? "native" : "none",
     iconColor: iconColor ? "native" : "none",
+    markerColor: markerColor ? "native" : "none",
     migratable: unknown > 0 ? "mixed" : known > 0 ? "ok" : "empty",
   };
 };
@@ -257,6 +280,7 @@ export {
   FILL_OPT_IN,
   hasFillLeaf,
   hasMarkerLeaf,
+  hasMarkerColorLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,

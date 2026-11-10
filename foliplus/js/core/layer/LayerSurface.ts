@@ -856,6 +856,7 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities.stroke = probe.stroke;
     this.capabilities.size = probe.size;
     this.capabilities.icon = probe.icon;
+    this.capabilities.markerColor = probe.markerColor;
     // A pane write is honest only while every visible leaf belongs to a
     // family the migrator relocates AND we actually hold a base pane. An
     // empty container stays provisional-true: its leaves arrive later and
@@ -1004,6 +1005,7 @@ const detectCapabilities = (
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
         iconColor: CAP_TIER.NONE,
+        markerColor: CAP_TIER.NONE,
         opacity: CAP_TIER.PANE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1041,6 +1043,7 @@ const detectCapabilities = (
         size: CAP_TIER.NONE,
         icon: CAP_TIER.NONE,
         iconColor: CAP_TIER.NONE,
+        markerColor: CAP_TIER.NONE,
         opacity: CAP_TIER.NATIVE,
         zoomRange,
         label,
@@ -1101,6 +1104,7 @@ const detectCapabilities = (
         size: carrier.size,
         icon: carrier.icon,
         iconColor: carrier.iconColor,
+        markerColor: carrier.markerColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1123,6 +1127,7 @@ const detectCapabilities = (
         size: carrier.size,
         icon: carrier.icon,
         iconColor: carrier.iconColor,
+        markerColor: carrier.markerColor,
         opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
         zoomRange: CAP_TIER.PANE,
         label,
@@ -1142,6 +1147,7 @@ const detectCapabilities = (
       size: CAP_TIER.NONE,
       icon: CAP_TIER.NONE,
       iconColor: CAP_TIER.NONE,
+      markerColor: CAP_TIER.NONE,
       opacity: CAP_TIER.NONE,
       zoomRange: CAP_TIER.NONE,
       label,
