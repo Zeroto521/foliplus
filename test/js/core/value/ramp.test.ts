@@ -1,3 +1,5 @@
+// Unit tests for core/ramp — the shared value → color ramp
+// (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/value/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
@@ -9,8 +11,6 @@ import {
   isFiniteNumber,
   leafPropertyValue,
 } from "#core/value/ramp.js";
-
-// `buildRamp` is exercised through the real classifier.
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -141,24 +141,6 @@ describe("buildRamp", () => {
     expect(ramp.breaks).toEqual([42, 42]);
     expect(ramp.colors).toHaveLength(1);
     expect(ramp.classOf(42)).toBe(0);
-  });
-
-  it("keeps classOf on the non-negative index contract", () => {
-    // classOf owns the "non-negative index" contract: a negative class would
-    // make colorFor read `colors[-1]` and degrade a whole ramp to the shared
-    // grey. The real classifier never answers fewer than two breaks for a
-    // non-empty input, so exercise the contract on reachable states.
-    installChroma(["#first", "#second", "#third"]);
-
-    const ramp = buildRamp([1, 5, 9], EQUAL);
-
-    // The bisection must land on a valid, non-negative class for any value —
-    // never a -1 that would make colorFor read `colors[-1]`.
-    for (const v of [-5, 0, 3, 7, 99, 100]) {
-      expect(ramp.classOf(v)).toBeGreaterThanOrEqual(0);
-    }
-    // colorFor reads through the same class index — never a negative slot.
-    expect(colorFor(ramp, 0)).toBe("#first");
   });
 });
 

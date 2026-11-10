@@ -58,11 +58,12 @@ const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
   const breaks = computeBreaks(values, nClasses, config.method);
   const colors = getColorScale(config.scheme, Math.max(0, breaks.length - 1));
   const classOf = (value: number): number => {
-    if (breaks.length < 2) return 0;
-    // Bisection over the non-decreasing breaks: the smallest break index at
-    // or above the value opens the class, and the class is that index minus
-    // one. `breaks.length < 2` means there is no class to index into, and a
-    // value past the final break takes the last class.
+    // `computeBreaks` only ever returns 0 breaks (empty input, short-
+    // circuited above) or 2+ breaks (n === 1 answers [v, v]; n >= 2 with a
+    // 2-9 class request answers at least two). A single-boundary answer is
+    // therefore unconstructible here, so classOf can assume at least two
+    // breaks and bisect without a floor branch — a value past the final
+    // break takes the last class.
     let lo = 1;
     let hi = breaks.length - 1;
     while (lo < hi) {

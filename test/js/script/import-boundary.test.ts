@@ -443,3 +443,33 @@ describe("JS import boundaries", () => {
     }
   });
 });
+
+// The barrel rule must be live in BOTH directions: the positive guards above
+// prove the tree is clean today, but a rule that never fired would silently
+// drift. These synthetic cases pin the rule's teeth — a future violation
+// must turn red, not pass.
+describe("barrelFor rejects synthetic violations", () => {
+  it("an external consumer's deep path is a cross-tier violation", () => {
+    expect(
+      barrelFor("foliplus/js/control/LayerControl/x.ts", "#core/value/classify.js"),
+    ).toContain("#core/value/index.js");
+  });
+
+  it("a core file's cross-cluster deep path is a cross-cluster violation", () => {
+    expect(
+      barrelFor("foliplus/js/core/layer/intent.ts", "#core/value/classify.js"),
+    ).toContain("#core/value/index.js");
+  });
+
+  it("a documented cycle-safe leaf deep path is allowed", () => {
+    expect(
+      barrelFor("foliplus/js/core/layer/walkLeaf.ts", "#core/lifecycle/mapApi.js"),
+    ).toBeNull();
+  });
+
+  it("a same-cluster deep path is allowed", () => {
+    expect(
+      barrelFor("foliplus/js/core/value/ramp.ts", "#core/value/classify.js"),
+    ).toBeNull();
+  });
+});

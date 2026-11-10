@@ -1,14 +1,14 @@
 // core layer-traversal utilities — pure functions, no DOM / CONFIG.
+import * as CONST from "./const.js";
+import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
+import { walkLeaf } from "./walkLeaf.js";
 import {
   internalLayers,
   layerElements,
   layerIcon,
   layerMap,
   reinitInteraction,
-} from "../lifecycle/leafletAdapter.js";
-import * as CONST from "./const.js";
-import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import { walkLeaf } from "./walkLeaf.js";
+} from "#core/lifecycle/leafletAdapter.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.
