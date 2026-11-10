@@ -3170,4 +3170,58 @@ describe("border options per geometry", () => {
     expect(select).not.toBeNull();
     expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
   });
+
+  it("value mode width input commits the stroke weight through the shared shell", () => {
+    registerGeometryLayer("g_vwc", "line");
+    setIntent(ui, "g_vwc", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_vwc", "borderValue", valueRamp());
+    const detail = openBorderRow("g_vwc");
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    weight.value = "8";
+    weight.dispatchEvent(new Event("change", { bubbles: true }));
+    applyBorderToLayer(ui, "g_vwc");
+    expect(getIntent(ui, "g_vwc", "borderWeight")).toBe(8);
+  });
+
+  it("by-value border mode keeps the width input editable (every mode owns the weight)", () => {
+    registerGeometryLayer("g_vw", "line");
+    const detail = openBorderRow("g_vw");
+    setIntent(ui, "g_vw", "borderStyleMode", FILL_MODE.VALUE);
+    const mode = modeValues(openBorderRow("g_vw"));
+    expect(mode).toContain(FILL_MODE.VALUE);
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    expect(weight.disabled).toBe(false);
+    // The fixture author stroke weight (makeLayerForGeometry) — the width
+    // field reads the author's weight when no user weight is stored.
+    expect(Number(weight.value)).toBe(2);
+  });
+
+  it("by-value border mode width input sits in the right column (size-row)", () => {
+    registerGeometryLayer("g_vw2", "line");
+    setIntent(ui, "g_vw2", "borderStyleMode", FILL_MODE.VALUE);
+    const detail = openBorderRow("g_vw2");
+    const row = detail.querySelector(".foliplus-style-size-row") as HTMLElement;
+    expect(row).not.toBeNull();
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+  });
+
+  it("per-feature original border mode also keeps the width input", () => {
+    registerGeometryLayer("g_porig", "polygon");
+    setIntent(ui, "g_porig", "borderStyleMode", FILL_MODE.ORIGINAL);
+    const detail = openBorderRow("g_porig");
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    expect(weight.disabled).toBe(false);
+  });
 });

@@ -799,6 +799,11 @@ const renderBorderDetail = (
     )) {
       detail.append(row);
     }
+    // The width stays editable in every border mode: the by-value detail
+    // shares the fill's field/method/scheme rows and appends the border's own
+    // width-only row (the same shell follow-fill and per-feature original
+    // use) — one width channel, no per-mode DOM shape.
+    detail.append(buildBorderWidthOnlyRow(ui, layerId, authoredBorder(ui, layerId)));
   } else {
     detail.append(...buildSolidBorderDetail(ui, layerId));
   }
@@ -944,6 +949,15 @@ const bindBorderDetail = (
 ): void => {
   if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
     bindBorderValueDetail(ui, layerId, detail);
+    // Bind the width-only row appended to the value detail: the same shell
+    // binder the other modes use, so the weight commits through one channel.
+    bindBorderRowShell(detail, {
+      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+      onChangeColor: value => commitBorderColor(ui, layerId, value),
+      onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+      onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+    });
   } else {
     bindBorderRowShell(detail, {
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
