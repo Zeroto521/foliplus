@@ -101,6 +101,7 @@
   "LayerControl.style_size": "Size",
   "LayerControl.style_icon": "Icon",
   "LayerControl.style_icon_color": "Icon Color",
+  "LayerControl.style_icon_color_opacity": "Icon Opacity",
   "LayerControl.style_icon_original": "Original",
   "LayerControl.style_icon_unavailable": "Icon \"{name}\" is not supported; the original icon is kept.",
   "LayerControl.style_icon_invalid": "Icon name \"{name}\" is invalid; the original icon is kept.",
