@@ -97,6 +97,13 @@ const buildMarkerIcon = (opts: {
    *  the glyph — `setIcon` replaces the whole icon object, so the color and
    *  the glyph must land in one derived icon, never two successive writes. */
   color?: string;
+  /** A user-set chassis color (one of the awesome-markers preset enum names,
+   *  e.g. "red"/"blue"). The chassis (pin background) is the awesome-markers
+   *  sprite class — re-derive the author icon and let its own
+   *  `_setIconStyles` paint the preset class, so the sprite (gradient +
+   *  stroke, pixel-identical) is never re-created in CSS. Independent of the
+   *  glyph color: both must land in the SAME derived icon, one `setIcon`. */
+  markerColor?: string;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
@@ -145,7 +152,17 @@ const buildMarkerIcon = (opts: {
     // content — className, backgroundImage/backgroundPosition, iconSize
     // and popupAnchor stay pixel-identical by construction, which is
     // exactly the DOM-level contract the lead pinned (m01511).
-    const div = author.createIcon?.() as HTMLElement | undefined;
+    // A user chassis color re-derives the preset class through the author's
+    // own `_setIconStyles` (the awesome-markers override paints
+    // `awesome-marker-icon-<color>` from `options.markerColor`), so the
+    // sprite — gradient, stroke, offsets — is never re-created in CSS.
+    if (opts.markerColor !== undefined) {
+      (this as { options?: { markerColor?: string } }).options = {
+        ...(author as { options?: object }).options,
+        markerColor: opts.markerColor,
+      };
+    }
+    const div = author.createIcon?.call(this) as HTMLElement | undefined;
     if (!div) return div;
     // Carry the author's inner <i> class + inline color (awesome-markers
     // paints `icon-white` via a class and an inline color), so our glyph
@@ -161,7 +178,8 @@ const buildMarkerIcon = (opts: {
     // (awesome-markers paints the glyph inline — the same paint the author's
     // createIcon produced); else the author's declared iconColor option;
     // else white. options.markerColor is the CHASSIS color (the pin's
-    // background), NOT a glyph source — never read it here. One derivation,
+    // background) — the chassis is handled in buildMarkerIcon's markerColor
+    // path above, never read as a glyph source here. One derivation,
     // one paint — color and glyph never split.
     const authorIconColor = (author as { options?: { iconColor?: string } }).options
       ?.iconColor;
@@ -227,6 +245,32 @@ const applyIconColorToLeaves = (
       author,
       glyph: glyph ?? "circle",
       color,
+    });
+    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+  });
+};
+
+/** Apply the user's chassis color to every marker leaf, re-deriving the
+ *  icon in ONE construction with the given glyph and the current icon color
+ *  so the chassis and the glyph/color never split across two `setIcon`
+ *  writes. A missing intent is a no-op. */
+const applyMarkerColorToLeaves = (
+  layer: L.Layer,
+  markerColor: string,
+  glyph: string | null,
+  color?: string,
+): void => {
+  walkLeaf(layer, leaf => {
+    if (!isIconLeaf(leaf)) return;
+    captureAuthorIcon(leaf);
+    const author = authorIcon.get(leaf);
+    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
+    if (author === undefined) return;
+    const derived = buildMarkerIcon({
+      author,
+      glyph: glyph ?? "circle",
+      color,
+      markerColor,
     });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
@@ -308,6 +352,7 @@ const authorGlyphPrefix = (layer: L.Layer): string | null => {
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
+  applyMarkerColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,

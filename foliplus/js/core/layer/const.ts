@@ -115,10 +115,38 @@ const DIM = {
   SIZE: "size",
   ICON: "icon",
   ICON_COLOR: "iconColor",
+  MARKER_COLOR: "markerColor",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
   LABEL: "label",
 } as const;
+
+/** The awesome-markers chassis presets — the 19 enum names the library's
+ *  CSS paints via `.awesome-marker-icon-<name>` sprite offsets. The UI
+ *  vocabulary is exactly this set (a custom chassis color needs our own
+ *  drawn chassis, which is a separate branch); the stored intent value is
+ *  one of these. */
+const MARKER_COLOR_PRESETS = [
+  "red",
+  "darkred",
+  "lightred",
+  "orange",
+  "beige",
+  "green",
+  "darkgreen",
+  "lightgreen",
+  "blue",
+  "darkblue",
+  "lightblue",
+  "purple",
+  "darkpurple",
+  "pink",
+  "cadetblue",
+  "white",
+  "gray",
+  "lightgray",
+  "black",
+] as const;
 
 /** Capability-tier names — how a surface honestly carries a write
  *  ("native" | "pane" | "none"). The `LayerCapabilities` slots' value face:
@@ -192,6 +220,7 @@ export {
   CONTENT_KIND,
   DECLARED_PANE_ROLES,
   DIM,
+  MARKER_COLOR_PRESETS,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
   HIDDEN,

@@ -227,6 +227,7 @@ const CLASSES = {
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
   STYLE_ICON_COLOR_ROW: "foliplus-style-icon-color-row",
+  STYLE_MARKER_COLOR_ROW: "foliplus-style-marker-color-row",
   /** The icon row's trigger button (shows the current glyph or 「原始」). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",

@@ -72,6 +72,7 @@ import {
   replayDeclaredFill,
   replayFillState,
 } from "./style/index.js";
+import { applyMarkerColorToLayer } from "./style/markerColor.js";
 import { applySizeToLayer } from "./style/size.js";
 import {
   dropStyleDimApplies,
@@ -318,6 +319,7 @@ class LayerUI implements LayerUISurface {
       applySizeToLayer(this, layerId);
       applyIconToLayer(this, layerId);
       applyIconColorToLayer(this, layerId);
+      applyMarkerColorToLayer(this, layerId);
     }
     // Author-declared fills are read-time defaults, not stored overrides, so
     // the provenance loop above never reaches a layer the user left alone.
