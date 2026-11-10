@@ -46,6 +46,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { replayFace } from "./replay.js";
 import { buildModeRow } from "./row.js";
 import {
   FACE,
@@ -73,12 +74,14 @@ import {
   type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   STYLE_MODE,
   bindLiveColor,
   bindLiveNumber,
+  dropdownOverlay,
   colorInput as formColorInput,
   formRow,
   inlineControls,
@@ -534,6 +537,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: mode,
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   if (perFeature) {
     // The explanation lives on the control, not in the drawer: the select and
@@ -763,6 +767,14 @@ const FILL_DIMENSION = registerDimension<{
     if (value !== undefined) writes.push([INTENT.FILL_VALUE, value]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleFillApply(ui, layerId);
+    // A follow-fill border is a per-leaf DERIVED paint: when the user
+    // edits the fill (colour, mode, value), the border must re-derive from
+    // each leaf's new paint. The fill write is the single commit path, so
+    // the border replay rides here — no extra listener, no cross-face
+    // event. Only when the stored border mode is follow-fill.
+    if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) === FILL_MODE.FOLLOW_FILL) {
+      replayFace(ui, layerId, FACE.STROKE);
+    }
   },
   /** Cohesive reset: cancel trailing apply, clear both fill overrides,
    *  save, restore the author's fill face from the style bag. */

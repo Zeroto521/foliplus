@@ -189,7 +189,8 @@ const PARSE_OVERRIDE: Record<
   borderStyleMode: data =>
     data.borderStyleMode === FILL_MODE.SOLID ||
     data.borderStyleMode === FILL_MODE.VALUE ||
-    data.borderStyleMode === FILL_MODE.ORIGINAL
+    data.borderStyleMode === FILL_MODE.ORIGINAL ||
+    data.borderStyleMode === FILL_MODE.FOLLOW_FILL
       ? data.borderStyleMode
       : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
@@ -201,6 +202,15 @@ const PARSE_OVERRIDE: Record<
   },
   iconColor: data =>
     isHexColor(data.iconColor) ? normalizeHexColor(data.iconColor) : null,
+  iconColorOpacity: data => {
+    const value = data.iconColorOpacity;
+    return typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 100
+      ? value
+      : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
