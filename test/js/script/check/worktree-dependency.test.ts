@@ -13,7 +13,9 @@ import {
   isInWorktreesDir,
   isWorktree,
   main,
+  resolveTarget,
   runCheck,
+  runCli,
 } from "#script/check/worktree-dependency.mjs";
 
 // A robust per-run scratch root (same as filter-source-key.test.ts).
@@ -153,5 +155,36 @@ describe("main() — worktree judgment", () => {
     mkdirSync(join(wtDir, "node_modules"), { recursive: true });
     expect(main(wtDir)).toBe(1);
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("resolveTarget — readlink error branch (coverage line 70)", () => {
+  it("returns null when readlinkSync throws (path does not exist)", () => {
+    const dir = mkdtempSync(join(TMP_BASE, "worktree-deps-readlink-"));
+    const missing = join(dir, "no-such-junction");
+    expect(resolveTarget(missing)).toBe(null);
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("runCli — CLI entry coverage (line 130)", () => {
+  it("writes main()'s return code into process.exitCode when invoked directly", () => {
+    const prev = process.exitCode;
+    try {
+      // entry must equal the SCRIPT's own import.meta.url (its on-disk path),
+      // not this test file's path. The script lives at script/check/worktree-dependency.mjs
+      // relative to the vitest cwd (the worktree root).
+      const scriptPath = join(
+        process.cwd(),
+        "script",
+        "check",
+        "worktree-dependency.mjs",
+      );
+      // cwd is this worktree: a worktree with a good junction → main returns 0.
+      runCli([process.cwd()], scriptPath);
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = prev;
+    }
   });
 });
