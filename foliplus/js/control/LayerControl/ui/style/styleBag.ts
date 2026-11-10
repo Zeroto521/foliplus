@@ -70,6 +70,7 @@ const FACE = {
   SIZE: "size",
   ICON: "icon",
   ICON_COLOR: "iconColor",
+  MARKER_COLOR: "markerColor",
   LABEL: "label",
 } as const;
 

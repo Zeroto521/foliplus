@@ -13,6 +13,7 @@ import {
 import {
   applyIconColorToLeaves,
   applyIconToLeaves,
+  applyMarkerColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,
@@ -237,6 +238,60 @@ describe("applyIconToLeaves", () => {
     const div = m.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
     expect(inner.className).toContain("fa-circle");
+  });
+});
+
+describe("applyMarkerColorToLeaves", () => {
+  it("keeps the author icon for a default chassis with a non-renderable glyph", () => {
+    // buildMarkerIcon's isDefaultIcon branch: an L.Icon.Default author with a
+    // non-renderable glyph (glyphAvailable false) must return the author icon
+    // unchanged — the honest degradation, never a substituted symbol.
+    (window as any).__glyphProbePainted = false;
+    const author = makeDefaultIconAuthor();
+    const m = makeMarker(author);
+    applyMarkerColorToLeaves(
+      makeMarkerGroup(m),
+      "red",
+      "marker-color-probe",
+      "#ff0000",
+    );
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    expect(m.options.icon).toBe(author);
+  });
+
+  it("derives the chassis through the author options prototype chain", () => {
+    // The markerColor branch inherits the author's options object (defaults
+    // stay reachable) instead of spreading it — Object.create path.
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMarker(author);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", "star", "#ff0000");
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    const div = m.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker");
+  });
+
+  it("derives the chassis through a null author options object (?? null arm)", () => {
+    // The author declares no options object at all — Object.assign inherits
+    // from Object.create(null) so the markerColor write still lands.
+    const author: any = {
+      createIcon: vi.fn(() => {
+        const div = document.createElement("div");
+        div.className = "bare-icon";
+        return div;
+      }),
+    };
+    const m = makeMarker(author);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", null);
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    const div = m.options.icon.createIcon();
+    expect(div.className).toContain("bare-icon");
+  });
+
+  it("skips a non-icon leaf in the walk", () => {
+    const leaf = { options: {} };
+    expect(() =>
+      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "red", null),
+    ).not.toThrow();
   });
 });
 
