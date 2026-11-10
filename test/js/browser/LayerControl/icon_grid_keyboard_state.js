@@ -16,7 +16,8 @@ async (action = "state") => {
   const iconRow = panel.querySelector(".foliplus-style-icon-row");
   if (!iconRow) return { ok: false, reason: "no-icon-row" };
   const trigger = panel.querySelector(".foliplus-style-icon-trigger");
-  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1) return { ok: false, reason: "no-icon-trigger" };
+  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1)
+    return { ok: false, reason: "no-icon-trigger" };
   if (!trigger) return { ok: false, reason: "no-icon-trigger" };
   const grid = panel.querySelector(".foliplus-style-icon-grid");
   const slider = panel.querySelector("[role=slider]");

@@ -23,7 +23,8 @@ async (arg = []) => {
   const iconRow = panel.querySelector(".foliplus-style-icon-row");
   if (!iconRow) return { panel: true, iconRow: false };
   const trigger = panel.querySelector(".foliplus-style-icon-trigger");
-  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1) return { panel: true, iconRow: true, trigger: false, reason: "not-unique-trigger" };
+  if (panel.querySelectorAll(".foliplus-style-icon-trigger").length !== 1)
+    return { panel: true, iconRow: true, trigger: false, reason: "not-unique-trigger" };
   if (!trigger) return { panel: true, iconRow: true, trigger: false };
 
   const flush = () =>
