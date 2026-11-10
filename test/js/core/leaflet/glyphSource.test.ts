@@ -3,7 +3,10 @@
 // invariant it protects.
 import { describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_GLYPH_PREFIX,
+  GLYPH_PREFIXES,
   PICKER_GLYPHS,
+  coerceGlyphPrefix,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
@@ -141,4 +144,47 @@ it("glyphAvailable returns false when neither document.body nor documentElement 
       writable: true,
     });
   }
+});
+
+describe("glyph prefix family", () => {
+  it("declares the solid family as the default and the regular family as a peer", () => {
+    expect(GLYPH_PREFIXES.solid).toBe("fa-solid");
+    expect(GLYPH_PREFIXES.regular).toBe("fa-regular");
+    expect(DEFAULT_GLYPH_PREFIX).toBe(GLYPH_PREFIXES.solid);
+  });
+
+  it("coerces a known family verbatim and falls back to the default for anything else", () => {
+    expect(coerceGlyphPrefix("fa-solid")).toBe("fa-solid");
+    expect(coerceGlyphPrefix("fa-regular")).toBe("fa-regular");
+    expect(coerceGlyphPrefix("fa")).toBe(DEFAULT_GLYPH_PREFIX); // FA4-style
+    expect(coerceGlyphPrefix("fas")).toBe(DEFAULT_GLYPH_PREFIX);
+    expect(coerceGlyphPrefix(undefined)).toBe(DEFAULT_GLYPH_PREFIX);
+    expect(coerceGlyphPrefix("")).toBe(DEFAULT_GLYPH_PREFIX);
+  });
+
+  it("glyphHtml paints under the given family and under the default when omitted", () => {
+    expect(glyphHtml("flag")).toContain('class="foliplus-marker-glyph fa-solid fa-flag"');
+    expect(glyphHtml("flag", "", "", "fa-regular")).toContain(
+      'class="foliplus-marker-glyph fa-regular fa-flag"',
+    );
+  });
+
+  it("the availability probe keys its cache on the family prefix", () => {
+    // A fresh name (never probed elsewhere in this file) so no earlier test's
+    // cache entry (e.g. the no-document run caching "fa-solid|flag"=false) can
+    // poison the assertion. The probe attaches a hidden <i> and reads ::before;
+    // stub it so the cacheKey (prefix|name) is what distinguishes families.
+    const getComputedStyle = vi.fn(() => ({ content: "\uf276" }));
+    vi.stubGlobal("getComputedStyle", getComputedStyle);
+    try {
+      const name = "prefix-cache-probe";
+      expect(glyphAvailable(name, "fa-solid")).toBe(true);
+      expect(glyphAvailable(name, "fa-regular")).toBe(true);
+      // One probe per distinct (prefix|name) key — the raw prefix, not a
+      // normalised one, so a future coerce-in-key regression turns red.
+      expect(getComputedStyle).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

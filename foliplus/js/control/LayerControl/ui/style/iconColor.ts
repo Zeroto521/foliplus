@@ -28,6 +28,7 @@ import {
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
+import { coerceGlyphPrefix } from "#core/leaflet/glyphSource.js";
 import { colorInput, formRow, inlineControls } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -74,7 +75,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // color write never forces a glyph the author never drew.
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
-  applyIconColorToLeaves(layer, color, glyph);
+  applyIconColorToLeaves(layer, color, glyph, coerceGlyphPrefix(ui.config.prefix ?? undefined));
 };
 /** Write the layer's color and replay the walk. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
@@ -103,13 +104,13 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   if (authorColor) {
     // Re-derive with the author paint and the current glyph — color and
     // glyph never split across two writes.
-    applyIconColorToLeaves(layer, authorColor, glyph);
+    applyIconColorToLeaves(layer, authorColor, glyph, coerceGlyphPrefix(ui.config.prefix ?? undefined));
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
     // so resetting the color never clears the glyph (orthogonal).
     resetIconLeaves(layer);
     if (glyph) {
-      applyIconColorToLeaves(layer, "#ffffff", glyph);
+      applyIconColorToLeaves(layer, "#ffffff", glyph, coerceGlyphPrefix(ui.config.prefix ?? undefined));
     }
   }
 };
