@@ -130,6 +130,6 @@
   "LayerControl.style_icon_field": "Field",
   "LayerControl.style_icon_classes": "Classes",
   "LayerControl.style_icon_classes_out_of_range": "Class count is outside the editable range — pick a value to replace it.",
-  "LayerControl.style_icon_scheme": "Glyph scheme"
+  "LayerControl.style_icon_scheme": "Glyph scheme",
   "LayerControl.style_marker_color": "Marker Color"
 }

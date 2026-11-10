@@ -174,7 +174,7 @@ type LayerOverride =
   | "iconColor"
   | "iconColorOpacity"
   | "iconValue"
-  | "iconMode";
+  | "iconMode"
   | "markerColor";
 
 /** One layer's live intent values — the in-memory twin of
