@@ -1832,6 +1832,45 @@ class TestStyleBrowser(LayerControlBrowserBase):
             ], f"reverse range was not persisted: {result}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_slider_pan_shows_following_bubbles(self, browser, tmp_path):
+        """A pan keeps both value bubbles live and following their thumbs.
+
+        The middle segment drags the pair; the acceptance is that both bubbles
+        are on screen at once, each tracking its thumb across a continuous
+        move (a placement that only ran at the pan's start would not move), and
+        that both clear on release.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/pan_bubble_follow"),
+                load_geojson("common", "point_1193_2608"),
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["countA"] == 2, (
+                f"expected 2 live bubbles on pan start: {result}"
+            )
+            assert result["countB"] == 2, (
+                f"expected 2 live bubbles after the move: {result}"
+            )
+            assert result["moved0"], (
+                f"the lower bubble did not follow its thumb: {result}"
+            )
+            assert result["moved1"], (
+                f"the upper bubble did not follow its thumb: {result}"
+            )
+            assert result["text0"] == result["aria0"], (
+                f"lower bubble text does not match its thumb: {result}"
+            )
+            assert result["text1"] == result["aria1"], (
+                f"upper bubble text does not match its thumb: {result}"
+            )
+            assert result["countAfterUp"] == 0, (
+                f"bubbles did not clear on release: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
         """Closing the panel while a drag is live commits what the pointer set.
 

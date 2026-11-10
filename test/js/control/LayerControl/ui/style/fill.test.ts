@@ -51,7 +51,7 @@ const makeFillableLayer = () => {
     return leaf;
   };
   // One color across leaves: this fixture is the "author paints one fill"
-  // layer, so the fill row keeps its normal solid/ramp arms. Per-feature
+  // layer, so the fill row keeps its normal solid/ramp modes. Per-feature
   // detection has its own fixture below.
   const leaves = [
     makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true } as any),
@@ -244,7 +244,7 @@ const initWithAuthorScale = ({
   return { manager, ui, layer };
 };
 /** A fillable layer whose leaves carry a numeric
- *  `feature.properties.count`, so the ramp arm has values to classify. */
+ *  `feature.properties.count`, so the ramp mode has values to classify. */
 const makeRampedLayer = (values: number[]) => {
   const makeLeaf = (value: number) => {
     const leaf = new L.Polygon() as {
@@ -794,7 +794,7 @@ describe("LayerUI style panel — fill color", () => {
     opacity.dispatchEvent(new Event("change", { bubbles: true }));
 
     // An opacity-only commit pulls the author's color back in the same
-    // payload, so nothing an earlier arm left can sit under the opacity.
+    // payload, so nothing an earlier mode left can sit under the opacity.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0.4,
@@ -900,7 +900,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
   });
 
-  it("FILL_DIMENSION.value reports the ramp arm when the map is painted by value", () => {
+  it("FILL_DIMENSION.value reports the ramp mode when the map is painted by value", () => {
     // A ramp config without an explicit mode is the pre-fillMode record shape
     // and still paints the ramp, so the descriptor must say "value" rather than
     // the stored mode's solid fallback — or the panel would claim solid while
@@ -918,7 +918,7 @@ describe("LayerUI style panel — fill color", () => {
     });
 
     // An explicit solid mode wins over a stored ramp config — the config is
-    // kept for the next switch but the arm is solid.
+    // kept for the next switch but the mode is solid.
     setIntent(ui, "overlay1", "fillMode", "solid");
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({ mode: "solid" });
   });
@@ -1520,7 +1520,7 @@ describe("buildFillRow", () => {
     expect(label?.textContent).toBe("LayerControl.style_fill_mode");
   });
 
-  it("defaults to the solid arm with the by-value option available", () => {
+  it("defaults to the solid mode with the by-value option available", () => {
     const row = buildFillRow(ui, "overlay1");
     const select = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
@@ -1533,7 +1533,7 @@ describe("buildFillRow", () => {
     expect(rampOption.disabled).toBe(false);
   });
 
-  it("renders only the solid arm when the layer has no numeric field", () => {
+  it("renders only the solid mode when the layer has no numeric field", () => {
     const fixture = initWithFillLayer();
     // Count is the only numeric property; make it a string-only layer.
     fixture.manager.registerLayer({
@@ -1564,8 +1564,8 @@ describe("buildFillRow", () => {
 
     const row = buildFillRow(fixture.ui, "textonly");
 
-    // No mode select at all: a layer with one honest arm does not get a
-    // dropdown that can only ever show that arm. No hint text either.
+    // No mode select at all: a layer with one honest mode does not get a
+    // dropdown that can only ever show that mode. No hint text either.
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
@@ -1575,7 +1575,7 @@ describe("buildFillRow", () => {
     ).not.toBeNull();
   });
 
-  it("puts the solid arm's color and opacity in one row", () => {
+  it("puts the solid mode's color and opacity in one row", () => {
     const row = buildFillRow(ui, "overlay1");
     const fillRows = row.querySelectorAll(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
 
@@ -2079,7 +2079,7 @@ describe("replayFillState", () => {
       classes: 3,
       scheme: "Reds",
     });
-    // The solid arm's opacity survives the mode switch — the ramp replaces
+    // The solid mode's opacity survives the mode switch — the ramp replaces
     // only the color.
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0.25);
 
@@ -2138,7 +2138,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("a ramp config with no explicit mode paints the ramp", () => {
     // The pre-fillMode record shape: the config's presence alone selects the
-    // arm, so a persisted record written before fillMode existed still paints.
+    // mode, so a persisted record written before fillMode existed still paints.
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillValue", VALUE);
 
@@ -2167,7 +2167,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   });
 
   it("a category ramp with no findable carrier yields no field candidates", () => {
-    // The category arm resolves the candidate list through the registry and
+    // The category mode resolves the candidate list through the registry and
     // findLayer; when the carrier cannot be re-resolved at all (a stale entry
     // mid-teardown) the list is empty and the stored name resolves to the
     // empty field rather than throwing.
@@ -2196,11 +2196,11 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
     applyFillToLayer(ui, "overlay1");
 
-    // Neither arm has a value, so nothing is written — the author's fill stays.
+    // Neither mode has a value, so nothing is written — the author's fill stays.
     expect(rampLayer.leaves[0].setStyle).not.toHaveBeenCalled();
   });
 
-  it("the ramp arm carries the user's solid-mode opacity", () => {
+  it("the ramp mode carries the user's solid-mode opacity", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", VALUE);
     setIntent(ui, "overlay1", "fillOpacity", 0.25);
@@ -2214,7 +2214,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     });
   });
 
-  it("the ramp arm omits the opacity when the user never set one", () => {
+  it("the ramp mode omits the opacity when the user never set one", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", VALUE);
 
@@ -2229,7 +2229,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("switching back to solid with no solid override restores the author's face", () => {
     // A solid apply with nothing to own must clear the ramp's output, not
-    // skip the walk: a skipped walk leaves the previous arm's color on the
+    // skip the walk: a skipped walk leaves the previous mode's color on the
     // map. The ramp config stays stored for the next switch.
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", VALUE);
@@ -2305,9 +2305,9 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(getIntent(ui, "overlay1", "fillValue")).toEqual(VALUE);
   });
 
-  it("a ramp arm on a color basemap paints nothing rather than the stored solid", () => {
+  it("a ramp mode on a color basemap paints nothing rather than the stored solid", () => {
     // A basemap has no leaves to classify, so the ramp must degrade to the
-    // pane's existing paint - and it must not fall through to the solid arm,
+    // pane's existing paint - and it must not fall through to the solid mode,
     // which would paint the stored solid color while the panel claims ramp.
     // The ramp config stays stored, so a later switch back has something to
     // restore against.
@@ -2328,7 +2328,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillValue")).toEqual(VALUE);
   });
 
-  it("FILL_DIMENSION.write selects the ramp arm and paints on the next frame", () => {
+  it("FILL_DIMENSION.write selects the ramp mode and paints on the next frame", () => {
     const schedule = vi.fn();
     ui.c.persistence = { schedule } as never;
 
@@ -2350,9 +2350,9 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(last.fillOpacity).toBe(0.4);
   });
 
-  it("FILL_DIMENSION.write with a solid patch leaves the ramp arm stored", () => {
+  it("FILL_DIMENSION.write with a solid patch leaves the ramp mode stored", () => {
     // The writer writes the keys it is given and no more: a color pick while
-    // the ramp arm is active must not delete the stored ramp, which is what a
+    // the ramp mode is active must not delete the stored ramp, which is what a
     // mode switch back restores.
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", VALUE);
@@ -2366,9 +2366,9 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   });
 
   it("a solid switch leaves the author's face in force on mouseout", () => {
-    // The ramp config stays stored across the switch (it is the arm's
-    // next-time state, not evidence the arm is active), so the getter a ramp
-    // apply registered is still reachable. The solid arm has to take the leaf
+    // The ramp config stays stored across the switch (it is the mode's
+    // next-time state, not evidence the mode is active), so the getter a ramp
+    // apply registered is still reachable. The solid mode has to take the leaf
     // back, or the next mouseout would repaint the ramp over the author's
     // face. The getter's own mode check is asserted in fillValue.test.ts.
     const handlers: Array<() => void> = [];
@@ -2544,7 +2544,7 @@ describe("fill mode row — solid ↔ color by value", () => {
       const call = leaf.setStyle.mock.calls.at(-1)?.[0];
       expect(rampColors).toContain(call?.fillColor);
     }
-    // The detail slot now shows the ramp arm's three rows.
+    // The detail slot now shows the ramp mode's three rows.
     expect(
       details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
     ).not.toBeNull();
@@ -2558,7 +2558,7 @@ describe("fill mode row — solid ↔ color by value", () => {
 
     expect(getIntent(ui, "overlay1", "fillMode")).toBe("solid");
     expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "count" });
-    // The solid arm is back: swatch + opacity, no ramp controls.
+    // The solid mode is back: swatch + opacity, no ramp controls.
     expect(
       details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
@@ -2568,12 +2568,12 @@ describe("fill mode row — solid ↔ color by value", () => {
   });
 
   it("a stored category value config survives mode re-entry and value writes unclamped", () => {
-    // persistedValue (fill.ts) has two arms: the category arm returns the
+    // persistedValue (fill.ts) has two modes: the category mode returns the
     // record as-is (no class-count clamp — method/classes are type-required
-    // but unused at runtime on a category), while only the numeric arm clamps
+    // but unused at runtime on a category), while only the numeric mode clamps
     // classes to the persistence validator's range. A category record must
     // therefore survive a user write without being coerced to numeric. Both
-    // write paths are driven here: re-entering the value arm through the mode
+    // write paths are driven here: re-entering the value mode through the mode
     // select (writeFillMode) and a method change on the value detail
     // (writeFillValue).
     installChroma(["#111111", "#222222"]);
@@ -2588,7 +2588,7 @@ describe("fill mode row — solid ↔ color by value", () => {
 
     // value -> solid -> value: the second value entry writes through
     // writeFillMode, which persists valueForUi(...) — the stored category
-    // record — through persistedValue's category arm.
+    // record — through persistedValue's category mode.
     switchMode(block, "solid");
     switchMode(block, "value");
 
@@ -2647,7 +2647,7 @@ describe("fill mode row — solid ↔ color by value", () => {
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
     expect(color).not.toBeNull();
-    // The single row binds the same live swatch the solid arm uses.
+    // The single row binds the same live swatch the solid mode uses.
     color.value = "#123456";
     color.dispatchEvent(new Event("input", { bubbles: true }));
     flushFill();
@@ -2671,7 +2671,7 @@ describe("fill mode row — solid ↔ color by value", () => {
 
   it("shows the stored ramp as solid when the layer has no numeric field", () => {
     // A record can outlive the data it was built for (field removed). The
-    // panel must fall back to the solid arm instead of showing a ramp select
+    // panel must fall back to the solid mode instead of showing a ramp select
     // whose detail cannot classify anything.
     ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
     for (const leaf of layer.leaves) {
@@ -2687,7 +2687,7 @@ describe("fill mode row — solid ↔ color by value", () => {
 
     const block = buildFillRow(ui, "overlay1");
 
-    // One honest arm: solid controls, no mode select, no ramp detail.
+    // One honest mode: solid controls, no mode select, no ramp detail.
     expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
     expect(
       details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
@@ -2902,7 +2902,7 @@ describe("fill row — original colors", () => {
   const countStops = (gradient: string): number =>
     (gradient.match(/%/g) ?? []).length / 2;
 
-  it("opens on the author's colors and offers the arm as a choice", () => {
+  it("opens on the author's colors and offers the mode as a choice", () => {
     const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
@@ -2913,17 +2913,17 @@ describe("fill row — original colors", () => {
     // The state a layer opens in is still the author's own paint...
     expect(select.value).toBe("original");
     // ...and it is now a state the user can come back to, so its option is a
-    // real option, named like the arm it selects.
+    // real option, named like the mode it selects.
     expect(option).not.toBeNull();
     expect(option!.disabled).toBe(false);
     expect(option!.textContent).toBe("LayerControl.style_mode_original");
     // Opening writes no intent: the map keeps the author's own paint until the
-    // user picks an arm.
+    // user picks a mode.
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
     for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
-  it("puts every readout on the by-value arm's row grid", () => {
+  it("puts every readout on the by-value mode's row grid", () => {
     const { ui } = initWithAuthorScale();
     const row = blockOf(ui);
     const children = [...details(row).children];
@@ -3088,7 +3088,7 @@ describe("fill row — original colors", () => {
       readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
     ).toBe("64+");
     // A categorical layer has no classification: the method row still renders
-    // (the arm stays aligned with the by-value grid) but states no method, and
+    // (the mode stays aligned with the by-value grid) but states no method, and
     // no field row either — the panel states the colors, their count and a
     // honest dash for the classification they did not draw.
     expect(
@@ -3247,7 +3247,7 @@ describe("fill row — original colors", () => {
     ]);
   });
 
-  it("seeds the by-value arm with the shared defaults", () => {
+  it("seeds the by-value mode with the shared defaults", () => {
     installChroma(["#111111", "#222222", "#333333"]);
     const { ui } = initWithAuthorScale();
     const row = blockOf(ui);
@@ -3266,7 +3266,7 @@ describe("fill row — original colors", () => {
       classes: CLASS_COUNT.DEFAULT,
       scheme: "Viridis",
     });
-    // The original arm stays offered: it is a state the user can return to.
+    // The original mode stays offered: it is a state the user can return to.
     expect(select.value).toBe("value");
     expect(select.querySelector('option[value="original"]')).not.toBeNull();
     // The ramp detail is the user's classification now.
@@ -3319,7 +3319,7 @@ describe("fill row — original colors", () => {
     expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "score" });
   });
 
-  it("leaves the by-value arm out when the layer offers no numeric field", () => {
+  it("leaves the by-value mode out when the layer offers no numeric field", () => {
     const { ui, layer } = initWithAuthorScale();
     for (const leaf of layer.leaves as Array<{
       feature: { properties: Record<string, unknown> };
@@ -3340,11 +3340,11 @@ describe("fill row — original colors", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
 
     // The author's per-feature colors are still what the layer paints; only a
-    // fill mode intent takes the arm over.
+    // fill mode intent takes the mode over.
     expect(modeSelect(blockOf(ui)).value).toBe("original");
   });
 
-  it("shows the stored arm but keeps the original one offered", () => {
+  it("shows the stored mode but keeps the original one offered", () => {
     const { ui } = initWithAuthorScale();
     setIntent(ui, "overlay1", "fillMode", "solid");
 
@@ -3420,7 +3420,7 @@ describe("fill ramp persistence and reset", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reopening the panel shows the stored arm and replays the ramp", () => {
+  it("reopening the panel shows the stored mode and replays the ramp", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", {
       field: "count",
@@ -3447,7 +3447,7 @@ describe("fill ramp persistence and reset", () => {
     ).toBe("count");
   });
 
-  it("reset clears both arms' intents and the panel opens solid", () => {
+  it("reset clears both modes' intents and the panel opens solid", () => {
     setIntent(ui, "overlay1", "fillMode", "value");
     setIntent(ui, "overlay1", "fillValue", {
       field: "count",
@@ -3470,7 +3470,7 @@ describe("fill ramp persistence and reset", () => {
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
   });
 
-  it("clearIntent on the ramp keeps the solid arm untouched", () => {
+  it("clearIntent on the ramp keeps the solid mode untouched", () => {
     setIntent(ui, "overlay1", "fillMode", "solid");
     setIntent(ui, "overlay1", "fillColor", "#123456");
     setIntent(ui, "overlay1", "fillValue", {
@@ -3544,7 +3544,7 @@ describe("fill row — original colors option", () => {
   const modeSelect = (row: HTMLElement): HTMLSelectElement =>
     row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
 
-  it("offers the original colors beside the other arms", () => {
+  it("offers the original colors beside the other modes", () => {
     const { ui } = initWithPerFeatureLayer();
     const row = buildFillRow(ui, "feature1");
     const select = modeSelect(row);
@@ -3570,7 +3570,7 @@ describe("fill row — original colors option", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
-  it("keeps the solid arm when the leaves share one color", () => {
+  it("keeps the solid mode when the leaves share one color", () => {
     const { ui } = initWithPerFeatureLayer({
       colors: ["#aabbcc", "#aabbcc"],
       perFeature: false,
@@ -3581,7 +3581,7 @@ describe("fill row — original colors option", () => {
     expect(select.querySelector('option[value="original"]')).toBeNull();
   });
 
-  it("keeps the solid arm for a layer without the explore color property", () => {
+  it("keeps the solid mode for a layer without the explore color property", () => {
     const { ui } = initWithPerFeatureLayer({
       perFeature: false,
       fillAuthor: null,
@@ -3599,7 +3599,7 @@ describe("fill row — original colors option", () => {
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
     expect(select.value).toBe("solid");
-    // The way back: the arm is still on the layer, so the option stays.
+    // The way back: the mode is still on the layer, so the option stays.
     expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
@@ -3658,7 +3658,7 @@ describe("fill row — original colors option", () => {
     select.dispatchEvent(new Event("change", { bubbles: true }));
     flushStyleDimApply(FACE.FILL, "feature1");
 
-    // The arm is stored, so it survives a reload and a mode switch in either
+    // The mode is stored, so it survives a reload and a mode switch in either
     // direction; the map goes back to each leaf's own author color.
     expect(getIntent(ui, "feature1", "fillMode")).toBe("original");
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -3692,7 +3692,7 @@ describe("fill row — original colors option", () => {
     expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("value");
   });
 
-  it("choosing the arm it is already in writes nothing", () => {
+  it("choosing the mode it is already in writes nothing", () => {
     const { ui } = initWithPerFeatureLayer();
     const row = buildFillRow(ui, "feature1");
     document.body.append(row);
@@ -3701,11 +3701,11 @@ describe("fill row — original colors option", () => {
     modeSelect(row).dispatchEvent(new Event("change", { bubbles: true }));
 
     // The row opens on the author's colors without an intent; re-selecting the
-    // arm it is already in must not turn that into a stored one.
+    // mode it is already in must not turn that into a stored one.
     expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
   });
 
-  it("does not replay a stale override on mouseout once back in the original arm", () => {
+  it("does not replay a stale override on mouseout once back in the original mode", () => {
     const { ui, layer } = initWithPerFeatureLayer();
     let handler: (() => void) | null = null;
     for (const leaf of layer.leaves as Array<{ on: unknown }>) {
@@ -3738,7 +3738,7 @@ describe("fill row — original colors option", () => {
     }
   });
 
-  it("reset restores every leaf's own author color and the original arm", () => {
+  it("reset restores every leaf's own author color and the original mode", () => {
     const { ui, layer } = initWithPerFeatureLayer();
     commitNow(ui, "feature1", "color", "#ff0000");
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -3919,7 +3919,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ]);
   });
 
-  it("opens the panel on the declared arm with the declared values", () => {
+  it("opens the panel on the declared mode with the declared values", () => {
     const { ui } = declaredRampFixture({
       field: "count",
       method: "quantile",
@@ -3949,7 +3949,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // author's palette: no per-feature/author note contradicts it.
     expect(mode.title).toBe("");
     // No author per-feature paint on this layer, so there is no "Original
-    // colors" arm to offer beside the declared ramp.
+    // colors" mode to offer beside the declared ramp.
     expect(mode.querySelector('option[value="original"]')).toBeNull();
   });
 
@@ -4035,7 +4035,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
   });
 
   it("drops a kind-absent declaration whose field mixes number and category values", () => {
-    // The author named a field that drives no single arm (numbers and strings
+    // The author named a field that drives no single mode (numbers and strings
     // in one column): the declaration is dropped whole rather than painted
     // over a mismatched column, the same "no usable kind" rule an all-null
     // field gets — with its own one-time inference warning.
@@ -4165,7 +4165,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     });
 
     // Not silently re-pointed at "count": the whole declaration falls back to
-    // the solid arm instead of painting a column the author never named.
+    // the solid mode instead of painting a column the author never named.
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
     const mode = buildFillRow(ui, "overlay1").querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
@@ -4215,10 +4215,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ) as HTMLSelectElement;
 
     expect(mode.value).toBe("value");
-    // The three arms survive a declaration: the author's paint is still under
+    // The three modes survive a declaration: the author's paint is still under
     // the ramp, so "Original Colors" stays selectable beside it.
     expect(mode.querySelector('option[value="original"]')).not.toBeNull();
-    // The note explains that arm, which is still on offer, so it does not
+    // The note explains that mode, which is still on offer, so it does not
     // contradict the declared ramp beside it.
     expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
     const rampColors = ["#111111", "#222222", "#333333"];
@@ -4263,7 +4263,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     });
 
     // Nobody has chosen yet, and the layer does paint per feature: the
-    // declared ramp is still the arm the panel and the map show.
+    // declared ramp is still the mode the panel and the map show.
     expect(modeSelect(row()).value).toBe("value");
     expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
     expect(getIntent(ui, "feature1", "fillValue")).toBeUndefined();
@@ -4288,7 +4288,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(FILL_DIMENSION.value!(ui, "feature1")?.mode).toBe("original");
     const block = row();
     expect(modeSelect(block).value).toBe("original");
-    // The Original Colors arm is read-only: the author's presentation, with no
+    // The Original Colors mode is read-only: the author's presentation, with no
     // control to edit it.
     expect(details(block).querySelector("select")).toBeNull();
     // The map follows the author's presentation again, not the ramp.
@@ -4445,7 +4445,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       });
 
       // The detected state is the author's paint, not a fallback: a reconnect
-      // must not degrade it into the solid arm.
+      // must not degrade it into the solid mode.
       const mode = buildFillRow(ui, "feature1").querySelector(
         `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
       ) as HTMLSelectElement;
@@ -4491,7 +4491,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
   describe("category fill — foliplus={'fill': {'ramp': {'kind': 'category', ...}}}", () => {
     /** A categorical layer: leaves carry a string `cat` property, so the
-     *  category arm has labels to classify. */
+     *  category mode has labels to classify. */
     const makeCategoryLayer = (labels: string[]) => {
       const makeLeaf = (label: string) => {
         const leaf = new L.Polygon() as L.Polygon & {
@@ -4600,8 +4600,8 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("infers category for a kind-absent declaration on a string column", () => {
       // A declaration that names no kind on a string column: fill.ts infers
-      // the arm from the layer's own values, so it paints as a category ramp
-      // instead of dropping to the solid arm (the author named a field, and
+      // the mode from the layer's own values, so it paints as a category ramp
+      // instead of dropping to the solid mode (the author named a field, and
       // the data says it is categorical).
       const { ui, layer } = categoryFixture(["forest", "water"], {
         field: "cat",
@@ -4611,16 +4611,16 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       });
 
       expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("value");
-      // The inferred category arm paints the distinct labels, not the author
+      // The inferred category mode paints the distinct labels, not the author
       // face and not a dropped-to-solid fallback.
       expect(painted(layer)).toEqual(["#111111", "#222222"]);
     });
 
     it("a kind-absent declaration with the default scheme takes the category default palette", () => {
       // The author named no scheme on a string column that infers category:
-      // the categorical arm needs a discrete palette, so the numeric DEFAULT
+      // the categorical mode needs a discrete palette, so the numeric DEFAULT
       // (Viridis) is replaced by the category default (Set3) — a named scheme
-      // is kept verbatim, but the default is not carried across the arm.
+      // is kept verbatim, but the default is not carried across the mode.
       const { ui, layer } = categoryFixture(["forest", "water"], {
         field: "cat",
         method: "equal",
@@ -4641,9 +4641,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     it("category field resolution re-resolves through findLayer while the registry layer is unlinked", () => {
       // No field cache has been populated (the label panel has not run),
-      // so the category arm falls to the tree walk — which re-resolves the
+      // so the category mode falls to the tree walk — which re-resolves the
       // carrier through findLayer when the registry reference is still null,
-      // the same late-binding defense the numeric arm uses.
+      // the same late-binding defense the numeric mode uses.
       installChroma(["#111111", "#222222"]);
       installLeafletGlobals();
       const layer = makeCategoryLayer(["forest", "water"]);
@@ -4663,10 +4663,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         ],
       });
       (ui.c.layerRegistry.get("overlay1") as { layer: unknown }).layer = null;
-      // The field cache lists only a numeric column, so the category arm's
+      // The field cache lists only a numeric column, so the category mode's
       // candidate list is empty there and falls to the tree walk — which
       // re-resolves the carrier through findLayer while the registry
-      // reference is null, the same late-binding defense the numeric arm uses.
+      // reference is null, the same late-binding defense the numeric mode uses.
       ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
       vi.spyOn(ui.c, "findLayer").mockReturnValue(layer as never);
       expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("value");
@@ -4790,13 +4790,13 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       expect(painted(layer)).toEqual(["#111111", "#222222"]);
     });
 
-    it("keeps a declared category ramp on the value arm of the panel", () => {
+    it("keeps a declared category ramp on the value mode of the panel", () => {
       const { ui } = categoryFixture(["forest", "water"], {
         kind: "category",
         field: "cat",
         scheme: "Set3",
       });
-      // A1 exposes the category arm on the value model; the panel ROW wiring
+      // A1 exposes the category mode on the value model; the panel ROW wiring
       // (buildFillRow/buildRampDetail still gate the ramp option on numeric
       // fields) is the A2 follow-up, so the row-level assertion is covered there.
       expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
@@ -4811,7 +4811,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
  *  the registry and the row read to tell where the current fill comes from.
  *  The three states are driven directly against the descriptor — the same
  *  contract the per-dimension registry tests assert for the other
- *  dimensions, exercised here so the fill arm's own provenance is pinned. */
+ *  dimensions, exercised here so the fill mode's own provenance is pinned. */
 describe("FILL_DIMENSION.valueSource — provenance", () => {
   let manager: LayerController;
   let ui: LayerUI;

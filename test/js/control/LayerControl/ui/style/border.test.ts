@@ -1126,8 +1126,8 @@ describe("applyBorderToLayer", () => {
     expect(swatch.value).toBe("#ff0000");
   });
 
-  it("resolves the live stroke config through the value arm's callbacks", () => {
-    // Lines 331-333: the value arm derives live config closures (resolveStored,
+  it("resolves the live stroke config through the value mode's callbacks", () => {
+    // Lines 331-333: the value mode derives live config closures (resolveStored,
     // effectiveBorderValue, effectiveBorderMode) so the pin's getter agrees
     // with the paint. Exercise them through a real value-mode apply.
     installChroma(["#111111", "#222222", "#333333"]);
@@ -1142,7 +1142,7 @@ describe("applyBorderToLayer", () => {
     expect(strokeCall).toMatchObject({ stroke: true });
     expect(typeof strokeCall.color).toBe("string");
 
-    // Fire the highlight pin's mouseout replay: this runs the value arm's
+    // Fire the highlight pin's mouseout replay: this runs the value mode's
     // live-config closures (resolveStored, effectiveBorderValue,
     // effectiveBorderMode) so the replay agrees with the paint.
     const mouseout = (leaf.on as any).mock.calls.find(
@@ -1364,7 +1364,7 @@ describe("buildBorderRow", () => {
 
     const row = buildBorderRow(ui, "vec1");
 
-    // Same colour control as the single-color arm — a real swatch input, so
+    // Same colour control as the single-color mode — a real swatch input, so
     // the ORIGINAL row stays pixel-identical to SINGLE — only inert: it must
     // not open a picker or accept an edit.
     const readOnly = row.querySelector(
@@ -1376,7 +1376,7 @@ describe("buildBorderRow", () => {
     expect(readOnly?.readOnly).toBe(true);
     // The shared no-edit class is present so the unified hover rule in
     // common/input.css excludes it — a disabled border swatch carries no
-    // hover/focus hint, same channel as the fill original arm's read-only box.
+    // hover/focus hint, same channel as the fill original mode's read-only box.
     expect(readOnly?.classList.contains("foliplus-readonly")).toBe(true);
     // The weight stays editable: it is a user-facing stroke attribute.
     const weight = row.querySelector(
@@ -1404,7 +1404,7 @@ describe("buildBorderRow", () => {
   });
 
   it("shows the author's stroke again after a solid → original round-trip", () => {
-    // The reported bug: set a color in the single-color (solid) arm, switch
+    // The reported bug: set a color in the single-color (solid) mode, switch
     // back to ORIGINAL, and the row showed the user's color instead of the
     // author's. ORIGINAL owns no user color — the row must read the author
     // face, never INTENT.BORDER_COLOR (which stays stored for the return to
@@ -1864,8 +1864,8 @@ const installChroma = (colors: string[]): void => {
   } as never;
 };
 
-/** A feature leaf the value arm classifies: an areal polygon (so the fill
- *  arm's walkFillLeaves reaches it too) with a numeric property. */
+/** A feature leaf the value mode classifies: an areal polygon (so the fill
+ *  mode's walkFillLeaves reaches it too) with a numeric property. */
 const makeFeatureLeaf = (
   count: number,
   color = "#ff0000",
@@ -1878,7 +1878,7 @@ const makeFeatureLeaf = (
     geometry: { type: "Polygon" },
     properties: { count },
   };
-  // A spy that ALSO mutates options in place — the value arm writes
+  // A spy that ALSO mutates options in place — the value mode writes
   // fillColor/color through setStyle, and a bare vi.fn() would swallow it,
   // leaving options reads undefined. Mutating mirrors Leaflet's Path.setStyle
   // (setOptions(this, style)) while the spy still records the call.
@@ -2013,7 +2013,7 @@ describe("value-stroke wiring (C1–C7)", () => {
 
   // C4: mode resolution is symmetric with the fill — a ramp with no explicit
   // mode reads as value, and no ramp reads as solid.
-  it("C4 resolves the mode symmetrically with the fill arm", () => {
+  it("C4 resolves the mode symmetrically with the fill mode", () => {
     expect(resolveStrokeMode(undefined, countRamp())).toBe("value");
     expect(resolveStrokeMode(undefined, undefined)).toBe("solid");
     expect(resolveStrokeMode("solid", countRamp())).toBe("solid");
@@ -2128,7 +2128,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("T1 seeds a numeric value config and shows the value detail when the user picks by value", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Original arm (default on a polygon border): the block carries the
+    // Original mode (default on a polygon border): the block carries the
     // mode select and a solid detail; no value field rows are shown.
     const select = modeSelectOf(block);
     expect(select).not.toBeNull();
@@ -2154,7 +2154,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Display arm is original (no mode intent), so the detail is solid,
+    // Display mode is original (no mode intent), so the detail is solid,
     // but the stored config is the seed for a later value switch.
     changeSelect(modeSelectOf(block), "value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
@@ -2251,6 +2251,118 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(updated.classes).toBe(4);
   });
 
+  // ── persistedBorderValue branch coverage (codecov patch target) ──
+  // border.ts:250-265 has two arms: CATEGORY passes classes through as-is
+  // (line 256), NUMERIC clamps classes into [CLASS_COUNT.MIN, MAX] (line 263).
+  // Existing tests drive only the NUMERIC arm; these two cover both branches
+  // and prove the semantic difference (category preserves out-of-vocab classes,
+  // numeric clamps them).
+
+  /** A category value config with out-of-vocabulary classes (43 and 0 are both
+   *  outside CLASS_COUNT_VALUES=[2..9]). Used to prove the CATEGORY arm does
+   *  NOT clamp — it passes the user's raw choice through untouched. */
+  const categoryOut = (classes: number): ValueConfig => ({
+    kind: "category",
+    field: "count",
+    method: "jenks",
+    classes,
+    scheme: DEFAULT_SCHEMES[0],
+  });
+
+  it("T8a CATEGORY value config passes classes through without clamping", () => {
+    // Write a category config with classes=43 (outside the [2..9] vocabulary)
+    // through the real persistence path (writeBorderValue → persistedBorderValue
+    // → BORDER_DIMENSION.write → intentStore.setRaw → saveState).
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // Force the stored config to CATEGORY with out-of-vocab classes, then
+    // trigger a value-detail change (method) to drive writeBorderValue.
+    setIntent(ui, "vec1", "borderValue", categoryOut(43));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+
+    // Read back from intent: the CATEGORY arm must preserve classes=43 as-is.
+    // (getIntent surfaces the field through resolvedValue, which drops "count"
+    // because the layer holds no category fields — that is a display-side
+    // resolve, not the persisted shape.)
+    const persisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(persisted.kind).toBe("category");
+    expect(persisted.method).toBe("quantile");
+    // The critical assertion: classes NOT clamped to the vocabulary.
+    expect(persisted.classes).toBe(43);
+
+    // The intent store is the persisted source of truth saveState serializes,
+    // so the getIntent read above IS the real persistence path (writeBorderValue
+    // → persistedBorderValue → BORDER_DIMENSION.write → intentStore.setRaw).
+  });
+
+  it("T8b NUMERIC value config clamps out-of-range classes into [2, 9]", () => {
+    // Write a numeric config with classes=43 through the same path; the
+    // NUMERIC arm must clamp it to CLASS_COUNT.MAX (9).
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // Seed a numeric config with out-of-range classes, then trigger a write.
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 43 }));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+
+    const persisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(persisted.kind).toBe("numeric");
+    expect(persisted.field).toBe("count");
+    expect(persisted.method).toBe("quantile");
+    // The critical assertion: classes CLAMPED to CLASS_COUNT.MAX.
+    expect(persisted.classes).toBe(9);
+
+    // Lower bound: classes=0 clamps to CLASS_COUNT.MIN (2).
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 0 }));
+    methodSelect.value = "jenks";
+    methodSelect.dispatchEvent(new Event("change"));
+    const clampedLow = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(clampedLow.classes).toBe(2);
+  });
+
+  it("T8c CATEGORY and NUMERIC arms differ semantically (classes handling)", () => {
+    // Prove the two branches are NOT equivalent: the same out-of-vocab classes
+    // value passes through CATEGORY but clamps in NUMERIC.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // CATEGORY with classes=0 (below MIN): stays 0, not clamped up to 2.
+    setIntent(ui, "vec1", "borderValue", categoryOut(0));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+    const catPersisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(catPersisted.kind).toBe("category");
+    expect(catPersisted.classes).toBe(0); // NOT clamped up to MIN=2
+
+    // NUMERIC with classes=0: clamps up to MIN=2.
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 0 }));
+    methodSelect.value = "jenks";
+    methodSelect.dispatchEvent(new Event("change"));
+    const numPersisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(numPersisted.kind).toBe("numeric");
+    expect(numPersisted.classes).toBe(2); // clamped up to MIN=2
+
+    // The two configs with identical input classes diverge because of kind.
+    expect(catPersisted.classes).not.toBe(numPersisted.classes);
+  });
+
   it("T9 BORDER_DIMENSION.write writes the value config and clears the mode", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
@@ -2258,13 +2370,13 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     dim.write!(ui, "vec1", { mode: "value", value: countRamp() });
     expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
-    // Write mode present writes it; mode undefined is a no-op (no follow arm).
+    // Write mode present writes it; mode undefined is a no-op (no follow mode).
     dim.write!(ui, "vec1", { mode: "solid" });
     expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("solid");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
-  it("T10 the value arm carries an explicit user-set border weight", () => {
+  it("T10 the value mode carries an explicit user-set border weight", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
@@ -2459,13 +2571,6 @@ describe("value-detail and shell wiring coverage", () => {
   });
 });
 
-// ── FOLLOW_FILL (border follows each leaf's current fill colour) ──
-// The follow mode is a *derived* paint: the border reads each leaf's live
-// fill colour (solid, value-classified, or author per-feature) — never a
-// copy into the border intent, so a fill edit recomputes the border on the
-// next flush. It is offered only where the border is an outline over a
-// filled face (polygon/point); a line's border is its own primary colour
-// and keeps the original/single/value triad.
 describe("follow-fill border mode", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -2700,5 +2805,208 @@ describe("follow-fill border mode", () => {
     expect((swatch as HTMLInputElement).readOnly).toBe(true);
     // Width input present too.
     expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
+  });
+});
+
+describe("border partial-coverage invariants (partial-coverage)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#010101", "#020202", "#030303"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  const openBorderRow = (
+    manager: LayerController,
+    ui: LayerUI,
+    id: string,
+    leaves: ReturnType<typeof makeFeatureLeaf>[],
+  ) => {
+    registerFeatureLayer(manager, ui, id, leaves);
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+  const modeSelectOf = (block: HTMLElement) =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+  const changeSelect = (sel: HTMLSelectElement | null, value: string) => {
+    expect(sel).not.toBeNull();
+    sel!.value = value;
+    sel!.dispatchEvent(new Event("change"));
+  };
+
+  it("L252 keeps a stored category border value through a mode write", () => {
+    // persistedBorderValue's category arm: a stored category record must not
+    // be coerced to a numeric ramp when the user re-picks by value. The
+    // border row owns its config independently, so a category record from a
+    // persisted state survives a mode write unchanged.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "borderValue", {
+      kind: "category",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Blues",
+    });
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+    const stored = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(stored.scheme).toBe("Blues");
+  });
+
+  it("L273 refuses a value switch when the layer no longer offers numeric fields", () => {
+    // writeBorderMode's empty-fields guard: the value mode needs a numeric
+    // field to classify by. When the field cache empties between build and
+    // change (data replaced), the switch must be refused — no mode write, no
+    // seeded config, no partial UI state.
+    // The leaves carry only a string property, so once the seeded numeric
+    // cache is emptied the fallback leaf walk finds no numeric field either.
+    const strLeaf = (label: string): any => {
+      const leaf = new L.Polyline() as any;
+      leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+      leaf.feature = {
+        geometry: { type: "Polygon" },
+        properties: { label },
+      };
+      const setStyle = vi.fn((style: Record<string, unknown>) => {
+        Object.assign(leaf.options, style);
+        return leaf;
+      });
+      leaf.setStyle = setStyle;
+      leaf.on = vi.fn();
+      return leaf;
+    };
+    const leaves = [strLeaf("a"), strLeaf("b"), strLeaf("c")];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "vec1",
+      name: "vec1",
+      layer: makeFeatureGroup(...leaves),
+    });
+    // Seed a numeric field cache so the row builds a mode select.
+    ui.runtimeStore.setFields("vec1", [{ name: "count", numeric: true }]);
+    const block = buildBorderRow(ui, "vec1") as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, "vec1", block);
+    // Empty the cache: numericFields falls through to the leaf walk, which
+    // finds no numeric property, so the value switch must be refused.
+    ui.runtimeStore.setFields("vec1", []);
+    changeSelect(modeSelectOf(block), "value");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBeUndefined();
+    expect(getIntent(ui, "vec1", "borderValue")).toBeUndefined();
+  });
+
+  it("L379 the ORIGINAL-mode pin returns null so folium's restore stands", () => {
+    // pinStyleOnHighlight's ORIGINAL guard: once the mode reads as original,
+    // the pin getter returns null — there is no user face to replay, so
+    // folium's mouseout restore is the final paint and the author's stroke
+    // stays.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    commitBorderNow(ui, "vec1", "color", "#abcdef"); // solid, pins
+    setIntent(ui, "vec1", "borderStyleMode", "original");
+    applyBorderToLayer(ui, "vec1"); // re-pin with the ORIGINAL getter
+    leaf.setStyle.mockClear();
+    leaf.fireMouseout();
+    // folium's own handler restored the authored stroke; the pin getter
+    // returned null, so no second write with the user's color.
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    expect(leaf.setStyle).toHaveBeenCalledWith(leaf.authored);
+    expect(leaf.options.color).toBe("#00ff00");
+  });
+
+  it("L663 a border row for a torn-down layer degrades to the two-state vocabulary", () => {
+    // geometryKindOf's !layerInfo guard: a row built for a layer the registry
+    // no longer knows (unregistered between data and panel build) must not
+    // offer by_value — the null geometry reads as "not a line", so the
+    // border degrades to original + single.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves); // sets fields cache
+    manager.unregisterLayer("vec1"); // registry entry gone
+    // unload-label's invalidateFieldCache cleared the seeded cache; re-seed it so
+    // buildBorderRow reaches geometryKindOf with fields present but no registry row.
+    ui.runtimeStore.setFields("vec1", [{ name: "count", numeric: true }]);
+    const block = buildBorderRow(ui, "vec1") as HTMLElement;
+    const select = modeSelectOf(block);
+    const values = select ? Array.from(select.options).map(o => o.value) : [];
+    expect(values).not.toContain("value");
+  });
+
+  it("L746 a classes change with no out-of-vocabulary option converges cleanly", () => {
+    // convergeBorderClassesRow's no-extra guard: when the classes row only
+    // carries in-vocabulary options (the normal 2..9 build), a change must
+    // not throw and must keep the picked value.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+    const classesSelect = block.querySelector(
+      ".foliplus-style-fill-classes-select",
+    ) as HTMLSelectElement | null;
+    expect(classesSelect).not.toBeNull();
+    classesSelect!.value = "5";
+    classesSelect!.dispatchEvent(new Event("change"));
+    const updated = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(updated.classes).toBe(5);
+  });
+
+  it("L877 a select change to the same mode is a no-op", () => {
+    // bindBorderRow's same-mode guard: re-selecting the mode the select
+    // already shows must not re-write the mode (a polygon whose stored value
+    // reads back as original must not re-write "original").
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    const select = modeSelectOf(block);
+    expect(select!.value).toBe("original"); // default display mode
+    changeSelect(select, "original"); // same value
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBeUndefined();
+  });
+
+  it("L880/L885 a select change with no detail slot skips the detail bind", () => {
+    // bindBorderRow's detail-null guards: a block that carries a mode select
+    // but no detail element (a manually assembled row) must not crash on the
+    // change — the detail branch is skipped when there is nothing to render.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    const block = document.createElement("div");
+    block.className = "foliplus-style-border-block";
+    block.setAttribute("data-style-dim", "border");
+    const select = document.createElement("select");
+    select.className = "foliplus-style-border-mode-select";
+    select.appendChild(new Option("original", "original"));
+    select.appendChild(new Option("solid", "solid"));
+    select.appendChild(new Option("value", "value"));
+    block.appendChild(select);
+    document.body.appendChild(block);
+    bindBorderRow(ui, "vec1", block);
+    changeSelect(select, "solid");
+    expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("solid");
+  });
+
+  it("L913 BORDER_DIMENSION.value resolves a stored border value", () => {
+    // value's resolvedValue arm: when a border value is stored, the dimension
+    // value resolves the config's field against the layer's current numeric
+    // fields (not left as the raw stored record).
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+    setIntent(ui, "vec1", "borderValue", countRamp());
+    const v = BORDER_DIMENSION.value(ui, "vec1") as {
+      value?: ValueConfig;
+    };
+    expect(v.value).toEqual(countRamp());
   });
 });

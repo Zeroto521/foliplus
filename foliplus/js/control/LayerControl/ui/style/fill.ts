@@ -74,12 +74,14 @@ import {
   type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   STYLE_MODE,
   bindLiveColor,
   bindLiveNumber,
+  dropdownOverlay,
   colorInput as formColorInput,
   formRow,
   inlineControls,
@@ -535,6 +537,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: mode,
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   if (perFeature) {
     // The explanation lives on the control, not in the drawer: the select and
