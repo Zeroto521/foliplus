@@ -35,6 +35,7 @@ export {
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
+  applyIconByValueToLeaves,
   applyMarkerColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
@@ -47,9 +48,12 @@ export {
 } from "./markerIcon.js";
 export type { AuthorGlyph } from "./markerIcon.js";
 export {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
   PICKER_GLYPHS,
   glyphAvailable,
   glyphHtml,
+  glyphScheme,
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";

@@ -11,7 +11,7 @@
 // order. A glyph that is not syntactically valid is dropped by the caller
 // before it reaches this module (isGlyphSyntax gate in the intent validator);
 // this module trusts its inputs the way ramp.ts trusts a scheme name.
-import { type ClassifyMethod, computeBreaks } from "../classify.js";
+import { type ClassifyMethod, computeBreaks } from "./classify.js";
 
 /** A built glyph ramp: ordered breaks, per-class glyphs, and the value →
  *  class index bisection (identical semantics to core/ramp.ts classOf).
@@ -86,7 +86,9 @@ const buildCategoryGlyphRamp = (
   const map = new Map<string, string>();
   if (categories.length === 0) return { glyphs: map, other: undefined };
   categories.forEach((value, index) => {
-    map.set(value, glyphs[index] ?? glyphs[glyphs.length - 1]);
+    // First-seen order wins: a duplicate category keeps the glyph its FIRST
+    // occurrence was assigned, not the later one.
+    if (!map.has(value)) map.set(value, glyphs[index] ?? glyphs[glyphs.length - 1]);
   });
   return { glyphs: map, other: glyphs[glyphs.length - 1] };
 };

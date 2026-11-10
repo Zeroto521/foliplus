@@ -33,8 +33,6 @@ import {
 } from "./registry.js";
 import { buildModeRow } from "./row.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/value/index.js";
-import { numericPropertiesKeys, resolveField } from "#core/value/index.js";
 import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
@@ -54,7 +52,15 @@ import {
   resolveGlyph,
 } from "#core/leaflet/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
-import { buildClassesRow, buildFieldRow } from "#core/value/index.js";
+import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
+  METHOD,
+  buildClassesRow,
+  buildFieldRow,
+  numericPropertiesKeys,
+  resolveField,
+} from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import { createDropdown } from "#ui/dropdown.js";
