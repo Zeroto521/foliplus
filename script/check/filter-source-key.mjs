@@ -93,4 +93,4 @@ const runCli = (argv, entry) => {
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-export { findBareFilterSourceKeys, main, walk };
+export { findBareFilterSourceKeys, main, runCli, walk };
