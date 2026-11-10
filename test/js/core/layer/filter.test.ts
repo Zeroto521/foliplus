@@ -518,7 +518,7 @@ describe("pickFilterField / buildFilterModel", () => {
   it("leaves every caption to the panel's shared vocabulary", () => {
     // The field is the value cell; it is never printed as a caption. Captions
     // are panel chrome (filter_field / filter_range), so the model carries
-    // none and the two arms cannot drift apart.
+    // none and the two models cannot drift apart.
     const dim = buildFilterModel(snap, undefined, "a")!.dimensions[0];
     expect(dim.field).toBe("a");
     expect(dim).not.toHaveProperty("fieldLabel");
@@ -696,6 +696,102 @@ describe("enum atom", () => {
 
   it("matches(point) delegates the enum path without reading numeric fields", () => {
     expect(matches(makePt({ count: 5 }), enumFilter)).toBe(false);
+  });
+});
+
+describe("DNF-lite and empty-selection invariants", () => {
+  // Records spanning a numeric "price" and an enum "type". The semantic
+  // invariant is the *candidate set*: which records a combined filter keeps.
+  // Two records carry only one dimension (and one neither) so the combined
+  // set is not simply the product of the two single-dimension sets.
+  const records: Array<Record<string, unknown>> = [
+    { price: 10, type: "italian" },
+    { price: 20, type: "french" },
+    { price: 30, type: "italian" },
+    { price: 40, type: "japanese" },
+    { price: 50, type: "french" },
+    { price: 5, type: "italian" },
+    { price: 99 },
+    { type: "greek" },
+    {},
+  ];
+  const all = records.map((_, i) => i);
+  const kept = (filter: LayerFilter): number[] =>
+    records
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => matchesValues(r, filter))
+      .map(({ i }) => i);
+  const range = (lo: number, hi: number) => ({
+    kind: "atom" as const,
+    field: "price",
+    op: "between" as const,
+    // The evaluator reads range as a fixed 2-tuple; "as const" keeps the
+    // helper's return assignable to FilterAtom under the strict test config.
+    range: [lo, hi] as const,
+  });
+  const enumOf = (...values: string[]) => ({
+    kind: "enum" as const,
+    field: "type",
+    values,
+  });
+
+  it("and(range, enum) keeps only records satisfying both dimensions", () => {
+    // price in [10,40] AND type in {italian, french}:
+    //   0(10,it) 1(20,fr) 2(30,it) survive; 3(40,ja) fails the enum side,
+    //   4(50,fr) and 5(5,it) fail the price side, 6(99,no type) fails the
+    //   enum side, 7(no price,gr) fails the price side, 8 fails both.
+    const filter: LayerFilter = {
+      kind: "and",
+      children: [range(10, 40), enumOf("italian", "french")],
+    };
+    expect(kept(filter)).toEqual([0, 1, 2]);
+  });
+
+  it("or(range, enum) keeps the union of the two single-dimension sets", () => {
+    // price in [10,40] OR type in {italian, french}: the price set is
+    //   0,1,2,3 and the type set is 0,1,2,4,5, so the union is 0,1,2,3,4,5.
+    //   6(no type), 7(no price), 8(neither) match neither side.
+    const filter: LayerFilter = {
+      kind: "or",
+      children: [range(10, 40), enumOf("italian", "french")],
+    };
+    expect(kept(filter)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it("enum multi-value is an OR within the dimension", () => {
+    // type in {italian, japanese} keeps 0,2,5 (italian) and 3 (japanese). A
+    // record missing "type" (6,8) or holding a non-string is never matched
+    // and never coerced to a label.
+    expect(kept(enumOf("italian", "japanese"))).toEqual([0, 2, 3, 5]);
+  });
+
+  it("an empty enum selection is unfiltered, not filtered-to-empty", () => {
+    // Choosing a field but no values is "no condition on this dimension": the
+    // candidate set is identical to no filter at all. This is the semantic a
+    // DNF-lite panel relies on when a dimension is left untouched.
+    const emptyEnum: LayerFilter = { kind: "enum", field: "type", values: [] };
+    expect(kept(emptyEnum)).toEqual(all);
+    // The contrast: an atom "in" with no values filters everything out, so the
+    // two "empty" shapes are NOT the same semantic - empty enum = keep all,
+    // empty atom-in = filter to nothing.
+    const emptyAtom: LayerFilter = {
+      kind: "atom",
+      field: "price",
+      op: "in",
+      values: [],
+    };
+    expect(kept(emptyAtom)).toEqual([]);
+  });
+
+  it("an empty enum is neutral in AND but absorbing in OR", () => {
+    // Under AND the empty enum (which matches every record) drops out, so the
+    // conjunction is exactly the other condition. Under OR it already matches
+    // every record, so the disjunction is trivially true. The two are NOT the
+    // same - an empty dimension means "keep all", not "this branch is void".
+    const emptyEnum: LayerFilter = { kind: "enum", field: "type", values: [] };
+    const r = range(10, 40);
+    expect(kept({ kind: "and", children: [emptyEnum, r] })).toEqual(kept(r));
+    expect(kept({ kind: "or", children: [emptyEnum, r] })).toEqual(all);
   });
 });
 
