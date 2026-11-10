@@ -1531,6 +1531,7 @@ describe("LayerSurface capabilities", () => {
       // A color face is not a marker surface — the icon axis is inert.
       icon: "none",
       iconColor: "none",
+      markerColor: "none",
       relocatable: true,
       bounds: false,
       visibility: "pane",
@@ -1779,6 +1780,7 @@ describe("kind declaration (cluster / tile|vector)", () => {
       size: "none",
       icon: "none",
       iconColor: "none",
+      markerColor: "none",
       opacity: "none",
       zoomRange: "none",
       visibility: "native",

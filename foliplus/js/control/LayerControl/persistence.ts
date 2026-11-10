@@ -8,6 +8,7 @@ import type {
 import {
   FILL_MODE,
   type FolderOrder,
+  MARKER_COLOR_PRESETS,
   type ValueConfig,
   isIconIntent,
   isValueConfig,
@@ -208,6 +209,13 @@ const PARSE_OVERRIDE: Record<
       Number.isInteger(value) &&
       value >= 0 &&
       value <= 100
+      ? value
+      : null;
+  },
+  markerColor: data => {
+    const value = data.markerColor;
+    return typeof value === "string" &&
+      (MARKER_COLOR_PRESETS as readonly string[]).includes(value)
       ? value
       : null;
   },

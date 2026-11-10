@@ -43,6 +43,7 @@ import {
   type StyleSetter,
   cancelStyleDimApply,
   commitStyleDim,
+  commitStyleDimMerged,
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
@@ -399,6 +400,15 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       // walk, or the previous mode's colour stays on the map until folium's
       // next mouseout happens to overwrite it.
       restoreStyleDim(node, FACE.STROKE);
+    } else if (original && values.color === undefined) {
+      // ORIGINAL mode owns no user colour (color is `undefined`), so the only
+      // override here is a weight. A minimal commit would write just the
+      // weight and leave the previous mode's colour painted on the leaf: the
+      // solid colour would ride under the author's stroke until some later
+      // hover happened to overwrite it. Pull the author's stroke keys back in
+      // the same payload and light the face bit, mirroring fill's opacity-only
+      // arm — one setStyle per leaf, and the colour reverts to the author's.
+      commitStyleDimMerged(node, values, FACE.STROKE, true);
     } else if (followFill) {
       // Follow-fill is a per-leaf derived paint: the border takes this leaf's
       // CURRENT fill colour — the solid colour, the classified colour a value
