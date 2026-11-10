@@ -3174,7 +3174,7 @@ describe("border options per geometry", () => {
     expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
   });
 });
-describe("border solid derivation invariants (task-75)", () => {
+describe("border solid derivation invariants", () => {
   let manager: LayerController;
   let ui: LayerUI;
 

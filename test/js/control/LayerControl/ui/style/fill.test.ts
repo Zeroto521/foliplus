@@ -4864,7 +4864,7 @@ describe("FILL_DIMENSION.valueSource — provenance", () => {
   });
 });
 
-describe("fill solid derivation invariants (task-75)", () => {
+describe("fill solid derivation invariants", () => {
   // A per-feature layer mirrors the quickstart explore output the user
   // reported: each leaf carries its OWN author colour (__folium_color), so
   // the style bag holds one colour per leaf, not one shared base.
@@ -4873,14 +4873,6 @@ describe("fill solid derivation invariants (task-75)", () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });
-
-  const lastFill = (layer: {
-    leaves: { setStyle: { mock: { calls: unknown[][] } } }[];
-  }): unknown[] =>
-    layer.leaves.map(
-      (l: { setStyle: { mock: { calls: unknown[][] } } }) =>
-        (l.setStyle.mock.calls.at(-1)?.[0] as { fillColor?: unknown })?.fillColor,
-    );
 
   const fills = (
     layer: ReturnType<typeof initWithPerFeatureLayer>["layer"],
