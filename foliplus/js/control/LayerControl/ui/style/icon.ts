@@ -56,6 +56,7 @@ import {
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
   METHOD,
+  VALUE_KIND,
   buildClassesRow,
   buildFieldRow,
   numericPropertiesKeys,
@@ -63,13 +64,13 @@ import {
 } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
-import { createDropdown } from "#ui/dropdown.js";
-import { selectInput } from "#ui/form.js";
 import {
   POPUP_OVERLAY_RANK,
+  createDropdown,
   dropdownOverlay,
   formRow,
   nextOptionId,
+  selectInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -187,7 +188,7 @@ const valueForIconValue = (
   // renders the by-value mode when a numeric field exists, and the mode write
   // bails first when it does not.
   return {
-    kind: "numeric",
+    kind: VALUE_KIND.NUMERIC,
     field: fields[0],
     method: METHOD.JENKS,
     classes: CLASS_COUNT.DEFAULT,

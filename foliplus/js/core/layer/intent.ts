@@ -278,10 +278,10 @@ const isIconValueConfig = (value: unknown): value is IconValueConfig => {
   const glyphs = data.glyphs;
   if (!Array.isArray(glyphs) || glyphs.length === 0) return false;
   if (!glyphs.every(g => typeof g === "string" && g.trim().length > 0)) return false;
-  if (data.kind === "category") {
+  if (data.kind === VALUE_KIND.CATEGORY) {
     return isName(data.field) && Array.isArray(data.glyphs) && data.glyphs.length > 0;
   }
-  if (data.kind !== undefined && data.kind !== "numeric") return false;
+  if (data.kind !== undefined && data.kind !== VALUE_KIND.NUMERIC) return false;
   return (
     isName(data.field) &&
     isClassifyMethod(data.method) &&

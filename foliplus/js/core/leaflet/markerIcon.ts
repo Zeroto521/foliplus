@@ -36,6 +36,7 @@ import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/lifecycle/leafletAdapter.js";
 import {
   type CategoryGlyphRamp,
+  VALUE_KIND,
   type ValueGlyphRamp,
   buildCategoryGlyphRamp,
   buildGlyphRamp,
@@ -411,7 +412,7 @@ const applyIconByValueToLeaves = (
     if (isIconLeaf(leaf)) leaves.push(leaf);
   });
   if (leaves.length === 0) return;
-  const isCategory = config.kind === "category";
+  const isCategory = config.kind === VALUE_KIND.CATEGORY;
   const values: (number | string)[] = [];
   const seen = new Set<string>();
   for (const leaf of leaves) {
