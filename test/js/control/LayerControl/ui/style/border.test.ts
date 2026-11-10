@@ -2250,6 +2250,118 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     expect(updated.classes).toBe(4);
   });
 
+  // ── persistedBorderValue branch coverage (codecov patch target) ──
+  // border.ts:250-265 has two arms: CATEGORY passes classes through as-is
+  // (line 256), NUMERIC clamps classes into [CLASS_COUNT.MIN, MAX] (line 263).
+  // Existing tests drive only the NUMERIC arm; these two cover both branches
+  // and prove the semantic difference (category preserves out-of-vocab classes,
+  // numeric clamps them).
+
+  /** A category value config with out-of-vocabulary classes (43 and 0 are both
+   *  outside CLASS_COUNT_VALUES=[2..9]). Used to prove the CATEGORY arm does
+   *  NOT clamp — it passes the user's raw choice through untouched. */
+  const categoryOut = (classes: number): ValueConfig => ({
+    kind: "category",
+    field: "count",
+    method: "jenks",
+    classes,
+    scheme: DEFAULT_SCHEMES[0],
+  });
+
+  it("T8a CATEGORY value config passes classes through without clamping", () => {
+    // Write a category config with classes=43 (outside the [2..9] vocabulary)
+    // through the real persistence path (writeBorderValue → persistedBorderValue
+    // → BORDER_DIMENSION.write → intentStore.setRaw → saveState).
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    registerFeatureLayer(manager, ui, "vec1", leaves);
+
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // Force the stored config to CATEGORY with out-of-vocab classes, then
+    // trigger a value-detail change (method) to drive writeBorderValue.
+    setIntent(ui, "vec1", "borderValue", categoryOut(43));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+
+    // Read back from intent: the CATEGORY arm must preserve classes=43 as-is.
+    // (getIntent surfaces the field through resolvedValue, which drops "count"
+    // because the layer holds no category fields — that is a display-side
+    // resolve, not the persisted shape.)
+    const persisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(persisted.kind).toBe("category");
+    expect(persisted.method).toBe("quantile");
+    // The critical assertion: classes NOT clamped to the vocabulary.
+    expect(persisted.classes).toBe(43);
+
+    // The intent store is the persisted source of truth saveState serializes,
+    // so the getIntent read above IS the real persistence path (writeBorderValue
+    // → persistedBorderValue → BORDER_DIMENSION.write → intentStore.setRaw).
+  });
+
+  it("T8b NUMERIC value config clamps out-of-range classes into [2, 9]", () => {
+    // Write a numeric config with classes=43 through the same path; the
+    // NUMERIC arm must clamp it to CLASS_COUNT.MAX (9).
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // Seed a numeric config with out-of-range classes, then trigger a write.
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 43 }));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+
+    const persisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(persisted.kind).toBe("numeric");
+    expect(persisted.field).toBe("count");
+    expect(persisted.method).toBe("quantile");
+    // The critical assertion: classes CLAMPED to CLASS_COUNT.MAX.
+    expect(persisted.classes).toBe(9);
+
+    // Lower bound: classes=0 clamps to CLASS_COUNT.MIN (2).
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 0 }));
+    methodSelect.value = "jenks";
+    methodSelect.dispatchEvent(new Event("change"));
+    const clampedLow = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(clampedLow.classes).toBe(2);
+  });
+
+  it("T8c CATEGORY and NUMERIC arms differ semantically (classes handling)", () => {
+    // Prove the two branches are NOT equivalent: the same out-of-vocab classes
+    // value passes through CATEGORY but clamps in NUMERIC.
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
+    const block = openBorderRow(manager, ui, "vec1", leaves);
+    changeSelect(modeSelectOf(block), "value");
+
+    // CATEGORY with classes=0 (below MIN): stays 0, not clamped up to 2.
+    setIntent(ui, "vec1", "borderValue", categoryOut(0));
+    const methodSelect = block.querySelector(
+      ".foliplus-style-fill-method-select",
+    ) as HTMLSelectElement;
+    methodSelect.value = "quantile";
+    methodSelect.dispatchEvent(new Event("change"));
+    const catPersisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(catPersisted.kind).toBe("category");
+    expect(catPersisted.classes).toBe(0); // NOT clamped up to MIN=2
+
+    // NUMERIC with classes=0: clamps up to MIN=2.
+    setIntent(ui, "vec1", "borderValue", countRamp({ classes: 0 }));
+    methodSelect.value = "jenks";
+    methodSelect.dispatchEvent(new Event("change"));
+    const numPersisted = getIntent(ui, "vec1", "borderValue") as ValueConfig;
+    expect(numPersisted.kind).toBe("numeric");
+    expect(numPersisted.classes).toBe(2); // clamped up to MIN=2
+
+    // The two configs with identical input classes diverge because of kind.
+    expect(catPersisted.classes).not.toBe(numPersisted.classes);
+  });
+
   it("T9 BORDER_DIMENSION.write writes the value config and clears the mode", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
