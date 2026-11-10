@@ -226,7 +226,7 @@ describe("inferFieldKind", () => {
   });
 
   it("types a boolean sample as category", () => {
-    // A boolean column is a label, not a number: the fill arm's category
+    // A boolean column is a label, not a number: the fill mode's category
     // predicate accepts it so a boolean declaration can actually paint.
     const layer = makeGroup([makeLeaf({ active: true }), makeLeaf({ active: false })]);
     expect(inferFieldKind(layer, "active")).toBe("category");

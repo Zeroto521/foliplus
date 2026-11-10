@@ -12,7 +12,7 @@
  * `readValueConfig`) — is injected as a `ValueFaceDecl`. The mode body
  * contains no FILL/STROKE literal and no face branch: a new dimension
  * declares its own `ValueFaceDecl` and calls `paintByValue`.
- * Sibling arms (borderValue / size / icon) reuse it directly.
+ * Sibling faces (borderValue / size / icon) reuse it directly.
  *
  * If a NON-LayerControl component ever needs to paint by value, that is a
  * separate "promote this mechanism to a shared layer" refactor card — do not

@@ -50,7 +50,6 @@
   "platform/throttle",
   "platform/type",
   "ui/canvasLabel",
-  "ui/dismiss",
   "ui/dropdown",
   "ui/form",
   "ui/listbox",
