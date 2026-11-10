@@ -67,43 +67,60 @@
     setWeight.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
+  // A mode switch or a colour/width write schedules the persistence write
+  // behind a 100ms debounce (SAVE_DEBOUNCE_MS); the style apply itself runs on
+  // the frame clock. Poll until the layer_state key lands (or time out) so the
+  // record the test asserts on is the one the control actually committed — a
+  // fixed sleep would make this flaky on a loaded CI runner.
+  const wroteSomething = mode !== undefined || color !== undefined || weight != null;
+  const pollStorage = attemptsLeft => {
+    const storage = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.includes("layer_state")) {
+        storage[key] = localStorage.getItem(key);
+      }
+    }
+    if (!wroteSomething || Object.keys(storage).length > 0 || attemptsLeft <= 0) {
+      return Promise.resolve(storage);
+    }
+    return new Promise(resolvePoll =>
+      setTimeout(() => resolvePoll(pollStorage(attemptsLeft - 1)), 50),
+    );
+  };
+
   // Let the debounced/RAF apply land before reading computed style.
   return new Promise(resolve => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const storage = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.includes("layer_state")) {
-            storage[key] = localStorage.getItem(key);
-          }
-        }
-        const colorInput = panel.querySelector(".foliplus-style-border-color-input");
-        resolve({
-          row: true,
-          panel: true,
-          id: row.getAttribute("data-layer-id"),
-          mode: modeSelect ? modeSelect.value : null,
-          colorInput: colorInput
-            ? {
-                value: colorInput.value,
-                readOnly: colorInput.readOnly,
-                disabled: colorInput.disabled,
-              }
-            : null,
-          weight: setWeight ? setWeight.value : null,
-          storage,
-          strokes: Array.from(
-            document.querySelectorAll(".leaflet-map-pane path[stroke]"),
-          ).map(el => {
-            const cs = getComputedStyle(el);
-            return {
-              stroke: cs.stroke,
-              strokeWidth: cs.strokeWidth,
-              strokeDasharray: cs.strokeDasharray,
-              fillOpacity: cs.fillOpacity,
-            };
-          }),
+        pollStorage(12).then(storage => {
+          const colorInput = panel.querySelector(".foliplus-style-border-color-input");
+          resolve({
+            row: true,
+            panel: true,
+            id: row.getAttribute("data-layer-id"),
+            mode: modeSelect ? modeSelect.value : null,
+            colorInput: colorInput
+              ? {
+                  value: colorInput.value,
+                  readOnly: colorInput.readOnly,
+                  disabled: colorInput.disabled,
+                }
+              : null,
+            weight: setWeight ? setWeight.value : null,
+            storage,
+            strokes: Array.from(
+              document.querySelectorAll(".leaflet-map-pane path[stroke]"),
+            ).map(el => {
+              const cs = getComputedStyle(el);
+              return {
+                stroke: cs.stroke,
+                strokeWidth: cs.strokeWidth,
+                strokeDasharray: cs.strokeDasharray,
+                fillOpacity: cs.fillOpacity,
+              };
+            }),
+          });
         });
       });
     });
