@@ -173,7 +173,7 @@ const CLASSES = {
   STYLE_BORDER_ROW: "foliplus-style-border-row",
   STYLE_BORDER_COLOR_INPUT: "foliplus-style-border-color-input",
   STYLE_BORDER_WEIGHT_INPUT: "foliplus-style-border-weight-input",
-  /** Border mode block: the mode row plus the active arm's detail rows —
+  /** Border mode block: the mode row plus the active mode's detail rows —
    *  the same block/detail shape as the fill mode block, so the two rows
    *  read identically. The mode select is three-state on a line (original /
    *  single / by value) and two-state on polygon/point (original / single),

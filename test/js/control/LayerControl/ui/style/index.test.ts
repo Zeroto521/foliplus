@@ -3967,8 +3967,12 @@ describe("LayerUI style panel — zoom range", () => {
     );
   };
 
-  /** The singleton value bubble, portaled to <body>. */
+  /** The live value bubble (is-on) for the focused thumb, or the first
+   *  bubble node if no live one exists. With the anchor-keyed pool a stale
+   *  parked node may precede the live one in DOM order, so a bare
+   *  querySelector could read a fading node's text instead of the live one. */
   const bubbleOf = (): HTMLElement | null =>
+    document.querySelector(".foliplus-slider-bubble.is-on") ??
     document.querySelector(".foliplus-slider-bubble");
 
   it("renders the zoom-range row for a pane-capable layer", () => {

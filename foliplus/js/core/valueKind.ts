@@ -34,7 +34,7 @@ type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND];
 const isValueKind = (value: unknown): value is ValueKind =>
   value === VALUE_KIND.NUMERIC || value === VALUE_KIND.CATEGORY;
 
-/** Whether a by-value config's kind selects the categorical arm. Encodes the
+/** Whether a by-value config's kind selects the categorical mode. Encodes the
  *  absent-is-numeric convention: undefined (or "numeric") reads as the numeric
  *  mode, "category" as the categorical one. A kind outside the vocabulary
  *  reads as numeric too (the caller's isValueKind check drops it first), but

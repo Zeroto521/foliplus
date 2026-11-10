@@ -445,7 +445,7 @@ describe("LayerPersistence", () => {
     it("rejects the pre-rename fillMode literal (no compatibility migration)", () => {
       // The stored mode spelling changed ("ramp" → "value"), but the lead
       // chose to drop the migration branch entirely: a pre-rename record
-      // reads with the mode treated as absent (no arm claim), and the value
+      // reads with the mode treated as absent (no mode claim), and the value
       // config alone stays valid for the next write.
       seedStorage({
         version: RECORD_VERSION,
@@ -463,7 +463,7 @@ describe("LayerPersistence", () => {
         },
       });
       const loaded = makePersistence().load().layers.a;
-      // The mode segment is dropped (absent), so the arm falls back to the
+      // The mode segment is dropped (absent), so the mode falls back to the
       // derived "solid" default rather than claiming the renamed "value".
       // parseFillValue keeps the kindless shape (kind: undefined for numeric),
       // and the invalid mode marker is dropped from overrides with it.
@@ -497,7 +497,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
       });
-      // The renamed "value" is the only value-arm literal now; "ramp" reads
+      // The renamed "value" is the only value-mode literal now; "ramp" reads
       // as an invalid mode (absent), so the record keeps no mode claim.
       // With the only marker invalid, the layer state has no overrides and no
       // label, so parseLayerState returns null — the layer reads absent.
@@ -613,7 +613,7 @@ describe("LayerPersistence", () => {
     });
 
     it("drops a ramp whose kind this client cannot build", () => {
-      // The categorical arm is a later batch. A record that asks for it (or
+      // The categorical mode is a later batch. A record that asks for it (or
       // for any non-numeric spelling) must be dropped whole rather than
       // painted as a numeric ramp over category values.
       for (const kind of ["categorical", "linear", "", "NUMERIC", 5, null]) {
@@ -730,7 +730,7 @@ describe("LayerPersistence", () => {
       for (const bad of [
         "RAMP",
         "linear",
-        // The arm's pre-release spelling: the option is a stored choice now,
+        // The mode's pre-release spelling: the option is a stored choice now,
         // and a record from a build that offered it must not load as one.
         "feature",
         "",
@@ -747,7 +747,7 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("keeps the original-colors arm as a stored choice", () => {
+    it("keeps the original-colors mode as a stored choice", () => {
       seedStorage({
         version: RECORD_VERSION,
         layers: { a: { fillMode: "original", overrides: ["fillMode"] } },
@@ -1048,7 +1048,7 @@ describe("LayerPersistence", () => {
     });
 
     it("drops an invalid icon color that the swatch could not display", () => {
-      // line 195 arm: isHexColor false -> null (corrupt entry must not leak).
+      // line 195 mode: isHexColor false -> null (corrupt entry must not leak).
       seedStorage({
         layers: {
           a: { iconColor: "red", overrides: ["iconColor"] },
