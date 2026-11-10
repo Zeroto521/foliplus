@@ -177,7 +177,7 @@ class TestHeatmapControlPanelBrowser:
         The row has one visible label for two selects, so it takes the primary
         control's name (Method / 分类方法) — the same word the layer style
         panel shows. Each select keeps its own aria label (Method / Classes),
-        and the shared 136px label column holds the word on one line inside the
+        and the shared 88px label column holds the word on one line inside the
         280px panel. Range.getClientRects() is the line-box count: the element
         rect always reports one row.
         """
@@ -220,8 +220,8 @@ class TestHeatmapControlPanelBrowser:
             assert row["labelLines"] == 1, (
                 f"the method label wrapped at the panel width: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
-            assert result["labelWidthToken"] == "136px", result
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
             assert result["panelWidthToken"] == "280px", result
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row

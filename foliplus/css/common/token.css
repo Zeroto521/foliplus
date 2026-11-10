@@ -187,7 +187,7 @@
      panel, style panel). Not min-width: a longer label must wrap inside
      this box, never push the control column — one vertical line for all
      panels. */
-  --foliplus-form-label-width: 136px;
+  --foliplus-form-label-width: 88px;
   /* The one horizontal inset a panel's rows and footer read. It used to have
      two owners (the heatmap inset its config body, the style panel its form
      rows), which is how the two panels drifted apart; the shared form row owns
