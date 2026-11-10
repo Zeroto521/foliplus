@@ -1751,7 +1751,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         name (Classification Method / 分类方法) — the word the heatmap panel shows too. The
         class count stays announced by the count select's own aria label, so a
         screen reader hears "Classification Method" and "Classes" once each. The label column
-        is the shared 88px token inside the 280px panel; Range.getClientRects()
+        is the shared 136px token inside the 280px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
         _METHOD_EN, _METHOD_ZH = _method_labels()
@@ -1793,8 +1793,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert row["labelLines"] == 1, (
                 f"the Classification Method label wrapped at the panel width: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
-            assert result["labelWidthToken"] == "88px", result
+            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
+            assert result["labelWidthToken"] == "136px", result
             assert result["panelWidthToken"] == "280px", result
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row

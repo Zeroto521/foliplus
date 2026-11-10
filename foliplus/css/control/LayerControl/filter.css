@@ -2,7 +2,7 @@
   /* ── Filter panel ──
      Field / range / result form rows plus a Clear footer.
      Geometry is the SHARED form vocabulary, not a local copy: the row grid
-     (88px right-aligned label + one flexible control cell) and every row's
+     (136px right-aligned label + one flexible control cell) and every row's
      horizontal inset come from common/form.css + common/panel.css, exactly
      like the Style and Attributes panels. The panel shell (anchoring,
      width, height cap, chrome) still comes from the shared row-panel
@@ -22,7 +22,7 @@
   }
   /* The slider cell takes the row's remaining width — the rail needs a
      measurable box, and it starts at the same x as every other panel's
-     control column because the label cell is the shared 88px one. */
+     control column because the label cell is the shared 136px one. */
   .foliplus-layer-filter-panel .foliplus-filter-slider {
     width: 100%;
     min-width: 0;

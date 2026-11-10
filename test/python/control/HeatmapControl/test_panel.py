@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 
+from pathlib import Path
 import folium
 import pytest
 from conftest import (
@@ -53,6 +54,16 @@ from conftest import (
 from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
 from .helper import _make_page, _panel_open
+
+
+def _method_labels() -> tuple[str, str]:
+    """The method row label for each built-in language, read from the
+    HeatmapControl locale table (single source — never pin the string twice)."""
+    base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
+    en = json.loads((base / "HeatmapControl.en.json").read_text(encoding="utf-8"))
+    zh = json.loads((base / "HeatmapControl.zh.json").read_text(encoding="utf-8"))
+    return en["HeatmapControl.classify_method"], zh["HeatmapControl.classify_method"]
+
 
 # Every visible trigger in the panel, in DOM order, with the geometry a real
 # click needs. Re-read before each click: the panel reflows as rows appear.
@@ -166,10 +177,11 @@ class TestHeatmapControlPanelBrowser:
         The row has one visible label for two selects, so it takes the primary
         control's name (Method / 分类方法) — the same word the layer style
         panel shows. Each select keeps its own aria label (Method / Classes),
-        and the shared 88px label column holds the word on one line inside the
+        and the shared 136px label column holds the word on one line inside the
         280px panel. Range.getClientRects() is the line-box count: the element
         rect always reports one row.
         """
+        _METHOD_EN, _METHOD_ZH = _method_labels()
         # One layer auto-selects on expand, which is what unhides the style
         # block (the rows exist in the DOM while it is hidden).
         with use_page(_make_page, browser, tmp_path, num_layers=1) as (
@@ -197,19 +209,19 @@ class TestHeatmapControlPanelBrowser:
             # The visible label is locale-dependent; the panel's language follows
             # the browser, so pin both vocabularies rather than one page locale.
             label = next(
-                (text for text in ("Method", "分类方法") if text in rows), None
+                (text for text in (_METHOD_EN, _METHOD_ZH) if text in rows), None
             )
             assert label, f"no method-labelled row among {sorted(rows)}"
             row = rows[label]
             expected_aria = {
-                "Method": ["Method", "Classes"],
-                "分类方法": ["分类方法", "分级数"],
+                _METHOD_EN: [_METHOD_EN, "Classes"],
+                _METHOD_ZH: [_METHOD_ZH, "分级数"],
             }[label]
             assert row["labelLines"] == 1, (
-                f"the Method label wrapped at the panel width: {row}"
+                f"the method label wrapped at the panel width: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
-            assert result["labelWidthToken"] == "88px", result
+            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
+            assert result["labelWidthToken"] == "136px", result
             assert result["panelWidthToken"] == "280px", result
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
