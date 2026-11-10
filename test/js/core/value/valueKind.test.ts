@@ -1,4 +1,4 @@
-// core/valueKind — vocabulary contract tests.
+// core/value/valueKind — vocabulary contract tests.
 //
 // These pin the by-value config kind vocabulary and the "absent is numeric"
 // convention that every consumer relies on. A third kind, a rename, or a
@@ -6,7 +6,7 @@
 // the unit tests of the migrated modules would not catch (they only see their
 // own call sites).
 import { describe, expect, it } from "vitest";
-import { VALUE_KIND, isCategoryKind, isValueKind } from "#core/valueKind.js";
+import { VALUE_KIND, isCategoryKind, isValueKind } from "#core/value/index.js";
 
 describe("VALUE_KIND vocabulary", () => {
   it("owns exactly the two by-value config kinds", () => {

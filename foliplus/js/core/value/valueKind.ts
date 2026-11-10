@@ -1,4 +1,4 @@
-// core/valueKind — the by-value config kind vocabulary.
+// core/value/valueKind — the by-value config kind vocabulary.
 //
 // The by-value style mode is typed one of two ways: the drive property is
 // either a number split into ordered classes ("numeric") or a categorical
