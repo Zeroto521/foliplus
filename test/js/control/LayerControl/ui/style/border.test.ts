@@ -2,8 +2,8 @@ import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { DIM } from "#core/layer/const.js";
-import type { ValueConfig } from "#core/layer/intent.js";
+import { DIM, GEOM_TYPE } from "#core/layer/const.js";
+import { FILL_MODE, type ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -2963,5 +2963,166 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
       value?: ValueConfig;
     };
     expect(v.value).toEqual(countRamp());
+  });
+});
+
+/** A real Leaflet feature leaf of the given geometry kind so geometryType()
+ *  returns the actual kind (the contract row in "border options per geometry"
+ *  is the REAL geometry, not a config string or a layer-name match). */
+const makeLayerForGeometry = (kind: "line" | "polygon" | "point", count = 5): any => {
+  const cls =
+    kind === "line" ? "Polyline" : kind === "polygon" ? "Polygon" : "CircleMarker";
+  const leaf = new (globalThis as any).L[cls]() as any;
+  leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+  leaf.feature = {
+    geometry: {
+      type: kind === "line" ? "LineString" : kind === "polygon" ? "Polygon" : "Point",
+    },
+    properties: { count },
+  };
+  const setStyle = vi.fn((style: Record<string, unknown>) => {
+    Object.assign(leaf.options, style);
+    return leaf;
+  });
+  leaf.setStyle = setStyle;
+  leaf.on = vi.fn();
+  return leaf;
+};
+
+describe("border options per geometry", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const expectGeometryType = (id: string, kind: "line" | "polygon" | "point"): void => {
+    const info = ui.c.layerRegistry.get(id);
+    expect(info).toBeTruthy();
+    const kindOf = ui.c.surfaceFor(info!).geometryType();
+    expect(kindOf).toBe(
+      kind === "line"
+        ? GEOM_TYPE.LINE
+        : kind === "polygon"
+          ? GEOM_TYPE.POLYGON
+          : GEOM_TYPE.POINT,
+    );
+  };
+
+  const openBorderRow = (id: string): HTMLElement => {
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+
+  const modeSelectOf = (block: HTMLElement): HTMLSelectElement | null =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+
+  const modeValues = (block: HTMLElement): string[] => {
+    const select = modeSelectOf(block);
+    return select ? Array.from(select.options).map(option => option.value) : [];
+  };
+
+  const registerGeometryLayer = (
+    id: string,
+    kind: "line" | "polygon" | "point",
+  ): void => {
+    registerFeatureLayer(manager, ui, id, [makeLayerForGeometry(kind)]);
+  };
+
+  const valueRamp = (): ValueConfig => countRamp();
+
+  it("line: { original, single, value }", () => {
+    registerGeometryLayer("g_line", "line");
+    expectGeometryType("g_line", "line");
+    expect(modeValues(openBorderRow("g_line"))).toEqual([
+      FILL_MODE.ORIGINAL,
+      FILL_MODE.SOLID,
+      FILL_MODE.VALUE,
+    ]);
+  });
+
+  it("polygon: { original, single } — never by-value", () => {
+    registerGeometryLayer("g_polygon", "polygon");
+    expectGeometryType("g_polygon", "polygon");
+    expect(modeValues(openBorderRow("g_polygon"))).toEqual([
+      FILL_MODE.ORIGINAL,
+      FILL_MODE.SOLID,
+    ]);
+  });
+
+  it("point: { original, single } — never by-value", () => {
+    registerGeometryLayer("g_point", "point");
+    expectGeometryType("g_point", "point");
+    expect(modeValues(openBorderRow("g_point"))).toEqual([
+      FILL_MODE.ORIGINAL,
+      FILL_MODE.SOLID,
+    ]);
+  });
+
+  it("the column is the DIM single source (border)", () => {
+    expect(DIM.BORDER).toBe("border");
+    registerGeometryLayer("g_dim", "line");
+    const block = openBorderRow("g_dim");
+    expect(block.getAttribute("data-style-dim")).toBe(DIM.BORDER);
+  });
+
+  it("stored by-value on a non-line reads back as original (display fallback)", () => {
+    registerGeometryLayer("g_poly_fb", "polygon");
+    setIntent(ui, "g_poly_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_poly_fb", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_poly_fb"));
+    expect(select).not.toBeNull();
+    // The illegal stored value must never surface as a selected "value".
+    expect(select!.value).toBe(FILL_MODE.ORIGINAL);
+  });
+
+  it("stored by-value on a line stays value (guard against always-original fallback)", () => {
+    registerGeometryLayer("g_line_fb", "line");
+    setIntent(ui, "g_line_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_line_fb", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_line_fb"));
+    expect(select).not.toBeNull();
+    expect(select!.value).toBe(FILL_MODE.VALUE);
+  });
+
+  it("guard 1: the option set is asserted exactly, so an extra illegal option fails", () => {
+    // The product's set for a polygon is [original, solid]. A hypothetical
+    // regression that adds by-value there would make modeValues return
+    // [original, solid, value] — which toEqual rejects. The assertion here is
+    // the same equality the matrix tests use; it documents that containment
+    // would NOT catch the extra.
+    registerGeometryLayer("g_guard1", "polygon");
+    const actual = modeValues(openBorderRow("g_guard1"));
+    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID];
+    expect(actual).toEqual(contract);
+    // The negative property: adding the illegal option to the contract must NOT
+    // equal the actual set — this is what makes the matrix red on an extra.
+    const illegal = [...contract, FILL_MODE.VALUE];
+    expect(actual).not.toEqual(illegal);
+  });
+
+  it("guard 2: the line by-value read-back pins the fallback to geometry, not original", () => {
+    // If displayBorderMode were changed to always return original, the
+    // line-with-stored-value test above would fail. This test restates that
+    // dependency as a direct invariant so the guard has its own name.
+    registerGeometryLayer("g_guard2", "line");
+    setIntent(ui, "g_guard2", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_guard2", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_guard2"));
+    expect(select).not.toBeNull();
+    expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
   });
 });
