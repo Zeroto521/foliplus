@@ -295,6 +295,33 @@ describe("buildMarkerColorRow", () => {
     expect(select.value).toBe("blue");
   });
 
+  it("short-circuits on the first painted leaf for a multi-leaf layer", () => {
+    // authorMarkerColor walks leaves and stops at the first painted chassis —
+    // two markers with different presets must yield the first leaf's preset.
+    const blue = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "blue" }),
+    );
+    const red = makeMarker(
+      { type: "hospital" },
+      makeAuthorIcon({ markerColor: "red" }),
+    );
+    const { ui: u } = fixtureWithMarkers([blue, red]);
+    const row = buildMarkerColorRow(u, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("blue");
+  });
+
+  it("falls through to no author default when the author markerColor is empty", () => {
+    // An empty markerColor string is not a painted preset — authorMarkerColor
+    // answers null and the row shows the fallback default (blue).
+    const empty = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const { ui: u } = fixtureWithMarkers([empty]);
+    const row = buildMarkerColorRow(u, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("blue");
+  });
+
   it("shows the user's stored preset when one is set", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
     const row = buildMarkerColorRow(ui, "overlay1")!;
@@ -425,6 +452,31 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     const inner = div.querySelector("i") as HTMLElement;
     expect(div.className).toContain("awesome-marker-icon-blue");
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
+  });
+
+  it("reset with no author chassis re-applies the user glyph/color on blue (else arm)", () => {
+    // A plain DivIcon author declares no markerColor — authorMarkerColor returns
+    // undefined, so reset takes the else arm: restore the author icon, then
+    // re-apply the user glyph/color on the default blue chassis.
+    const plainAuthor = makePlainDivIconAuthor();
+    const plainMarker = makeMarker({ type: "school" }, plainAuthor);
+    ({ manager, ui } = fixtureWithMarkers([plainMarker]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON, { kind: "glyph", value: "star" }],
+      [INTENT.ICON_COLOR, "#00ff00"],
+      [INTENT.MARKER_COLOR, "red"],
+    ]);
+    commitMarkerColor(ui, "overlay1", "red");
+    flushMarkerColor("overlay1");
+    resetLayerMarkerColor(ui, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = plainMarker.options.icon.createIcon();
+    // The plain DivIcon author is not the <img> default chassis — it re-derives
+    // through the same build, keeping the author's chassis class and swapping
+    // the glyph. The else arm must not throw and must clear the intent.
+    expect(div.className).toContain("plain-div-icon");
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 
   it("reset skips a missing layer without throwing", () => {
