@@ -33,14 +33,15 @@ import {
 } from "./glyphSource.js";
 import { type IconValueConfig } from "#core/layer/index.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/leafletAdapter.js";
-import { categoryLabel, isFiniteNumber, leafPropertyValue } from "#core/ramp.js";
 import {
   type CategoryGlyphRamp,
   type ValueGlyphRamp,
   buildCategoryGlyphRamp,
   buildGlyphRamp,
+  categoryLabel,
   glyphFor,
+  isFiniteNumber,
+  leafPropertyValue,
 } from "#core/value/index.js";
 import { createLogger } from "#platform/log.js";
 

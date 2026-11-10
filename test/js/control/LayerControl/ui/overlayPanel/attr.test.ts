@@ -1,7 +1,7 @@
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";

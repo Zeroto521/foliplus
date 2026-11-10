@@ -25,8 +25,8 @@
 //
 // Leaflet privates are reached only through `#core/leafletAdapter`
 // (`layerShadow`), per that module's charter.
-import { layerShadow } from "../leafletAdapter.js";
 import { CAP_TIER, LABEL_PANE_PREFIX } from "./const.js";
+import { layerShadow } from "#core/lifecycle/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("carrier");

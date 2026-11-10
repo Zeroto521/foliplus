@@ -6,7 +6,7 @@ import {
   safeEval,
   toItems,
   withParams,
-} from "#core/geocode/util.js";
+} from "#core/geocode/index.js";
 
 describe("interpolate", () => {
   it("substitutes known placeholders and URL-encodes values", () => {

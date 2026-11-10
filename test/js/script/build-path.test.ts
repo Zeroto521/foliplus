@@ -112,7 +112,7 @@ describe("build-path.mjs", () => {
     const re = new RegExp(`^(${SHARED_SPEC_REGEX_SOURCE})$`);
     // Shared prefixes
     expect(re.test("#platform/dom.js")).toBe(true);
-    expect(re.test("#core/hint.js")).toBe(true);
+    expect(re.test("#core/overlay/hint.js")).toBe(true);
     expect(re.test("#core/layer/LayerFactory.js")).toBe(true);
     // Exact shared spec
     expect(re.test("#foliplus/BaseControl.js")).toBe(true);

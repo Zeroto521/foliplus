@@ -98,7 +98,7 @@ function mkFixture(files: Record<string, string>): string {
 
 const FIXTURE = {
   "foliplus/__init__.py": INIT_PY,
-  "foliplus/js/core/component.ts": COMPONENT_TS,
+  "foliplus/js/core/lifecycle/component.ts": COMPONENT_TS,
   "doc/source/api.rst": API_RST,
   "README.md": README,
   "test/python/test_locale.py": LOCALE_PY,
@@ -361,8 +361,8 @@ describe("buildSkeleton", () => {
 
   it("uses the core controlEnv import (not the guard path)", () => {
     const ts = skeleton.files.get("foliplus/js/control/FooControl/index.ts");
-    expect(ts).toContain('from "#core/controlEnv.js"');
-    expect(ts).not.toContain("#core/guard.js");
+    expect(ts).toContain('from "#core/lifecycle/index.js"');
+    expect(ts).not.toContain("#core/lifecycle/guard.js");
   });
 
   it("only references design tokens that exist in token.css", () => {
@@ -421,7 +421,7 @@ describe("scaffoldControl", () => {
       "README.md",
       "doc/source/api.rst",
       "foliplus/__init__.py",
-      "foliplus/js/core/component.ts",
+      "foliplus/js/core/lifecycle/component.ts",
       "script/check/scan-locale-key.mjs",
     ]);
     expect(result.skipped).toEqual([]);
@@ -430,7 +430,10 @@ describe("scaffoldControl", () => {
       "from .control.FooControl import FooControl",
     );
     expect(
-      readFileSync(join(tmpRoot, "foliplus", "js", "core", "component.ts"), "utf-8"),
+      readFileSync(
+        join(tmpRoot, "foliplus", "js", "core", "lifecycle", "component.ts"),
+        "utf-8",
+      ),
     ).toContain('FooControl: "FooControl",');
     expect(readFileSync(join(tmpRoot, "doc", "source", "api.rst"), "utf-8")).toContain(
       "FooControl",
@@ -446,7 +449,7 @@ describe("scaffoldControl", () => {
         join(tmpRoot, "foliplus", "js", "control", "FooControl", "index.ts"),
         "utf-8",
       ),
-    ).toContain('from "#core/controlEnv.js"');
+    ).toContain('from "#core/lifecycle/index.js"');
   });
 
   it("is idempotent on a second run without --force", () => {

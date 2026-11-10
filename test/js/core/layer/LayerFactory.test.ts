@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { getLayerAlpha, setLayerAlpha } from "#core/layer/index.js";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import type { RegisterLayerOpts } from "#foliplus/core/layer/type.js";

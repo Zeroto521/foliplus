@@ -5,7 +5,7 @@ import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   createInlineEditInput,
   removeInlineEditInput,

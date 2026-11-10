@@ -34,6 +34,7 @@ import {
   type Dismiss,
   type PanelController,
   attachPanel,
+  bindPanelPress,
   createPanel,
   createRowPanel,
   pinRowPanel,
@@ -154,7 +155,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     },
   });
 
-  panel.addEventListener("mousedown", e => controller.swallowPress(e));
+  bindPanelPress(panel, controller);
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
   // its live binders attach to the row instead of going through the panel's

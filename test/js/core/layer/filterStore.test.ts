@@ -8,12 +8,12 @@
 // through the store, so there is no per-surface key to assemble and no
 // per-surface teardown callback to forget.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LayerFilter } from "#core/layer/filter.js";
 import {
   FILTER_STORE_KEY,
   type FilterSourceHost,
+  type LayerFilter,
   createFilterStore,
-} from "#core/layer/filterStore.js";
+} from "#core/layer/index.js";
 
 /** A host over a closed enum domain (mirrors a measurement type filter). */
 const makeEnumHost = (domain: readonly string[]): FilterSourceHost => {

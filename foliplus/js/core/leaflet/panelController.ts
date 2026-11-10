@@ -16,7 +16,7 @@
 // ranking); the controller decides whether a close is actually allowed and
 // swallows the close-button press so it never reaches the map (the #816-class
 // bug this constructively seals).
-import { type OverlayEntry, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { type OverlayEntry, ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /** What dismisses the surface, decided by the registry's dispatcher. */
 type Dismiss = {
@@ -236,6 +236,18 @@ const attached = new WeakMap<L.Map, Set<string>>();
 
 const createPanel = (spec: PanelSpec): PanelController => new PanelControllerImpl(spec);
 
+/** Bind a row-panel press so it never starts a row drag or leaks to the
+ *  map. The shared swallowPress primitive: one implementation, three row
+ *  panels (attrs / filter / style) instead of three inline closures. The
+ *  panel lives inside a draggable layer row, so a press on the panel must
+ *  neither start a row drag nor inherit `user-select: none`; the mousedown
+ *  is stopped here, and which side of the panel the press landed on is
+ *  recorded by the overlay registry's press dispatcher (dragstart dispatches
+ *  on the draggable row, so it cannot answer that). */
+const bindPanelPress = (panel: HTMLElement, controller: PanelController): void => {
+  panel.addEventListener("mousedown", e => controller.swallowPress(e));
+};
+
 /** Register the controller's surface on the map's overlay registry (once,
  *  persistent — registered even while closed; isOpen()=false just means it
  *  does not take part in dispatch). Returns the unregister; calling it twice
@@ -307,5 +319,5 @@ const attachPanel = (map: L.Map, controller: PanelController): (() => void) => {
   return detach;
 };
 
-export { attachPanel, createPanel };
+export { attachPanel, bindPanelPress, createPanel };
 export type { Dismiss, PanelController, PanelSpec };
