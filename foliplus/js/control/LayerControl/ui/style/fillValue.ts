@@ -8,23 +8,28 @@ import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
+  DEFAULT_SCHEMES,
+  VALUE_KIND,
+  buildClassesRow,
+  buildFieldRow,
+  buildSchemeRow,
   categoricalPropertiesKeys,
+  getColorScale,
   inferFieldKind,
+  isCategoryKind,
   numericPropertiesKeys,
   resolveField,
-} from "#core/field.js";
+} from "#core/value/index.js";
 import {
   DIM,
   STYLE_MODE,
   type StyleMode,
   type ValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
-import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
 import {
   dropdownSurface,
   fullscreenSurface,

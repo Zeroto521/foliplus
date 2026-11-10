@@ -8,7 +8,6 @@ import {
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
 import {
   HIDDEN,
   LayerRuntimeStore,
@@ -16,6 +15,7 @@ import {
   ROLE,
   carrierTargetOf,
   contentPanesOf,
+  getLayerAlpha,
 } from "#core/layer/index.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";

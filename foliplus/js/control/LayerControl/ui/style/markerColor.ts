@@ -30,7 +30,7 @@ import {
   applyMarkerColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
-} from "#core/leaflet/markerIcon.js";
+} from "#core/leaflet/index.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import { createDropdown, formRow, inlineControls, selectInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

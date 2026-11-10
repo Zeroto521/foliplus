@@ -7,8 +7,8 @@
 // shared contract matrix below, which drives every surface the engine owns.
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { buildFieldRow } from "#core/rampForm.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
+import { buildFieldRow } from "#core/value/index.js";
 import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
 import {
   type Dropdown,

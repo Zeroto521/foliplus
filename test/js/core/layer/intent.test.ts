@@ -7,7 +7,7 @@ import {
   STYLE_MODE,
   isIconIntent,
   isValueConfig,
-} from "#core/layer/intent.js";
+} from "#core/layer/index.js";
 
 const NUMERIC = {
   kind: "numeric",

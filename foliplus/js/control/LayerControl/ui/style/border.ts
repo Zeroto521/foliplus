@@ -50,7 +50,6 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/classify.js";
 import {
   CAP_TIER,
   DIM,
@@ -59,9 +58,14 @@ import {
   type StyleMode,
   type ValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
-import { VALUE_KIND } from "#core/valueKind.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
+  DEFAULT_SCHEMES,
+  VALUE_KIND,
+  getColorScale,
+} from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,

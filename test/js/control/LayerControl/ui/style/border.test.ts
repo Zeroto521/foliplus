@@ -1,10 +1,8 @@
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { DIM, GEOM_TYPE } from "#core/layer/const.js";
-import { STYLE_MODE, type ValueConfig } from "#core/layer/intent.js";
-import { DEFAULT_SCHEMES } from "#core/palette.js";
+import { DIM, GEOM_TYPE, STYLE_MODE, type ValueConfig } from "#core/layer/index.js";
+import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import {

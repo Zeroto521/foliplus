@@ -125,10 +125,10 @@ class TestPythonPackage:
 
 class TestJsRegistries:
     def test_listed_in_components_constant(self, controls: set[str]):
-        text = _read(PKG / "js" / "core" / "component.ts")
+        text = _read(PKG / "js" / "core" / "lifecycle" / "component.ts")
         missing = [n for n in sorted(controls) if f'{n}: "{n}"' not in text]
         assert not missing, (
-            f"missing from core/component.ts COMPONENTS: {missing}\n"
+            f"missing from core/lifecycle/component.ts COMPONENTS: {missing}\n"
             f'Add `{{Name}}: "{{Name}}",`. {_SCAFFOLD}'
         )
 
@@ -201,9 +201,9 @@ class TestScaffoldWiring:
         assert '"new-control"' in text and "script/tool/new-control.mjs" in text
 
     def test_scaffold_uses_core_control_env(self):
-        """After #289 createControlEnv lives in #core/controlEnv, not #core/guard.js."""
+        """After the clustering createControlEnv is reached through the lifecycle barrel."""
         text = _read(ROOT / "script" / "tool" / "new-control.mjs")
-        assert "#core/controlEnv.js" in text
+        assert "#core/lifecycle/index.js" in text
         assert "#core/guard.js" not in text
 
     def test_scaffold_script_exists(self):

@@ -224,7 +224,7 @@ def _render_stub(html: str) -> types.ModuleType:
 def _bundle(control: str, externalise: bool = True) -> str:
     """The shape a real bundle has: an esbuild banner, then the runtime ref."""
     head = f"/*! foliplus@v0.1.0 · {control} */\n"
-    body = "var c = foliplus.core.defineControl;" if externalise else "var x = 1;"
+    body = "var c = foliplus.core.lifecycle;" if externalise else "var x = 1;"
     return head + body
 
 
@@ -236,7 +236,7 @@ def _cls(name: str) -> type:
 def test_render_control_passes_on_a_real_bundle(tmp_path, smoke):
     """Banner and externalisation present in both bundle and HTML → passes."""
     folium_stub = _render_stub(
-        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.core.defineControl;"
+        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.core.lifecycle;"
     )
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
@@ -251,7 +251,7 @@ def test_render_control_rejects_a_bundle_without_the_component(tmp_path, smoke):
     required to be in the HTML. A banner-only file carries the shared
     `foliplus@` marker, so only the component-specific marker catches it.
     """
-    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.core.defineControl;")
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.core.lifecycle;")
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text("/*! foliplus@v0.1.0 */\n", encoding="utf-8")
     with pytest.raises(AssertionError, match="bundle holds no"):
@@ -262,7 +262,7 @@ def test_render_control_rejects_a_bundle_without_the_runtime(tmp_path, smoke):
     """A bundle that names the component but never externalises to the shared
     runtime cannot drive it — dead code, and the render proves it."""
     folium_stub = _render_stub(
-        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.core.defineControl;"
+        "/*! foliplus@v0.1.0 · ScaleControl */\nfoliplus.core.lifecycle;"
     )
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text(_bundle("ScaleControl", externalise=False), encoding="utf-8")
@@ -272,7 +272,7 @@ def test_render_control_rejects_a_bundle_without_the_runtime(tmp_path, smoke):
 
 def test_render_control_rejects_html_without_the_component(tmp_path, smoke):
     """The bundle is right but the render lost it: the page ships a dead control."""
-    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.core.defineControl;")
+    folium_stub = _render_stub("/*! foliplus@v0.1.0 */\nfoliplus.core.lifecycle;")
     bundle = tmp_path / "foliplus-ScaleControl.min.js"
     bundle.write_text(_bundle("ScaleControl"), encoding="utf-8")
     with pytest.raises(AssertionError, match="missing from the rendered page"):
@@ -337,7 +337,7 @@ def _installed_tree(tmp_path: Path, controls: list[str]) -> Path:
 def _render_html(names: list[str]) -> str:
     """One document carrying every component banner plus the runtime ref."""
     banners = "".join(f"/*! foliplus@v0.1.0 · {n} */\n" for n in names)
-    return banners + "foliplus.core.defineControl;"
+    return banners + "foliplus.core.lifecycle;"
 
 
 def _stub_sys_modules(monkeypatch, smoke, pkg: Path, controls: list[str]) -> None:

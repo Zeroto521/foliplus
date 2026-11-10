@@ -76,12 +76,12 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
  *  prefixes `foliplus.` for the global lookup) and the build script (which
  *  records declared deps in `manifest.json`) so the two stay in sync.
  *
- *  `core/hint` is the one exception to the "first path segment" rule: the
- *  runtime publishes it at the top level (`foliplus.hint`, not
- *  `foliplus.core.hint`) in the `Object.assign(window.foliplus, …)` block
- *  in runtime/index.ts. Everything else follows `core.<sub>` /
- *  `platform.<sub>`; `BaseControl` (i.e. `#foliplus/BaseControl.js`) is a
- *  bare top-level export.
+ *  Every `core/<sub>/<file>` deep path follows the "first path segment"
+ *  rule and lands on `core.<sub>` — the same namespace scan-registry folds
+ *  the sub's used exports into (the barrel-backed `foliplus.core.<sub>`),
+ *  so a shim never reads a flattened `core.<last>` that nobody publishes.
+ *  `platform.<sub>` follows the same rule; `BaseControl` (i.e.
+ *  `#foliplus/BaseControl.js`) is a bare top-level export.
  *
  *  When the canonical form still carries a `#` — which only happens for the
  *  deleted `core/index.ts` barrel — it is returned as-is so
@@ -95,7 +95,6 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 // the flat-key contract, and this mapping trusts it.
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
-  if (spec === "core/hint") return "hint";
   if (spec.startsWith("platform/")) return `platform.${spec.split("/").at(-1)}`;
   if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
   if (spec.startsWith("core/")) {

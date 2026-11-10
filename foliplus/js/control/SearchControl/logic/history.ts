@@ -4,9 +4,8 @@ import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
 import { type SearchControlCtx } from "./util.js";
-import { fromWgs84 } from "#core/geo/index.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import { guardBlocked } from "#core/mode.js";
+import { createLocationMarker, fromWgs84 } from "#core/geo/index.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
 import * as Icons from "#platform/icon.js";
 import { createPersisted, loadVersioned, saveVersioned } from "#platform/storage.js";
 

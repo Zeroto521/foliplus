@@ -17,8 +17,8 @@ import {
   hideOtherLayers,
   restoreHiddenLayers,
 } from "./pane.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { ensureModes, guardBlocked } from "#core/mode.js";
+import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";
 import * as CONST from "#control/LayerControl/const.js";
 

@@ -4,7 +4,7 @@
 import { isEnabled, ownsFullscreen } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
 
 /** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
