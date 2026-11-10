@@ -92,7 +92,7 @@ const valueRamp = (): any => ({
   scheme: DEFAULT_SCHEMES[0],
 });
 
-describe("geometry x dimension option matrix (border)", () => {
+describe("border options per geometry", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
