@@ -1845,26 +1845,36 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # lengthens any of them is caught here instead of silently
             # wrapping the row again.
             label_keys = {
-                "LayerControl.style_method", "LayerControl.style_fill_field",
-                "LayerControl.style_fill_classes", "LayerControl.style_fill_scheme",
-                "LayerControl.style_fill", "LayerControl.style_fill_mode",
-                "LayerControl.style_border", "LayerControl.style_border_color",
-                "LayerControl.style_border_weight", "LayerControl.style_border_mode",
-                "LayerControl.style_border_follow_fill", "LayerControl.style_icon",
-                "LayerControl.style_icon_color", "LayerControl.style_opacity",
-                "LayerControl.style_zoom_range", "LayerControl.style_label",
-                "LayerControl.style_label_field", "LayerControl.style_label_color_size",
-                "LayerControl.style_label_format", "LayerControl.style_label_avoidance",
-                "HeatmapControl.agg_field", "HeatmapControl.field",
-                "HeatmapControl.classify_method", "HeatmapControl.class_count",
+                "LayerControl.style_method",
+                "LayerControl.style_fill_field",
+                "LayerControl.style_fill_classes",
+                "LayerControl.style_fill_scheme",
+                "LayerControl.style_fill",
+                "LayerControl.style_fill_mode",
+                "LayerControl.style_border",
+                "LayerControl.style_border_color",
+                "LayerControl.style_border_weight",
+                "LayerControl.style_border_mode",
+                "LayerControl.style_border_follow_fill",
+                "LayerControl.style_icon",
+                "LayerControl.style_icon_color",
+                "LayerControl.style_opacity",
+                "LayerControl.style_zoom_range",
+                "LayerControl.style_label",
+                "LayerControl.style_label_field",
+                "LayerControl.style_label_color_size",
+                "LayerControl.style_label_format",
+                "LayerControl.style_label_avoidance",
+                "HeatmapControl.agg_field",
+                "HeatmapControl.field",
+                "HeatmapControl.classify_method",
+                "HeatmapControl.class_count",
                 "HeatmapControl.scheme",
             }
             for component in ("LayerControl", "HeatmapControl"):
                 for lang in ("en", "zh"):
                     table = json.loads(
-                        (base / f"{component}.{lang}.json").read_text(
-                            encoding="utf-8"
-                        )
+                        (base / f"{component}.{lang}.json").read_text(encoding="utf-8")
                     )
                     for key in label_keys:
                         value = table.get(key)
