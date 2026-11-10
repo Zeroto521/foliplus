@@ -201,9 +201,9 @@ class TestScaffoldWiring:
         assert '"new-control"' in text and "script/tool/new-control.mjs" in text
 
     def test_scaffold_uses_core_control_env(self):
-        """After #289 createControlEnv lives in #core/controlEnv, not #core/guard.js."""
+        """After the clustering createControlEnv is reached through the lifecycle barrel."""
         text = _read(ROOT / "script" / "tool" / "new-control.mjs")
-        assert "#core/lifecycle/controlEnv.js" in text
+        assert "#core/lifecycle/index.js" in text
         assert "#core/guard.js" not in text
 
     def test_scaffold_script_exists(self):
