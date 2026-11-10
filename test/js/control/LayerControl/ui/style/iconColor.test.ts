@@ -16,6 +16,7 @@ import {
   applyIconColorToLayer,
   buildIconColorRow,
   commitIconColor,
+  commitIconColorOpacity,
   layerCanIconColor,
   resetLayerIconColor,
 } from "#control/LayerControl/ui/style/iconColor.js";
@@ -275,6 +276,29 @@ describe("buildIconColorRow", () => {
     ).toBe(true);
   });
 
+  it("renders the glyph-opacity number field on the same inline shell", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
+    expect(input.value).toBe("100");
+  });
+
+  it("shows the user's stored opacity when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 50]]);
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(input.value).toBe("50");
+  });
+
+  it("commits a user opacity from the number field", () => {
+    const row = buildIconColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    input.value = "25";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(25);
+  });
+
   it("returns null for an <img>-based icon (capability gate negative)", () => {
     const img = makeMarker({ type: "school" }, makeImgAuthor());
     const { ui: u6 } = fixtureWithMarkers([img]);
@@ -340,6 +364,20 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     vi.useRealTimers();
   });
 
+  it("commitIconColorOpacity stores a rounded 0-100 integer", () => {
+    commitIconColorOpacity(ui, "overlay1", 50);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(50);
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
+  });
+
+  it("commitIconColorOpacity ignores an out-of-range value", () => {
+    commitIconColorOpacity(ui, "overlay1", 150);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+    commitIconColorOpacity(ui, "overlay1", -5);
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+  });
+
   it("commit writes the intent and schedules an apply", () => {
     commitIconColor(ui, "overlay1", "#00ff00");
     const intent = getIntent(ui, "overlay1", INTENT.ICON_COLOR);
@@ -359,6 +397,41 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     applyIconColorToLayer(ui, "overlay1");
     expect(school.setIcon).not.toHaveBeenCalled();
     expect(school.options.icon).toBe(authorIcon);
+  });
+  it("apply with only an opacity keeps the author color and changes the alpha", () => {
+    // The author paints an iconColor hex; an opacity-only write must keep
+    // that color and only change the alpha (compose needs a parsable hex —
+    // a named author color is not a glyph source).
+    const blueAuthor = makeAuthorIcon({ iconColor: "#0000ff" });
+    const blueSchool = makeMarker({ type: "school" }, blueAuthor);
+    const { manager: m2, ui: ui2 } = fixtureWithMarkers([blueSchool]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui2, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    applyIconColorToLayer(ui2, "overlay1");
+    flushIconColor("overlay1");
+    const div = blueSchool.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgba(0, 0, 255, 0.4)");
+    expect(getIntent(ui2, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+    expect(getIntent(ui2, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(40);
+    m2?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+  it("apply with only an opacity and no author paint falls back to white", () => {
+    const bareAuthor = makeAuthorIcon({ iconColor: "" });
+    const bareSchool = makeMarker({ type: "school" }, bareAuthor);
+    const { manager: m3, ui: ui3 } = fixtureWithMarkers([bareSchool]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui3, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    applyIconColorToLayer(ui3, "overlay1");
+    flushIconColor("overlay1");
+    const div = bareSchool.options.icon.createIcon();
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgba(255, 255, 255, 0.4)");
+    m3?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
   });
 
   it("merged construction: setting a glyph then a color keeps both", () => {
@@ -402,6 +475,7 @@ describe("applyIconColorToLayer / commitIconColor / resetLayerIconColor", () => 
     // fallback). The glyph is re-derived in the SAME construction.
     expect(inner.style.color).toBe("blue");
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
   });
 
   it("reset preserves a user-set glyph (orthogonal)", () => {
@@ -524,10 +598,29 @@ describe("iconColor dimension descriptor", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
   });
-  it("value returns the stored user color, else undefined", () => {
+  it("value returns the stored user color and opacity, else undefined", () => {
     expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toBeUndefined();
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ value: "#ff0000" });
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({
+      value: "#ff0000",
+      opacity: 40,
+    });
+  });
+  it("value reports only the opacity when the color was never written", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(ICON_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({
+      value: undefined,
+      opacity: 40,
+    });
+  });
+
+  it("write stores the opacity and schedules an apply", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 60 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(60);
+    flushIconColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
   });
   it("write stores the color and schedules an apply", () => {
     ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: "#00ff00" });
@@ -539,6 +632,13 @@ describe("iconColor dimension descriptor", () => {
     ICON_COLOR_DIMENSION.write!(ui, "overlay1", { value: undefined });
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBeUndefined();
   });
+  it("write ignores an out-of-range opacity", () => {
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 150 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+    ICON_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: -5 });
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBeUndefined();
+  });
+
   it("reset clears the persisted color", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     ICON_COLOR_DIMENSION.reset!(ui, "overlay1");
@@ -557,6 +657,13 @@ describe("iconColor dimension descriptor", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
     expect(policy.when!(ui, "overlay1")).toBe(true);
   });
+  it("contentChange when is also true once only an opacity intent exists", () => {
+    const policy = ICON_COLOR_DIMENSION.contentChange;
+    if (policy.kind !== "frame") throw new Error("expected a frame policy");
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR_OPACITY, 40]]);
+    expect(policy.when!(ui, "overlay1")).toBe(true);
+  });
+
   it("row builds the swatch row for a capable carrier", () => {
     const row = ICON_COLOR_DIMENSION.row(ui, "overlay1") as HTMLElement;
     expect(row.classList.contains(CONST.CLASSES.STYLE_ICON_COLOR_ROW)).toBe(true);

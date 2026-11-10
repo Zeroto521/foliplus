@@ -30,12 +30,12 @@ describe("VALUE_KIND vocabulary", () => {
 });
 
 describe("isCategoryKind (absent-is-numeric convention)", () => {
-  it("is false for the numeric arm and for an absent kind", () => {
+  it("is false for the numeric mode and for an absent kind", () => {
     expect(isCategoryKind(undefined)).toBe(false);
     expect(isCategoryKind("numeric")).toBe(false);
   });
 
-  it("is true for the category arm", () => {
+  it("is true for the category mode", () => {
     expect(isCategoryKind("category")).toBe(true);
   });
 

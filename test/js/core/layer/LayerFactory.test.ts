@@ -1676,7 +1676,7 @@ describe("LayerFactory", () => {
       }
     });
 
-    it("color face bakes layerAlpha into its fillRect (R11 commit arm)", () => {
+    it("color face bakes layerAlpha into its fillRect (R11 commit mode)", () => {
       // Default opacityBake is "commit": the factory supplies onOpacity=paint
       // so a slider commit repaints under the baked alpha without CSS.
       const registered: Array<Record<string, unknown>> = [];

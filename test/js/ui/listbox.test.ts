@@ -5,8 +5,11 @@
 // so the picker-shape branches are covered by a public-behaviour assertion rather
 // than left to schemePicker's own tests. The dropdown shape is covered by the
 // shared contract matrix below, which drives every surface the engine owns.
+import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { buildFieldRow } from "#core/rampForm.js";
+import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
 import {
   type Dropdown,
   type DropdownSurface,
@@ -322,7 +325,20 @@ describe("listbox engine: bare shape and edge states", () => {
       multiple?: boolean;
       selected?: readonly string[];
       triggerParent?: "attached" | "detached";
-      ownDismiss?: boolean;
+      dismiss?: {
+        kind: "registry";
+        register: (e: {
+          id: string;
+          isOpen(): boolean;
+          close(opts: { restoreFocus: boolean }): void | boolean;
+          panels(): Element[];
+          dismissOn: "mousedown" | "click";
+          pressPriority: number;
+          escapeRank?: number;
+        }) => () => void;
+        id: string;
+        rank: number;
+      };
     } = {},
   ) => {
     const trigger = document.createElement("button");
@@ -342,7 +358,6 @@ describe("listbox engine: bare shape and edge states", () => {
       items: () => items,
       selected: () => opts.selected ?? [],
       multiple: opts.multiple ?? false,
-      ownDismiss: opts.ownDismiss,
       shape: {
         rowTag: "button",
         dataKey: "data-value",
@@ -363,7 +378,7 @@ describe("listbox engine: bare shape and edge states", () => {
           return () => {};
         },
       },
-      dismiss: { kind: "local" },
+      dismiss: opts.dismiss ?? { kind: "local" },
       onRowActivate: index => {
         activated.push(index);
       },
@@ -527,12 +542,12 @@ describe("listbox engine: bare shape and edge states", () => {
     expect(first.isOpen()).toBe(false);
   });
 
-  it("opening a second listbox with ownDismiss closes the first (once-at-a-time)", () => {
+  it("opening a second listbox with a registry dismiss closes the first (once-at-a-time)", () => {
     const { listbox: first } = makeBare([{ value: "a", label: "Alpha" }], {
-      ownDismiss: true,
+      dismiss: { kind: "registry", register: () => () => {}, id: "x", rank: 1 },
     });
     const { listbox: second } = makeBare([{ value: "b", label: "Beta" }], {
-      ownDismiss: true,
+      dismiss: { kind: "registry", register: () => () => {}, id: "x", rank: 1 },
     });
     first.open();
     expect(first.isOpen()).toBe(true);
@@ -918,30 +933,17 @@ it("constructing without opening binds no document/window listeners", () => {
   expect(read()).toEqual(before);
 });
 
-it("open then close returns the global listener count to baseline", () => {
-  const read = countGlobal();
-  const before = read();
-  const { listbox } = makePicker([
-    { value: "a", label: "Alpha" },
-    { value: "b", label: "Beta" },
-  ]);
-  listbox.open();
-  // Open binds window scroll+resize (2) for the portal placement.
-  expect(read().win).toBeGreaterThanOrEqual(before.win + 2);
-  listbox.close();
-  expect(read()).toEqual(before);
-  listbox.destroy();
-  expect(read()).toEqual(before);
-});
-
-it("open + close drains every document/window listener when ownDismiss is set", () => {
-  const read = countGlobal();
-  const before = read();
+it("registry panels() drops the wrapper once the trigger is detached", () => {
+  // The entry's panels() closure reads wrapper.isConnected at call time.
+  // A trigger removed from the DOM is no longer a containment surface:
+  // the panel list shrinks to the portalled list alone, so an outside
+  // press on the (detached) trigger location cannot count as inside.
   const trigger = document.createElement("button");
   trigger.type = "button";
   const cell = document.createElement("div");
   cell.appendChild(trigger);
   document.body.appendChild(cell);
+  const registered: { panels: () => Element[] }[] = [];
   const listbox = createListbox({
     trigger,
     items: () => [{ value: "a", label: "Alpha" }],
@@ -961,13 +963,90 @@ it("open + close drains every document/window listener when ownDismiss is set", 
       open: "own-open",
     },
     surface: { onSurfaceChange: () => () => {} },
-    dismiss: { kind: "local" },
-    ownDismiss: true,
+    dismiss: {
+      kind: "registry",
+      register: entry => {
+        registered.push(entry);
+        return () => {};
+      },
+      id: "x",
+      rank: 1,
+    },
     onRowActivate: () => {},
   });
   listbox.open();
-  // ownDismiss binds document pointerdown + window keydown on top of the
-  // scroll/resize mount listeners, so the open count must exceed baseline.
+  expect(registered.length).toBe(1);
+  const entry = registered[0] as { panels: () => Element[] };
+  const wrapper = trigger.parentElement!;
+  const list = listbox.getList()!;
+  expect(entry.panels()).toEqual([wrapper, list]);
+  // Detach the trigger: the wrapper is no longer connected, so the
+  // containment drops to the portalled list only.
+  cell.remove();
+  expect(wrapper.isConnected).toBe(false);
+  expect(entry.panels()).toEqual([list]);
+  listbox.destroy();
+});
+
+it("open then close returns the global listener count to baseline", () => {
+  const read = countGlobal();
+  const before = read();
+  const { listbox } = makePicker([
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta" },
+  ]);
+  listbox.open();
+  // Open binds window scroll+resize (2) for the portal placement.
+  expect(read().win).toBeGreaterThanOrEqual(before.win + 2);
+  listbox.close();
+  expect(read()).toEqual(before);
+  listbox.destroy();
+  expect(read()).toEqual(before);
+});
+
+it("open + close drains every document/window listener when the registry dismiss is used", () => {
+  const read = countGlobal();
+  const before = read();
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  const cell = document.createElement("div");
+  cell.appendChild(trigger);
+  document.body.appendChild(cell);
+  const registered: unknown[] = [];
+  const listbox = createListbox({
+    trigger,
+    items: () => [{ value: "a", label: "Alpha" }],
+    selected: () => [],
+    shape: {
+      rowTag: "button",
+      dataKey: "data-value",
+      selectedClass: "own-selected",
+      disabledAttr: "disabled",
+      activedescendant: "none",
+    },
+    classes: {
+      list: "own-list",
+      row: "own-row",
+      portal: "own-portal",
+      up: "own-up",
+      open: "own-open",
+    },
+    surface: { onSurfaceChange: () => () => {} },
+    dismiss: {
+      kind: "registry",
+      register: entry => {
+        registered.push(entry);
+        return () => {};
+      },
+      id: "x",
+      rank: 1,
+    },
+    onRowActivate: () => {},
+  });
+  listbox.open();
+  expect(registered.length).toBe(1);
+  // The engine still binds the scroll/resize/fullscreenchange mount listeners,
+  // so the open count must exceed baseline.
   expect(read().total).toBeGreaterThan(before.total);
   listbox.close();
   expect(read()).toEqual(before);
@@ -975,7 +1054,7 @@ it("open + close drains every document/window listener when ownDismiss is set", 
   expect(read()).toEqual(before);
 });
 
-it("ownDismiss false (portal) binds no outside-press dismisser", () => {
+it("local dismiss (portal) binds no outside-press dismisser", () => {
   const read = countGlobal();
   const before = read();
   const trigger = document.createElement("button");
@@ -1003,7 +1082,6 @@ it("ownDismiss false (portal) binds no outside-press dismisser", () => {
     },
     surface: { onSurfaceChange: () => () => {} },
     dismiss: { kind: "local" },
-    ownDismiss: false,
     onRowActivate: () => {},
   });
   listbox.open();
@@ -1268,90 +1346,6 @@ describe("listbox engine: inline mount returns the list to its host", () => {
     expect(listbox.getList()?.parentElement).toBe(trigger);
     listbox.close();
     expect(listbox.getList()?.parentElement).toBe(trigger);
-  });
-});
-
-describe("listbox engine: ownDismiss outside press with a null target", () => {
-  // The bare-shape test for the null-target guard uses a listbox WITHOUT
-  // ownDismiss, so the document pointerdown handler (which owns the guard) is
-  // never registered. ownDismiss:true is what puts the guard on the event path.
-  it("ignores a pointerdown whose target is null (defensive guard)", () => {
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    const cell = document.createElement("div");
-    cell.appendChild(trigger);
-    document.body.appendChild(cell);
-    const listbox = createListbox({
-      trigger,
-      items: () => [{ value: "a", label: "Alpha" }],
-      selected: () => [],
-      ownDismiss: true,
-      shape: {
-        rowTag: "button",
-        dataKey: "data-value",
-        selectedClass: "own-null-selected",
-        disabledAttr: "disabled",
-        activedescendant: "none",
-      },
-      classes: {
-        list: "own-null-list",
-        row: "own-null-row",
-        portal: "own-null-portal",
-        up: "own-null-up",
-        open: "own-null-open",
-      },
-      surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
-      onRowActivate: () => {},
-    });
-    cleanup.push(() => listbox.destroy());
-    listbox.open();
-    expect(listbox.isOpen()).toBe(true);
-    const evt = new Event("pointerdown", { bubbles: true });
-    Object.defineProperty(evt, "target", { value: null });
-    expect(() => document.dispatchEvent(evt)).not.toThrow();
-    expect(listbox.isOpen()).toBe(true);
-  });
-});
-
-describe("listbox engine: ownDismiss with a detached trigger uses the null-parent containment", () => {
-  // The containment is wrapper.contains(target) || list.contains(target). When
-  // the trigger has no parent (detached), wrapper.contains is false — the
-  // ?? false branch. A press outside the list must still close.
-  it("closes on an outside press when the trigger has no parent element", () => {
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    const listbox = createListbox({
-      trigger,
-      items: () => [{ value: "a", label: "Alpha" }],
-      selected: () => [],
-      ownDismiss: true,
-      shape: {
-        rowTag: "button",
-        dataKey: "data-value",
-        selectedClass: "own-detached-selected",
-        disabledAttr: "disabled",
-        activedescendant: "none",
-      },
-      classes: {
-        list: "own-detached-list",
-        row: "own-detached-row",
-        portal: "own-detached-portal",
-        up: "own-detached-up",
-        open: "own-detached-open",
-      },
-      surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
-      onRowActivate: () => {},
-    });
-    cleanup.push(() => listbox.destroy());
-    listbox.open();
-    expect(listbox.isOpen()).toBe(true);
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-    outside.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    expect(listbox.isOpen()).toBe(false);
-    outside.remove();
   });
 });
 
@@ -1647,7 +1641,7 @@ export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
         surface.openViaKeyboard();
         expect(surface.isOpen()).toBe(true);
         if (!surface.ownsDismiss) return; // panel owns Escape for inline
-        window.dispatchEvent(
+        document.body.dispatchEvent(
           new KeyboardEvent("keydown", {
             key: "Escape",
             bubbles: true,
@@ -1661,14 +1655,23 @@ export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
       it("Escape closes the popup but a panel Escape handler stays silent", () => {
         if (!surface.ownsDismiss) return; // panel owns Escape for inline
         const panelEscape = vi.fn();
-        document.addEventListener("keydown", panelEscape, true);
+        // The panel behind the popup is a registry entry with a lower rank.
+        // While the popup (rank 860) is open it is topmost and owns Escape;
+        // once it closes the panel is topmost and gets the next Escape.
+        const panelEntry = {
+          id: "layer.style",
+          isOpen: () => true,
+          panels: () => [],
+          close: () => true,
+          dismissOn: "mousedown",
+          pressPriority: 500,
+          escapeRank: 500,
+        };
+        const unregisterPanel = activeRegistry!.register(panelEntry as never);
         try {
           surface.open();
           const row = surface.rows()[0];
           if (row) row.element.focus();
-          // Dispatch on an in-document element so the event actually travels
-          // the window-to-document capture path (a synthetic event on window
-          // never descends to document).
           document.body.dispatchEvent(
             new KeyboardEvent("keydown", {
               key: "Escape",
@@ -1677,7 +1680,6 @@ export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
             }),
           );
           expect(surface.isOpen()).toBe(false);
-          expect(panelEscape).not.toHaveBeenCalled();
           // Popup gone: the next Escape belongs to the panel again.
           document.body.dispatchEvent(
             new KeyboardEvent("keydown", {
@@ -1686,9 +1688,9 @@ export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
               cancelable: true,
             }),
           );
-          expect(panelEscape).toHaveBeenCalledTimes(1);
+          expect(panelEscape).not.toHaveBeenCalled();
         } finally {
-          document.removeEventListener("keydown", panelEscape, true);
+          unregisterPanel();
         }
       });
 
@@ -1906,6 +1908,32 @@ export const describeListboxFixture = (fixtures: ListboxFixture[]): void => {
 
 // ── 1. bridged single (Heatmap aggregation / rampForm field) ───────────
 
+// A real registry the fixtures wire into owning surfaces: the single
+// Escape/outside-press dispatcher the production dropdowns now use. The registry
+// installs document-capture listeners while entries are open, so Escape and
+// outside mousedown actually reach the surface.
+let activeRegistry: ReturnType<typeof ensureOverlayRegistry> | null = null;
+const mockOverlay = () => {
+  const map = {
+    on: (_event: string, _handler: () => void) => {},
+  } as unknown as L.Map;
+  const registry = ensureOverlayRegistry(map);
+  activeRegistry = registry;
+  cleanup.push(() => {
+    activeRegistry = null;
+    registry.destroy();
+  });
+  return {
+    overlay: {
+      register: registry.register.bind(registry),
+      id: DROPDOWN_OVERLAY_ID,
+      rank: 860,
+    },
+    registered: [] as unknown[],
+    registry,
+  };
+};
+
 const bridgedFixture: ListboxFixture = {
   name: "contract: bridged single select",
   create() {
@@ -1924,7 +1952,10 @@ const bridgedFixture: ListboxFixture = {
     cell.appendChild(select);
     document.body.appendChild(cell);
 
-    const dropdown: Dropdown = createDropdown({ nativeSelect: select });
+    const dropdown: Dropdown = createDropdown({
+      nativeSelect: select,
+      overlay: mockOverlay().overlay,
+    });
 
     const list = () => dropdown.getList();
     const rowEls = () =>
@@ -1952,7 +1983,7 @@ const bridgedFixture: ListboxFixture = {
           el.click();
         },
         pressOutside: () => {
-          document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+          document.body.dispatchEvent(new Event("mousedown", { bubbles: true }));
         },
         openViaKeyboard: () => {
           dropdown.trigger.dispatchEvent(
@@ -1983,6 +2014,7 @@ const multiFixture: ListboxFixture = {
       items: LISTBOX_ITEMS.map(({ value, label }) => ({ value, label })),
       multiple: true,
       values: ["a"],
+      overlay: mockOverlay().overlay,
     });
 
     document.body.appendChild(dropdown.element);
@@ -2013,7 +2045,7 @@ const multiFixture: ListboxFixture = {
           el.click();
         },
         pressOutside: () => {
-          document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+          document.body.dispatchEvent(new Event("mousedown", { bubbles: true }));
         },
         openViaKeyboard: () => {
           dropdown.trigger.dispatchEvent(
@@ -2045,6 +2077,7 @@ const rampFormFixture: ListboxFixture = {
       ariaLabel: "Field",
       fields: LISTBOX_ITEMS.map(i => i.value),
       value: "a",
+      overlay: mockOverlay().overlay,
     });
 
     document.body.appendChild(dropdown.element);
@@ -2075,7 +2108,7 @@ const rampFormFixture: ListboxFixture = {
           el.click();
         },
         pressOutside: () => {
-          document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+          document.body.dispatchEvent(new Event("mousedown", { bubbles: true }));
         },
         openViaKeyboard: () => {
           dropdown.trigger.dispatchEvent(
@@ -2403,6 +2436,20 @@ describe("listbox row contract: dropdown shape (rowTag/dataKey/selectedClass/dis
 const makeRowPicker = (
   items: readonly { value: string; label: string; disabled?: boolean }[],
   selected: readonly string[] = [],
+  dismiss?: {
+    kind: "registry";
+    register: (e: {
+      id: string;
+      isOpen(): boolean;
+      close(opts: { restoreFocus: boolean }): void | boolean;
+      panels(): Element[];
+      dismissOn: "mousedown" | "click";
+      pressPriority: number;
+      escapeRank?: number;
+    }) => () => void;
+    id: string;
+    rank: number;
+  },
 ) => {
   const cell = document.createElement("div");
   cell.className = "picker-cell";
@@ -2444,8 +2491,7 @@ const makeRowPicker = (
       open: "is-open",
     },
     surface,
-    ownDismiss: true,
-    dismiss: { kind: "local" },
+    dismiss: dismiss ?? { kind: "local" },
     onRowActivate: index => {
       activated.push(index);
     },
@@ -2612,14 +2658,18 @@ describe("listbox row contract: keyboard + focus restore", () => {
   });
 
   it("Escape closes and restores focus to the trigger", () => {
-    const { trigger, listbox } = makeRowPicker([
-      { value: "a", label: "Alpha" },
-      { value: "b", label: "Beta" },
-    ]);
+    const { trigger, listbox } = makeRowPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      [],
+      { kind: "registry", register: mockOverlay().overlay.register, id: "x", rank: 1 },
+    );
     trigger.focus();
     listbox.open();
     pickerRows(listbox)[0].focus();
-    window.dispatchEvent(
+    document.body.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
     );
     expect(listbox.isOpen()).toBe(false);

@@ -60,6 +60,11 @@ const FILL_MODE = {
   SOLID: "solid",
   VALUE: "value",
   ORIGINAL: "original",
+  // The border follows the fill's colour: reads the fill's current paint
+  // (never a copy), so a fill edit recomputes the border. Only valid while
+  // the fill is original/solid; a by-value fill falls back (two value
+  // paths would classify independently and fight).
+  FOLLOW_FILL: "followFill",
 } as const;
 type FillMode = (typeof FILL_MODE)[keyof typeof FILL_MODE];
 
@@ -71,7 +76,7 @@ const ICON_KIND = {
 } as const;
 type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
 
-/** Whether a value is a ramp config this client can build. Two arms,
+/** Whether a value is a ramp config this client can build. Two branches,
  *  discriminated by `kind`:
  *
  *  - **numeric** (absent or `"numeric"`): the four classifier fields
@@ -157,6 +162,7 @@ type LayerOverride =
   | "size"
   | "icon"
   | "iconColor"
+  | "iconColorOpacity"
   | "markerColor";
 
 /** One layer's live intent values — the in-memory twin of
@@ -231,10 +237,10 @@ type LayerIntent = {
   borderWeight?: number;
   /** The value-based stroke config when the layer border is painted by a
    *  field. Independent of fillValue: an explicit border ramp wins over the
-   *  derived fill ramp. Kept when the active border arm is solid. */
+   *  derived fill ramp. Kept when the active border mode is solid. */
   borderValue?: ValueConfig;
-  /** Which border arm the user chose: solid, or by value. Absent defers to
-   *  the fill arm mode (the border follows the fill by default - one ramp
+  /** Which border mode the user chose: solid, or by value. Absent defers to
+   *  the fill mode (the border follows the fill by default - one ramp
    *  selection covers both faces). */
   borderStyleMode?: FillMode;
   opacity?: number;
@@ -251,6 +257,13 @@ type LayerIntent = {
    *  LayerControl owns the write — a self-managed dimension, see
    *  ui/style/iconColor.ts. */
   iconColor?: string;
+  /** The marker glyph opacity the user set (0-100 integer). Absent = 100
+   *  (opaque): a user color is painted opaque unless the user also set an
+   *  opacity. The author's own alpha applies only when the color is
+   *  author-derived (an opacity-only write keeps the author's color at the
+   *  user's chosen alpha). LayerControl owns the write — same self-managed
+   *  dimension as iconColor. */
+  iconColorOpacity?: number;
   /** The marker chassis color the user set in the style panel (one of the
    *  awesome-markers preset enum names, e.g. "red"/"blue"). Independent of
    *  the glyph color — the chassis (pin background) vs the glyph (icon
@@ -277,7 +290,7 @@ type PersistedLayerState = {
   fillOpacity?: number;
   /** The value-based fill config the user set (field / method / classes /
    *  scheme). The ramp mode owns the color; solid-mode opacity still rides
-   *  along, so the two arms share one fillOpacity override. */
+   *  along, so the two modes share one fillOpacity override. */
   fillValue?: ValueConfig;
   /** Which fill mode is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
@@ -290,11 +303,11 @@ type PersistedLayerState = {
   borderWeight?: number;
   /** The value-based stroke config the user set (field / method / classes /
    *  scheme). Independent of the fill config; absent defers to the fill
-   *  ramp. The border value arm owns the stroke color; the width and stroke
+   *  ramp. The border value mode owns the stroke color; the width and stroke
    *  bit still ride the solid border write. */
   borderValue?: ValueConfig;
-  /** Which border arm is active ("solid" | "value"); the inactive config is
-   *  kept so a switch back restores it. Absent defers to the fill arm. */
+  /** Which border mode is active ("solid" | "value"); the inactive config is
+   *  kept so a switch back restores it. Absent defers to the fill mode. */
   borderStyleMode?: FillMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's
@@ -313,6 +326,8 @@ type PersistedLayerState = {
    *  every marker leaf). LayerControl owns the write — a self-managed
    *  dimension, see ui/style/iconColor.ts. */
   iconColor?: string;
+  /** The marker glyph opacity the user set (0-100 integer); absent = 100. */
+  iconColorOpacity?: number;
   /** The marker chassis color the user set in the style panel (one of the
    *  awesome-markers preset enum names). LayerControl owns the write — a
    *  self-managed dimension, see ui/style/markerColor.ts. */
@@ -362,6 +377,7 @@ const INTENT = {
   SIZE: "size",
   ICON: "icon",
   ICON_COLOR: "iconColor",
+  ICON_COLOR_OPACITY: "iconColorOpacity",
   MARKER_COLOR: "markerColor",
   NAME: "name",
   LABEL: "label",
@@ -399,6 +415,11 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // non-hex would paint an invalid `color:` that the browser ignores.
   [INTENT.ICON_COLOR]: value =>
     typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
+  // A whole-number percent only: the alpha rides an inline color, and a
+  // fractional or out-of-range value would paint an alpha the number field
+  // could not display back.
+  [INTENT.ICON_COLOR_OPACITY]: value =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100,
   // An awesome-markers chassis preset name (a non-empty string). The enum is
   // a UI vocabulary (19 presets); the stored value must at least be a string
   // so a bogus value cannot paint an inline class.
@@ -427,6 +448,7 @@ const STYLE_KEYS = {
   size: INTENT.SIZE,
   icon: INTENT.ICON,
   iconColor: INTENT.ICON_COLOR,
+  iconColorOpacity: INTENT.ICON_COLOR_OPACITY,
   markerColor: INTENT.MARKER_COLOR,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
