@@ -7,7 +7,7 @@
 // allowed to hold private-field reaches. Callers in LocateControl,
 // MeasureControl and SearchControl import this from #core/geo/locationMarker.js.
 import { setPopupCloseTitle } from "../lifecycle/leafletAdapter.js";
-import { reverseGeocode } from "#core/geocode/index.js";
+import { reverseGeocode } from "#core/geocode/geocoder.js";
 import { buildPopupEl } from "#platform/dom.js";
 import * as SVGs from "#platform/icon.js";
 

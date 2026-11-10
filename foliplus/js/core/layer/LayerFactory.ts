@@ -29,7 +29,7 @@ import type {
   SurfaceHandle,
 } from "./type.js";
 import { zFor } from "./z.js";
-import { cancelMapPaneTranslate } from "#core/leaflet/domAdapter.js";
+import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";

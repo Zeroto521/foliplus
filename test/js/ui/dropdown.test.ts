@@ -1,7 +1,7 @@
 // Tests for the shared select replacement (ui/dropdown.ts).
 import type * as L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
 import {
   type Dropdown,

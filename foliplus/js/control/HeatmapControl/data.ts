@@ -15,8 +15,8 @@ import {
   type ClassifyMethod,
   METHOD,
   computeBreaks,
-} from "#core/value/classify.js";
-import { safeColorScale } from "#core/value/palette.js";
+  safeColorScale,
+} from "#core/value/index.js";
 import type { Logger } from "#platform/type.js";
 
 /** Resolve the H3 resolution for a map zoom level. */

@@ -57,10 +57,14 @@ import {
   GEOM_TYPE,
   type ValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/value/classify.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
-import { VALUE_KIND } from "#core/valueKind.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
+  DEFAULT_SCHEMES,
+  VALUE_KIND,
+  getColorScale,
+} from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,

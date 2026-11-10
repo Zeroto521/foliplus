@@ -193,8 +193,29 @@ const resolveTarget = (fromRel: string, spec: string): string | null => {
 };
 
 // The barrel rule: which imports must go through a tier barrel.
-// ui/index.js and core/layer/index.js each own a namespace; a file outside the
-// barrel's directory importing a module inside it must use the barrel.
+// ui/index.js and every core/<cluster>/index.js each own a namespace; a file
+// outside the barrel's directory importing a module inside it must use the
+// barrel.
+//
+// Same-cluster core imports (a core/<cluster> file importing #core/<cluster>/
+// <mod>) stay deep by design — that is an internal leaf connection. A CORE
+// file importing ANOTHER cluster must use that cluster's barrel.
+//
+// Cycle-safe leaf exceptions: a handful of core modules are cycle-reachable
+// (mode.ts imports ../event/index.js + ../layer/index.js; layer/index imports
+// walkLeaf; walkLeaf/filterStore/event re-export lifecycle leaves). They
+// import the ZERO-DEP leaf units (leafletAdapter/mapApi) directly instead of
+// the lifecycle barrel, which would close a module cycle. These are the only
+// documented cross-cluster deep exceptions.
+const CORE_CYCLE_LEAF_EXCEPTIONS = new Set([
+  "#core/lifecycle/leafletAdapter.js",
+  "#core/lifecycle/mapApi.js",
+  "#core/geo/coord.js",
+  "#core/geocode/geocoder.js",
+  "#core/layer/walkLeaf.js",
+]);
+const CORE_CLUSTER_RE = /^#core\/([A-Za-z0-9_]+)\//;
+
 const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
   // The barrel's own re-exports are the barrel itself — never a violation.
   // ui barrel: a file in a DIFFERENT tier (or root/control) importing #ui/<mod>
@@ -207,14 +228,27 @@ const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
   ) {
     return "cross-tier ui import must go through #ui/index.js";
   }
-  // core/layer barrel: any file outside foliplus/js/core/layer/ importing
-  // #core/layer/<mod> (not index).
-  if (
-    canonicalSpec.startsWith("#core/layer/") &&
-    !canonicalSpec.startsWith("#core/layer/index.js") &&
-    layerOf(fromRel) !== "core"
-  ) {
-    return "cross-tier core/layer import must go through #core/layer/index.js";
+  // Any core cluster barrel: a file outside core/<cluster>/ importing
+  // #core/<cluster>/<mod> (not index) must use the cluster barrel.
+  // Same-cluster core files (from core/<cluster>/) may import the module
+  // directly — a same-cluster leaf connection.
+  const coreMatch = CORE_CLUSTER_RE.exec(canonicalSpec);
+  if (coreMatch && !canonicalSpec.startsWith("#core/index.js")) {
+    const cluster = coreMatch[1];
+    const isIndex = canonicalSpec.startsWith(`#core/${cluster}/index.js`);
+    if (!isIndex && layerOf(fromRel) !== "core") {
+      // External (ui/control/platform/runtime) — must use the barrel.
+      return `cross-tier core import must go through #core/${cluster}/index.js`;
+    }
+    if (!isIndex && layerOf(fromRel) === "core") {
+      // Core file importing another cluster's module — must use that cluster's
+      // barrel, EXCEPT the documented cycle-safe leaf units.
+      const fromCluster = /^foliplus\/js\/core\/([A-Za-z0-9_]+)\//.exec(fromRel);
+      const same = fromCluster && fromCluster[1] === cluster;
+      if (!same && !CORE_CYCLE_LEAF_EXCEPTIONS.has(canonicalSpec)) {
+        return `cross-cluster core import must go through #core/${cluster}/index.js`;
+      }
+    }
   }
   return null;
 };

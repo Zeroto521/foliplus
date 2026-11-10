@@ -3,7 +3,7 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
-import { ensureHint } from "#core/overlay/hint.js";
+import { ensureHint } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 
 const FullscreenControl = defineControl({

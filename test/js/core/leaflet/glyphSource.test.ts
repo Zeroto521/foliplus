@@ -8,7 +8,7 @@ import {
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
-} from "#core/leaflet/glyphSource.js";
+} from "#core/leaflet/index.js";
 
 describe("glyphSource", () => {
   it("accepts a syntactically valid FA6 name", () => {

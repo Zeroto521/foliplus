@@ -469,7 +469,8 @@ describe("scanSharedImports", () => {
     fs.writeFileSync(
       path.join(base, "comp.ts"),
       [
-        'import { ensureHint, HINT_DURATION } from "#core/overlay/hint.js";',
+        'import { ensureHint, HINT_DURATION, ensureHint as H } from "#core/overlay/index.js";',
+        'import { Foo } from "#core/layer/index.js";',
         'import { BaseControl } from "#foliplus/BaseControl.js";',
         'import { dom, createIconButton } from "#platform/dom.js";',
         'import { createTranslator } from "#platform/locale.js";',
@@ -483,10 +484,12 @@ describe("scanSharedImports", () => {
     );
     try {
       const { used, starUsed } = scanSharedImports(base);
-      expect(used.has("#core/overlay/hint.js")).toBe(true);
-      expect(used.get("#core/overlay/hint.js")).toEqual(
+      expect(used.has("#core/overlay/index.js")).toBe(true);
+      expect(used.get("#core/overlay/index.js")).toEqual(
         new Set(["ensureHint", "HINT_DURATION"]),
       );
+      expect(used.has("#core/layer/index.js")).toBe(true);
+      expect(used.get("#core/layer/index.js")).toEqual(new Set(["Foo"]));
       expect(used.has("#foliplus/BaseControl.js")).toBe(true);
       expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
       expect(used.has("#platform/dom.js")).toBe(true);

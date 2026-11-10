@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#core/lifecycle/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import * as CONST from "#control/ExportControl/const.js";
 import { type CropState, ExportManager } from "#control/ExportControl/manager.js";

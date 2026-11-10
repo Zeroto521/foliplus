@@ -1,6 +1,6 @@
 // Unit tests for HeatmapControl/data — the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/value/palette.js";
+import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/value/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import {

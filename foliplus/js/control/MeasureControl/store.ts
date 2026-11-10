@@ -7,7 +7,7 @@
 import * as CONST from "./const.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   type Persisted,
   createPersisted,

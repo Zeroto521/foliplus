@@ -3,7 +3,7 @@
 // in explicitly.
 import type { HexFeature } from "./type.js";
 import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { formatLabelNumber } from "#platform/format.js";
 import {

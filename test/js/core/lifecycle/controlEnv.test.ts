@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createControlEnv } from "#core/lifecycle/controlEnv.js";
+import { createControlEnv } from "#core/lifecycle/index.js";
 import { registerHintIcon } from "#core/overlay/hint.js";
 
 vi.mock("#core/overlay/hint.js", () => ({

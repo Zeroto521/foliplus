@@ -3,11 +3,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import {
-  buildClassesRow,
-  buildFieldRow,
-  buildSchemeRow,
-} from "#core/value/rampForm.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/value/index.js";
 
 const fakeOverlay = {
   id: "test.overlay",

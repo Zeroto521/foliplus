@@ -45,7 +45,7 @@ import {
   guardBlocked,
   requireFoliplus,
 } from "#core/lifecycle/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";

@@ -9,21 +9,22 @@ import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 import { DIM, FILL_MODE, type FillMode, type ValueConfig } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
-import { CLASS_COUNT, CLASS_COUNT_VALUES } from "#core/value/classify.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
-  categoricalPropertiesKeys,
-  inferFieldKind,
-  numericPropertiesKeys,
-  resolveField,
-} from "#core/value/field.js";
-import { DEFAULT_SCHEMES, getColorScale } from "#core/value/palette.js";
-import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
+  DEFAULT_SCHEMES,
+  VALUE_KIND,
   buildClassesRow,
   buildFieldRow,
   buildSchemeRow,
-} from "#core/value/rampForm.js";
-import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
+  categoricalPropertiesKeys,
+  getColorScale,
+  inferFieldKind,
+  isCategoryKind,
+  numericPropertiesKeys,
+  resolveField,
+} from "#core/value/index.js";
 import {
   dropdownSurface,
   fullscreenSurface,

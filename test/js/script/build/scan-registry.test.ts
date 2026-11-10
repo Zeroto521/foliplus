@@ -108,14 +108,18 @@ describe("registryUsedExports", () => {
   it("scans core imports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
-        import { COMPONENTS } from "#core/lifecycle/component.js";
-        import { ensureHint } from "#core/overlay/hint.js";
+        import { COMPONENTS, ModeManager } from "#core/lifecycle/index.js";
+import { ensureHint } from "#core/overlay/index.js";
+import { HIDDEN } from "#core/layer/index.js";
+
         import { EventBus } from "#core/event/index.js";
       `,
     });
     const result = usedExports(dir);
-    expect(result["core/lifecycle/component"]).toContain("COMPONENTS");
-    expect(result["core/overlay/hint"]).toContain("ensureHint");
+    expect(result["core/lifecycle"]).toContain("COMPONENTS");
+    expect(result["core/lifecycle"]).toContain("ModeManager");
+    expect(result["core/overlay"]).toContain("ensureHint");
+    expect(result["core/layer"]).toContain("HIDDEN");
     expect(result["core/event"]).toContain("EventBus");
   });
 
@@ -254,9 +258,9 @@ describe("generateRegistry", () => {
       "core/mode.ts": `export const ModeManager = {};`,
       "runtime/index.ts": `import { dom } from "#platform/dom.js";`,
       "control/MyComponent/index.ts": `
-        import { COMPONENTS } from "#core/lifecycle/component.js";
-        import { ensureHint } from "#core/overlay/hint.js";
-        import { ModeManager } from "#core/lifecycle/mode.js";
+
+
+
         import { dom } from "#platform/dom.js";
       `,
     });

@@ -9,7 +9,7 @@ import {
 } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import * as CONST from "#control/LayerControl/const.js";

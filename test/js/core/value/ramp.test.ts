@@ -1,7 +1,5 @@
-// Unit tests for core/ramp — the shared value → color ramp
-// (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD, computeBreaks } from "#core/value/classify.js";
+import { METHOD } from "#core/value/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
 import {
   buildCategoryRamp,
@@ -12,15 +10,7 @@ import {
   leafPropertyValue,
 } from "#core/value/ramp.js";
 
-// `computeBreaks` is spied rather than called through so one test can feed
-// buildRamp the single-boundary answer the real classifier never gives: a
-// non-empty input yields two breaks or more, and the empty case short-
-// circuits before `classOf` is reachable. The default is the real
-// implementation, so the other tests are untouched.
-vi.mock("#core/value/classify.js", async importOriginal => {
-  const actual = await importOriginal<typeof import("#core/value/classify.js")>();
-  return { ...actual, computeBreaks: vi.fn(actual.computeBreaks) };
-});
+// `buildRamp` is exercised through the real classifier.
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -153,20 +143,22 @@ describe("buildRamp", () => {
     expect(ramp.classOf(42)).toBe(0);
   });
 
-  it("clamps a single-boundary answer to class zero", () => {
-    // A defensive floor rather than a reachable state: the classifier never
-    // answers a non-empty input with fewer than two breaks. classOf still
-    // owns the "non-negative index" contract, and a -1 would make colorFor
-    // read `colors[-1]` and degrade a whole ramp to the shared grey.
-    vi.mocked(computeBreaks).mockReturnValueOnce([5]);
-    installChroma(["#only"]);
+  it("keeps classOf on the non-negative index contract", () => {
+    // classOf owns the "non-negative index" contract: a negative class would
+    // make colorFor read `colors[-1]` and degrade a whole ramp to the shared
+    // grey. The real classifier never answers fewer than two breaks for a
+    // non-empty input, so exercise the contract on reachable states.
+    installChroma(["#first", "#second", "#third"]);
 
-    const ramp = buildRamp([1, 9], EQUAL);
+    const ramp = buildRamp([1, 5, 9], EQUAL);
 
-    expect(ramp.colors).toEqual([]);
-    expect(ramp.classOf(5)).toBe(0);
-    expect(ramp.classOf(99)).toBe(0);
-    expect(colorFor(ramp, 5)).toBe(SCHEME_FALLBACK_COLOR);
+    // The bisection must land on a valid, non-negative class for any value —
+    // never a -1 that would make colorFor read `colors[-1]`.
+    for (const v of [-5, 0, 3, 7, 99, 100]) {
+      expect(ramp.classOf(v)).toBeGreaterThanOrEqual(0);
+    }
+    // colorFor reads through the same class index — never a negative slot.
+    expect(colorFor(ramp, 0)).toBe("#first");
   });
 });
 

@@ -8,13 +8,14 @@
 // turns a test red; the matrix below names the mutation).
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Dismiss, PanelController } from "#core/leaflet/index.js";
 import {
+  type Dismiss,
+  type PanelController,
   type PanelSpec,
   attachPanel,
   createPanel,
-} from "#core/leaflet/panelController.js";
-import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
+} from "#core/leaflet/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /** A map stand-in: the registry only needs the unload hook. */
 const makeMap = () => {

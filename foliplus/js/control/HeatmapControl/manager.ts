@@ -59,9 +59,9 @@ import {
   METHOD as CLASSIFY_METHOD,
   CLASS_COUNT,
   type ClassifyMethod,
+  SCHEME_FALLBACK_COLOR,
   isClassifyMethod,
-} from "#core/value/classify.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
+} from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";

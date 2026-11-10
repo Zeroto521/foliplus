@@ -5,13 +5,13 @@
 // tested separately (where the registry is the anchor axis owner).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  type LayerInfo,
   deleteFolderFromOrder,
   freezeSectionOrder,
   fullDisplayOrder,
   normalizeFolderName,
   sectionOrder,
-} from "#core/layer/folderOrder.js";
-import type { LayerInfo } from "#core/layer/type.js";
+} from "#core/layer/index.js";
 
 /** Minimal LayerInfo shape — the pure functions read `role` and `folder` only. */
 function li(id: string, role: "base" | "overlay", folder?: string): LayerInfo {

@@ -6,9 +6,8 @@
 // the intent store: the caller supplies the live ramp / mode readers, so
 // this slice adds no persistence or intent-key edits.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { FillMode, ValueConfig } from "#core/layer/intent.js";
-import { METHOD } from "#core/value/classify.js";
-import { DEFAULT_SCHEMES } from "#core/value/palette.js";
+import type { FillMode, ValueConfig } from "#core/layer/index.js";
+import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import {
   applyValueStroke,

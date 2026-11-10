@@ -5,19 +5,20 @@ import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
+import {
+  HINT_DURATION,
+  OVERLAY_IDS,
+  ensureOverlayRegistry,
+} from "#core/overlay/index.js";
 import {
   CLASS_COUNT,
   type ClassifyMethod,
-  isClassifyMethod,
-} from "#core/value/classify.js";
-import { safeColorScale } from "#core/value/palette.js";
-import {
   buildClassesRow,
   buildFieldRow,
   buildSchemeRow,
-} from "#core/value/rampForm.js";
+  isClassifyMethod,
+  safeColorScale,
+} from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,

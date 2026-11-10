@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isInsideOverlay } from "#core/overlay/pressInside.js";
+import { isInsideOverlay } from "#core/overlay/index.js";
 
 const node = (className?: string): HTMLElement => {
   const el = document.createElement("div");

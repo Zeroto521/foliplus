@@ -2,8 +2,7 @@
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
-import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
+import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the

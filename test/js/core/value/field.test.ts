@@ -9,7 +9,7 @@ import {
   isNumericValue,
   numericPropertiesKeys,
   resolveField,
-} from "#core/value/field.js";
+} from "#core/value/index.js";
 
 /** Build a fake Leaflet layer tree for the walker. */
 const makeLeaf = (props: Record<string, unknown> | undefined) =>

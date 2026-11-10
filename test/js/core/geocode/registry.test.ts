@@ -3,7 +3,7 @@ import {
   BUILTIN_PROVIDERS,
   providerFromConfig,
   resolveProvider,
-} from "#core/geocode/registry.js";
+} from "#core/geocode/index.js";
 
 describe("resolveProvider", () => {
   it("defaults to Nominatim when called with no arguments", () => {

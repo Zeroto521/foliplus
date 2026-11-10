@@ -13,7 +13,7 @@ import {
   type OverlayRegistry,
   ensureOverlayRegistry,
   orderOf,
-} from "#core/overlay/overlayRegistry.js";
+} from "#core/overlay/index.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import { POPUP_ESCAPE_DELTA, POPUP_HOST_RANK, POPUP_OVERLAY_RANK } from "#ui/index.js";
 

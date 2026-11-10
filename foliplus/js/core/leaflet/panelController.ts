@@ -16,10 +16,7 @@
 // ranking); the controller decides whether a close is actually allowed and
 // swallows the close-button press so it never reaches the map (the #816-class
 // bug this constructively seals).
-import {
-  type OverlayEntry,
-  ensureOverlayRegistry,
-} from "#core/overlay/overlayRegistry.js";
+import { type OverlayEntry, ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /** What dismisses the surface, decided by the registry's dispatcher. */
 type Dismiss = {

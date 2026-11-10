@@ -44,3 +44,5 @@ export {
   leafPropertyValue,
 } from "./ramp.js";
 export { buildClassesRow, buildFieldRow, buildSchemeRow } from "./rampForm.js";
+export { VALUE_KIND, isValueKind, isCategoryKind } from "./valueKind.js";
+export type { ValueKind } from "./valueKind.js";

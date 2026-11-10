@@ -11,7 +11,7 @@ import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
 import { defineControl, ensureMapFoliplus } from "#core/lifecycle/index.js";
-import { ensureHint } from "#core/overlay/hint.js";
+import { ensureHint } from "#core/overlay/index.js";
 import { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import { createIconButton, dom } from "#platform/dom.js";

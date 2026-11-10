@@ -1,6 +1,6 @@
 import { locateMe, removeMarker } from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
-import { ensureHint } from "#core/overlay/hint.js";
+import { ensureHint } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 

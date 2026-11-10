@@ -49,14 +49,15 @@ import {
 } from "./styleBag.js";
 import type { ValueConfig } from "#core/layer/index.js";
 import {
+  VALUE_KIND,
   buildCategoryRamp,
   buildRamp,
   categoryLabel,
   colorFor,
+  isCategoryKind,
   isFiniteNumber,
   leafPropertyValue,
-} from "#core/value/ramp.js";
-import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
+} from "#core/value/index.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("foliplus");

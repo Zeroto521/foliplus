@@ -12,8 +12,8 @@ import {
   isIconIntent,
   isValueConfig,
 } from "#core/layer/index.js";
-import { isGlyphSyntax } from "#core/leaflet/glyphSource.js";
-import { VALUE_KIND, isCategoryKind } from "#core/valueKind.js";
+import { isGlyphSyntax } from "#core/leaflet/index.js";
+import { VALUE_KIND, isCategoryKind } from "#core/value/index.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import * as Storage from "#platform/storage.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";

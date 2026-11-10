@@ -5,8 +5,8 @@ import {
   OVERLAY_IDS,
   type OverlayEntry,
   ensureOverlayRegistry,
-} from "#core/overlay/overlayRegistry.js";
-import { isInsideOverlay } from "#core/overlay/pressInside.js";
+  isInsideOverlay,
+} from "#core/overlay/index.js";
 import { isPortalOf, registerPortalRoot } from "#platform/portalRoot.js";
 
 const node = (className?: string): HTMLElement => {

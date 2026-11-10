@@ -1,9 +1,9 @@
 import type { Map as LeafletMap } from "leaflet";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { reverseGeocode } from "#core/geocode/index.js";
+import { reverseGeocode } from "#core/geocode/geocoder.js";
 import { createLocationMarker } from "#foliplus/core/geo/locationMarker.js";
 
-vi.mock("#core/geocode/index.js", () => ({
+vi.mock("#core/geocode/geocoder.js", () => ({
   reverseGeocode: vi.fn(),
 }));
 

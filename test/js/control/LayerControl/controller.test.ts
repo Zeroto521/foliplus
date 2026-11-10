@@ -8,8 +8,7 @@ import {
 } from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
-import { LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerRuntimeStore, getLayerAlpha } from "#core/layer/index.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,

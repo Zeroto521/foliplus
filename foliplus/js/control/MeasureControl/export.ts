@@ -13,7 +13,7 @@ import type { MeasureManager } from "./manager.js";
 import { MODE_MAP } from "./mode/index.js";
 import type { ExportDataFormat } from "./type.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
-import { HINT_DURATION } from "#core/overlay/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { download } from "#platform/download.js";
 import { formatCoord } from "#platform/format.js";
 

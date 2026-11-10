@@ -6,7 +6,7 @@ import {
   someLeaf,
   walkLeaf,
   walkTree,
-} from "#core/layer/walkLeaf.js";
+} from "#core/layer/index.js";
 
 // A minimal Leaflet-style container: eachLayer callback style.
 const group = (...children: unknown[]) => ({

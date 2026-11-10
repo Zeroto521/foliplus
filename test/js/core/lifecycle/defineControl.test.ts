@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineControl } from "#core/lifecycle/defineControl.js";
+import { defineControl } from "#core/lifecycle/index.js";
 
 // createControlEnv registers the hint icon via #core/overlay/hint.js — stub it so the
 // factory under test stays focused on the shell it builds.

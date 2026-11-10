@@ -8,7 +8,7 @@
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
 import { originalGradient } from "./originalColor.js";
-import { METHOD } from "#core/value/classify.js";
+import { METHOD } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

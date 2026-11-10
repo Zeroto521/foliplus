@@ -20,7 +20,7 @@ import { registerDimension } from "./registry.js";
 import { FACE } from "./styleBag.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";

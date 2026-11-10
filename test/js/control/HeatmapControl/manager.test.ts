@@ -8,14 +8,14 @@ import {
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/canvasAlpha.js";
 import {
   FILTER_STORE_KEY,
   type LayerFilter,
   extractMarkerFields,
+  getLayerAlpha,
+  setLayerAlpha,
 } from "#core/layer/index.js";
-import { CLASS_COUNT, METHOD } from "#core/value/classify.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
+import { CLASS_COUNT, METHOD, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
