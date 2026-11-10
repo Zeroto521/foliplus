@@ -47,21 +47,6 @@ const hostFor = (opts: FloatingOptions): HTMLElement =>
   (document.fullscreenElement as HTMLElement | null) ??
   document.body;
 
-/** Wheel containment over a floating root: unconditionally swallow the wheel
- *  so it never bubbles to the map container, where Leaflet's scrollWheelZoom
- *  would zoom the map. The former boundary-aware "contain" mode was removed:
- *  it only stopped a wheel that could actually scroll the root, so a wheel at
- *  a boundary or over a non-overflowing root (scrollHeight <= clientHeight, or
- *  deltaY === 0) kept bubbling and the map zoomed — the user-visible bug. The
- *  shared rule is "always" (the listbox rule): the inner native scroll keeps
- *  working because we stop propagation only, never preventDefault.
- *  Attached once for the root's lifetime — it must be in place whether the
- *  layer mounts inline (CSS-anchored) or portalled, so the caller binds it at
- *  element creation, not per mount. */
-const bindFloatingWheel = (root: HTMLElement): void => {
-  root.addEventListener("wheel", event => event.stopPropagation());
-};
-
 /** Unified gesture containment over a floating root: one call binds both the
  *  wheel and the touch/pointer containment (a popup or a panel scroll body
  *  must never pan or zoom the map beneath it). This is the ONLY gesture-entry
@@ -171,5 +156,5 @@ const mountFloating = (opts: FloatingOptions): Floating => {
   };
 };
 
-export { bindFloatingGestures, bindFloatingWheel, mountFloating };
+export { bindFloatingGestures, mountFloating };
 export type { Floating };
