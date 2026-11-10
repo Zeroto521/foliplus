@@ -1061,6 +1061,35 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("keeps the glyph opacity the user set, with provenance", () => {
+      // The opacity rides the same value-plus-provenance rule as the color:
+      // only a value WITH an override is a user choice.
+      seedStorage({
+        layers: {
+          a: { iconColorOpacity: 40, overrides: ["iconColorOpacity"] },
+          b: { iconColorOpacity: 100, overrides: ["iconColorOpacity"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { iconColorOpacity: 40, overrides: ["iconColorOpacity"] },
+        b: { iconColorOpacity: 100, overrides: ["iconColorOpacity"] },
+      });
+    });
+
+    it("drops an invalid glyph opacity that the number field could not display", () => {
+      // line 195 arm: out-of-range / non-integer / non-number -> null.
+      seedStorage({
+        layers: {
+          a: { iconColorOpacity: 150, overrides: ["iconColorOpacity"] },
+          b: { iconColorOpacity: -5, overrides: ["iconColorOpacity"] },
+          c: { iconColorOpacity: 50.5, overrides: ["iconColorOpacity"] },
+          d: { iconColorOpacity: "40", overrides: ["iconColorOpacity"] },
+          e: { iconColorOpacity: NaN, overrides: ["iconColorOpacity"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({});
+    });
+
     it("drops border values the UI could not display", () => {
       // A corrupt entry must not leak into <input type=color> nor ask for a
       // width outside the shared bounds: both validators fail closed, and a

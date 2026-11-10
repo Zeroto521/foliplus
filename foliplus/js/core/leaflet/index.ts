@@ -38,6 +38,8 @@ export {
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
+  parseColorAlpha,
+  composeColorAlpha,
   resetIconLeaves,
 } from "./markerIcon.js";
 export type { AuthorGlyph } from "./markerIcon.js";

@@ -56,12 +56,18 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  // Merge the current marker color into the SAME derived-icon
+  // Merge the current marker color + opacity into the SAME derived-icon
   // construction (the color is a separate dimension, but setIcon
   // replaces the whole icon, so a glyph edit must carry the current
   // color and a color edit must carry the current glyph).
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  applyIconToLeaves(layer, intent.value, typeof color === "string" ? color : undefined);
+  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  applyIconToLeaves(
+    layer,
+    intent.value,
+    typeof color === "string" ? color : undefined,
+    typeof opacity === "number" ? opacity : undefined,
+  );
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
@@ -88,8 +94,14 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   // the color on the freshly restored author icons so the color and the
   // glyph never split across two writes.
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   if (typeof color === "string") {
-    applyIconColorToLeaves(layer, color, currentGlyph(ui, layerId));
+    applyIconColorToLeaves(
+      layer,
+      color,
+      currentGlyph(ui, layerId),
+      typeof opacity === "number" ? opacity : undefined,
+    );
   }
 };
 /** The current glyph name for the row, or null when the layer still shows

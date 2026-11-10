@@ -60,6 +60,11 @@ const FILL_MODE = {
   SOLID: "solid",
   VALUE: "value",
   ORIGINAL: "original",
+  // The border follows the fill's colour: reads the fill's current paint
+  // (never a copy), so a fill edit recomputes the border. Only valid while
+  // the fill is original/solid; a by-value fill falls back (two value
+  // paths would classify independently and fight).
+  FOLLOW_FILL: "followFill",
 } as const;
 type FillMode = (typeof FILL_MODE)[keyof typeof FILL_MODE];
 
@@ -156,7 +161,8 @@ type LayerOverride =
   | "zoomRange"
   | "size"
   | "icon"
-  | "iconColor";
+  | "iconColor"
+  | "iconColorOpacity";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -250,6 +256,13 @@ type LayerIntent = {
    *  LayerControl owns the write — a self-managed dimension, see
    *  ui/style/iconColor.ts. */
   iconColor?: string;
+  /** The marker glyph opacity the user set (0-100 integer). Absent = 100
+   *  (opaque): a user color is painted opaque unless the user also set an
+   *  opacity. The author's own alpha applies only when the color is
+   *  author-derived (an opacity-only write keeps the author's color at the
+   *  user's chosen alpha). LayerControl owns the write — same self-managed
+   *  dimension as iconColor. */
+  iconColorOpacity?: number;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -305,6 +318,8 @@ type PersistedLayerState = {
    *  every marker leaf). LayerControl owns the write — a self-managed
    *  dimension, see ui/style/iconColor.ts. */
   iconColor?: string;
+  /** The marker glyph opacity the user set (0-100 integer); absent = 100. */
+  iconColorOpacity?: number;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -350,6 +365,7 @@ const INTENT = {
   SIZE: "size",
   ICON: "icon",
   ICON_COLOR: "iconColor",
+  ICON_COLOR_OPACITY: "iconColorOpacity",
   NAME: "name",
   LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -386,6 +402,11 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // non-hex would paint an invalid `color:` that the browser ignores.
   [INTENT.ICON_COLOR]: value =>
     typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
+  // A whole-number percent only: the alpha rides an inline color, and a
+  // fractional or out-of-range value would paint an alpha the number field
+  // could not display back.
+  [INTENT.ICON_COLOR_OPACITY]: value =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100,
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
 };
@@ -410,6 +431,7 @@ const STYLE_KEYS = {
   size: INTENT.SIZE,
   icon: INTENT.ICON,
   iconColor: INTENT.ICON_COLOR,
+  iconColorOpacity: INTENT.ICON_COLOR_OPACITY,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export { FILL_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
