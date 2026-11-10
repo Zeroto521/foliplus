@@ -130,3 +130,17 @@ repos:
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
         pass_filenames: true
+
+      # Worktree dependency discipline: a worktree's node_modules is a junction
+      # to the main checkout's node_modules. Running npm ci/install/prune inside
+      # a worktree deletes the shared target's content (the RCA is
+      # .foliplus/notes/node-modules-wipe-rca.md). This preflight refuses to
+      # commit when the current checkout is a worktree whose node_modules is a
+      # real directory (npm ran a clean install here — forbidden) or a junction
+      # to a non-repo target. Runs in the repo root (main checkout is always OK).
+      - id: worktree-deps
+        name: worktree-deps
+        entry: node script/check/worktree-deps.mjs
+        language: system
+        pass_filenames: false
+        always_run: true
