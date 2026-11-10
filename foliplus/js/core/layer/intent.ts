@@ -162,7 +162,8 @@ type LayerOverride =
   | "size"
   | "icon"
   | "iconColor"
-  | "iconColorOpacity";
+  | "iconColorOpacity"
+  | "markerColor";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -263,6 +264,13 @@ type LayerIntent = {
    *  user's chosen alpha). LayerControl owns the write — same self-managed
    *  dimension as iconColor. */
   iconColorOpacity?: number;
+  /** The marker chassis color the user set in the style panel (one of the
+   *  awesome-markers preset enum names, e.g. "red"/"blue"). Independent of
+   *  the glyph color — the chassis (pin background) vs the glyph (icon
+   *  symbol) are two separate paints.
+   *  LayerControl owns the write — a self-managed dimension, see
+   *  ui/style/markerColor.ts. */
+  markerColor?: string;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (label) config seed for this layer. Live label state after
@@ -320,6 +328,10 @@ type PersistedLayerState = {
   iconColor?: string;
   /** The marker glyph opacity the user set (0-100 integer); absent = 100. */
   iconColorOpacity?: number;
+  /** The marker chassis color the user set in the style panel (one of the
+   *  awesome-markers preset enum names). LayerControl owns the write — a
+   *  self-managed dimension, see ui/style/markerColor.ts. */
+  markerColor?: string;
   /** The layer's label config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -366,6 +378,7 @@ const INTENT = {
   ICON: "icon",
   ICON_COLOR: "iconColor",
   ICON_COLOR_OPACITY: "iconColorOpacity",
+  MARKER_COLOR: "markerColor",
   NAME: "name",
   LABEL: "label",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -407,6 +420,10 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   // could not display back.
   [INTENT.ICON_COLOR_OPACITY]: value =>
     typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100,
+  // An awesome-markers chassis preset name (a non-empty string). The enum is
+  // a UI vocabulary (19 presets); the stored value must at least be a string
+  // so a bogus value cannot paint an inline class.
+  [INTENT.MARKER_COLOR]: value => typeof value === "string" && value.length > 0,
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.LABEL]: value => value != null,
 };
@@ -432,6 +449,7 @@ const STYLE_KEYS = {
   icon: INTENT.ICON,
   iconColor: INTENT.ICON_COLOR,
   iconColorOpacity: INTENT.ICON_COLOR_OPACITY,
+  markerColor: INTENT.MARKER_COLOR,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export { STYLE_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };

@@ -3,7 +3,7 @@
  * Read-only usage inventory: who still uses FILL_MODE / FillMode to represent
  * the style mode, and where.
  *
- * task-41 step 4 survey + migration-completeness gate. The fill and border
+ * step 4 survey + migration-completeness gate. The fill and border
  * faces both consume the FILL_MODE vocabulary today (border.ts / strokeValue.ts
  * / persistence.ts's borderStyleMode branch), and the intent store key is
  * asymmetric: INTENT.FILL_MODE = "fillMode" vs INTENT.BORDER_STYLE_MODE =
@@ -12,7 +12,7 @@
  *
  * Scope: production foliplus/js/**\*.ts only (tests and dist are out). Reads
  * only — it never writes and does not touch any occupied file (border.ts /
- * fill.ts / intent.ts are #1017 / task-60 / the migration's own scope), so it
+ * fill.ts / intent.ts are #1017 / the migration's own scope), so it
  * cannot conflict with in-flight work.
  *
  * Output (human, default):

@@ -9,7 +9,7 @@ import {
   legacyAliasCheck,
 } from "#script/check/style-mode-usage.mjs";
 
-// task-41 step 4 survey + migration-completeness gate: style-mode-usage.mjs
+// step 4 survey + migration-completeness gate: style-mode-usage.mjs
 // inventories FILL_MODE / FillMode occurrences in production foliplus/js/**.ts
 // and (in --check mode) asserts the FILL_MODE -> STYLE_MODE / BORDER_MODE
 // migration left no value or type reference. This test pins the three-way

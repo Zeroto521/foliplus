@@ -231,6 +231,7 @@ const CLASSES = {
    *  shared number-field commit handler and the tests can tell it from the
    *  fill-opacity and size fields. */
   STYLE_ICON_COLOR_OPACITY_NUMBER: "foliplus-style-icon-color-opacity-number",
+  STYLE_MARKER_COLOR_ROW: "foliplus-style-marker-color-row",
   /** The icon row's trigger button (shows the current glyph or 「原始」). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",

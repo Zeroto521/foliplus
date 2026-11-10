@@ -22,7 +22,7 @@ const spySave = () => vi.spyOn(Storage, "saveRecord").mockImplementation(() => t
 
 const lastRecord = (save: ReturnType<typeof spySave>) => save.mock.calls.at(-1)![1];
 
-describe("styleMode key migration (task-41 step 3 acceptance)", () => {
+describe("styleMode key migration (step 3 acceptance)", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.useRealTimers();
