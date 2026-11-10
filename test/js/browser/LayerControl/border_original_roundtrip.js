@@ -23,8 +23,8 @@
       : undefined;
 
   let row = document.querySelector(
-        `[data-layer-id="${CSS.escape(layerName)}"][data-layer-type]`,
-      );
+    `[data-layer-id="${CSS.escape(layerName)}"][data-layer-type]`,
+  );
   if (!row && byName && byName.id) {
     row = document.querySelector(
       `[data-layer-id="${CSS.escape(byName.id)}"][data-layer-type]`,
@@ -78,9 +78,7 @@
             storage[key] = localStorage.getItem(key);
           }
         }
-        const colorInput = panel.querySelector(
-          ".foliplus-style-border-color-input",
-        );
+        const colorInput = panel.querySelector(".foliplus-style-border-color-input");
         resolve({
           row: true,
           panel: true,

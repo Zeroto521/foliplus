@@ -703,14 +703,18 @@ class TestStyleBrowser(LayerControlBrowserBase):
         the swatch stops being disabled and this test fails.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        # Named FeatureGroup so the row resolves by name, like the reload test.
-        fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
-        folium.Polygon(
-            leaflet_path("LayerControl", "polygon_hangzhou_triangle"),
-            color="#0000ff",
-            weight=2,
-        ).add_to(fg)
-        fg.add_to(m)
+        # A numeric property is what earns the border mode select (original /
+        # solid / value); without it the row renders a bare solid swatch and
+        # there is no mode to switch back from. The style_function carries the
+        # authored stroke so ORIGINAL has an author colour to restore. A plain
+        # GeoJson data layer is the proven _ramp_layer() pattern that also
+        # produces a panel row.
+        border_data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+        folium.GeoJson(
+            json.dumps(border_data),
+            style_function=lambda _f: {"color": "#0000ff", "weight": 2},
+            name="Polygon data",
+        ).add_to(m)
         LayerControl(locale="en").add_to(m)
         _expand_panel(m)
 
@@ -730,7 +734,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # author's colour, map painting it.
             baseline = page.evaluate(
                 _js("LayerControl/border_original_roundtrip"),
-                ["Test Region"],
+                ["Polygon data"],
             )
             assert baseline.get("row"), f"layer row not found: {baseline}"
             assert baseline["mode"] == "original", baseline
@@ -747,7 +751,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # Solid: write a user colour and width.
             solid = page.evaluate(
                 _js("LayerControl/border_original_roundtrip"),
-                ["Test Region", "solid", "#ff0000", 6],
+                ["Polygon data", "solid", "#ff0000", 6],
             )
             assert solid["mode"] == "solid", solid
             assert solid["colorInput"]["readOnly"] is False, solid
@@ -763,7 +767,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # stays, the swatch is read-only again.
             restored = page.evaluate(
                 _js("LayerControl/border_original_roundtrip"),
-                ["Test Region", "original"],
+                ["Polygon data", "original"],
             )
             assert restored["mode"] == "original", restored
             assert restored["colorInput"]["readOnly"] is True, restored
