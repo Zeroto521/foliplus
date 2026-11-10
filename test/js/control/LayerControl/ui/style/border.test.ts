@@ -3054,26 +3054,23 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  it("polygon: { original, single, follow-fill } — never by-value", () => {
-    registerGeometryLayer("g_polygon", "polygon");
-    expectGeometryType("g_polygon", "polygon");
-    expect(modeValues(openBorderRow("g_polygon"))).toEqual([
-      STYLE_MODE.ORIGINAL,
-      STYLE_MODE.SOLID,
-      STYLE_MODE.FOLLOW_FILL,
-    ]);
-  });
-
-  it("point: { original, single, follow-fill } — never by-value", () => {
-    registerGeometryLayer("g_point", "point");
-    expectGeometryType("g_point", "point");
-    expect(modeValues(openBorderRow("g_point"))).toEqual([
-      STYLE_MODE.ORIGINAL,
-      STYLE_MODE.SOLID,
-      STYLE_MODE.FOLLOW_FILL,
-    ]);
-  });
-
+  // Polygon and point share one rule: a border that outlines a filled face
+  // offers follow-fill, and never by-value. One table drives both so a change
+  // to the outline contract cannot be applied to one geometry and forgotten on
+  // the other (the drift that made this matrix red after follow-fill landed).
+  it.each(["polygon", "point"] as const)(
+    "%s: { original, single, follow-fill } — never by-value",
+    kind => {
+      const id = `g_${kind}`;
+      registerGeometryLayer(id, kind);
+      expectGeometryType(id, kind);
+      expect(modeValues(openBorderRow(id))).toEqual([
+        STYLE_MODE.ORIGINAL,
+        STYLE_MODE.SOLID,
+        STYLE_MODE.FOLLOW_FILL,
+      ]);
+    },
+  );
   it("the column is the DIM single source (border)", () => {
     expect(DIM.BORDER).toBe("border");
     registerGeometryLayer("g_dim", "line");
