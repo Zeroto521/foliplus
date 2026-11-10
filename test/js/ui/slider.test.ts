@@ -496,6 +496,26 @@ describe("Slider primitive", () => {
     expect(bubble.classList.contains("is-on")).toBe(false);
   });
 
+  it("ignores a show for a thumb the slider no longer has", () => {
+    const { slider } = make({ min: 0, max: 10, value: 4, label: "x" });
+    // An out-of-range index finds no thumb: the bubble path must no-op rather
+    // than create a bubble for a missing anchor.
+    (slider as unknown as { showBubble: (i: number) => void }).showBubble(99);
+    expect(document.querySelector(`.${SLIDER_CLASS.BUBBLE}`)).toBeNull();
+  });
+
+  it("skips bubbles whose anchor left the pool", () => {
+    const { slider } = make({ min: 0, max: 10, value: 4, label: "x" });
+    // An anchor that is no longer in the pool (e.g. hidden by an owner
+    // switch) must be skipped on refresh, not crash the frame.
+    (slider as unknown as { bubbleAnchors: Set<HTMLElement> }).bubbleAnchors.add(
+      document.createElement("div"),
+    );
+    expect(() =>
+      (slider as unknown as { updateBubbles: () => void }).updateBubbles(),
+    ).not.toThrow();
+  });
+
   it("keeps the bubble text in step with keyboard steps", () => {
     const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
     const thumbEl = thumb(host);
@@ -510,10 +530,17 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.getBoundingClientRect = () =>
       fakeRect({ left: 100, top: 2, width: 14, height: 14 });
-    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    thumbEl.dispatchEvent(new Event("focus"));
+    // The bubble node only exists once an anchor shows it: grab the live node
+    // (is-on is set after focus) and re-place it with the stubbed size — a
+    // keyboard step drives the placement.
+    const bubble = document.querySelector(
+      `.${SLIDER_CLASS.BUBBLE}.is-on`,
+    ) as HTMLElement;
+    expect(bubble).not.toBeNull();
     bubble.getBoundingClientRect = () =>
       fakeRect({ left: 0, top: 0, width: 40, height: 30 });
-    thumbEl.dispatchEvent(new Event("focus"));
+    press(thumbEl, "ArrowRight");
     expect(bubble.dataset.side).toBe("below");
   });
 
@@ -1248,7 +1275,35 @@ describe("Slider middle-segment pan", () => {
     expect([lo, hi]).toEqual([15, 30]);
     track.dispatchEvent(pointer("pointerup", 25));
   });
+  it("shows one live bubble per thumb while panning and clears them on release", async () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 55));
+    const live = [...document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}.is-on`)];
+    expect(live).toHaveLength(2);
+    expect(live[0]).not.toBe(live[1]);
+    expect(live[0].textContent).toBe(thumb(host, 0).getAttribute("aria-valuenow"));
+    expect(live[1].textContent).toBe(thumb(host, 1).getAttribute("aria-valuenow"));
+    track.dispatchEvent(pointer("pointerup", 55));
+    expect(document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}.is-on`)).toHaveLength(0);
+  });
+
+  it("keeps both bubbles following their thumbs through a pan", async () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 50));
+    track.dispatchEvent(pointer("pointermove", 55));
+    // One frame later both bubbles have moved to their thumbs' new positions.
+    await new Promise(resolve => window.setTimeout(resolve, 20));
+    const live = [...document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}.is-on`)];
+    expect(live).toHaveLength(2);
+    expect(live[0].textContent).toBe(thumb(host, 0).getAttribute("aria-valuenow"));
+    expect(live[1].textContent).toBe(thumb(host, 1).getAttribute("aria-valuenow"));
+    track.dispatchEvent(pointer("pointerup", 55));
+  });
 });
+
 describe("Slider teardown and keyboard edges", () => {
   it("finishes every slider inside a removed root", () => {
     // finishSlidersIn walks a container and calls finish on each slider
