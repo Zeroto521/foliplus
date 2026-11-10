@@ -684,6 +684,135 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"expected exactly one border row, got: {panel['labels']}"
             )
 
+    def test_border_original_roundtrip_restores_computed_style(self, browser, tmp_path):
+        """A solid → ORIGINAL round trip repaints the author's stroke.
+
+        The restore path is the point, not the switch over: after the user
+        writes a colour and width in solid mode and returns to ORIGINAL, the
+        panel must show the author's colour (read-only) and the map must paint
+        it. Asserted on getComputedStyle — what the browser actually paints —
+        never on DOM attributes or source strings.
+
+        A width the user chose rides both modes, so it stays after the return
+        (the weight slot stays editable in ORIGINAL). The author's colour must
+        come back even though the user's colour is still stored for the next
+        solid visit.
+
+        The read-only guard is the negative case: if ORIGINAL ever lets the
+        user edit the colour again (colour intent wins over author stroke),
+        the swatch stops being disabled and this test fails.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        # A numeric property is what earns the border mode select (original /
+        # solid / value); without it the row renders a bare solid swatch and
+        # there is no mode to switch back from. The style_function carries the
+        # authored stroke so ORIGINAL has an author colour to restore. A plain
+        # GeoJson data layer is the proven _ramp_layer() pattern that also
+        # produces a panel row.
+        border_data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+        folium.GeoJson(
+            json.dumps(border_data),
+            style_function=lambda _f: {"color": "#0000ff", "weight": 2},
+            name="Polygon data",
+        ).add_to(m)
+        LayerControl(locale="en").add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_border_original_roundtrip.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            # Author baseline: original mode, read-only swatch showing the
+            # author's colour, map painting it.
+            baseline = page.evaluate(
+                _js("LayerControl/border_original_roundtrip"),
+                ["Polygon data"],
+            )
+            assert baseline.get("row"), f"layer row not found: {baseline}"
+            assert baseline["mode"] == "original", baseline
+            assert baseline["colorInput"]["readOnly"] is True, baseline
+            assert baseline["colorInput"]["disabled"] is True, baseline
+            for stroke in baseline["strokes"]:
+                assert stroke["stroke"] == "rgb(0, 0, 255)", (
+                    f"author stroke not painted at baseline: {baseline}"
+                )
+                assert stroke["strokeWidth"] == "2px", (
+                    f"author width not painted at baseline: {baseline}"
+                )
+
+            # Solid: write a user colour and width.
+            solid = page.evaluate(
+                _js("LayerControl/border_original_roundtrip"),
+                ["Polygon data", "solid", "#ff0000", 6],
+            )
+            assert solid["mode"] == "solid", solid
+            assert solid["colorInput"]["readOnly"] is False, solid
+            for stroke in solid["strokes"]:
+                assert stroke["stroke"] == "rgb(255, 0, 0)", (
+                    f"solid colour did not reach the map: {solid}"
+                )
+                assert stroke["strokeWidth"] == "6px", (
+                    f"solid width did not reach the map: {solid}"
+                )
+
+            # Let the solid write's debounce land before the next call reads
+            # storage (the record is written 100ms after the last input event).
+            page.wait_for_timeout(300)
+
+            # Back to ORIGINAL: the author's colour returns, the user's width
+            # stays, the swatch is read-only again.
+            restored = page.evaluate(
+                _js("LayerControl/border_original_roundtrip"),
+                ["Polygon data", "original"],
+            )
+            assert restored["mode"] == "original", restored
+            assert restored["colorInput"]["readOnly"] is True, restored
+            assert restored["colorInput"]["disabled"] is True, restored
+
+            # Let the restored mode write's debounce land, then read the
+            # record fresh — the storage snapshot inside the restored call was
+            # taken before its own 100ms debounce had fired. The repaint from
+            # the mode change also lands on the frame clock (throttleRaf), so
+            # assert the computed style only after this wait let the frame fire.
+            page.wait_for_timeout(300)
+            final = page.evaluate(
+                _js("LayerControl/border_original_roundtrip"), ["Polygon data"]
+            )
+
+            # The author's colour must be back and the user's width must ride
+            # both modes.
+            for stroke in final["strokes"]:
+                assert stroke["stroke"] == "rgb(0, 0, 255)", (
+                    f"author stroke not restored after round trip: {final}"
+                )
+                assert stroke["strokeWidth"] == "6px", (
+                    f"user width lost after round trip: {final}"
+                )
+
+            # The stored record keeps the user's colour for the next solid
+            # visit — ORIGINAL does not erase it.
+            key = next(k for k in final["storage"] if "layer_state" in k)
+            record = json.loads(final["storage"][key])
+            entry = record["layers"].get(final["id"])
+            assert entry, f"border state never persisted: {record}"
+            assert entry["borderStyleMode"] == "original", (
+                f"stored the wrong mode: {entry}"
+            )
+            assert entry["borderColor"] == "#ff0000", (
+                f"the user's colour was erased on return: {entry}"
+            )
+            assert entry["borderWeight"] == 6, (
+                f"the user's width was erased on return: {entry}"
+            )
+
     def test_border_swatch_shows_a_named_color_as_hex(self, browser, tmp_path):
         """The swatch agrees with the map for a named authored color.
 
