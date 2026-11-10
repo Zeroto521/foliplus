@@ -1,5 +1,5 @@
 // Unit tests for core/layer/intent — the per-layer intent domain, focused
-// on the value-based fill ramp's two arms (numeric / category).
+// on the value-based fill ramp's two modes (numeric / category).
 import { describe, expect, it } from "vitest";
 import {
   FILL_MODE,
@@ -53,7 +53,7 @@ describe("isValueConfig", () => {
   it("drops a category record with an invalid method or classes", () => {
     // A category's method/classes are optional; when present they must still
     // be well-formed (a category never classifies, but a record that claims a
-    // bad method is malformed regardless of arm).
+    // bad method is malformed regardless of mode).
     expect(isValueConfig({ ...CATEGORY, method: "bad" })).toBe(false);
     expect(isValueConfig({ ...CATEGORY, classes: 1 })).toBe(false);
     expect(isValueConfig({ ...CATEGORY, classes: 10 })).toBe(false);
@@ -120,8 +120,8 @@ describe("LIVE border-mode value domain", () => {
   });
 
   it("does not let a rejected literal through the FILL_MODE guard either", () => {
-    // Same closed domain for the fill arm — keep both in one place so the
-    // value-domain invariant cannot drift between the two arms.
+    // Same closed domain for the fill mode — keep both in one place so the
+    // value-domain invariant cannot drift between the two modes.
     expect(LIVE[INTENT.FILL_MODE]("ramp")).toBe(false);
     expect(LIVE[INTENT.FILL_MODE](FILL_MODE.ORIGINAL)).toBe(true);
   });

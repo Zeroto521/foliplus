@@ -171,7 +171,7 @@ describe("buildFilterFeatures — field domain", () => {
 
   it("keeps a numeric value inside the established range unchanged", () => {
     // A value inside [min, max] takes neither range rewrite branch — the
-    // running extents are unchanged (the else-if false arms).
+    // running extents are unchanged (the else-if false branches).
     const a = makeLeaf("marker", { score: 10 });
     const b = makeLeaf("marker", { score: 30 });
     const c = makeLeaf("marker", { score: 20 });

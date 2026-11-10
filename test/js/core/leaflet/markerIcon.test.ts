@@ -497,7 +497,7 @@ describe("glyphSource", () => {
     expect(glyphAvailable("nonexistent")).toBe(false);
   });
   it("reports unavailable when there is no document (Leaflet-free DOM)", () => {
-    // The no-document arm of glyphAvailable — a non-browser context has no
+    // The no-document branch of glyphAvailable — a non-browser context has no
     // stylesheet to probe, so every name is unavailable. vi.stubGlobal
     // handles jsdom's getter-only document property.
     vi.stubGlobal("document", undefined);
