@@ -3099,21 +3099,23 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  it("polygon: { original, single } — never by-value", () => {
+  it("polygon: { original, single, followFill } — never by-value", () => {
     registerGeometryLayer("g_polygon", "polygon");
     expectGeometryType("g_polygon", "polygon");
     expect(modeValues(openBorderRow("g_polygon"))).toEqual([
       FILL_MODE.ORIGINAL,
       FILL_MODE.SOLID,
+      FILL_MODE.FOLLOW_FILL,
     ]);
   });
 
-  it("point: { original, single } — never by-value", () => {
+  it("point: { original, single, followFill } — never by-value", () => {
     registerGeometryLayer("g_point", "point");
     expectGeometryType("g_point", "point");
     expect(modeValues(openBorderRow("g_point"))).toEqual([
       FILL_MODE.ORIGINAL,
       FILL_MODE.SOLID,
+      FILL_MODE.FOLLOW_FILL,
     ]);
   });
 
@@ -3151,7 +3153,7 @@ describe("border options per geometry", () => {
     // would NOT catch the extra.
     registerGeometryLayer("g_guard1", "polygon");
     const actual = modeValues(openBorderRow("g_guard1"));
-    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID];
+    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
     expect(actual).toEqual(contract);
     // The negative property: adding the illegal option to the contract must NOT
     // equal the actual set — this is what makes the matrix red on an extra.
