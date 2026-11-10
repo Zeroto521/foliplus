@@ -8,6 +8,12 @@ import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
+import {
+  DIM,
+  STYLE_MODE,
+  type StyleMode,
+  type ValueConfig,
+} from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   CLASS_COUNT,
@@ -24,12 +30,6 @@ import {
   numericPropertiesKeys,
   resolveField,
 } from "#core/value/index.js";
-import {
-  DIM,
-  STYLE_MODE,
-  type StyleMode,
-  type ValueConfig,
-} from "#core/layer/index.js";
 import {
   dropdownSurface,
   fullscreenSurface,
