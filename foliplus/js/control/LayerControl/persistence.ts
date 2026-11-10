@@ -189,7 +189,8 @@ const PARSE_OVERRIDE: Record<
   borderStyleMode: data =>
     data.borderStyleMode === FILL_MODE.SOLID ||
     data.borderStyleMode === FILL_MODE.VALUE ||
-    data.borderStyleMode === FILL_MODE.ORIGINAL
+    data.borderStyleMode === FILL_MODE.ORIGINAL ||
+    data.borderStyleMode === FILL_MODE.FOLLOW_FILL
       ? data.borderStyleMode
       : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
