@@ -3108,11 +3108,7 @@ describe("border options per geometry", () => {
     // that containment would NOT catch the extra.
     registerGeometryLayer("g_guard1", "polygon");
     const actual = modeValues(openBorderRow("g_guard1"));
-    const contract = [
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.FOLLOW_FILL,
-    ];
+    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
     expect(actual).toEqual(contract);
     // The negative property: adding the illegal option to the contract must NOT
     // equal the actual set — this is what makes the matrix red on an extra.
