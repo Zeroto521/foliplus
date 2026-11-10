@@ -42,84 +42,153 @@ const clamp = (value: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, value));
 
 // ── The value bubble ──────────────────────────────────────────────
-// One element for the whole page: the row that owns it changes, the node does
-// not. That keeps the bubble out of every panel's overflow and stacking
-// context, which is what made it disappear under the header.
-let bubbleEl: HTMLElement | null = null;
-// Ownership is tracked by root element, not by instance reference: assigning
-// `this` to a module variable reads as an alias and makes teardown order
-// hard to reason about.
-let bubbleOwner: HTMLElement | null = null;
-let bubbleDismiss: (() => void) | null = null;
-// One scroll listener for the whole page: the bubble is a singleton, so a
+// Bubbles are page-level and keyed by anchor (the thumb element): a row that
+// owns one changes, the node does not. Keeping them out of every panel's
+// overflow and stacking context is what made the readout disappear under the
+// header. A single drag shows one bubble; a pan shows both thumbs at once, so
+// the pool holds up to two live entries per slider — and an owner switch (a
+// second slider takes over) hides the first slider's bubbles outright, so the
+// live set never mixes two owners on one surface.
+interface BubbleEntry {
+  el: HTMLElement;
+  owner: HTMLElement;
+}
+/** Live bubbles: anchor -> entry. Every entry is on screen (is-on). */
+const bubbles = new Map<HTMLElement, BubbleEntry>();
+/** Anchors hidden within the 150ms fade window, parked for reuse: a re-show
+ *  cancels the timer and reuses the node instead of allocating a fresh one. */
+const pendingHide = new Map<
+  HTMLElement,
+  { el: HTMLElement; owner: HTMLElement; timer: number }
+>();
+// One scroll listener for the whole page: bubbles are page-level, so a
 // per-instance listener would leak one handler per slider the panels ever
-// built. Registered when the bubble is created.
+// built. Registered when the first bubble is created.
 let scrollBound = false;
 let fullscreenBound = false;
 
-/** The map container that owns the slider currently showing the bubble.
- *  Scopes surface resolution to that map, so the singleton bubble cannot land
- *  in a sibling map's pseudo container. */
-const bubbleScope = (): Element | null =>
-  bubbleOwner?.closest(".leaflet-container") ?? null;
+/** The map container that owns *owner*. Scopes surface resolution to that map,
+ *  so a bubble cannot land in a sibling map's pseudo container. */
+const bubbleScope = (owner: Element | null): Element | null =>
+  owner?.closest(".leaflet-container") ?? null;
 
-/** Where the bubble lives: the covering surface of the owning map (native
+/** Where a bubble lives: the covering surface of the owning map (native
  *  fullscreen element or pseudo-fullscreen container — only that subtree
- *  paints), otherwise <body>. A hidden bubble stays on <body>: there is no
- *  owner to scope it to, and the document-wide fallback could be another
- *  map's surface. */
-const bubbleHost = (): HTMLElement =>
-  bubbleOwner ? fullscreenSurface(bubbleScope()) : document.body;
+ *  paints), otherwise <body>. */
+const bubbleHost = (owner: HTMLElement): HTMLElement =>
+  fullscreenSurface(bubbleScope(owner));
 
 const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
   // Native fullscreen and pseudo enter/exit both announce through
   // platform/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
-  // so a `fullscreenchange` listener alone would leave the bubble on <body>
+  // so a `fullscreenchange` listener alone would leave the bubbles on <body>
   // under the opaque map.
-  // Page-lifetime singleton: the bubble and this subscription are
-  // intentionally never released. If the bubble ever becomes per-map, keep
-  // this off-handle and call it from destroy().
   onFullscreenSurfaceChange(() => {
-    // Resolve the scope before dismissing: hideBubble clears bubbleOwner, and
-    // the node still has to land on the map it belonged to (or back on <body>
-    // after an exit).
-    const scope = bubbleScope();
-    // A tooltip does not survive the transition; the next focus re-shows it
-    // (and re-positions it against the new layout).
-    bubbleDismiss?.();
-    const el = bubbleEl!;
-    const host = fullscreenSurface(scope);
-    if (el.parentElement !== host) host.appendChild(el);
+    // A bubble does not survive the transition: drop the live class now (the
+    // fade plays) and re-seat every node — live or parked — onto its owner's
+    // surface, so a node that was parked on the old surface follows it back.
+    const live = [...bubbles.entries()];
+    for (const [anchor, entry] of live) {
+      const scope = bubbleScope(entry.owner);
+      hideAnchor(anchor);
+      const host = fullscreenSurface(scope);
+      if (entry.el.parentElement !== host) host.appendChild(entry.el);
+    }
+    // Parked nodes (hidden within the fade window) also follow the surface:
+    // they are invisible either way, but a re-show must not re-seat them onto
+    // a stale host.
+    for (const [, pending] of pendingHide) {
+      const host = fullscreenSurface(bubbleScope(pending.owner));
+      if (pending.el.parentElement !== host) host.appendChild(pending.el);
+    }
   });
 };
 
-const ensureBubble = (): HTMLElement => {
-  let el = bubbleEl;
-  if (!el) {
-    el = dom.el("div", {
-      class: SLIDER_CLASS.BUBBLE,
-      "aria-hidden": "true",
-    });
-    el.hidden = true;
-    bubbleEl = el;
-  }
+const createBubbleEl = (): HTMLElement => {
+  const el = dom.el("div", {
+    class: SLIDER_CLASS.BUBBLE,
+    "aria-hidden": "true",
+  });
+  el.hidden = true;
+  return el;
+};
+
+/** Show (or refresh) the bubble anchored at *anchor*, owned by *owner*. The
+ *  caller sets the text and class after; this only guarantees the node exists
+ *  on the right surface, cancels any pending hide, and clears any other
+ *  owner's live bubbles (one slider shows bubbles at a time). */
+const showAnchor = (anchor: HTMLElement, owner: HTMLElement): BubbleEntry => {
   bindFullscreen();
-  const host = bubbleHost();
-  if (el.parentElement !== host) host.appendChild(el);
   if (!scrollBound) {
     scrollBound = true;
-    window.addEventListener("scroll", () => bubbleDismiss?.(), true);
+    // Any scroll moves the anchored value away from the pointer; every live
+    // bubble is dismissed (each is viewport-fixed to its anchor).
+    window.addEventListener(
+      "scroll",
+      () => {
+        for (const [a] of bubbles) hideAnchor(a);
+      },
+      true,
+    );
   }
-  return el;
+  // Owner switch: another slider wants the surface, so this slider's live
+  // bubbles go away immediately (their anchors no longer belong to it).
+  for (const [otherAnchor, other] of bubbles) {
+    if (other.owner !== owner) hideAnchor(otherAnchor, true);
+  }
+  const live = bubbles.get(anchor);
+  if (live) {
+    live.owner = owner;
+    return live;
+  }
+  const pending = pendingHide.get(anchor);
+  let el: HTMLElement;
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingHide.delete(anchor);
+    el = pending.el;
+  } else {
+    el = createBubbleEl();
+  }
+  el.hidden = false;
+  const host = bubbleHost(owner);
+  if (el.parentElement !== host) host.appendChild(el);
+  const entry: BubbleEntry = { el, owner };
+  bubbles.set(anchor, entry);
+  return entry;
+};
+
+/** Hide the bubble at *anchor*. The live class drops immediately so the CSS
+ *  fade plays (the node stays in the DOM, hidden still false); after 150ms
+ *  the node is hidden and detached. With *immediate* the node is detached now
+ *  (owner switch, fullscreen, destroy — no fade needed). Either way a re-show
+ *  inside the fade window cancels the timer and reuses the node. */
+const hideAnchor = (anchor: HTMLElement, immediate = false): void => {
+  const entry = bubbles.get(anchor);
+  if (!entry) return;
+  bubbles.delete(anchor);
+  entry.el.classList.remove("is-on");
+  let timer = 0;
+  const detach = (): void => {
+    entry.el.hidden = true;
+    entry.el.remove();
+    const pending = pendingHide.get(anchor);
+    if (pending?.timer === timer) pendingHide.delete(anchor);
+  };
+  if (immediate) {
+    detach();
+    return;
+  }
+  timer = window.setTimeout(detach, 150);
+  pendingHide.set(anchor, { el: entry.el, owner: entry.owner, timer });
 };
 
 /** Keep the bubble inside the viewport and pointing at *anchor*: above it
  *  when there is room, below otherwise, shifted horizontally so an edge thumb
  *  does not push it off-screen. */
-const placeBubble = (anchor: DOMRect): void => {
-  const bubble = ensureBubble();
+const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
   // Same distance Web Awesome uses between the control and its tooltip: the
   // arrow (4px of it) spans part of the gap, leaving the tip just clear of
   // the thumb instead of touching it.
@@ -159,7 +228,8 @@ class Slider {
   private disabled: boolean;
   private rtl: boolean;
   private bubbleFrame = 0;
-  private active = -1;
+  /** Thumbs whose bubble is shown and owned by this root. */
+  private readonly bubbleAnchors = new Set<HTMLElement>();
   private drag: {
     id: number;
     index: number;
@@ -343,7 +413,7 @@ class Slider {
     this.endSession(true);
   }
 
-  /** Drop the bubble if this slider owns it (teardown path). */
+  /** Drop the bubbles if this slider owns them (teardown path). */
   dismissBubble(): void {
     this.hideBubble();
   }
@@ -375,7 +445,7 @@ class Slider {
         [
           "hide-bubble",
           () => {
-            if (bubbleOwner === this.root) this.hideBubble();
+            this.hideBubble(undefined, true);
           },
         ],
         [
@@ -531,7 +601,7 @@ class Slider {
       this.currentEl.classList.toggle(SLIDER_CLASS.LABEL_HIDDEN, nearEnd);
     }
 
-    if (this.active >= 0) this.updateBubble();
+    this.updateBubbles();
   }
 
   // ── Interaction ─────────────────────────────────────────────
@@ -550,7 +620,7 @@ class Slider {
       thumb.addEventListener("pointerdown", event => this.onThumbDown(event, index));
       thumb.addEventListener("keydown", event => this.onKeyDown(event, index));
       thumb.addEventListener("focus", () => this.showBubble(index));
-      thumb.addEventListener("blur", () => this.hideBubble());
+      thumb.addEventListener("blur", () => this.hideBubble(index));
     });
   }
 
@@ -586,7 +656,6 @@ class Slider {
     // one's drag, or the first release would find nothing to commit.
     if (this.drag) return;
     event.preventDefault();
-    this.active = index;
     this.drag = { id: event.pointerId, index, dirty: false };
     try {
       this.track.setPointerCapture(event.pointerId);
@@ -626,10 +695,13 @@ class Slider {
     }
     // The whole segment is the grab region: mark the track (not the fill,
     // which stays pointer-events: none) so the cursor reads grabbing and the
-    // fill transition is disabled while the pan runs. No single thumb is
-    // focused or bubbled — a pan moves the pair, not one of them.
+    // fill transition is disabled while the pan runs. A pan moves the pair,
+    // so neither thumb is focused, but both bubbles are shown — the user
+    // needs to see both values move as the range slides.
     this.track.classList.add(SLIDER_CLASS.IS_PANNING);
     this.track.classList.remove(SLIDER_CLASS.CAN_PAN);
+    this.showBubble(0);
+    this.showBubble(1);
   }
 
   /** Close the live pointer session: release the drag flag and the thumb's
@@ -641,6 +713,7 @@ class Slider {
     // A pan marks the track; a single drag marks only the active thumb.
     if (drag.pan) {
       this.track.classList.remove(SLIDER_CLASS.IS_PANNING);
+      this.hideBubble();
     } else {
       this.thumbs[drag.index]?.classList.remove(SLIDER_CLASS.DRAGGING);
       this.hideBubble();
@@ -758,7 +831,6 @@ class Slider {
   }
 
   private setFromClientX(clientX: number, index: number): void {
-    this.active = index;
     const next = this.round(this.valueAt(clientX));
     if (next === this.values[index]) {
       // The row already renders this value; a sync would only rewrite the
@@ -793,6 +865,7 @@ class Slider {
     this.drag!.dirty = true;
     this.sync();
     this.emit("input");
+    this.updateBubbles();
   }
 
   private readonly onKeyDown = (event: KeyboardEvent, index: number): void => {
@@ -838,7 +911,6 @@ class Slider {
     // (inputOwnership), so stopping propagation here would only hide the
     // event from hosts that do not use that dispatcher.
     event.preventDefault();
-    this.active = index;
     const next = this.round(this.values[index] + delta);
     if (next === this.values[index]) {
       this.sync();
@@ -859,46 +931,65 @@ class Slider {
 
   // ── Bubble ──────────────────────────────────────────────────
   private showBubble(index: number): void {
-    this.active = index;
-    bubbleOwner = this.root;
-    bubbleDismiss = this.hideBubble;
-    const bubble = ensureBubble();
-    bubble.hidden = false;
-    bubble.textContent =
+    const thumb = this.thumbs[index];
+    if (!thumb) return;
+    const entry = showAnchor(thumb, this.root);
+    this.bubbleAnchors.add(thumb);
+    entry.el.textContent =
       this.opts.format?.(this.values[index]) ?? String(this.values[index]);
-    bubble.classList.add("is-on");
-    placeBubble(this.thumbs[index].getBoundingClientRect());
+    entry.el.classList.add("is-on");
+    placeBubble(thumb.getBoundingClientRect(), entry.el);
   }
 
-  private updateBubble(): void {
-    if (!bubbleEl || bubbleOwner !== this.root || this.active < 0) return;
-    const value = this.values[this.active];
-    const index = this.active;
-    bubbleEl.textContent = this.opts.format?.(value) ?? String(value);
-    // One placement per frame: a drag fires several pointer moves per frame on
-    // a high-rate pointer, and each placement reads a rect and writes styles.
+  /** Refresh every bubble this slider owns. Text is updated synchronously so
+   *  the readout stays in step with the value on the same frame; placement is
+   *  coalesced to one frame so several pointer moves in a frame (or two bubbles
+   *  on a pan) do not each read a rect and write styles. */
+  private updateBubbles(): void {
+    if (this.bubbleAnchors.size === 0) return;
+    for (const anchor of this.bubbleAnchors) {
+      const entry = bubbles.get(anchor);
+      if (entry) {
+        const index = this.thumbs.indexOf(anchor);
+        if (index >= 0) {
+          entry.el.textContent =
+            this.opts.format?.(this.values[index]) ?? String(this.values[index]);
+        }
+      }
+    }
     if (this.bubbleFrame) return;
     this.bubbleFrame = requestAnimationFrame(() => {
       this.bubbleFrame = 0;
-      if (!bubbleEl || bubbleOwner !== this.root || this.active < 0) return;
-      placeBubble(this.thumbs[index].getBoundingClientRect());
+      for (const anchor of this.bubbleAnchors) {
+        const entry = bubbles.get(anchor);
+        if (entry) placeBubble(anchor.getBoundingClientRect(), entry.el);
+      }
     });
   }
 
-  private readonly hideBubble = (): void => {
+  private hideBubble(index?: number, immediate = false): void {
+    const anchors =
+      index === undefined
+        ? [...this.bubbleAnchors, ...this.thumbs.filter(t => pendingHide.has(t))]
+        : [this.thumbs[index]];
     if (this.bubbleFrame) {
       cancelAnimationFrame(this.bubbleFrame);
       this.bubbleFrame = 0;
     }
-    this.active = -1;
-    if (bubbleOwner !== this.root) return;
-    bubbleOwner = null;
-    bubbleDismiss = null;
-    bubbleEl?.classList.remove("is-on");
-    window.setTimeout(() => {
-      if (!bubbleOwner && bubbleEl) bubbleEl.hidden = true;
-    }, 150);
-  };
+    for (const anchor of anchors) {
+      if (!anchor) continue;
+      // A fade may have already moved the anchor to the parked set; cancel
+      // that timer and drop the node now (destroy must not leave it behind).
+      const pending = pendingHide.get(anchor);
+      if (pending) {
+        clearTimeout(pending.timer);
+        pendingHide.delete(anchor);
+        pending.el.remove();
+      }
+      hideAnchor(anchor, immediate);
+      this.bubbleAnchors.delete(anchor);
+    }
+  }
 }
 
 export { Slider, finishSlidersIn, sliderOf };
