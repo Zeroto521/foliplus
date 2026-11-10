@@ -136,7 +136,7 @@ def render_control(folium: ModuleType, cls: type, bundle_path: Path) -> None:
     # could drive the control.
     js = bundle_path.read_text(encoding="utf-8")
     assert "foliplus@" in html, f"{name}: shared bundle banner absent from <head>"
-    for marker in (f"· {name}", "foliplus.core.defineControl"):
+    for marker in (f"· {name}", "foliplus.core.lifecycle"):
         assert marker in js, f"{name}: bundle holds no {marker!r}"
         assert marker in html, f"{name}: {marker!r} missing from the rendered page"
 

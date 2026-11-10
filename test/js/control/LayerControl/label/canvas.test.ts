@@ -1,7 +1,7 @@
 // LabelCanvas unit tests — one canvas per layer, mounted in that layer's
 // own pane; it paints the slice the manager hands it and nothing else.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
+import { getLayerAlpha } from "#core/layer/index.js";
 import { LabelCanvas } from "#control/LayerControl/label/canvas.js";
 import type { PlannedLabel } from "#control/LayerControl/label/layout.js";
 

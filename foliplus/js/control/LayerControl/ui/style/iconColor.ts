@@ -27,7 +27,7 @@ import {
   applyIconColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   resetIconLeaves,
-} from "#core/leaflet/markerIcon.js";
+} from "#core/leaflet/index.js";
 import {
   bindLiveNumber,
   colorInput,

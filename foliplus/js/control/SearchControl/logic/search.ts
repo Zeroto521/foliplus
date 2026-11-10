@@ -10,7 +10,7 @@ import {
   renderResults,
 } from "./panel.js";
 import { type SearchControlCtx, parseCoord } from "./util.js";
-import { fromWgs84, toWgs84 } from "#core/geo/index.js";
+import { createLocationMarker, fromWgs84, toWgs84 } from "#core/geo/index.js";
 import {
   type GeocodeProvider,
   type SuggestItem,
@@ -19,9 +19,8 @@ import {
   markRequest,
   resolveProvider,
 } from "#core/geocode/index.js";
-import { HINT_DURATION } from "#core/hint.js";
-import { createLocationMarker } from "#core/locationMarker.js";
-import { guardBlocked } from "#core/mode.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { debounce } from "#platform/debounce.js";
 import { fetchWithTimeout } from "#platform/fetch.js";

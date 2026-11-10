@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isInsideOverlay } from "#core/overlay.js";
+import { isInsideOverlay } from "#core/overlay/index.js";
 import { type SchemePicker, createSchemePicker } from "#ui/index.js";
 
 // ── color-scale helper ────────────────────────────────────────────────

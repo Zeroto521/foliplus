@@ -42,12 +42,13 @@ import {
   type Dismiss,
   type PanelController,
   attachPanel,
+  bindPanelPress,
   createPanel,
   createRowPanel,
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
@@ -471,7 +472,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // container); the registry entry below classifies the press as inside or
   // outside this surface — `dragstart` is dispatched on the draggable row, so
   // it cannot answer that.
-  panel.addEventListener("mousedown", e => controller.swallowPress(e));
+  bindPanelPress(panel, controller);
 
   // Register the open surface with the per-map overlay registry: it owns the
   // one document capture-phase mousedown dispatcher and the one Escape

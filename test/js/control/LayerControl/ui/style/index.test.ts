@@ -9,11 +9,10 @@ import {
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha } from "#core/layer/canvasAlpha.js";
-import { DIM } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { DIM, getLayerAlpha } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
 import { sliderOf } from "#ui/index.js";

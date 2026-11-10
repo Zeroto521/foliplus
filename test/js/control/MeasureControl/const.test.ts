@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { generateId } from "#core/component.js";
 import { DEL_ICON_CHAR } from "#core/leaflet/index.js";
+import { generateId } from "#core/lifecycle/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 
 describe("TIMING", () => {

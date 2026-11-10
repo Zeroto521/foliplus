@@ -74,7 +74,7 @@ import {
   type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {

@@ -15,7 +15,7 @@ import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";

@@ -123,9 +123,9 @@ class TestResolveImport:
         assert out is not None
 
     def test_alias_core(self, tmp_path):
-        _make(tmp_path, "foliplus/js/core/component.ts")
+        _make(tmp_path, "foliplus/js/core/lifecycle/component.ts")
         fp = str(tmp_path / "foliplus" / "js" / "a" / "index.ts")
-        out = mod._resolve_import(fp, "#core/component.js", str(tmp_path))
+        out = mod._resolve_import(fp, "#core/lifecycle/component.js", str(tmp_path))
         assert out is not None
 
     def test_alias_control(self, tmp_path):

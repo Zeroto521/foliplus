@@ -4,8 +4,12 @@
 import { AGG } from "./const.js";
 import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";
-import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
+import {
+  CLASS_COUNT,
+  type ClassifyMethod,
+  isClassifyMethod,
+} from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import * as Storage from "#platform/storage.js";
 import { clampBorderWeight, clampLabelSize } from "#ui/index.js";

@@ -12,9 +12,8 @@
 // edit that hardcodes a face cannot pass.
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
-import type { ValueConfig } from "#core/layer/intent.js";
-import { DEFAULT_SCHEMES } from "#core/palette.js";
+import type { ValueConfig } from "#core/layer/index.js";
+import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import { FACE, walkStyleLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 import {

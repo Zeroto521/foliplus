@@ -1,6 +1,6 @@
 import { loadFeature, makeControlEnv } from "./fixture.js";
 import { describe, expect, it, vi } from "vitest";
-import { HINT_DURATION } from "#core/hint.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import * as downloadMod from "#platform/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";

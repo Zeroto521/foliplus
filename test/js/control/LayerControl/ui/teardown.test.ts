@@ -18,7 +18,7 @@ const modeMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("#core/mode.js", () => ({
+vi.mock("#core/lifecycle/mode.js", () => ({
   ensureModes: modeMocks.ensureModes,
   guardBlocked: modeMocks.guardBlocked,
   ModeManager: modeMocks.ModeManager,

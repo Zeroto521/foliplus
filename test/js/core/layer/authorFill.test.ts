@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFeatureFillColors } from "#core/layer/authorFill.js";
+import { readFeatureFillColors } from "#core/layer/index.js";
 
 /** A Circle-like leaf: getRadius satisfies the areal fill carrier check and
  *  feature.properties is where explore puts its color. */

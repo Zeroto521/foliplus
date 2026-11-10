@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { requireRuntime } from "#core/guard.js";
+import { requireRuntime } from "#core/lifecycle/index.js";
 
 describe("requireRuntime", () => {
   it("throws when foliplus is missing", () => {
