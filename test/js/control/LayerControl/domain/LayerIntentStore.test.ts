@@ -559,8 +559,7 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
   });
 
   it("pins the matrix to every STYLE_KEYS dimension (vocabulary count)", () => {
-    expect(overrideKeys.length).toBe(17);
-    expect(overrideKeys.length).toBe(16);
+    expect(overrideKeys.length).toBe(18);
     for (const ov of overrideKeys) {
       expect(VALUE).toHaveProperty(ov);
     }
