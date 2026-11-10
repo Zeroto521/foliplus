@@ -208,8 +208,6 @@ const resolveTarget = (fromRel: string, spec: string): string | null => {
 // the lifecycle barrel, which would close a module cycle. These are the only
 // documented cross-cluster deep exceptions.
 const CORE_CYCLE_LEAF_EXCEPTIONS = new Set([
-  "#core/lifecycle/leafletAdapter.js",
-  "#core/lifecycle/mapApi.js",
   "#core/geo/coord.js",
   "#core/geocode/geocoder.js",
   "#core/layer/walkLeaf.js",
@@ -463,7 +461,7 @@ describe("barrelFor rejects synthetic violations", () => {
 
   it("a documented cycle-safe leaf deep path is allowed", () => {
     expect(
-      barrelFor("foliplus/js/core/layer/walkLeaf.ts", "#core/lifecycle/mapApi.js"),
+      barrelFor("foliplus/js/core/layer/walkLeaf.ts", "#core/mapApi.js"),
     ).toBeNull();
   });
 

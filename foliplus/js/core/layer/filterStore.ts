@@ -24,7 +24,7 @@ import {
   type LayerFilterModel,
   filtersEqual,
 } from "./filter.js";
-import { ensureMapFoliplus } from "#core/lifecycle/mapApi.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 import { createLogger } from "#platform/log.js";
 import { loadRecord, removeRecord, saveRecord } from "#platform/storage.js";
 
