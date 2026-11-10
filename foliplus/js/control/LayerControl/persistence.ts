@@ -8,6 +8,7 @@ import type {
 import {
   FILL_MODE,
   type FolderOrder,
+  MARKER_COLOR_PRESETS,
   type ValueConfig,
   isIconIntent,
   isIconMode,
@@ -219,6 +220,13 @@ const PARSE_OVERRIDE: Record<
     return isIconValueConfig(value) ? value : null;
   },
   iconMode: data => (isIconMode(data.iconMode) ? data.iconMode : null),
+  markerColor: data => {
+    const value = data.markerColor;
+    return typeof value === "string" &&
+      (MARKER_COLOR_PRESETS as readonly string[]).includes(value)
+      ? value
+      : null;
+  },
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

@@ -136,6 +136,16 @@ interface LayerCapabilities {
    *
    *  Probe-derived and re-read on each audit — same contract as `icon`. */
   iconColor: "native" | "none";
+  /** Whether the layer's tree has a chassis-color carrier (awesome-markers
+   *  sprite preset):
+   *    - "native" — any leaf owns a runtime `setIcon` whose authored icon
+   *      declares a `markerColor` option (an AwesomeMarkers). The write
+   *      re-derives the icon's chassis class with the user's preset.
+   *    - "none"   — no awesome-markers chassis. A bare divIcon / L.Icon.Default
+   *      img / iconUrl marker, vector paths, canvas and MarkerCluster fall out.
+   *
+   *  Probe-derived and re-read on each audit — same contract as `icon`. */
+  markerColor: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes

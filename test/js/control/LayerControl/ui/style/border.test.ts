@@ -1155,6 +1155,56 @@ describe("applyBorderToLayer", () => {
     expect(replayCall).toMatchObject({ stroke: true });
     expect(typeof replayCall.color).toBe("string");
   });
+  it("restores the author's stroke colour when ORIGINAL still owns a weight", () => {
+    // The restore path #953 left fragile: a solid → ORIGINAL round-trip keeps
+    // the user's weight (weight rides both modes), but the walk used to write
+    // only { weight } back to the leaf — a real Leaflet setStyle merges, so the
+    // solid colour stayed painted under the author's stroke. The row showed the
+    // author's green while the map drew the user's red. The merged arm pulls
+    // the author's stroke keys back in the same payload, so the colour reverts
+    // with the weight kept.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    // Solid: commit a user colour and weight.
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+    commitBorderColor(ui, "vec1", "#ff0000");
+    commitBorderWeight(ui, "vec1", 6);
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    expect(leaf.options).toMatchObject({ color: "#ff0000", weight: 6 });
+
+    // Back to ORIGINAL: the colour must revert to the author's, the weight
+    // (still user-owned) stays.
+    setIntent(ui, "vec1", "borderStyleMode", "original");
+    applyBorderToLayer(ui, "vec1");
+
+    expect(leaf.options.color).toBe("#00ff00");
+    expect(leaf.options.weight).toBe(6);
+    expect(leaf.options.stroke).toBe(true);
+    // The merged write carries both author colour and user weight in one
+    // payload — one setStyle per leaf, no restore-then-commit doubling.
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({
+      color: "#00ff00",
+      weight: 6,
+      stroke: true,
+    });
+  });
+
+  it("writes only the weight when SOLID has no colour yet — no author pull", () => {
+    // The merged arm is ORIGINAL-only. In SOLID with just a weight, the walk
+    // keeps the minimal contract (value keys + stroke bit); pulling the author
+    // colour would repaint the author's stroke over a solid colour the user
+    // has not yet chosen.
+    const leaf = makeHighlightLeaf("#00ff00", 3);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+    commitBorderWeight(ui, "vec1", 6);
+    flushStyleDimApply(FACE.STROKE, "vec1");
+
+    expect(leaf.setStyle).toHaveBeenLastCalledWith({ weight: 6, stroke: true });
+    expect(leaf.options.color).toBe("#00ff00");
+  });
 });
 
 describe("buildBorderRow", () => {
@@ -3054,25 +3104,23 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  it("polygon: { original, single, follow-fill } — never by-value", () => {
-    registerGeometryLayer("g_polygon", "polygon");
-    expectGeometryType("g_polygon", "polygon");
-    expect(modeValues(openBorderRow("g_polygon"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.FOLLOW_FILL,
-    ]);
-  });
-
-  it("point: { original, single, follow-fill } — never by-value", () => {
-    registerGeometryLayer("g_point", "point");
-    expectGeometryType("g_point", "point");
-    expect(modeValues(openBorderRow("g_point"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.FOLLOW_FILL,
-    ]);
-  });
+  // Polygon and point share one rule: a border that outlines a filled face
+  // offers follow-fill, and never by-value. One table drives both so a change
+  // to the outline contract cannot be applied to one geometry and forgotten on
+  // the other (the drift that made this matrix red after follow-fill landed).
+  it.each(["polygon", "point"] as const)(
+    "%s: { original, single, follow-fill } — never by-value",
+    kind => {
+      const id = `g_${kind}`;
+      registerGeometryLayer(id, kind);
+      expectGeometryType(id, kind);
+      expect(modeValues(openBorderRow(id))).toEqual([
+        FILL_MODE.ORIGINAL,
+        FILL_MODE.SOLID,
+        FILL_MODE.FOLLOW_FILL,
+      ]);
+    },
+  );
 
   it("the column is the DIM single source (border)", () => {
     expect(DIM.BORDER).toBe("border");
