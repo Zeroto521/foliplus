@@ -71,7 +71,7 @@ const ICON_KIND = {
 } as const;
 type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
 
-/** Whether a value is a ramp config this client can build. Two arms,
+/** Whether a value is a ramp config this client can build. Two branches,
  *  discriminated by `kind`:
  *
  *  - **numeric** (absent or `"numeric"`): the four classifier fields
@@ -230,10 +230,10 @@ type LayerIntent = {
   borderWeight?: number;
   /** The value-based stroke config when the layer border is painted by a
    *  field. Independent of fillValue: an explicit border ramp wins over the
-   *  derived fill ramp. Kept when the active border arm is solid. */
+   *  derived fill ramp. Kept when the active border mode is solid. */
   borderValue?: ValueConfig;
-  /** Which border arm the user chose: solid, or by value. Absent defers to
-   *  the fill arm mode (the border follows the fill by default - one ramp
+  /** Which border mode the user chose: solid, or by value. Absent defers to
+   *  the fill mode (the border follows the fill by default - one ramp
    *  selection covers both faces). */
   borderStyleMode?: FillMode;
   opacity?: number;
@@ -269,7 +269,7 @@ type PersistedLayerState = {
   fillOpacity?: number;
   /** The value-based fill config the user set (field / method / classes /
    *  scheme). The ramp mode owns the color; solid-mode opacity still rides
-   *  along, so the two arms share one fillOpacity override. */
+   *  along, so the two modes share one fillOpacity override. */
   fillValue?: ValueConfig;
   /** Which fill mode is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
@@ -282,11 +282,11 @@ type PersistedLayerState = {
   borderWeight?: number;
   /** The value-based stroke config the user set (field / method / classes /
    *  scheme). Independent of the fill config; absent defers to the fill
-   *  ramp. The border value arm owns the stroke color; the width and stroke
+   *  ramp. The border value mode owns the stroke color; the width and stroke
    *  bit still ride the solid border write. */
   borderValue?: ValueConfig;
-  /** Which border arm is active ("solid" | "value"); the inactive config is
-   *  kept so a switch back restores it. Absent defers to the fill arm. */
+  /** Which border mode is active ("solid" | "value"); the inactive config is
+   *  kept so a switch back restores it. Absent defers to the fill mode. */
   borderStyleMode?: FillMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's

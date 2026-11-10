@@ -29,6 +29,7 @@ import {
   createDropdown,
   createSchemePicker,
   dropdownOf,
+  dropdownOverlay,
 } from "#ui/index.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
@@ -114,15 +115,20 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // this control's pseudo-fullscreen fallback), so the list is never parked
   // under the opaque map.
   const surface = dropdownSurface(ctrl.mgr.map.getContainer());
+  // The dropdown popups register with the overlay registry (single Escape
+  // dispatcher): one Escape closes the open dropdown, the next the panel.
+  const dropdownOverlayHook = dropdownOverlay(ensureOverlayRegistry(ctrl.mgr.map));
   createDropdown({
     nativeSelect: ctrl.layerSelect,
     ariaLabel: ctrl.T("layer"),
     ...surface,
+    overlay: dropdownOverlayHook,
   });
   createDropdown({
     nativeSelect: ctrl.aggSelect,
     ariaLabel: ctrl.T("agg_method"),
     ...surface,
+    overlay: dropdownOverlayHook,
   });
   // Field / Classes / Scheme are shared row primitives (core/rampForm),
   // mounted into the template's placeholder. The rows keep the heatmap's
@@ -139,6 +145,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
     surface,
+    overlay: dropdownOverlayHook,
   });
   // The row has one visible label but two selects: give each its own
   // accessible name so a screen reader does not announce "Classes" twice.
@@ -150,6 +157,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classesValue: ctrl.mgr.numClasses,
     methodLabel: method => ctrl.T(method),
     methodClass: "",
+    overlay: dropdownOverlayHook,
     classesClass: "foliplus-heatmap-class-select",
     methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },

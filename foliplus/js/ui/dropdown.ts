@@ -56,8 +56,53 @@ interface DropdownItem {
   disabledHint?: string;
 }
 
+/** Highest host-panel rank a popup can sit in. The registry owns the
+ *  ESC_PRIORITY table (core); ui cannot import core, so the guard test
+ *  (overlayRegistry.test.ts) asserts this equals max(ESC_PRIORITY) over the
+ *  host panels — if a new panel outranks this, the test fails and the
+ *  developer must raise it. LAYER_MENU (800) is the highest panel that can
+ *  host a dropdown; LAYER_RENAME (900) is exempt (never registered). */
+const POPUP_HOST_RANK = 800;
+/** Fixed increment above the highest host-panel rank: the popup band. Kept
+ *  strictly above every panel so Escape closes the popup first, the panel on
+ *  the next Escape — one layer at a time. */
+const POPUP_ESCAPE_DELTA = 60;
+/** The popup band rank: host panel rank + the fixed delta. */
+const POPUP_OVERLAY_RANK = POPUP_HOST_RANK + POPUP_ESCAPE_DELTA;
+
+/** Shared registry id for every dropdown popup. Only one listbox is open at a
+ *  time (openStates is module-global), so all dropdowns may own the same id;
+ *  the registry rejects a duplicate, and a popup never coexists with another
+ *  listbox popup. */
+const DROPDOWN_OVERLAY_ID = "foliplus.popup.dropdown";
+
+/** The overlay-registry hook a dropdown consumer injects (core/control has the
+ *  per-map registry; ui never imports core). When present, the open list
+ *  registers a floating surface with the registry instead of self-installing a
+ *  window keydown — the single Escape dispatcher closes the stacked popup one
+ *  layer at a time. */
+interface DropdownOverlay {
+  /** Register a floating surface; returns its unregister (called on close). */
+  register(entry: {
+    id: string;
+    isOpen(): boolean;
+    close(opts: { restoreFocus: boolean }): void | boolean;
+    panels(): Element[];
+    dismissOn: "mousedown" | "click";
+    pressPriority: number;
+    escapeRank?: number;
+  }): () => void;
+  /** Stable identity for the Escape order / duplicate rejection. */
+  id: string;
+  /** Escape + press rank: higher = closer to the top. */
+  rank: number;
+}
+
 interface DropdownOptions extends DropdownSurface {
   nativeSelect?: HTMLSelectElement;
+  /** When present, the open list registers with the overlay registry instead
+   *  of binding its own document/window Escape. */
+  overlay?: DropdownOverlay;
   items?: readonly DropdownItem[];
   value?: string;
   values?: readonly string[];
@@ -159,6 +204,29 @@ const commit = (state: InternalState): void => {
 const listboxOf = (state: InternalState): ReturnType<typeof createListbox> =>
   state.listbox as ReturnType<typeof createListbox>;
 
+/** Build the overlay hook a dropdown consumer injects, from the per-map
+ *  registry register. One call per consumer keeps the shared id + rank in one
+ *  place (the engine's single Escape rank) while the register stays injected
+ *  (ui never imports core). */
+/** The slice of the per-map overlay registry a dropdown consumer injects. */
+interface OverlayRegistryLike {
+  register(entry: {
+    id: string;
+    isOpen(): boolean;
+    close(opts: { restoreFocus: boolean }): void | boolean;
+    panels(): Element[];
+    dismissOn: "mousedown" | "click";
+    pressPriority: number;
+    escapeRank?: number;
+  }): () => void;
+}
+
+const dropdownOverlay = (registry: OverlayRegistryLike): DropdownOverlay => ({
+  register: entry => registry.register(entry),
+  id: DROPDOWN_OVERLAY_ID,
+  rank: POPUP_OVERLAY_RANK,
+});
+
 const createDropdown = (opts: DropdownOptions): Dropdown => {
   const native = opts.nativeSelect ?? null;
   if (native && opts.multiple) {
@@ -252,8 +320,14 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       resolveHost: opts.resolveHost ?? null,
       onSurfaceChange: opts.onSurfaceChange ?? null,
     },
-    ownDismiss: true,
-    dismiss: { kind: "local" },
+    dismiss: opts.overlay
+      ? {
+          kind: "registry",
+          register: opts.overlay.register,
+          id: opts.overlay.id,
+          rank: opts.overlay.rank,
+        }
+      : { kind: "local" },
     onBeforeOpen: () => {
       // A bridged select's options/value may have been rebuilt since the last
       // open; re-read them so the popup always lists the current options (the
@@ -386,4 +460,14 @@ const activateRow = (state: InternalState, index: number): void => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { applyOptionRowA11y, createDropdown, dropdownOf };
+export {
+  DROPDOWN_OVERLAY_ID,
+  POPUP_ESCAPE_DELTA,
+  POPUP_HOST_RANK,
+  POPUP_OVERLAY_RANK,
+  applyOptionRowA11y,
+  createDropdown,
+  dropdownOf,
+  dropdownOverlay,
+};
+export type { DropdownOverlay };

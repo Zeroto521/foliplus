@@ -35,7 +35,7 @@ describe("isClassifyMethod", () => {
 
   it("rejects an unknown name, padding and the wrong case", () => {
     // A method is a protocol token, not a property key: the classifier used to
-    // send every unmatched string down the equal arm, so a record could claim
+    // send every unmatched string down the equal branch, so a record could claim
     // one algorithm while the map ran another.
     expect(isClassifyMethod("bogus")).toBe(false);
     expect(isClassifyMethod(" equal ")).toBe(false);
@@ -64,7 +64,7 @@ describe("computeBreaks — the closed method protocol", () => {
   });
 
   it("throws a ClassifyMethodError instead of running the equal split", () => {
-    // The old trailing arm made every unmatched string an equal split, which
+    // The old trailing branch made every unmatched string an equal split, which
     // silently changed what a stale record meant.
     expect(() => computeBreaks([1, 2, 3], 2, "bogus" as never)).toThrow(
       ClassifyMethodError,

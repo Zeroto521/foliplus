@@ -87,6 +87,11 @@ interface OverlayEntry {
    *  (inline rename). The dispatcher does not close it and lets the event
    *  continue to the editor. */
   escPassthroughOnEditable?: boolean;
+  /** Optional override of the Escape rank. Dynamic popups (dropdowns, icon
+   *  grid) are not fixed OVERLAY_IDS, so the central ESC_PRIORITY table cannot
+   *  rank them; this is the escape hatch. Defaults to orderOf(id) (the table,
+   *  or -Infinity for an unknown id). Fixed surfaces keep the contract. */
+  escapeRank?: number;
 }
 
 /** Payload of every Escape the dispatcher finished with, handled or not. */
@@ -151,6 +156,10 @@ const ESC_PRIORITY: Readonly<Record<OverlayId, number>> = {
 /** Rank of an id, or -Infinity for an id the table does not know (sorts last). */
 const orderOf = (id: string): number =>
   ESC_PRIORITY[id as OverlayId] ?? Number.NEGATIVE_INFINITY;
+
+/** The Escape rank an entry is ordered by: its explicit override, else the
+ *  table rank of its id. */
+const rankOf = (entry: OverlayEntry): number => entry.escapeRank ?? orderOf(entry.id);
 
 /** Ids in ESC_PRIORITY that no registered overlay can own. These surfaces are
  *  owned by a mechanism outside the registry — an inline editor's own keydown
@@ -321,11 +330,14 @@ class OverlayRegistryImpl implements OverlayRegistry {
     this.removeEscapeListener();
   }
 
-  /** Escape ownership order: the central rank table, never pressPriority. */
+  /** Escape ownership order: the central rank table, never pressPriority.
+   *  An entry may override the table rank (a dynamic popup that is not a fixed
+   *  OVERLAY_ID); the table rank is the default so the contract test on
+   *  ESC_PRIORITY stays the single source for fixed surfaces. */
   private orderedOpenEntries(): OverlayEntry[] {
     return [...this.entries.values()]
       .filter(entry => entry.isOpen())
-      .sort((a, b) => orderOf(b.id) - orderOf(a.id));
+      .sort((a, b) => rankOf(b) - rankOf(a));
   }
 
   /** Press order: the entry's own pressPriority (higher first), independent of

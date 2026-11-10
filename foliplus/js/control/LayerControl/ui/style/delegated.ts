@@ -10,8 +10,9 @@ import { DIM_ORDER, gatedRows } from "./registry.js";
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
-import { BORDER_WEIGHT, PANEL_CLASS } from "#ui/index.js";
+import { BORDER_WEIGHT, PANEL_CLASS, dropdownOverlay } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
@@ -109,6 +110,7 @@ const renderDelegatedStylePanel = (
     // covering the trigger (native or pseudo fullscreen), like every other
     // migrated select.
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
 
   // Border row (HeatmapControl only today) — the component's own styling, so

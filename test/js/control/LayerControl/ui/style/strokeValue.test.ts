@@ -124,10 +124,10 @@ describe("resolveStrokeMode", () => {
 
 describe("applyValueStroke", () => {
   it("delegates the whole paint to the shared paintByValue skeleton", () => {
-    // The single-source convergence contract (P1): the stroke arm must not
+    // The single-source convergence contract (P1): the stroke mode must not
     // rebuild the collect/ramp/write/pin machinery — it assembles a
     // ValueFaceDecl and calls paintByValue, so a change to the shared
-    // mode lands on both the fill and the stroke arm from one place.
+    // mode lands on both the fill and the stroke mode from one place.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeLayer(makeLeaf({ properties: { value: 5 } }));
     const ramp = makeRamp();
@@ -208,7 +208,7 @@ describe("applyValueStroke", () => {
 
   it("reaches line leaves too (no geometry filter)", () => {
     // walkStyleLeaves carries no geometry predicate: a Polyline leaf owns a
-    // setStyle but is not areal, so the stroke arm must still paint it.
+    // setStyle but is not areal, so the stroke mode must still paint it.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const line = makeLeaf(
       { properties: { value: 1 }, geometry: { type: "LineString" } },

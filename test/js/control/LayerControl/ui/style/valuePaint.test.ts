@@ -1,13 +1,13 @@
-// Unit tests for the shared by-value style arm — valuePaint.
+// Unit tests for the shared by-value style mode — valuePaint.
 //
-// The arm is face-independent: it paints whatever face a \`ValueFaceDecl\`
+// The mode is face-independent: it paints whatever face a \`ValueFaceDecl\`
 // declares, and its body carries no FILL/STROKE literal. These tests drive it
 // with a STROKE-flavoured demo declaration (a different face, color slot,
-// leaf walker and opacity slot than the fill face) and assert the arm writes
-// exactly that face — if the arm had a fill branch it would paint
+// leaf walker and opacity slot than the fill face) and assert the mode writes
+// exactly that face — if the mode had a fill branch it would paint
 // \`fillColor\`/\`fill\` instead of the demo's \`color\`/\`stroke\`.
 //
-// The reverse assertion reads the arm's source and requires no FACE / DIM
+// The reverse assertion reads the mode's source and requires no FACE / DIM
 // vocabulary reference and no fill/stroke style-key literal, so a future
 // edit that hardcodes a face cannot pass.
 import { readFileSync } from "node:fs";
@@ -92,7 +92,7 @@ const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
 // A stroke-flavoured demo face: a different color slot, opacity slot, face
 // and leaf walker than the fill face. If valuePaint had a fill branch, this
 // declaration would still paint fillColor/fill and the tests below would
-// fail — passing proves the arm consumes the declaration's slots.
+// fail — passing proves the mode consumes the declaration's slots.
 const demoDecl: ValueFaceDecl = {
   dim: "demoDim",
   face: FACE.STROKE,
@@ -146,7 +146,7 @@ describe("paintByValue", () => {
 });
 
 it("paints category leaves via buildCategoryRamp, not the numeric ramp", () => {
-  // A category config drives the arm down the buildCategoryRamp arm; the
+  // A category config drives the mode down the buildCategoryRamp mode; the
   // leaf's label must end up in the write's declared color slot.
   installChroma(["#aa0000", "#00aa00", "#0000aa"]);
   const catRamp: ValueConfig = {
@@ -171,7 +171,7 @@ it("paints category leaves via buildCategoryRamp, not the numeric ramp", () => {
 });
 
 it("warns and skips the write when chroma throws on the scheme", () => {
-  // chroma.scale() throws — the arm must log.warn and return without
+  // chroma.scale() throws — the mode must log.warn and return without
   // calling setStyle or pinning, not propagate the error.
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   globalThis.chroma = {
@@ -182,7 +182,7 @@ it("warns and skips the write when chroma throws on the scheme", () => {
   const layer = makeFeatureLayer([{ properties: { value: 1 } }]);
   paintByValue(makeUI(layer), "demo1", makeRamp(), demoDecl);
   expect(warnSpy).toHaveBeenCalled();
-  // The arm skipped the paint (color key absent from the write) and ran
+  // The mode skipped the paint (color key absent from the write) and ran
   // the restore path — the leaf's author color is what setStyle received.
   for (const leaf of layer.leaves) {
     const call = (leaf.setStyle as any).mock.calls[0]?.[0];
@@ -193,7 +193,7 @@ it("warns and skips the write when chroma throws on the scheme", () => {
 
 it("restores the author's face when the ramp classifies no leaf", () => {
   // installChroma returning empty → both scale and catScale are null →
-  // the arm takes the restore (commitStyleDimMerged) branch, not paint.
+  // the mode takes the restore (commitStyleDimMerged) branch, not paint.
   globalThis.chroma = {
     scale: () => ({ mode: () => ({ colors: () => [] }), colors: () => [] }),
   } as never;
@@ -203,7 +203,7 @@ it("restores the author's face when the ramp classifies no leaf", () => {
   ]);
   paintByValue(makeUI(layer), "demo1", makeRamp(), demoDecl);
   // The restore path ran — the author's color (unchanged) is what setStyle
-  // received, not a ramp color. The arm skipped the paint.
+  // received, not a ramp color. The mode skipped the paint.
   for (const leaf of layer.leaves) {
     const call = (leaf.setStyle as any).mock.calls[0]?.[0];
     expect(call?.color).toBe("#000000"); // author's original preserved
@@ -229,7 +229,7 @@ it("replays the category color on mouseout via the pin getter", () => {
 });
 
 describe("a face without a user flatScalar", () => {
-  // The flatScalar arm must be optional per face: a dimension with no user flatScalar
+  // The flatScalar mode must be optional per face: a dimension with no user flatScalar
   // (e.g. a stroke that has no width-as-flatScalar slot) passes null and the paint
   // writes/replays only the color. A no-flatScalar face is the only way to reach
   // the paint's flatScalar-skipping branches.

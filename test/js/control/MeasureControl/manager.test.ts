@@ -39,7 +39,7 @@ vi.mock("#core/lifecycle/mode.js", async () => {
 afterEach(resetMeasureControlState);
 
 // ── Filter fixtures ───────────────────────────────────────────────────
-// Shared by the type-filter tests and the cross-arm contract below: both
+// Shared by the type-filter tests and the cross-mode contract below: both
 // build the same manager and read the filter through the LayerAPI option bag.
 
 /** The LayerAPI option bag the manager registered at construction. */
@@ -2557,7 +2557,7 @@ describe("MeasureManager — type filter", () => {
 //   5. an unusable declaration warns once and never leaves a half-open state;
 //   6. a saved filter round-trips through persistence;
 //   7. the dimension carries values only — captions are panel chrome.
-describe("MeasureManager — filter contract (enum arm)", () => {
+describe("MeasureManager — filter contract (enum mode)", () => {
   const storageKey = (manager: any): string => filterStorageKey(manager);
 
   /** Write a filter record as if an earlier session had owned the slot. A
@@ -2764,7 +2764,7 @@ describe("MeasureManager — filter contract (enum arm)", () => {
       expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it("rejects the other arm whole instead of coercing it", () => {
+    it("rejects the other mode whole instead of coercing it", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       window.CONFIG = {
         ...window.CONFIG,

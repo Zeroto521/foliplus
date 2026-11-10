@@ -30,7 +30,12 @@ import {
   onFullscreenSurfaceChange,
 } from "#platform/fullscreen.js";
 import { createLogger } from "#platform/log.js";
-import { type SchemePicker, createSchemePicker, dropdownOf } from "#ui/index.js";
+import {
+  type SchemePicker,
+  createSchemePicker,
+  dropdownOf,
+  dropdownOverlay,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 
@@ -415,6 +420,7 @@ const buildValueDetail = (
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
 
   const classes = buildClassesRow({
@@ -432,6 +438,7 @@ const buildValueDetail = (
     methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
     classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   // The author palette may have more classes than the picker vocabulary
   // offers: show that count as its own option so the row states the class

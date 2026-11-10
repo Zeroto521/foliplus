@@ -134,7 +134,7 @@ describe("findLeaf", () => {
   });
 
   it("skips children whose pred returns undefined and continues the search", () => {
-    // The undefined arm of `if (r !== undefined) return r` — the first child
+    // The undefined branch of `if (r !== undefined) return r` — the first child
     // returns undefined, the second returns a value, and the walk must skip
     // the first and return the second.
     const miss = leaf("miss");

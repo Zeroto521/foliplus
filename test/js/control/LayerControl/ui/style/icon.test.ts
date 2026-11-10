@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import { PICKER_GLYPHS } from "#core/leaflet/glyphSource.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -712,7 +713,7 @@ describe("buildIconRow", () => {
     trigger.click();
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
     // A press outside the grid (on the row, not inside a cell) closes it.
-    row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    row.dispatchEvent(new Event("mousedown", { bubbles: true }));
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
   });
 
@@ -806,7 +807,7 @@ describe("buildIconRow", () => {
     for (let i = 0; i < 5; i++) {
       trigger.click();
       expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).not.toBeNull();
-      row.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      row.dispatchEvent(new Event("mousedown", { bubbles: true }));
       expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
     }
   });
@@ -840,6 +841,32 @@ describe("buildIconRow", () => {
     expect(removed).toBeGreaterThanOrEqual(added);
     addSpy.mockRestore();
     removeSpy.mockRestore();
+  });
+
+  it("grid overlay panels() reads the live grid, not a snapshot", () => {
+    // The register entry's panels() closure reads `grid` at call time. A
+    // snapshot (panels: () => [grid]) would keep returning the detached
+    // grid after close; the live read returns [] the moment grid is null.
+    const registry = ensureOverlayRegistry(ui.c.map);
+    const registerSpy = vi.spyOn(registry, "register");
+    const row = buildIconRow(ui, "overlay1")!;
+    document.body.appendChild(row);
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.click();
+    const entry = registerSpy.mock.calls.at(-1)![0] as {
+      panels: () => Element[];
+    };
+    const grid = row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)!;
+    expect(grid).not.toBeNull();
+    expect(entry.panels()).toEqual([grid]);
+    // Close the grid: `grid` is nulled and removed. The SAME entry now
+    // reads the live variable — an empty panel list, not the detached grid.
+    trigger.click();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_GRID}`)).toBeNull();
+    expect(entry.panels()).toEqual([]);
+    registerSpy.mockRestore();
   });
 });
 

@@ -646,9 +646,9 @@ describe("applyValueFill", () => {
 
   it("pin stops replaying the value fill once the mode is solid", () => {
     // A mode switch back to solid keeps the value config stored — the config is
-    // the arm's next-time state, not evidence that the arm is active. The pin
+    // the mode's next-time state, not evidence that the mode is active. The pin
     // must not repaint the value fill on the next mouseout, and it must still
-    // replay while the value arm is active.
+    // replay while the value mode is active.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
@@ -723,8 +723,8 @@ describe("applyValueFill", () => {
     expect(pinGetterOf()()).not.toBeNull();
   });
 
-  it("invalidates the pin when the kind points at the categorical arm", () => {
-    // The categorical arm is a later batch and builds its breaks differently,
+  it("invalidates the pin when the kind points at the categorical mode", () => {
+    // The categorical mode is a later batch and builds its breaks differently,
     // so a same-named config typed for it must not repaint off a numeric
     // cache — the pin-side twin of the persistence reader dropping such a
     // record whole. The type cannot spell the value yet, hence the cast.
@@ -817,7 +817,7 @@ describe("applyValueFill", () => {
   });
 
   it("paints categorical values by their label under a qualitative scheme", () => {
-    // The category arm: a string column is classified by distinct label, not
+    // The category mode: a string column is classified by distinct label, not
     // by numeric breaks. First-seen order maps each label to the scheme's
     // next discrete color (Set3 here, via the chroma stub's fixed list).
     installChroma(["#e41a1c", "#377eb8", "#4daf4a"]);
@@ -863,7 +863,7 @@ describe("applyValueFill", () => {
   it("leaves a category leaf with a non-string value out of the value fill's reach", () => {
     // isCategoryValue accepts only a non-empty string, so a numeric or null
     // property is not painted: the author's face comes back, the same rule
-    // the numeric arm applies to a non-finite value.
+    // the numeric mode applies to a non-finite value.
     installChroma(["#e41a1c"]);
     const layer = makeFeatureLayer([
       { properties: { kind: "forest" } },
@@ -898,11 +898,11 @@ describe("applyValueFill", () => {
     expect(out!.fill).toBe(true);
   });
   it("restores the author's face when a category value fill has no valid labels", () => {
-    // The paint ternary's `: undefined` arm for the category branch when the
+    // The paint ternary's `: undefined` mode for the category branch when the
     // scale itself is null: no leaf offers a valid categorical label (numbers,
     // null, an empty string), so buildCategoryRamp yields no colors, catScale
     // stays null, and every leaf's paint is undefined — the author's face
-    // comes back, the same rule the numeric arm applies to an all-invalid
+    // comes back, the same rule the numeric mode applies to an all-invalid
     // field.
     installChroma(["#e41a1c"]);
     const layer = makeFeatureLayer([
@@ -970,7 +970,7 @@ describe("applyValueFill", () => {
 
 describe("resolveFillMode", () => {
   it("returns SOLID when no value config and no stored mode", () => {
-    // No fillMode intent, value undefined → the solid arm owns the fill.
+    // No fillMode intent, value undefined → the solid mode owns the fill.
     intentValues = {};
     expect(resolveFillMode(makeUI({}), "overlay1", undefined)).toBe("solid");
   });

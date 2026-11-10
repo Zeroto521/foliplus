@@ -47,12 +47,14 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   PANEL_CLASS,
   buttonRow,
+  dropdownOverlay,
   finishSlidersIn,
   panelButton,
   sectionDivider,
@@ -153,6 +155,7 @@ const bodyDeps = (
   // mounts on the map container, so native/pseudo fullscreen keeps it
   // on-screen.
   surface: dropdownSurface(ui.c.map.getContainer()),
+  overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
 });
 
 /** Pull the shared readout to the owner's current model: live kept/total text

@@ -20,6 +20,7 @@ import { registerDimension } from "./registry.js";
 import { FACE } from "./styleBag.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/overlayRegistry.js";
 import { dom } from "#platform/dom.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
@@ -29,6 +30,7 @@ import {
   PANEL_CLASS,
   clampLabelSize,
   createDropdown,
+  dropdownOverlay,
   colorInput as formColorInput,
   numberInput as formNumberInput,
   formRow,
@@ -95,6 +97,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     nativeSelect: fieldSelect as HTMLSelectElement,
     ariaLabel: ui.T("style_label_field"),
     ...dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
 
   // Appearance row — same chrome as the heatmap border / delegated drawer.
@@ -147,6 +150,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     nativeSelect: formatSelect as HTMLSelectElement,
     ariaLabel: ui._("foliplus.label_format"),
     ...dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
 
   // Numeric-only: hide the format dropdown when the picked field is not a
