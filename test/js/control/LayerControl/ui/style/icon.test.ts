@@ -969,6 +969,23 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
+  it("apply merges a surviving icon color and opacity onto the painted glyph", () => {
+    // The icon color + opacity are orthogonal to the glyph: applyIconToLayer
+    // must carry a user-set ICON_COLOR and ICON_COLOR_OPACITY into the SAME
+    // derived-icon construction (setIcon replaces the whole icon).
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_COLOR, "#0000ff"],
+      [INTENT.ICON_COLOR_OPACITY, 40],
+    ]);
+    commitGlyph(ui, "overlay1", "map-pin");
+    flushIcon("overlay1");
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.style.color).toBe("rgba(0, 0, 255, 0.4)");
+    expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR_OPACITY)).toBe(40);
+  });
+
   it("reset re-derives a surviving icon color onto the restored author icon", () => {
     // The icon color is orthogonal to the glyph: resetting the glyph must not
     // lose a user-set color. resetLayerIcon restores the author icon then
@@ -984,6 +1001,25 @@ describe("applyIconToLayer / commitGlyph / resetLayerIcon", () => {
     expect(written).not.toBe(authorIcon);
     const glyph = written.createIcon().querySelector("i") as HTMLElement;
     expect(glyph.style.color).toBe("rgb(18, 171, 239)");
+    expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
+  });
+
+  it("reset re-derives a surviving icon color and opacity onto the restored author icon", () => {
+    // resetLayerIcon restores the author icon then re-applies the ICON_COLOR
+    // + ICON_COLOR_OPACITY intents, so a reset never splits the color and the
+    // glyph nor silently drops a user-set opacity.
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_COLOR, "#0000ff"],
+      [INTENT.ICON_COLOR_OPACITY, 40],
+    ]);
+    commitGlyph(ui, "overlay1", "map-pin");
+    flushIcon("overlay1");
+    resetLayerIcon(ui, "overlay1");
+    flushIcon("overlay1");
+    const written = school.options.icon;
+    expect(written).not.toBe(authorIcon);
+    const glyph = written.createIcon().querySelector("i") as HTMLElement;
+    expect(glyph.style.color).toBe("rgba(0, 0, 255, 0.4)");
     expect(getIntent(ui, "overlay1", DIM.ICON)).toBeUndefined();
   });
 
