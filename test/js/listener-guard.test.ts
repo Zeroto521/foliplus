@@ -157,6 +157,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "the marker-color swatch input: buildIconColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts entry carries)",
   },
   {
+    f: "control/LayerControl/ui/style/markerColor.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the marker chassis select: buildMarkerColorRow is a free-standing row factory called from gatedRows with a LayerUI, not a BaseControl instance, so this.on is unreachable (the same reason the icon.ts / iconColor.ts entries carry)",
+  },
+  {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
     n: 2,
     pairedOff: 0,
