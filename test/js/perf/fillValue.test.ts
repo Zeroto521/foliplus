@@ -1,15 +1,15 @@
 // Wall-clock benchmark for the value-based fill dimension - 6k leaves x
 // 60 ticks, the same fixture shape as the #565 fill scheduler work.
 //
-// Both arms enter through the production write path - applyFillToLayer,
-// which resolves the arm and delegates to applyValueFill for the value arm -
+// Both modes enter through the production write path - applyFillToLayer,
+// which resolves the mode and delegates to applyValueFill for the value mode -
 // so the numbers are what the panel actually pays: areal probe, style bag,
 // highlight pin. No hand-written walk that skips them.
-// The two arms are timed in the same run, interleaved one tick at a time,
+// The two modes are timed in the same run, interleaved one tick at a time,
 // so a warm/cold ordering cannot manufacture the ratio.
 //
-// The value arm is 2 walks per tick (collect then apply) against solid's 1,
-// but both arms write one setStyle per leaf. A restore followed by a commit
+// The value mode is 2 walks per tick (collect then apply) against solid's 1,
+// but both modes write one setStyle per leaf. A restore followed by a commit
 // would have doubled the DOM and SVG attribute work on top of the walk, and
 // the write count below is where that is ruled out.
 //
@@ -84,8 +84,8 @@ const layer = {
   leaves,
 };
 
-/** The live intent table both arms read through getIntent. Only the keys a
- *  test sets are answered, so the arm under measurement is the one it names
+/** The live intent table both modes read through getIntent. Only the keys a
+ *  test sets are answered, so the mode under measurement is the one it names
  *  and nothing else leaks into the write. */
 let intents: Record<string, unknown> = {};
 const ui = {
@@ -157,7 +157,7 @@ const tick = (): { ms: number; perLeaf: number } => {
 };
 
 describe("fillValue.perf @6k", { timeout: 300_000 }, () => {
-  it("one setStyle per leaf per tick on both arms - the write is not the difference", () => {
+  it("one setStyle per leaf per tick on both modes - the write is not the difference", () => {
     installChromaStub(6);
     const solidIntent = { fillColor: "#ff0000" };
     const valueIntent = { fillValue: valueConfig() };
@@ -182,9 +182,9 @@ describe("fillValue.perf @6k", { timeout: 300_000 }, () => {
     const solidAvg = solidMs / TICKS;
     const valueAvg = valueMs / TICKS;
     console.log(
-      `[fill-value bench] solid arm ${solidAvg.toFixed(3)}ms/tick, value arm ${valueAvg.toFixed(3)}ms/tick x ${N_LEAVES} leaves - value/solid ${(valueAvg / solidAvg).toFixed(2)}x\n[fill-value bench] writes per leaf per tick: solid ${solidPerLeaf}, value ${valuePerLeaf}\n[fill-value bench] value per-leaf ${((valueAvg * 1e3) / N_LEAVES).toFixed(3)} us/leaf (2 walks / tick: collect + apply)`,
+      `[fill-value bench] solid mode ${solidAvg.toFixed(3)}ms/tick, value mode ${valueAvg.toFixed(3)}ms/tick x ${N_LEAVES} leaves - value/solid ${(valueAvg / solidAvg).toFixed(2)}x\n[fill-value bench] writes per leaf per tick: solid ${solidPerLeaf}, value ${valuePerLeaf}\n[fill-value bench] value per-leaf ${((valueAvg * 1e3) / N_LEAVES).toFixed(3)} us/leaf (2 walks / tick: collect + apply)`,
     );
-    // The invariant: one write per leaf per tick on both arms. A restore
+    // The invariant: one write per leaf per tick on both modes. A restore
     // followed by a commit would read 2 here, and so would any second pass
     // over the same face.
     expect(solidPerLeaf).toBe(1);

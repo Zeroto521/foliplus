@@ -518,7 +518,7 @@ describe("pickFilterField / buildFilterModel", () => {
   it("leaves every caption to the panel's shared vocabulary", () => {
     // The field is the value cell; it is never printed as a caption. Captions
     // are panel chrome (filter_field / filter_range), so the model carries
-    // none and the two arms cannot drift apart.
+    // none and the two models cannot drift apart.
     const dim = buildFilterModel(snap, undefined, "a")!.dimensions[0];
     expect(dim.field).toBe("a");
     expect(dim).not.toHaveProperty("fieldLabel");

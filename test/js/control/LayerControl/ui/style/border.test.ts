@@ -1125,8 +1125,8 @@ describe("applyBorderToLayer", () => {
     expect(swatch.value).toBe("#ff0000");
   });
 
-  it("resolves the live stroke config through the value arm's callbacks", () => {
-    // Lines 331-333: the value arm derives live config closures (resolveStored,
+  it("resolves the live stroke config through the value mode's callbacks", () => {
+    // Lines 331-333: the value mode derives live config closures (resolveStored,
     // effectiveBorderValue, effectiveBorderMode) so the pin's getter agrees
     // with the paint. Exercise them through a real value-mode apply.
     installChroma(["#111111", "#222222", "#333333"]);
@@ -1141,7 +1141,7 @@ describe("applyBorderToLayer", () => {
     expect(strokeCall).toMatchObject({ stroke: true });
     expect(typeof strokeCall.color).toBe("string");
 
-    // Fire the highlight pin's mouseout replay: this runs the value arm's
+    // Fire the highlight pin's mouseout replay: this runs the value mode's
     // live-config closures (resolveStored, effectiveBorderValue,
     // effectiveBorderMode) so the replay agrees with the paint.
     const mouseout = (leaf.on as any).mock.calls.find(
@@ -1363,7 +1363,7 @@ describe("buildBorderRow", () => {
 
     const row = buildBorderRow(ui, "vec1");
 
-    // Same colour control as the single-color arm — a real swatch input, so
+    // Same colour control as the single-color mode — a real swatch input, so
     // the ORIGINAL row stays pixel-identical to SINGLE — only inert: it must
     // not open a picker or accept an edit.
     const readOnly = row.querySelector(
@@ -1375,7 +1375,7 @@ describe("buildBorderRow", () => {
     expect(readOnly?.readOnly).toBe(true);
     // The shared no-edit class is present so the unified hover rule in
     // common/input.css excludes it — a disabled border swatch carries no
-    // hover/focus hint, same channel as the fill original arm's read-only box.
+    // hover/focus hint, same channel as the fill original mode's read-only box.
     expect(readOnly?.classList.contains("foliplus-readonly")).toBe(true);
     // The weight stays editable: it is a user-facing stroke attribute.
     const weight = row.querySelector(
@@ -1403,7 +1403,7 @@ describe("buildBorderRow", () => {
   });
 
   it("shows the author's stroke again after a solid → original round-trip", () => {
-    // The reported bug: set a color in the single-color (solid) arm, switch
+    // The reported bug: set a color in the single-color (solid) mode, switch
     // back to ORIGINAL, and the row showed the user's color instead of the
     // author's. ORIGINAL owns no user color — the row must read the author
     // face, never INTENT.BORDER_COLOR (which stays stored for the return to
@@ -1863,8 +1863,8 @@ const installChroma = (colors: string[]): void => {
   } as never;
 };
 
-/** A feature leaf the value arm classifies: an areal polygon (so the fill
- *  arm's walkFillLeaves reaches it too) with a numeric property. */
+/** A feature leaf the value mode classifies: an areal polygon (so the fill
+ *  mode's walkFillLeaves reaches it too) with a numeric property. */
 const makeFeatureLeaf = (
   count: number,
   color = "#ff0000",
@@ -1877,7 +1877,7 @@ const makeFeatureLeaf = (
     geometry: { type: "Polygon" },
     properties: { count },
   };
-  // A spy that ALSO mutates options in place — the value arm writes
+  // A spy that ALSO mutates options in place — the value mode writes
   // fillColor/color through setStyle, and a bare vi.fn() would swallow it,
   // leaving options reads undefined. Mutating mirrors Leaflet's Path.setStyle
   // (setOptions(this, style)) while the spy still records the call.
@@ -2012,7 +2012,7 @@ describe("value-stroke wiring (C1–C7)", () => {
 
   // C4: mode resolution is symmetric with the fill — a ramp with no explicit
   // mode reads as value, and no ramp reads as solid.
-  it("C4 resolves the mode symmetrically with the fill arm", () => {
+  it("C4 resolves the mode symmetrically with the fill mode", () => {
     expect(resolveStrokeMode(undefined, countRamp())).toBe("value");
     expect(resolveStrokeMode(undefined, undefined)).toBe("solid");
     expect(resolveStrokeMode("solid", countRamp())).toBe("solid");
@@ -2127,7 +2127,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   it("T1 seeds a numeric value config and shows the value detail when the user picks by value", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Original arm (default on a polygon border): the block carries the
+    // Original mode (default on a polygon border): the block carries the
     // mode select and a solid detail; no value field rows are shown.
     const select = modeSelectOf(block);
     expect(select).not.toBeNull();
@@ -2153,7 +2153,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
     const block = openBorderRow(manager, ui, "vec1", leaves);
-    // Display arm is original (no mode intent), so the detail is solid,
+    // Display mode is original (no mode intent), so the detail is solid,
     // but the stored config is the seed for a later value switch.
     changeSelect(modeSelectOf(block), "value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
@@ -2369,13 +2369,13 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
     dim.write!(ui, "vec1", { mode: "value", value: countRamp() });
     expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("value");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
-    // Write mode present writes it; mode undefined is a no-op (no follow arm).
+    // Write mode present writes it; mode undefined is a no-op (no follow mode).
     dim.write!(ui, "vec1", { mode: "solid" });
     expect(getIntent(ui, "vec1", "borderStyleMode")).toBe("solid");
     expect(getIntent(ui, "vec1", "borderValue")).toEqual(countRamp());
   });
 
-  it("T10 the value arm carries an explicit user-set border weight", () => {
+  it("T10 the value mode carries an explicit user-set border weight", () => {
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];
     registerFeatureLayer(manager, ui, "vec1", leaves);
     setIntent(ui, "vec1", "borderValue", countRamp());
