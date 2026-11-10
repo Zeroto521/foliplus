@@ -101,6 +101,7 @@
   "LayerControl.style_size": "Size",
   "LayerControl.style_icon": "Icon",
   "LayerControl.style_icon_color": "Icon Color",
+  "LayerControl.style_icon_color_opacity": "Icon Opacity",
   "LayerControl.style_icon_original": "Original",
   "LayerControl.style_icon_unavailable": "Icon \"{name}\" is not supported; the original icon is kept.",
   "LayerControl.style_icon_invalid": "Icon name \"{name}\" is invalid; the original icon is kept.",
@@ -121,5 +122,6 @@
   "LayerControl.filter_clear_disabled": "No filter to clear",
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
   "LayerControl.filter_empty": "No numeric fields on this layer",
-  "LayerControl.style_border_mode": "Border Mode"
+  "LayerControl.style_border_mode": "Border Mode",
+  "LayerControl.style_border_follow_fill": "Follow Fill"
 }

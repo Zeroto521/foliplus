@@ -32,8 +32,9 @@ import {
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
   resetIconLeaves,
 } from "#core/leaflet/markerIcon.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { dom } from "#platform/dom.js";
-import { bindDismiss, formRow, nextOptionId } from "#ui/index.js";
+import { POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Grid columns for the glyph picker popup. */
@@ -55,12 +56,18 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   if (intent?.kind !== ICON_KIND.GLYPH) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  // Merge the current marker color into the SAME derived-icon
+  // Merge the current marker color + opacity into the SAME derived-icon
   // construction (the color is a separate dimension, but setIcon
   // replaces the whole icon, so a glyph edit must carry the current
   // color and a color edit must carry the current glyph).
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  applyIconToLeaves(layer, intent.value, typeof color === "string" ? color : undefined);
+  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  applyIconToLeaves(
+    layer,
+    intent.value,
+    typeof color === "string" ? color : undefined,
+    typeof opacity === "number" ? opacity : undefined,
+  );
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
@@ -87,8 +94,14 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   // the color on the freshly restored author icons so the color and the
   // glyph never split across two writes.
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   if (typeof color === "string") {
-    applyIconColorToLeaves(layer, color, currentGlyph(ui, layerId));
+    applyIconColorToLeaves(
+      layer,
+      color,
+      currentGlyph(ui, layerId),
+      typeof opacity === "number" ? opacity : undefined,
+    );
   }
 };
 /** The current glyph name for the row, or null when the layer still shows
@@ -239,23 +252,21 @@ const bindGlyphGrid = (
     // Put focus INTO the grid now that it is in the document — the real
     // ownership is DOM focus, the claim is only the dispatcher guard.
     built.focusInitial();
-    // Outside press + Escape + focus return, as one primitive. The old
-    // implementation got this wrong twice: `once: true` consumed the
-    // pointerdown listener on the first press anywhere (so the second outside
-    // press did not close), and `addEventListener("remove", …)` never ran
-    // (remove is not a real event, so the document listeners leaked).
-    unbind = bindDismiss({
-      root: grid,
-      trigger,
-      // The trigger is a separate subtree (the row holds both): a press on
-      // the trigger must reach its own click toggle, not close here.
-      containment: target =>
-        trigger.contains(target) || (grid as HTMLElement).contains(target),
-      onClose: close,
-      // Escape is captured on window (the default), which runs BEFORE the
-      // overlay registry's document-capture dispatcher: the grid is the
-      // innermost open surface, so one Escape closes the grid and leaves the
-      // style panel open (the next Escape closes that).
+    // The overlay registry is the single Escape/outside-press dispatcher:
+    // register the grid as a floating surface ranked above the style panel,
+    // so one Escape closes the grid and the next closes the panel (one layer
+    // at a time). The close path runs the same teardown the registry calls.
+    unbind = ensureOverlayRegistry(ui.c.map).register({
+      id: "layer.style.icon-grid",
+      isOpen: () => grid !== null,
+      panels: () => (grid ? [grid] : []),
+      close: ({ restoreFocus }) => {
+        close();
+        if (restoreFocus) trigger.focus();
+      },
+      dismissOn: "mousedown",
+      pressPriority: POPUP_OVERLAY_RANK,
+      escapeRank: POPUP_OVERLAY_RANK,
     });
     grid.dataset.closeOnDoc = "1";
     grid.dataset.closeOnKey = "1";

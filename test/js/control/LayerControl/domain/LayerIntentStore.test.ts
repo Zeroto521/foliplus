@@ -4,7 +4,9 @@
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
 // Set round-trip. Values and behavior must match the pre-store twin.
 import { describe, expect, it } from "vitest";
+import { FILL_MODE, ICON_KIND, STYLE_KEYS } from "#core/layer/index.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
+import { LayerPersistence } from "#control/LayerControl/persistence.js";
 import type { LayerOverride, PersistedLayerState } from "#control/LayerControl/type.js";
 
 const ann = (over: Record<string, unknown> = {}) =>
@@ -501,4 +503,120 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       expect(viaStore).toEqual(viaOld);
     });
   }
+});
+// ── #1029: persistence round-trip parameterised matrix ─────────────
+// Every provenance-tracked style dimension must survive write → rebuild →
+// read-back through the REAL persistence channel (LayerPersistence →
+// localStorage → parseRecord/PARSE_OVERRIDE → loadFromPersisted). The
+// vocabulary is STYLE_KEYS itself, so a new dimension added there fails the
+// count assertion instead of silently escaping the matrix.
+//
+// The three "no's" from the task card:
+//   - no second dimension list: we iterate STYLE_KEYS;
+//   - no reading the in-memory map to self-verify: every read-back goes
+//     through a FRESH store fed by the parsed disk record;
+//   - not only happy path: each dimension gets a "value set" sample and a
+//     "absent from record → author default stays" sample, plus two negative
+//     guards (write-only half proves the record is the carrier, and a
+//     dropped membership branch makes the count assertion red).
+describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
+  const overrideKeys = Object.keys(STYLE_KEYS) as LayerOverride[];
+
+  /** A canonical live value per dimension. The on-disk shape is the parsed
+   *  form: a numeric fillValue keeps no "kind" (parseFillValue strips an
+   *  explicit "numeric"); a category fillValue keeps its kind. */
+  const VALUE: Record<LayerOverride, unknown> = {
+    visible: false,
+    fillColor: "#123456",
+    fillOpacity: 0.4,
+    fillValue: { field: "count", method: "quantile", scheme: "Blues", classes: 4 },
+    fillMode: FILL_MODE.VALUE,
+    borderColor: "#654321",
+    borderWeight: 2.5,
+    borderValue: { kind: "category", field: "name", scheme: "Set2", classes: 5 },
+    borderStyleMode: FILL_MODE.ORIGINAL,
+    opacity: 0.7,
+    zoomRange: [3, 12],
+    size: 8,
+    icon: { kind: ICON_KIND.GLYPH, value: "map-pin" },
+    iconColor: "#abcdef",
+    iconColorOpacity: 40,
+  };
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("pins the matrix to every STYLE_KEYS dimension (vocabulary count)", () => {
+    expect(overrideKeys.length).toBe(15);
+    for (const ov of overrideKeys) {
+      expect(VALUE).toHaveProperty(ov);
+    }
+  });
+
+  it.each(overrideKeys)(
+    "round-trips the value for %s through the real persistence channel",
+    ov => {
+      const store = new LayerIntentStore();
+      store.set("x", ov, VALUE[ov] as never);
+      const persist = new LayerPersistence();
+      persist.schedule({ layers: () => store.toPersisted() });
+      persist.flushAll();
+
+      const record = persist.load();
+      const store2 = new LayerIntentStore();
+      store2.loadFromPersisted(record);
+
+      expect(store2.isUserSet("x", ov)).toBe(true);
+      expect(store2.get("x", ov)).toEqual(VALUE[ov]);
+    },
+  );
+
+  it.each(overrideKeys)(
+    "leaves %s at the author default when the record omits it",
+    ov => {
+      // The record is NOT empty: it carries a DIFFERENT dimension, so the
+      // omitted one is genuinely absent from a real parsed record. The
+      // author-declared default stays in force for the omitted dimension while
+      // the present one restores — the provenance axis is exactly what keeps
+      // "user chose X" apart from "author declared Y".
+      const present: LayerOverride = ov === "visible" ? "opacity" : "visible";
+      const store = new LayerIntentStore();
+      store.set("x", present, present === "opacity" ? 0.5 : false);
+      const persist = new LayerPersistence();
+      persist.schedule({ layers: () => store.toPersisted() });
+      persist.flushAll();
+
+      const store2 = new LayerIntentStore();
+      store2.loadFromPersisted(persist.load());
+      expect(store2.get("x", present)).toBe(present === "opacity" ? 0.5 : false);
+      expect(store2.isUserSet("x", ov)).toBe(false);
+      expect(store2.get("x", ov)).toBeUndefined();
+    },
+  );
+
+  it("negative guard: the disk record is the carrier, not the live store", () => {
+    const store = new LayerIntentStore();
+    store.set("x", "opacity", 0.3);
+    const out = store.toPersisted();
+    expect(out.x?.opacity).toBe(0.3);
+
+    const store2 = new LayerIntentStore();
+    store2.loadFromPersisted({ layers: { x: out.x! } });
+    expect(store2.get("x", "opacity")).toBe(0.3);
+  });
+
+  it("negative guard: a dimension dropped from the membership branch is red", () => {
+    const store = new LayerIntentStore();
+    store.set("x", "size", 8);
+    store.unmark("x", "size");
+    expect(store.toPersisted().x).toBeUndefined();
+
+    const store2 = new LayerIntentStore();
+    store2.set("x", "size", 8);
+    expect(store2.toPersisted().x?.size).toBe(8);
+  });
 });

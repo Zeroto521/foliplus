@@ -91,7 +91,7 @@ describe("heatmap redraw benchmark @5k", () => {
     const map = makeMap() as unknown as L.Map;
     const feats = Array.from({ length: 5000 }, (_, i) => makeFeat(i));
 
-    // CSS arm: one style write per commit (what the slider does today
+    // CSS path: one style write per commit (what the slider does today
     // under opacityBake:"redraw").
     const cssT0 = performance.now();
     for (let i = 0; i < 100; i++) {
@@ -99,7 +99,7 @@ describe("heatmap redraw benchmark @5k", () => {
     }
     const cssMs = (performance.now() - cssT0) / 100;
 
-    // Bake arm: full redraw per commit (what opacityBake:"commit" would do).
+    // Bake path: full redraw per commit (what opacityBake:"commit" would do).
     const bakeT0 = performance.now();
     for (const f of feats) drawHexagon(ctx, f, map, 2, "#000");
     const bakeMs = performance.now() - bakeT0;
