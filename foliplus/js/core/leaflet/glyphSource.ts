@@ -90,12 +90,51 @@ const isGlyphPainted = (content: string): boolean =>
 const faToken = (name: string): string =>
   name.startsWith("fa-") ? name : `fa-${name}`;
 
+/** FontAwesome family class prefixes the panel may paint under.
+ *
+ *  A prefix is the family part of an FA class pair - "fa-solid" in
+ *  "fa-solid fa-star". Folium's own Icon(prefix=...) accepts any string
+ *  ("fa", "fas", "fa-solid", ...), so this table is NOT a whitelist of what
+ *  an author may write; it is the set of *panel-controlled* families the
+ *  picker grid and the availability probe render under, plus the default the
+ *  panel falls back to when neither the layer nor the control names one.
+ *  Anything else a layer author writes is kept for the author-declared glyph
+ *  (awesome-markers paints prefix + " " + icon verbatim) but is not a
+ *  valid panel family: the panel renders such a layer's glyph under its
+ *  declared prefix only when that prefix is one of these families.
+ */
+const GLYPH_PREFIXES = {
+  /** The classic solid family - the panel default. */
+  solid: "fa-solid",
+  /** The outlined family. */
+  regular: "fa-regular",
+} as const;
+
+/** A panel-controlled FontAwesome family class prefix (see GLYPH_PREFIXES). */
+type GlyphPrefix = (typeof GLYPH_PREFIXES)[keyof typeof GLYPH_PREFIXES];
+
+/** The default FontAwesome family the panel paints under when neither the
+ *  layer author nor the control declares a prefix. */
+const DEFAULT_GLYPH_PREFIX: GlyphPrefix = GLYPH_PREFIXES.solid;
+
+/** Narrow an author-declared prefix to a panel family. An author may write
+ *  any string folium's Icon(prefix=...) accepts ("fa", "fas", ...), but
+ *  only a known family is a panel family - anything else falls back to the
+ *  default so the panel never paints a class the stylesheet cannot match.
+ *  (The author-declared glyph keeps the author's own prefix verbatim; this
+ *  coercion only applies when the PANEL chooses the family.) */
+const coerceGlyphPrefix = (prefix: unknown): GlyphPrefix =>
+  typeof prefix === "string" &&
+  (Object.values(GLYPH_PREFIXES) as string[]).includes(prefix)
+    ? (prefix as GlyphPrefix)
+    : DEFAULT_GLYPH_PREFIX;
+
 /** The full FontAwesome class string a glyph renders under a given family
  *  prefix. Single source of truth for BOTH the render path (glyphHtml) and
  *  the availability probe (glyphAvailable): the probe builds exactly the class
  *  the stylesheet must paint, so a name the renderer draws is never reported
  *  unavailable and vice versa. */
-const glyphClassName = (name: string, prefix = "fa-solid"): string =>
+const glyphClassName = (name: string, prefix: string = DEFAULT_GLYPH_PREFIX): string =>
   `${prefix} ${faToken(name)}`;
 
 /** Runtime availability probe: does the loaded FontAwesome stylesheet actually
@@ -110,7 +149,7 @@ const glyphClassName = (name: string, prefix = "fa-solid"): string =>
  *  single tests must stub `getComputedStyle` (or `glyphAvailable`) to model
  *  availability; the real probe lives in the browser suite. */
 const availabilityCache = new Map<string, boolean>();
-const glyphAvailable = (name: string, prefix = "fa-solid"): boolean => {
+const glyphAvailable = (name: string, prefix: string = DEFAULT_GLYPH_PREFIX): boolean => {
   const cacheKey = `${prefix}|${name}`;
   const cached = availabilityCache.get(cacheKey);
   if (cached !== undefined) return cached;
@@ -158,11 +197,27 @@ const resolveGlyph = (name: string): string | null =>
 /** A glyph's HTML: the shell class plus the FA classes. `extraClass` lets the
  *  marker scene carry the author's own paint class (`icon-white`, …) and
  *  `style` its inline colour, so the symbol inherits the chassis paint. */
-const glyphHtml = (name: string, extraClass = "", style = ""): string => {
-  const classes = ["foliplus-marker-glyph", extraClass, glyphClassName(name)]
+const glyphHtml = (
+  name: string,
+  extraClass = "",
+  style = "",
+  prefix: string = DEFAULT_GLYPH_PREFIX,
+): string => {
+  const classes = ["foliplus-marker-glyph", extraClass, glyphClassName(name, prefix)]
     .filter(Boolean)
     .join(" ");
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;
 };
 
-export { PICKER_GLYPHS, glyphAvailable, glyphHtml, isGlyphSyntax, resolveGlyph };
+export {
+  PICKER_GLYPHS,
+  GLYPH_PREFIXES,
+  DEFAULT_GLYPH_PREFIX,
+  coerceGlyphPrefix,
+  glyphAvailable,
+  glyphHtml,
+  isGlyphSyntax,
+  resolveGlyph,
+};
+
+export type { GlyphPrefix };

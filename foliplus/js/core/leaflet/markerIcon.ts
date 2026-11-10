@@ -26,10 +26,12 @@
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
 import {
+  DEFAULT_GLYPH_PREFIX,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
+  type GlyphPrefix,
 } from "./glyphSource.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
@@ -94,9 +96,13 @@ const buildMarkerIcon = (opts: {
   /** The glyph name to render. */
   glyph: string;
   /** A user-set icon color (hex) to merge into the same construction as
-   *  the glyph — `setIcon` replaces the whole icon object, so the color and
+   *  the glyph — setIcon replaces the whole icon object, so the color and
    *  the glyph must land in one derived icon, never two successive writes. */
   color?: string;
+  /** The FontAwesome family the applied glyph renders under — the panel's
+   *  control-level prefix (coerced), not the author's, because the applied
+   *  glyph is a panel choice. */
+  prefix?: GlyphPrefix;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
@@ -112,6 +118,7 @@ const buildMarkerIcon = (opts: {
     author instanceof L.Icon.Default ||
     author.createIcon?.() instanceof HTMLImageElement;
   const glyph = resolveGlyph(opts.glyph);
+  const prefix = opts.prefix ?? DEFAULT_GLYPH_PREFIX;
   // An invalid (non-syntax) name renders nothing of ours: keep the author
   // icon (honest degradation, never a substituted symbol).
   if (!glyph) return opts.author;
@@ -119,7 +126,7 @@ const buildMarkerIcon = (opts: {
   // also an honest degradation — warn once per name (the CSS is static, so
   // the availability probe is cached) and keep the author's original icon
   // rather than render a blank tofu. */
-  if (!glyphAvailable(glyph)) {
+  if (!glyphAvailable(glyph, prefix)) {
     if (!warnedGlyphs.has(glyph)) {
       warnedGlyphs.add(glyph);
       log.warn(
@@ -131,7 +138,7 @@ const buildMarkerIcon = (opts: {
   if (isDefaultIcon) {
     return L.divIcon({
       className: "foliplus-marker-default",
-      html: glyphHtml(glyph),
+      html: glyphHtml(glyph, "", "", prefix),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });
@@ -186,7 +193,7 @@ const buildMarkerIcon = (opts: {
           !cls.startsWith("glyphicon"),
       )
       .join(" ");
-    div.innerHTML = glyphHtml(glyph, authorClass, `color:${iconColor}`);
+    div.innerHTML = glyphHtml(glyph, authorClass, `color:${iconColor}`, prefix);
     return div;
   };
   return derived;
@@ -195,14 +202,19 @@ const buildMarkerIcon = (opts: {
 /** Apply the layer's glyph to every marker leaf, capturing each leaf's
  *  author icon on first write. A missing intent is a no-op — a layer the
  *  user never touched keeps exactly what the author declared. */
-const applyIconToLeaves = (layer: L.Layer, glyph: string, color?: string): void => {
+const applyIconToLeaves = (
+  layer: L.Layer,
+  glyph: string,
+  color?: string,
+  prefix?: GlyphPrefix,
+): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
-    const derived = buildMarkerIcon({ author, glyph, color });
+    const derived = buildMarkerIcon({ author, glyph, color, prefix });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
 };
@@ -216,6 +228,7 @@ const applyIconColorToLeaves = (
   layer: L.Layer,
   color: string,
   glyph: string | null,
+  prefix?: GlyphPrefix,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -227,6 +240,7 @@ const applyIconColorToLeaves = (
       author,
       glyph: glyph ?? "circle",
       color,
+      prefix,
     });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
