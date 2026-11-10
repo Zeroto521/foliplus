@@ -1,4 +1,5 @@
-"""Browser tests for foliplus.LayerControl — style panel, fill/border/color, zoom-range, attribution."""
+"""Browser tests for foliplu            page.set_viewport_size({"width": width, "height": 900})
+s.LayerControl — style panel, fill/border/color, zoom-range, attribution."""
 
 from __future__ import annotations
 
@@ -1744,14 +1745,17 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
 
-    def test_style_fill_row_label_names_the_method_on_one_line(self, browser, tmp_path):
+    @pytest.mark.parametrize("width", [380])
+    def test_style_fill_row_label_names_the_method_on_one_line(
+        self, browser, tmp_path, width
+    ):
         """The ramp row reads by its method in both panels, on one line.
 
         One visible label names two selects, so it takes the primary control's
         name (Classification Method / 分类方法) — the word the heatmap panel shows too. The
         class count stays announced by the count select's own aria label, so a
         screen reader hears "Classification Method" and "Classes" once each. The label column
-        is the shared 88px token inside the 280px panel; Range.getClientRects()
+        is the shared 136px token inside the 328px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
         _METHOD_EN, _METHOD_ZH = _method_labels()
@@ -1793,11 +1797,92 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert row["labelLines"] == 1, (
                 f"the Classification Method label wrapped at the panel width: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
-            assert result["labelWidthToken"] == "88px", result
-            assert result["panelWidthToken"] == "280px", result
-            assert row["panelWidth"] == pytest.approx(280, abs=1), row
+            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
+            assert result["labelWidthToken"] == "136px", result
+            assert result["panelWidthToken"] == "328px", result
+            assert row["panelWidth"] == pytest.approx(328, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_label_column_fits_the_longest_label_class_string(
+        self, browser, tmp_path
+    ):
+        """The shared label column token fits the longest label-class string.
+
+        Every panel shares one label column (form-label-width). This guard
+        measures every label-class locale string for LayerControl and
+        HeatmapControl (en + zh) at the panel's real 12px label font and
+        asserts the widest one still fits the token minus its right padding.
+        A locale edit that lengthens any label turns this red instead of
+        silently wrapping again.
+        """
+        data = load_geojson("common", "polygons_fuzhou_3offset")
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="label_guard"
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
+            strings = set()
+            # Label-class keys only: the strings that render as a form-row
+            # label in a shared-label-column panel. A locale edit that
+            # lengthens any of them is caught here instead of silently
+            # wrapping the row again.
+            label_keys = {
+                "LayerControl.style_method", "LayerControl.style_fill_field",
+                "LayerControl.style_fill_classes", "LayerControl.style_fill_scheme",
+                "LayerControl.style_fill", "LayerControl.style_fill_mode",
+                "LayerControl.style_border", "LayerControl.style_border_color",
+                "LayerControl.style_border_weight", "LayerControl.style_border_mode",
+                "LayerControl.style_border_follow_fill", "LayerControl.style_icon",
+                "LayerControl.style_icon_color", "LayerControl.style_opacity",
+                "LayerControl.style_zoom_range", "LayerControl.style_label",
+                "LayerControl.style_label_field", "LayerControl.style_label_color_size",
+                "LayerControl.style_label_format", "LayerControl.style_label_avoidance",
+                "HeatmapControl.agg_field", "HeatmapControl.field",
+                "HeatmapControl.classify_method", "HeatmapControl.class_count",
+                "HeatmapControl.scheme",
+            }
+            for component in ("LayerControl", "HeatmapControl"):
+                for lang in ("en", "zh"):
+                    table = json.loads(
+                        (base / f"{component}.{lang}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    for key in label_keys:
+                        value = table.get(key)
+                        if isinstance(value, str):
+                            strings.add(value)
+            result = page.evaluate(
+                _js("LayerControl/measure_label_widths"),
+                {
+                    "root": ".foliplus-layer-style-panel",
+                    "strings": sorted(strings),
+                },
+            )
+            assert result["ok"], result
+            assert result["max"] <= result["token"] - result["paddingRight"], (
+                f"a label-class string exceeds the label column token: "
+                f"max {result['max']:.1f}px > token {result['token']} - "
+                f"padding {result['paddingRight']}px"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
