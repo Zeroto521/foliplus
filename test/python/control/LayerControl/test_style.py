@@ -2544,7 +2544,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # pre-existing entry — 2 entries instead of 1.
             assert len(result["entries"]) == 1, result
 
-
     def test_marker_color_keeps_chassis_container(self, browser, tmp_path):
         """P1: picking a marker color must not leave the marker as glyph-only.
 
@@ -2556,9 +2555,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
         restore the author icon.
         """
         fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker(
-            [26.08, 119.30], name="P1", icon=folium.Icon(color="red")
-        ).add_to(fg)
+        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
+            fg
+        )
 
         with use_page(
             self._make_page,
@@ -2602,8 +2601,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # info-sign), the honest degradation keeps the author's inner
             # glyph verbatim — the chassis changes, the symbol does not.
             glyph_cls = (written["after"]["glyph"] or {}).get("cls") or ""
-            assert written["after"]["glyph"], f"glyph missing after the write: {written}"
+            assert written["after"]["glyph"], (
+                f"glyph missing after the write: {written}"
+            )
             assert (
-                "foliplus-marker-glyph" in glyph_cls.split()
-                or "glyphicon" in glyph_cls
+                "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
