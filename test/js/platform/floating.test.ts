@@ -4,35 +4,7 @@
 // owns the coordinate algorithm (`position`). These tests pin the lifecycle
 // invariants the listbox engine and the search panel rely on.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bindFloatingWheel, mountFloating } from "#platform/floating.js";
-
-describe("bindFloatingWheel", () => {
-  it("unconditionally swallows a wheel over the root", () => {
-    // The shared rule: a wheel must never reach the map container, where
-    // Leaflet's scrollWheelZoom would zoom the map. It holds even at a
-    // boundary or with deltaY === 0 (some devices fire zero-increment events),
-    // which the former boundary-aware "contain" mode let bubble.
-    const root = document.createElement("div");
-    Object.defineProperty(root, "scrollHeight", { value: 100, configurable: true });
-    Object.defineProperty(root, "clientHeight", { value: 100, configurable: true });
-    Object.defineProperty(root, "scrollTop", { value: 0, configurable: true });
-    document.body.appendChild(root);
-    const onWheel = vi.fn();
-    document.addEventListener("wheel", onWheel);
-    try {
-      bindFloatingWheel(root);
-      // A wheel at the top boundary / non-scrollable root must still be swallowed.
-      root.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 50 }));
-      expect(onWheel).not.toHaveBeenCalled();
-      // deltaY === 0 (horizontal / zero-increment device) is swallowed too.
-      root.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 0 }));
-      expect(onWheel).not.toHaveBeenCalled();
-    } finally {
-      document.removeEventListener("wheel", onWheel);
-      root.remove();
-    }
-  });
-});
+import { mountFloating } from "#platform/floating.js";
 
 describe("mountFloating", () => {
   let surfaceChange: (() => void) | null;

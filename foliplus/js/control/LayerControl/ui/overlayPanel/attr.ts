@@ -9,6 +9,7 @@ import {
   type Dismiss,
   type PanelController,
   attachPanel,
+  bindPanelPress,
   createPanel,
   createRowPanel,
   pinRowPanel,
@@ -251,7 +252,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // of the panel the press landed on is recorded by the overlay registry's
   // press dispatcher below — `dragstart` is dispatched on the draggable row, so
   // it cannot answer that.
-  panel.addEventListener("mousedown", e => controller.swallowPress(e));
+  bindPanelPress(panel, controller);
 
   // Register the open surface with the per-map overlay registry. The
   // registry installs the document capture-phase mousedown listener for every
