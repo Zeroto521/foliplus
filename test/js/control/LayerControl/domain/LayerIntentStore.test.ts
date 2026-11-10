@@ -540,6 +540,7 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
     size: 8,
     icon: { kind: ICON_KIND.GLYPH, value: "map-pin" },
     iconColor: "#abcdef",
+    iconColorOpacity: 40,
   };
 
   beforeEach(() => {
@@ -550,7 +551,7 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
   });
 
   it("pins the matrix to every STYLE_KEYS dimension (vocabulary count)", () => {
-    expect(overrideKeys.length).toBe(14);
+    expect(overrideKeys.length).toBe(15);
     for (const ov of overrideKeys) {
       expect(VALUE).toHaveProperty(ov);
     }

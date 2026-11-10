@@ -2,8 +2,8 @@ import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { DIM } from "#core/layer/const.js";
-import type { ValueConfig } from "#core/layer/intent.js";
+import { DIM, GEOM_TYPE } from "#core/layer/const.js";
+import { FILL_MODE, type ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -27,6 +27,7 @@ import {
   resetLayerBorder,
 } from "#control/LayerControl/ui/style/border.js";
 import {
+  FILL_DIMENSION,
   applyFillToLayer,
   commitFillColor,
 } from "#control/LayerControl/ui/style/fill.js";
@@ -2570,6 +2571,198 @@ describe("value-detail and shell wiring coverage", () => {
   });
 });
 
+describe("follow-fill border mode", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#010101", "#020202", "#030303"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  /** A genuine areal leaf: the border is the outline, the fill owns the face. */
+  const makeAreaLeaf = (count: number, opts: Record<string, unknown> = {}): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polygon() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true, ...opts };
+    leaf.feature = { geometry: { type: "Polygon" }, properties: { count } };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  /** A genuine line leaf: the border is the element's own primary colour. */
+  const makeLineLeaf = (count: number): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polyline() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+    leaf.feature = { geometry: { type: "LineString" }, properties: { count } };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  const openRow = (id: string, leaves: any[]) => {
+    registerFeatureLayer(manager, ui, id, leaves);
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+  const selectOf = (block: HTMLElement) =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+
+  it("polygon: FOLLOW_FILL IS offered in the mode options", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    const block = openRow("poly1", leaves);
+    const values = Array.from(selectOf(block)!.options).map(o => o.value);
+    expect(values).toContain("followFill");
+    // by_value is NOT offered on a non-line (existing contract).
+    expect(values).not.toContain("value");
+  });
+
+  it("line: FOLLOW_FILL is NOT offered (no fill to follow)", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    const block = openRow("line1", leaves);
+    const values = Array.from(selectOf(block)!.options).map(o => o.value);
+    expect(values).not.toContain("followFill");
+    // by_value IS offered on a line (existing contract).
+    expect(values).toContain("value");
+  });
+
+  it("display holds FOLLOW_FILL across every fill state (no solid-only fallback)", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    openRow("poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    // Fill goes by-value (a state the old fallback collapsed to ORIGINAL).
+    setIntent(ui, "poly1", "fillMode", "value");
+    const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block2);
+    const select2 = selectOf(block2);
+    // Follow holds: the select still reads followFill, not original.
+    expect(select2!.value).toBe("followFill");
+    // Persistence keeps followFill.
+    expect(getIntent(ui, "poly1", "borderStyleMode")).toBe("followFill");
+  });
+
+  it("derived paint: followFill reads the leaf's current fill colour, not a copy", () => {
+    // The leaf's live fill paint is the single source. Simulate the fill
+    // having been applied (solid colour lands in leaf.options.fillColor).
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillColor", "#123456");
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    // The border paints the leaf's fill colour (derived) — the borderColor
+    // intent stays absent so a later fill edit recomputes the border.
+    leaves.forEach(leaf => {
+      const call = leaf.setStyle.mock.calls.at(-1)?.[0];
+      expect(call.color).toBe("#123456");
+    });
+    expect(getIntent(ui, "poly1", "borderColor")).toBeUndefined();
+  });
+
+  it("per-feature fill + follow: each leaf paints its own fill colour", () => {
+    const leaves = [
+      makeAreaLeaf(1, { fillColor: "#111111" }),
+      makeAreaLeaf(5, { fillColor: "#222222" }),
+    ];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    const colors = leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0].color);
+    expect(colors[0]).toBe("#111111");
+    expect(colors[1]).toBe("#222222");
+    expect(colors[0]).not.toBe(colors[1]);
+  });
+
+  it("fill colour change: the border re-derives on the next apply", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#111111");
+    leaves[0].options.fillColor = "#abcdef";
+    applyBorderToLayer(ui, "poly1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("fill write triggers a border re-apply when the border follows fill", () => {
+    // The lead's critical contract: editing the fill (colour, mode, value)
+    // must re-derive a follow-fill border on the SAME commit path — no
+    // extra listener, no cross-face event.
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    // The user edits the fill colour through the dimension write.
+    FILL_DIMENSION.write!(ui, "poly1", { color: "#abcdef" });
+    flushStyleDimApply(FACE.FILL, "poly1");
+    flushStyleDimApply(FACE.STROKE, "poly1");
+    // The border follow-fill replay fired and re-derived the leaf's stroke.
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+    // The border colour intent stays absent (derived, not copied).
+    expect(getIntent(ui, "poly1", "borderColor")).toBeUndefined();
+  });
+
+  it("follow DOM: no colour input, width-only row in the right column", () => {
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block2);
+    expect(block2.querySelector("input[type=color]")).toBeNull();
+    const weight = block2.querySelector(".foliplus-style-border-weight-input");
+    expect(weight).not.toBeNull();
+    const sizeRow = weight!.closest(".foliplus-style-size-row");
+    expect(sizeRow).not.toBeNull();
+  });
+
+  it("derivedFillColor falls back through the three-arm chain", () => {
+    const fillLeaf = makeAreaLeaf(1, { fillColor: "#123456" });
+    const propLeaf = makeAreaLeaf(2);
+    delete propLeaf.options.fillColor;
+    propLeaf.feature.properties.__folium_color = "#654321";
+    const strokeLeaf = makeAreaLeaf(3);
+    delete strokeLeaf.options.fillColor;
+    const leaves = [fillLeaf, propLeaf, strokeLeaf];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    const colors = leaves.map(l => l.setStyle.mock.calls.at(-1)?.[0].color);
+    expect(colors[0]).toBe("#123456");
+    expect(colors[1]).toBe("#654321");
+    expect(colors[2]).toBe("#ff0000");
+  });
+
+  it("highlight replay re-derives the follow-fill colour (pin followFill arm)", () => {
+    const leaf = makeHighlightLeaf("#ff0000", 2);
+    leaf.options.fillColor = "#123456";
+    manager.registerLayer({ id: "poly1", name: "P", layer: leaf });
+    setIntent(ui, "poly1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "poly1");
+    expect(leaf.options.color).toBe("#123456");
+    leaf.fireMouseout();
+    expect(leaf.options.color).toBe("#123456");
+  });
+});
+
 describe("border partial-coverage invariants (partial-coverage)", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -2770,5 +2963,166 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
       value?: ValueConfig;
     };
     expect(v.value).toEqual(countRamp());
+  });
+});
+
+/** A real Leaflet feature leaf of the given geometry kind so geometryType()
+ *  returns the actual kind (the contract row in "border options per geometry"
+ *  is the REAL geometry, not a config string or a layer-name match). */
+const makeLayerForGeometry = (kind: "line" | "polygon" | "point", count = 5): any => {
+  const cls =
+    kind === "line" ? "Polyline" : kind === "polygon" ? "Polygon" : "CircleMarker";
+  const leaf = new (globalThis as any).L[cls]() as any;
+  leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+  leaf.feature = {
+    geometry: {
+      type: kind === "line" ? "LineString" : kind === "polygon" ? "Polygon" : "Point",
+    },
+    properties: { count },
+  };
+  const setStyle = vi.fn((style: Record<string, unknown>) => {
+    Object.assign(leaf.options, style);
+    return leaf;
+  });
+  leaf.setStyle = setStyle;
+  leaf.on = vi.fn();
+  return leaf;
+};
+
+describe("border options per geometry", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const expectGeometryType = (id: string, kind: "line" | "polygon" | "point"): void => {
+    const info = ui.c.layerRegistry.get(id);
+    expect(info).toBeTruthy();
+    const kindOf = ui.c.surfaceFor(info!).geometryType();
+    expect(kindOf).toBe(
+      kind === "line"
+        ? GEOM_TYPE.LINE
+        : kind === "polygon"
+          ? GEOM_TYPE.POLYGON
+          : GEOM_TYPE.POINT,
+    );
+  };
+
+  const openBorderRow = (id: string): HTMLElement => {
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+
+  const modeSelectOf = (block: HTMLElement): HTMLSelectElement | null =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+
+  const modeValues = (block: HTMLElement): string[] => {
+    const select = modeSelectOf(block);
+    return select ? Array.from(select.options).map(option => option.value) : [];
+  };
+
+  const registerGeometryLayer = (
+    id: string,
+    kind: "line" | "polygon" | "point",
+  ): void => {
+    registerFeatureLayer(manager, ui, id, [makeLayerForGeometry(kind)]);
+  };
+
+  const valueRamp = (): ValueConfig => countRamp();
+
+  it("line: { original, single, value }", () => {
+    registerGeometryLayer("g_line", "line");
+    expectGeometryType("g_line", "line");
+    expect(modeValues(openBorderRow("g_line"))).toEqual([
+      FILL_MODE.ORIGINAL,
+      FILL_MODE.SOLID,
+      FILL_MODE.VALUE,
+    ]);
+  });
+
+  // Polygon and point share one rule: a border that outlines a filled face
+  // offers follow-fill, and never by-value. One table drives both so a change
+  // to the outline contract cannot be applied to one geometry and forgotten on
+  // the other (the drift that made this matrix red after follow-fill landed).
+  it.each(["polygon", "point"] as const)(
+    "%s: { original, single, follow-fill } — never by-value",
+    kind => {
+      const id = `g_${kind}`;
+      registerGeometryLayer(id, kind);
+      expectGeometryType(id, kind);
+      expect(modeValues(openBorderRow(id))).toEqual([
+        FILL_MODE.ORIGINAL,
+        FILL_MODE.SOLID,
+        FILL_MODE.FOLLOW_FILL,
+      ]);
+    },
+  );
+
+  it("the column is the DIM single source (border)", () => {
+    expect(DIM.BORDER).toBe("border");
+    registerGeometryLayer("g_dim", "line");
+    const block = openBorderRow("g_dim");
+    expect(block.getAttribute("data-style-dim")).toBe(DIM.BORDER);
+  });
+
+  it("stored by-value on a non-line reads back as original (display fallback)", () => {
+    registerGeometryLayer("g_poly_fb", "polygon");
+    setIntent(ui, "g_poly_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_poly_fb", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_poly_fb"));
+    expect(select).not.toBeNull();
+    // The illegal stored value must never surface as a selected "value".
+    expect(select!.value).toBe(FILL_MODE.ORIGINAL);
+  });
+
+  it("stored by-value on a line stays value (guard against always-original fallback)", () => {
+    registerGeometryLayer("g_line_fb", "line");
+    setIntent(ui, "g_line_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_line_fb", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_line_fb"));
+    expect(select).not.toBeNull();
+    expect(select!.value).toBe(FILL_MODE.VALUE);
+  });
+
+  it("guard 1: the option set is asserted exactly, so an extra illegal option fails", () => {
+    // The product's set for a polygon is [original, solid, followFill]. A
+    // hypothetical regression that adds by-value there would make modeValues
+    // return [original, solid, followFill, value] — which toEqual rejects. The
+    // assertion here is the same equality the matrix tests use; it documents
+    // that containment would NOT catch the extra.
+    registerGeometryLayer("g_guard1", "polygon");
+    const actual = modeValues(openBorderRow("g_guard1"));
+    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
+    expect(actual).toEqual(contract);
+    // The negative property: adding the illegal option to the contract must NOT
+    // equal the actual set — this is what makes the matrix red on an extra.
+    const illegal = [...contract, FILL_MODE.VALUE];
+    expect(actual).not.toEqual(illegal);
+  });
+
+  it("guard 2: the line by-value read-back pins the fallback to geometry, not original", () => {
+    // If displayBorderMode were changed to always return original, the
+    // line-with-stored-value test above would fail. This test restates that
+    // dependency as a direct invariant so the guard has its own name.
+    registerGeometryLayer("g_guard2", "line");
+    setIntent(ui, "g_guard2", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_guard2", "borderValue", valueRamp());
+    const select = modeSelectOf(openBorderRow("g_guard2"));
+    expect(select).not.toBeNull();
+    expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
   });
 });

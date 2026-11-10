@@ -219,7 +219,9 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   "check/file-header":
     "the canonical file-header guard over foliplus/js source (registry file-header.canonical.json), a tree guard not a script module",
   "check/glyph-prefix-guard":
-    "the glyph-prefix single-source guard over foliplus/js production (fa-solid literal only in GLYPH_PREFIXES), a tree guard not a script module",
+    "the glyph-prefix single-source guard over foliplus/js production (fa-solid literal only on the GLYPH_PREFIXES.solid declaration line), a tree guard not a script module",
+  "check/style-dimension-cycle":
+    "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the
@@ -311,7 +313,7 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "CLI scanner — validated by locale test suite, not unit-tested",
 };
 
-// Same path-stem convention as the naming rule: script/build/build.mjs → "build/build".
+// Same path-stem convention as the naming rule: script/build/build.mjs -> "build/build".
 const scriptStem = (rel: string) =>
   rel.replace(/^script\//, "").replace(/\.(mjs|cjs|js)$/, "");
 

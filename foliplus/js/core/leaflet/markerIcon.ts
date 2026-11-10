@@ -31,7 +31,6 @@ import {
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
-  type GlyphPrefix,
 } from "./glyphSource.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
@@ -42,6 +41,60 @@ const log = createLogger("icon-dimension");
  *  leaf walk. The CSS is static, so a second encounter of the same name is
  *  the same fact. */
 const warnedGlyphs = new Set<string>();
+
+/** Parse a CSS color into its hex form plus an alpha percent (0-100).
+ *  Accepts the two shapes the derive path actually sees: a hex literal
+ *  (#rgb / #rrggbb, the user intent and declared iconColor) and the
+ *  normalized rgba()/rgb() form the browser writes to a style.color
+ *  (the author's inner <i> inline paint). A missing alpha means 100 (opaque).
+ *  Returns null for a value we cannot turn into a hex+alpha pair — a named
+ *  color, a CSS variable, an empty string — so the caller keeps the raw
+ *  string and treats it as opaque (honest: the author painted a name the
+ *  derive must not re-invent). */
+const parseColorAlpha = (css: string): { hex: string; alpha: number } | null => {
+  const value = css.trim();
+  if (value === "") return null;
+  let m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(value);
+  if (m) {
+    let hex = value;
+    if (m[1].length === 3) {
+      const [r, g, b] = m[1];
+      hex = `#${r}${r}${g}${g}${b}${b}`;
+    }
+    return { hex: hex.toLowerCase(), alpha: 100 };
+  }
+  // The browser normalizes style.color to rgb(r, g, b) / rgba(r, g, b, a)
+  // with a as a 0-1 float. Parse both; a missing alpha is opaque.
+  m =
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(
+      value,
+    );
+  if (m) {
+    const toHex = (n: number): string =>
+      Math.max(0, Math.min(255, Math.round(n)))
+        .toString(16)
+        .padStart(2, "0");
+    // The regex now has no wrapping group: m[1..3] are the channels and
+    // m[4] is the optional alpha (a missing alpha is opaque).
+    const hex = `#${toHex(Number(m[1]))}${toHex(Number(m[2]))}${toHex(Number(m[3]))}`;
+    const alpha = m[4] !== undefined ? Math.round(Number(m[4]) * 100) : 100;
+    return { hex, alpha };
+  }
+  return null;
+};
+
+/** Compose a hex color plus an alpha percent into one CSS color string.
+ *  Alpha 100 is the hex itself (no rgba noise); below 100 it is the
+ *  rgba(r, g, b, a) form, so the glyph carries one color string and the
+ *  alpha rides it — the single compose point for the color+opacity pair. */
+const composeColorAlpha = (hex: string, alpha: number): string => {
+  const a = Math.round(alpha);
+  if (a >= 100) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a / 100})`;
+};
 
 /** The leaf probe for the icon axis: a runtime `setIcon` (a marker). Same
  *  guard as the capability probe — a throwing getter answers nothing. */
@@ -96,13 +149,16 @@ const buildMarkerIcon = (opts: {
   /** The glyph name to render. */
   glyph: string;
   /** A user-set icon color (hex) to merge into the same construction as
-   *  the glyph — setIcon replaces the whole icon object, so the color and
+   *  the glyph — `setIcon` replaces the whole icon object, so the color and
    *  the glyph must land in one derived icon, never two successive writes. */
   color?: string;
+  /** A user-set glyph opacity (0-100 integer). Absent = opaque (100), which
+   *  keeps the author's own alpha when only the color is re-derived. */
+  opacity?: number;
   /** The FontAwesome family the applied glyph renders under — the panel's
    *  control-level prefix (coerced), not the author's, because the applied
    *  glyph is a panel choice. */
-  prefix?: GlyphPrefix;
+  prefix?: string;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
@@ -136,9 +192,13 @@ const buildMarkerIcon = (opts: {
     return opts.author;
   }
   if (isDefaultIcon) {
+    // The default chassis carries no author paint to inherit, so paint the
+    // glyph explicitly — white when neither the user nor the author named a
+    // color, the same default the derive path uses. One color, one alpha.
+    const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
     return L.divIcon({
       className: "foliplus-marker-default",
-      html: glyphHtml(glyph, "", "", prefix),
+      html: glyphHtml(glyph, "", `color:${defaultPaint}`, prefix),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });
@@ -180,6 +240,15 @@ const buildMarkerIcon = (opts: {
     // win over the default).
     const authorIconColorVal = authorIconColor === "" ? undefined : authorIconColor;
     const iconColor = opts.color ?? inlineColor ?? authorIconColorVal ?? "#fff";
+    // One paint, one alpha. A user color paints at the user's opacity
+    // (default 100 = opaque); an author-derived color keeps the author's own
+    // alpha parsed from the source, so an opacity-only write never silently
+    // resets the alpha the author drew.
+    const userColor = typeof opts.color === "string";
+    const parsed = parseColorAlpha(iconColor);
+    const paintHex = parsed?.hex ?? iconColor;
+    const paintAlpha = userColor ? (opts.opacity ?? 100) : (parsed?.alpha ?? 100);
+    const paint = composeColorAlpha(paintHex, paintAlpha);
     // Drop the author's own icon-font classes (fa / fas / fa-star /
     // glyphicon-*) so only the paint classes survive and our FA glyph is the
     // one thing painting.
@@ -193,7 +262,7 @@ const buildMarkerIcon = (opts: {
           !cls.startsWith("glyphicon"),
       )
       .join(" ");
-    div.innerHTML = glyphHtml(glyph, authorClass, `color:${iconColor}`, prefix);
+    div.innerHTML = glyphHtml(glyph, authorClass, `color:${paint}`, prefix);
     return div;
   };
   return derived;
@@ -206,7 +275,8 @@ const applyIconToLeaves = (
   layer: L.Layer,
   glyph: string,
   color?: string,
-  prefix?: GlyphPrefix,
+  opacity?: number,
+  prefix?: string,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -214,7 +284,7 @@ const applyIconToLeaves = (
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
-    const derived = buildMarkerIcon({ author, glyph, color, prefix });
+    const derived = buildMarkerIcon({ author, glyph, color, opacity, prefix });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
 };
@@ -228,7 +298,8 @@ const applyIconColorToLeaves = (
   layer: L.Layer,
   color: string,
   glyph: string | null,
-  prefix?: GlyphPrefix,
+  opacity?: number,
+  prefix?: string,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -240,6 +311,7 @@ const applyIconColorToLeaves = (
       author,
       glyph: glyph ?? "circle",
       color,
+      opacity,
       prefix,
     });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
@@ -327,6 +399,8 @@ export {
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
+  parseColorAlpha,
+  composeColorAlpha,
   resetIconLeaves,
 };
 export type { AuthorGlyph };
