@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { withMapCRS } from "#core/geocode/mapProvider.js";
-import type { GeocodeProvider } from "#core/geocode/type.js";
+import { type GeocodeProvider, withMapCRS } from "#core/geocode/index.js";
 
 const domesticMap = {
   options: { crs: { code: "EPSG:3857" } },

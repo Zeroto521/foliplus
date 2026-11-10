@@ -62,7 +62,7 @@ const makeMarkerWithEl = () => {
 
 // Wheel-bind counter over an addEventListener spy: keyed by the element the
 // listener was registered on, counting only plain wheel registrations (no
-// capture flag) — the shape bindFloatingWheel uses.
+// capture flag) — the shape mountFloating's unified gesture containment binds.
 const wheelBindTargets = (spy: ReturnType<typeof vi.spyOn>) => {
   const counts = new Map<EventTarget, number>();
   const contexts = (spy as unknown as { mock: { contexts: unknown[] } }).mock.contexts;

@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureInteraction } from "#foliplus/core/interaction/index.js";
 import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import {
@@ -101,10 +101,10 @@ const modeMocks = vi.hoisted(() => {
   };
 });
 
-// Match the exact specifier LayerControl/ui.ts uses; both "#core/mode.js" and
-// "#foliplus/core/mode.js" resolve to the same file, but mocking the alias
+// Match the exact specifier LayerControl/ui.ts uses; both "#core/lifecycle/mode.js" and
+// "#foliplus/core/lifecycle/mode.js" resolve to the same file, but mocking the alias
 // specifier prevents future alias changes from silently breaking this test.
-vi.mock("#core/mode.js", () => ({
+vi.mock("#core/lifecycle/mode.js", () => ({
   ensureModes: modeMocks.ensureModes,
   guardBlocked: modeMocks.guardBlocked,
   ModeManager: modeMocks.ModeManager,

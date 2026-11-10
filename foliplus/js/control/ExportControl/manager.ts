@@ -17,7 +17,7 @@ import {
 } from "./ui.js";
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { GeoBounds } from "#core/geo/index.js";
-import { type ModeManager, ensureModes } from "#core/mode.js";
+import { type ModeManager, ensureModes } from "#core/lifecycle/index.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { type RafLoop } from "#platform/rafLoop.js";
 

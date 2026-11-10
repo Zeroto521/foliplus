@@ -3,7 +3,7 @@ import {
   createThrottleQueue,
   lastRequestAt,
   markRequest,
-} from "#core/geocode/rateLimit.js";
+} from "#core/geocode/index.js";
 
 describe("createThrottleQueue", () => {
   beforeEach(() => vi.useFakeTimers());

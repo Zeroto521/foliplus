@@ -70,7 +70,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "free-standing helpers with no control instance in scope: the input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature (the wheel containment was removed with the unconditional bindFloatingWheel rule)",
+      "free-standing helpers with no control instance in scope: the input-commit helper; the caller owns teardown, and BaseControl can't be reached from the helper's signature (the wheel containment moved to the unified bindFloatingGestures entry in platform/floating.ts)",
   },
   {
     f: "core/leaflet/panel.ts",
@@ -108,7 +108,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "free-standing list-cursor utility — keydown binding owned by the caller, no control in scope",
   },
   {
-    f: "core/overlayRegistry.ts",
+    f: "core/overlay/overlayRegistry.ts",
     n: 4,
     pairedOff: 0,
     reason:
@@ -123,17 +123,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "control/LayerControl/ui/overlayPanel/attr.ts",
-    n: 2,
+    n: 1,
     pairedOff: 0,
     reason:
-      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
+      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C1",
   },
   {
     f: "control/LayerControl/ui/overlayPanel/filter.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
     reason:
-      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
+      "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
     f: "control/LayerControl/ui/focus/focusMarquee.ts",
@@ -147,7 +147,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 11,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
+      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlay/overlayRegistry in M2-C4",
   },
   {
     f: "control/LayerControl/ui/style/iconColor.ts",
@@ -168,14 +168,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 2,
     pairedOff: 0,
     reason:
-      "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4",
   },
   {
     f: "control/LayerControl/ui/style/index.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
     reason:
-      "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
+      "style-panel input / dropdown bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C1",
   },
   {
     f: "ui/slider.ts",
@@ -214,10 +214,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "platform/floating.ts",
-    n: 11,
+    n: 10,
     pairedOff: 0,
     reason:
-      "the shared floating-layer lifecycle primitive: the root wheel stop-propagation (bindFloatingWheel, unconditional) plus the unified gesture containment (bindFloatingGestures: wheel + touch/pointer stop-propagation, so a touch drag or wheel over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
+      "the shared floating-layer lifecycle primitive: the unified gesture containment (bindFloatingGestures: wheel + touch/pointer stop-propagation, so a touch drag or wheel over a floating panel cannot reach the map container where Leaflet touch/pointer drag would pan the map), the scroll (capture) and resize re-pin listeners and the fullscreenchange re-seat listener — one per open popup, detached by the idempotent release()",
+  },
+  {
+    f: "core/leaflet/panelController.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "bindPanelPress: the shared row-panel mousedown swallow (one implementation for the attrs / filter / style row panels). The helper is a free-standing function in the panel controller module — the panel owner routes the press through the controller it already holds, and there is no BaseControl instance in scope to thread this.on through",
   },
 ];
 
@@ -730,9 +737,9 @@ describe("floating gesture containment", () => {
       gesturesByFile.get("ui/listbox.ts"),
       "listbox binds its inline root via the unified entry",
     ).toBe(1);
-    // The floating.ts definition itself is the only place the raw helpers
-    // may still exist (bindFloatingTouch/bindFloatingWheel are the legacy
-    // building blocks the unified entry replaces).
+    // floating.ts is the only place the unified gesture entry exists
+    // (bindFloatingGestures replaced the legacy bindFloatingTouch /
+    // bindFloatingWheel building blocks, which were removed).
     expect(
       gesturesByFile.get("platform/floating.ts"),
       "floating.ts binds its own unified entry",

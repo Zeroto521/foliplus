@@ -12,7 +12,6 @@ import { MODE_MAP, type MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
-import { COMPONENTS, generateId } from "#core/component.js";
 import {
   EVENTS,
   type EventBus,
@@ -20,8 +19,6 @@ import {
   ensureEvents,
   publish,
 } from "#core/event/index.js";
-import { requireFoliplus } from "#core/guard.js";
-import { HINT_DURATION } from "#core/hint.js";
 import {
   FILTER_SOURCE,
   type FilterEnumDimension,
@@ -39,8 +36,16 @@ import {
   hideDelIcons,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
-import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
-import type { ControlEnv } from "#core/type.js";
+import {
+  COMPONENTS,
+  type ControlEnv,
+  type ModeManager,
+  ensureModes,
+  generateId,
+  guardBlocked,
+  requireFoliplus,
+} from "#core/lifecycle/index.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";

@@ -28,7 +28,7 @@ import {
   findLayer,
   labelPaneNameOf,
 } from "#core/layer/index.js";
-import { layerUrl } from "#core/leafletAdapter.js";
+import { layerUrl } from "#core/lifecycle/index.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { createLogger } from "#platform/log.js";
 

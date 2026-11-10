@@ -8,8 +8,8 @@
 // split into this file to break the facade <-> mode import cycle (each mode and
 // the facade import this instead of each other).
 import type { LayerUI } from "../surface.js";
-import { METHOD } from "#core/classify.js";
 import type { LayerInfo, ValueConfig } from "#core/layer/index.js";
+import { METHOD } from "#core/value/index.js";
 
 type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
 

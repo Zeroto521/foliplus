@@ -19,22 +19,20 @@ import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js"
 import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
+  type AuthorGlyph,
   type GlyphPrefix,
   PICKER_GLYPHS,
-  coerceGlyphPrefix,
-  glyphAvailable,
-  glyphHtml,
-  resolveGlyph,
-} from "#core/leaflet/glyphSource.js";
-import {
-  type AuthorGlyph,
   applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
+  coerceGlyphPrefix,
+  glyphAvailable,
+  glyphHtml,
   resetIconLeaves,
-} from "#core/leaflet/markerIcon.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+  resolveGlyph,
+} from "#core/leaflet/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

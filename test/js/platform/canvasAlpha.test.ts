@@ -6,7 +6,7 @@ import {
   setLayerAlpha,
   withCanvasLayerAlpha,
   withLayerAlpha,
-} from "#core/layer/canvasAlpha.js";
+} from "#core/layer/index.js";
 
 const makeCanvas = (): HTMLCanvasElement => document.createElement("canvas");
 

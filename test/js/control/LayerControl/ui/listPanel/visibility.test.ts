@@ -6,8 +6,7 @@ import {
   polygonLayer,
 } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HIDDEN, ROLE } from "#core/layer/const.js";
-import { LayerRuntimeStore } from "#core/layer/index.js";
+import { HIDDEN, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";

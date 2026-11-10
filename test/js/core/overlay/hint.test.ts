@@ -1,0 +1,681 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  HINT_DURATION,
+  HintManager,
+  ensureHint,
+  registerHintIcon,
+} from "#core/overlay/index.js";
+import { setPseudoFullscreen } from "#platform/fullscreen.js";
+
+beforeEach(() => {
+  document.body.innerHTML = "";
+});
+
+/** Stub map that records `on()` calls AND invokes them, so a test can fire
+ *  `unload` and observe the teardown path. Leaflet's own `_on` silently
+ *  no-ops when the handler is not a function, so a bare `vi.fn()` stub
+ *  would swallow the registration and the teardown assertions would never
+ *  exercise a real handler — recording and invoking here keeps that failure
+ *  mode loud instead of invisible. */
+type StubMap = {
+  foliplus?: {
+    showHint?: (
+      key: string,
+      text: string,
+      duration: number,
+      append?: boolean,
+      subkey?: string,
+    ) => void;
+    hideHint?: (key: string, sub?: string) => void;
+    registerHintIcon?: (key: string, svg: string) => void;
+  };
+  on: (type: string, fn: unknown) => void;
+  handlers: Record<string, Array<() => void>>;
+};
+
+const makeMap = (): StubMap => {
+  const handlers: Record<string, Array<() => void>> = {};
+  return {
+    on: (type, fn) => {
+      if (typeof fn !== "function") return; // mirror Leaflet's `_on` guard
+      handlers[type] = [...(handlers[type] ?? []), fn as () => void];
+    },
+    handlers,
+  };
+};
+
+/** Fire a recorded map event (`unload`, …) and return how many handlers ran. */
+const fire = (map: StubMap, type: string): number => {
+  const list = map.handlers[type] ?? [];
+  list.forEach(fn => fn());
+  return list.length;
+};
+
+/** Fire map `unload` and return a handle on the torn-down state: the
+ *  (now inert) `map.foliplus` stubs and a silent `console.warn` spy. */
+const unloadMap = (map: StubMap) => {
+  fire(map, "unload");
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  return {
+    showHint: map.foliplus?.showHint as (() => void) | undefined,
+    hideHint: map.foliplus?.hideHint as (() => void) | undefined,
+    registerHintIcon: map.foliplus?.registerHintIcon as
+      ((key: string, svg: string) => void) | undefined,
+    warn,
+  };
+};
+
+describe("HINT_DURATION", () => {
+  it("has correct values", () => {
+    expect(HINT_DURATION.SHORT).toBe(1200);
+    expect(HINT_DURATION.MEDIUM).toBe(2500);
+    expect(HINT_DURATION.LONG).toBe(4000);
+    expect(HINT_DURATION.PERSIST).toBe(0);
+  });
+});
+
+describe("HintManager", () => {
+  it("showHint appends a hint element to the body", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint");
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toBe("hello");
+  });
+
+  it("hideHint removes the hint element", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    expect(document.querySelector(".foliplus-hint")).not.toBeNull();
+    mgr.hideHint("key");
+    expect(document.querySelector(".foliplus-hint")).toBeNull();
+  });
+
+  it("hideHint(key) clears a hint shown in append mode (<key>-<ts> store key)", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "one", 0, true); // append
+    expect(document.querySelector(".foliplus-hint")).not.toBeNull();
+    mgr.hideHint("key");
+    expect(document.querySelector(".foliplus-hint")).toBeNull();
+  });
+
+  it("withLoadingIcon renders the built-in spinner instead of the registered icon", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("key", "text", 0, undefined, undefined, true);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    const svg = icon!.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg!.classList.contains("foliplus-spin")).toBe(true);
+  });
+
+  it("renders the registered icon by default, not the spinner", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("key", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    expect(icon!.querySelector("svg")!.classList.contains("foliplus-spin")).toBe(false);
+  });
+
+  it("auto-dismisses after the duration elapses", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 100);
+    expect(document.querySelector(".foliplus-hint")).not.toBeNull();
+    vi.advanceTimersByTime(101);
+    expect(document.querySelector(".foliplus-hint")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("stacks multiple hints with increasing offsets", () => {
+    const mgr = new HintManager();
+    mgr.showHint("a", "one", 0);
+    mgr.showHint("b", "two", 0);
+    const els = document.querySelectorAll<HTMLElement>(".foliplus-hint");
+    expect(els.length).toBe(2);
+    expect(els[1].style.bottom).not.toBe(els[0].style.bottom);
+  });
+
+  it("registerHintIcon prepends an icon to the hint text", () => {
+    registerHintIcon(
+      "with_icon",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("with_icon", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+  });
+
+  it("destroy removes all hints and clears timers", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("a", "one", 1000);
+    mgr.showHint("b", "two", 1000);
+    mgr.destroy();
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("destroy is defensive against entries missing a timer or element", () => {
+    // The guards on entry.timer and entry.element must not throw when an entry
+    // is stored without either — a defensive fallback if the map is mutated
+    // externally, not a runtime crash.
+    const mgr = new HintManager();
+    mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
+    expect(() => mgr.destroy()).not.toThrow();
+    expect(mgr.hintMap.size).toBe(0);
+  });
+
+  it("destroy keeps detaching after a node that refuses to be removed", () => {
+    const mgr = new HintManager();
+    mgr.showHint("a", "one", 0);
+    mgr.showHint("b", "two", 0);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const reattach = vi.spyOn(mgr, "reattachHints" as any);
+    const stuck = mgr.hintMap.get("a")!.element;
+    const healthy = mgr.hintMap.get("b")!.element;
+    stuck.remove = () => {
+      throw new Error("node stuck");
+    };
+
+    expect(() => mgr.destroy()).not.toThrow();
+
+    // The failure is named, the other hint still goes, and the surface
+    // subscription and the module-level registration are released regardless.
+    expect(warn).toHaveBeenCalledWith(
+      '[Hint] destroy step "hint:a" threw',
+      expect.any(Error),
+    );
+    // The stuck node is the one failure left standing; everything else in the
+    // teardown still ran.
+    expect(stuck.isConnected).toBe(true);
+    expect(healthy.isConnected).toBe(false);
+    expect(mgr.hintMap.size).toBe(0);
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(reattach).not.toHaveBeenCalled();
+    const sync = vi.spyOn(mgr, "syncIcons");
+    registerHintIcon("after_destroy", '<svg viewBox="0 0 8 8"></svg>');
+    expect(sync).not.toHaveBeenCalled();
+  });
+
+  it("migrates hints to the fullscreen element on fullscreenchange", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => container,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(el.parentElement).toBe(container);
+
+    // Exit fullscreen → back to body
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("does not migrate hints when fullscreenElement is documentElement", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => document.documentElement,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    // documentElement is the guard — hints stay in body
+    expect(el.parentElement).toBe(document.body);
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    mgr.destroy();
+  });
+
+  it("shows a hint inside the fullscreen element and anchors it with relative", () => {
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      position: "static",
+    } as any);
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => container,
+    });
+
+    mgr.showHint("key", "hello", 0);
+
+    expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(container);
+    expect(container.style.position).toBe("relative");
+
+    mgr.destroy();
+    vi.restoreAllMocks();
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+  });
+
+  it("shows a hint inside the pseudo-fullscreen container (embed burial fix)", () => {
+    // Pseudo-fullscreen covers the viewport with the opaque map at the
+    // fullscreen z-index — a body-appended toast would be painted under it
+    // (the Feishu-embed report). The hint must live inside the container.
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    container.className = "leaflet-container leaflet-pseudo-fullscreen";
+    document.body.appendChild(container);
+
+    mgr.showHint("key", "hello", 0);
+
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(container);
+    // Non-body targets become positioned ancestors so the absolute hint
+    // anchors to them (same contract as the native fullscreen element).
+    expect(container.style.position).toBe("relative");
+
+    // Stranded re-seat: a PERSIST hint shown during pseudo mode must land
+    // back on body once the surface is gone and the next hint fires.
+    container.classList.remove("leaflet-pseudo-fullscreen");
+    mgr.showHint("key2", "second", 0);
+    expect(el.parentElement).toBe(document.body);
+    expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("re-seats an existing hint when pseudo-fullscreen activates", () => {
+    // The hint exists BEFORE the surface appears. Pseudo mode fires no DOM
+    // event, so only the surface announcement can rescue it — the original
+    // embed bug ("click fullscreen, the visible toast vanishes under the
+    // map") is exactly this order.
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    container.className = "leaflet-container";
+    document.body.appendChild(container);
+
+    mgr.showHint("persist", "already open", HINT_DURATION.PERSIST);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    setPseudoFullscreen(container, true);
+    expect(el.parentElement).toBe(container);
+
+    setPseudoFullscreen(container, false);
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("scopes pseudo re-seating to the manager's own map", () => {
+    const mapA = document.createElement("div");
+    mapA.className = "leaflet-container";
+    const mapB = document.createElement("div");
+    mapB.className = "leaflet-container";
+    document.body.append(mapA, mapB);
+
+    const mgr = new HintManager(mapB);
+    mgr.showHint("persist", "map B", HINT_DURATION.PERSIST);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    // A sibling map going fullscreen must not pull map B's toast into it.
+    setPseudoFullscreen(mapA, true);
+    expect(el.parentElement).toBe(document.body);
+
+    setPseudoFullscreen(mapB, true);
+    expect(el.parentElement).toBe(mapB);
+
+    setPseudoFullscreen(mapB, false);
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("hideHint with a subkey removes only that sub-hint", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "one", 0, false, "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+
+    mgr.hideHint("key", "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+  });
+
+  it("hideHint with a subkey and duration clears the timer", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("key", "one", 100, false, "sub");
+    const els = document.querySelectorAll(".foliplus-hint");
+    expect(els.length).toBe(1);
+
+    mgr.hideHint("key", "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+
+    vi.advanceTimersByTime(1000);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("auto-dismisses a hint with duration and no subkey", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 100);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+
+    vi.advanceTimersByTime(101);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("hideHint is defensive against entries missing a timer or element", () => {
+    // Same guards as destroy — a malformed entry must not throw.
+    const mgr = new HintManager();
+    mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
+    expect(() => mgr.hideHint("ghost")).not.toThrow();
+    expect(mgr.hintMap.has("ghost")).toBe(false);
+  });
+
+  it("hideHint with subkey is defensive against entries missing an element", () => {
+    // The subkey branch has its own element guard — a malformed entry with no
+    // element must not throw when hideHint(key, subkey) is called.
+    const mgr = new HintManager();
+    mgr.hintMap.set("key|sub", { element: undefined, timer: null } as any);
+    expect(() => mgr.hideHint("key", "sub")).not.toThrow();
+    expect(mgr.hintMap.has("key|sub")).toBe(false);
+  });
+
+  it("zIndexBase lazy-initialises on first call and reuses on subsequent calls", () => {
+    // The `hintZIndex ??=` lazy-init reads the CSS token once; the second call
+    // must skip the assignment. Two showHint calls in sequence exercise both
+    // branches of the `??=`.
+    const mgr = new HintManager();
+    mgr.showHint("a", "first", HINT_DURATION.PERSIST);
+    mgr.showHint("b", "second", HINT_DURATION.PERSIST);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
+  });
+});
+
+describe("ensureHint", () => {
+  it("attaches showHint/hideHint to map.foliplus", () => {
+    const map = makeMap();
+    ensureHint(map);
+    expect(typeof map.foliplus?.showHint).toBe("function");
+    expect(typeof map.foliplus?.hideHint).toBe("function");
+  });
+
+  it("is idempotent — repeated calls return the same instance", () => {
+    const map = makeMap();
+    const a = ensureHint(map);
+    const b = ensureHint(map);
+    expect(b).toBe(a);
+  });
+
+  it("exposes registerHintIcon on map.foliplus", () => {
+    const map = makeMap();
+    ensureHint(map);
+    expect(typeof map.foliplus!.registerHintIcon).toBe("function");
+    map.foliplus!.registerHintIcon!(
+      "via_map",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    map.foliplus!.showHint!("via_map", "text", 0);
+    expect(document.querySelector(".foliplus-hint-icon")).not.toBeNull();
+  });
+
+  it("is per-map — separate maps get separate instances", () => {
+    const mapA = makeMap();
+    const mapB = makeMap();
+    const a = ensureHint(mapA);
+    const b = ensureHint(mapB);
+    expect(a).not.toBe(b);
+    a.showHint("key", "A", 0);
+    b.showHint("key", "B", 0);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
+    a.hideHint("key");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+    b.hideHint("key");
+  });
+
+  it("syncs icons registered AFTER an existing manager was created (regression)", () => {
+    // A later control's createControlEnv registers its icon after ensureHint
+    // already created the manager — the new icon must appear.
+    const map = makeMap();
+    ensureHint(map); // manager created BEFORE the icon is registered
+    registerHintIcon(
+      "late_icon",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    map.foliplus!.showHint!("late_icon", "text", 0);
+    const icon = document.querySelector(".foliplus-hint-icon");
+    expect(icon).not.toBeNull();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
+  });
+
+  it("syncs icons to a manager created before registration, via syncIcons", () => {
+    const mgr = new HintManager();
+    const svg = '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>';
+    registerHintIcon("probe", svg);
+    // syncIcons was called by registerHintIcon for active managers
+    expect(mgr.hintIcons["probe"]).toContain("<rect");
+  });
+
+  it("shows the icon for EVERY component regardless of load order", () => {
+    // Simulate the real page: another control created the per-map manager
+    // first, then each control's createControlEnv registers its icon later.
+    // Historically LocateControl / MeasureControl / ExportControl hints were
+    // missing icons in this order (registerHintIcon only updated the module
+    // registry, never re-seeding the already-created manager).
+    const map = makeMap();
+    ensureHint(map); // manager created BEFORE the components below register
+    const components = [
+      "ExportControl",
+      "FullscreenControl",
+      "HeatmapControl",
+      "LayerControl",
+      "LocateControl",
+      "MeasureControl",
+      "SearchControl",
+    ];
+    for (const name of components) {
+      registerHintIcon(
+        name,
+        `<svg viewBox="0 0 8 8" class="${name}"><rect width="4" height="4"/></svg>`,
+      );
+      // Clear any previously shown hint so only the current one exists.
+      document.body.innerHTML = "";
+      map.foliplus!.showHint!(name, `${name} msg`, 0);
+      const icon = document.querySelector(".foliplus-hint-icon");
+      expect(icon, `${name} hint should have an icon`).not.toBeNull();
+      expect(icon!.innerHTML, `${name} icon should match`).toContain(name);
+    }
+  });
+
+  it("sanitises a registered icon and keeps the hint text as a TextNode", () => {
+    // registerHintIcon is a public runtime API (`map.foliplus.registerHintIcon`)
+    // whose value reaches an innerHTML sink — it must not be trusted.
+    registerHintIcon(
+      "dirty",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4" onmouseover="alert(1)"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.showHint("dirty", "<img src=x onerror=alert(1)>msg", 0);
+    const hint = document.querySelector(".foliplus-hint")!;
+    const iconSpan = hint.querySelector(".foliplus-hint-icon")!;
+    // The attribute is stripped from the serialised SVG.
+    expect(iconSpan.innerHTML).not.toContain("onmouseover");
+    // The locale text is a TextNode, never parsed as markup.
+    expect(hint.querySelectorAll("img")).toHaveLength(0);
+    expect(hint.textContent).toBe("<img src=x onerror=alert(1)>msg");
+  });
+
+  it("drops a registered icon that is not SVG", () => {
+    registerHintIcon("not_svg", "<img src=x onerror=alert(1)>");
+    const mgr = new HintManager();
+    mgr.showHint("not_svg", "msg", 0);
+    expect(document.querySelector(".foliplus-hint-icon")).toBeNull();
+    expect(document.querySelector(".foliplus-hint img")).toBeNull();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("msg");
+  });
+});
+
+describe("map unload teardown", () => {
+  it("destroys the manager on map unload, dropping the surface subscription", () => {
+    vi.useFakeTimers();
+    const map = makeMap();
+    const mgr = ensureHint(map);
+    mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
+    // reattachHints is called through a bound arrow, so spying the class
+    // method is the only way to observe the surface subscription afterwards.
+    // The spy is created AFTER the seeding showHint — showHint itself calls
+    // reattachHints to re-seat stranded entries, which must not count here.
+    const reattachSpy = vi.spyOn(mgr, "reattachHints" as any);
+    // Grab the element this manager just created. A global selector would
+    // also match stray nodes left behind by sibling tests.
+    const el = mgr.hintMap.values().next().value!.element;
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(reattachSpy).toHaveBeenCalledTimes(1); // listener still bound
+    expect(el.isConnected).toBe(true);
+
+    expect(fire(map, "unload")).toBe(1);
+    expect(mgr.hintMap.size).toBe(0);
+    expect(el.isConnected).toBe(false);
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(reattachSpy).toHaveBeenCalledTimes(1); // listener unbound
+
+    // A second manager (another map on the page) proves teardown is scoped:
+    // it still receives newly registered icons, and icon propagation does not
+    // reach the destroyed manager.
+    const other = new HintManager();
+    other.showHint("persist", "other map", HINT_DURATION.PERSIST);
+    registerHintIcon("late", "<svg></svg>");
+    other.showHint("late", "late", HINT_DURATION.PERSIST);
+    expect(other.hintMap.size).toBe(2);
+    expect(mgr.hintMap.size).toBe(0); // dead manager untouched
+
+    other.destroy();
+    reattachSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("builds a fresh manager when the same map object is re-ensured after unload", () => {
+    const map = makeMap();
+    const first = ensureHint(map);
+    expect(ensureHint(map)).toBe(first);
+
+    fire(map, "unload");
+    expect(first.hintMap.size).toBe(0);
+
+    // `instances` was cleared, so a second ensureHint builds a live manager
+    // instead of handing back the destroyed one.
+    const second = ensureHint(map);
+    expect(second).not.toBe(first);
+    second.showHint("key", "again", HINT_DURATION.PERSIST);
+    expect(second.hintMap.size).toBe(1);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+    second.destroy();
+  });
+
+  it("detaches the bound showHint closure so a call after unload warns without adding a node", () => {
+    vi.useFakeTimers();
+    const map = makeMap();
+    const mgr = ensureHint(map);
+    const { showHint, warn } = unloadMap(map);
+
+    expect(showHint).toBeDefined();
+
+    showHint!();
+    showHint!();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0]?.[0]).toContain("after the map unloaded");
+
+    // No node resurrected, and no timer armed on the dead manager.
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    expect(mgr.hintMap.size).toBe(0);
+    vi.advanceTimersByTime(10_000);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+
+    warn.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("keeps hideHint after unload as a silent no-op", () => {
+    const map = makeMap();
+    const mgr = ensureHint(map);
+    const { hideHint, warn } = unloadMap(map);
+
+    hideHint!();
+    expect(warn).not.toHaveBeenCalled();
+    expect(mgr.hintMap.size).toBe(0);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    warn.mockRestore();
+  });
+
+  it("severs registerHintIcon after unload so no global registry write survives", () => {
+    // `registerHintIcon` writes into the module-level registry, which every
+    // other live map reads. A post-unload call would still mutate that global
+    // while the dead manager's showHint (a copied hintIcons) never rendered
+    // it — a silent half-failure, so the closure is replaced like the other two.
+    // The registry itself is module-private, so assert through the public
+    // seeding path: a manager built after the call would inherit the write.
+    const map = makeMap();
+    ensureHint(map);
+    const { registerHintIcon: seal } = unloadMap(map);
+    expect(typeof seal).toBe("function");
+
+    seal!("@unloaded", '<svg viewBox="0 0 8 8"><rect/></svg>');
+    expect(new HintManager().hintIcons["@unloaded"]).toBeUndefined();
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+  });
+
+  it("teardown is scoped per map — a sibling map keeps its manager", () => {
+    const mapA = makeMap();
+    const mapB = makeMap();
+    const a = ensureHint(mapA);
+    const b = ensureHint(mapB);
+    a.showHint("key", "A", HINT_DURATION.PERSIST);
+    b.showHint("key", "B", HINT_DURATION.PERSIST);
+
+    unloadMap(mapA);
+
+    // mapB is untouched: same manager, node still in the DOM, still active
+    // enough to receive newly registered icons.
+    expect(b.hintMap.size).toBe(1);
+    registerHintIcon(
+      "sibling_icon",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    expect(b.hintIcons["sibling_icon"]).toContain("<rect");
+    // The dead manager no longer receives icons through activeManagers.
+    expect(a.hintIcons["sibling_icon"]).toBeUndefined();
+    // mapA's closures were replaced, mapB's were not.
+    expect(mapA.foliplus?.showHint).not.toBe(mapB.foliplus?.showHint);
+
+    b.destroy();
+  });
+});

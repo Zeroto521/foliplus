@@ -5,7 +5,7 @@
  * The by-value config kind is a persisted vocabulary: `kind: "numeric"` /
  * `kind: "category"` select the ramp arms and are stored in the record, so
  * they must never be spelled at a call site in a way that can drift from
- * VALUE_KIND (core/valueKind.ts). A typo at a call site would silently
+ * VALUE_KIND (core/value/valueKind.ts). A typo at a call site would silently
  * misread or miswrite a persisted record.
  *
  * Scope: production `foliplus/js/**\*.ts` ONLY (tests simulate persisted
@@ -31,7 +31,7 @@
  *     the removal of an existing exclusion. Do not claim a FILL_MODE
  *     exclusion exists here that the code does not implement.
  *
- * Whitelist: `core/valueKind.ts` itself (it DEFINES the constant).
+ * Whitelist: `core/value/valueKind.ts` itself (it DEFINES the constant).
  *
  * Usage: `node script/check/value-kind-literal.mjs [root]`
  *   Prints each violation as `file:line: text` and exits 1 when any are found.
@@ -48,7 +48,7 @@ const KIND_LITERALS = new Set(["numeric", "category"]);
 const EXCLUDE_FILES = new Set(["foliplus/js/core/layer/filterFeature.ts"]);
 
 /** Files that may legitimately hold the literals (they define the constant). */
-const WHITELIST_FILES = new Set(["foliplus/js/core/valueKind.ts"]);
+const WHITELIST_FILES = new Set(["foliplus/js/core/value/valueKind.ts"]);
 
 const SKIP_DIR = new Set([
   "node_modules",

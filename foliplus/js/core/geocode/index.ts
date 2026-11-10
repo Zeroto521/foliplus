@@ -2,6 +2,7 @@
 // geocoder singleton (cache + per-provider throttle queues).
 export type * from "./type.js";
 export * from "./util.js";
+export { withMapCRS } from "./mapProvider.js";
 export { BUILTIN_PROVIDERS, providerFromConfig, resolveProvider } from "./registry.js";
 export { createNominatim, formatAddress, nominatimUrl } from "./nominatim.js";
 export { createPhoton } from "./photon.js";

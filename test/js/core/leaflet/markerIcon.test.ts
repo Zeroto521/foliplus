@@ -5,12 +5,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PICKER_GLYPHS,
-  glyphAvailable,
-  glyphHtml,
-  isGlyphSyntax,
-  resolveGlyph,
-} from "#core/leaflet/glyphSource.js";
-import {
   applyIconColorToLeaves,
   applyIconToLeaves,
   applyMarkerColorToLeaves,
@@ -19,10 +13,14 @@ import {
   buildMarkerIcon,
   captureAuthorIcon,
   composeColorAlpha,
+  glyphAvailable,
+  glyphHtml,
+  isGlyphSyntax,
   isIconLeaf,
   parseColorAlpha,
   resetIconLeaves,
-} from "#core/leaflet/markerIcon.js";
+  resolveGlyph,
+} from "#core/leaflet/index.js";
 
 // The shared L stub (test/js/setup.ts) defines no Icon key; the lead's
 // buildMarkerIcon branch reads L.Icon.Default (task #932 step 1). Provide a

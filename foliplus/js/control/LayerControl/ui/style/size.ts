@@ -40,7 +40,7 @@ import type { LayerUI } from "../surface.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { CAP_TIER, DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
-import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
+import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/lifecycle/index.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
