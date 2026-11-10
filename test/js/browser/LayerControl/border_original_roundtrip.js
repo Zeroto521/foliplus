@@ -69,11 +69,27 @@
 
   // A mode switch or a colour/width write schedules the persistence write
   // behind a 100ms debounce (SAVE_DEBOUNCE_MS); the style apply itself runs on
-  // the frame clock. Poll until the layer_state key lands (or time out) so the
-  // record the test asserts on is the one the control actually committed — a
-  // fixed sleep would make this flaky on a loaded CI runner.
+  // the frame clock. Poll until the persisted record reflects the values this
+  // call wrote (or time out) so the record asserted on is the one the control
+  // actually committed — a fixed sleep, or polling only for the key's
+  // existence, would be flaky or stale on a loaded CI runner (the key from the
+  // previous call already exists, so existence alone returns before the new
+  // write's debounce has landed).
   const wroteSomething = mode !== undefined || color !== undefined || weight != null;
-  const pollStorage = attemptsLeft => {
+  const parseRecord = () => {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.includes("layer_state")) {
+        try {
+          return { key, record: JSON.parse(localStorage.getItem(key)) };
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+  const storageSnapshot = () => {
     const storage = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -81,11 +97,25 @@
         storage[key] = localStorage.getItem(key);
       }
     }
-    if (!wroteSomething || Object.keys(storage).length > 0 || attemptsLeft <= 0) {
-      return Promise.resolve(storage);
+    return storage;
+  };
+  const recordMatches = () => {
+    if (!wroteSomething) return true;
+    const parsed = parseRecord();
+    if (!parsed || !parsed.record) return false;
+    const entry = parsed.record.layers && parsed.record.layers[id];
+    if (!entry) return false;
+    if (mode !== undefined && entry.borderStyleMode !== mode) return false;
+    if (color !== undefined && entry.borderColor !== color) return false;
+    if (weight != null && entry.borderWeight !== weight) return false;
+    return true;
+  };
+  const pollRecord = attemptsLeft => {
+    if (recordMatches() || attemptsLeft <= 0) {
+      return Promise.resolve(storageSnapshot());
     }
     return new Promise(resolvePoll =>
-      setTimeout(() => resolvePoll(pollStorage(attemptsLeft - 1)), 50),
+      setTimeout(() => resolvePoll(pollRecord(attemptsLeft - 1)), 50),
     );
   };
 
@@ -93,7 +123,7 @@
   return new Promise(resolve => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        pollStorage(12).then(storage => {
+        pollRecord(12).then(storage => {
           const colorInput = panel.querySelector(".foliplus-style-border-color-input");
           resolve({
             row: true,
