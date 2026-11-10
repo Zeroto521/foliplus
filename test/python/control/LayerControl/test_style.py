@@ -28,6 +28,16 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
+def _method_labels() -> tuple[str, str]:
+    """The method row label for each built-in language, read from the locale
+    table (single source — never pin the string twice)."""
+    base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
+    en = json.loads((base / "LayerControl.en.json").read_text(encoding="utf-8"))
+    zh = json.loads((base / "LayerControl.zh.json").read_text(encoding="utf-8"))
+    return en["LayerControl.style_method"], zh["LayerControl.style_method"]
+
+
 from ._browser_base import LayerControlBrowserBase
 from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
 
@@ -1738,12 +1748,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """The ramp row reads by its method in both panels, on one line.
 
         One visible label names two selects, so it takes the primary control's
-        name (Method / 分类方法) — the word the heatmap panel shows too. The
+        name (Classification Method / 分类方法) — the word the heatmap panel shows too. The
         class count stays announced by the count select's own aria label, so a
-        screen reader hears "Method" and "Classes" once each. The label column
+        screen reader hears "Classification Method" and "Classes" once each. The label column
         is the shared 88px token inside the 280px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
+        _METHOD_EN, _METHOD_ZH = _method_labels()
         data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
@@ -1771,16 +1782,16 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # The visible label is locale-dependent; the panel's language follows
             # the browser, so pin both vocabularies rather than one page locale.
             label = next(
-                (text for text in ("Method", "分类方法") if text in rows), None
+                (text for text in (_METHOD_EN, _METHOD_ZH) if text in rows), None
             )
             assert label, f"no method-labelled row among {sorted(rows)}"
             row = rows[label]
             expected_aria = {
-                "Method": ["Method", "Classes"],
-                "分类方法": ["分类方法", "分级数"],
+                _METHOD_EN: [_METHOD_EN, "Classes"],
+                _METHOD_ZH: [_METHOD_ZH, "分级数"],
             }[label]
             assert row["labelLines"] == 1, (
-                f"the Method label wrapped at the panel width: {row}"
+                f"the Classification Method label wrapped at the panel width: {row}"
             )
             assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
             assert result["labelWidthToken"] == "88px", result
