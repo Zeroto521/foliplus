@@ -41,6 +41,7 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
     collapse_on_outside: false,
     data: [],
     label_collide: true,
+    prefix: "fa-solid",
   },
   LocateControl: {
     zoom: 15,
