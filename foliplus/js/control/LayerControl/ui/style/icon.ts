@@ -19,12 +19,12 @@ import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js"
 import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import {
+  type GlyphPrefix,
   PICKER_GLYPHS,
   coerceGlyphPrefix,
   glyphAvailable,
   glyphHtml,
   resolveGlyph,
-  type GlyphPrefix,
 } from "#core/leaflet/glyphSource.js";
 import {
   type AuthorGlyph,
@@ -100,12 +100,17 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   if (typeof color === "string") {
+    // The re-derived icon restores the AUTHOR's own family, not the panel
+    // knob: an author who paints `fas fa-<name>` (a real family outside the
+    // GLYPH_PREFIXES table) must come back as `fas`, not silently as the
+    // coerced panel default. A reset returns the author intent.
     applyIconColorToLeaves(
       layer,
       color,
       currentGlyph(ui, layerId),
       typeof opacity === "number" ? opacity : undefined,
-      authorGlyphPrefix(ui, layerId) ?? coerceGlyphPrefix(ui.config.prefix ?? undefined),
+      authorGlyphPrefix(ui, layerId) ??
+        coerceGlyphPrefix(ui.config.prefix ?? undefined),
     );
   }
 };
