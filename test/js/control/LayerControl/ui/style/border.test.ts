@@ -3172,4 +3172,21 @@ describe("border options per geometry", () => {
     expect(select).not.toBeNull();
     expect(select!.value).not.toBe(STYLE_MODE.ORIGINAL);
   });
+  it("guard 3: every mode option value is a vocab literal, never a locale key", () => {
+    // The P1 regression: a generator-level name collision made the mode select
+    // value the locale-key string "style_mode_original" instead of the vocab
+    // literal "original". Every option value must be a vocab literal (in the
+    // STYLE_MODE value set) and must never carry the "style_mode_" prefix.
+    const vocabValues = new Set<string>(Object.values(STYLE_MODE));
+    for (const kind of ["line", "polygon", "point"] as const) {
+      const id = `g_guard3_${kind}`;
+      registerGeometryLayer(id, kind);
+      const values = modeValues(openBorderRow(id));
+      expect(values.length).toBeGreaterThan(0);
+      for (const value of values) {
+        expect(vocabValues.has(value)).toBe(true);
+        expect(value).not.toMatch(/^style_mode_/);
+      }
+    }
+  });
 });

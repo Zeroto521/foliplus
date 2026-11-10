@@ -398,6 +398,46 @@ describe("generateRegistry", () => {
     expect(output).toContain("panelButton");
   });
 
+  it("aliases a same-named export from two modules (collision-safe)", () => {
+    // A vocab const (core) and a locale-key const (ui) can legitimately share
+    // a name like STYLE_MODE. A bare \`import { STYLE_MODE }\` from each would
+    // collapse in esbuild to the LAST import, publishing the wrong value on
+    // BOTH namespaces. The registry must alias the second import and keep the
+    // published name, so each namespace resolves to its module's OWN value.
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original", SOLID: "solid" } as const;`,
+      "ui/styleModeKey.ts": `export const STYLE_MODE = { ORIGINAL: "style_mode_original", SINGLE: "style_mode_single" } as const;`,
+      "ui/index.ts": `export { STYLE_MODE } from "./styleModeKey.js";`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { STYLE_MODE } from "#core/layer/index.js";
+        import { STYLE_MODE as UIMODE } from "#ui/index.js";
+        const a = STYLE_MODE.ORIGINAL;
+        const b = UIMODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    // The second (ui barrel) import must be aliased; the core one stays bare.
+    expect(output).toContain("STYLE_MODE as STYLE_MODE__ui_index");
+    expect(output).toContain("STYLE_MODE: STYLE_MODE__ui_index");
+    // The core import keeps the bare name (first use wins the published name).
+    expect(output).toContain('window.foliplus.core["layer"] = {');
+    expect(output).toMatch(
+      /window\.foliplus\.core\["layer"\] = \{[^}]*STYLE_MODE[^}]*\}/,
+    );
+    // No bare duplicate import remains.
+    const bareImports = output.match(/import { [^}]*STYLE_MODE[^}]* } from/g) || [];
+    expect(bareImports.filter(s => !s.includes("as STYLE_MODE__ui_index")).length).toBe(
+      1,
+    );
+    // The registration must keep the published name STYLE_MODE on BOTH namespaces.
+    expect(output).toMatch(
+      /window\.foliplus\.core\["layer"\] = \{[^}]*\bSTYLE_MODE\b[^}]*\}/,
+    );
+  });
+
   it("skips a ui module nothing imports from", () => {
     // if (names.length === 0) continue — a ui module on disk that no
     // component imports must emit nothing (no empty namespace object).
