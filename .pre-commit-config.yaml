@@ -4,6 +4,11 @@ ci:
 
     for more information, see https://pre-commit.ci
   autoupdate_commit_msg: "BOT: pre-commit hooks autoupdate"
+  # pre-commit.ci's runner image has no node, so a `language: system` hook
+  # with a node entry cannot run there. The worktree-dep guard is also a
+  # no-op in CI: the CI checkout is never a git worktree, so its judgment is
+  # always "ok" by construction. Skip it in CI; the LOCAL pre-commit must still run it.
+  skip: [worktree-dep]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -138,9 +143,9 @@ repos:
       # commit when the current checkout is a worktree whose node_modules is a
       # real directory (npm ran a clean install here — forbidden) or a junction
       # to a non-repo target. Runs in the repo root (main checkout is always OK).
-      - id: worktree-deps
-        name: worktree-deps
-        entry: node script/check/worktree-deps.mjs
+      - id: worktree-dep
+        name: worktree-dep
+        entry: node script/check/worktree-dependency.mjs
         language: system
         pass_filenames: false
         always_run: true

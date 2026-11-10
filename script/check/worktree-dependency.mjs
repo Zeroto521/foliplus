@@ -29,9 +29,9 @@
  *   1  — VIOLATION (worktree node_modules is a real dir, or junction target
  *        is not the repo's node_modules)
  *
- * Usage: `node script/check/worktree-deps.mjs [root]`
+ * Usage: `node script/check/worktree-dependency.mjs [root]`
  *   root defaults to process.cwd(); pass the repo root to check from anywhere.
- *   For pre-commit/CI: `node script/check/worktree-deps.mjs <repo-root>`.
+ *   For pre-commit: `node script/check/worktree-dependency.mjs <repo-root>`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -121,6 +121,9 @@ const main = (root = process.cwd()) => {
   return result.ok ? 0 : 1;
 };
 
+/** Pure check — no logging. Testability export for the guard's in-process suite. */
+const runCheck = dir => checkWorktree(dir);
+
 // CLI entry — only when executed directly, never when a test imports this.
 const runCli = (argv, entry) => {
   if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
@@ -129,4 +132,12 @@ const runCli = (argv, entry) => {
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-export { checkWorktree, isInWorktreesDir, isWorktree, main, resolveTarget, runCli };
+export {
+  checkWorktree,
+  isInWorktreesDir,
+  isWorktree,
+  main,
+  resolveTarget,
+  runCheck,
+  runCli,
+};

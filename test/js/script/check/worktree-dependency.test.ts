@@ -13,7 +13,8 @@ import {
   isInWorktreesDir,
   isWorktree,
   main,
-} from "#script/check/worktree-deps.mjs";
+  runCheck,
+} from "#script/check/worktree-dependency.mjs";
 
 // A robust per-run scratch root (same as filter-source-key.test.ts).
 const TMP_BASE =
@@ -97,5 +98,60 @@ describe("main()", () => {
     const code = main(dir);
     rmSync(dir, { recursive: true, force: true });
     expect(code).toBe(0);
+  });
+});
+
+describe("checkWorktree — junction to the repo node_modules (ok branch)", () => {
+  it("accepts a junction pointing at the repo's own node_modules", () => {
+    const root = mkdtempSync(join(TMP_BASE, "worktree-deps-goodjunc-"));
+    const wtDir = join(root, ".agents", "worktrees", "wt-x");
+    mkdirSync(wtDir, { recursive: true });
+    const nmTarget = join(root, "node_modules");
+    mkdirSync(nmTarget, { recursive: true });
+    let created = false;
+    try {
+      symlinkSync(nmTarget, join(wtDir, "node_modules"), "junction");
+      created = true;
+    } catch {
+      // non-Windows: skip.
+    }
+    if (created) {
+      const result = runCheck(wtDir);
+      expect(result.ok).toBe(true);
+      expect(result.messages[0]).toMatch(/junction to/);
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("main() — worktree judgment", () => {
+  it("returns 0 for a worktree with a good junction", () => {
+    const root = mkdtempSync(join(TMP_BASE, "worktree-deps-main0-"));
+    const wtDir = join(root, ".agents", "worktrees", "wt-x");
+    mkdirSync(wtDir, { recursive: true });
+    writeFileSync(join(wtDir, ".git"), "gitdir: /x\n");
+    const nmTarget = join(root, "node_modules");
+    mkdirSync(nmTarget, { recursive: true });
+    let created = false;
+    try {
+      symlinkSync(nmTarget, join(wtDir, "node_modules"), "junction");
+      created = true;
+    } catch {
+      // non-Windows: skip.
+    }
+    if (created) {
+      expect(main(wtDir)).toBe(0);
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("returns 1 for a worktree with a real node_modules directory", () => {
+    const root = mkdtempSync(join(TMP_BASE, "worktree-deps-main1-"));
+    const wtDir = join(root, ".agents", "worktrees", "wt-x");
+    mkdirSync(wtDir, { recursive: true });
+    writeFileSync(join(wtDir, ".git"), "gitdir: /x\n");
+    mkdirSync(join(wtDir, "node_modules"), { recursive: true });
+    expect(main(wtDir)).toBe(1);
+    rmSync(root, { recursive: true, force: true });
   });
 });
