@@ -2,9 +2,9 @@
 // on the value-based fill ramp's two modes (numeric / category).
 import { describe, expect, it } from "vitest";
 import {
-  FILL_MODE,
   INTENT,
   LIVE,
+  STYLE_MODE,
   isIconIntent,
   isValueConfig,
 } from "#core/layer/intent.js";
@@ -104,9 +104,9 @@ describe("LIVE border-mode value domain", () => {
   // row falls back to the author's border rather than advertising a broken
   // provenance marker (the persistence parser has the matching null drop).
   it("accepts only the three legal border-mode literals", () => {
-    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.SOLID)).toBe(true);
-    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.VALUE)).toBe(true);
-    expect(LIVE[INTENT.BORDER_STYLE_MODE](FILL_MODE.ORIGINAL)).toBe(true);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](STYLE_MODE.SOLID)).toBe(true);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](STYLE_MODE.VALUE)).toBe(true);
+    expect(LIVE[INTENT.BORDER_STYLE_MODE](STYLE_MODE.ORIGINAL)).toBe(true);
   });
 
   it("rejects anything outside the border-mode domain", () => {
@@ -119,10 +119,10 @@ describe("LIVE border-mode value domain", () => {
     expect(LIVE[INTENT.BORDER_STYLE_MODE]({})).toBe(false);
   });
 
-  it("does not let a rejected literal through the FILL_MODE guard either", () => {
+  it("does not let a rejected literal through the STYLE_MODE guard either", () => {
     // Same closed domain for the fill mode — keep both in one place so the
     // value-domain invariant cannot drift between the two modes.
     expect(LIVE[INTENT.FILL_MODE]("ramp")).toBe(false);
-    expect(LIVE[INTENT.FILL_MODE](FILL_MODE.ORIGINAL)).toBe(true);
+    expect(LIVE[INTENT.FILL_MODE](STYLE_MODE.ORIGINAL)).toBe(true);
   });
 });

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { DIM, GEOM_TYPE } from "#core/layer/const.js";
-import { FILL_MODE, type ValueConfig } from "#core/layer/intent.js";
+import { STYLE_MODE, type ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -2652,7 +2652,7 @@ describe("follow-fill border mode", () => {
     openRow("poly1", leaves);
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     // Fill goes by-value (a state the old fallback collapsed to ORIGINAL).
-    setIntent(ui, "poly1", "fillMode", "value");
+    setIntent(ui, "poly1", "fillStyleMode", "value");
     const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
     document.body.appendChild(block2);
     const select2 = selectOf(block2);
@@ -2667,7 +2667,7 @@ describe("follow-fill border mode", () => {
     // having been applied (solid colour lands in leaf.options.fillColor).
     const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillStyleMode", "solid");
     setIntent(ui, "poly1", "fillColor", "#123456");
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     applyBorderToLayer(ui, "poly1");
@@ -2711,7 +2711,7 @@ describe("follow-fill border mode", () => {
     // extra listener, no cross-face event.
     const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillStyleMode", "solid");
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     // The user edits the fill colour through the dimension write.
     FILL_DIMENSION.write!(ui, "poly1", { color: "#abcdef" });
@@ -3048,9 +3048,9 @@ describe("border options per geometry", () => {
     registerGeometryLayer("g_line", "line");
     expectGeometryType("g_line", "line");
     expect(modeValues(openBorderRow("g_line"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.VALUE,
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
     ]);
   });
 
@@ -3058,9 +3058,9 @@ describe("border options per geometry", () => {
     registerGeometryLayer("g_polygon", "polygon");
     expectGeometryType("g_polygon", "polygon");
     expect(modeValues(openBorderRow("g_polygon"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.FOLLOW_FILL,
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.FOLLOW_FILL,
     ]);
   });
 
@@ -3068,9 +3068,9 @@ describe("border options per geometry", () => {
     registerGeometryLayer("g_point", "point");
     expectGeometryType("g_point", "point");
     expect(modeValues(openBorderRow("g_point"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.FOLLOW_FILL,
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.FOLLOW_FILL,
     ]);
   });
 
@@ -3083,21 +3083,21 @@ describe("border options per geometry", () => {
 
   it("stored by-value on a non-line reads back as original (display fallback)", () => {
     registerGeometryLayer("g_poly_fb", "polygon");
-    setIntent(ui, "g_poly_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_poly_fb", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_poly_fb", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_poly_fb"));
     expect(select).not.toBeNull();
     // The illegal stored value must never surface as a selected "value".
-    expect(select!.value).toBe(FILL_MODE.ORIGINAL);
+    expect(select!.value).toBe(STYLE_MODE.ORIGINAL);
   });
 
   it("stored by-value on a line stays value (guard against always-original fallback)", () => {
     registerGeometryLayer("g_line_fb", "line");
-    setIntent(ui, "g_line_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_line_fb", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_line_fb", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_line_fb"));
     expect(select).not.toBeNull();
-    expect(select!.value).toBe(FILL_MODE.VALUE);
+    expect(select!.value).toBe(STYLE_MODE.VALUE);
   });
 
   it("guard 1: the option set is asserted exactly, so an extra illegal option fails", () => {
@@ -3108,11 +3108,11 @@ describe("border options per geometry", () => {
     // that containment would NOT catch the extra.
     registerGeometryLayer("g_guard1", "polygon");
     const actual = modeValues(openBorderRow("g_guard1"));
-    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
+    const contract = [STYLE_MODE.ORIGINAL, STYLE_MODE.SOLID, STYLE_MODE.FOLLOW_FILL];
     expect(actual).toEqual(contract);
     // The negative property: adding the illegal option to the contract must NOT
     // equal the actual set — this is what makes the matrix red on an extra.
-    const illegal = [...contract, FILL_MODE.VALUE];
+    const illegal = [...contract, STYLE_MODE.VALUE];
     expect(actual).not.toEqual(illegal);
   });
 
@@ -3121,10 +3121,10 @@ describe("border options per geometry", () => {
     // line-with-stored-value test above would fail. This test restates that
     // dependency as a direct invariant so the guard has its own name.
     registerGeometryLayer("g_guard2", "line");
-    setIntent(ui, "g_guard2", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_guard2", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_guard2", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_guard2"));
     expect(select).not.toBeNull();
-    expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
+    expect(select!.value).not.toBe(STYLE_MODE.ORIGINAL);
   });
 });

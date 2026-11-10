@@ -12,7 +12,7 @@ import { check, classifyLine, inventory } from "#script/check/style-mode-usage.m
 // grouping, the --json shape, and the --check assertion.
 
 /** Build a synthetic repo root with a single source file. */
-const synth = (rel, content) => {
+const synth = (rel: string, content: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "style-mode-"));
   mkdirSync(join(dir, "foliplus", "js"), { recursive: true });
   // Handle nested rel under foliplus/js.
@@ -34,7 +34,9 @@ describe("style-mode-usage inventory", () => {
   });
 
   it("classifies a comment mention (line comment)", () => {
-    const { kinds } = classifyLine("// FILL_MODE is the fill vocabulary", false);
+    const { kinds } = classifyLine("// FILL_MODE is the fill vocabulary", false) as {
+      kinds: string[];
+    };
     expect(kinds).toEqual(["comment"]);
   });
 
@@ -43,7 +45,7 @@ describe("style-mode-usage inventory", () => {
     const { kinds } = classifyLine(
       " *  FillMode is reused as the stroke vocabulary",
       true,
-    );
+    ) as { kinds: string[] };
     expect(kinds).toEqual(["comment"]);
     // And the state is not accidentally flipped.
     expect(true).toBe(true);
@@ -95,7 +97,7 @@ describe("style-mode-usage inventory", () => {
       "core/layer/intent.ts",
       "if (m === FILL_MODE.VALUE) {}\nconst f = (m: FillMode) => m;\n",
     );
-    const { failing } = check(dir);
+    const { failing } = check(dir) as unknown as { failing: boolean };
     rmSync(dir, { recursive: true, force: true });
     expect(failing).toBe(true);
   });
@@ -105,7 +107,7 @@ describe("style-mode-usage inventory", () => {
       "core/layer/intent.ts",
       'const STYLE_MODE = { SOLID: "solid" };\n// FILL_MODE comment stays\n',
     );
-    const { failing } = check(dir);
+    const { failing } = check(dir) as unknown as { failing: boolean };
     rmSync(dir, { recursive: true, force: true });
     expect(failing).toBe(false);
   });

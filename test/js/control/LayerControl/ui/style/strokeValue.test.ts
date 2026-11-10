@@ -7,7 +7,7 @@
 // this slice adds no persistence or intent-key edits.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
-import type { FillMode, ValueConfig } from "#core/layer/intent.js";
+import type { StyleMode, ValueConfig } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES } from "#core/palette.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import {
@@ -105,7 +105,7 @@ const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
 });
 
 const liveValueOf = (ramp: ValueConfig | undefined) => () => ramp;
-const liveModeOf = (mode: FillMode | undefined) => () => mode;
+const liveModeOf = (mode: StyleMode | undefined) => () => mode;
 
 describe("resolveStrokeMode", () => {
   it("prefers an explicit mode over a stored ramp", () => {

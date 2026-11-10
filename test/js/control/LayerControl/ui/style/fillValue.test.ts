@@ -24,7 +24,7 @@ vi.mock("#control/LayerControl/ui/intent.js", () => ({
   INTENT: {
     FILL_VALUE: "fillValue",
     FILL_OPACITY: "fillOpacity",
-    FILL_MODE: "fillMode",
+    FILL_MODE: "fillStyleMode",
   },
   getIntent: (ui: unknown, id: unknown, key: string) => mockGetIntent(ui, id, key),
 }));
@@ -654,7 +654,7 @@ describe("applyValueFill", () => {
     const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
     applyValueFill(makeUI(layer), "overlay1", ramp);
 
-    intentValues = { fillValue: ramp, fillMode: "solid" };
+    intentValues = { fillValue: ramp, fillStyleMode: "solid" };
     expect(pinGetterOf()()).toBeNull();
 
     intentValues = { fillValue: ramp };
@@ -981,7 +981,7 @@ describe("resolveFillMode", () => {
   });
 
   it("prefers a stored fillMode over the value-based inference", () => {
-    intentValues = { fillMode: "original" };
+    intentValues = { fillStyleMode: "original" };
     expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("original");
   });
 });

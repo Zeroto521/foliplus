@@ -48,7 +48,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The identifiers this inventory tracks (the vocabulary being migrated away). */
-const WORD = /\bFILL_MODE\b|\bFillMode\b/;
+const WORD = /(?<![.\w])FILL_MODE\b|\bFillMode\b/;
 
 /** Files where the border face consumes the fill vocabulary (the overflow). */
 const BORDER_FILES = new Set([
@@ -92,7 +92,7 @@ const walk = (dir, out = []) => {
  * Block-comment state is tracked across lines (a multi-line JSDoc is not code).
  * @param line source line
  * @param inBlock whether the line starts inside a block comment (between a slash-star pair)
- * @returns { kinds: string[], inBlock: boolean }
+ * @returns {{kinds: string[], inBlock: boolean}}
  */
 const classifyLine = (line, inBlock) => {
   let codePart = line;
@@ -132,7 +132,7 @@ const classifyLine = (line, inBlock) => {
     codePart = codePart.slice(0, block) + codePart.slice(end + 2);
     i = block;
   }
-  if (new RegExp(WORD.source).test(codePart)) {
+  if (new RegExp(WORD.source).test(codePart.replace(/\bFILL_MODE\s*:/g, ""))) {
     if (/\bFILL_MODE\s*\./.test(codePart) || /\bFILL_MODE\b/.test(codePart)) {
       if (/type\s+FillMode\b/.test(codePart)) kinds.push("type");
       else if (

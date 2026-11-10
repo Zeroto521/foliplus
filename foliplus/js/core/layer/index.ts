@@ -116,7 +116,7 @@ export {
   storeFilter,
 } from "./filter.js";
 export {
-  FILL_MODE,
+  STYLE_MODE,
   ICON_KIND,
   INTENT,
   isValueConfig,
@@ -148,7 +148,7 @@ export type {
 } from "./filterFeature.js";
 export type { Projection } from "./type.js";
 export type {
-  FillMode,
+  StyleMode,
   LabelConfig,
   ValueConfig,
   IconIntent,

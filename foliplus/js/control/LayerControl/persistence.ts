@@ -6,8 +6,8 @@ import type {
   PersistedLayerState,
 } from "./type.js";
 import {
-  FILL_MODE,
   type FolderOrder,
+  STYLE_MODE,
   type ValueConfig,
   isIconIntent,
   isValueConfig,
@@ -176,21 +176,28 @@ const PARSE_OVERRIDE: Record<
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
   fillValue: data => parseFillValue(data.fillValue),
-  fillMode: data =>
-    data.fillMode === FILL_MODE.SOLID ||
-    data.fillMode === FILL_MODE.VALUE ||
-    data.fillMode === FILL_MODE.ORIGINAL
-      ? data.fillMode
-      : null,
+  fillStyleMode: data => {
+    // One-way key migration (fillMode → fillStyleMode): read the NEW key
+    // when present, else adopt the OLD key value — a record written
+    // before the rename still reads as the active style mode. The new key
+    // wins when both exist (a record mid-migration is already on the new
+    // shape). The value vocabulary is unchanged, so no literal remap.
+    const mode = data.fillStyleMode ?? data.fillMode;
+    return mode === STYLE_MODE.SOLID ||
+      mode === STYLE_MODE.VALUE ||
+      mode === STYLE_MODE.ORIGINAL
+      ? mode
+      : null;
+  },
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
   borderValue: data => parseFillValue(data.borderValue),
   borderStyleMode: data =>
-    data.borderStyleMode === FILL_MODE.SOLID ||
-    data.borderStyleMode === FILL_MODE.VALUE ||
-    data.borderStyleMode === FILL_MODE.ORIGINAL ||
-    data.borderStyleMode === FILL_MODE.FOLLOW_FILL
+    data.borderStyleMode === STYLE_MODE.SOLID ||
+    data.borderStyleMode === STYLE_MODE.VALUE ||
+    data.borderStyleMode === STYLE_MODE.ORIGINAL ||
+    data.borderStyleMode === STYLE_MODE.FOLLOW_FILL
       ? data.borderStyleMode
       : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
@@ -251,8 +258,17 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const data = asObject(raw);
   if (!data) return null;
   const declaredRaw = data.overrides;
+  // One-way key migration: an old record's provenance marker spells the old
+  // key ("fillMode"); the vocabulary now spells it "fillStyleMode", so the
+  // marker is re-mapped before the declared-override filter (marker follows
+  // key). The migration is version-agnostic — it applies whenever the old
+  // marker is present, old version or not.
   const declared = Array.isArray(declaredRaw)
-    ? OVERRIDE_VALUES.filter(override => declaredRaw.includes(override))
+    ? OVERRIDE_VALUES.filter(override =>
+        declaredRaw
+          .map((m: unknown) => (m === "fillMode" ? "fillStyleMode" : m))
+          .includes(override),
+      )
     : [];
   const out: PersistedLayerState = { overrides: [] };
   for (const override of declared) {

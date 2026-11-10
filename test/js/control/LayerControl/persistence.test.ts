@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FILL_MODE, isValueConfig } from "#core/layer/intent.js";
+import { STYLE_MODE, isValueConfig } from "#core/layer/intent.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerPersistence, RECORD_VERSION } from "#control/LayerControl/persistence.js";
@@ -441,8 +441,8 @@ describe("LayerPersistence", () => {
     });
   });
 
-  describe("fillValue / fillMode", () => {
-    it("rejects the pre-rename fillMode literal (no compatibility migration)", () => {
+  describe("fillValue / fillStyleMode", () => {
+    it("rejects the pre-rename fillStyleMode literal (no compatibility migration)", () => {
       // The stored mode spelling changed ("ramp" → "value"), but the lead
       // chose to drop the migration branch entirely: a pre-rename record
       // reads with the mode treated as absent (no mode claim), and the value
@@ -451,14 +451,14 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillMode: "ramp",
+            fillStyleMode: "ramp",
             fillValue: {
               field: "price",
               method: "quantile",
               classes: 5,
               scheme: "Reds",
             },
-            overrides: ["fillValue", "fillMode"],
+            overrides: ["fillValue", "fillStyleMode"],
           },
         },
       });
@@ -483,19 +483,19 @@ describe("LayerPersistence", () => {
       for (const mode of ["solid", "value"] as const) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillMode: mode, overrides: ["fillMode"] } },
+          layers: { a: { fillStyleMode: mode, overrides: ["fillStyleMode"] } },
         });
         expect(makePersistence().load().layers.a).toEqual({
-          fillMode: mode,
-          overrides: ["fillMode"],
+          fillStyleMode: mode,
+          overrides: ["fillStyleMode"],
         });
       }
     });
 
-    it("rejects a pre-rename mode literal on a bare fillMode record", () => {
+    it("rejects a pre-rename mode literal on a bare fillStyleMode record", () => {
       seedStorage({
         version: RECORD_VERSION,
-        layers: { a: { fillMode: "ramp", overrides: ["fillMode"] } },
+        layers: { a: { fillStyleMode: "ramp", overrides: ["fillStyleMode"] } },
       });
       // The renamed "value" is the only value-mode literal now; "ramp" reads
       // as an invalid mode (absent), so the record keeps no mode claim.
@@ -511,10 +511,10 @@ describe("LayerPersistence", () => {
       // faked by some branch re-stamping "ramp" elsewhere in the record.
       seedStorage({
         version: RECORD_VERSION,
-        layers: { a: { fillMode: "value", overrides: ["fillMode"] } },
+        layers: { a: { fillStyleMode: "value", overrides: ["fillStyleMode"] } },
       });
       const loaded = makePersistence().load();
-      expect(loaded.layers.a?.fillMode).toBe("value");
+      expect(loaded.layers.a?.fillStyleMode).toBe("value");
 
       vi.useFakeTimers();
       const save = spySave();
@@ -522,7 +522,7 @@ describe("LayerPersistence", () => {
       p.schedule({ layers: () => loaded.layers as never });
       p.flushAll();
 
-      expect(lastRecord(save).layers.a?.fillMode).toBe("value");
+      expect(lastRecord(save).layers.a?.fillStyleMode).toBe("value");
       expect(JSON.stringify(lastRecord(save))).not.toContain('"ramp"');
       save.mockRestore();
       vi.useRealTimers();
@@ -726,7 +726,7 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("drops a fillMode that is not one of the three literals", () => {
+    it("drops a fillStyleMode that is not one of the three literals", () => {
       for (const bad of [
         "RAMP",
         "linear",
@@ -741,7 +741,7 @@ describe("LayerPersistence", () => {
       ]) {
         seedStorage({
           version: RECORD_VERSION,
-          layers: { a: { fillMode: bad, overrides: ["fillMode"] } },
+          layers: { a: { fillStyleMode: bad, overrides: ["fillStyleMode"] } },
         });
         expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
       }
@@ -750,11 +750,11 @@ describe("LayerPersistence", () => {
     it("keeps the original-colors mode as a stored choice", () => {
       seedStorage({
         version: RECORD_VERSION,
-        layers: { a: { fillMode: "original", overrides: ["fillMode"] } },
+        layers: { a: { fillStyleMode: "original", overrides: ["fillStyleMode"] } },
       });
       expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "original",
-        overrides: ["fillMode"],
+        fillStyleMode: "original",
+        overrides: ["fillStyleMode"],
       });
     });
 
@@ -763,19 +763,19 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         layers: {
           a: {
-            fillMode: "value",
+            fillStyleMode: "value",
             fillValue: { field: "", method: "equal", classes: 3, scheme: "Reds" },
             fillOpacity: 0.5,
-            overrides: ["fillMode", "fillValue", "fillOpacity"],
+            overrides: ["fillStyleMode", "fillValue", "fillOpacity"],
           },
         },
       });
       // Only the provenance markers whose value survives are kept, in the
       // declaration order of PARSE_OVERRIDE.
       expect(makePersistence().load().layers.a).toEqual({
-        fillMode: "value",
+        fillStyleMode: "value",
         fillOpacity: 0.5,
-        overrides: ["fillOpacity", "fillMode"],
+        overrides: ["fillOpacity", "fillStyleMode"],
       });
     });
   });
@@ -1657,9 +1657,9 @@ describe("borderStyleMode value domain", () => {
   // cannot leak a broken border mode through provenance.
   it("accepts solid / value / original borderStyleMode literals", () => {
     for (const mode of [
-      FILL_MODE.SOLID,
-      FILL_MODE.VALUE,
-      FILL_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
+      STYLE_MODE.ORIGINAL,
     ] as const) {
       seedStorage({
         version: RECORD_VERSION,
@@ -1675,7 +1675,7 @@ describe("borderStyleMode value domain", () => {
   it("drops a borderStyleMode outside the domain rather than leaking it", () => {
     // The parser returns null for a bad literal and the marker is dropped
     // with it; with only that marker invalid the layer has no overrides and
-    // reads absent — same contract as the fillMode "ramp" case.
+    // reads absent — same contract as the fillStyleMode "ramp" case.
     seedStorage({
       version: RECORD_VERSION,
       layers: { a: { borderStyleMode: "ramp", overrides: ["borderStyleMode"] } },
