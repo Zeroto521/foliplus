@@ -282,6 +282,14 @@ describe("buildMarkerColorRow", () => {
       ),
     ).toBe(true);
   });
+  it("row is null when the layer is registered but not findable (findLayer null)", () => {
+    // The gate passes (registry has the layer + a NATIVE surface) but the
+    // layer object itself is unresolved — findLayer returns null. The row
+    // must be null, never a half-built picker.
+    const spy = vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
+    expect(buildMarkerColorRow(ui, "overlay1")).toBeNull();
+    spy.mockRestore();
+  });
 
   it("returns null for an <img>-based icon (capability gate negative)", () => {
     const img = makeMarker({ type: "school" }, makeImgAuthor());
@@ -423,6 +431,43 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 
+  it("reset with no author chassis, no glyph and no color skips the re-apply (both false arms)", () => {
+    // Neither a user glyph nor a user icon color: the else arm restores the
+    // author icon and the guard is false — nothing is re-applied.
+    const plainAuthor = makePlainDivIconAuthor();
+    const plainMarker = makeMarker({ type: "school" }, plainAuthor);
+    ({ manager, ui } = fixtureWithMarkers([plainMarker]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+    commitMarkerColor(ui, "overlay1", "red");
+    flushMarkerColor("overlay1");
+    resetLayerMarkerColor(ui, "overlay1");
+    flushMarkerColor("overlay1");
+    // The author icon is restored untouched (no re-apply).
+    expect(plainMarker.options.icon).toBe(plainAuthor);
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+  });
+
+  it("reset with no author chassis and a glyph but no icon color keeps the glyph on blue", () => {
+    // A user glyph with NO user icon color: the guard is true via the glyph,
+    // and the re-apply passes undefined color (ternary false arm).
+    const plainAuthor = makePlainDivIconAuthor();
+    const plainMarker = makeMarker({ type: "school" }, plainAuthor);
+    ({ manager, ui } = fixtureWithMarkers([plainMarker]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON, { kind: "glyph", value: "star" }],
+      [INTENT.MARKER_COLOR, "red"],
+    ]);
+    commitMarkerColor(ui, "overlay1", "red");
+    flushMarkerColor("overlay1");
+    resetLayerMarkerColor(ui, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = plainMarker.options.icon.createIcon();
+    expect(div.className).toContain("plain-div-icon");
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+  });
+
   it("reset preserves a user-set glyph (orthogonal)", () => {
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON, { kind: "glyph", value: "star" }],
@@ -476,6 +521,9 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     // through the same build, keeping the author's chassis class and swapping
     // the glyph. The else arm must not throw and must clear the intent.
     expect(div.className).toContain("plain-div-icon");
+    // The else arm must have re-derived a NEW icon (not the restored author)
+    // — proving applyMarkerColorToLeaves ran on the default blue chassis.
+    expect(plainMarker.options.icon).not.toBe(plainAuthor);
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 

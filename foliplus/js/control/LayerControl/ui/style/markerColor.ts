@@ -47,9 +47,7 @@ const layerCanMarkerColor = (ui: LayerUI, layerId: string): boolean => {
 /** The author's own chassis color when the layer's marker icon declares one
  *  (awesome-markers sets `options.markerColor` on the icon — the preset enum
  *  name the sprite class is built from). */
-const authorMarkerColor = (ui: LayerUI, layerId: string): string | null => {
-  const layer = ui.c.findLayer(layerId);
-  if (!layer) return null;
+const authorMarkerColor = (layer: unknown): string | null => {
   let found: string | null = null;
   (
     layer as unknown as { eachLayer?: (fn: (leaf: unknown) => void) => void }
@@ -109,7 +107,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   const iconColor = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  const authorColor = authorMarkerColor(ui, layerId);
+  const authorColor = authorMarkerColor(layer);
   if (authorColor) {
     applyMarkerColorToLeaves(
       layer,
@@ -135,8 +133,10 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
 /** Build the marker-color row: a preset select. */
 const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!layerCanMarkerColor(ui, layerId)) return null;
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return null;
   const current = getIntent(ui, layerId, INTENT.MARKER_COLOR);
-  const authorColor = authorMarkerColor(ui, layerId);
+  const authorColor = authorMarkerColor(layer);
   const value = typeof current === "string" ? current : (authorColor ?? "blue");
   const select = selectInput({
     value,
