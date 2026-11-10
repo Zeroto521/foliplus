@@ -1836,7 +1836,20 @@ class LayerController implements LayerAPI {
       range: features.ranges[field],
       step: filterStep(features.ranges[field]),
     }));
-    return { dimensions, filter, kept, total: features.total };
+    // Field picker (D5): the panel offers every numeric field and switches
+    // through onField. The active field is NOT stored — the committed atom
+    // reports it (D8), so no extra persistent key.
+    const fields = features.numericFields.map(field => ({
+      value: field,
+      label: field,
+      numeric: true,
+    }));
+    const onField = (_field: string): void => {
+      // Clear the old field's atom so the panel re-derives from the new
+      // dimension's full range. setLayerFilter is the single write-through.
+      this.setLayerFilter(id, undefined);
+    };
+    return { dimensions, filter, kept, total: features.total, fields, onField };
   }
 
   /** The generic filter's write-through: store the filter, compute the hidden

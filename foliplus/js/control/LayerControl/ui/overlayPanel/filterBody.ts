@@ -18,11 +18,13 @@ import type {
 } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import {
+  type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
   PANEL_CLASS,
   Slider,
   createDropdown,
+  selectInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -32,6 +34,8 @@ import * as CONST from "#control/LayerControl/const.js";
 type FilterBodyDeps = {
   T: (key: string) => string;
   write: (filter: LayerFilter | undefined) => void;
+  /** Field-switch write channel (present only when the model offers fields). */
+  selectField: (field: string) => void;
   formatCount: (n: number) => string;
   formatValue: (n: number) => string;
   surface: DropdownSurface;
@@ -111,10 +115,32 @@ const renderRangeBody = (
 ): FilterBody => {
   // The field row always renders: the panel labels it and the read-only cell
   // shows the field the owner chose.
-  const fieldRow = buildDimensionRow(
-    deps.T("filter_field"),
-    readOnlyField(dim.field),
-  ).row;
+  // The field row always renders. A model that offers fields gets a picker
+  // (select + shared dropdown, the style panel's field-row recipe); the
+  // read-only cell is the fallback for owners that do not (Heatmap, Measure),
+  // so their row is byte-identical to today.
+  const fields = model.fields ?? null;
+  let fieldDropdown: Dropdown | undefined;
+  const fieldControl = fields
+    ? (() => {
+        const select = selectInput({
+          ariaLabel: deps.T("filter_field"),
+          value: fields.some(f => f.value === dim.field)
+            ? dim.field
+            : (fields[0]?.value ?? ""),
+          options: fields.map(f => ({ value: f.value, label: f.label })),
+        });
+        select.onchange = () => deps.selectField(select.value);
+        fieldDropdown = createDropdown({
+          nativeSelect: select,
+          ariaLabel: deps.T("filter_field"),
+          ...deps.surface,
+          overlay: deps.overlay,
+        });
+        return fieldDropdown.element;
+      })()
+    : readOnlyField(dim.field);
+  const fieldRow = buildDimensionRow(deps.T("filter_field"), fieldControl).row;
   // The condition row uses the same shared "Range" wording on both branches.
   const conditionLabel = deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
@@ -164,7 +190,10 @@ const renderRangeBody = (
     root,
     dimension: dim,
     sync,
-    destroy: () => slider.destroy(),
+    destroy: () => {
+      fieldDropdown?.destroy();
+      slider.destroy();
+    },
   };
 };
 

@@ -314,6 +314,127 @@ describe("LayerUI filter panel", () => {
       expect(result!.getAttribute("aria-live")).toBe("polite");
     });
 
+    describe("field picker (multi-field owner)", () => {
+      /** A generic owner that offers two numeric fields, so the range body
+       *  renders a picker instead of the read-only cell. The committed filter
+       *  is the only state; onField clears it (the controller contract). */
+      const makeMultiFieldOwner = () => {
+        let filter: LayerFilter | undefined;
+        return {
+          filterProvider: (): LayerFilterModel => ({
+            dimensions: [
+              {
+                kind: "range",
+                field: "mag",
+                range: [0, 10] as [number, number],
+                step: 1,
+              },
+              {
+                kind: "range",
+                field: "depth",
+                range: [0, 100] as [number, number],
+                step: 5,
+              },
+            ],
+            filter,
+            kept: filter ? 3 : 10,
+            total: 10,
+            fields: [
+              { value: "mag", label: "mag", numeric: true },
+              { value: "depth", label: "depth", numeric: true },
+            ],
+            onField: () => {
+              filter = undefined;
+            },
+          }),
+          filterSetter: (f: LayerFilter) => {
+            filter = f;
+          },
+          get filter() {
+            return filter;
+          },
+        };
+      };
+
+      it("renders a field dropdown when the model offers fields", () => {
+        const owner = makeMultiFieldOwner();
+        registerPoints();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const fieldRow = panel
+          .querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)!
+          .closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+        // A picker replaces the read-only cell: a native select bridged by the
+        // shared dropdown, defaulted to the first field (D8: nothing committed).
+        const select = fieldRow.querySelector("select") as HTMLSelectElement;
+        expect(select).not.toBeNull();
+        expect(select.value).toBe("mag");
+        expect(Array.from(select.options).map(o => o.value)).toEqual(["mag", "depth"]);
+      });
+
+      it("switching fields clears the old filter and rebuilds for the new field", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        // Commit a mag-range write, then switch to depth: the old atom is
+        // cleared (D5) and the body rebuilds on the depth dimension extent.
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        // Commit a mag-range atom directly through the owner capability (the
+        // slider drag needs a real pointer; the switch path is what we test).
+        owner.filterSetter({
+          kind: "atom",
+          field: "mag",
+          op: "between",
+          range: [2, 8],
+        });
+        expect(owner.filter).toBeDefined();
+
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        expect(owner.filter).toBeUndefined();
+        const rebuilt = panel.querySelector(
+          `.${CONST.CLASSES.FILTER_SLIDER}`,
+        ) as HTMLElement;
+        const rt = rebuilt.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
+        expect(rt[0].getAttribute("aria-valuenow")).toBe("0");
+        expect(rt[1].getAttribute("aria-valuenow")).toBe("100");
+      });
+
+      it("keeps the read-only field cell for owners without fields (zero change)", () => {
+        // Counter-guard: a Heatmap/Measure owner (no fields) renders the
+        // read-only cell, never a select — the regression the field picker
+        // must not disturb.
+        registerPoints();
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const fieldRow = panel
+          .querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)!
+          .closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+        expect(fieldRow.querySelector("select")).toBeNull();
+        expect(fieldRow.textContent).toContain("magnitude");
+      });
+    });
+
     it("names the range group with the shared condition caption", () => {
       // Both branches expose the condition caption as the control's accessible
       // name: here the dual-thumb slider host is a named group, and the enum
