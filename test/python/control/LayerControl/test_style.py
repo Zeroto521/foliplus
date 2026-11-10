@@ -763,6 +763,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     f"solid width did not reach the map: {solid}"
                 )
 
+            # Let the solid write's debounce land before the next call reads
+            # storage (the record is written 100ms after the last input event).
+            page.wait_for_timeout(300)
+
             # Back to ORIGINAL: the author's colour returns, the user's width
             # stays, the swatch is read-only again.
             restored = page.evaluate(
@@ -772,19 +776,32 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert restored["mode"] == "original", restored
             assert restored["colorInput"]["readOnly"] is True, restored
             assert restored["colorInput"]["disabled"] is True, restored
-            for stroke in restored["strokes"]:
+
+            # Let the restored mode write's debounce land, then read the
+            # record fresh — the storage snapshot inside the restored call was
+            # taken before its own 100ms debounce had fired. The repaint from
+            # the mode change also lands on the frame clock (throttleRaf), so
+            # assert the computed style only after this wait let the frame fire.
+            page.wait_for_timeout(300)
+            final = page.evaluate(
+                _js("LayerControl/border_original_roundtrip"), ["Polygon data"]
+            )
+
+            # The author's colour must be back and the user's width must ride
+            # both modes.
+            for stroke in final["strokes"]:
                 assert stroke["stroke"] == "rgb(0, 0, 255)", (
-                    f"author stroke not restored after round trip: {restored}"
+                    f"author stroke not restored after round trip: {final}"
                 )
                 assert stroke["strokeWidth"] == "6px", (
-                    f"user width lost after round trip: {restored}"
+                    f"user width lost after round trip: {final}"
                 )
 
             # The stored record keeps the user's colour for the next solid
             # visit — ORIGINAL does not erase it.
-            key = next(k for k in restored["storage"] if "layer_state" in k)
-            record = json.loads(restored["storage"][key])
-            entry = record["layers"].get(restored["id"])
+            key = next(k for k in final["storage"] if "layer_state" in k)
+            record = json.loads(final["storage"][key])
+            entry = record["layers"].get(final["id"])
             assert entry, f"border state never persisted: {record}"
             assert entry["borderStyleMode"] == "original", (
                 f"stored the wrong mode: {entry}"
