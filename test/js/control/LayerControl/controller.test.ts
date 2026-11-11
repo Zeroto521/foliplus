@@ -6763,4 +6763,32 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.options[0]).toEqual({ value: "v0", label: "v0" });
     expect(dim.options[49]).toEqual({ value: "v49", label: "v49" });
   });
+
+  it("tolerates an enum field whose value table is missing (corrupt store) without throwing", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: {},
+        total: 3,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    const dim = model!.dimensions[0] as any;
+    expect(dim.kind).toBe("enum");
+    expect(dim.options).toEqual([]);
+    expect(dim.truncated).toBe(false);
+  });
 });
