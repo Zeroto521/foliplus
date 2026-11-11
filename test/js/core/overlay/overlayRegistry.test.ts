@@ -2,7 +2,7 @@ import type * as L from "leaflet";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_DISMISS, type Dismiss } from "#core/leaflet/panelController.js";
+import { DEFAULT_DISMISS, type Dismiss } from "#core/leaflet/index.js";
 import {
   ESC_PRIORITY,
   type EscapeHandled,
