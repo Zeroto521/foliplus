@@ -135,10 +135,12 @@ repos:
       # vocabulary; a bare FILL_MODE/FillMode reference outside intent.ts's own
       # definition is a drift the record would silently misread. This is the
       # same guard `npm run guard:style-mode` runs; pre-commit is a second,
-      # cheaper gate for the editor loop. language: system because the guard is
-      # a node script (no python). Check-only — fix the reference in the editor.
+      # cheaper gate for the editor loop. language: node because the guard is a
+      # node script (pre-commit provisions the node runtime; the pre-commit.ci
+      # container has no system node). Check-only — fix the reference in the
+      # editor.
       - id: style-mode-usage
         name: style-mode-usage
         entry: node script/check/style-mode-usage.mjs --check
-        language: system
+        language: node
         pass_filenames: false

@@ -381,5 +381,6 @@ describe("style-mode-usage guard wiring", () => {
     const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
     expect(pre).toMatch(/id: style-mode-usage/);
     expect(pre).toMatch(/entry: node script\/check\/style-mode-usage\.mjs --check/);
+    expect(pre).toMatch(/language: node/);
   });
 });
