@@ -128,4 +128,63 @@ describe("control inset single source", () => {
     expect(process.exitCode).toBe(42);
     process.exitCode = prev;
   });
+
+  it("flags a second token consumer (token appears twice)", () => {
+    const dir = makeRepo(`.foliplus-input-skin {
+  padding: 0 var(--foliplus-ctrl-inset-x);
+}
+.foliplus-form-select {
+  padding: 0 var(--foliplus-ctrl-inset-x);
+}
+`);
+    const hits = findControlInsetViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(2);
+    expect(hits[0].text).toMatch(/expected exactly one consumer/);
+  });
+
+  it("flags the single token consumer being on a non-skin rule", () => {
+    const dir = makeRepo(`.foliplus-form-select {
+  padding: 0 var(--foliplus-ctrl-inset-x);
+}
+`);
+    const hits = findControlInsetViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(1);
+    expect(hits[0].text).toMatch(/other than .foliplus-input-skin/);
+  });
+
+  it("runCli drives the violating main path (prints the violation)", () => {
+    const prev = process.exitCode;
+    process.exitCode = 0;
+    const dir = makeRepo(`.foliplus-input-skin {
+  padding: 0 var(--foliplus-ctrl-inset-x);
+}
+.foliplus-form-select {
+  padding-right: var(--foliplus-space-xxl);
+  padding-left: var(--foliplus-space-md);
+}
+`);
+    runCli([dir], __entryUrl);
+    expect(process.exitCode).toBe(1);
+    process.exitCode = prev;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("ignores CSS comments when scanning rules", () => {
+    const dir = makeRepo(`/* header comment */
+.foliplus-input-skin {
+  /* inline comment */
+  padding: 0 var(--foliplus-ctrl-inset-x);
+}
+/* multi
+   line comment */
+.foliplus-form-select {
+  padding-right: var(--foliplus-space-xxl);
+}
+`);
+    const hits = findControlInsetViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits).toEqual([]);
+  });
 });
