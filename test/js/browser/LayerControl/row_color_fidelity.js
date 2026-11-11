@@ -6,7 +6,7 @@
 //
 // Returns:
 //   iconColorRow: { present, value }   — color input value (or null)
-//   markerColorRow: { present, value } — native select value (or null)
+//   markerColorRow: { present, value } — color input value (or null)
 //   marker: { cls, innerColor, innerCls, hasChassis } — first marker element
 async () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
@@ -19,11 +19,11 @@ async () => {
     ? { present: true, value: colorInput ? colorInput.value : null }
     : { present: false, value: null };
 
-  // Marker color row: a native select inside .foliplus-style-marker-color-row.
+  // Marker color row: a color input inside .foliplus-style-marker-color-row.
   const mcRow = panel.querySelector(".foliplus-style-marker-color-row");
-  const select = mcRow?.querySelector("select");
+  const mcInput = mcRow?.querySelector("input[type=color]");
   const markerColorRow = mcRow
-    ? { present: true, value: select ? select.value : null }
+    ? { present: true, value: mcInput ? mcInput.value : null }
     : { present: false, value: null };
 
   // First real marker element (awesome-markers chassis or default div icon).
@@ -41,6 +41,8 @@ async () => {
     markerInfo = {
       cls: marker.className,
       hasChassis: /awesome-marker-icon-/.test(marker.className),
+      preset: marker.className.match(/awesome-marker-icon-([a-z]+)/)?.[1] ?? null,
+      bgColor: getComputedStyle(marker).backgroundColor,
       innerCls: inner ? inner.className : null,
       innerColor: inner ? getComputedStyle(inner).color : null,
       html: marker.innerHTML,

@@ -128,7 +128,10 @@ class TestRowColorFidelityBrowser(LayerControlBrowserBase):
         )
         assert r["panel"], r
         assert r["markerColorRow"]["present"], r
-        assert r["markerColorRow"]["value"] == "green", r
+        assert r["markerColorRow"]["value"].lower() == "#72b026", {
+            "rowValue": r["markerColorRow"]["value"],
+            "preset": r["marker"]["preset"] if r["marker"] else None,
+        }
         assert r["marker"] is not None and r["marker"]["hasChassis"], r
         assert "awesome-marker-icon-green" in r["marker"]["cls"], r
         assert not errors, errors
@@ -141,7 +144,10 @@ class TestRowColorFidelityBrowser(LayerControlBrowserBase):
         assert r["panel"], r
         assert r["markerColorRow"]["present"], r
         # The row must read the nested purple, not the blue fallback.
-        assert r["markerColorRow"]["value"] == "purple", r
+        assert r["markerColorRow"]["value"].lower() == "#d252b9", {
+            "rowValue": r["markerColorRow"]["value"],
+            "preset": r["marker"]["preset"] if r["marker"] else None,
+        }
         # The map paints the nested marker's real chassis.
         assert r["marker"] is not None and r["marker"]["hasChassis"], r
         assert "awesome-marker-icon-purple" in r["marker"]["cls"], r
@@ -154,7 +160,10 @@ class TestRowColorFidelityBrowser(LayerControlBrowserBase):
         )
         assert r["panel"], r
         assert r["markerColorRow"]["present"], r
-        assert r["markerColorRow"]["value"] == "blue", r
+        assert r["markerColorRow"]["value"].lower() == "#38aadd", {
+            "rowValue": r["markerColorRow"]["value"],
+            "preset": r["marker"]["preset"] if r["marker"] else None,
+        }
         assert (
             r["marker"] is not None and "awesome-marker-icon-blue" in r["marker"]["cls"]
         ), r
