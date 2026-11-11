@@ -63,7 +63,7 @@ arg => {
     document.body.appendChild(probeEl);
     const resolved = getComputedStyle(probeEl).paddingLeft;
     probeEl.remove();
-    return resolved;
+    return parseFloat(resolved) || 0;
   })();
 
   return {
