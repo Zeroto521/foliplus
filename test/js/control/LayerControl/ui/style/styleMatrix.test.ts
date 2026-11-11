@@ -160,6 +160,21 @@ describe("style matrix — offeredModes conditions (guard 1b)", () => {
       row.modes,
     );
   });
+
+  it("fill: a missing flag falls back to false and gates its mode", () => {
+    // The flags object may omit a key entirely (consumer passes only what it
+    // knows). The ?? false fallback must gate that condition's mode, and a
+    // partial flags object must leave the untouched mode alone.
+    const row = matrixRows(GEOM_TYPE.POLYGON, DIM.FILL)[0];
+    // No keys at all: both conditions gate, only SOLID survives.
+    expect(offeredModes(row, {})).toEqual([STYLE_MODE.SOLID]);
+    // Only hasValueField given: perFeature is undefined -> ORIGINAL drops,
+    // hasValueField true -> VALUE stays.
+    expect(offeredModes(row, { hasValueField: true })).toEqual([
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
+    ]);
+  });
 });
 
 describe("style matrix — capability gate consistency (guard 2)", () => {
