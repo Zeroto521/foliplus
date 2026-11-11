@@ -128,6 +128,43 @@ const EVENTS = {
   LAYER_FILTER_CHANGE: "foliplus:layer:filter-change",
 } as const;
 
+/** The layer-domain event names — the subset of {@link EVENTS} whose value
+ *  carries the `foliplus:layer:` prefix. Enumerated key by key, NOT derived
+ *  with a runtime `startsWith` filter, so a new layer event is added here by
+ *  hand and the guard test (`test/js/core/event/layerEvents.test.ts`) fails
+ *  until it is. The explicit set is the contract: a reader can see the whole
+ *  layer domain in one place, and a typo in a new entry cannot silently widen
+ *  the set — the guard compares it against every `foliplus:layer:` value in
+ *  {@link EVENTS} in both directions.
+ *
+ *  **Public contract.** The `foliplus:layer:` prefix is a published naming
+ *  convention: it is how a subscriber recognises an event as belonging to the
+ *  layer domain (see `doc/source/index.rst`). Renaming a value or moving an
+ *  event across the prefix boundary is a breaking change for every external
+ *  subscriber — it needs a CHANGELOG entry, not a silent rename.
+ *
+ *  This set is a contract declaration and a guard target only. It adds no
+ *  API: nothing subscribes through it, the EventBus is untouched, and each
+ *  event's policy is still {@link EVENT_POLICY}. */
+const LAYER_EVENTS = {
+  CHANGE: EVENTS.LAYER_CHANGE,
+  INTENT_CHANGE: EVENTS.LAYER_INTENT_CHANGE,
+  REMOVED: EVENTS.LAYER_REMOVED,
+  DELETED: EVENTS.LAYER_DELETED,
+  ITEM_COUNT_CHANGE: EVENTS.LAYER_ITEM_COUNT_CHANGE,
+  STYLE_CHANGE: EVENTS.LAYER_STYLE_CHANGE,
+  ITEM_ADDED: EVENTS.LAYER_ITEM_ADDED,
+  ITEM_UPDATED: EVENTS.LAYER_ITEM_UPDATED,
+  ITEM_REFRESHED: EVENTS.LAYER_ITEM_REFRESHED,
+  CAPABILITY_CHANGED: EVENTS.LAYER_CAPABILITY_CHANGED,
+  ITEM_REMOVED: EVENTS.LAYER_ITEM_REMOVED,
+  ROLE_COUNT_CHANGED: EVENTS.LAYER_ROLE_COUNT_CHANGED,
+  LIST_REBUILD: EVENTS.LAYER_LIST_REBUILD,
+  NO_BASEMAP_CHANGED: EVENTS.LAYER_NO_BASEMAP_CHANGED,
+  OVERLAY_CLEAR: EVENTS.OVERLAY_CLEAR,
+  FILTER_CHANGE: EVENTS.LAYER_FILTER_CHANGE,
+} as const;
+
 /** One event's publish policy — the exception contract is declared on the
  *  event, not chosen at each call site.
  *
@@ -181,5 +218,5 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_FILTER_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
 };
 
-export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND };
+export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND, LAYER_EVENTS };
 export type { EventPolicy };
