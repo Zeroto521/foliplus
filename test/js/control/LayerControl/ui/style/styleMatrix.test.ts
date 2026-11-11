@@ -1,5 +1,5 @@
 // Style-matrix guard — the geometry x dimension mode table is the single
-// source the panel options and the apply gate read (task-93 step 1).
+// source the panel options and the apply gate read (#1070 step 1).
 //
 // Two invariants, pinned as guards (not snapshots):
 //   1. The table's mode list per (geom, dim) matches the runtime contract
@@ -10,7 +10,7 @@
 //      silently loses a row fails here, not in the browser.
 //
 // The consumers (fill.ts / border.ts option building) are wired in a later
-// step (task-93 step 2, after task-92 merges); this file pins the table the
+// step (#1070 step 2, after #1069 merges); this file pins the table the
 // consumers will read, so a table typo today is caught now instead of at
 // the wiring step.
 import { describe, expect, it } from "vitest";
