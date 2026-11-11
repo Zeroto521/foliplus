@@ -36,8 +36,8 @@ import {
   numericFields,
   resolveFillMode,
   resolvedValue,
-  valueForUi,
   valueFields,
+  valueForUi,
   writeFillMode,
 } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
@@ -637,7 +637,7 @@ const bindFillDetail = (
 ): void => {
   // The original-colors detail is a read-only readout: nothing to bind.
   if (mode === STYLE_MODE.ORIGINAL) return;
-  if (mode === STYLE_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
     bindValueDetail(ui, layerId, detail);
   } else {
     bindSolidDetail(ui, layerId, detail);

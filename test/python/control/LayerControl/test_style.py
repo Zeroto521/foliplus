@@ -2031,6 +2031,68 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
+        """The category by-value mode paints each district its own color.
+
+        A layer whose only value column is a string (GADM NAME_3) offers the
+        by-value entry through the category machine: the field select labels
+        the column as categorical, the method and classes rows are absent (a
+        qualitative scheme needs no classification step), and the map carries
+        more than one distinct fill. This is the negative control for the
+        numeric ramp: distinct colors come from the categories, not from a
+        numeric split.
+        """
+        data = copy.deepcopy(
+            json.loads(
+                Path(__file__)
+                .resolve()
+                .parents[4]
+                .joinpath("doc", "source", "data", "gadm41_CHN_3_Shanghai.geojson")
+                .read_text(encoding="utf-8")
+            )
+        )
+        layer = folium.GeoJson(
+            json.dumps(data),
+            name="Municipal Boundaries",
+            style_function=lambda _f: {"color": "gray"},
+        )
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            layer,
+            slug="style_fill_category_districts",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "value"}
+            )
+            assert set_mode["ok"], f"could not enter the value mode: {set_mode}"
+            page.wait_for_timeout(300)
+
+            picked = page.evaluate(
+                _js("LayerControl/category_fill_select_field"), {"field": "NAME_3"}
+            )
+            assert picked["ok"], f"could not select NAME_3: {picked}"
+            page.wait_for_timeout(300)
+
+            state = page.evaluate(_js("LayerControl/category_fill_read"))
+            assert state["count"] >= 4, f"expected the districts painted, got {state}"
+            assert state["present"] >= 2, (
+                f"the category mode did not paint distinct district fills: {state}"
+            )
+            assert not state["hasMethodRow"], (
+                f"the category mode must not show a method row: {state}"
+            )
+            assert not state["hasClassesRow"], (
+                f"the category mode must not show a classes row: {state}"
+            )
+            assert state["fieldOptions"] is not None and any(
+                o and "(" in o for o in state["fieldOptions"]
+            ), f"the field select must label the category column: {state}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
         """The pinned style card opens downward and scrolls its own content.
 

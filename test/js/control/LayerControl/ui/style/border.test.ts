@@ -3418,3 +3418,168 @@ describe("border solid derivation invariants", () => {
     expect(getIntent(ui, "vec1", "borderColor")).toBeUndefined();
   });
 });
+
+describe("border category value wiring", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#111111", "#222222"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  /** A line leaf carrying a string property only (GADM NAME_3 shape): no
+   *  numeric column, so the by-value entry is the category machine. */
+  const makeStringLineLeaf = (name: string): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polyline() as any;
+    leaf.options = { color: "#0d0887", weight: 2, stroke: true };
+    leaf.feature = {
+      geometry: { type: "LineString" },
+      properties: { name },
+    };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  const registerStringLayer = (id: string, leaves: any[]): void => {
+    installLeafletGlobals();
+    manager.registerLayer({ id, name: id, layer: makeFeatureGroup(...leaves) });
+    ui.runtimeStore.setFields(id, [{ name: "name", numeric: false }]);
+  };
+
+  const openBorderRow = (id: string): HTMLElement => {
+    const block = buildBorderRow(ui, id) as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, id, block);
+    return block;
+  };
+
+  const modeSelectOf = (block: HTMLElement): HTMLSelectElement | null =>
+    block.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+
+  const changeSelect = (sel: HTMLSelectElement | null, value: string): void => {
+    expect(sel).not.toBeNull();
+    sel!.value = value;
+    sel!.dispatchEvent(new Event("change"));
+  };
+  /** A leaf with both a numeric and a string property, for the kind
+   *  re-inference tests: inferFieldKind walks the leaf properties to decide
+   *  whether a switched field is numeric or categorical. */
+  const makeMixedLeaf = (count: number, name: string): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polyline() as any;
+    leaf.options = { color: "#ff0000", weight: 2, stroke: true };
+    leaf.feature = {
+      geometry: { type: "Polygon" },
+      properties: { count, name },
+    };
+
+    const setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.setStyle = setStyle;
+    leaf.on = vi.fn();
+    return leaf;
+  };
+  it("string-only line offers original/single/value (P2-2 matrix row)", () => {
+    registerStringLayer("g_cat", [makeStringLineLeaf("a"), makeStringLineLeaf("b")]);
+    const select = modeSelectOf(openBorderRow("g_cat"));
+    expect(select).not.toBeNull();
+    expect(Array.from(select!.options).map(o => o.value)).toEqual([
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
+    ]);
+  });
+
+  it("entering value on a string-only line seeds a category config (no method/classes rows)", () => {
+    registerStringLayer("g_cat2", [makeStringLineLeaf("a"), makeStringLineLeaf("b")]);
+    const block = openBorderRow("g_cat2");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    const stored = getIntent(ui, "g_cat2", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(block.querySelector(".foliplus-style-fill-method-select")).toBeNull();
+    expect(block.querySelector(".foliplus-style-fill-classes-select")).toBeNull();
+    expect(block.querySelector(".foliplus-style-fill-field-select")).not.toBeNull();
+    expect(block.querySelector(".foliplus-style-scheme-trigger")).not.toBeNull();
+  });
+
+  it("switching field numeric -> category re-infers the kind (P2-1)", () => {
+    const leaves = [makeMixedLeaf(1, "a"), makeMixedLeaf(5, "b")];
+    registerFeatureLayer(manager, ui, "g_mix", leaves);
+    const block = openBorderRow("g_mix");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    let stored = getIntent(ui, "g_mix", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("numeric");
+    ui.runtimeStore.setFields("g_mix", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const fieldSelect = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement;
+    fieldSelect.value = "name";
+    fieldSelect.dispatchEvent(new Event("change"));
+    stored = getIntent(ui, "g_mix", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(stored.field).toBe("name");
+  });
+
+  it("switching field category -> numeric re-infers the kind (P2-1)", () => {
+    const leaves = [makeMixedLeaf(1, "a"), makeMixedLeaf(5, "b")];
+    registerFeatureLayer(manager, ui, "g_mix2", leaves);
+    ui.runtimeStore.setFields("g_mix2", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const block = openBorderRow("g_mix2");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    let stored = getIntent(ui, "g_mix2", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("numeric");
+    const fieldSelect = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement;
+    fieldSelect.value = "name";
+    fieldSelect.dispatchEvent(new Event("change"));
+    stored = getIntent(ui, "g_mix2", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    fieldSelect.value = "count";
+    fieldSelect.dispatchEvent(new Event("change"));
+    stored = getIntent(ui, "g_mix2", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("numeric");
+    expect(stored.field).toBe("count");
+  });
+
+  it("a stored sequential scheme on a category record falls back for the picker (P2-1)", () => {
+    const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5)];
+    registerFeatureLayer(manager, ui, "g_sch", leaves);
+    setIntent(ui, "g_sch", "borderValue", {
+      kind: "category",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Blues",
+    } as ValueConfig);
+    const block = openBorderRow("g_sch");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    const stored = getIntent(ui, "g_sch", "borderValue") as ValueConfig;
+    expect(stored.scheme).toBe("Blues");
+  });
+});

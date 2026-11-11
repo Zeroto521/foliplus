@@ -504,9 +504,7 @@ const buildValueDetail = (
     fields,
     value: resolveField(value.field, fields),
     optionLabel: fieldName => {
-      const numeric = layerFields(ui, layerId).find(
-        f => f.name === fieldName,
-      )?.numeric;
+      const numeric = layerFields(ui, layerId).find(f => f.name === fieldName)?.numeric;
       return numeric === false
         ? `${fieldName} (${ui.T("style_fill_field_category")})`
         : `${fieldName} (${ui.T("style_fill_field_numeric")})`;
