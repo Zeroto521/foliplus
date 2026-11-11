@@ -292,6 +292,8 @@ const CLASSES = {
   FILTER_CLEAR: "foliplus-filter-clear",
   /** Enum filter body: the cell that hosts the shared multiple dropdown. */
   FILTER_ENUM: "foliplus-filter-enum",
+  /** Truncation hint under the enum dropdown (large discrete domain). */
+  FILTER_ENUM_HINT: "foliplus-filter-enum-hint",
 };
 
 /** Data attribute names. */

@@ -149,6 +149,36 @@ describe("generic data-layer filter (controller wiring)", () => {
         expect(path(feature.leaf)).toBe(false);
       }
     });
+    it("applies an enum filter to the matching values only", () => {
+      // Three leaves: a/1, b/2, c/5. An enum filter on kind=b keeps b only.
+      const leaves = [leafWithElement(), leafWithElement(), leafWithElement()];
+      leaves[0].feature = { properties: { kind: "a" } };
+      leaves[1].feature = { properties: { kind: "b" } };
+      leaves[2].feature = { properties: { kind: "c" } };
+      const features: LayerFilterFeatures = {
+        features: [
+          { leaf: leaves[0], fields: { kind: "a" } },
+          { leaf: leaves[1], fields: { kind: "b" } },
+          { leaf: leaves[2], fields: { kind: "c" } },
+        ],
+        total: 3,
+        numericFields: [],
+        ranges: {},
+        enumFields: ["kind"],
+        enumValues: { kind: ["a", "b", "c"] },
+      };
+      ui.runtimeStore.setFilterFeatures("flt1", features);
+
+      manager.setLayerFilter("flt1", { kind: "enum", field: "kind", values: ["b"] });
+
+      const path = (leaf: L.Layer) =>
+        (leaf as { getElement: () => HTMLElement })
+          .getElement()
+          .classList.contains(CONST.CLASSES.FILTER_HIDDEN);
+      expect(path(leaves[0])).toBe(true);
+      expect(path(leaves[1])).toBe(false);
+      expect(path(leaves[2])).toBe(true);
+    });
 
     it("clears the class for every leaf when the filter is removed", () => {
       const features = makeFeatures();
