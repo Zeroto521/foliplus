@@ -55,6 +55,7 @@ _DECLARED_SCORES = [10, 20, 30, 40, 50, 60]
 # row the way a user does.
 _ARM = _js("LayerControl/fill_author_variant")
 _READ_FILL = _js("LayerControl/fill_author_read")
+_PARITY = _js("LayerControl/control_inset_parity")
 _PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
 _READ_FILL_METHOD = _js("LayerControl/read_fill_method")
 _DECLARED_READ = _js("LayerControl/fill_declared_read")
@@ -1100,6 +1101,65 @@ class TestFillAuthorBrowser:
         # 9-class ramp: the >9 threshold is exactly what the inference is about.
         assert len(state["fills"]) >= 10, state
         assert not errors, f"JS errors: {errors}"
+    def test_control_inset_text_start_parity(self, browser, tmp_path):
+        """The Method control column's text starts at the same x in both modes.
+
+        The readonly box (original colors) and the dropdown trigger (by-value)
+        replace each other in the same row slot; both resolve their left inset
+        from .foliplus-input-skin's single --foliplus-ctrl-inset-x. A second
+        left-inset source (a per-control literal padding, or the select
+        declaring its own left padding) re-misaligns the column the moment the
+        token is edited. The probe measures both modes in place (the mode
+        select rebuilds the detail slot, row x stays constant).
+        """
+        with use_page(_make_author_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            page.evaluate(_js("LayerControl/open_panel"))
+            panel_ready(page)
+            _open_author_style_panel(page)
+
+            # Original mode: the method readout box.
+            original = page.evaluate(_PARITY, {"mode": "original"})
+            assert original["ok"], original
+            assert original["mode"] == "original", original
+            assert original["kind"] == "box", original
+            assert original["present"] is True, original
+
+            # Value mode: the method dropdown trigger in the same row slot.
+            value = page.evaluate(_PARITY, {"mode": "value"})
+            assert value["ok"], value
+            assert value["mode"] == "value", value
+            assert value["kind"] == "trigger", value
+            assert value["present"] is True, value
+
+            # Both are left-aligned controls in the same slot; the text-start
+            # (box left + its padding-left) must match the trigger's within 1px.
+            assert original["textStart"] is not None, original
+            assert value["textStart"] is not None, value
+            diff = abs(original["textStart"] - value["textStart"])
+            assert diff <= 1, (
+                f"control-column text-start drifted: original={original['textStart']}"
+                f" value={value['textStart']} diff={diff}px "
+                f"(original pad={original['padLeft']} value pad={value['padLeft']} "
+                f"token={value['tokenInset']}) {original} {value}"
+            )
+
+            # Both paddings must resolve the single token, not a literal.
+            assert value["padLeft"] == value["tokenInset"], (
+                f"trigger pad-left {value['padLeft']} != token {value['tokenInset']}"
+            )
+            assert original["padLeft"] == value["tokenInset"], (
+                f"box pad-left {original['padLeft']} != token {value['tokenInset']}"
+            )
+
+            assert not errors, f"JS errors: {errors}"
+
+
+
 
 
 def _declared_layer() -> folium.GeoJson:
@@ -1143,6 +1203,7 @@ def _open_declared_style_panel(page) -> None:
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+
 
 
 class TestDeclaredFillBrowser:
