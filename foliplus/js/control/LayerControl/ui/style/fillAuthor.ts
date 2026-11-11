@@ -35,13 +35,13 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
 const methodLabel = (ui: LayerUI, method: ValueConfig["method"]): string => {
   switch (method) {
     case METHOD.JENKS:
-      return ui.T("style_method_jenks");
+      return ui.T("classify_jenks");
     case METHOD.QUANTILE:
-      return ui.T("style_method_quantile");
+      return ui.T("classify_quantile");
     case METHOD.EQUAL:
-      return ui.T("style_method_equal");
+      return ui.T("classify_equal");
     case METHOD.HEADS:
-      return ui.T("style_method_heads");
+      return ui.T("classify_heads");
   }
 };
 
