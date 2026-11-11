@@ -7,7 +7,6 @@ import type {
 } from "./type.js";
 import {
   type FolderOrder,
-  MARKER_COLOR_PRESETS,
   STYLE_MODE,
   type ValueConfig,
   isIconIntent,
