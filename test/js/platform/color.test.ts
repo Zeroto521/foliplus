@@ -104,7 +104,10 @@ describe("single home for the hex/rgba regexes", () => {
       }
     };
     walk(jsRoot);
-    const colorSource = fs.readFileSync(path.join(jsRoot, "platform", "color.ts"), "utf8");
+    const colorSource = fs.readFileSync(
+      path.join(jsRoot, "platform", "color.ts"),
+      "utf8",
+    );
     const colorRegexCount = [/\^#\[0-9a-fA-F\]/, /rgba?\(/].filter(r =>
       r.test(colorSource),
     ).length;
