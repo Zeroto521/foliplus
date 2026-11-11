@@ -1101,6 +1101,7 @@ class TestFillAuthorBrowser:
         # 9-class ramp: the >9 threshold is exactly what the inference is about.
         assert len(state["fills"]) >= 10, state
         assert not errors, f"JS errors: {errors}"
+
     def test_control_inset_text_start_parity(self, browser, tmp_path):
         """The Method control column's text starts at the same x in both modes.
 
@@ -1159,9 +1160,6 @@ class TestFillAuthorBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
-
-
-
 def _declared_layer() -> folium.GeoJson:
     data = load_geojson("common", "polygons_fuzhou_6offset")
     for feat, score in zip(data["features"], _DECLARED_SCORES, strict=True):
@@ -1203,7 +1201,6 @@ def _open_declared_style_panel(page) -> None:
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
-
 
 
 class TestDeclaredFillBrowser:
