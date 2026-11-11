@@ -2738,14 +2738,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # info-sign), the honest degradation keeps the author's inner
             # glyph verbatim — the chassis changes, the symbol does not.
             glyph_cls = (written["glyph"] or {}).get("cls") or ""
-            assert written["glyph"], (
-                f"glyph missing after the write: {written}"
-            )
+            assert written["glyph"], f"glyph missing after the write: {written}"
             assert (
-                "foliplus-marker-glyph" in glyph_cls.split()
-                or "glyphicon" in glyph_cls
+                "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
-
 
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
         """Task-76: the marker chassis accepts a custom hex + opacity.
