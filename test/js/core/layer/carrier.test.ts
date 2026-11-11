@@ -17,18 +17,20 @@
 // is one step below the base pane's, and the icons' inline z-index competes
 // inside the base pane's stacking context — which IS asserted numerically.
 import L from "leaflet";
-import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
-import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import {
+  CAP_TIER,
   type CarrierDecl,
+  LABEL_PANE_PREFIX,
+  LayerSurface,
+  PANE_ROLE,
+  PaneManager,
   assertInsideOwnedPanes,
   carrierTargetOf,
   contentPanesOf,
   isMigratableLeaf,
   labelPaneNameOf,
   visibleDomOf,
-} from "#foliplus/core/layer/carrier.js";
-import { CAP_TIER, LABEL_PANE_PREFIX, PANE_ROLE } from "#foliplus/core/layer/const.js";
+} from "#core/layer/index.js";
 
 // The mock `window.L` is swapped for the real library for this file only.
 // The modules under test resolve `L` at call time, so the swap reaches them;

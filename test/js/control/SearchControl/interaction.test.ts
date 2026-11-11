@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
+import { ensureModes } from "#core/lifecycle/index.js";
 import { Cache } from "#foliplus/platform/cache.js";
 import { dom } from "#foliplus/platform/dom.js";
 import { HISTORY } from "#control/SearchControl/const.js";
