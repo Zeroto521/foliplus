@@ -83,9 +83,10 @@ class TestRowColorFidelity(LayerControlBrowserBase):
         return fg
 
     def _measure(self, browser, tmp_path, layer, slug):
-        with use_page(
-            self._make_page, browser, tmp_path, layer, slug=slug
-        ) as (page, errors):
+        with use_page(self._make_page, browser, tmp_path, layer, slug=slug) as (
+            page,
+            errors,
+        ):
             self._open_style_ramp(page)
             result = page.evaluate(_js("LayerControl/row_color_fidelity"))
             return result, errors
@@ -100,7 +101,9 @@ class TestRowColorFidelity(LayerControlBrowserBase):
         # The row normalizes the author's "red" to the #rrggbb input holds.
         assert r["iconColorRow"]["value"].lower() == "#ff0000", r
         # The map paints the same red.
-        assert r["marker"] is not None and r["marker"]["innerColor"] == "rgb(255, 0, 0)", r
+        assert (
+            r["marker"] is not None and r["marker"]["innerColor"] == "rgb(255, 0, 0)"
+        ), r
         assert not errors, errors
 
     def test_icon_color_inline_matches(self, browser, tmp_path):
@@ -113,7 +116,9 @@ class TestRowColorFidelity(LayerControlBrowserBase):
         # The row must show the author's inline paint (purple), not #ffffff.
         assert r["iconColorRow"]["value"].lower() == "#800080", r
         # The map paints the same purple.
-        assert r["marker"] is not None and r["marker"]["innerColor"] == "rgb(128, 0, 128)", r
+        assert (
+            r["marker"] is not None and r["marker"]["innerColor"] == "rgb(128, 0, 128)"
+        ), r
         assert not errors, errors
 
     def test_marker_color_declared_matches(self, browser, tmp_path):
@@ -150,5 +155,7 @@ class TestRowColorFidelity(LayerControlBrowserBase):
         assert r["panel"], r
         assert r["markerColorRow"]["present"], r
         assert r["markerColorRow"]["value"] == "blue", r
-        assert r["marker"] is not None and "awesome-marker-icon-blue" in r["marker"]["cls"], r
+        assert (
+            r["marker"] is not None and "awesome-marker-icon-blue" in r["marker"]["cls"]
+        ), r
         assert not errors, errors
