@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha, setLayerAlpha } from "#core/layer/index.js";
-import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
-import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import type { RegisterLayerOpts } from "#foliplus/core/layer/type.js";
-import { zFor } from "#foliplus/core/layer/z.js";
+import {
+  LayerFactory,
+  PaneManager,
+  type RegisterLayerOpts,
+  getLayerAlpha,
+  setLayerAlpha,
+  zFor,
+} from "#core/layer/index.js";
 
 // Coverage exemption for LayerFactory.ts — knowingly uncovered, not overlooked.
 // Lines and branches are at 100%. Function coverage stops at 98.27% (57/58) on

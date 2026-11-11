@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import apiSource from "#core/layer/api?raw";
+import { ensureLayerAPI, requireLayerAPI } from "#core/layer/index.js";
 import typeSource from "#core/layer/type?raw";
-import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
 // The pin this file used to carry — "one `as unknown as`, in the layers field" —
 // is gone, and its own note asked for exactly that: "If a cheaper route

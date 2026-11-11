@@ -124,5 +124,6 @@
   "LayerControl.filter_empty": "该图层没有数值字段",
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",
-  "LayerControl.style_marker_color": "标记颜色"
+  "LayerControl.style_marker_color": "标记颜色",
+  "LayerControl.style_marker_color_opacity": "标记透明度"
 }

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { Z_INDEX } from "#foliplus/core/layer/const.js";
 import {
   FOCUS_Z,
   LABEL_Z_OFFSET,
+  Z_INDEX,
   focusLayerZ,
   topSlotZ,
   zFor,
-} from "#foliplus/core/layer/z.js";
+} from "#core/layer/index.js";
 
 describe("zFor slots", () => {
   it("prices a layer's slot from its index: index 0 is topmost", () => {

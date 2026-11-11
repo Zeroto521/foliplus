@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
-import { SurfaceIndex } from "#foliplus/core/layer/SurfaceIndex.js";
+import { type LayerSurface, SurfaceIndex } from "#core/layer/index.js";
 
 let count = 0;
 beforeEach(() => {

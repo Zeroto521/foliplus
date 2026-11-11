@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
-import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
+import { ensureModes } from "#core/lifecycle/index.js";
 import { HISTORY, MODE, RECORD_VERSION, ZOOM } from "#control/SearchControl/const.js";
 import {
   addHistoryEntry,
