@@ -30,10 +30,11 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { DIM, MARKER_COLOR_PRESETS } from "#core/layer/index.js";
+import { DIM, MARKER_COLOR_PRESETS, walkLeaf } from "#core/layer/index.js";
 import {
   applyMarkerColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
+  authorIconOf,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
@@ -45,20 +46,24 @@ import * as CONST from "#control/LayerControl/const.js";
  *  a bare divIcon / L.Icon.Default img has no sprite chassis to repaint). */
 const layerCanMarkerColor = capabilityGate("markerColor", "native");
 
-/** The author's own chassis color when the layer's marker icon declares one
- *  (awesome-markers sets `options.markerColor` on the icon — the preset enum
- *  name the sprite class is built from). */
+/** The author's own chassis preset for the layer, read with the SAME walk the
+ *  capability gate uses (walkLeaf — a nested group is descended, not read one
+ *  level). The row and the gate must agree on the same tree: the bug this
+ *  closes was a one-level read that answered "no preset" for a nested group
+ *  while the gate admitted it and the map drew the author's chassis.
+ *  First painted leaf wins (informational — the row shows one value for the
+ *  whole layer; it is not a write intent, the write applies to every leaf). */
 const authorMarkerColor = (layer: unknown): string | null => {
   let found: string | null = null;
-  (
-    layer as unknown as { eachLayer?: (fn: (leaf: unknown) => void) => void }
-  ).eachLayer?.(leaf => {
+  walkLeaf(layer, leaf => {
     if (found) return;
+    const icon = authorIconOf(leaf);
+    if (!icon) return;
     const own = (
-      leaf as {
-        options?: { icon?: { options?: { markerColor?: unknown } } };
+      icon as {
+        options?: { markerColor?: unknown };
       }
-    ).options?.icon?.options?.markerColor;
+    ).options?.markerColor;
     if (typeof own === "string" && own) found = own;
   });
   return found;

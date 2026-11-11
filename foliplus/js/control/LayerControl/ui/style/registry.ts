@@ -232,8 +232,6 @@ const resetIntentKeys = (
   return true;
 };
 
-export type { CapabilitySlot };
-
 export {
   capabilityGate,
   DIM_ORDER,

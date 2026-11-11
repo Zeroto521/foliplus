@@ -185,6 +185,13 @@ interface LayerFilterModel {
   kept: number;
   /** Units without the filter, in the same owner unit. */
   total: number;
+  /** Field picker options (owner-provided). Absent = the current read-only
+   *  field row, as Heatmap and Measure keep today (zero change). */
+  fields?: readonly { value: string; label: string; numeric: boolean }[];
+  /** Field-switch write channel. Switching clears the old atom so the
+   *  panel re-derives from the new dimension; the owner is the single
+   *  write-through (applies the hidden class + publishes the change). */
+  onField?: (field: string) => void;
 }
 
 /** The only ops a persisted filter may carry. Anything else is a record from

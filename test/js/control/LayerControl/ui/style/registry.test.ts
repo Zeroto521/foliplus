@@ -910,14 +910,17 @@ describe("capability gate factory (C7)", () => {
   //   - "non-none" slots admit NATIVE and PANE, deny only NONE.
   const layerInfo = (caps: Record<string, string>) => ({ capabilities: caps }) as never;
 
-  it("returns false for a layer not in the registry, before any capability read", () => {
+  it("returns false for a layer not in the registry, before any capability read — and never throws", () => {
     const ui = {
       c: {
         layerRegistry: { get: () => undefined } as never,
-        surfaceFor: vi.fn(),
+        surfaceFor: vi.fn(() => {
+          throw new Error("surfaceFor must not run for a missing layer");
+        }),
       },
     } as unknown as LayerUI;
     const gate = capabilityGate("fill", "native");
+    expect(() => gate(ui, "missing")).not.toThrow();
     expect(gate(ui, "missing")).toBe(false);
     expect(ui.c.surfaceFor).not.toHaveBeenCalled();
   });
