@@ -172,13 +172,13 @@ class TestHeatmapControlPanelBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_classes_row_label_names_the_method_on_one_line(self, browser, tmp_path):
-        """The classes row reads by its method, on one line, in both panels.
+        """The classes row reads by its method, at most two lines, in both panels.
 
         The row has one visible label for two selects, so it takes the primary
         control's name (Method / 分类方法) — the same word the layer style
         panel shows. Each select keeps its own aria label (Method / Classes),
-        and the shared 136px label column holds the word on one line inside the
-        328px panel. Range.getClientRects() is the line-box count: the element
+        and the shared 88px label column holds the word inside the
+        280px panel. Range.getClientRects() is the line-box count: the element
         rect always reports one row.
         """
         _METHOD_EN, _METHOD_ZH = _method_labels()
@@ -217,13 +217,23 @@ class TestHeatmapControlPanelBrowser:
                 _METHOD_EN: [_METHOD_EN, "Classes"],
                 _METHOD_ZH: [_METHOD_ZH, "分级数"],
             }[label]
-            assert row["labelLines"] == 1, (
-                f"the method label wrapped at the panel width: {row}"
+            # The shared method label ("Classification Method" / 分类方法) is
+            # the one label the 88px column cannot fit on one line (the wider
+            # English word wraps to two). That is a product decision — the word
+            # is shared with the layer style panel and was pinned by the user —
+            # not a layout defect, so the label is allowed to wrap here, but it
+            # must stay inside its own column (no rect overlap with the control
+            # cell) and never be truncated by an ellipsis.
+            assert row["labelLines"] <= 2, (
+                f"the method label took more than two lines: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
-            assert result["labelWidthToken"] == "136px", result
-            assert result["panelWidthToken"] == "328px", result
-            assert row["panelWidth"] == pytest.approx(328, abs=1), row
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
+            assert result["panelWidthToken"] == "280px", result
+            assert row["panelWidth"] == pytest.approx(280, abs=1), row
+            assert not row["labelOverlapsControl"], (
+                f"the wrapped method label crossed into the control: {row}"
+            )
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
 

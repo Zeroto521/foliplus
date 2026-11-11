@@ -1745,15 +1745,19 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
 
-    def test_style_mode_dropdown_outside_press_dismisses(self, browser, tmp_path):
-        """Both mode dropdowns (fill and border) close on an outside press.
+    @pytest.mark.parametrize("how", ["outside", "escape"])
+    def test_style_mode_dropdown_outside_press_dismisses(
+        self, browser, tmp_path, how
+    ):
+        """Both mode dropdowns (fill and border) close on a dismissal.
 
         The mode row uses the shared dropdown bridged to a hidden native
         select. #1011 made the overlay registry the single Escape and
         outside-press dispatcher; a mode dropdown that does not register its
-        overlay would never dismiss on an outside press. This pins both
-        consumers (fill and border) register — the border row is the one
-        that regressed. The fill row is the control: it already registered.
+        overlay would never dismiss on an outside press or an Escape. This
+        pins both consumers (fill and border) register, by both dismissal
+        channels — the border row is the one that regressed. The fill row is
+        the control: it already registered.
         """
         data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
@@ -1773,21 +1777,25 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
             )
             # Border first: the regression. The mode row opens its dropdown
-            # on a click of the trigger; an outside press must close it.
-            border = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
-                                   {"which": "border"})
+            # on a click of the trigger; a dismissal must close it.
+            border = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"),
+                {"which": "border", "how": how},
+            )
             assert border["ok"], border
             assert border["openAfterClick"], border
-            assert border["closedByOutside"], (
-                f"border mode dropdown did not close on an outside press: {border}"
+            assert border["dismissed"], (
+                f"border mode dropdown did not close on {how}: {border}"
             )
             # Fill: control, already registered — must behave the same.
-            fill = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
-                                  {"which": "fill"})
+            fill = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"),
+                {"which": "fill", "how": how},
+            )
             assert fill["ok"], fill
             assert fill["openAfterClick"], fill
-            assert fill["closedByOutside"], (
-                f"fill mode dropdown did not close on an outside press: {fill}"
+            assert fill["dismissed"], (
+                f"fill mode dropdown did not close on {how}: {fill}"
             )
             assert not errors, f"JS errors: {errors}"
 
