@@ -280,12 +280,12 @@ describe("style-mode-usage CLI dispatch and edge cases", () => {
 });
 
 describe("style-mode-usage remaining branch coverage", () => {
-  const synthMany = files => {
+  const synthMany = (files: Record<string, string>) => {
     const dir = mkdtempSync(join(tmpdir(), "style-mode-"));
     for (const [rel, content] of Object.entries(files)) {
       const abs = join(dir, "foliplus", "js", rel.replace(/^foliplus\/js\//, ""));
       mkdirSync(join(abs, ".."), { recursive: true });
-      writeFileSync(abs, content, "utf-8");
+      writeFileSync(abs, content as string, "utf-8");
     }
     return dir;
   };
@@ -311,7 +311,7 @@ describe("style-mode-usage remaining branch coverage", () => {
 
   it("check reports failing on a tree with a violation", () => {
     const dir = synth("core/layer/intent.ts", "const m = FILL_MODE.VALUE;");
-    const r = check(dir);
+    const r = check(dir) as unknown as { failing: boolean };
     rmSync(dir, { recursive: true, force: true });
     expect(r.failing).toBe(true);
   });
