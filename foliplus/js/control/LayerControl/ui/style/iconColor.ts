@@ -33,6 +33,7 @@ import {
   authorGlyphColorOf,
   authorGlyphName as authorGlyphNameOnLayer,
   authorIconOf,
+  coerceGlyphPrefix,
   parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
@@ -99,7 +100,13 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // white — the same default the derive path uses.
   const authorColor = authorIconColor(ui, layerId);
   const color = hasColor ? colorIntent : (authorColor ?? "#ffffff");
-  applyIconColorToLeaves(layer, color, glyph, hasOpacity ? opacityIntent : undefined);
+  applyIconColorToLeaves(
+    layer,
+    color,
+    glyph,
+    hasOpacity ? opacityIntent : undefined,
+    coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+  );
 };
 /** Write the layer's color and replay the walk. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
@@ -146,13 +153,25 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   if (authorColor) {
     // Re-derive with the author paint and the current glyph — color and
     // glyph never split across two writes.
-    applyIconColorToLeaves(layer, authorColor, glyph);
+    applyIconColorToLeaves(
+      layer,
+      authorColor,
+      glyph,
+      undefined,
+      coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+    );
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
     // so resetting the color never clears the glyph (orthogonal).
     resetIconLeaves(layer);
     if (glyph) {
-      applyIconColorToLeaves(layer, "#ffffff", glyph);
+      applyIconColorToLeaves(
+        layer,
+        "#ffffff",
+        glyph,
+        undefined,
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      );
     }
   }
 };

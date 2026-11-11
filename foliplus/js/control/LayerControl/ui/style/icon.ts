@@ -25,11 +25,13 @@ import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import {
   type AuthorGlyph,
+  type GlyphPrefix,
   PICKER_GLYPHS,
   applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
+  coerceGlyphPrefix,
   glyphAvailable,
   glyphHtml,
   resetIconLeaves,
@@ -60,12 +62,14 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   // replaces the whole icon, so a glyph edit must carry the current
   // color and a color edit must carry the current glyph).
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const panelPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   applyIconToLeaves(
     layer,
     intent.value,
     typeof color === "string" ? color : undefined,
     typeof opacity === "number" ? opacity : undefined,
+    panelPrefix,
   );
 };
 /** Write the layer's glyph and replay the walk. */
@@ -95,11 +99,17 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   if (typeof color === "string") {
+    // The re-derived icon restores the AUTHOR's own family, not the panel
+    // knob: an author who paints `fas fa-<name>` (a real family outside the
+    // GLYPH_PREFIXES table) must come back as `fas`, not silently as the
+    // coerced panel default. A reset returns the author intent.
     applyIconColorToLeaves(
       layer,
       color,
       currentGlyph(ui, layerId),
       typeof opacity === "number" ? opacity : undefined,
+      authorGlyphPrefix(ui, layerId) ??
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     );
   }
 };
@@ -161,11 +171,18 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
     const value = userGlyph ?? author?.name ?? null;
     const glyph = value ? resolveGlyph(value) : null;
-    // The user's picked/persisted glyph renders in the panel's fa-solid family;
-    // an author-declared glyph renders under the author's own prefix
-    // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
-    // a name the map actually draws is never reported unavailable.
-    const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
+    // The family a glyph renders under: a layer author's own declared prefix
+    // wins and is used VERBATIM (awesome-markers paints `prefix + " " + icon`,
+    // and an author prefix like "fa"/"fas" is a real FA family the stylesheet
+    // knows even though it is not in the GLYPH_PREFIXES table). A layer with no
+    // author prefix falls back to the control-level `prefix` (the LayerControl
+    // knob), coerced so only a known family reaches the stylesheet, then the
+    // panel default.
+    const panelPrefix: string =
+      authorPrefix ?? coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
+    // Probe the SAME stack the render paints, so a name the map actually
+    // draws is never reported unavailable.
+    const available = glyph ? glyphAvailable(glyph, panelPrefix) : false;
     // An author-declared name that fails glyph syntax is NEVER renderable, no
     // matter what the stylesheet paints — it gets its own unavailable state
     // rather than silently reading as the author-original label.
@@ -173,7 +190,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     if (value && glyph && available && !authorInvalid) {
       // The name is syntactically valid AND the loaded stylesheet paints it:
       // the happy path — show the glyph and its name.
-      glyphBox.innerHTML = glyphHtml(glyph);
+      glyphBox.innerHTML = glyphHtml(glyph, "", "", panelPrefix);
       nameBox.textContent = glyph;
       trigger.title = value;
       trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
@@ -286,6 +303,11 @@ const buildGlyphGrid = (
   renderTrigger: () => void,
 ): { grid: HTMLElement; focusInitial: () => void } => {
   const current = currentGlyph(ui, layerId);
+  // The picker grid renders every candidate under the control-level family
+  // (the panel's own prefix), so a picked glyph always previews what the
+  // panel would paint. A layer-author prefix does NOT reach the grid: the
+  // grid is a control-surface shortcut, not a per-layer render.
+  const gridPrefix: GlyphPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const grid = dom.el("div", {
     class: CONST.CLASSES.STYLE_ICON_GRID,
     role: "grid",
@@ -305,7 +327,7 @@ const buildGlyphGrid = (
         id: nextOptionId("icon-cell"),
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
-      { html: glyphHtml(glyph) },
+      { html: glyphHtml(glyph, "", "", gridPrefix) },
     ) as HTMLButtonElement;
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);

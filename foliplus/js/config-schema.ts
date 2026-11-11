@@ -102,6 +102,7 @@ interface ConfigHeatmap extends ConfigCommon {
 interface ConfigLayer extends ConfigCommon {
   label_collide: boolean;
   collapse_on_outside: boolean;
+  icon_prefix: string;
   /** Layer list collected from the parent map at render time via _extra_config. */
   data?: LayerData;
 }
@@ -174,6 +175,7 @@ interface ComponentConfig {
   /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
   zoomRange?: ZoomRange | null;
   label_collide?: boolean;
+  icon_prefix?: string;
   /** Layer list collected from the parent map at render time via _extra_config. */
   data?: LayerData;
   zoom?: number;

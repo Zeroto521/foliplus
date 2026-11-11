@@ -56,11 +56,15 @@ export type { AuthorGlyph } from "./markerIcon.js";
 export { MARKER_COLOR_PRESET_HEX, presetNameOfHex } from "./markerColorPreset.js";
 export {
   PICKER_GLYPHS,
+  GLYPH_PREFIXES,
+  DEFAULT_GLYPH_PREFIX,
+  coerceGlyphPrefix,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+export type { GlyphPrefix } from "./glyphSource.js";
 export {
   HIDDEN_CLASS,
   bindControlZoomRange,

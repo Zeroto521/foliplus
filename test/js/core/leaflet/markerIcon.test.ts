@@ -581,6 +581,31 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
   });
+  it("paints the applied glyph under the panel prefix when no author family wins (render path)", () => {
+    // The control knob (coerced) reaches the build: the applied glyph renders
+    // under the coerced panel family, never the hardcoded fa-solid.
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "star",
+      prefix: "fa-regular",
+    }) as any;
+    const inner = derived.createIcon().querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-regular");
+    expect(inner.className).toContain("fa-star");
+    expect(inner.className).not.toContain("fa-solid");
+  });
+
+  it("renders the author family verbatim when the author declares a non-table prefix (render path)", () => {
+    // An author who writes prefix="fas" (a real family outside GLYPH_PREFIXES)
+    // must be painted as fas — the author intent is not coerced away.
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "star", prefix: "fas" }) as any;
+    const inner = derived.createIcon().querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fas");
+    expect(inner.className).toContain("fa-star");
+    expect(inner.className).not.toContain("fa-solid");
+  });
 });
 it("paints a user color and opacity on the default-icon divIcon branch", () => {
   const author = makeDefaultIconAuthor();
