@@ -432,6 +432,100 @@ const buildMarkerIcon = (opts: {
   return derived;
 };
 
+/** The mounted icon DOM element of a leaf, or null when the leaf is
+ *  detached (never added to the map) or the icon element was removed. */
+const mountedIconEl = (leaf: unknown): HTMLElement | null => {
+  const el = (leaf as { _icon?: HTMLElement | null })._icon;
+  return el instanceof HTMLElement ? el : null;
+};
+
+/** Whether a leaf's mounted glyph already carries the requested glyph token
+ *  under the requested FontAwesome prefix — the condition for a colour /
+ *  opacity write to paint the mounted node in place instead of rebuilding the
+ *  icon. False when the leaf is detached, or when the mounted symbol is the
+ *  author's own (no `.foliplus-marker-glyph` — an honest degradation, a
+ *  rebuild would be needed to re-derive). */
+const mountedGlyphMatches = (
+  el: HTMLElement,
+  glyph: string | null,
+  prefix: string,
+): boolean => {
+  const inner = el.querySelector(".foliplus-marker-glyph");
+  if (!inner) return false;
+  const cls = inner.className;
+  const name = glyph ?? "circle";
+  const token = name.startsWith("fa-") ? name : `fa-${name}`;
+  return cls.includes(token) && cls.includes(prefix);
+};
+
+/** Paint the mounted glyph's colour in place (no icon rebuild). The paint is
+ *  the same compose the derive path uses: a user colour paints at the user's
+ *  opacity (default 100 = opaque). */
+const paintMountedGlyphColor = (
+  el: HTMLElement,
+  color: string,
+  opacity?: number,
+): void => {
+  const inner = el.querySelector(".foliplus-marker-glyph") as HTMLElement | null;
+  if (!inner) return;
+  const parsed = parseColorAlpha(color);
+  const paintHex = parsed?.hex ?? color;
+  const paint = composeColorAlpha(paintHex, opacity ?? 100);
+  inner.style.color = paint;
+};
+
+/** Paint the mounted chassis span in place (no icon rebuild). Returns
+ *  true when the write was handled in place — the mounted element already
+ *  carries a chassis span AND the new paint still wants one (so the
+ *  mechanism is preserved: sprite→sprite or mask→mask, only the offset /
+ *  flat colour / opacity change). The span is re-derived fully (clearing
+ *  both faces) so a preset↔custom switch still paints correctly; a span
+ *  presence change (custom / alpha<100 → preset at alpha 100, which drops
+ *  the span) is NOT paintable in place and returns false so the caller
+ *  rebuilds through the single setLeafIcon. */
+const paintMountedChassis = (
+  el: HTMLElement,
+  markerColor: string,
+  markerColorOpacity?: number,
+): boolean => {
+  const chassisPreset = presetNameOfHex(markerColor);
+  const opacity = markerColorOpacity ?? 100;
+  const wantSpan = chassisPreset === null || opacity < 100;
+  const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement | null;
+  if (!span || !wantSpan) return false;
+  // Re-derive the span's full paint so a preset↔custom mechanism switch is
+  // still a single in-place write (clear both faces, then apply the new one).
+  span.style.backgroundImage = "";
+  span.style.backgroundPosition = "";
+  span.style.maskImage = "";
+  span.style.maskPosition = "";
+  span.style.backgroundColor = "";
+  if (chassisPreset) {
+    const sprite = readChassisSprite(chassisPreset, el);
+    if (sprite) {
+      span.style.backgroundImage = sprite.url;
+      span.style.backgroundPosition = sprite.position;
+    }
+  } else {
+    const sprite = readChassisSprite("blue", el);
+    if (sprite) {
+      span.style.maskImage = sprite.url;
+      span.style.maskPosition = sprite.position;
+    }
+    span.style.backgroundColor = markerColor;
+  }
+  span.style.opacity = String(opacity / 100);
+  return true;
+};
+
+/** The single `leaf.setIcon` call site. The architecture guard whitelists
+ *  exactly this one direct call; every other icon write in this module either
+ *  paints the already-mounted inner nodes in place (a pure colour / opacity
+ *  write) or routes through here for a rebuild. */
+const setLeafIcon = (leaf: L.Marker, derived: unknown): void => {
+  leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+};
+
 /** Apply the layer's glyph to every marker leaf, capturing each leaf's
  *  author icon on first write. A missing intent is a no-op — a layer the
  *  user never touched keeps exactly what the author declared. */
@@ -449,15 +543,15 @@ const applyIconToLeaves = (
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
     const derived = buildMarkerIcon({ author, glyph, color, opacity, prefix });
-    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+    setLeafIcon(leaf, derived);
   });
 };
 
-/** Apply the user's marker color to every marker leaf, re-deriving the
- *  icon in ONE construction with the given glyph (the user's current glyph
- *  from the icon intent, or the author's recognised glyph name, or the
- *  author icon's inner glyph) so the color and the glyph never split
- *  across two `setIcon` writes. A missing intent is a no-op. */
+/** Apply the user's icon colour (and optional opacity) to every marker
+ *  leaf. A pure colour/opacity write paints the already-mounted inner glyph
+ *  node IN PLACE (no icon rebuild, no DOM churn, no `setIcon`); a glyph or
+ *  prefix change still rebuilds through the single `setLeafIcon`. A missing
+ *  intent is a no-op. */
 const applyIconColorToLeaves = (
   layer: L.Layer,
   color: string,
@@ -465,27 +559,35 @@ const applyIconColorToLeaves = (
   opacity?: number,
   prefix?: string,
 ): void => {
+  const panelPrefix = prefix ?? DEFAULT_GLYPH_PREFIX;
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
+    // A colour/opacity-only write on an already-mounted leaf whose glyph is
+    // unchanged paints the node in place — same element reference, no rebuild.
+    const el = mountedIconEl(leaf);
+    if (el && mountedGlyphMatches(el, glyph, panelPrefix)) {
+      paintMountedGlyphColor(el, color, opacity);
+      return;
+    }
     const derived = buildMarkerIcon({
       author,
       glyph: glyph ?? "circle",
       color,
       opacity,
-      prefix,
+      prefix: panelPrefix,
     });
-    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+    setLeafIcon(leaf, derived);
   });
 };
 
-/** Apply the user's chassis color to every marker leaf, re-deriving the
- *  icon in ONE construction with the given glyph and the current icon color
- *  so the chassis and the glyph/color never split across two `setIcon`
- *  writes. A missing intent is a no-op. */
+/** Apply the user's chassis colour (and optional opacity) to every marker
+ *  leaf. A pure colour/opacity write paints the already-mounted chassis span
+ *  IN PLACE (no icon rebuild); a glyph or prefix change still rebuilds
+ *  through the single `setLeafIcon`. A missing intent is a no-op. */
 const applyMarkerColorToLeaves = (
   layer: L.Layer,
   markerColor: string,
@@ -499,6 +601,14 @@ const applyMarkerColorToLeaves = (
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
+    // A colour/opacity-only write on an already-mounted leaf whose chassis
+    // span already carries the pin paints the span in place — same element
+    // reference, no rebuild. A mechanism change (span dropped by a preset at
+    // alpha 100) is not paintable in place and falls through to a rebuild.
+    const el = mountedIconEl(leaf);
+    if (el && paintMountedChassis(el, markerColor, markerColorOpacity)) {
+      return;
+    }
     const derived = buildMarkerIcon({
       author,
       glyph: glyph ?? "circle",
@@ -506,7 +616,7 @@ const applyMarkerColorToLeaves = (
       markerColor,
       markerColorOpacity,
     });
-    leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+    setLeafIcon(leaf, derived);
   });
 };
 
@@ -529,7 +639,7 @@ const resetIconLeaves = (layer: L.Layer): void => {
       // Leaflet adapter (core/leafletAdapter.detachMarkerIcons) — this module
       // must not name them.
       detachMarkerIcons(leaf);
-      leaf.setIcon(captured as Parameters<L.Marker["setIcon"]>[0]);
+      setLeafIcon(leaf, captured);
     }
     authorIcon.delete(leaf);
   });

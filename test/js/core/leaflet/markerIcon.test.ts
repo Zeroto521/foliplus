@@ -233,6 +233,106 @@ describe("applyMarkerColorToLeaves", () => {
   });
 });
 
+describe("in-place paint (no rebuild)", () => {
+  // A mounted leaf: the marker carries a _icon element (as Leaflet does once
+  // the marker is on the map) and setIcon swaps it, mirroring Leaflet's
+  // Marker._initIcon. A pure colour/opacity write must paint that element's
+  // inner nodes directly and NOT call setIcon.
+  const makeMountedMarker = (icon: unknown): any => {
+    const m = makeMarker(icon);
+    m._icon = m.options.icon.createIcon();
+    m.setIcon = vi.fn((next: unknown) => {
+      m.options.icon = next;
+      m._icon = (next as { createIcon: () => HTMLElement }).createIcon();
+      return m;
+    });
+    return m;
+  };
+
+  it("applyIconColorToLeaves paints a mounted glyph in place (no setIcon, same <i>)", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    // First write mounts the derived icon and sets _icon.
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    const el = m._icon as HTMLElement;
+    const innerBefore = el.querySelector("i") as HTMLElement;
+    expect(innerBefore?.className).toContain("fa-star");
+    // Now a pure colour write: glyph "star" is already mounted under fa-solid.
+    applyIconColorToLeaves(
+      makeMarkerGroup(m),
+      "#00ff00",
+      "star",
+      undefined,
+      "fa-solid",
+    );
+    const innerAfter = el.querySelector("i") as HTMLElement;
+    // Same element reference (no rebuild), no setIcon, colour applied.
+    expect(innerAfter).toBe(innerBefore);
+    expect(m.setIcon).toHaveBeenCalledTimes(1); // only the glyph write
+    expect(innerAfter.style.color).toBe("rgb(0, 255, 0)");
+  });
+
+  it("applyIconColorToLeaves rebuilds when the mounted glyph differs", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    // A glyph change must rebuild (the mounted symbol is "star", we ask "heart").
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "heart");
+    expect(m.setIcon).toHaveBeenCalledTimes(2);
+  });
+
+  it("applyIconColorToLeaves falls back to setIcon on a detached leaf", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMarker(author); // no _icon — detached
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "star");
+    expect(m.setIcon).toHaveBeenCalledTimes(2);
+  });
+
+  it("applyMarkerColorToLeaves paints a mounted chassis span in place", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    // Build the derived icon so the chassis span exists (custom hex → span).
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // A pure chassis re-paint that KEEPS a span (preset at alpha 50 → the
+    // custom→preset mechanism switch is still one in-place write): same span
+    // reference, no rebuild, and the sprite offset/opacity are re-derived.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(el.querySelector(".foliplus-marker-chassis")).toBe(span);
+    expect(span.style.opacity).toBe("0.5");
+  });
+
+  it("applyMarkerColorToLeaves rebuilds when the new paint drops the span", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    // A custom hex builds a chassis span.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    expect(el.querySelector(".foliplus-marker-chassis")).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // A preset at alpha 100 drops the span entirely — not paintable in place,
+    // so the write must rebuild through setLeafIcon.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 100);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls + 1);
+  });
+
+  it("applyMarkerColorToLeaves falls back to setIcon when no chassis span is mounted", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    // A preset at alpha 100 → sprite class only, NO span.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star");
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // A chassis colour change with no span mounted must rebuild.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", "star");
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls + 1);
+  });
+});
+
 describe("authorGlyphName", () => {
   it("returns the first valid author glyph name with its verdict", () => {
     const withGlyph = makeMarker({ options: { icon: "star" } });
