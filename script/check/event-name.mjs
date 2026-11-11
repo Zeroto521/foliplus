@@ -23,7 +23,7 @@
  * entries so a test can inject hypothetical names without mutating the
  * production constant; the CLI parses the file and feeds the real entries.
  *
- * Usage: `node script/check/event-names.mjs [root]`
+ * Usage: `node script/check/event-name.mjs [root]`
  *   Prints each violation as `file:line: text` with a suggested fix and
  *   exits 1 when any are found.
  */
@@ -113,7 +113,7 @@ const main = (root = process.cwd()) => {
     console.log(`${at}: ${v.key}: ${v.reason}\n  fix: ${v.fix}`);
   }
   if (violations.length === 0) {
-    console.log("event-names: every EVENTS value follows `foliplus:<domain>:<action>`");
+    console.log("event-name: every EVENTS value follows `foliplus:<domain>:<action>`");
   }
   return violations.length === 0 ? 0 : 1;
 };

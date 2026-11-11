@@ -1,4 +1,4 @@
-// Guard test for `script/check/event-names.mjs` — the semantic event-name
+// Guard test for `script/check/event-name.mjs` — the semantic event-name
 // convention. The script's pure checker `findEventNameDrift` pins the
 // `<domain>:<action>` shape over `EVENTS` entries and keeps the layer domain
 // on the `foliplus:layer:` prefix. These cases drive the checker directly
@@ -10,7 +10,7 @@ import {
   main,
   parseEvents,
   runCli,
-} from "../../../../script/check/event-names.mjs";
+} from "../../../../script/check/event-name.mjs";
 import { readFileSync } from "node:fs";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -46,7 +46,7 @@ const withExtra = (key: string, value: string) => [
   { key, value, line: 0 },
 ];
 
-describe("event-names guard", () => {
+describe("event-name guard", () => {
   it("passes on the real EVENTS dictionary", () => {
     expect(findEventNameDrift(realEntries(), knownDomains())).toEqual([]);
   });
@@ -104,7 +104,7 @@ describe("event-names guard", () => {
     expect(violations[0].reason).toMatch(/no `foliplus:layer:` event/);
   });
 
-  describe("event-names CLI", () => {
+  describe("event-name CLI", () => {
     it("main returns 0 and logs the all-clear on the real dictionary", () => {
       const log: string[] = [];
       const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
@@ -119,7 +119,7 @@ describe("event-names guard", () => {
     });
 
     it("main returns 1 and prints file:line on a malformed dictionary", () => {
-      const dir = mkdtempSync(path.join(os.tmpdir(), "event-names-"));
+      const dir = mkdtempSync(path.join(os.tmpdir(), "event-name-"));
       const constDir = path.join(dir, "foliplus", "js", "core", "event");
       mkdirSync(constDir, { recursive: true });
       writeFileSync(
