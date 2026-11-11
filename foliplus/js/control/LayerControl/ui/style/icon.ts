@@ -14,10 +14,15 @@
 // schedule and the panel/trigger/grid DOM.
 import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import {
+  capabilityGate,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { ListCursor, claimKeys } from "#core/interaction/index.js";
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { DIM } from "#core/layer/index.js";
 import {
   type AuthorGlyph,
   PICKER_GLYPHS,
@@ -40,11 +45,7 @@ const GLYPH_GRID_COLS = 8;
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon capability (a marker icon is not a `setStyle` face, so
  *  the capability slot is the one honest answer). */
-const layerCanIcon = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.icon === CAP_TIER.NATIVE;
-};
+const layerCanIcon = capabilityGate("icon", "native");
 
 /** Apply the layer's stored glyph to every marker leaf, capturing each
  *  leaf's author icon on first write. A missing intent is a no-op — a layer

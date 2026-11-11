@@ -20,9 +20,14 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import {
+  capabilityGate,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CAP_TIER, DIM, walkLeaf } from "#core/layer/index.js";
+import { DIM, walkLeaf } from "#core/layer/index.js";
 import {
   applyIconColorToLeaves,
   authorGlyphColorOf,
@@ -43,11 +48,7 @@ import * as CONST from "#control/LayerControl/const.js";
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
  *  divIcon / iconUrl has no glyph-color face to write). */
-const layerCanIconColor = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.iconColor === CAP_TIER.NATIVE;
-};
+const layerCanIconColor = capabilityGate("iconColor", "native");
 
 /** The author's own glyph paint for the layer, read with the SAME walk the
  *  capability gate uses (walkLeaf — a nested group is descended, not read one

@@ -469,6 +469,124 @@ const oneOverlay = (makeLayer: () => L.Layer = polygonLayer) => {
   return { ...fixture, layer, onMap };
 };
 
+/** Build an awesome-markers author icon fixture. This is the single
+ *  source for the author icon in the icon / iconColor / markerColor /
+ *  markerIcon suites — the four files used to each carry a private copy
+ *  that drifted apart (markerColor gained the `_setIconStyles` re-paint,
+ *  icon kept a `withShadow` knob, iconColor had no shadow at all).
+ *
+ *  The union of knobs is accepted so every caller keeps working:
+ *  className / bg / size (icon.ts, markerIcon.ts), markerColor
+ *  (icon.ts, markerColor.ts), iconColor / innerColor (iconColor.ts,
+ *  markerColor.ts, markerIcon.ts), withShadow (icon.ts, markerIcon.ts).
+ *  Extra `face` fields are harmless — no caller asserts on
+ *  `author.options.iconColor` / `author.options.markerColor` directly
+ *  (all four files assert only on the derived `.icon` reference), so the
+ *  union always carries every face the probes could read. */
+export const makeAuthorIcon = (
+  opts: {
+    className?: string;
+    bg?: string;
+    size?: [number, number];
+    markerColor?: string;
+    iconColor?: string;
+    innerColor?: string;
+    withShadow?: boolean;
+  } = {},
+) => {
+  const cfg = {
+    className: opts.className ?? "awesome-marker",
+    bg: opts.bg ?? "url(icon.png) -24px 0",
+    size: opts.size ?? ([36, 46] as [number, number]),
+    markerColor: opts.markerColor ?? "blue",
+    iconColor: opts.iconColor ?? "blue",
+    innerColor: opts.innerColor,
+    withShadow: opts.withShadow ?? true,
+  };
+  const author: any = {
+    options: {
+      markerColor: cfg.markerColor,
+      iconColor: cfg.iconColor,
+      className: cfg.className,
+      iconSize: cfg.size,
+      iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
+      popupAnchor: [0, -cfg.size[1]],
+    },
+    createIcon: vi.fn(function (this: any) {
+      const div = document.createElement("div");
+      div.className = cfg.className;
+      div.style.backgroundImage = cfg.bg;
+      div.style.backgroundPosition = "-24px 0";
+      div.style.width = `${cfg.size[0]}px`;
+      div.style.height = `${cfg.size[1]}px`;
+      div.innerHTML = cfg.innerColor
+        ? `<i class="fa fa-map-marker" style="color:${cfg.innerColor}"></i>`
+        : '<i class="fa fa-map-marker"></i>';
+      // The real awesome-markers createIcon paints the preset sprite class
+      // from the CURRENT options.markerColor (the derived icon overrides
+      // options before calling this, so a chassis edit re-paints the class).
+      this._setIconStyles?.(div, `icon-${this.options.markerColor}`);
+      return div;
+    }),
+    _setIconStyles: vi.fn(function (this: any, div: HTMLElement, name: string) {
+      // Real L.Icon._setIconStyles appends options.className — the author
+      // sprite class must survive the derived chassis swap.
+      div.className =
+        `awesome-marker-${name} ${this.options.className ?? cfg.className}`.trim();
+    }),
+    createShadow: cfg.withShadow
+      ? vi.fn(() => {
+          const sh = document.createElement("div");
+          sh.className = "awesome-marker-shadow";
+          return sh;
+        })
+      : undefined,
+  };
+  return author;
+};
+
+/** A Leaflet default-icon author: an L.Icon.Default instance (the branch
+ *  keys on `instanceof L.Icon.Default` first, then on createIcon -> <img>).
+ *  Its createIcon returns a real <img> like Leaflet's _createImg, so the
+ *  second clause also fires — the dedicated divIcon branch must take it
+ *  over. */
+export const makeDefaultIconAuthor = (): any => {
+  const proto = (window.L as any).Icon.Default.prototype;
+  const author = Object.create(proto);
+  author.options = { iconSize: [25, 41], iconAnchor: [12, 41] };
+  author.createIcon = vi.fn(() => document.createElement("img"));
+  return author;
+};
+
+/** A plain divIcon author: NO markerColor face. The capability probe must
+ *  answer "none" so the marker-color row never renders for this carrier. */
+export const makePlainDivIconAuthor = () => ({
+  options: { className: "plain-div-icon" },
+  createIcon: vi.fn(() => {
+    const div = document.createElement("div");
+    div.className = "plain-div-icon";
+    return div;
+  }),
+  _setIconStyles: vi.fn((div: HTMLElement) => {
+    div.className = "plain-div-icon";
+  }),
+});
+
+/** An <img>-based author (Icon.Default / iconUrl): the marker-color
+ *  capability probe must answer "none" — an <img> has no awesome-markers
+ *  sprite chassis. */
+export const makeImgAuthor = () => ({
+  options: { className: "leaflet-marker-icon" },
+  createIcon: vi.fn(() => {
+    const img = document.createElement("img");
+    img.className = "leaflet-marker-icon";
+    return img;
+  }),
+  _setIconStyles: vi.fn((div: HTMLElement) => {
+    div.className = "leaflet-marker-icon";
+  }),
+});
+
 export {
   allFolded,
   attachWithGroup,

@@ -29,6 +29,7 @@ import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { buildOriginalDetail } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
+  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
@@ -53,7 +54,6 @@ import {
   walkStyleLeaves,
 } from "./styleBag.js";
 import {
-  CAP_TIER,
   DIM,
   FILL_MODE,
   type FillMode,
@@ -153,11 +153,7 @@ interface BorderRowBindTarget {
  *  checks belong here: the invariant is that `gate` is exactly the
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.stroke === CAP_TIER.NATIVE;
-};
+const layerCanBorder = capabilityGate("stroke", "native");
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
