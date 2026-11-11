@@ -7,11 +7,15 @@
 // without mutating the production constant.
 import {
   findEventNameDrift,
+  main,
   parseEvents,
+  runCli,
 } from "../../../../script/check/event-names.mjs";
 import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 
 const CONST_PATH = path.join(
@@ -98,5 +102,73 @@ describe("event-names guard", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0].key).toBe("(dictionary)");
     expect(violations[0].reason).toMatch(/no `foliplus:layer:` event/);
+  });
+
+  describe("event-names CLI", () => {
+    it("main returns 0 and logs the all-clear on the real dictionary", () => {
+      const log: string[] = [];
+      const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+        log.push(args.join(" "));
+      });
+      try {
+        expect(main(process.cwd())).toBe(0);
+        expect(log.some(l => l.includes("every EVENTS value follows"))).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("main returns 1 and prints file:line on a malformed dictionary", () => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), "event-names-"));
+      const constDir = path.join(dir, "foliplus", "js", "core", "event");
+      mkdirSync(constDir, { recursive: true });
+      writeFileSync(
+        path.join(constDir, "const.ts"),
+        'const EVENTS = {\n  BAD: "not-an-event-name",\n} as const;\n',
+      );
+      const log: string[] = [];
+      const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+        log.push(args.join(" "));
+      });
+      try {
+        expect(main(dir)).toBe(1);
+        expect(log.some(l => l.includes("BAD") && l.includes(":"))).toBe(true);
+      } finally {
+        spy.mockRestore();
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("runCli wires main to process.exitCode when this file is the entry", () => {
+      const original = process.exitCode;
+      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        runCli([], import.meta.url);
+        expect(process.exitCode).toBe(0);
+      } finally {
+        process.exitCode = original;
+        spy.mockRestore();
+      }
+    });
+
+    it("runCli is a no-op when the entry is not this script", () => {
+      const original = process.exitCode;
+      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        runCli([], "some/other/file.mjs");
+        expect(process.exitCode).not.toBe(1);
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        process.exitCode = original;
+        spy.mockRestore();
+      }
+    });
+  });
+
+  it("parseEvents returns empty when the source has no EVENTS literal", () => {
+    // A const.ts that lost its dictionary entirely: the parser returns no
+    // entries rather than throwing, so the CLI reports an empty (not a
+    // malformed) dictionary.
+    expect(parseEvents("// no dictionary here\n")).toEqual([]);
   });
 });

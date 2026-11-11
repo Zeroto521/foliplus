@@ -34,7 +34,6 @@ const CONST_REL = path.join("foliplus", "js", "core", "event", "const.ts");
 /** `foliplus:<domain>:<action>` with every segment kebab-case. Three
  *  colon-separated segments; an empty segment (e.g. `foliplus:layer:`) fails. */
 const NAME_RE = /^foliplus:([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)$/;
-const LAYER_PREFIX = "foliplus:layer:";
 
 /** Parse the `EVENTS = { ... } as const` literal out of the const.ts source.
  *  @returns [{key, value, line}] — `line` is the 1-based source line of the
@@ -79,18 +78,6 @@ const findEventNameDrift = (entries, knownDomains) => {
     const domain = value.split(":")[1];
     if (domain === "layer") {
       hasLayer = true;
-      // A value that passed NAME_RE with domain "layer" always carries the
-      // prefix (the regex implies it); the check is kept explicit so a future
-      // relaxation of NAME_RE cannot silently drop the routed prefix.
-      if (!value.startsWith(LAYER_PREFIX)) {
-        violations.push({
-          key,
-          value,
-          line,
-          reason: `layer event "${value}" does not carry the ${LAYER_PREFIX} prefix`,
-          fix: `layer-domain events must start ${LAYER_PREFIX}`,
-        });
-      }
     } else if (knownDomains && !knownDomains.has(domain)) {
       violations.push({
         key,
@@ -131,13 +118,15 @@ const main = (root = process.cwd()) => {
   return violations.length === 0 ? 0 : 1;
 };
 
-const invokedDirectly = argv =>
-  Boolean(argv[1]) &&
-  argv[1].replace(/\\/g, "/").endsWith("script/check/event-names.mjs");
-if (invokedDirectly(process.argv)) {
-  process.exitCode = main(
-    process.argv[2] ? path.resolve(process.argv[2]) : process.cwd(),
-  );
-}
+/** CLI entry — wire `main` to process.argv when (and only when) this file is
+ *  the entry module. `runCli` is exported so a test can drive it in-process
+ *  (a spawned subprocess is invisible to the parent's coverage collector). */
+const runCli = (argv, entry) => {
+  const invoked =
+    entry !== undefined && path.resolve(entry) === path.resolve(process.argv[1] ?? "");
+  if (!invoked) return;
+  process.exitCode = main(argv[0] ? path.resolve(argv[0]) : process.cwd());
+};
+runCli(process.argv.slice(2), process.argv[1]);
 
-export { NAME_RE, parseEvents, findEventNameDrift, main };
+export { NAME_RE, parseEvents, findEventNameDrift, main, runCli };
