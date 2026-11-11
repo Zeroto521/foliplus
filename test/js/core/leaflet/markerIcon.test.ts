@@ -117,7 +117,7 @@ const makeAuthorIcon = (
         div.className = cfg.className;
       }
       div.style.backgroundImage = cfg.bg;
-      div.style.backgroundPosition = "-24px 0";
+      div.style.backgroundPosition = cfg.bgPosition;
       div.style.width = `${cfg.size[0]}px`;
       div.style.height = `${cfg.size[1]}px`;
       div.innerHTML = '<i class="fa fa-map-marker"></i>';
@@ -446,6 +446,55 @@ describe("buildMarkerIcon chassis span", () => {
     expect(inner.style.color).toBe("blue");
   });
 
+  it("falls back to a probe div for a preset whose sprite is not yet readable", () => {
+    // A preset not yet cached + an author with no inline background forces
+    // the readChassisSprite probe-div branch (append + getComputedStyle).
+    // jsdom does not resolve the class stylesheet, so no sprite is found and
+    // no span is painted — but the branch must run without throwing.
+    const author = makeAuthorIcon({ bg: "none" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#436978",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+  it("skips the probe div when the document body is unavailable", () => {
+    // The probe-div branch guards on document.body (a detached/headless
+    // context). With no body, readChassisSprite must return null without
+    // touching getComputedStyle — no throw, no span.
+    const author = makeAuthorIcon({ bg: "none" });
+    const body = document.body;
+    Object.defineProperty(document, "body", { value: null, configurable: true });
+    try {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "circle",
+        markerColor: "#ffcb92",
+        markerColorOpacity: 50,
+      }) as any;
+      const div = derived.createIcon();
+      expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+    } finally {
+      Object.defineProperty(document, "body", { value: body, configurable: true });
+    }
+  });
+  it("defaults an author sprite position to 0 0 when the inline position is empty", () => {
+    // The readChassisSprite fallback for a missing backgroundPosition.
+    const author = makeAuthorIcon({ bgPosition: "" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundPosition).toBe("0px 0px");
+  });
   it("no chassis write adds no span even for a preset-looking hex", () => {
     const author = makeAuthorIcon();
     const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
