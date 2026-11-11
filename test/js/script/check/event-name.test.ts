@@ -5,18 +5,17 @@
 // against synthetic entry lists (the real dictionary is covered by the
 // script's own CLI run in CI), so each red case injects one hypothetical name
 // without mutating the production constant.
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import {
   findEventNameDrift,
   main,
   parseEvents,
   runCli,
-} from "../../../../script/check/event-name.mjs";
-import { readFileSync } from "node:fs";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
-import { EVENTS } from "#core/event/index.js";
+} from "#script/check/event-name.mjs";
 
 const CONST_PATH = path.join(
   process.cwd(),
@@ -39,12 +38,13 @@ const knownDomains = () =>
       .filter(Boolean),
   );
 
-/** Build a synthetic entry list: the real dictionary plus one hypothetical
- *  entry. `line` is 0 because the entry is not in the file. */
-const withExtra = (key: string, value: string) => [
-  ...realEntries(),
-  { key, value, line: 0 },
-];
+/** Build a synthetic entry list: the real dictionary with one entry's value
+ *  replaced (key preserved). `line` is retained from the real entry. */
+const withValue = (key, value) =>
+  realEntries().map(e => (e.key === key ? { ...e, value } : e));
+
+/** Build a synthetic entry list with one extra hypothetical entry. */
+const withExtra = (key, value) => [...realEntries(), { key, value, line: 0 }];
 
 describe("event-name guard", () => {
   it("passes on the real EVENTS dictionary", () => {
@@ -104,65 +104,45 @@ describe("event-name guard", () => {
     expect(violations[0].reason).toMatch(/no `foliplus:layer:` event/);
   });
 
-  describe("event-name CLI", () => {
-    it("main returns 0 and logs the all-clear on the real dictionary", () => {
-      const log: string[] = [];
-      const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
-        log.push(args.join(" "));
-      });
-      try {
-        expect(main(process.cwd())).toBe(0);
-        expect(log.some(l => l.includes("every EVENTS value follows"))).toBe(true);
-      } finally {
-        spy.mockRestore();
-      }
-    });
+  it("flags a LAYER_ key carrying a non-layer value (LAYER_CHANGE -> foliplus:mode:change)", () => {
+    // A hand-edit swaps the domain on a layer event: the shape is fine and
+    // "mode" is a published domain, so the shape + known-domain checks pass.
+    // The key→domain association is what catches it — a LAYER_ key must carry
+    // the foliplus:layer: value prefix.
+    const violations = findEventNameDrift(
+      withValue("LAYER_CHANGE", "foliplus:mode:change"),
+      knownDomains(),
+    );
+    expect(
+      violations.some(v => v.key === "LAYER_CHANGE" && /LAYER_ key/.test(v.reason)),
+    ).toBe(true);
+  });
 
-    it("main returns 1 and prints file:line on a malformed dictionary", () => {
-      const dir = mkdtempSync(path.join(os.tmpdir(), "event-name-"));
-      const constDir = path.join(dir, "foliplus", "js", "core", "event");
-      mkdirSync(constDir, { recursive: true });
-      writeFileSync(
-        path.join(constDir, "const.ts"),
-        'const EVENTS = {\n  BAD: "not-an-event-name",\n} as const;\n',
-      );
-      const log: string[] = [];
-      const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
-        log.push(args.join(" "));
-      });
-      try {
-        expect(main(dir)).toBe(1);
-        expect(log.some(l => l.includes("BAD") && l.includes(":"))).toBe(true);
-      } finally {
-        spy.mockRestore();
-        rmSync(dir, { recursive: true, force: true });
-      }
-    });
+  it("flags a LAYER_ key with a typo domain (LAYER_CHANGE -> foliplus:laryer:change)", () => {
+    // A typo in the domain segment: "laryer" is a valid kebab-case segment so
+    // the shape passes, but the known-domain check flags it as unpublished and
+    // the key→domain association flags the LAYER_ key carrying a non-layer
+    // value — at least one violation names LAYER_CHANGE.
+    const violations = findEventNameDrift(
+      withValue("LAYER_CHANGE", "foliplus:laryer:change"),
+      knownDomains(),
+    );
+    expect(violations.length).toBeGreaterThanOrEqual(1);
+    expect(violations.some(v => v.key === "LAYER_CHANGE")).toBe(true);
+  });
 
-    it("runCli wires main to process.exitCode when this file is the entry", () => {
-      const original = process.exitCode;
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-      try {
-        runCli([], import.meta.url);
-        expect(process.exitCode).toBe(0);
-      } finally {
-        process.exitCode = original;
-        spy.mockRestore();
-      }
-    });
-
-    it("runCli is a no-op when the entry is not this script", () => {
-      const original = process.exitCode;
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-      try {
-        runCli([], "some/other/file.mjs");
-        expect(process.exitCode).not.toBe(1);
-        expect(spy).not.toHaveBeenCalled();
-      } finally {
-        process.exitCode = original;
-        spy.mockRestore();
-      }
-    });
+  it("flags a non-LAYER_ key carrying a layer value (MODE_CHANGE -> foliplus:layer:change)", () => {
+    // The reverse direction: a mode event accidentally typed with the layer
+    // prefix. The key→domain association catches it — a non-LAYER_ key must
+    // not carry the foliplus:layer: value prefix (OVERLAY_CLEAR is the one
+    // exempted key, and this is not it).
+    const violations = findEventNameDrift(
+      withValue("MODE_CHANGE", "foliplus:layer:change"),
+      knownDomains(),
+    );
+    expect(
+      violations.some(v => v.key === "MODE_CHANGE" && /non-LAYER_ key/.test(v.reason)),
+    ).toBe(true);
   });
 
   it("parseEvents returns empty when the source has no EVENTS literal", () => {
@@ -170,5 +150,65 @@ describe("event-name guard", () => {
     // entries rather than throwing, so the CLI reports an empty (not a
     // malformed) dictionary.
     expect(parseEvents("// no dictionary here\n")).toEqual([]);
+  });
+});
+
+describe("event-name CLI", () => {
+  it("main returns 0 and logs the all-clear on the real dictionary", () => {
+    const log: string[] = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      log.push(args.join(" "));
+    });
+    try {
+      expect(main(process.cwd())).toBe(0);
+      expect(log.some(l => l.includes("every EVENTS value follows"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("main returns 1 and prints file:line on a malformed dictionary", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "event-name-"));
+    const constDir = path.join(dir, "foliplus", "js", "core", "event");
+    mkdirSync(constDir, { recursive: true });
+    writeFileSync(
+      path.join(constDir, "const.ts"),
+      'const EVENTS = {\n  BAD: "not-an-event-name",\n} as const;\n',
+    );
+    const log: string[] = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      log.push(args.join(" "));
+    });
+    try {
+      expect(main(dir)).toBe(1);
+      expect(log.some(l => l.includes("BAD") && l.includes(":"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("runCli wires main to process.exitCode when this file is the entry", () => {
+    const original = process.exitCode;
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runCli([], import.meta.url);
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = original;
+      spy.mockRestore();
+    }
+  });
+
+  it("runCli is a no-op when the entry is not this script", () => {
+    const original = process.exitCode;
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runCli([], "some/other/file.mjs");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      process.exitCode = original;
+      spy.mockRestore();
+    }
   });
 });

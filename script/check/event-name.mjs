@@ -33,6 +33,7 @@ import path from "node:path";
 const CONST_REL = path.join("foliplus", "js", "core", "event", "const.ts");
 /** `foliplus:<domain>:<action>` with every segment kebab-case. Three
  *  colon-separated segments; an empty segment (e.g. `foliplus:layer:`) fails. */
+const LAYER_PREFIX = "foliplus:layer:";
 const NAME_RE = /^foliplus:([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 
 /** Parse the `EVENTS = { ... } as const` literal out of the const.ts source.
@@ -61,6 +62,15 @@ const parseEvents = source => {
  *  check shape only (used by the empty-dictionary case, which must still
  *  report a missing layer domain rather than every unknown one).
  *  @returns [{key, value, line, reason, fix}] — one per violation. */
+/** Non-LAYER_ keys that legitimately carry a `foliplus:layer:` value.
+ *  OVERLAY_CLEAR is a layer-panel signal (the panel clears its overlay state)
+ *  published under the layer namespace — the key does not start LAYER_
+ *  because it clears overlay state rather than a single layer, but the
+ *  value carries the layer prefix because the panel is the publisher.
+ *  A new entry here needs a comment explaining why the key does not carry
+ *  the LAYER_ prefix. */
+const LAYER_VALUE_KEY_EXEMPT = new Set(["OVERLAY_CLEAR"]);
+
 const findEventNameDrift = (entries, knownDomains) => {
   const violations = [];
   let hasLayer = false;
@@ -85,6 +95,34 @@ const findEventNameDrift = (entries, knownDomains) => {
         line,
         reason: `domain "${domain}" is not a published domain (foliplus:${domain}:…)`,
         fix: `use a domain the dictionary already publishes (${[...knownDomains].sort().join(", ")}) or add the new domain deliberately`,
+      });
+    }
+  }
+  // Key→domain association: the LAYER_ key prefix and the foliplus:layer:
+  // value prefix are two halves of the same contract. A key that starts
+  // LAYER_ must carry the foliplus:layer: value prefix, and a value that
+  // starts foliplus:layer: must belong to a LAYER_ key — otherwise a
+  // hand-edit can swap a layer event into another domain (or vice versa)
+  // without tripping the shape or known-domain checks (both would see a
+  // well-formed value in a domain that happens to be published).
+  for (const { key, value, line = 0 } of entries) {
+    const isLayerKey = key.startsWith("LAYER_");
+    const isLayerValue = value.startsWith(LAYER_PREFIX);
+    if (isLayerKey && !isLayerValue) {
+      violations.push({
+        key,
+        value,
+        line,
+        reason: `LAYER_ key "${key}" carries a non-layer value "${value}" — the key prefix and the value prefix must agree`,
+        fix: `set the value to foliplus:layer:<action> to match the LAYER_ key`,
+      });
+    } else if (!isLayerKey && isLayerValue && !LAYER_VALUE_KEY_EXEMPT.has(key)) {
+      violations.push({
+        key,
+        value,
+        line,
+        reason: `non-LAYER_ key "${key}" carries a layer value "${value}" — rename the key to LAYER_* or move the event to its own domain`,
+        fix: `rename the key to LAYER_${key} (or use a non-layer domain for the value)`,
       });
     }
   }
