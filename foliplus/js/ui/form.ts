@@ -4,6 +4,7 @@
 // from drifting.
 import { PANEL_CLASS } from "./panelClassName.js";
 import { dom } from "#platform/dom.js";
+import { normalizeHexColor } from "#core/color.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */
@@ -35,14 +36,6 @@ const clampLabelSize = (value: number): number =>
 const clampBorderWeight = (value: number): number =>
   Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, value));
 
-/** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
-const normalizeHexColor = (value: string): string => {
-  if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-    const [r, g, b] = value.slice(1);
-    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
-  }
-  return value;
-};
 
 /** `<input type=color>` on the shared form-color-input chrome. */
 const colorInput = (opts: {
