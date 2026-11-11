@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
-import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import {
+  CLUSTER_CAPABILITIES,
+  LayerSurface,
+  PaneManager,
+  type PaneSpec,
+  deriveLayerKind,
+} from "#core/layer/index.js";
+import * as CONST from "#core/layer/index.js";
 import * as capabilityModule from "#foliplus/core/layer/capability.js";
 import * as carrierModule from "#foliplus/core/layer/carrier.js";
-import * as CONST from "#foliplus/core/layer/const.js";
-import type { PaneSpec } from "#foliplus/core/layer/type.js";
-import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
 // (containers), `getElement` + `_map` (attached DOM) and the `instanceof`

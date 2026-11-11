@@ -37,6 +37,7 @@ import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
 // (directory and alias in one entry) and the rules/tests follow.
 const REPO_ROOT = resolve(".");
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
+const TEST_JS_ROOT = resolve(REPO_ROOT, "test/js");
 
 // ── Layer classification ──────────────────────────────────────
 // TIER maps each tier to its directory AND its #alias segment. Step 2 renames
@@ -114,6 +115,108 @@ const readImports = (src: string): Set<string> => {
   return out;
 };
 
+// Real-import scanner: matches ONLY actual `import ... from "#..."`
+// declarations, never `from "..."` strings inside other string/template
+// literals (fixtures) or comments. The existing IMPORT_RE/readImports catches
+// the latter and would false-positive on build-tooling fixtures that embed
+// #core paths as DATA (global-namespace-plugin, scan-registry).
+const readRealImports = (src: string): Array<{ spec: string; line: number }> => {
+  const out: Array<{ spec: string; line: number }> = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    if (c === "/" && src[i + 1] === "/") {
+      while (i < n && src[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "*") {
+      i += 2;
+      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const q = c;
+      i++;
+      while (i < n) {
+        if (src[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (src[i] === q) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (src.startsWith("import", i) && !/[\w$]/.test(src[i - 1] || "")) {
+      let k = i + 6;
+      while (k < n && /\s/.test(src[k])) k++;
+      if (src[k] === '"' || src[k] === "'") {
+        const q2 = src[k];
+        let k2 = k + 1;
+        while (k2 < n && src[k2] !== q2) k2++;
+        const spec = src.slice(k + 1, k2);
+        const line = src.slice(0, i).split("\n").length;
+        if (spec.startsWith("#")) out.push({ spec, line });
+        i = k2 + 1;
+        continue;
+      }
+      // `import { ... } from "..."` or `import * as X from "..."`.
+      let f = k;
+      while (f < n) {
+        const cc = src[f];
+        if (cc === '"' || cc === "'" || cc === "`") {
+          const qq = cc;
+          let ff = f + 1;
+          while (ff < n) {
+            if (src[ff] === "\\") {
+              ff += 2;
+              continue;
+            }
+            if (src[ff] === qq) {
+              ff++;
+              break;
+            }
+            ff++;
+          }
+          f = ff;
+          continue;
+        }
+        if (
+          src.startsWith("from", f) &&
+          !/[\w$]/.test(src[f - 1] || "") &&
+          /[\s"']/.test(src[f + 4] || " ")
+        ) {
+          break;
+        }
+        f++;
+      }
+      if (f < n) {
+        let g = f + 4;
+        while (g < n && /\s/.test(src[g])) g++;
+        if (src[g] === '"' || src[g] === "'") {
+          const qq = src[g];
+          let g2 = g + 1;
+          while (g2 < n && src[g2] !== qq) g2++;
+          const spec = src.slice(g + 1, g2);
+          const line = src.slice(0, i).split("\n").length;
+          if (spec.startsWith("#")) out.push({ spec, line });
+          i = g2 + 1;
+          continue;
+        }
+      }
+      i = k;
+      continue;
+    }
+    i++;
+  }
+  return out;
+};
+
 // ── Whitelist: documented cross-boundary imports ──────────────
 // Each entry names the file (relative to foliplus/js/), the import
 // specifier, and why it is allowed. A new cross-boundary import must be
@@ -161,6 +264,60 @@ const ALLOWED: ReadonlyArray<{
     reason: "global type declaration reuses the config schema",
   },
 ];
+
+// Test-side exemptions for the test/js barrel rule. Each entry names the
+// test file (relative to test/js/), the #core deep specifier it keeps, and
+// why the barrel cannot be used. The barrel rule for test/js is otherwise
+// absolute: a test importing a core cluster module MUST use the cluster
+// barrel (#core/<cluster>/index.js).
+//
+// Only two classes of exception exist, and both are structural:
+//  1. paths-as-data files (build-path.test.ts, import-boundary.test.ts) —
+//     they CONSTRUCT and ASSERT #core path strings as data (build-path
+//     resolves alias prefixes, import-boundary exercises the very rule), so
+//     a real-import scan of their source is meaningless. They are exempt at
+//     the FILE level, not the import level.
+//  2. vi.spyOn/vi.mock target modules — an ESM live binding is NOT shared by
+//     a barrel re-export: spying on `#core/layer/index.js` cannot intercept a
+//     production module's direct `import ... from "./capability.js"`. The
+//     spy target namespace MUST come from the SAME module the production
+//     module imports, which is the deep file. These two exceptions are the
+//     only real deep imports left in test/js (verified by the scanner).
+const TEST_JS_ALLOWED: ReadonlyArray<{
+  file: string;
+  spec: string;
+  reason: string;
+}> = [
+  {
+    file: "core/layer/LayerSurface.test.ts",
+    spec: "#core/layer/capability.js",
+    reason:
+      "vi.spyOn target namespace must match the prod module's direct import (ESM live binding; a barrel re-export does not share it)",
+  },
+  {
+    file: "core/layer/LayerSurface.test.ts",
+    spec: "#core/layer/carrier.js",
+    reason:
+      "vi.spyOn target namespace must match the prod module's direct import (ESM live binding; a barrel re-export does not share it)",
+  },
+];
+
+// Files exempt from the test/js barrel rule at the FILE level (paths-as-data).
+const TEST_JS_FILE_EXEMPT = new Set([
+  "script/build-path.test.ts",
+  "script/import-boundary.test.ts",
+]);
+
+// Map a test file rel (test/js/...) to its exempt #core deep specs, keyed by
+// the file-relative path minus the "test/js/" prefix.
+const testJsAllowedFor = (rel: string): Map<string, string> => {
+  const key = rel.replace(/^test\/js\//, "");
+  const map = new Map<string, string>();
+  for (const a of TEST_JS_ALLOWED) {
+    if (a.file === key) map.set(a.spec, a.reason);
+  }
+  return map;
+};
 
 // The set of allowed specs for a given file, keyed by file rel path.
 const allowedFor = (rel: string): Map<string, string> => {
@@ -343,6 +500,42 @@ const collect = (): Array<[string, string, string]> => {
   return problems;
 };
 
+// The test/js barrel rule: a test file importing a core cluster module must
+// use the cluster barrel (#core/<cluster>/index.js), never the deep path.
+// #platform deep imports remain allowed (no tier barrel exists for them).
+// Exemptions are structural and documented above (TEST_JS_ALLOWED +
+// TEST_JS_FILE_EXEMPT).
+const collectTestJs = (): Array<[string, number, string, string]> => {
+  const problems: Array<[string, number, string, string]> = [];
+  const files = walk(TEST_JS_ROOT);
+  for (const file of files) {
+    const rel = file
+      .slice(REPO_ROOT.length + 1)
+      .split("\\")
+      .join("/");
+    if (TEST_JS_FILE_EXEMPT.has(rel.replace(/^test\/js\//, ""))) continue;
+    const src = readFileSync(file, "utf-8");
+    const allowed = testJsAllowedFor(rel);
+    for (const im of readRealImports(src)) {
+      const canonicalSpec = canonical(im.spec);
+      if (!CORE_CLUSTER_RE.test(canonicalSpec)) continue;
+      if (canonicalSpec.startsWith("#core/index.js")) continue;
+      const cluster = CORE_CLUSTER_RE.exec(canonicalSpec)![1];
+      if (canonicalSpec.startsWith(`#core/${cluster}/index.js`)) continue;
+      if (im.spec.includes("?raw")) continue;
+      const reason = allowed.get(canonical(im.spec));
+      if (reason) continue;
+      problems.push([
+        rel.replace(/^test\/js\//, ""),
+        im.line,
+        im.spec,
+        `must go through #core/${cluster}/index.js`,
+      ]);
+    }
+  }
+  return problems;
+};
+
 describe("JS import boundaries", () => {
   it("scans a non-trivial production tree", () => {
     expect(walk(JS_ROOT).length).toBeGreaterThanOrEqual(80);
@@ -446,6 +639,80 @@ describe("JS import boundaries", () => {
 // prove the tree is clean today, but a rule that never fired would silently
 // drift. These synthetic cases pin the rule's teeth — a future violation
 // must turn red, not pass.
+// The test/js barrel rule must be live in BOTH directions: the positive scan
+// proves the tree is clean today; the acceptance cases pin the teeth so a
+// future violation turns red, not pass.
+describe("test/js barrel rule", () => {
+  it("scans a non-trivial test tree", () => {
+    expect(walk(TEST_JS_ROOT).length).toBeGreaterThanOrEqual(80);
+  });
+
+  it("no test imports a core cluster module by deep path (real imports only)", () => {
+    const violations = collectTestJs();
+    expect(
+      violations,
+      violations.map(v => `${v[0]}:${v[1]} ${v[2]} ${v[3]}`).join("\n"),
+    ).toEqual([]);
+  });
+
+  it("the exemption list is live, not stale (every entry is exercised)", () => {
+    // A dead exemption means the import it documented disappeared; the
+    // exemption then quietly hides a future regression.
+    const srcs = walk(TEST_JS_ROOT).map(f => readFileSync(f, "utf-8"));
+    for (const a of TEST_JS_ALLOWED) {
+      const present = srcs.some(src => src.includes(a.spec));
+      expect(present, `dead exemption: ${a.file} -> ${a.spec}`).toBe(true);
+    }
+  });
+
+  it("a deliberately deep test import goes red (real assertion)", () => {
+    // Synthetic teeth: a deep import in a NON-exempt test file must be
+    // flagged with the barrel suggestion.
+    const violations = collectTestJsFrom(`test/js/core/geo/coord.test.ts`, [
+      { spec: "#core/layer/intent.js", line: 3 },
+    ]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0][3]).toContain("#core/layer/index.js");
+  });
+
+  it("whitelisted paths-as-data files are not red", () => {
+    for (const rel of TEST_JS_FILE_EXEMPT) {
+      const violations = collectTestJsFrom(`test/js/${rel}`, []);
+      expect(violations, `${rel} should be exempt`).toEqual([]);
+    }
+  });
+});
+
+// Test seam: run the test/js rule against a single synthetic source set.
+// The scanner + exemption logic are shared with collectTestJs, so the teeth
+// above exercise the SAME code path the real scan uses.
+const collectTestJsFrom = (
+  rel: string,
+  synthetic: Array<{ spec: string; line: number }>,
+): Array<[string, number, string, string]> => {
+  const file = resolve(REPO_ROOT, rel);
+  const src = readFileSync(file, "utf-8");
+  const problems: Array<[string, number, string, string]> = [];
+  const allowed = testJsAllowedFor(rel);
+  const imports = synthetic.length ? synthetic : readRealImports(src);
+  for (const im of imports) {
+    const canonicalSpec = canonical(im.spec);
+    if (!CORE_CLUSTER_RE.test(canonicalSpec)) continue;
+    if (canonicalSpec.startsWith("#core/index.js")) continue;
+    const cluster = CORE_CLUSTER_RE.exec(canonicalSpec)![1];
+    if (canonicalSpec.startsWith(`#core/${cluster}/index.js`)) continue;
+    if (im.spec.includes("?raw")) continue;
+    if (allowed.has(canonical(im.spec))) continue;
+    problems.push([
+      rel.replace(/^test\/js\//, ""),
+      im.line,
+      im.spec,
+      `must go through #core/${cluster}/index.js`,
+    ]);
+  }
+  return problems;
+};
+
 describe("barrelFor rejects synthetic violations", () => {
   it("an external consumer's deep path is a cross-tier violation", () => {
     expect(

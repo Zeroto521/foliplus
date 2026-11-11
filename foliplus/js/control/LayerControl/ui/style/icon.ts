@@ -133,7 +133,7 @@ const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
 };
 /** The author's FontAwesome family prefix for the layer (see authorGlyphPrefixOnLayer).
  *  Returns null when the layer declares no prefix — callers then fall back to
- *  the panel's fa-solid family. */
+ *  the control's `icon_prefix` family (solid by default), never a hardcoded one. */
 const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
