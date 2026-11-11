@@ -90,6 +90,8 @@
   "LayerControl.style_fill_original_levels": "Original · {n} levels",
   "LayerControl.style_fill_original_colors": "Original · {n} colors",
   "LayerControl.style_fill_field": "Field",
+  "LayerControl.style_fill_field_category": "Category",
+  "LayerControl.style_fill_field_numeric": "Numeric",
   "LayerControl.style_fill_classes": "Classes",
   "LayerControl.style_fill_classes_out_of_range": "This class count comes from the layer declaration. It is outside the editable 2–9 range; editing it collapses the count into that range.",
   "LayerControl.style_method": "Classification Method",

@@ -2924,12 +2924,16 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
     // seeded config, no partial UI state.
     // The leaves carry only a string property, so once the seeded numeric
     // cache is emptied the fallback leaf walk finds no numeric field either.
-    const strLeaf = (label: string): any => {
+    const strLeaf = (_label: string): any => {
       const leaf = new L.Polyline() as any;
       leaf.options = { color: "#ff0000", weight: 2, stroke: true };
       leaf.feature = {
         geometry: { type: "Polygon" },
-        properties: { label },
+        // No value field at all — neither numeric nor categorical: a layer
+        // with any field (a number column or a discrete string column)
+        // legitimately offers the value mode, so the refusal case is exactly
+        // an empty feature bag.
+        properties: {},
       };
       const setStyle = vi.fn((style: Record<string, unknown>) => {
         Object.assign(leaf.options, style);

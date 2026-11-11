@@ -24,8 +24,9 @@
 // paints through `setStyle` or through a component's own canvas.
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
+import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
+import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
@@ -62,11 +63,13 @@ import {
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
+  CATEGORY_SCHEMES,
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
   DEFAULT_SCHEMES,
   VALUE_KIND,
   getColorScale,
+  inferFieldKind,
 } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import {
@@ -241,13 +244,25 @@ const borderValueForUi = (
     getIntent(ui, layerId, INTENT.BORDER_VALUE),
   );
   if (stored) return stored;
-  return {
-    kind: VALUE_KIND.NUMERIC,
-    field: borderSeedField(ui, layerId, fields),
-    method: CONST.FILL_VALUE.METHOD_DEFAULT,
-    classes: CLASS_COUNT.DEFAULT,
-    scheme: CONST.FILL_VALUE.SCHEME_DEFAULT,
-  };
+  const field = borderSeedField(ui, layerId, fields);
+  const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
+    ui.c.findLayer(layerId)) as L.Layer | null;
+  const kind = layer ? inferFieldKind(layer, field) : "numeric";
+  return kind === VALUE_KIND.CATEGORY
+    ? {
+        kind: VALUE_KIND.CATEGORY,
+        field,
+        method: CONST.FILL_VALUE.METHOD_DEFAULT,
+        classes: CLASS_COUNT.DEFAULT,
+        scheme: CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT,
+      }
+    : {
+        kind: VALUE_KIND.NUMERIC,
+        field,
+        method: CONST.FILL_VALUE.METHOD_DEFAULT,
+        classes: CLASS_COUNT.DEFAULT,
+        scheme: CONST.FILL_VALUE.SCHEME_DEFAULT,
+      };
 };
 
 /** Persist a border value config in the shape the validator accepts. Mirrors
@@ -274,8 +289,8 @@ const persistedBorderValue = (value: ValueConfig): ValueConfig =>
  *  switches to the by-value mode and none is stored yet. */
 const writeBorderMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
   if (mode === FILL_MODE.VALUE) {
-    const fields = numericFields(ui, layerId);
-    if (fields.length === 0) return false;
+    if (!hasValueField(ui, layerId)) return false;
+    const fields = valueFields(ui, layerId);
     getDimension(DIM.BORDER)!.write!(ui, layerId, {
       mode,
       value: persistedBorderValue(borderValueForUi(ui, layerId, fields)),
@@ -293,11 +308,28 @@ const writeBorderValue = (
   layerId: string,
   patch: Partial<ValueConfig>,
 ): ValueConfig => {
-  const fields = numericFields(ui, layerId);
-  const next: ValueConfig = persistedBorderValue({
+  const fields = valueFields(ui, layerId);
+  const merged: ValueConfig = {
     ...borderValueForUi(ui, layerId, fields),
     ...patch,
-  });
+  };
+  if (patch.field !== undefined) {
+    const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
+      ui.c.findLayer(layerId)) as L.Layer | null;
+    const inferred = layer ? inferFieldKind(layer, patch.field) : "numeric";
+    if (inferred === VALUE_KIND.CATEGORY) {
+      merged.kind = VALUE_KIND.CATEGORY;
+      if (!(merged.scheme in CATEGORY_SCHEMES)) {
+        merged.scheme = CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT;
+      }
+    } else {
+      merged.kind = VALUE_KIND.NUMERIC;
+      if (!(DEFAULT_SCHEMES as readonly string[]).includes(merged.scheme)) {
+        merged.scheme = CONST.FILL_VALUE.SCHEME_DEFAULT;
+      }
+    }
+  }
+  const next: ValueConfig = persistedBorderValue(merged);
   getDimension(DIM.BORDER)!.write!(ui, layerId, {
     mode: FILL_MODE.VALUE,
     value: next,
@@ -825,14 +857,10 @@ const renderBorderDetail = (
 ): void => {
   disposeBorderRow(ui);
   detail.replaceChildren();
-  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
-    const value = borderValueForUi(ui, layerId, numericFields(ui, layerId));
-    for (const row of buildValueDetail(
-      ui,
-      layerId,
-      numericFields(ui, layerId),
-      value,
-    )) {
+  if (mode === FILL_MODE.VALUE && hasValueField(ui, layerId)) {
+    const fields = valueFields(ui, layerId);
+    const value = borderValueForUi(ui, layerId, fields);
+    for (const row of buildValueDetail(ui, layerId, fields, value)) {
       detail.append(row);
     }
     // The width stays editable in every border mode: the by-value detail
@@ -854,12 +882,11 @@ const renderBorderDetail = (
  *  only original + single; the by_value mode would duplicate the fill's own
  *  value config on the same face. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const fields = numericFields(ui, layerId);
   const block = dom.el("div", {
     class: CONST.CLASSES.STYLE_BORDER_BLOCK,
     "data-style-dim": "border",
   });
-  if (fields.length === 0) {
+  if (!hasValueField(ui, layerId)) {
     block.append(...buildSolidBorderDetail(ui, layerId));
     return block;
   }
@@ -922,13 +949,13 @@ const bindBorderValueDetail = (
   const hidden = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
-  const fields = numericFields(ui, layerId);
+  const fields = valueFields(ui, layerId);
   const value = borderValueForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
-    schemes: DEFAULT_SCHEMES,
-    value: value.scheme,
+    schemes: valueSchemes(value),
+    value: valueSchemeForUi(value),
     colorScale: getColorScale,
     numClasses: value.classes,
     portal: true,
@@ -958,22 +985,26 @@ const bindBorderValueDetail = (
 
   const methodSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-  ) as HTMLSelectElement;
-  methodSelect.onchange = () =>
-    writeBorderValue(ui, layerId, {
-      method: methodSelect.value as ValueConfig["method"],
-    });
+  ) as HTMLSelectElement | null;
+  if (methodSelect !== null) {
+    methodSelect.onchange = () =>
+      writeBorderValue(ui, layerId, {
+        method: methodSelect.value as ValueConfig["method"],
+      });
+  }
 
   const classesSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
-  ) as HTMLSelectElement;
-  classesSelect.onchange = () => {
-    const next = writeBorderValue(ui, layerId, {
-      classes: parseInt(classesSelect.value, 10),
-    });
-    picker.setNumClasses(next.classes);
-    convergeBorderClassesRow(classesSelect, next.classes);
-  };
+  ) as HTMLSelectElement | null;
+  if (classesSelect !== null) {
+    classesSelect.onchange = () => {
+      const next = writeBorderValue(ui, layerId, {
+        classes: parseInt(classesSelect.value, 10),
+      });
+      picker.setNumClasses(next.classes);
+      convergeBorderClassesRow(classesSelect, next.classes);
+    };
+  }
 };
 
 /** Bind one detail slot for the active border mode. Called on open and after
@@ -984,7 +1015,7 @@ const bindBorderDetail = (
   detail: HTMLElement,
   mode: FillMode,
 ): void => {
-  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+  if (mode === FILL_MODE.VALUE && hasValueField(ui, layerId)) {
     bindBorderValueDetail(ui, layerId, detail);
     // Bind the width-only row appended to the value detail: the same shell
     // binder the other modes use, so the weight commits through one channel.
