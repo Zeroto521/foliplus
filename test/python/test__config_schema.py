@@ -518,6 +518,7 @@ class TestRuntimeZeroChange:
         assert LayerControl._config_fields == (
             "label_collide",
             "collapse_on_outside",
+            "prefix",
         )
         # The full tuple for MeasureControl is asserted in the parametrized
         # derivation test above; this is a targeted snapshot for spot-check.

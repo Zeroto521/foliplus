@@ -1407,7 +1407,9 @@ describe("icon rehydrate drift guard", () => {
     const trigger = row.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    expect(trigger.textContent).toContain("fa-star");
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fas")).toBe(true);
+    expect(glyph.classList.contains("fa-regular")).toBe(false);
   });
 
   it("uses the control prefix when the author declares no family (e2e)", () => {
@@ -1421,7 +1423,9 @@ describe("icon rehydrate drift guard", () => {
     const trigger = row.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    expect(trigger.textContent).toContain("fa-map-marker");
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fa-regular")).toBe(true);
+    expect(glyph.classList.contains("fa-solid")).toBe(false);
   });
 
   it("falls back to the panel default when neither author nor control prefix exists (e2e)", () => {
@@ -1435,7 +1439,9 @@ describe("icon rehydrate drift guard", () => {
     const trigger = row.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
-    expect(trigger.textContent).toContain("fa-map-marker");
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fa-solid")).toBe(true);
+    expect(glyph.classList.contains("fa-regular")).toBe(false);
   });
   it("shows the unavailable state for a name the author's prefix cannot paint", () => {
     const probed: string[] = [];

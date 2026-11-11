@@ -23,10 +23,10 @@ import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { coerceGlyphPrefix } from "#core/leaflet/glyphSource.js";
 import {
   applyIconColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
+  coerceGlyphPrefix,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
 import {

@@ -149,7 +149,10 @@ const glyphClassName = (name: string, prefix: string = DEFAULT_GLYPH_PREFIX): st
  *  single tests must stub `getComputedStyle` (or `glyphAvailable`) to model
  *  availability; the real probe lives in the browser suite. */
 const availabilityCache = new Map<string, boolean>();
-const glyphAvailable = (name: string, prefix: string = DEFAULT_GLYPH_PREFIX): boolean => {
+const glyphAvailable = (
+  name: string,
+  prefix: string = DEFAULT_GLYPH_PREFIX,
+): boolean => {
   const cacheKey = `${prefix}|${name}`;
   const cached = availabilityCache.get(cacheKey);
   if (cached !== undefined) return cached;

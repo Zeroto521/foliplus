@@ -163,7 +163,9 @@ describe("glyph prefix family", () => {
   });
 
   it("glyphHtml paints under the given family and under the default when omitted", () => {
-    expect(glyphHtml("flag")).toContain('class="foliplus-marker-glyph fa-solid fa-flag"');
+    expect(glyphHtml("flag")).toContain(
+      'class="foliplus-marker-glyph fa-solid fa-flag"',
+    );
     expect(glyphHtml("flag", "", "", "fa-regular")).toContain(
       'class="foliplus-marker-glyph fa-regular fa-flag"',
     );
