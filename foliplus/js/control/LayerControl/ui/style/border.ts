@@ -84,6 +84,7 @@ import {
   colorInput,
   createSchemePicker,
   dropdownOf,
+  dropdownOverlay,
   inlineControls,
   normalizeHexColor,
   numberInput,
@@ -890,6 +891,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: displayBorderMode(ui, layerId),
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   block.append(modeRow.block, modeRow.detail);
   renderBorderDetail(ui, layerId, modeRow.detail, borderDetailMode(ui, layerId));
@@ -993,7 +995,6 @@ const bindBorderDetail = (
     bindBorderRowShell(detail, {
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-      onChangeColor: value => commitBorderColor(ui, layerId, value),
       onChangeWeight: value => commitBorderWeight(ui, layerId, value),
       onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
     });

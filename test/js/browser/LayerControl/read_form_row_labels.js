@@ -27,6 +27,23 @@
         text: (label.textContent || "").trim(),
         labelWidth: label.getBoundingClientRect().width,
         labelLines: range.getClientRects().length,
+        // The label cell and the control cell sit side by side in a flex row.
+        // A wrapped label must stay inside its fixed column: if its text
+        // boxes cross into the control cell, the two rects intersect. The
+        // method label ("Classification Method") is allowed to wrap, but it
+        // must never push into the control — that is the overlap this flags.
+        labelOverlapsControl: (() => {
+          const control = row.querySelector(".foliplus-form-control");
+          if (!control) return false;
+          const lr = label.getBoundingClientRect();
+          const cr = control.getBoundingClientRect();
+          return !(
+            lr.right <= cr.left ||
+            cr.right <= lr.left ||
+            lr.bottom <= cr.top ||
+            cr.bottom <= lr.top
+          );
+        })(),
         whiteSpace: getComputedStyle(label).whiteSpace,
         panelWidth: rootEl.getBoundingClientRect().width,
         // Only the controls a user can reach count: the shared dropdown keeps a

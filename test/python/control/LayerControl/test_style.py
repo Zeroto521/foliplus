@@ -1745,6 +1745,52 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
 
+    def test_style_mode_dropdown_outside_press_dismisses(self, browser, tmp_path):
+        """Both mode dropdowns (fill and border) close on an outside press.
+
+        The mode row uses the shared dropdown bridged to a hidden native
+        select. #1011 made the overlay registry the single Escape and
+        outside-press dispatcher; a mode dropdown that does not register its
+        overlay would never dismiss on an outside press. This pins both
+        consumers (fill and border) register — the border row is the one
+        that regressed. The fill row is the control: it already registered.
+        """
+        data = load_geojson("common", "polygons_fuzhou_3offset")
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="mode_dropdown_press"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            # Border first: the regression. The mode row opens its dropdown
+            # on a click of the trigger; an outside press must close it.
+            border = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
+                                   {"which": "border"})
+            assert border["ok"], border
+            assert border["openAfterClick"], border
+            assert border["closedByOutside"], (
+                f"border mode dropdown did not close on an outside press: {border}"
+            )
+            # Fill: control, already registered — must behave the same.
+            fill = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
+                                  {"which": "fill"})
+            assert fill["ok"], fill
+            assert fill["openAfterClick"], fill
+            assert fill["closedByOutside"], (
+                f"fill mode dropdown did not close on an outside press: {fill}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     @pytest.mark.parametrize("width", [380])
     def test_style_fill_row_label_names_the_method_on_one_line(
         self, browser, tmp_path, width
@@ -1755,7 +1801,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         name (Classification Method / 分类方法) — the word the heatmap panel shows too. The
         class count stays announced by the count select's own aria label, so a
         screen reader hears "Classification Method" and "Classes" once each. The label column
-        is the shared 136px token inside the 328px panel; Range.getClientRects()
+        is the shared 88px token inside the 280px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
         _METHOD_EN, _METHOD_ZH = _method_labels()
@@ -1794,13 +1840,24 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 _METHOD_EN: [_METHOD_EN, "Classes"],
                 _METHOD_ZH: [_METHOD_ZH, "分级数"],
             }[label]
-            assert row["labelLines"] == 1, (
-                f"the Classification Method label wrapped at the panel width: {row}"
+            # The method label ("Classification Method" / 分类方法) is the one
+            # label wider than the 88px shared column at the 12px label font
+            # (DejaVu ~124px). It is allowed to wrap to two lines, but the
+            # wrapped cell must stay inside the label column and must not
+            # overlap the control cell — a rect-intersection assertion, not a
+            # hard line count, so a future font/locale change either still
+            # fits (1 or 2 lines) or is caught by the overlap, never silently
+            # clipped.
+            assert row["labelLines"] <= 2, (
+                f"the Classification Method label wrapped past two lines: {row}"
             )
-            assert row["labelWidth"] == pytest.approx(136, abs=0.5), row
-            assert result["labelWidthToken"] == "136px", result
-            assert result["panelWidthToken"] == "328px", result
-            assert row["panelWidth"] == pytest.approx(328, abs=1), row
+            assert row["labelOverlapsControl"] is False, (
+                f"the method label overlaps its control: {row}"
+            )
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
+            assert result["panelWidthToken"] == "280px", result
+            assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
 
@@ -1816,6 +1873,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         A locale edit that lengthens any label turns this red instead of
         silently wrapping again.
         """
+        _METHOD_EN, _METHOD_ZH = _method_labels()
         data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
@@ -1888,11 +1946,30 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 },
             )
             assert result["ok"], result
-            assert result["max"] <= result["token"] - result["paddingRight"], (
-                f"a label-class string exceeds the label column token: "
-                f"max {result['max']:.1f}px > token {result['token']} - "
-                f"padding {result['paddingRight']}px"
+            # The method label ("Classification Method" / 分类方法) is the one
+            # string the 88px shared column cannot fit at the 12px label font
+            # (DejaVu ~124px). It is deliberately exempt: the row allows it to
+            # wrap to two lines (the overlap guard in
+            # test_style_fill_row_label_names_the_method_on_one_line catches a
+            # wrap that pushes into the control). EVERY other label-class string
+            # must still fit the token — a locale edit that lengthens any short
+            # label turns this red instead of silently wrapping.
+            method_strings = {
+                _METHOD_EN, _METHOD_ZH
+            }
+            assert method_strings <= strings, (
+                "the method-label strings are not part of the guard set"
             )
+            max_short = max(
+                (x["w"] for x in result["widths"] if x["s"] not in method_strings),
+                default=0,
+            )
+            assert max_short <= result["token"] - result["paddingRight"], (
+                f"a non-method label-class string exceeds the label column token: "
+                f"max {max_short:.1f}px > token {result["token"]} - "
+                f"padding {result["paddingRight"]}px"
+            )
+
             assert not errors, f"JS errors: {errors}"
 
     def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
