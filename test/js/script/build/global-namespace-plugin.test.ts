@@ -152,8 +152,8 @@ describe("sharedGlobalNamespace", () => {
     expect(sharedGlobalNamespace("#core/lifecycle/controlEnv.js")).toBe(
       "foliplus.core.lifecycle",
     );
-    expect(sharedGlobalNamespace("#core/lifecycle/leafletAdapter.js")).toBe(
-      "foliplus.core.lifecycle",
+    expect(sharedGlobalNamespace("#core/leafletAdapter.js")).toBe(
+      "foliplus.core.leafletAdapter",
     );
     expect(sharedGlobalNamespace("#core/lifecycle/defineControl.js")).toBe(
       "foliplus.core.lifecycle",

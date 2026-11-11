@@ -45,7 +45,7 @@ import {
 } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
-import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/lifecycle/index.js";
+import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 

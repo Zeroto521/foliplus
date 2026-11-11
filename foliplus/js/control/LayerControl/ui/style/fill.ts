@@ -208,7 +208,25 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // rather than being cleared, so a later switch back to solid still restores
   // the user's color and opacity.
   const original = mode === FILL_MODE.ORIGINAL;
-  const color = original ? undefined : getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const solid = mode === FILL_MODE.SOLID;
+  // SOLID owns exactly one colour. When no FILL_COLOR intent exists the base
+  // colour is the layer's authored base — NOT each leaf's captured author bag,
+  // which for a per-feature layer holds a different colour per leaf (restoring
+  // it is the original mode's job, not solid's). The base is the same reader
+  // the solid row's swatch uses (buildSolidDetail), so the panel and the map
+  // cannot disagree about what "solid" means. Computed once and captured: the
+  // highlight getter below replays the same value without a per-hover walk.
+  // Only a per-feature layer needs the derivation: a uniform layer's author
+  // face is already one colour, so no intent means no walk (an uncommitted
+  // layer keeps folium's own hover handling and gains no listener). A
+  // degenerate value record (mode=value, no config) and a colour basemap own
+  // no derivable base either.
+  const deriveSolidBase =
+    solid && !isColorBasemap(layerInfo) && paintsPerFeatureFill(ui, layerId);
+  const solidColor = deriveSolidBase
+    ? (getIntent(ui, layerId, INTENT.FILL_COLOR) ?? styleBaseOf(ui, layerId).fillColor)
+    : getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const color = original ? undefined : solidColor;
   const opacity = original ? undefined : getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
@@ -275,7 +293,20 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       // mode is resolved, not read off the intent, because an explore layer
       // opens in it before any mode has been written.
       if (displayFillMode(ui, layerId) === FILL_MODE.ORIGINAL) return null;
-      const c = getIntent(ui, layerId, INTENT.FILL_COLOR);
+      // Same derivation as the apply: a solid mode with no FILL_COLOR intent
+      // owns the authored base colour, so a mouseout must replay THAT, not
+      // folium's per-feature author face (which would bring the multi-colour
+      // author paint back over the single solid colour).
+      // Only replay a solid colour when the user actually owns the paint: a
+      // solid mode with NO intent at all (an uncommitted per-feature layer)
+      // has folium's own author restore on mouseout — replaying the base
+      // would stamp the first leaf's colour over every leaf.
+      const ownIntent =
+        getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined ||
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) !== undefined ||
+        getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined ||
+        getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined;
+      const c = ownIntent ? solidColor : undefined;
       const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
@@ -649,22 +680,11 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
           : FILL_MODE.SOLID;
     if (next === previous) return;
     writeFillMode(ui, layerId, next);
-    // Leaving the original colors must repaint. A mode write alone paints
-    // nothing: the solid mode only touches leaves that already carry an
-    // override or a captured bag, and an explore layer has neither, so the
-    // map would keep its per-feature colors while the row claims solid.
-    // Seed the swatch's base color so choosing solid actually takes the
-    // fill over; a value -> solid switch needs no seed because the apply
-    // restores the captured author bag itself. Coming back to the original
-    // colors needs no seed either: the apply releases every override.
-    if (
-      previous === FILL_MODE.ORIGINAL &&
-      next === FILL_MODE.SOLID &&
-      getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined &&
-      getIntent(ui, layerId, INTENT.FILL_OPACITY) === undefined
-    ) {
-      commitFillColor(ui, layerId, styleBaseOf(ui, layerId).fillColor);
-    }
+    // Leaving the original colors must repaint. The solid apply derives the
+    // base colour itself (styleBaseOf) when no FILL_COLOR intent exists, so
+    // the map takes the fill over without writing an intent the user never
+    // chose — a seed would persist a fake "user picked this" colour that a
+    // Reset would then show.
     renderFillDetail(ui, layerId, detail, next);
     bindFillDetail(ui, layerId, detail, next);
   };

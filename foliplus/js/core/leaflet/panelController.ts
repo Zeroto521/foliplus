@@ -319,5 +319,5 @@ const attachPanel = (map: L.Map, controller: PanelController): (() => void) => {
   return detach;
 };
 
-export { attachPanel, bindPanelPress, createPanel };
+export { DEFAULT_DISMISS, attachPanel, bindPanelPress, createPanel };
 export type { Dismiss, PanelController, PanelSpec };
