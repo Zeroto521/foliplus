@@ -171,17 +171,21 @@ class TestHeatmapControlPanelBrowser:
             assert vals["agg"] == "count"
             assert not errors, f"JS errors: {errors}"
 
-    def test_classes_row_label_names_the_method_on_one_line(self, browser, tmp_path):
-        """The classes row reads by its method, at most two lines, in both panels.
+    def test_classes_row_label_stays_untruncated(self, browser, tmp_path):
+        """The classes row reads by its method, at most two lines, and is never
+        truncated, in both panels.
 
         The row has one visible label for two selects, so it takes the primary
         control's name (Method / 分类方法) — the same word the layer style
         panel shows. Each select keeps its own aria label (Method / Classes),
         and the shared 88px label column holds the word inside the
         280px panel. Range.getClientRects() is the line-box count: the element
-        rect always reports one row.
+        rect always reports one row. "Not truncated" is pinned by
+        labelTruncated (scrollWidth <= clientWidth + 1): a label may wrap but
+        must never be clipped or ellipsized.
         """
         _METHOD_EN, _METHOD_ZH = _method_labels()
+
         # One layer auto-selects on expand, which is what unhides the style
         # block (the rows exist in the DOM while it is hidden).
         with use_page(_make_page, browser, tmp_path, num_layers=1) as (
@@ -233,6 +237,9 @@ class TestHeatmapControlPanelBrowser:
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert not row["labelOverlapsControl"], (
                 f"the wrapped method label crossed into the control: {row}"
+            )
+            assert not row["labelTruncated"], (
+                f"the method label was truncated by the column: {row}"
             )
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"

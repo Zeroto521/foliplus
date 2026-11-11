@@ -44,6 +44,11 @@
             cr.bottom <= lr.top
           );
         })(),
+        // A label may wrap (white-space: normal) but must never be clipped or
+        // ellipsized: scrollWidth > clientWidth means the box is truncating
+        // the text. This is the "not truncated" semantic — without it a
+        // later text-overflow: ellipsis would silently cut the method label.
+        labelTruncated: label.scrollWidth > label.clientWidth + 1,
         whiteSpace: getComputedStyle(label).whiteSpace,
         panelWidth: rootEl.getBoundingClientRect().width,
         // Only the controls a user can reach count: the shared dropdown keeps a
