@@ -366,3 +366,20 @@ describe("script module coverage", () => {
     expect(isCovered("never-a-module")).toBe(false);
   });
 });
+describe("style-mode-usage guard wiring", () => {
+  it("npm run lint chains the style-mode guard", () => {
+    expect(pkg.scripts.lint).toContain("guard:style-mode");
+  });
+
+  it("guard:style-mode runs both check modes", () => {
+    const script = pkg.scripts["guard:style-mode"];
+    expect(script).toContain("--check");
+    expect(script).toContain("--check-legacy-alias");
+  });
+
+  it("the pre-commit config registers the same guard", () => {
+    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
+    expect(pre).toMatch(/id: style-mode-usage/);
+    expect(pre).toMatch(/entry: node script\/check\/style-mode-usage\.mjs --check/);
+  });
+});

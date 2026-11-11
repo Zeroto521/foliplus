@@ -130,3 +130,15 @@ repos:
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
         pass_filenames: true
+
+      # Style-mode vocabulary drift guard (node): the fill mode is a persisted
+      # vocabulary; a bare FILL_MODE/FillMode reference outside intent.ts's own
+      # definition is a drift the record would silently misread. This is the
+      # same guard `npm run guard:style-mode` runs; pre-commit is a second,
+      # cheaper gate for the editor loop. language: system because the guard is
+      # a node script (no python). Check-only — fix the reference in the editor.
+      - id: style-mode-usage
+        name: style-mode-usage
+        entry: node script/check/style-mode-usage.mjs --check
+        language: system
+        pass_filenames: false
