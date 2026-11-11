@@ -20,9 +20,14 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import {
+  capabilityGate,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { DIM } from "#core/layer/index.js";
 import {
   applyIconColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
@@ -40,11 +45,7 @@ import * as CONST from "#control/LayerControl/const.js";
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
  *  divIcon / iconUrl has no glyph-color face to write). */
-const layerCanIconColor = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.iconColor === CAP_TIER.NATIVE;
-};
+const layerCanIconColor = capabilityGate("iconColor", "native");
 
 /** The author's own icon color when the layer's marker icon declares one
  *  (awesome-markers paints the glyph color on the inner `<i>`; the author's inline

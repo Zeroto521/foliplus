@@ -41,6 +41,7 @@ import {
 } from "./fillValue.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
+  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
@@ -64,7 +65,6 @@ import {
   walkFillLeaves,
 } from "./styleBag.js";
 import {
-  CAP_TIER,
   DIM,
   FILL_MODE,
   type FillMode,
@@ -120,11 +120,7 @@ const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
  *  No extra checks belong here: the invariant is that `gate` is exactly
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.fill === CAP_TIER.NATIVE;
-};
+const layerCanFill = capabilityGate("fill", "native");
 
 /** Normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional

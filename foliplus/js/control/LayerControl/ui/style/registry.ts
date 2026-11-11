@@ -54,11 +54,53 @@
 // `LayerControl/index.ts`) is deferred.
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { DIM, type IntentKey } from "#core/layer/index.js";
+import { CAP_TIER, DIM, type IntentKey } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
 
 const log = createLogger("LayerControl");
+/** The per-layer capability slots a dimension gate can key on. The tier
+ *  string on the surface's `LayerCapabilities` is the single source of
+ *  truth for whether a row is honest — nothing else belongs in a gate
+ *  (see the header comment: no carrier probes, no `isColorBasemap`
+ *  special-cases, no canvas/styleSetters exclusion — a canvas-only
+ *  surface already declares "none" for the dimension it cannot carry).
+ *  `relocatable` / `bounds` are booleans, not tiers, so they are not
+ *  gate candidates. */
+type CapabilitySlot =
+  | "fill"
+  | "stroke"
+  | "size"
+  | "icon"
+  | "iconColor"
+  | "markerColor"
+  | "opacity"
+  | "zoomRange"
+  | "label";
+
+/** Build the two-layer gate every dimension shares (contract, not
+ *  convention — see the file header):
+ *    1. Layer existence — the layer must be in the registry. A missing
+ *       layer is a programming error (the panel asked about something we
+ *       don't own), so return `false` immediately. This MUST run before
+ *       `surfaceFor`, which would throw on an unresolvable layer.
+ *    2. Capability — `capabilities.{slot}` against the required tier:
+ *       "native" checks `=== NATIVE` (stroke / fill / size / icon /
+ *       iconColor / markerColor declare only "native" | "none");
+ *       "non-none" checks `!== NONE` (opacity / zoomRange accept
+ *       "pane" too, and label declares only "pane" | "none" — it has
+ *       no NATIVE tier at all). */
+const capabilityGate = (
+  slot: CapabilitySlot,
+  require: "native" | "non-none",
+): ((ui: LayerUI, layerId: string) => boolean) => {
+  return (ui, layerId) => {
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return false;
+    const tier = ui.c.surfaceFor(layerInfo).capabilities[slot];
+    return require === "native" ? tier === CAP_TIER.NATIVE : tier !== CAP_TIER.NONE;
+  };
+};
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 
@@ -190,7 +232,10 @@ const resetIntentKeys = (
   return true;
 };
 
+export type { CapabilitySlot };
+
 export {
+  capabilityGate,
   DIM_ORDER,
   LABEL_DIM_ORDER,
   gatedRows,
