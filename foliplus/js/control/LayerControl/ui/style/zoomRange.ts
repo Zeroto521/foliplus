@@ -18,12 +18,13 @@ import { INTENT, getIntent } from "../intent.js";
 import { authorZoomRowRange } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
+  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-import { type AuthorZoomRange, CAP_TIER, DIM } from "#core/layer/index.js";
+import { type AuthorZoomRange, DIM } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -38,11 +39,7 @@ import * as CONST from "#control/LayerControl/const.js";
  *  basemap declares "pane" (the executor's visible op is the
  *  carrier, same as every other surface). No isColorBasemap
  *  special-case, no group exemption: capability alone decides. */
-const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.zoomRange !== CAP_TIER.NONE;
-};
+const canShowZoomRange = capabilityGate("zoomRange", "non-none");
 
 /** The current level's label is hidden when it would sit closer than this
  *  (percentage points) to either end, where the limit's own number already

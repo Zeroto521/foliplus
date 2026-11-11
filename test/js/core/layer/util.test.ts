@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import utilSource from "#core/layer/util?raw";
-import * as CONST from "#foliplus/core/layer/const.js";
 import {
   countFeatureGeometry,
   findLayer,
@@ -9,8 +7,11 @@ import {
   paintsAtZoom,
   setInteractive,
   suspendMapInteractions,
-} from "#foliplus/core/layer/util.js";
-import { walkLeaf, walkTree } from "#foliplus/core/layer/walkLeaf.js";
+  walkLeaf,
+  walkTree,
+} from "#core/layer/index.js";
+import * as CONST from "#core/layer/index.js";
+import utilSource from "#core/layer/util?raw";
 
 // What is worth pinning here is the other half: nothing in
 // util.ts touches a private field any more.

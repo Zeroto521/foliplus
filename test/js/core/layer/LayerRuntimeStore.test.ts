@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 import {
   type AppliedProjection,
   LayerRuntimeStore,
-} from "#foliplus/core/layer/LayerRuntimeStore.js";
-import type { LayerSnapshot } from "#foliplus/core/layer/type.js";
+  type LayerSnapshot,
+} from "#core/layer/index.js";
 
 const applied = (id: string, opacity = 1): AppliedProjection => ({
   id,

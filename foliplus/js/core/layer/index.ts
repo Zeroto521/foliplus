@@ -16,15 +16,18 @@ export {
   NO_FEATURE_TREE_KINDS,
   PANE_OWNER,
   PANE_ROLE,
+  CACHE,
   RECURSION,
   ROLE,
   Z_INDEX,
 } from "./const.js";
 export { readFeatureFillColors } from "./authorFill.js";
 export {
-  labelPaneNameOf,
+  assertInsideOwnedPanes,
   carrierTargetOf,
   contentPanesOf,
+  isMigratableLeaf,
+  labelPaneNameOf,
   visibleDomOf,
 } from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
@@ -88,8 +91,10 @@ export {
 export {
   FILL_OPT_IN,
   hasFillLeaf,
+  hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,
+  probeLayerCarrier,
 } from "./capability.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";

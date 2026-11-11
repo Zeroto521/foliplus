@@ -16,10 +16,10 @@
 // the gate would be exactly the drift the gate invariant forbids.
 import type { LayerUI } from "../surface.js";
 import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
-import { registerDimension } from "./registry.js";
+import { capabilityGate, registerDimension } from "./registry.js";
 import { FACE } from "./styleBag.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { DIM } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
@@ -47,11 +47,7 @@ import type { LabelConfig } from "#control/LayerControl/type.js";
  *  `hasLabelField` probe already decided that, so this stays a pure
  *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
-const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.label !== CAP_TIER.NONE;
-};
+const layerCanLabel = capabilityGate("label", "non-none");
 
 /** Build the Label section's rows: the label toggle, then the body (field
  *  picker → appearance → number format → avoid-overlap). Returned as the

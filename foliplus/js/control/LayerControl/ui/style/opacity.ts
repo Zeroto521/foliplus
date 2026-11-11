@@ -19,12 +19,13 @@ import { syncNoBasemap } from "../listPanel/visibility.js";
 import { currentOpacity } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
+  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
+import { DIM, ROLE } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -33,11 +34,7 @@ import * as CONST from "#control/LayerControl/const.js";
  *  opacity: "none" (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row — a slider that writes nothing but
  *  persists the value would fail silently. */
-const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.opacity !== CAP_TIER.NONE;
-};
+const layerCanOpacity = capabilityGate("opacity", "non-none");
 
 /** UI percentage (0-100) for a stored opacity (0-1). */
 const opacityToPct = (opacity: number | undefined): number =>

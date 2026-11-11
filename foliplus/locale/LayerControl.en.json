@@ -124,5 +124,6 @@
   "LayerControl.filter_empty": "No numeric fields on this layer",
   "LayerControl.style_border_mode": "Border Mode",
   "LayerControl.style_border_follow_fill": "Follow Fill",
-  "LayerControl.style_marker_color": "Marker Color"
+  "LayerControl.style_marker_color": "Marker Color",
+  "LayerControl.style_marker_color_opacity": "Marker Opacity"
 }

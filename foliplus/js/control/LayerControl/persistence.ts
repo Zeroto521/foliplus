@@ -231,10 +231,14 @@ const PARSE_OVERRIDE: Record<
       ? value
       : null;
   },
-  markerColor: data => {
-    const value = data.markerColor;
-    return typeof value === "string" &&
-      (MARKER_COLOR_PRESETS as readonly string[]).includes(value)
+  markerColor: data =>
+    isHexColor(data.markerColor) ? normalizeHexColor(data.markerColor) : null,
+  markerColorOpacity: data => {
+    const value = data.markerColorOpacity;
+    return typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 100
       ? value
       : null;
   },

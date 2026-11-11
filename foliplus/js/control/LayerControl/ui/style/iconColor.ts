@@ -20,14 +20,20 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
-import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import {
+  capabilityGate,
+  registerDimension,
+  resetIntentKeys,
+  writeIntentKeys,
+} from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CAP_TIER, DIM, walkLeaf } from "#core/layer/index.js";
+import { DIM, walkLeaf } from "#core/layer/index.js";
 import {
   applyIconColorToLeaves,
   authorGlyphColorOf,
   authorGlyphName as authorGlyphNameOnLayer,
   authorIconOf,
+  coerceGlyphPrefix,
   parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
@@ -43,11 +49,7 @@ import * as CONST from "#control/LayerControl/const.js";
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
  *  divIcon / iconUrl has no glyph-color face to write). */
-const layerCanIconColor = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.iconColor === CAP_TIER.NATIVE;
-};
+const layerCanIconColor = capabilityGate("iconColor", "native");
 
 /** The author's own glyph paint for the layer, read with the SAME walk the
  *  capability gate uses (walkLeaf — a nested group is descended, not read one
@@ -98,7 +100,13 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // white — the same default the derive path uses.
   const authorColor = authorIconColor(ui, layerId);
   const color = hasColor ? colorIntent : (authorColor ?? "#ffffff");
-  applyIconColorToLeaves(layer, color, glyph, hasOpacity ? opacityIntent : undefined);
+  applyIconColorToLeaves(
+    layer,
+    color,
+    glyph,
+    hasOpacity ? opacityIntent : undefined,
+    coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+  );
 };
 /** Write the layer's color and replay the walk. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
@@ -145,13 +153,25 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   if (authorColor) {
     // Re-derive with the author paint and the current glyph — color and
     // glyph never split across two writes.
-    applyIconColorToLeaves(layer, authorColor, glyph);
+    applyIconColorToLeaves(
+      layer,
+      authorColor,
+      glyph,
+      undefined,
+      coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+    );
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
     // so resetting the color never clears the glyph (orthogonal).
     resetIconLeaves(layer);
     if (glyph) {
-      applyIconColorToLeaves(layer, "#ffffff", glyph);
+      applyIconColorToLeaves(
+        layer,
+        "#ffffff",
+        glyph,
+        undefined,
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      );
     }
   }
 };

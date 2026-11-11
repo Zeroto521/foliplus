@@ -2,6 +2,10 @@
 // icon dimension (relocated from control/LayerControl/ui/style/icon.test.ts).
 // No DOM/panel: this file pins the capture / derive / reset / probe
 // contracts at the Leaflet-object level.
+import {
+  makeAuthorIcon,
+  makeDefaultIconAuthor,
+} from "../../control/LayerControl/ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PICKER_GLYPHS,
@@ -76,70 +80,6 @@ const makeMarkerGroup = (...markers: any[]): any => ({
     for (const marker of markers) fn(marker);
   }),
 });
-
-// A realistic author icon: the chassis a derive-based swap inherits. The
-// assertions compare the DERIVED icon's `createIcon` output against the
-// author's — className, backgroundImage/backgroundPosition, iconSize, and
-// the shadow's presence — so the derive contract is pinned at the DOM level.
-const makeAuthorIcon = (
-  opts: Partial<{
-    className: string;
-    bg: string;
-    size: [number, number];
-    iconColor: string;
-    withShadow: boolean;
-  }> = {},
-) => {
-  const cfg = {
-    className: opts.className ?? "awesome-marker",
-    bg: opts.bg ?? "url(icon.png) -24px 0",
-    size: opts.size ?? ([36, 46] as [number, number]),
-    iconColor: opts.iconColor ?? "blue",
-    withShadow: opts.withShadow ?? true,
-  };
-  const author: any = {
-    options: {
-      iconColor: cfg.iconColor,
-      className: cfg.className,
-      iconSize: cfg.size,
-      iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
-      popupAnchor: [0, -cfg.size[1]],
-    },
-    createIcon: vi.fn(() => {
-      const div = document.createElement("div");
-      div.className = cfg.className;
-      div.style.backgroundImage = cfg.bg;
-      div.style.backgroundPosition = "-24px 0";
-      div.style.width = `${cfg.size[0]}px`;
-      div.style.height = `${cfg.size[1]}px`;
-      div.innerHTML = '<i class="fa fa-map-marker"></i>';
-      return div;
-    }),
-    _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
-      div.className = `${name} ${cfg.className}`.trim();
-    }),
-    createShadow: cfg.withShadow
-      ? vi.fn(() => {
-          const sh = document.createElement("div");
-          sh.className = "awesome-marker-shadow";
-          return sh;
-        })
-      : undefined,
-  };
-  return author;
-};
-
-// A Leaflet default-icon author: an L.Icon.Default instance (the branch keys
-// on `instanceof L.Icon.Default` first, then on createIcon -> <img>). Its
-// createIcon returns a real <img> like Leaflet's _createImg, so the second
-// clause also fires — the dedicated divIcon branch must take it over.
-const makeDefaultIconAuthor = (): any => {
-  const proto = (window.L as any).Icon.Default.prototype;
-  const author = Object.create(proto);
-  author.options = { iconSize: [25, 41], iconAnchor: [12, 41] };
-  author.createIcon = vi.fn(() => document.createElement("img"));
-  return author;
-};
 
 describe("isIconLeaf", () => {
   it("accepts a marker (runtime setIcon)", () => {
@@ -262,7 +202,7 @@ describe("applyMarkerColorToLeaves", () => {
     // stay reachable) instead of spreading it — Object.create path.
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", "star", "#ff0000");
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", "star", "#ff0000");
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("awesome-marker");
@@ -279,7 +219,7 @@ describe("applyMarkerColorToLeaves", () => {
       }),
     };
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", null);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", null);
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("bare-icon");
@@ -288,7 +228,7 @@ describe("applyMarkerColorToLeaves", () => {
   it("skips a non-icon leaf in the walk", () => {
     const leaf = { options: {} };
     expect(() =>
-      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "red", null),
+      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "#d63e2a", null),
     ).not.toThrow();
   });
 });
@@ -377,6 +317,123 @@ describe("authorGlyphPrefix", () => {
   });
 });
 
+describe("buildMarkerIcon chassis span", () => {
+  it("preset hex at alpha 100 keeps the sprite class and NO chassis span", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+
+  it("preset hex below 100 takes a chassis span carrying the sprite + opacity", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundImage).toContain("url(");
+    expect(span.style.opacity).toBe("0.5");
+    expect(div.style.backgroundImage).toBe("none");
+  });
+
+  it("custom hex takes a chassis span with the sprite as a mask and background-color paint", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#ff9900",
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+  });
+
+  it("chassis opacity leaves the glyph sibling fully painted", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "star",
+      markerColor: "#38aadd",
+      markerColorOpacity: 0,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span.style.opacity).toBe("0");
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner).not.toBeNull();
+    expect(inner.style.color).toBe("blue");
+  });
+
+  it("falls back to a probe div for a preset whose sprite is not yet readable", () => {
+    // A preset not yet cached + an author with no inline background forces
+    // the readChassisSprite probe-div branch (append + getComputedStyle).
+    // jsdom does not resolve the class stylesheet, so no sprite is found and
+    // no span is painted — but the branch must run without throwing.
+    const author = makeAuthorIcon({ bg: "none" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#436978",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+  it("skips the probe div when the document body is unavailable", () => {
+    // The probe-div branch guards on document.body (a detached/headless
+    // context). With no body, readChassisSprite must return null without
+    // touching getComputedStyle — no throw, no span.
+    const author = makeAuthorIcon({ bg: "none" });
+    const body = document.body;
+    Object.defineProperty(document, "body", { value: null, configurable: true });
+    try {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "circle",
+        markerColor: "#ffcb92",
+        markerColorOpacity: 50,
+      }) as any;
+      const div = derived.createIcon();
+      expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+    } finally {
+      Object.defineProperty(document, "body", { value: body, configurable: true });
+    }
+  });
+  it("defaults an author sprite position to 0 0 when the inline position is empty", () => {
+    // The readChassisSprite fallback for a missing backgroundPosition.
+    // darkred is NOT cached by earlier tests (readChassisSprite caches per preset
+    // name), so this exercises the inline empty-position fallback.
+    const author = makeAuthorIcon({ bgPosition: "" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#a23336",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundPosition).toBe("0px 0px");
+  });
+  it("no chassis write adds no span even for a preset-looking hex", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+});
 describe("buildMarkerIcon", () => {
   it("derives from the author and swaps only the inner symbol", () => {
     const author = makeAuthorIcon();
@@ -523,6 +580,31 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("foliplus-marker-glyph");
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
+  });
+  it("paints the applied glyph under the panel prefix when no author family wins (render path)", () => {
+    // The control knob (coerced) reaches the build: the applied glyph renders
+    // under the coerced panel family, never the hardcoded fa-solid.
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "star",
+      prefix: "fa-regular",
+    }) as any;
+    const inner = derived.createIcon().querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-regular");
+    expect(inner.className).toContain("fa-star");
+    expect(inner.className).not.toContain("fa-solid");
+  });
+
+  it("renders the author family verbatim when the author declares a non-table prefix (render path)", () => {
+    // An author who writes prefix="fas" (a real family outside GLYPH_PREFIXES)
+    // must be painted as fas — the author intent is not coerced away.
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "star", prefix: "fas" }) as any;
+    const inner = derived.createIcon().querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fas");
+    expect(inner.className).toContain("fa-star");
+    expect(inner.className).not.toContain("fa-solid");
   });
 });
 it("paints a user color and opacity on the default-icon divIcon branch", () => {

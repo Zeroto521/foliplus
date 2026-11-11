@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
-import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import { hasRadiusLeaf, probeLayerCarrier } from "#foliplus/core/layer/capability.js";
+import {
+  LayerSurface,
+  PaneManager,
+  hasRadiusLeaf,
+  probeLayerCarrier,
+} from "#core/layer/index.js";
 
 // Minimal Leaflet shapes: the size probe reads only `getRadius`, `_radius`
 // and `_mRadius`, so each shape carries just those. The Circle pair is the

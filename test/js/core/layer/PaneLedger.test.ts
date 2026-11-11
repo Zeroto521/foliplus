@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { PaneLedger } from "#foliplus/core/layer/PaneLedger.js";
+import { PaneLedger } from "#core/layer/index.js";
 
 // Mixed DOM/Leaflet logic is covered by PaneManager.test.ts; this file pins the
 // book itself — provenance, the claim/release pairing, and the destroy guards.
