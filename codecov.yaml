@@ -1,6 +1,13 @@
 coverage:
   precision: 2
   round: down
+  # Only the shipped package and the TS sources it bundles are measured: the
+  # pytest run collects foliplus/, the vitest run collects foliplus/js/. Test
+  # trees, browser probes and the docs are executed or rendered, never covered,
+  # so a PR that only touches them must not be scored as "0% patch coverage".
+  ignore:
+    - "test/**"
+    - "doc/**"
   status:
     project:
       default:

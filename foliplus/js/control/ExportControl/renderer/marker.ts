@@ -27,7 +27,7 @@ import {
 } from "../util.js";
 import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 import { walkLeaf } from "#core/layer/index.js";
-import { layerShadow } from "#core/lifecycle/index.js";
+import { layerShadow } from "#core/leafletAdapter.js";
 
 /** Whether a root element may be drawn — the export's single admission filter,
  *  shared by the pane sweep and the per-leaf shadow channel so both admit and

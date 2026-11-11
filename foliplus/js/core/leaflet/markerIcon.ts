@@ -33,7 +33,7 @@ import {
 } from "./glyphSource.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/lifecycle/leafletAdapter.js";
+import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");

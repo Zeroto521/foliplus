@@ -16,7 +16,7 @@
 // carrier when the walk finds nothing to write to.
 import { isMigratableLeaf } from "./carrier.js";
 import { someLeaf, walkLeaf } from "./walkLeaf.js";
-import { isPixelRadiusLeaf } from "#core/lifecycle/leafletAdapter.js";
+import { isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this

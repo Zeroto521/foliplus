@@ -15,7 +15,12 @@ export { mountDelIcon } from "./deliconMount.js";
 export { cancelMapPaneTranslate } from "./domAdapter.js";
 export { bindMapEvents, unbindMapEvents } from "./mapEvent.js";
 export type { MapEventHandlers } from "./type.js";
-export { attachPanel, bindPanelPress, createPanel } from "./panelController.js";
+export {
+  DEFAULT_DISMISS,
+  attachPanel,
+  bindPanelPress,
+  createPanel,
+} from "./panelController.js";
 export type { Dismiss, PanelController, PanelSpec } from "./panelController.js";
 export {
   ROW_PANEL_EDGE,
