@@ -299,6 +299,34 @@ describe("buildMarkerColorRow", () => {
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#38aadd");
   });
+  it("reads a nested group like the gate, not one level", () => {
+    // The marker-color gate walks the whole tree (walkLeaf); the row must
+    // read the same tree, so a nested group does not answer "no preset"
+    // (then default blue) while the map draws the author's chassis.
+    const inner = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "green" }),
+    );
+    const nested: any = makeMarkerGroup(inner);
+    nested.options = {};
+    nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
+    const { ui: uNested } = fixtureWithMarkers([nested]);
+    const row = buildMarkerColorRow(uNested, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("green");
+  });
+  it("keeps a declared author preset unchanged (no fallback to blue)", () => {
+    // Counterexample: a standard author that DECLARES a chassis preset must
+    // show it, not the blue no-author-preset fallback.
+    const declared = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "red" }),
+    );
+    const { ui: uDeclared } = fixtureWithMarkers([declared]);
+    const row = buildMarkerColorRow(uDeclared, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("red");
+  });
 
   it("falls through to the blue default when the author markerColor is empty", () => {
     const empty = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
