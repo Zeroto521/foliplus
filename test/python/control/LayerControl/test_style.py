@@ -2678,10 +2678,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
         The reported regression: after choosing a chassis color, the marker's
         pin (the awesome-markers sprite container) disappears and only the
-        glyph <i> remains. This drives the real Leaflet runtime: the marker
-        element must still carry the `awesome-marker-icon-<color>` chassis
-        class and a non-empty background after the write, and Reset must
-        restore the author icon.
+        glyph <i> remains. The row is now [color swatch | opacity number]; the
+        chassis write drives the real Leaflet runtime, so the marker element
+        must still carry the `awesome-marker-icon-<color>` chassis class and a
+        non-empty background after the write, and Reset must restore the
+        author icon.
         """
         fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
@@ -2697,45 +2698,54 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
             # before: author chassis + glyph DOM
-            before = page.evaluate(_js("LayerControl/marker_color_probe"), [])
-            print("PROBE:", before)
-            assert before["panel"] and before["row"], before
-            assert before["before"] is not None, "no marker element read before"
-            assert before["before"]["hasChassisClass"], (
+            before = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert before["ok"], before
+            assert before["marker"]["hasChassisClass"], (
                 f"author marker has no chassis class: {before}"
             )
             page.screenshot(
                 path=str(tmp_path / "marker_color_before.png"), full_page=True
             )
 
-            # pick "blue" from the shared dropdown
-            written = page.evaluate(_js("LayerControl/marker_color_probe"), ["blue"])
-            assert written["option"], f"could not pick color: {written}"
+            # write the preset blue at alpha 100 through the swatch row
+            written = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert written["ok"], written
             page.screenshot(
                 path=str(tmp_path / "marker_color_after.png"), full_page=True
             )
-            assert written["after"] is not None, (
+            assert written["marker"] is not None, (
                 f"marker element missing after the write: {written}"
             )
             # The chassis container must survive: the sprite class + a real
             # background image, and the glyph must still be painted.
-            assert written["after"]["hasChassisClass"], (
+            assert written["marker"]["hasChassisClass"], (
                 f"marker lost its chassis container after the write: {written}"
             )
-            assert "awesome-marker-icon-blue" in written["after"]["cls"], (
+            assert "awesome-marker-icon-blue" in written["marker"]["cls"], (
                 f"chassis color did not re-derive: {written}"
+            )
+            assert written["marker"]["hasSpan"] is False, (
+                f"preset alpha 100 must NOT take a chassis span: {written}"
             )
             # The glyph must survive the write. When the author's glyph name
             # is not a FontAwesome 6 name (here: the bootstrap glyphicon
             # info-sign), the honest degradation keeps the author's inner
             # glyph verbatim — the chassis changes, the symbol does not.
-            glyph_cls = (written["after"]["glyph"] or {}).get("cls") or ""
-            assert written["after"]["glyph"], (
+            glyph_cls = (written["glyph"] or {}).get("cls") or ""
+            assert written["glyph"], (
                 f"glyph missing after the write: {written}"
             )
             assert (
-                "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
+                "foliplus-marker-glyph" in glyph_cls.split()
+                or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
+
 
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
         """Task-76: the marker chassis accepts a custom hex + opacity.

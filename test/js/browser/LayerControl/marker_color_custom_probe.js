@@ -1,4 +1,4 @@
-// Verify the task-76 chassis custom-color paint paths in a real Leaflet
+// Verify the marker chassis custom-color paint paths in a real Leaflet
 // runtime: the derived marker's DOM after a write carries the right chassis
 // mechanism (sprite class for a preset at alpha 100, a chassis <span> with
 // sprite + opacity for a preset at alpha < 100, mask + flat background-color
