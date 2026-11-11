@@ -2956,9 +2956,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert marker_var is not None, "could not find the folium marker var"
             page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
 
-            result = page.evaluate(
-                _js("LayerControl/icon_incremental_probe"), {}
-            )
+            result = page.evaluate(_js("LayerControl/icon_incremental_probe"), {})
             assert result["ok"], result
             # The colour write must be incremental: same <i>, no rebuild.
             assert result["sameElementAfterColor"] is True, (
@@ -2971,12 +2969,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"colour write must not call setIcon: {result}"
             )
             # The glyph write must rebuild exactly once.
-            assert result["callsAfterGlyph"] >= 1, (
-                f"glyph write must rebuild: {result}"
-            )
-            assert result["afterGlyph"] and "foliplus-marker-glyph" in result[
-                "afterGlyph"
-            ]["cls"].split(), f"glyph not painted: {result}"
+            assert result["callsAfterGlyph"] >= 1, f"glyph write must rebuild: {result}"
+            assert (
+                result["afterGlyph"]
+                and "foliplus-marker-glyph" in result["afterGlyph"]["cls"].split()
+            ), f"glyph not painted: {result}"
 
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
         """Task-76: the marker chassis accepts a custom hex + opacity.
