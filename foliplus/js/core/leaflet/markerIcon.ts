@@ -33,7 +33,7 @@ import {
 } from "./glyphSource.js";
 import { type IconValueConfig } from "#core/layer/index.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/lifecycle/leafletAdapter.js";
+import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import {
   type CategoryGlyphRamp,
   VALUE_KIND,

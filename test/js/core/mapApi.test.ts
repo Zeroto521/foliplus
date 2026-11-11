@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ensureMapFoliplus } from "#core/lifecycle/mapApi.js";
-import mapApiSource from "#core/lifecycle/mapApi?raw";
+import { ensureMapFoliplus } from "#core/mapApi.js";
+import mapApiSource from "#core/mapApi?raw";
 
 // MapFoliplus is seeded by exactly one place in the codebase (mapApi.ts) and
 // shared by five factories. These tests pin the two properties that make the
