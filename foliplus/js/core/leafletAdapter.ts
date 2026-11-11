@@ -1,4 +1,4 @@
-// core/lifecycle/leafletAdapter — the only module that reaches into Leaflet's
+// core/leafletAdapter — the only module that reaches into Leaflet's
 // private surface.
 //
 // Leaflet keeps everything pane hosting needs off its public interface:

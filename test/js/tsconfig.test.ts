@@ -64,7 +64,7 @@ const BANNED: Array<{ name: string; re: RegExp }> = [
 // count flat rather than banning it — the bar is "no new ones", which still
 // catches a future `as unknown as any`-style laundering.
 const NARROW_CASTS = [
-  { f: "core/lifecycle/mapApi.ts", n: 1 },
+  { f: "core/mapApi.ts", n: 1 },
   { f: "control/ExportControl/index.ts", n: 1 },
   // Tolerant label-config parse: the object shape and color are checked,
   // field-level coercion is the applier's (`applyStyleLabelState`) — the

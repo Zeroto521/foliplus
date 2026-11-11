@@ -134,11 +134,16 @@ interface FilterPanelState {
   writing: boolean;
   /** A synthetic owner may report several dimensions. The panel renders the
    *  first one; warn once per open panel instead of throwing. */
+  /** The dimension the range body edits. Derived per D8: the committed
+   *  atom's field, else the first dimension — never persisted. */
+  activeField: string | null;
   multiDimWarned: boolean;
 }
 
 interface FilterViewHooks {
   write: (filter: LayerFilter | undefined) => void;
+  /** Field-switch hook: re-select the dimension the range body edits. */
+  selectField: (field: string) => void;
 }
 
 /** The body deps: the panel's translator, its write bridge, its number
@@ -150,6 +155,7 @@ const bodyDeps = (
 ): Parameters<typeof renderBody>[2] => ({
   T: ui.T,
   write: hooks.write,
+  selectField: hooks.selectField,
   formatCount: fmtCount,
   formatValue: fmtValue,
   // Same surface contract the style panel's dropdowns use: an open popup
@@ -245,7 +251,10 @@ const mountView = (
 ): void => {
   finishSlidersIn(state.content);
   if (state.view.kind === "rows") state.view.body.destroy();
-  const dim = model?.dimensions[0] ?? null;
+  const dim =
+    model?.dimensions.find(d => d.field === state.activeField) ??
+    model?.dimensions[0] ??
+    null;
   if (!model || !dim) {
     state.view = buildEmptyState(ui);
     state.content.replaceChildren(state.view.root);
@@ -279,7 +288,19 @@ const reconcile = (
   cap: FilterCapability,
 ): void => {
   const model = cap.filterProvider();
-  const dim = model?.dimensions[0] ?? null;
+  // D8: the active field is the committed atom's field, else the first dimension.
+  const committedField = model?.filter?.kind === "atom" ? model.filter.field : null;
+  if (committedField) state.activeField = committedField;
+  else if (
+    !state.activeField ||
+    !model?.dimensions.some(d => d.field === state.activeField)
+  ) {
+    state.activeField = model?.dimensions[0]?.field ?? null;
+  }
+  const dim =
+    model?.dimensions.find(d => d.field === state.activeField) ??
+    model?.dimensions[0] ??
+    null;
   if (!model || !dim) {
     // Nothing filterable: keep an already-mounted empty body instead of
     // rebuilding it on every owner signal.
@@ -392,6 +413,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     entry: layerInfo,
     content,
     view: buildEmptyState(ui),
+    activeField: null,
     writing: false,
     multiDimWarned: false,
   };
@@ -420,6 +442,25 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
         return;
       }
       reconcile(ui, state, hooks, after);
+    },
+    selectField: field => {
+      const live = resolveCapability(ui, state);
+      if (!live) {
+        closeFilterPanel(ui, false);
+        return;
+      }
+      state.activeField = field;
+      state.writing = true;
+      try {
+        live.filterProvider()?.onField?.(field);
+      } finally {
+        state.writing = false;
+      }
+      // The owner publishes LAYER_FILTER_CHANGE after clearing, but it is
+      // suppressed while writing; reconcile here to rebuild for the new field.
+      if (ui.overlayPanel.activeFilterPanel !== state) return;
+      const freshCap = resolveCapability(ui, state);
+      if (freshCap) reconcile(ui, state, hooks, freshCap);
     },
   };
 

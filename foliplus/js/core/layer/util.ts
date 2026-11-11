@@ -8,7 +8,7 @@ import {
   layerIcon,
   layerMap,
   reinitInteraction,
-} from "#core/lifecycle/leafletAdapter.js";
+} from "#core/leafletAdapter.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.

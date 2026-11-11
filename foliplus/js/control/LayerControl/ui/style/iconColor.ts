@@ -22,11 +22,14 @@ import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CAP_TIER, DIM } from "#core/layer/index.js";
+import { CAP_TIER, DIM, walkLeaf } from "#core/layer/index.js";
 import {
   applyIconColorToLeaves,
+  authorGlyphColorOf,
   authorGlyphName as authorGlyphNameOnLayer,
   coerceGlyphPrefix,
+  authorIconOf,
+  parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
 import {
@@ -47,23 +50,28 @@ const layerCanIconColor = (ui: LayerUI, layerId: string): boolean => {
   return ui.c.surfaceFor(layerInfo).capabilities.iconColor === CAP_TIER.NATIVE;
 };
 
-/** The author's own icon color when the layer's marker icon declares one
- *  (awesome-markers paints the glyph color on the inner `<i>`; the author's inline
- *  `style.color` is the fallback the derive path reads). */
+/** The author's own glyph paint for the layer, read with the SAME walk the
+ *  capability gate uses (walkLeaf — a nested group is descended, not read one
+ *  level) and the SAME read the derive uses (authorGlyphColorOf: the inner
+ *  <i> inline color first, then the declared iconColor option). The row and
+ *  the derive must agree on what the map actually paints — the bug this
+ *  closes was a one-level read that missed an inline-painted custom icon and
+ *  a nested group, showing a default while the map drew the author's paint.
+ *  First painted leaf wins (informational — the row shows one value for the
+ *  whole layer, the same first-hit the write path uses). */
 const authorIconColor = (ui: LayerUI, layerId: string): string | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   let found: string | null = null;
-  (
-    layer as unknown as { eachLayer?: (fn: (leaf: unknown) => void) => void }
-  ).eachLayer?.(leaf => {
+  walkLeaf(layer, leaf => {
     if (found) return;
-    const own = (
-      leaf as {
-        options?: { icon?: { options?: { iconColor?: unknown } } };
-      }
-    ).options?.icon?.options?.iconColor;
-    if (typeof own === "string" && own) found = own;
+    // Read the CAPTURED author icon, never the live one: after a write the
+    // live options.icon is the user's derived icon, so a live read would
+    // show the user's paint as the author's. The captured icon is what
+    // reset restores, so the row and reset agree.
+    const icon = authorIconOf(leaf);
+    const paint = authorGlyphColorOf(icon);
+    if (paint) found = paint;
   });
   return found;
 };
@@ -174,7 +182,15 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
   if (!layerCanIconColor(ui, layerId)) return null;
   const current = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const authorColor = authorIconColor(ui, layerId);
-  const value = typeof current === "string" ? current : (authorColor ?? "#ffffff");
+  // The author's paint can be an rgb() string (a browser normalizes
+  // an inline style.color to rgb form); an <input type=color> only holds
+  // a #rrggbb, so normalise the author paint to hex before it reaches the
+  // input. The derive consumes the same raw paint fine — rgb is a valid
+  // CSS color — so only the row needs this conversion.
+  const authorHex = authorColor
+    ? (parseColorAlpha(authorColor)?.hex ?? authorColor)
+    : null;
+  const value = typeof current === "string" ? current : (authorHex ?? "#ffffff");
   const input = colorInput({
     value,
     ariaLabel: ui.T("style_icon_color"),
