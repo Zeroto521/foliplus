@@ -400,7 +400,7 @@ describe("generateRegistry", () => {
 
   it("aliases a same-named export from two modules (collision-safe)", () => {
     // A vocab const (core) and a locale-key const (ui) can legitimately share
-    // a name like STYLE_MODE. A bare \`import { STYLE_MODE }\` from each would
+    // a name like STYLE_MODE. A bare `import { STYLE_MODE }` from each would
     // collapse in esbuild to the LAST import, publishing the wrong value on
     // BOTH namespaces. The registry must alias the second import and keep the
     // published name, so each namespace resolves to its module's OWN value.
@@ -438,6 +438,24 @@ describe("generateRegistry", () => {
     );
   });
 
+  it("registers a core single-file export through emitNamespace (coreSingleFiles path)", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/classify.ts": `export const METHOD = { EQUAL: "equal", QUANTILE: "quantile" } as const;`,
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original" } as const;`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { METHOD } from "#core/classify.js";
+        import { STYLE_MODE } from "#core/layer/index.js";
+        const a = METHOD.EQUAL;
+        const b = STYLE_MODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["classify"] = {');
+    expect(output).toContain("METHOD");
+  });
   it("skips a ui module nothing imports from", () => {
     // if (names.length === 0) continue — a ui module on disk that no
     // component imports must emit nothing (no empty namespace object).

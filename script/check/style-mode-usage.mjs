@@ -372,4 +372,15 @@ const runCli = entry => {
 };
 runCli(process.argv[1]);
 
-export { check, classifyLine, inventory, legacyAliasCheck, main, walk };
+const __entryUrl = fileURLToPath(import.meta.url);
+
+export {
+  check,
+  classifyLine,
+  inventory,
+  legacyAliasCheck,
+  main,
+  runCli,
+  walk,
+  __entryUrl,
+};

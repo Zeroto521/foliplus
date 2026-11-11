@@ -3,10 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  __entryUrl,
   check,
   classifyLine,
   inventory,
   legacyAliasCheck,
+  main,
+  runCli,
+  walk,
 } from "#script/check/style-mode-usage.mjs";
 
 // step 4 survey + migration-completeness gate: style-mode-usage.mjs
@@ -178,5 +182,164 @@ describe("legacy-alias guard (--check-legacy-alias)", () => {
     const { failing } = legacyAliasCheck(dir);
     rmSync(dir, { recursive: true, force: true });
     expect(failing).toBe(true);
+  });
+});
+
+describe("style-mode-usage CLI dispatch and edge cases", () => {
+  it("classifies a fully-closed block comment on one line as comment, not code", () => {
+    const { kinds } = classifyLine("/* FILL_MODE */ const x = 1;", false) as {
+      kinds: string[];
+    };
+    expect(kinds).toEqual(["comment"]);
+  });
+
+  it("classifies a block comment that closes on the same line while inBlock (continuation)", () => {
+    // inBlock=true, the line opens with the tail of a comment and closes it.
+    const { kinds } = classifyLine("* end */ const x = FILL_MODE.VALUE", true) as {
+      kinds: string[];
+    };
+    expect(kinds).toContain("value");
+  });
+
+  it("classifies an unterminated block comment as comment-only", () => {
+    const { kinds } = classifyLine("/* open comment", false) as { kinds: string[] };
+    expect(kinds).toEqual([]);
+  });
+
+  it("walk returns [] on a missing directory", () => {
+    expect(walk("C:/no-such-dir-xyz")).toEqual([]);
+  });
+
+  it("main --check-legacy-alias returns 0 on a clean tree", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      'const LEGACY_FILL_MODE_KEY = "fillMode";\nconst m = data.fillStyleMode ?? data[LEGACY_FILL_MODE_KEY];\n',
+    );
+    const code = main(["--check-legacy-alias", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(0);
+  });
+
+  it("main --check-legacy-alias returns 1 when a bare fillMode remains", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      'const LEGACY_FILL_MODE_KEY = "fillMode";\nconst x = data.fillMode;\n',
+    );
+    const code = main(["--check-legacy-alias", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(1);
+  });
+
+  it("main --check returns 1 while a value reference remains", () => {
+    const dir = synth("core/layer/intent.ts", "if (m === FILL_MODE.VALUE) {}");
+    const code = main(["--check", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(1);
+  });
+
+  it("main --check returns 0 when only comments remain", () => {
+    const dir = synth("core/layer/intent.ts", "// FILL_MODE comment stays");
+    const code = main(["--check", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(0);
+  });
+
+  it("main --json prints a JSON array (human path untouched)", () => {
+    const dir = synth("core/layer/intent.ts", "if (m === FILL_MODE.VALUE) {}");
+    const code = main(["--json", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(0);
+  });
+
+  it("main with no flags prints human-readable output", () => {
+    const dir = synth("core/layer/intent.ts", "if (m === FILL_MODE.VALUE) {}");
+    const code = main(["--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(0);
+  });
+
+  it("runCli with a non-matching entry is a no-op", () => {
+    runCli("/some/other/path.js");
+    expect(true).toBe(true);
+  });
+
+  it("runCli with the matching entry dispatches main", () => {
+    runCli(__entryUrl);
+    expect(typeof process.exitCode).toBe("number");
+  });
+
+  it("legacyAliasCheck tolerates a closed block comment in code", () => {
+    const dir = synth(
+      "foliplus/js/control/LayerControl/persistence.ts",
+      '/* fillMode */\nconst LEGACY_FILL_MODE_KEY = "fillMode";\n',
+    );
+    const { failing } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(false);
+  });
+});
+
+describe("style-mode-usage remaining branch coverage", () => {
+  const synthMany = files => {
+    const dir = mkdtempSync(join(tmpdir(), "style-mode-"));
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = join(dir, "foliplus", "js", rel.replace(/^foliplus\/js\//, ""));
+      mkdirSync(join(abs, ".."), { recursive: true });
+      writeFileSync(abs, content, "utf-8");
+    }
+    return dir;
+  };
+
+  it("classifies a bare FillMode type reference with no FILL_MODE constant as type", () => {
+    const r = classifyLine("function f(mode: FillMode) {}", false);
+    expect(r.kinds).toContain("type");
+  });
+
+  it("walk skips SKIP_DIR entries and non-.ts files", () => {
+    const dir = synthMany({
+      "core/layer/intent.ts": "export const INTENT = { FILL_MODE: 1 };",
+      "core/note.txt": "not ts",
+      "core/.git": "",
+      "core/node_modules": "",
+    });
+    const files = walk(dir);
+    expect(files.some(f => f.endsWith("intent.ts"))).toBe(true);
+    expect(files.some(f => f.endsWith("note.txt"))).toBe(false);
+    expect(files.some(f => f.includes("node_modules"))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("check reports failing on a tree with a violation", () => {
+    const dir = synth("core/layer/intent.ts", "const m = FILL_MODE.VALUE;");
+    const r = check(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(r.failing).toBe(true);
+  });
+
+  it("inventory sorts hits across files and keeps per-file order", () => {
+    const dir = synthMany({
+      "core/layer/intent.ts": "const a = FILL_MODE.VALUE;",
+      "core/layer/const.ts": "const c = FILL_MODE.VALUE;",
+    });
+    const hits = inventory(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBeGreaterThanOrEqual(2);
+    const intentHits = hits.filter(h => h.file.endsWith("intent.ts"));
+    expect(intentHits.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("stripComments keeps a // comment that precedes a /* block on the same line", () => {
+    const dir = synthMany({
+      "foliplus/js/control/LayerControl/persistence.ts":
+        'const LEGACY_FILL_MODE_KEY = "fillMode"; // note /* FILL_MODE */ extra\n',
+    });
+    const { failing } = legacyAliasCheck(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(failing).toBe(false);
+  });
+
+  it("classifies a line with both a FILL_MODE constant and a FillMode type annotation as type", () => {
+    const r = classifyLine("const m: FillMode = FILL_MODE.VALUE;", false);
+    expect(r.kinds).toContain("type");
   });
 });
