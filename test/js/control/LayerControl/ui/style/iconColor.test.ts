@@ -316,6 +316,48 @@ describe("buildIconColorRow", () => {
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#3366ff");
   });
+  it("shows the author's inline glyph color when the icon declares none", () => {
+    // A custom DivIcon paints its glyph inline and declares no iconColor
+    // option. The row must read the SAME paint the derive reads (inline
+    // color first) — this is the row/map divergence this suite guards.
+    const custom = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "", innerColor: "#800080" }),
+    );
+    const { ui: uCustom } = fixtureWithMarkers([custom]);
+    const row = buildIconColorRow(uCustom, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#800080");
+  });
+
+  it("shows the author's color for a nested group, like the gate", () => {
+    // The gate walks the whole tree (walkLeaf); the row must read the same
+    // tree, so a nested group does not report a default while the map draws
+    // the author's paint.
+    const inner = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "#3366ff" }),
+    );
+    const nested: any = makeMarkerGroup(inner);
+    nested.options = {};
+    nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
+    const { ui: uNested } = fixtureWithMarkers([nested]);
+    const row = buildIconColorRow(uNested, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#3366ff");
+  });
+  it("keeps a declared author color unchanged (no fallback to #ffffff)", () => {
+    // Counterexample: a standard author that DECLARES a color must show it,
+    // not the white no-author-paint fallback.
+    const declared = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "#ff0000" }),
+    );
+    const { ui: uDeclared } = fixtureWithMarkers([declared]);
+    const row = buildIconColorRow(uDeclared, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#ff0000");
+  });
 
   it("shows the user's stored color when one is set", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
