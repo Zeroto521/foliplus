@@ -1774,16 +1774,18 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             # Border first: the regression. The mode row opens its dropdown
             # on a click of the trigger; an outside press must close it.
-            border = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
-                                   {"which": "border"})
+            border = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"), {"which": "border"}
+            )
             assert border["ok"], border
             assert border["openAfterClick"], border
             assert border["closedByOutside"], (
                 f"border mode dropdown did not close on an outside press: {border}"
             )
             # Fill: control, already registered — must behave the same.
-            fill = page.evaluate(_js("LayerControl/mode_dropdown_outside_press"),
-                                  {"which": "fill"})
+            fill = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"), {"which": "fill"}
+            )
             assert fill["ok"], fill
             assert fill["openAfterClick"], fill
             assert fill["closedByOutside"], (
@@ -1954,9 +1956,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # wrap that pushes into the control). EVERY other label-class string
             # must still fit the token — a locale edit that lengthens any short
             # label turns this red instead of silently wrapping.
-            method_strings = {
-                _METHOD_EN, _METHOD_ZH
-            }
+            method_strings = {_METHOD_EN, _METHOD_ZH}
             assert method_strings <= strings, (
                 "the method-label strings are not part of the guard set"
             )
@@ -1966,8 +1966,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert max_short <= result["token"] - result["paddingRight"], (
                 f"a non-method label-class string exceeds the label column token: "
-                f"max {max_short:.1f}px > token {result["token"]} - "
-                f"padding {result["paddingRight"]}px"
+                f"max {max_short:.1f}px > token {result['token']} - "
+                f"padding {result['paddingRight']}px"
             )
 
             assert not errors, f"JS errors: {errors}"
