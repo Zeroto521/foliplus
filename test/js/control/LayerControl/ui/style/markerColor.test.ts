@@ -6,7 +6,12 @@
 // writes), the chassis-span structure (preset sprite / custom mask, span
 // opacity leaves the glyph untouched), Reset restoring the author chassis
 // without clearing a user glyph or icon color, and the persistence parser.
-import { initFixture } from "../fixture.js";
+import {
+  initFixture,
+  makeAuthorIcon,
+  makeImgAuthor,
+  makePlainDivIconAuthor,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -100,79 +105,6 @@ const fixtureWithMarkers = (markers: any[]) => {
 };
 
 const flushMarkerColor = (id: string) => flushStyleDimApply(FACE.MARKER_COLOR, id);
-
-// A realistic awesome-markers author icon. Its `options` declares a
-// `markerColor` face (the capability probe keys on this) — the preset enum
-// name the sprite class is built from — and its `createIcon` paints the
-// preset chassis through the author's own `_setIconStyles`, exactly the way
-// the real awesome-markers library builds the sprite background. The inline
-// backgroundImage is a BARE url (jsdom rejects the url+position shorthand),
-// with the position in its own longhand, so readChassisSprite can read it.
-const makeAuthorIcon = (
-  opts: {
-    iconColor?: string;
-    innerColor?: string;
-    markerColor?: string;
-  } = {},
-) => {
-  const markerColor = opts.markerColor ?? "blue";
-  const author: any = {
-    options: {
-      iconColor: opts.iconColor ?? "blue",
-      markerColor,
-      className: "awesome-marker",
-      iconSize: [36, 46],
-      iconAnchor: [18, 46],
-      popupAnchor: [0, -46],
-    },
-    createIcon: vi.fn(function (this: any) {
-      const div = document.createElement("div");
-      div.style.backgroundImage = "url(icon.png)";
-      div.style.backgroundPosition = "-24px 0";
-      div.style.width = "36px";
-      div.style.height = "46px";
-      div.innerHTML = opts.innerColor
-        ? `<i class="fa fa-map-marker" style="color:${opts.innerColor}"></i>`
-        : '<i class="fa fa-map-marker"></i>';
-      this._setIconStyles?.(div, `icon-${this.options.markerColor}`);
-      return div;
-    }),
-    _setIconStyles: vi.fn(function (this: any, div: HTMLElement, name: string) {
-      div.className =
-        `awesome-marker-${name} ${this.options.className ?? "awesome-marker"}`.trim();
-    }),
-    createShadow: vi.fn(() => {
-      const sh = document.createElement("div");
-      sh.className = "awesome-marker-shadow";
-      return sh;
-    }),
-  };
-  return author;
-};
-
-const makePlainDivIconAuthor = () => ({
-  options: { className: "plain-div-icon" },
-  createIcon: vi.fn(() => {
-    const div = document.createElement("div");
-    div.className = "plain-div-icon";
-    return div;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "plain-div-icon";
-  }),
-});
-
-const makeImgAuthor = () => ({
-  options: { className: "leaflet-marker-icon" },
-  createIcon: vi.fn(() => {
-    const img = document.createElement("img");
-    img.className = "leaflet-marker-icon";
-    return img;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "leaflet-marker-icon";
-  }),
-});
 
 describe("layerCanMarkerColor", () => {
   let manager: LayerController;

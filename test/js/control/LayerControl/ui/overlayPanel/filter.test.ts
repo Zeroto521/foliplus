@@ -440,6 +440,30 @@ describe("LayerUI filter panel", () => {
         expect(ui.overlayPanel.activeFilterPanel).toBeNull();
       });
 
+      it("selectField with a stale capability closes instead of writing", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        // The owner revokes its capability in place (no identity event), so
+        // the open panel is stale: a field switch must resolve to no live
+        // capability and close rather than write into the retired owner.
+        reg.filterProvider = null;
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      });
+
       it("falls back to the first field when the committed atom names an unknown field", () => {
         // A persisted atom whose field is not offered falls back to the
         // first available field (D8) without throwing.
