@@ -1,4 +1,4 @@
-import { initFixture } from "../fixture.js";
+import { initFixture, makeAuthorIcon, makeDefaultIconAuthor } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
@@ -145,71 +145,7 @@ const fixtureWithMarkers = (markers: any[]) => {
 };
 
 const flushIcon = (id: string) => flushStyleDimApply(FACE.ICON, id);
-// A realistic author icon: the chassis a derive-based swap inherits. The
-// assertions compare the DERIVED icon's `createIcon` output against the
-// author's — className, backgroundImage/backgroundPosition, iconSize, and
-// the shadow's presence — so the derive contract is pinned at the DOM level.
-const makeAuthorIcon = (
-  opts: Partial<{
-    className: string;
-    bg: string;
-    size: [number, number];
-    markerColor: string;
-    withShadow: boolean;
-  }> = {},
-) => {
-  const cfg = {
-    className: opts.className ?? "awesome-marker",
-    bg: opts.bg ?? "url(icon.png) -24px 0",
-    size: opts.size ?? ([36, 46] as [number, number]),
-    markerColor: opts.markerColor ?? "blue",
-    withShadow: opts.withShadow ?? true,
-  };
-  const author: any = {
-    options: {
-      markerColor: cfg.markerColor,
-      className: cfg.className,
-      iconSize: cfg.size,
-      iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
-      popupAnchor: [0, -cfg.size[1]],
-    },
-    createIcon: vi.fn(() => {
-      const div = document.createElement("div");
-      div.className = cfg.className;
-      div.style.backgroundImage = cfg.bg;
-      div.style.backgroundPosition = "-24px 0";
-      div.style.width = `${cfg.size[0]}px`;
-      div.style.height = `${cfg.size[1]}px`;
-      div.innerHTML = '<i class="fa fa-map-marker"></i>';
-      return div;
-    }),
-    _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
-      // Real L.Icon._setIconStyles appends options.className — the author
-      // sprite class must survive the derived chassis swap.
-      div.className = `${name} ${cfg.className}`.trim();
-    }),
-    createShadow: cfg.withShadow
-      ? vi.fn(() => {
-          const sh = document.createElement("div");
-          sh.className = "awesome-marker-shadow";
-          return sh;
-        })
-      : undefined,
-  };
-  return author;
-};
 
-// A Leaflet default-icon author: an L.Icon.Default instance (the branch keys
-// on `instanceof L.Icon.Default` first, then on createIcon -> <img>). Its
-// createIcon returns a real <img> like Leaflet's _createImg, so the second
-// clause also fires — the dedicated divIcon branch must take it over.
-const makeDefaultIconAuthor = (): any => {
-  const proto = (window.L as any).Icon.Default.prototype;
-  const author = Object.create(proto);
-  author.options = { iconSize: [25, 41], iconAnchor: [12, 41] };
-  author.createIcon = vi.fn(() => document.createElement("img"));
-  return author;
-};
 describe("layerCanIcon", () => {
   let manager: LayerController;
   let ui: LayerUI;
