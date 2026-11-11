@@ -40,7 +40,7 @@ const parseColorAlpha = (css: string): { hex: string; alpha: number } | null => 
   // The browser normalizes style.color to rgb(r, g, b) / rgba(r, g, b, a)
   // with a as a 0-1 float. Parse both; a missing alpha is opaque.
   m =
-    /^rgba?(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*)$/.exec(
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(
       value,
     );
   if (m) {
@@ -48,7 +48,7 @@ const parseColorAlpha = (css: string): { hex: string; alpha: number } | null => 
       Math.max(0, Math.min(255, Math.round(n)))
         .toString(16)
         .padStart(2, "0");
-    // The regex now has no wrapping group: m[1..3] are the channels and
+    // m[1..3] are the channels and
     // m[4] is the optional alpha (a missing alpha is opaque).
     const hex = `#${toHex(Number(m[1]))}${toHex(Number(m[2]))}${toHex(Number(m[3]))}`;
     const alpha = m[4] !== undefined ? Math.round(Number(m[4]) * 100) : 100;
@@ -70,9 +70,4 @@ const composeColorAlpha = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${a / 100})`;
 };
 
-export {
-  composeColorAlpha,
-  isHexColor,
-  normalizeHexColor,
-  parseColorAlpha,
-};
+export { composeColorAlpha, isHexColor, normalizeHexColor, parseColorAlpha };

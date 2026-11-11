@@ -33,18 +33,16 @@ import {
   resolveGlyph,
 } from "./glyphSource.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
+import { composeColorAlpha, parseColorAlpha } from "#core/color.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
-import { composeColorAlpha, parseColorAlpha } from "#core/color.js";
 
 const log = createLogger("icon-dimension");
 /** Glyph names already warned as unavailable — warn once per name, not per
  *  leaf walk. The CSS is static, so a second encounter of the same name is
  *  the same fact. */
 const warnedGlyphs = new Set<string>();
-
-
 
 /** A captured awesome-markers chassis sprite: the URL plus the
  *  background-position offset of one preset cell. */
@@ -532,6 +530,8 @@ const authorGlyphPrefix = (layer: L.Layer): string | null => {
   return found;
 };
 
+export type { AuthorGlyph };
+
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
@@ -543,7 +543,5 @@ export {
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
-  parseColorAlpha,
-  composeColorAlpha,
   resetIconLeaves,
 };

@@ -12,6 +12,12 @@ export {
   toggleDelIcon,
 } from "./delicon.js";
 export { mountDelIcon } from "./deliconMount.js";
+export {
+  composeColorAlpha,
+  isHexColor,
+  normalizeHexColor,
+  parseColorAlpha,
+} from "../color.js";
 export { cancelMapPaneTranslate } from "./domAdapter.js";
 export { bindMapEvents, unbindMapEvents } from "./mapEvent.js";
 export type { MapEventHandlers } from "./type.js";
@@ -48,8 +54,6 @@ export {
   buildMarkerIcon,
   captureAuthorIcon,
   isIconLeaf,
-  parseColorAlpha,
-  composeColorAlpha,
   resetIconLeaves,
 } from "./markerIcon.js";
 export type { AuthorGlyph } from "./markerIcon.js";

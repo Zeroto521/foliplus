@@ -1,4 +1,5 @@
 [
+  "core/color",
   "core/event/type",
   "core/geo/type",
   "core/label/labelCollision",

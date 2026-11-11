@@ -64,6 +64,7 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+import { isHexColor } from "#core/color.js";
 import {
   DIM,
   type LayerInfo,
@@ -129,7 +130,7 @@ const layerCanFill = capabilityGate("fill", "native");
  *  accepted degradation in unit tests; the real picker shows the resolved
  *  hex. */
 const toHexColor = (value: string): string => {
-  if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value)) return normalizeHexColor(value);
+  if (isHexColor(value)) return normalizeHexColor(value);
   const probe = document.createElement("input");
   probe.type = "color";
   probe.value = value;
