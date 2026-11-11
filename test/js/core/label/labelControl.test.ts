@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderLabelControls } from "#core/label/index.js";
 import { createTranslator } from "#platform/locale.js";
 
+const STUB_OVERLAY = {
+  register: () => () => {},
+  id: "test.format",
+  rank: 860,
+};
+
 interface Values {
   labelShow?: boolean;
   labelColor?: string;
@@ -45,6 +51,7 @@ const render = (
     styleProvider: () => values,
     getSetters: () => setters,
     T: init.T ?? ((key: string) => key),
+    overlay: STUB_OVERLAY,
   });
   document.body.appendChild(result.root);
   return {

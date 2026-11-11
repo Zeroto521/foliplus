@@ -703,7 +703,10 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     host.appendChild(select);
     document.body.appendChild(host);
 
-    const dropdown = createDropdown({ nativeSelect: select });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      nativeSelect: select,
+    });
     cleanup.push(() => dropdown.destroy());
     dropdown.open();
     const row = dropdown.getList()?.querySelector(".foliplus-dropdown-option");
@@ -717,13 +720,17 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     opt.textContent = "Alpha";
     select.appendChild(opt);
     // Detached: select has no parentNode, so insertBefore is skipped.
-    const dropdown = createDropdown({ nativeSelect: select });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      nativeSelect: select,
+    });
     cleanup.push(() => dropdown.destroy());
     expect(dropdown.element.querySelector("select")).not.toBeNull();
   });
 
   it("setValue on a standalone dropdown has no native select to write", () => {
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items: [
         { value: "a", label: "Alpha" },
         { value: "b", label: "Beta" },
@@ -751,7 +758,11 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
     document.body.appendChild(host);
 
     const onChange = vi.fn();
-    const dropdown = createDropdown({ nativeSelect: select, onChange });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      nativeSelect: select,
+      onChange,
+    });
     cleanup.push(() => dropdown.destroy());
     dropdown.open();
     const rows = Array.from(
@@ -2324,7 +2335,11 @@ const bridged = (
   extra: Record<string, unknown> = {},
 ): { select: HTMLSelectElement; cell: HTMLElement; dropdown: Dropdown } => {
   const { select, cell } = makeCell(value, options);
-  const dropdown = createDropdown({ nativeSelect: select, ...extra });
+  const dropdown = createDropdown({
+    overlay: mockOverlay().overlay,
+    nativeSelect: select,
+    ...extra,
+  });
   cleanup.push(() => dropdown.destroy());
   return { select, cell, dropdown };
 };

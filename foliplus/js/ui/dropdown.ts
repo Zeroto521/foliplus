@@ -100,9 +100,9 @@ interface DropdownOverlay {
 
 interface DropdownOptions extends DropdownSurface {
   nativeSelect?: HTMLSelectElement;
-  /** When present, the open list registers with the overlay registry instead
+  /** The open list registers with the overlay registry instead
    *  of binding its own document/window Escape. */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
   items?: readonly DropdownItem[];
   value?: string;
   values?: readonly string[];
@@ -320,14 +320,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       resolveHost: opts.resolveHost ?? null,
       onSurfaceChange: opts.onSurfaceChange ?? null,
     },
-    dismiss: opts.overlay
-      ? {
-          kind: "registry",
-          register: opts.overlay.register,
-          id: opts.overlay.id,
-          rank: opts.overlay.rank,
-        }
-      : { kind: "local" },
+    dismiss: {
+      kind: "registry",
+      register: opts.overlay.register,
+      id: opts.overlay.id,
+      rank: opts.overlay.rank,
+    },
     onBeforeOpen: () => {
       // A bridged select's options/value may have been rebuilt since the last
       // open; re-read them so the popup always lists the current options (the
