@@ -1,5 +1,4 @@
 [
-  "core/color",
   "core/event/type",
   "core/geo/type",
   "core/label/labelCollision",
@@ -34,6 +33,7 @@
   "core/value/rampForm",
   "core/value/valueKind",
   "platform/cache",
+  "platform/color",
   "platform/cssvar",
   "platform/debounce",
   "platform/dom",

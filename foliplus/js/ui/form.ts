@@ -3,8 +3,8 @@
 // same color / number pair; one factory keeps classes, bounds and defaults
 // from drifting.
 import { PANEL_CLASS } from "./panelClassName.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
-import { normalizeHexColor } from "#core/color.js";
 
 /** Shared label typography bounds (px). One home for the heatmap panel,
  *  the layer style drawer, and the canvas-label overlay. */
@@ -35,7 +35,6 @@ const clampLabelSize = (value: number): number =>
  *  reach the manager with a value the panel itself refuses to produce. */
 const clampBorderWeight = (value: number): number =>
   Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, value));
-
 
 /** `<input type=color>` on the shared form-color-input chrome. */
 const colorInput = (opts: {

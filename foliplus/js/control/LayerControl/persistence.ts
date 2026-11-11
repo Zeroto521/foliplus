@@ -14,10 +14,10 @@ import {
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/index.js";
 import { VALUE_KIND, isCategoryKind } from "#core/value/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import * as Storage from "#platform/storage.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
-import { isHexColor, normalizeHexColor } from "#core/color.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that

@@ -33,9 +33,9 @@ import {
   resolveGlyph,
 } from "./glyphSource.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
-import { composeColorAlpha, parseColorAlpha } from "#core/color.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { composeColorAlpha, parseColorAlpha } from "#platform/color.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");

@@ -1,6 +1,6 @@
-// core/color — the single home for color parse/compose/normalize primitives.
+// platform/color — the single home for color parse/compose/normalize primitives.
 // Every consumer imports from here; a second copy of the hex/rgba regex is a
-// drift the guard test catches (see test/js/core/color.test.ts).
+// drift the guard test catches (see test/js/platform/color.test.ts).
 
 /** Expand #rgb to #rrggbb so <input type=color> accepts Python's "#fff".
  *  Values that are not a 3-digit hex pass through unchanged. */

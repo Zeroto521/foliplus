@@ -17,7 +17,7 @@ export {
   isHexColor,
   normalizeHexColor,
   parseColorAlpha,
-} from "../color.js";
+} from "#platform/color.js";
 export { cancelMapPaneTranslate } from "./domAdapter.js";
 export { bindMapEvents, unbindMapEvents } from "./mapEvent.js";
 export type { MapEventHandlers } from "./type.js";

@@ -64,7 +64,6 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
-import { isHexColor } from "#core/color.js";
 import {
   DIM,
   type LayerInfo,
@@ -76,6 +75,7 @@ import {
   readFeatureFillColors,
 } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
+import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {

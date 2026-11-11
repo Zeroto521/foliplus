@@ -7,7 +7,7 @@ import {
   isHexColor,
   normalizeHexColor,
   parseColorAlpha,
-} from "#core/color.js";
+} from "#platform/color.js";
 
 describe("normalizeHexColor", () => {
   it("expands a 3-digit hex to 6 digits", () => {
@@ -87,7 +87,7 @@ describe("composeColorAlpha", () => {
 });
 
 describe("single home for the hex/rgba regexes", () => {
-  it("keeps every hex/rgba regex in core/color.ts", () => {
+  it("keeps every hex/rgba regex in platform/color.ts", () => {
     const here = path.dirname(fileURLToPath(import.meta.url));
     const root = path.resolve(here, "../../..");
     const jsRoot = path.join(root, "foliplus", "js");
@@ -104,13 +104,13 @@ describe("single home for the hex/rgba regexes", () => {
       }
     };
     walk(jsRoot);
-    const colorSource = fs.readFileSync(path.join(jsRoot, "core", "color.ts"), "utf8");
+    const colorSource = fs.readFileSync(path.join(jsRoot, "platform", "color.ts"), "utf8");
     const colorRegexCount = [/\^#\[0-9a-fA-F\]/, /rgba?\(/].filter(r =>
       r.test(colorSource),
     ).length;
     const offenders: string[] = [];
     for (const file of files) {
-      if (file.endsWith(path.join("core", "color.ts"))) continue;
+      if (file.endsWith(path.join("platform", "color.ts"))) continue;
       const src = fs.readFileSync(file, "utf8");
       // A hex regex literal or an rgb()/rgba() regex literal anywhere but color.ts
       const m = src.match(/\/(?:\^#\[0-9a-fA-F\]|rgba?\s*\()/);
