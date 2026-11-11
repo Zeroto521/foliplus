@@ -1845,7 +1845,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
-
     @pytest.mark.parametrize("width", [380])
     def test_style_fill_row_label_names_the_method_on_one_line(
         self, browser, tmp_path, width
