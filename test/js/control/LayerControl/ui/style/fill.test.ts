@@ -4890,7 +4890,7 @@ describe("fill solid derivation invariants", () => {
   it("value -> solid flattens a per-feature layer to one colour", () => {
     installChroma(["#111111", "#222222"]);
     const { ui, layer } = initWithPerFeatureLayer({ colors: ["#0d0887", "#f0f921"] });
-    setIntent(ui, "feature1", "fillMode", "value");
+    setIntent(ui, "feature1", "fillStyleMode", "value");
     setIntent(ui, "feature1", "fillValue", {
       kind: "numeric",
       field: "count",
@@ -4903,7 +4903,7 @@ describe("fill solid derivation invariants", () => {
     // The value mode classified the leaves: more than one colour is live.
     expect(new Set(fills(layer)).size).toBeGreaterThan(1);
 
-    setIntent(ui, "feature1", "fillMode", "solid");
+    setIntent(ui, "feature1", "fillStyleMode", "solid");
     applyFillToLayer(ui, "feature1");
     flushStyleDimApply(FACE.FILL, "feature1");
     // SOLID owns exactly one colour: the authored base (first leaf's bag),
@@ -4915,7 +4915,7 @@ describe("fill solid derivation invariants", () => {
 
   it("original -> solid flattens a per-feature layer to one colour (regression)", () => {
     const { ui, layer } = initWithPerFeatureLayer({ colors: ["#0d0887", "#f0f921"] });
-    setIntent(ui, "feature1", "fillMode", "solid");
+    setIntent(ui, "feature1", "fillStyleMode", "solid");
     applyFillToLayer(ui, "feature1");
     flushStyleDimApply(FACE.FILL, "feature1");
     const painted = fills(layer);
@@ -4925,10 +4925,10 @@ describe("fill solid derivation invariants", () => {
 
   it("solid -> original restores the per-feature multi-colour paint", () => {
     const { ui, layer } = initWithPerFeatureLayer({ colors: ["#0d0887", "#f0f921"] });
-    setIntent(ui, "feature1", "fillMode", "solid");
+    setIntent(ui, "feature1", "fillStyleMode", "solid");
     applyFillToLayer(ui, "feature1");
     flushStyleDimApply(FACE.FILL, "feature1");
-    setIntent(ui, "feature1", "fillMode", "original");
+    setIntent(ui, "feature1", "fillStyleMode", "original");
     applyFillToLayer(ui, "feature1");
     flushStyleDimApply(FACE.FILL, "feature1");
     // Original mode must keep its per-leaf author colours — the fix must not
@@ -4940,7 +4940,7 @@ describe("fill solid derivation invariants", () => {
 
   it("solid with only an opacity intent stays one colour at that opacity", () => {
     const { ui, layer } = initWithPerFeatureLayer({ colors: ["#0d0887", "#f0f921"] });
-    setIntent(ui, "feature1", "fillMode", "solid");
+    setIntent(ui, "feature1", "fillStyleMode", "solid");
     setIntent(ui, "feature1", "fillOpacity", 0.3);
     applyFillToLayer(ui, "feature1");
     flushStyleDimApply(FACE.FILL, "feature1");

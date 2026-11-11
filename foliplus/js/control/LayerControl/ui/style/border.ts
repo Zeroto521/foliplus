@@ -54,9 +54,9 @@ import {
 import {
   CAP_TIER,
   DIM,
-  GEOM_TYPE,
   STYLE_MODE,
   type StyleMode,
+  GEOM_TYPE,
   type ValueConfig,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
