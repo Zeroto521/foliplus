@@ -52,14 +52,14 @@ type ValueConfig =
       classes: number;
     };
 
-/** The stored fill-mode literals (persisted `fillMode`). One vocabulary for the
+/** The stored style-mode literals (persisted `fillStyleMode` / `borderStyleMode`). One vocabulary for the
  *  row, the intent and the resolver.
  *
  *  "original" is the layer author's own per-feature paint: a real choice on a
  *  geopandas explore layer (it can be left and come back to), and an invalid
  *  one everywhere else — the row offers it only while the author's record still
  *  paints per feature, and a stored value on any other layer reads as solid. */
-const FILL_MODE = {
+const STYLE_MODE = {
   SOLID: "solid",
   VALUE: "value",
   ORIGINAL: "original",
@@ -69,11 +69,11 @@ const FILL_MODE = {
   // paths would classify independently and fight).
   FOLLOW_FILL: "followFill",
 } as const;
-type FillMode = (typeof FILL_MODE)[keyof typeof FILL_MODE];
+type StyleMode = (typeof STYLE_MODE)[keyof typeof STYLE_MODE];
 
 /** The marker-icon override's single kind. One constant so the write
  *  path, the persistence reader and the intent guard cannot drift on the
- *  literal. Mirrors FILL_MODE. */
+ *  literal. Mirrors STYLE_MODE. */
 const ICON_KIND = {
   GLYPH: "glyph",
 } as const;
@@ -155,7 +155,7 @@ type LayerOverride =
   | "fillColor"
   | "fillOpacity"
   | "fillValue"
-  | "fillMode"
+  | "fillStyleMode"
   | "borderColor"
   | "borderWeight"
   | "borderValue"
@@ -236,7 +236,7 @@ type LayerIntent = {
   /** Which fill mode the user chose: a single color, a value ramp, or the
    *  layer author's own per-feature colors. Absent means solid — the mode that
    *  predates the ramp. */
-  fillMode?: FillMode;
+  fillStyleMode?: StyleMode;
   borderColor?: string;
   borderWeight?: number;
   /** The value-based stroke config when the layer border is painted by a
@@ -246,7 +246,7 @@ type LayerIntent = {
   /** Which border mode the user chose: solid, or by value. Absent defers to
    *  the fill mode (the border follows the fill by default - one ramp
    *  selection covers both faces). */
-  borderStyleMode?: FillMode;
+  borderStyleMode?: StyleMode;
   opacity?: number;
   zoomRange?: [number, number];
   /** The fixed pixel radius the user set (CircleMarker only). Frozen on
@@ -306,7 +306,7 @@ type PersistedLayerState = {
   fillValue?: ValueConfig;
   /** Which fill mode is active ("solid" | "value" | "original"); the inactive
    *  config is kept rather than cleared so a switch back restores it. */
-  fillMode?: FillMode;
+  fillStyleMode?: StyleMode;
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
    *  it lives in this record rather than on the label config. */
@@ -320,7 +320,7 @@ type PersistedLayerState = {
   borderValue?: ValueConfig;
   /** Which border mode is active ("solid" | "value"); the inactive config is
    *  kept so a switch back restores it. Absent defers to the fill mode. */
-  borderStyleMode?: FillMode;
+  borderStyleMode?: StyleMode;
   opacity?: number;
   /** The handle positions the user moved, [minZoom, maxZoom]. The author's
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
@@ -382,7 +382,7 @@ const INTENT = {
   FILL_COLOR: "fillColor",
   FILL_OPACITY: "fillOpacity",
   FILL_VALUE: "fillValue",
-  FILL_MODE: "fillMode",
+  FILL_MODE: "fillStyleMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
   BORDER_VALUE: "borderValue",
@@ -410,16 +410,16 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
   [INTENT.FILL_VALUE]: isValueConfig,
   [INTENT.FILL_MODE]: value =>
-    value === FILL_MODE.SOLID ||
-    value === FILL_MODE.VALUE ||
-    value === FILL_MODE.ORIGINAL,
+    value === STYLE_MODE.SOLID ||
+    value === STYLE_MODE.VALUE ||
+    value === STYLE_MODE.ORIGINAL,
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.BORDER_VALUE]: isValueConfig,
   [INTENT.BORDER_STYLE_MODE]: value =>
-    value === FILL_MODE.SOLID ||
-    value === FILL_MODE.VALUE ||
-    value === FILL_MODE.ORIGINAL,
+    value === STYLE_MODE.SOLID ||
+    value === STYLE_MODE.VALUE ||
+    value === STYLE_MODE.ORIGINAL,
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
   // A finite number only: Infinity cannot reach the leaf, and a non-finite
@@ -460,7 +460,7 @@ const STYLE_KEYS = {
   fillColor: INTENT.FILL_COLOR,
   fillOpacity: INTENT.FILL_OPACITY,
   fillValue: INTENT.FILL_VALUE,
-  fillMode: INTENT.FILL_MODE,
+  fillStyleMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
   borderValue: INTENT.BORDER_VALUE,
@@ -475,10 +475,10 @@ const STYLE_KEYS = {
   markerColorOpacity: INTENT.MARKER_COLOR_OPACITY,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { FILL_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
+export { STYLE_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
 export type {
   LabelConfig,
-  FillMode,
+  StyleMode,
   ValueConfig,
   IconIntent,
   IntentKey,

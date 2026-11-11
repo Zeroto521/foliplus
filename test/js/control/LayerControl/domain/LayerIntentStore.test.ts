@@ -4,7 +4,7 @@
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
 // Set round-trip. Values and behavior must match the pre-store twin.
 import { describe, expect, it } from "vitest";
-import { FILL_MODE, ICON_KIND, STYLE_KEYS } from "#core/layer/index.js";
+import { ICON_KIND, STYLE_KEYS, STYLE_MODE } from "#core/layer/index.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { LayerPersistence } from "#control/LayerControl/persistence.js";
 import type { LayerOverride, PersistedLayerState } from "#control/LayerControl/type.js";
@@ -530,11 +530,11 @@ describe("LayerIntentStore — persistence round-trip matrix (#1029)", () => {
     fillColor: "#123456",
     fillOpacity: 0.4,
     fillValue: { field: "count", method: "quantile", scheme: "Blues", classes: 4 },
-    fillMode: FILL_MODE.VALUE,
+    fillStyleMode: STYLE_MODE.VALUE,
     borderColor: "#654321",
     borderWeight: 2.5,
     borderValue: { kind: "category", field: "name", scheme: "Set2", classes: 5 },
-    borderStyleMode: FILL_MODE.ORIGINAL,
+    borderStyleMode: STYLE_MODE.ORIGINAL,
     opacity: 0.7,
     zoomRange: [3, 12],
     size: 8,
