@@ -6562,4 +6562,54 @@ describe("cleanEmptyFolders", () => {
     const count = manager.cleanEmptyFolders("overlay");
     expect(count).toBe(1);
   });
+  it("onField clears the committed filter via setLayerFilter(id, undefined)", () => {
+    const { manager } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: (() => {
+        const s = new LayerRuntimeStore();
+        s.setFilterFeatures("overlay1", {
+          features: [],
+          numericFields: ["mag", "depth"],
+          ranges: { mag: [0, 10], depth: [0, 100] },
+          total: 5,
+        } as any);
+        return s;
+      })(),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    expect(model!.fields).toEqual([
+      { value: "mag", label: "mag", numeric: true },
+      { value: "depth", label: "depth", numeric: true },
+    ]);
+
+    // Commit a filter, then switch fields: onField clears via setLayerFilter.
+    manager.setLayerFilter("overlay1", {
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [2, 8],
+    } as any);
+    expect(manager.layerFilters.get("overlay1")).toBeDefined();
+
+    model!.onField!("depth");
+
+    expect(manager.layerFilters.get("overlay1")).toBeUndefined();
+  });
 });
