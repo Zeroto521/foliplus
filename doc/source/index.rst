@@ -19,25 +19,6 @@ Layer data passed to foliplus is read-only: no editing, upload, or deletion.
 
 Data processing happens upstream. foliplus handles the map, not the data.
 
-Events
-------
-
-Components talk to each other through semantic events on ``map.foliplus.events``,
-not raw Leaflet map events, so unrelated map activity does not trigger work.
-
-Event names follow a ``foliplus:<domain>:<action>`` convention. The
-``foliplus:layer:`` prefix is a **public contract**: it is how a subscriber
-recognises an event as belonging to the layer domain. Renaming an event value,
-or moving one across the prefix boundary, is a **breaking change** for every
-external subscriber — it needs a CHANGELOG entry under the breaking section,
-not a silent rename.
-
-The layer-domain events are enumerated explicitly in
-``foliplus/js/core/event/const.ts`` as ``LAYER_EVENTS``, and a guard test
-(``test/js/core/event/layerEvents.test.ts``) fails if a ``foliplus:layer:``
-event is added to ``EVENTS`` without being registered there, or if an entry
-drifts off the prefix.
-
 Features
 --------
 
