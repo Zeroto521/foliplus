@@ -92,7 +92,7 @@ const makeAuthorIcon = (
 ) => {
   const cfg = {
     className: opts.className ?? "awesome-marker",
-    bg: opts.bg ?? "url(icon.png) -24px 0",
+    bg: opts.bg ?? "url(icon.png)",
     size: opts.size ?? ([36, 46] as [number, number]),
     iconColor: opts.iconColor ?? "blue",
     withShadow: opts.withShadow ?? true,
@@ -105,9 +105,17 @@ const makeAuthorIcon = (
       iconAnchor: [cfg.size[0] / 2, cfg.size[1]],
       popupAnchor: [0, -cfg.size[1]],
     },
-    createIcon: vi.fn(() => {
+    createIcon: vi.fn(function (this: any) {
       const div = document.createElement("div");
-      div.className = cfg.className;
+      // A chassis-color write re-derives the preset class through the
+      // author's own _setIconStyles (the real awesome-markers path). A
+      // glyph-only write has no markerColor in scope and keeps the author
+      // class verbatim.
+      if (this.options?.markerColor) {
+        this._setIconStyles?.(div, `icon-${this.options.markerColor}`);
+      } else {
+        div.className = cfg.className;
+      }
       div.style.backgroundImage = cfg.bg;
       div.style.backgroundPosition = "-24px 0";
       div.style.width = `${cfg.size[0]}px`;
@@ -116,7 +124,9 @@ const makeAuthorIcon = (
       return div;
     }),
     _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
-      div.className = `${name} ${cfg.className}`.trim();
+      // The real awesome-markers override: _setIconStyles(div, 'icon-<color>')
+      // produces 'awesome-marker-icon-<color> awesome-marker'.
+      div.className = `awesome-marker-${name} ${cfg.className}`.trim();
     }),
     createShadow: cfg.withShadow
       ? vi.fn(() => {
@@ -262,7 +272,7 @@ describe("applyMarkerColorToLeaves", () => {
     // stay reachable) instead of spreading it — Object.create path.
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", "star", "#ff0000");
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", "star", "#ff0000");
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("awesome-marker");
@@ -279,7 +289,7 @@ describe("applyMarkerColorToLeaves", () => {
       }),
     };
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", null);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", null);
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("bare-icon");
@@ -288,7 +298,7 @@ describe("applyMarkerColorToLeaves", () => {
   it("skips a non-icon leaf in the walk", () => {
     const leaf = { options: {} };
     expect(() =>
-      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "red", null),
+      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "#d63e2a", null),
     ).not.toThrow();
   });
 });
@@ -377,6 +387,72 @@ describe("authorGlyphPrefix", () => {
   });
 });
 
+describe("buildMarkerIcon chassis span", () => {
+  it("preset hex at alpha 100 keeps the sprite class and NO chassis span", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+
+  it("preset hex below 100 takes a chassis span carrying the sprite + opacity", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundImage).toContain("url(");
+    expect(span.style.opacity).toBe("0.5");
+    expect(div.style.backgroundImage).toBe("none");
+  });
+
+  it("custom hex takes a chassis span with the sprite as a mask and background-color paint", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#ff9900",
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+  });
+
+  it("chassis opacity leaves the glyph sibling fully painted", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "star",
+      markerColor: "#38aadd",
+      markerColorOpacity: 0,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span.style.opacity).toBe("0");
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner).not.toBeNull();
+    expect(inner.style.color).toBe("blue");
+  });
+
+  it("no chassis write adds no span even for a preset-looking hex", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+});
 describe("buildMarkerIcon", () => {
   it("derives from the author and swaps only the inner symbol", () => {
     const author = makeAuthorIcon();

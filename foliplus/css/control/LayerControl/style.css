@@ -235,7 +235,22 @@
   border-radius: var(--foliplus-radius-sm);
 }
 
-.foliplus-style-icon-cell .foliplus-marker-glyph {
+.foliplus-marker-chassis {
+  /* The derived chassis span: carries ONLY the pin pixels (the sprite as a
+     background or as a mask for a custom color) with its own opacity, so the
+     glyph <i> (a sibling) is never faded with the pin. The container div
+     keeps the library size/anchor/shadow class but clears its own sprite
+     (background-image: none) when this span is present — otherwise the
+     library sprite and this span would paint the pin twice. z-index -1 puts
+     the chassis behind the glyph; the marker root establishes a stacking
+     context (isolation) so the negative z-index does not escape. */
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.foliplus-marker-glyph {
   font-size: var(--foliplus-icon-size-md);
 }
 

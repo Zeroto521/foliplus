@@ -1090,6 +1090,67 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().layers).toEqual({});
     });
 
+    it("keeps the marker chassis hex the user set, with provenance", () => {
+      // The chassis rides the same value-plus-provenance rule as the icon
+      // color: only a value WITH an override is a user choice; a bare
+      // markerColor is an author default and stays untouched.
+      seedStorage({
+        layers: {
+          a: { markerColor: "#38aadd", overrides: ["markerColor"] },
+          b: { markerColor: "#d63e2a", overrides: ["markerColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { markerColor: "#38aadd", overrides: ["markerColor"] },
+        b: { markerColor: "#d63e2a", overrides: ["markerColor"] },
+      });
+    });
+
+    it("drops an invalid marker chassis hex that the swatch could not display", () => {
+      // isHexColor false -> null (corrupt entry must not leak).
+      seedStorage({
+        layers: {
+          a: { markerColor: "red", overrides: ["markerColor"] },
+          b: { markerColor: "#1234567", overrides: ["markerColor"] },
+          c: { markerColor: "#fff", overrides: ["markerColor"] },
+          d: { markerColor: "#38AADD", overrides: ["markerColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        c: { markerColor: "#ffffff", overrides: ["markerColor"] },
+        d: { markerColor: "#38AADD", overrides: ["markerColor"] },
+      });
+    });
+
+    it("keeps the marker chassis opacity the user set, with provenance", () => {
+      // The opacity rides the same value-plus-provenance rule as the color:
+      // only a value WITH an override is a user choice.
+      seedStorage({
+        layers: {
+          a: { markerColorOpacity: 40, overrides: ["markerColorOpacity"] },
+          b: { markerColorOpacity: 100, overrides: ["markerColorOpacity"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { markerColorOpacity: 40, overrides: ["markerColorOpacity"] },
+        b: { markerColorOpacity: 100, overrides: ["markerColorOpacity"] },
+      });
+    });
+
+    it("drops an invalid marker chassis opacity that the number field could not display", () => {
+      // out-of-range / non-integer / non-number -> null.
+      seedStorage({
+        layers: {
+          a: { markerColorOpacity: 150, overrides: ["markerColorOpacity"] },
+          b: { markerColorOpacity: -5, overrides: ["markerColorOpacity"] },
+          c: { markerColorOpacity: 50.5, overrides: ["markerColorOpacity"] },
+          d: { markerColorOpacity: "40", overrides: ["markerColorOpacity"] },
+          e: { markerColorOpacity: NaN, overrides: ["markerColorOpacity"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({});
+    });
+
     it("drops border values the UI could not display", () => {
       // A corrupt entry must not leak into <input type=color> nor ask for a
       // width outside the shared bounds: both validators fail closed, and a
