@@ -1,5 +1,8 @@
-// Original-colors mode of the fill dimension — the read-only presentation of
-// the author's own paint.
+// Original-colors mode — the read-only presentation of the author's own paint.
+//
+// Shared by both faces: the fill's original mode and a border whose author paints
+// per feature (explore's `cmap`). A per-feature author has no single colour value,
+// so a swatch would lie; these read-outs state what the author actually declared.
 //
 // The author declared these colors (per feature, a scale, or a plain record);
 // the panel shows them as read-outs, never as controls a user can edit. The

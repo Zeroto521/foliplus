@@ -90,6 +90,10 @@
   border-radius: var(--foliplus-radius-sm);
   background-color: var(--foliplus-input-bg);
   color: var(--foliplus-text-primary);
+  /* The one horizontal inset the whole input family shares: a readout box and
+     the select it replaces start their text at the same x. Per-control padding
+     (the compact number field, the select's arrow side) still overrides. */
+  padding: 0 var(--foliplus-ctrl-inset-x);
   box-sizing: border-box;
 }
 

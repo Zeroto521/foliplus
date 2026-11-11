@@ -23,7 +23,6 @@ import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
-import { buildOriginalDetail } from "./fillOriginal.js";
 import {
   applyValueFill,
   bindValueDetail,
@@ -39,6 +38,7 @@ import {
   valueForUi,
   writeFillMode,
 } from "./fillValue.js";
+import { buildOriginalDetail } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   capabilityGate,

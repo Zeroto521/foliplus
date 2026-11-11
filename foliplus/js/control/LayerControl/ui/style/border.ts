@@ -26,6 +26,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
+import { buildOriginalDetail } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   capabilityGate,
@@ -83,6 +84,7 @@ import {
   colorInput,
   createSchemePicker,
   dropdownOf,
+  dropdownOverlay,
   inlineControls,
   normalizeHexColor,
   numberInput,
@@ -648,10 +650,35 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
  *  layer is actually painting on first open. The color is resolved to the
  *  swatch's own form by `displayColor` before it reaches the field. */
 
+/** The width-only border row shared by the modes that own no user colour.
+ *  FOLLOW_FILL paints a derived per-leaf fill colour and a per-feature
+ *  ORIGINAL author has no single colour value, so neither can offer a
+ *  swatch: the row owns the width control only, sitting in the right column
+ *  (the shared `.foliplus-style-size-row` inline right-align). The caller
+ *  resolves the author's stroke for the initial width. */
+const buildBorderWidthOnlyRow = (
+  ui: LayerUI,
+  layerId: string,
+  author: { weight: number },
+): HTMLElement => {
+  const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
+  return buildBorderRowShell({
+    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW} foliplus-style-size-row`,
+    label: ui.T("border"),
+    color: "",
+    weight,
+    hasColorInput: false,
+    hasWeightInput: true,
+    className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+    weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+    colorAria: ui.T("style_border_color"),
+    weightAria: ui.T("style_border_weight"),
+  });
+};
 /** The solid mode's border detail: color swatch + width number, one row.
  *  Mirrors fill's solid detail but keeps the border's own row class and
  *  the width control (the fill side has no width). */
-const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
+const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authoredBorder(ui, layerId);
   const mode = displayBorderMode(ui, layerId);
   // In ORIGINAL mode the border colour is the author's own stroke — it is not
@@ -663,60 +690,64 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement => {
   // only — no colour swatch at all. The width stays in the right column
   // (the shared `.foliplus-style-size-row` inline right-align).
   if (mode === STYLE_MODE.FOLLOW_FILL) {
-    const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
-    return buildBorderRowShell({
-      rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW} foliplus-style-size-row`,
-      label: ui.T("border"),
-      color: "",
-      weight,
-      hasColorInput: false,
-      hasWeightInput: true,
-      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
-      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-      colorAria: ui.T("style_border_color"),
-      weightAria: ui.T("style_border_weight"),
-    });
+    return [buildBorderWidthOnlyRow(ui, layerId, author)];
   }
 
   if (mode === STYLE_MODE.ORIGINAL) {
     // ORIGINAL owns no user color: the row must show the author's own stroke,
     // never the color the user set in the single-color mode (that intent stays
     // stored and takes effect only when the mode returns to solid). Reading
-    // INTENT.BORDER_COLOR here would show the user's color after a solid →
+    // INTENT.BORDER_COLOR here would show the user's color after a solid ->
     // original round-trip — the reported bug. Same source as the leaf restore
     // path (restoreStyleDim / author face).
+    // A per-feature author has no single colour value: a swatch would lie, so
+    // the shared read-only original detail (the same rows the fill original
+    // mode shows) replaces the colour input; only the width stays editable in
+    // the right column (the shared .foliplus-style-size-row inline right-align).
+    // A single-colour author keeps the real swatch (inert) — pixel-identical
+    // to SINGLE, only its editability differs.
+    if (paintsPerFeatureFill(ui, layerId)) {
+      return [
+        ...buildOriginalDetail(ui, layerId),
+        buildBorderWidthOnlyRow(ui, layerId, author),
+      ];
+    }
     const color = displayColor(author.color);
     const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
     // Same colour control as the single-color mode (buildBorderRowShell ->
     // colorInput), only inert: the author's stroke is not the user's to change.
     // Reusing the real input keeps the ORIGINAL row pixel-identical to SINGLE
     // (swatch + hex + weight) rather than degrading to a bare read-only box.
-    return buildBorderRowShell({
+    return [
+      buildBorderRowShell({
+        rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
+        label: ui.T("border"),
+        color,
+        weight,
+        hasColorInput: true,
+        hasWeightInput: true,
+        className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+        weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+        colorAria: ui.T("style_border_color"),
+        weightAria: ui.T("style_border_weight"),
+        colorReadOnly: true,
+      }),
+    ];
+  }
+  return [
+    buildBorderRowShell({
       rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
       label: ui.T("border"),
-      color,
-      weight,
+      color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
+      weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
       hasColorInput: true,
       hasWeightInput: true,
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
       colorAria: ui.T("style_border_color"),
       weightAria: ui.T("style_border_weight"),
-      colorReadOnly: true,
-    });
-  }
-  return buildBorderRowShell({
-    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
-    label: ui.T("border"),
-    color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
-    weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
-    hasColorInput: true,
-    hasWeightInput: true,
-    className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
-    weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-    colorAria: ui.T("style_border_color"),
-    weightAria: ui.T("style_border_weight"),
-  });
+    }),
+  ];
 };
 
 /** Destroy the panel's border scheme picker, if any. Idempotent; also
@@ -804,8 +835,13 @@ const renderBorderDetail = (
     )) {
       detail.append(row);
     }
+    // The width stays editable in every border mode: the by-value detail
+    // shares the fill's field/method/scheme rows and appends the border's own
+    // width-only row (the same shell follow-fill and per-feature original
+    // use) — one width channel, no per-mode DOM shape.
+    detail.append(buildBorderWidthOnlyRow(ui, layerId, authoredBorder(ui, layerId)));
   } else {
-    detail.append(buildSolidBorderDetail(ui, layerId));
+    detail.append(...buildSolidBorderDetail(ui, layerId));
   }
 };
 
@@ -824,7 +860,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "data-style-dim": "border",
   });
   if (fields.length === 0) {
-    block.append(buildSolidBorderDetail(ui, layerId));
+    block.append(...buildSolidBorderDetail(ui, layerId));
     return block;
   }
   const carriesValue = borderCarriesValue(ui, layerId);
@@ -851,6 +887,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: displayBorderMode(ui, layerId),
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
+    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   block.append(modeRow.block, modeRow.detail);
   renderBorderDetail(ui, layerId, modeRow.detail, borderDetailMode(ui, layerId));
@@ -949,6 +986,14 @@ const bindBorderDetail = (
 ): void => {
   if (mode === STYLE_MODE.VALUE && numericFields(ui, layerId).length > 0) {
     bindBorderValueDetail(ui, layerId, detail);
+    // Bind the width-only row appended to the value detail: the same shell
+    // binder the other modes use, so the weight commits through one channel.
+    bindBorderRowShell(detail, {
+      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+      onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+      onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+    });
   } else {
     bindBorderRowShell(detail, {
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
