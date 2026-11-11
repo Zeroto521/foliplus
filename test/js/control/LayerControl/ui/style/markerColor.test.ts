@@ -5,7 +5,12 @@
 // merged single-construction derive (chassis and glyph/color never split
 // across two writes), Reset restoring the author chassis without clearing a
 // user glyph or icon color, and the persistence parser.
-import { initFixture } from "../fixture.js";
+import {
+  initFixture,
+  makeAuthorIcon,
+  makeImgAuthor,
+  makePlainDivIconAuthor,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -104,84 +109,6 @@ const fixtureWithMarkers = (markers: any[]) => {
 };
 
 const flushMarkerColor = (id: string) => flushStyleDimApply(FACE.MARKER_COLOR, id);
-
-// A realistic awesome-markers author icon. Its `options` declares a
-// `markerColor` face (the capability probe keys on this) — the preset enum
-// name the sprite class is built from — and its `createIcon` paints the
-// preset chassis through the author's own `_setIconStyles`, exactly the way
-// the real awesome-markers library builds the sprite background.
-const makeAuthorIcon = (
-  opts: {
-    iconColor?: string;
-    innerColor?: string;
-    markerColor?: string;
-  } = {},
-) => {
-  const markerColor = opts.markerColor ?? "blue";
-  const author: any = {
-    options: {
-      iconColor: opts.iconColor ?? "blue",
-      markerColor,
-      className: "awesome-marker",
-      iconSize: [36, 46],
-      iconAnchor: [18, 46],
-      popupAnchor: [0, -46],
-    },
-    createIcon: vi.fn(function (this: any) {
-      const div = document.createElement("div");
-      div.style.backgroundImage = "url(icon.png) -24px 0";
-      div.style.backgroundPosition = "-24px 0";
-      div.style.width = "36px";
-      div.style.height = "46px";
-      div.innerHTML = opts.innerColor
-        ? `<i class="fa fa-map-marker" style="color:${opts.innerColor}"></i>`
-        : '<i class="fa fa-map-marker"></i>';
-      // The real awesome-markers createIcon paints the preset sprite class
-      // from the CURRENT options.markerColor (the derived icon overrides
-      // options before calling this, so a chassis edit re-paints the class).
-      this._setIconStyles?.(div, `icon-${this.options.markerColor}`);
-      return div;
-    }),
-    _setIconStyles: vi.fn(function (this: any, div: HTMLElement, name: string) {
-      div.className =
-        `awesome-marker-${name} ${this.options.className ?? "awesome-marker"}`.trim();
-    }),
-    createShadow: vi.fn(() => {
-      const sh = document.createElement("div");
-      sh.className = "awesome-marker-shadow";
-      return sh;
-    }),
-  };
-  return author;
-};
-
-// A plain divIcon author: NO markerColor face. The capability probe must
-// answer "none" so the marker-color row never renders for this carrier.
-const makePlainDivIconAuthor = () => ({
-  options: { className: "plain-div-icon" },
-  createIcon: vi.fn(() => {
-    const div = document.createElement("div");
-    div.className = "plain-div-icon";
-    return div;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "plain-div-icon";
-  }),
-});
-
-// An <img>-based author (Icon.Default / iconUrl): the marker-color capability
-// probe must answer "none" — an <img> has no awesome-markers sprite chassis.
-const makeImgAuthor = () => ({
-  options: { className: "leaflet-marker-icon" },
-  createIcon: vi.fn(() => {
-    const img = document.createElement("img");
-    img.className = "leaflet-marker-icon";
-    return img;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "leaflet-marker-icon";
-  }),
-});
 
 describe("layerCanMarkerColor", () => {
   let manager: LayerController;
@@ -318,6 +245,34 @@ describe("buildMarkerColorRow", () => {
     const row = buildMarkerColorRow(u, "overlay1")!;
     const select = row.querySelector("select") as HTMLSelectElement;
     expect(select.value).toBe("blue");
+  });
+  it("reads a nested group like the gate, not one level", () => {
+    // The marker-color gate walks the whole tree (walkLeaf); the row must
+    // read the same tree, so a nested group does not answer "no preset"
+    // (then default blue) while the map draws the author's chassis.
+    const inner = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "green" }),
+    );
+    const nested: any = makeMarkerGroup(inner);
+    nested.options = {};
+    nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
+    const { ui: uNested } = fixtureWithMarkers([nested]);
+    const row = buildMarkerColorRow(uNested, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("green");
+  });
+  it("keeps a declared author preset unchanged (no fallback to blue)", () => {
+    // Counterexample: a standard author that DECLARES a chassis preset must
+    // show it, not the blue no-author-preset fallback.
+    const declared = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "red" }),
+    );
+    const { ui: uDeclared } = fixtureWithMarkers([declared]);
+    const row = buildMarkerColorRow(uDeclared, "overlay1")!;
+    const select = row.querySelector("select") as HTMLSelectElement;
+    expect(select.value).toBe("red");
   });
 
   it("falls through to no author default when the author markerColor is empty", () => {

@@ -4,7 +4,12 @@
 // and negative carriers, the merged single-construction derive (color and
 // glyph never split across two writes), Reset restoring the author paint
 // without clearing a user glyph, and the persistence parser.
-import { initFixture } from "../fixture.js";
+import {
+  initFixture,
+  makeAuthorIcon,
+  makeImgAuthor,
+  makePlainDivIconAuthor,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -105,70 +110,6 @@ const fixtureWithMarkers = (markers: any[]) => {
 };
 
 const flushIconColor = (id: string) => flushStyleDimApply(FACE.ICON_COLOR, id);
-
-// A realistic awesome-markers author icon. Its `options` declares a
-// `iconColor` face (the capability probe keys on this), and its
-// `createIcon` returns an <i> with the author's inline color.
-const makeAuthorIcon = (opts: { iconColor?: string; innerColor?: string } = {}) => {
-  const author: any = {
-    options: {
-      iconColor: opts.iconColor ?? "blue",
-      className: "awesome-marker",
-      iconSize: [36, 46],
-      iconAnchor: [18, 46],
-      popupAnchor: [0, -46],
-    },
-    createIcon: vi.fn(() => {
-      const div = document.createElement("div");
-      div.className = "awesome-marker";
-      div.style.backgroundImage = "url(icon.png) -24px 0";
-      div.style.backgroundPosition = "-24px 0";
-      div.style.width = "36px";
-      div.style.height = "46px";
-      div.innerHTML = opts.innerColor
-        ? `<i class="fa fa-map-marker" style="color:${opts.innerColor}"></i>`
-        : '<i class="fa fa-map-marker"></i>';
-      return div;
-    }),
-    _setIconStyles: vi.fn((div: HTMLElement, name: string) => {
-      div.className = `${name} awesome-marker`.trim();
-    }),
-    createShadow: vi.fn(() => {
-      const sh = document.createElement("div");
-      sh.className = "awesome-marker-shadow";
-      return sh;
-    }),
-  };
-  return author;
-};
-
-// A plain divIcon author: NO iconColor face. The capability probe must
-// answer "none" so the marker-color row never renders for this carrier.
-const makePlainDivIconAuthor = () => ({
-  options: { className: "plain-div-icon" },
-  createIcon: vi.fn(() => {
-    const div = document.createElement("div");
-    div.className = "plain-div-icon";
-    return div;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "plain-div-icon";
-  }),
-});
-
-// An <img>-based author (Icon.Default / iconUrl): the glyph capability probe
-// must answer "none" — an <img> has no children, so no glyph can be inserted.
-const makeImgAuthor = () => ({
-  options: { className: "leaflet-marker-icon" },
-  createIcon: vi.fn(() => {
-    const img = document.createElement("img");
-    img.className = "leaflet-marker-icon";
-    return img;
-  }),
-  _setIconStyles: vi.fn((div: HTMLElement) => {
-    div.className = "leaflet-marker-icon";
-  }),
-});
 
 describe("layerCanIconColor", () => {
   let manager: LayerController;
@@ -315,6 +256,48 @@ describe("buildIconColorRow", () => {
     const row = buildIconColorRow(uHex, "overlay1")!;
     const input = row.querySelector("input[type=color]") as HTMLInputElement;
     expect(input.value).toBe("#3366ff");
+  });
+  it("shows the author's inline glyph color when the icon declares none", () => {
+    // A custom DivIcon paints its glyph inline and declares no iconColor
+    // option. The row must read the SAME paint the derive reads (inline
+    // color first) — this is the row/map divergence this suite guards.
+    const custom = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "", innerColor: "#800080" }),
+    );
+    const { ui: uCustom } = fixtureWithMarkers([custom]);
+    const row = buildIconColorRow(uCustom, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#800080");
+  });
+
+  it("shows the author's color for a nested group, like the gate", () => {
+    // The gate walks the whole tree (walkLeaf); the row must read the same
+    // tree, so a nested group does not report a default while the map draws
+    // the author's paint.
+    const inner = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "#3366ff" }),
+    );
+    const nested: any = makeMarkerGroup(inner);
+    nested.options = {};
+    nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
+    const { ui: uNested } = fixtureWithMarkers([nested]);
+    const row = buildIconColorRow(uNested, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#3366ff");
+  });
+  it("keeps a declared author color unchanged (no fallback to #ffffff)", () => {
+    // Counterexample: a standard author that DECLARES a color must show it,
+    // not the white no-author-paint fallback.
+    const declared = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ iconColor: "#ff0000" }),
+    );
+    const { ui: uDeclared } = fixtureWithMarkers([declared]);
+    const row = buildIconColorRow(uDeclared, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#ff0000");
   });
 
   it("shows the user's stored color when one is set", () => {

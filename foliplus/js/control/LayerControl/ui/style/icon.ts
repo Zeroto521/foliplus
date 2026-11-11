@@ -39,12 +39,14 @@ import {
   type AuthorGlyph,
   GLYPH_SCHEME_DEFAULT,
   GLYPH_SCHEME_ORDER,
+  type GlyphPrefix,
   PICKER_GLYPHS,
   applyIconByValueToLeaves,
   applyIconColorToLeaves,
   applyIconToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
+  coerceGlyphPrefix,
   glyphAvailable,
   glyphHtml,
   glyphScheme,
@@ -321,6 +323,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
       intent.value,
       typeof color === "string" ? color : undefined,
       typeof opacity === "number" ? opacity : undefined,
+      coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     );
     return;
   }
@@ -368,6 +371,8 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
       color,
       currentGlyph(ui, layerId),
       typeof opacity === "number" ? opacity : undefined,
+      authorGlyphPrefix(ui, layerId) ??
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     );
   }
 };
@@ -469,12 +474,14 @@ const buildSingleDetail = (ui: LayerUI, layerId: string): HTMLElement => {
     const author = userGlyph ? null : authorGlyphName(ui, layerId);
     const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
     const value = userGlyph ?? author?.name ?? null;
+    const panelPrefix: string =
+      authorPrefix ?? coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
     const glyph = value ? resolveGlyph(value) : null;
     // The user's picked/persisted glyph renders in the panel's fa-solid family;
     // an author-declared glyph renders under the author's own prefix
     // (awesome-markers paints `prefix + " " + icon`) — probe the SAME stack so
     // a name the map actually draws is never reported unavailable.
-    const available = glyph ? glyphAvailable(glyph, authorPrefix ?? "fa-solid") : false;
+    const available = glyph ? glyphAvailable(glyph, panelPrefix) : false;
     // An author-declared name that fails glyph syntax is NEVER renderable, no
     // matter what the stylesheet paints — it gets its own unavailable state
     // rather than silently reading as the author-original label.
@@ -482,7 +489,7 @@ const buildSingleDetail = (ui: LayerUI, layerId: string): HTMLElement => {
     if (value && glyph && available && !authorInvalid) {
       // The name is syntactically valid AND the loaded stylesheet paints it:
       // the happy path — show the glyph and its name.
-      glyphBox.innerHTML = glyphHtml(glyph);
+      glyphBox.innerHTML = glyphHtml(glyph, "", "", panelPrefix);
       nameBox.textContent = glyph;
       trigger.title = value;
       trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
@@ -717,6 +724,7 @@ const buildGlyphGrid = (
   renderTrigger: () => void,
 ): { grid: HTMLElement; focusInitial: () => void } => {
   const current = currentGlyph(ui, layerId);
+  const gridPrefix: GlyphPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const grid = dom.el("div", {
     class: CONST.CLASSES.STYLE_ICON_GRID,
     role: "grid",
@@ -736,7 +744,7 @@ const buildGlyphGrid = (
         id: nextOptionId("icon-cell"),
         ...(glyph === current ? { "aria-current": "true" } : {}),
       },
-      { html: glyphHtml(glyph) },
+      { html: glyphHtml(glyph, "", "", gridPrefix) },
     ) as HTMLButtonElement;
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);

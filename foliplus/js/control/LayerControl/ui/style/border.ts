@@ -25,8 +25,10 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, numericFields, resolvedValue } from "./fill.js";
+import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
+  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
@@ -51,7 +53,6 @@ import {
   walkStyleLeaves,
 } from "./styleBag.js";
 import {
-  CAP_TIER,
   DIM,
   FILL_MODE,
   type FillMode,
@@ -150,11 +151,7 @@ interface BorderRowBindTarget {
  *  checks belong here: the invariant is that `gate` is exactly the
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return false;
-  return ui.c.surfaceFor(layerInfo).capabilities.stroke === CAP_TIER.NATIVE;
-};
+const layerCanBorder = capabilityGate("stroke", "native");
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
@@ -369,15 +366,29 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // in the intent record, so a later switch back to solid still restores it.
   const mode = effectiveBorderMode(ui, layerId);
   const original = mode === FILL_MODE.ORIGINAL;
+  const solid = mode === FILL_MODE.SOLID;
   // FOLLOW_FILL paints the border with the fill's current colour (single mode
   // only - displayBorderMode falls back otherwise). Never a copy: the intent
   // stays absent, so a fill edit recomputes the border through contentChange.
   const followFill = mode === FILL_MODE.FOLLOW_FILL;
+  // SOLID owns exactly one colour (mirror of fill's deriveSolidBase). When no
+  // BORDER_COLOR intent exists the base is the layer's authored stroke — NOT
+  // each leaf's captured author bag, which for a per-feature layer holds a
+  // different colour per leaf (restoring it is the original mode's job, not
+  // solid's). The base is the same reader the solid row's swatch uses
+  // (buildSolidBorderDetail -> authoredBorder -> styleBaseOf), so the panel
+  // and the map cannot disagree. Only a per-feature layer needs the
+  // derivation: a uniform layer's author stroke is already one colour, and a
+  // colour basemap is excluded by the layerCanBorder capability gate.
+  const deriveSolidBase = solid && paintsPerFeatureFill(ui, layerId);
+  const solidColor = deriveSolidBase
+    ? (getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? styleBaseOf(ui, layerId).color)
+    : getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const color = original
     ? undefined
     : followFill
       ? undefined // per-leaf derived below (no single intent to read)
-      : getIntent(ui, layerId, INTENT.BORDER_COLOR);
+      : solidColor;
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
@@ -436,9 +447,20 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
       // Follow-fill replays this leaf's CURRENT derived colour, so a fill
       // change followed by a highlight restore keeps the border in step.
+      // For solid, replay the derived base only when the user owns the paint:
+      // a solid mode with NO intent at all (an uncommitted per-feature layer)
+      // has folium's own author restore on mouseout — replaying the base
+      // would stamp the first leaf's colour over every leaf (mirror of fill).
+      const ownIntent =
+        getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
+        getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
+        getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
+        getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined;
       const c = followFill
         ? derivedFillColor(node)
-        : getIntent(ui, layerId, INTENT.BORDER_COLOR);
+        : ownIntent
+          ? solidColor
+          : undefined;
       if (c === undefined && w === undefined) return null;
       // stroke:true rides the replay too — folium's resetStyle would
       // otherwise re-apply the author's stroke:false on mouseout and hide
