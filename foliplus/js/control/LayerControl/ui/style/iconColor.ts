@@ -27,8 +27,8 @@ import {
   applyIconColorToLeaves,
   authorGlyphColorOf,
   authorGlyphName as authorGlyphNameOnLayer,
-  coerceGlyphPrefix,
   authorIconOf,
+  coerceGlyphPrefix,
   parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
@@ -104,7 +104,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
     color,
     glyph,
     hasOpacity ? opacityIntent : undefined,
-    coerceGlyphPrefix(ui.config.prefix ?? undefined),
+    coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
   );
 };
 /** Write the layer's color and replay the walk. */
@@ -157,7 +157,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
       authorColor,
       glyph,
       undefined,
-      coerceGlyphPrefix(ui.config.prefix ?? undefined),
+      coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     );
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
@@ -169,7 +169,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
         "#ffffff",
         glyph,
         undefined,
-        coerceGlyphPrefix(ui.config.prefix ?? undefined),
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
       );
     }
   }

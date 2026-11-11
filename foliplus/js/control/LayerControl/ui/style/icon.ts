@@ -61,7 +61,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   // replaces the whole icon, so a glyph edit must carry the current
   // color and a color edit must carry the current glyph).
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  const panelPrefix = coerceGlyphPrefix(ui.config.prefix ?? undefined);
+  const panelPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   applyIconToLeaves(
     layer,
@@ -108,7 +108,7 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
       currentGlyph(ui, layerId),
       typeof opacity === "number" ? opacity : undefined,
       authorGlyphPrefix(ui, layerId) ??
-        coerceGlyphPrefix(ui.config.prefix ?? undefined),
+        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     );
   }
 };
@@ -178,7 +178,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
     // knob), coerced so only a known family reaches the stylesheet, then the
     // panel default.
     const panelPrefix: string =
-      authorPrefix ?? coerceGlyphPrefix(ui.config.prefix ?? undefined);
+      authorPrefix ?? coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
     // Probe the SAME stack the render paints, so a name the map actually
     // draws is never reported unavailable.
     const available = glyph ? glyphAvailable(glyph, panelPrefix) : false;
@@ -306,7 +306,7 @@ const buildGlyphGrid = (
   // (the panel's own prefix), so a picked glyph always previews what the
   // panel would paint. A layer-author prefix does NOT reach the grid: the
   // grid is a control-surface shortcut, not a per-layer render.
-  const gridPrefix: GlyphPrefix = coerceGlyphPrefix(ui.config.prefix ?? undefined);
+  const gridPrefix: GlyphPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const grid = dom.el("div", {
     class: CONST.CLASSES.STYLE_ICON_GRID,
     role: "grid",

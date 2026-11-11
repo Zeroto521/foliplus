@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Literal, Annotated
 
 from branca.element import Element
 from folium.map import Layer
@@ -99,14 +99,14 @@ class LayerControl(BaseControl):
         map's busiest gesture is drag-pan / click-select. The header close
         button collapses it explicitly either way.
 
-    prefix : str, default "fa-solid"
+    icon_prefix : Literal["fa-solid", "fa-regular"], default "fa-solid"
         FontAwesome family class prefix used when the panel renders a glyph
         picker icon or probes its availability. A layer whose author declared
         its own prefix (folium Icon(prefix=...)) keeps that prefix; this
-        control-level value is the fallback for every other layer. Only
-        FontAwesome family classes are meaningful ("fa-solid", "fa-regular",
-        "fa-brands", ...); any other value falls back to "fa-solid".
-
+        control-level value is the fallback for every other layer. The
+        control only supports FontAwesome's solid and regular families
+        (the only two in the glyph table); another family needs its own
+        glyph table and is a separate task.
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -333,13 +333,13 @@ class LayerControl(BaseControl):
         position: ControlPosition = "topleft",
         label_collide: bool = True,
         collapse_on_outside: bool = False,
-        prefix: str = "fa-solid",
+        icon_prefix: Literal["fa-solid", "fa-regular"] = "fa-solid",
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.label_collide = label_collide
         self.collapse_on_outside = collapse_on_outside
-        self.prefix = prefix
+        self.icon_prefix = icon_prefix
 
     def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.

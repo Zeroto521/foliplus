@@ -1397,7 +1397,7 @@ describe("icon rehydrate drift guard", () => {
   });
 
   it("paints the applied glyph under the AUTHOR family, not the control knob (e2e)", () => {
-    (window as any).CONFIG.prefix = "fa-regular";
+    (window as any).CONFIG.icon_prefix = "fa-regular";
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "fa-star", prefix: "fas" };
     const marker = makeMarker({ type: "school" }, author);
@@ -1413,7 +1413,7 @@ describe("icon rehydrate drift guard", () => {
   });
 
   it("uses the control prefix when the author declares no family (e2e)", () => {
-    (window as any).CONFIG.prefix = "fa-regular";
+    (window as any).CONFIG.icon_prefix = "fa-regular";
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "fa-map-marker" };
     const marker = makeMarker({ type: "school" }, author);
@@ -1429,7 +1429,7 @@ describe("icon rehydrate drift guard", () => {
   });
 
   it("falls back to the panel default when neither author nor control prefix exists (e2e)", () => {
-    (window as any).CONFIG.prefix = undefined;
+    (window as any).CONFIG.icon_prefix = undefined;
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "fa-map-marker" };
     const marker = makeMarker({ type: "school" }, author);
