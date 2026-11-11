@@ -66,11 +66,11 @@ import {
 import {
   CAP_TIER,
   DIM,
-  STYLE_MODE,
-  type StyleMode,
   type LayerInfo,
   type LayerOverride,
   ROLE,
+  STYLE_MODE,
+  type StyleMode,
   type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
