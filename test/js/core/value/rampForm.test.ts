@@ -1,6 +1,6 @@
 // core/rampForm — the Field / Method + Classes / Scheme rows shared by
 // LayerControl's value-based fill and HeatmapControl's classification panel.
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";

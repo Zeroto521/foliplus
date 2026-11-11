@@ -5,7 +5,7 @@
 // wins the cascade and silently kills the hover wash. The reset is therefore
 // written inside `:where()` (specificity 0) so the shared hover/active rules
 // always win; this contract pins that pair together.
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";

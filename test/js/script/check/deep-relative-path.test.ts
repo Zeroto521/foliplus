@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // own subtree) with a parent-dir chain of three or more `../` segments.
 // Deep chains were the failure mode — each `resolve(__dirname, up4)`
 // encoded the file's own nesting depth (up4 = four parent levels), so moving one file (or the test tree)
-// silently broke the anchor. The shared helper test/js/paths.ts (imported via
+// silently broke the anchor. The shared helper test/js/path.ts (imported via
 // the #test alias) is now the single source for repo-relative paths; a test
 // that needs the repo root imports { ROOT } or { repoPath } and lets the helper
 // own the depth.

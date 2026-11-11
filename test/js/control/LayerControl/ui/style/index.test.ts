@@ -1,4 +1,4 @@
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import {
   GridLayer,
   attachedPanel,

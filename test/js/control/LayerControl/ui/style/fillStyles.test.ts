@@ -1,4 +1,4 @@
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";

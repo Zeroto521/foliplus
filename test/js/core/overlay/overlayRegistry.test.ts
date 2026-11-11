@@ -1,4 +1,4 @@
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import type * as L from "leaflet";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

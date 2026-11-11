@@ -1,5 +1,5 @@
 // Tests for the shared scheme picker (ui/schemePicker.ts).
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay/index.js";

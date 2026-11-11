@@ -6,7 +6,7 @@
 // the merged bundle (same (0,1,0) specificity, later file wins). Reverting
 // the selector to a single class must fail here even though every jsdom test
 // still passes — computed styles are not computed in jsdom.
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 

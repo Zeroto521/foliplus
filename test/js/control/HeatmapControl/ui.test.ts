@@ -2,7 +2,7 @@
 // Every UI function reads its config from the injected ctrl.config / ctrl.T
 // (set by the fixture), never from the ambient window.CONFIG — these tests
 // therefore prove both the behavior and the per-instance CONFIG injection.
-import { repoPath } from "#test/paths.js";
+import { repoPath } from "#test/path.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
