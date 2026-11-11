@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import * as CONST from "#foliplus/core/layer/const.js";
-import type { PaneSpec } from "#foliplus/core/layer/type.js";
+import { PaneManager, type PaneSpec } from "#core/layer/index.js";
+import * as CONST from "#core/layer/index.js";
 
 // Mock L.svg — needed by PaneManager.ensurePane
 beforeEach(() => {

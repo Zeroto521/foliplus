@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LayerInfoRegistry } from "#foliplus/core/layer/LayerInfoRegistry.js";
+import { type LayerInfo, LayerInfoRegistry } from "#core/layer/index.js";
 import { ROLE } from "#foliplus/core/layer/index.js";
-import type { LayerInfo } from "#foliplus/core/layer/type.js";
 
 describe("LayerInfoRegistry", () => {
   let registry: LayerInfoRegistry;

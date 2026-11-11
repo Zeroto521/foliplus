@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#foliplus/core/layer/const.js";
+import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 describe("init ready signal", () => {
