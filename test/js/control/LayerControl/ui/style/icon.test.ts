@@ -1332,6 +1332,53 @@ describe("icon rehydrate drift guard", () => {
     expect(probed).toContain("fa fa-martini-glass");
   });
 
+  it("paints the applied glyph under the AUTHOR family, not the control knob (e2e)", () => {
+    (window as any).CONFIG.icon_prefix = "fa-regular";
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "fa-star", prefix: "fas" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { ui: u11 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u11, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fas")).toBe(true);
+    expect(glyph.classList.contains("fa-regular")).toBe(false);
+  });
+
+  it("uses the control prefix when the author declares no family (e2e)", () => {
+    (window as any).CONFIG.icon_prefix = "fa-regular";
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "fa-map-marker" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { ui: u12 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u12, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fa-regular")).toBe(true);
+    expect(glyph.classList.contains("fa-solid")).toBe(false);
+  });
+
+  it("falls back to the panel default when neither author nor control prefix exists (e2e)", () => {
+    (window as any).CONFIG.icon_prefix = undefined;
+    const author = makeAuthorIcon();
+    author.options = { ...author.options, icon: "fa-map-marker" };
+    const marker = makeMarker({ type: "school" }, author);
+    const { ui: u13 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const row = buildIconRow(u13, "overlay1")!;
+    const trigger = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    const glyph = trigger.querySelector(".foliplus-marker-glyph")!;
+    expect(glyph.classList.contains("fa-solid")).toBe(true);
+    expect(glyph.classList.contains("fa-regular")).toBe(false);
+  });
   it("shows the unavailable state for a name the author's prefix cannot paint", () => {
     const probed: string[] = [];
     (window as any).__glyphProbePainted = false;
