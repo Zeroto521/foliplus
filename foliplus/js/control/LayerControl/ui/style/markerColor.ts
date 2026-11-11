@@ -26,7 +26,7 @@ import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
-import { CAP_TIER, DIM, MARKER_COLOR_PRESETS, walkLeaf } from "#core/layer/index.js";
+import { CAP_TIER, DIM, walkLeaf } from "#core/layer/index.js";
 import {
   MARKER_COLOR_PRESET_HEX,
   applyMarkerColorToLeaves,

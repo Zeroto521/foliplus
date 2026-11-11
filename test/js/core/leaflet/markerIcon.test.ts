@@ -85,6 +85,7 @@ const makeAuthorIcon = (
   opts: Partial<{
     className: string;
     bg: string;
+    bgPosition: string;
     size: [number, number];
     iconColor: string;
     withShadow: boolean;
@@ -93,6 +94,7 @@ const makeAuthorIcon = (
   const cfg = {
     className: opts.className ?? "awesome-marker",
     bg: opts.bg ?? "url(icon.png)",
+    bgPosition: opts.bgPosition ?? "-24px 0",
     size: opts.size ?? ([36, 46] as [number, number]),
     iconColor: opts.iconColor ?? "blue",
     withShadow: opts.withShadow ?? true,
@@ -483,11 +485,13 @@ describe("buildMarkerIcon chassis span", () => {
   });
   it("defaults an author sprite position to 0 0 when the inline position is empty", () => {
     // The readChassisSprite fallback for a missing backgroundPosition.
+    // darkred is NOT cached by earlier tests (readChassisSprite caches per preset
+    // name), so this exercises the inline empty-position fallback.
     const author = makeAuthorIcon({ bgPosition: "" });
     const derived = buildMarkerIcon({
       author,
       glyph: "circle",
-      markerColor: "#38aadd",
+      markerColor: "#a23336",
       markerColorOpacity: 50,
     }) as any;
     const div = derived.createIcon();

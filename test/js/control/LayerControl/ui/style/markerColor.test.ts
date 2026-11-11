@@ -312,8 +312,8 @@ describe("buildMarkerColorRow", () => {
     nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
     const { ui: uNested } = fixtureWithMarkers([nested]);
     const row = buildMarkerColorRow(uNested, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("green");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#72b026");
   });
   it("keeps a declared author preset unchanged (no fallback to blue)", () => {
     // Counterexample: a standard author that DECLARES a chassis preset must
@@ -324,8 +324,8 @@ describe("buildMarkerColorRow", () => {
     );
     const { ui: uDeclared } = fixtureWithMarkers([declared]);
     const row = buildMarkerColorRow(uDeclared, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("red");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#d63e2a");
   });
 
   it("falls through to the blue default when the author markerColor is empty", () => {
@@ -704,5 +704,110 @@ describe("markerColor dimension descriptor", () => {
     const img = makeMarker({ type: "school" }, makeImgAuthor());
     const { ui: uImg } = fixtureWithMarkers([img]);
     expect(MARKER_COLOR_DIMENSION.valueSource!(uImg, "overlay1")).toBe("none");
+  });
+});
+
+// ── Branch-coverage: authorMarkerColorHex hex-author arm + unknown-name fallback,
+// commitMarkerColorOpacity out-of-range guard, resetLayerMarkerColor hex-author
+// + unknown-name arms, buildMarkerColorRow stored-opacity default, and the
+// commitMarkerColor invalid-hex guard. Each closes a patch branch that the
+// happy-path tests leave uncovered. ──
+describe("markerColor branch coverage", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let school: any;
+
+  beforeEach(() => {
+    school = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" }));
+    ({ manager, ui } = fixtureWithMarkers([school]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("uses a hex author chassis as-is (authorMarkerColorHex hex arm)", () => {
+    const hexAuthor = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "#a23336" }),
+    );
+    const { ui: uHex } = fixtureWithMarkers([hexAuthor]);
+    const row = buildMarkerColorRow(uHex, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#a23336");
+  });
+
+  it("falls back to blue for an author chassis name that is neither preset nor hex", () => {
+    const odd = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "chartreuse" }),
+    );
+    const { ui: uOdd } = fixtureWithMarkers([odd]);
+    const row = buildMarkerColorRow(uOdd, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
+  });
+
+  it("commitMarkerColorOpacity ignores an out-of-range value", () => {
+    commitMarkerColorOpacity(ui, "overlay1", 150);
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBeUndefined();
+    commitMarkerColorOpacity(ui, "overlay1", -5);
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBeUndefined();
+  });
+
+  it("reset re-derives at a hex author chassis as-is", () => {
+    const hexAuthor = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "#a23336" }),
+    );
+    const { ui: uHex } = fixtureWithMarkers([hexAuthor]);
+    writeIntentKeys(uHex, "overlay1", [[INTENT.MARKER_COLOR, "#38aadd"]]);
+    resetLayerMarkerColor(uHex, "overlay1");
+    const written = hexAuthor.options.icon;
+    const div = written.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-darkred");
+  });
+
+  it("reset falls back to blue for an author chassis name that is neither preset nor hex", () => {
+    const odd = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "chartreuse" }),
+    );
+    const { ui: uOdd } = fixtureWithMarkers([odd]);
+    writeIntentKeys(uOdd, "overlay1", [[INTENT.MARKER_COLOR, "#38aadd"]]);
+    resetLayerMarkerColor(uOdd, "overlay1");
+    const written = odd.options.icon;
+    const div = written.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+  });
+
+  it("buildMarkerColorRow defaults the opacity to 100 when only a color is stored", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const number = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(number.value).toBe("100");
+  });
+
+  it("buildMarkerColorRow shows the stored opacity when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.MARKER_COLOR, "#d63e2a"],
+      [INTENT.MARKER_COLOR_OPACITY, 50],
+    ]);
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const number = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(number.value).toBe("50");
+  });
+
+  it("commitMarkerColor ignores an invalid hex from the swatch", () => {
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    input.type = "text";
+    input.value = "#12345";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 });
