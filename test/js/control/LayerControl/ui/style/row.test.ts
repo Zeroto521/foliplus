@@ -17,6 +17,11 @@ const build = (
       { value: "solid", label: "Single color" },
       { value: "ramp", label: "Color by value" },
     ],
+    // The primitive test has no map/registry: supply inert stand-ins for the
+    // popup host contract and the overlay hook the production rows always pass
+    // (both are required so a caller cannot forget the dismissal path).
+    surface: {},
+    overlay: { id: "mode", rank: 900, register: () => () => {} },
     ...overrides,
   });
 

@@ -338,7 +338,7 @@ class TestFillClassificationVocabulary:
         (
             "LayerControl.style_method",
             "HeatmapControl.classify_method",
-            "Method",
+            "Classification Method",
             "分类方法",
         ),
         ("LayerControl.style_fill_scheme", "HeatmapControl.scheme", "Scheme", "配色"),

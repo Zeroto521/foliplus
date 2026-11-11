@@ -12,7 +12,7 @@
   "HeatmapControl.agg_max": "Max",
   "HeatmapControl.field": "Field",
   "HeatmapControl.needs_numeric_field": "Needs a numeric field to aggregate by value",
-  "HeatmapControl.classify_method": "Method",
+  "HeatmapControl.classify_method": "Classification Method",
   "HeatmapControl.class_count": "Classes",
   "HeatmapControl.jenks": "Natural Breaks",
   "HeatmapControl.quantile": "Quantile",

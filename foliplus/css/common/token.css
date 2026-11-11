@@ -114,6 +114,11 @@
 
   /* ── Sizing ── */
   --foliplus-ctrl-size: 30px;
+  /* Horizontal inset of an input control's label text: the one inset the
+     .foliplus-input-skin family (select / number / readonly) shares, so a
+     readout box and the select it replaces start their text at the same
+     x — the readonly frame carries no padding of its own. */
+  --foliplus-ctrl-inset-x: var(--foliplus-space-md);
   --foliplus-scale-press: 0.92;
   --foliplus-scale-hover: 1.08;
   --foliplus-icon-size-sm: var(--foliplus-size-16);
