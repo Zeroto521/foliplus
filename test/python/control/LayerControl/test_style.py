@@ -1746,9 +1746,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             page.evaluate(_js("LayerControl/exit_fullscreen"))
 
     @pytest.mark.parametrize("how", ["outside", "escape"])
-    def test_style_mode_dropdown_outside_press_dismisses(
-        self, browser, tmp_path, how
-    ):
+    def test_style_mode_dropdown_outside_press_dismisses(self, browser, tmp_path, how):
         """Both mode dropdowns (fill and border) close on a dismissal.
 
         The mode row uses the shared dropdown bridged to a hidden native
