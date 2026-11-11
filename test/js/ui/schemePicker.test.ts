@@ -1,7 +1,6 @@
 // Tests for the shared scheme picker (ui/schemePicker.ts).
+import { repoPath } from "#test/paths.js";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay/index.js";
 import { type SchemePicker, createSchemePicker } from "#ui/index.js";
@@ -1536,10 +1535,7 @@ describe("scheme picker: scrollbar lane fallback", () => {
 // negative control keeps the pre-fix single-selector hover from coming back.
 
 const schemePickerCss = readFileSync(
-  resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../../foliplus/css/common/scheme-picker.css",
-  ),
+  repoPath("foliplus/css/common/scheme-picker.css"),
   "utf8",
 );
 

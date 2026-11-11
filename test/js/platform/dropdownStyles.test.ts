@@ -6,18 +6,11 @@
 // the merged bundle (same (0,1,0) specificity, later file wins). Reverting
 // the selector to a single class must fail here even though every jsdom test
 // still passes — computed styles are not computed in jsdom.
+import { repoPath } from "#test/paths.js";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(
-  resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../../foliplus/css/common/dropdown.css",
-  ),
-  "utf8",
-);
+const css = readFileSync(repoPath("foliplus/css/common/dropdown.css"), "utf8");
 
 describe("dropdown placeholder ink", () => {
   it("paints the placeholder with a compound selector on the trigger", () => {

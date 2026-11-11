@@ -1,5 +1,5 @@
+import { repoPath } from "#test/paths.js";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ROW_PANEL_EDGE,
@@ -1405,10 +1405,7 @@ describe("pinRowPanel", () => {
 //    factory-bind assertion fail with "factory createRowPanel missing
 //    bindFloatingGestures"; restoring it returned green.
 describe("floating gesture containment goes through the unified entry", () => {
-  const panelSrc = readFileSync(
-    resolve(import.meta.dirname, "../../../../foliplus/js/core/leaflet/panel.ts"),
-    "utf8",
-  );
+  const panelSrc = readFileSync(repoPath("foliplus/js/core/leaflet/panel.ts"), "utf8");
 
   it("B: .foliplus-panel-content created only in the two panel factories, each bound", () => {
     const createSites: string[] = [];

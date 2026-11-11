@@ -5,15 +5,12 @@
 // wins the cascade and silently kills the hover wash. The reset is therefore
 // written inside `:where()` (specificity 0) so the shared hover/active rules
 // always win; this contract pins that pair together.
+import { repoPath } from "#test/paths.js";
 import { readFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
+import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-const cssDir = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../../../../foliplus/css",
-);
+const cssDir = repoPath("foliplus/css");
 const read = (name: string): string => readFileSync(resolve(cssDir, name), "utf8");
 
 const layerMenuCss = read("control/LayerControl/menu.css");
