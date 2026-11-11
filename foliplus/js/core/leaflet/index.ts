@@ -40,6 +40,8 @@ export {
 export {
   applyIconToLeaves,
   applyIconColorToLeaves,
+  authorGlyphColorOf,
+  authorIconOf,
   applyMarkerColorToLeaves,
   authorGlyphName,
   authorGlyphPrefix,
