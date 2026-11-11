@@ -834,3 +834,80 @@ describe("applyIconByValueToLeaves", () => {
     ).not.toThrow();
   });
 });
+
+describe("applyIconByValueToLeaves — category edge cases", () => {
+  const makeFeatureMarker = (props: Record<string, unknown>, icon?: unknown): any => {
+    const leaf = makeMarker(icon);
+    leaf.feature = { properties: props };
+    return leaf;
+  };
+  const makeGroup = (...markers: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const marker of markers) fn(marker);
+    }),
+  });
+  const categoryConfig = {
+    kind: "category" as const,
+    field: "kind",
+    method: "equal" as const,
+    classes: 2,
+    glyphs: ["circle", "square"],
+  };
+
+  it("duplicate categories map to one glyph in first-seen order", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ kind: "a" }, author);
+    const m2 = makeFeatureMarker({ kind: "a" }, author);
+    const m3 = makeFeatureMarker({ kind: "b" }, author);
+    const group = makeGroup(m1, m2, m3);
+    applyIconByValueToLeaves(group, categoryConfig);
+    const g1 = m1.options.icon.createIcon().querySelector("i") as HTMLElement;
+    const g2 = m2.options.icon.createIcon().querySelector("i") as HTMLElement;
+    const g3 = m3.options.icon.createIcon().querySelector("i") as HTMLElement;
+    expect(g1.className).toContain("fa-circle");
+    expect(g2.className).toContain("fa-circle");
+    expect(g3.className).toContain("fa-square");
+  });
+
+  it("keeps the author icon for a category leaf with a missing value", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ kind: "a" }, author);
+    const m2 = makeFeatureMarker({}, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(group, categoryConfig);
+    expect(m2.options.icon).toBe(author);
+    expect(m1.options.icon).not.toBe(author);
+  });
+
+  it("keeps the author icon for a non-category leaf with a missing value", () => {
+    const author = makeAuthorIcon();
+    const m1 = makeFeatureMarker({ count: 1 }, author);
+    const m2 = makeFeatureMarker({}, author);
+    const group = makeGroup(m1, m2);
+    applyIconByValueToLeaves(group, {
+      kind: "numeric" as const,
+      field: "count",
+      method: "equal" as const,
+      classes: 3,
+      glyphs: ["circle", "square", "diamond"],
+    });
+    expect(m2.options.icon).toBe(author);
+  });
+
+  it("skips icon-less leaves when no default icon prototype exists", () => {
+    // A Leaflet-free DOM: no L.Icon.Default.prototype, so captureAuthorIcon
+    // stores undefined for every icon-less leaf — the walk skips each one
+    // instead of deriving from an absent prototype (no instanceof is hit).
+    const saved = (window.L as any).Icon;
+    (window.L as any).Icon = {};
+    const m1 = makeFeatureMarker({ kind: "a" });
+    const m2 = makeFeatureMarker({ kind: "b" });
+    const group = makeGroup(m1, m2);
+    expect(() => applyIconByValueToLeaves(group, categoryConfig)).not.toThrow();
+    // Neither leaf got a derived icon — no author prototype to derive from.
+    expect(m1.options.icon).toBeUndefined();
+    expect(m2.options.icon).toBeUndefined();
+    (window.L as any).Icon = saved;
+  });
+});

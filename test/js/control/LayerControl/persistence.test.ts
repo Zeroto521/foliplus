@@ -1297,6 +1297,67 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("drops an icon by-value config with an invalid shape", () => {
+      seedStorage({
+        layers: {
+          a: {
+            iconValue: { field: "", glyphs: ["circle"] },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          b: {
+            iconValue: { field: "count", glyphs: "x" },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          c: {
+            iconValue: { field: "count", glyphs: [] },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          d: {
+            iconValue: { field: "count", glyphs: [123] },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          e: {
+            iconValue: { kind: "bogus", field: "count", glyphs: ["circle"] },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+          f: {
+            iconValue: {
+              field: "count",
+              method: "equal",
+              classes: 3,
+              glyphs: ["circle", "square", "diamond"],
+            },
+            iconMode: "byValue",
+            overrides: ["iconValue", "iconMode"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        // Every malformed iconValue is dropped; the valid iconMode survives —
+        // each override key validates independently.
+        a: { iconMode: "byValue", overrides: ["iconMode"] },
+        b: { iconMode: "byValue", overrides: ["iconMode"] },
+        c: { iconMode: "byValue", overrides: ["iconMode"] },
+        d: { iconMode: "byValue", overrides: ["iconMode"] },
+        e: { iconMode: "byValue", overrides: ["iconMode"] },
+        f: {
+          iconValue: {
+            field: "count",
+            method: "equal",
+            classes: 3,
+            glyphs: ["circle", "square", "diamond"],
+          },
+          iconMode: "byValue",
+          overrides: ["iconValue", "iconMode"],
+        },
+      });
+    });
+
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {

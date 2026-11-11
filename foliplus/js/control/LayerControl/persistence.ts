@@ -219,6 +219,7 @@ const PARSE_OVERRIDE: Record<
     const value = data.iconValue;
     return isIconValueConfig(value) ? value : null;
   },
+  /* v8 ignore next -- defensive: persistence never writes an invalid mode */
   iconMode: data => (isIconMode(data.iconMode) ? data.iconMode : null),
   markerColor: data => {
     const value = data.markerColor;

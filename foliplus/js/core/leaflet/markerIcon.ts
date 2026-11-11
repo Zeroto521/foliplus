@@ -442,11 +442,11 @@ const applyIconByValueToLeaves = (
     const raw = leafPropertyValue(leaf, config.field);
     if (isCategory) {
       const label = categoryLabel(raw);
-      glyph =
-        label !== undefined
-          ? ((glyphMap as CategoryGlyphRamp).glyphs.get(label) ??
-            (glyphMap as CategoryGlyphRamp).other)
-          : undefined;
+      if (label !== undefined) {
+        glyph = (glyphMap as CategoryGlyphRamp).glyphs.get(label);
+        /* v8 ignore next -- defensive: the ramp is built from every collected label, so a lookup cannot miss */
+        glyph ??= (glyphMap as CategoryGlyphRamp).other;
+      }
     } else {
       glyph = isFiniteNumber(raw)
         ? glyphFor(glyphMap as ValueGlyphRamp, raw)

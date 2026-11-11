@@ -2,7 +2,12 @@ import { initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
-import { PICKER_GLYPHS } from "#core/leaflet/index.js";
+import {
+  GLYPH_SCHEME_DEFAULT,
+  GLYPH_SCHEME_ORDER,
+  PICKER_GLYPHS,
+  glyphScheme,
+} from "#core/leaflet/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -1571,5 +1576,222 @@ describe("icon by-value mode", () => {
     const glyph = written.createIcon().querySelector("i") as HTMLElement;
     expect(glyph.style.color).toBe("rgb(18, 171, 239)");
     expect(getIntent(ui, "overlay1", INTENT.ICON_COLOR)).toBe("#12abef");
+  });
+});
+
+describe("icon by-value detail interaction", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let authorIcon: any;
+  let school: any;
+  let hospital: any;
+
+  const glyphs = ["circle", "square", "diamond"];
+  const valueConfig = {
+    kind: "numeric" as const,
+    field: "count",
+    method: "equal" as const,
+    classes: 3,
+    glyphs,
+  };
+
+  beforeEach(() => {
+    authorIcon = makeAuthorIcon();
+    school = makeMarker({ type: "school", count: 1 }, authorIcon);
+    hospital = makeMarker({ type: "hospital", count: 9 }, authorIcon);
+    ({ manager, ui } = fixtureWithMarkers([school, hospital]));
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const modeSelect = (row: HTMLElement) =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_ICON_MODE_SELECT}`) as HTMLSelectElement;
+  const fieldSelect = (row: HTMLElement) =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`) as HTMLSelectElement;
+  const methodSelect = (row: HTMLElement) =>
+    row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+  const classesSelect = (row: HTMLElement) =>
+    row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+  const schemeSelect = (row: HTMLElement) =>
+    row.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_SCHEME_SELECT}`,
+    ) as HTMLSelectElement;
+
+  it("mode switch to by-value seeds the value config and writes the mode", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    expect(select.value).toBe("single");
+    select.value = "byValue";
+    select.dispatchEvent(new Event("change"));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe("byValue");
+    const seeded = getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any;
+    expect(seeded.kind).toBe("numeric");
+    expect(seeded.field).toBe("count");
+    expect(seeded.classes).toBe(6);
+    expect(seeded.glyphs.length).toBeGreaterThan(0);
+  });
+
+  it("mode switch back to single keeps the stored value config", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    select.value = "byValue";
+    select.dispatchEvent(new Event("change"));
+    select.value = "single";
+    select.dispatchEvent(new Event("change"));
+    expect(getIntent(ui, "overlay1", INTENT.ICON_MODE)).toBe("single");
+    // The value config survives — a mode alone — so a switch back restores it.
+    expect(getIntent(ui, "overlay1", INTENT.ICON_VALUE)).toBeDefined();
+  });
+
+  it("field / method / classes / scheme selects write into the value config", () => {
+    // The field picker offers only numeric fields — register a second one BEFORE
+    // the row is built so the by-value detail renders both options.
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "value2", numeric: true },
+    ]);
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    select.value = "byValue";
+    select.dispatchEvent(new Event("change"));
+
+    const field = fieldSelect(row);
+    field.value = "value2";
+    field.dispatchEvent(new Event("change"));
+    expect((getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any).field).toBe("value2");
+
+    const method = methodSelect(row);
+    method.value = "quantile";
+    method.dispatchEvent(new Event("change"));
+    expect((getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any).method).toBe(
+      "quantile",
+    );
+
+    const classes = classesSelect(row);
+    classes.value = "5";
+    classes.dispatchEvent(new Event("change"));
+    expect((getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any).classes).toBe(5);
+
+    const scheme = schemeSelect(row);
+    scheme.value = GLYPH_SCHEME_ORDER[1];
+    scheme.dispatchEvent(new Event("change"));
+    expect((getIntent(ui, "overlay1", INTENT.ICON_VALUE) as any).glyphs).toEqual([
+      ...glyphScheme(GLYPH_SCHEME_ORDER[1])!,
+    ]);
+  });
+
+  it("shows an out-of-range class count as its own option", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_VALUE, { ...valueConfig, classes: 12 }],
+    ]);
+    const row = buildIconRow(ui, "overlay1")!;
+    expect(modeSelect(row).value).toBe("byValue");
+    const classes = classesSelect(row);
+    expect(classes.value).toBe("12");
+    const option = Array.from(classes.options).find(o => o.value === "12");
+    expect(option).toBeDefined();
+    expect(option!.title).toBe(ui.T("style_icon_classes_out_of_range"));
+  });
+
+  it("reads a stored glyph list as its matching scheme name", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [
+        INTENT.ICON_VALUE,
+        { ...valueConfig, glyphs: [...glyphScheme(GLYPH_SCHEME_DEFAULT)!] },
+      ],
+    ]);
+    const row = buildIconRow(ui, "overlay1")!;
+    expect(schemeSelect(row).value).toBe(GLYPH_SCHEME_DEFAULT);
+  });
+
+  it("reads a non-scheme glyph list as the default scheme", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_VALUE, valueConfig]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    expect(schemeSelect(row).value).toBe(GLYPH_SCHEME_DEFAULT);
+  });
+
+  it("dimension value reads the by-value config", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_VALUE, valueConfig]]);
+    const dim = getDimension(DIM.ICON);
+    const value = dim!.value!(ui, "overlay1") as any;
+    expect(value.mode).toBe("byValue");
+    expect(value.value).toEqual(valueConfig);
+  });
+
+  it("dimension value is undefined with no icon intent", () => {
+    const dim = getDimension(DIM.ICON);
+    expect(dim!.value!(ui, "overlay1")).toBeUndefined();
+  });
+  it("mode select re-picking the same mode writes nothing", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    expect(select.value).toBe("single");
+    const spy = vi.spyOn(ui.intentStore, "setRaw");
+    select.value = "single";
+    select.dispatchEvent(new Event("change"));
+    expect(spy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("apply with a by-value mode and no stored value config is a no-op", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_MODE, "byValue"]]);
+    expect(() => applyIconToLayer(ui, "overlay1")).not.toThrow();
+    // The value config was never seeded by a write — no derived icon.
+    expect(school.options.icon).toBe(authorIcon);
+  });
+
+  it("apply forwards a numeric opacity into the by-value paint", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.ICON_MODE, "byValue"],
+      [INTENT.ICON_VALUE, valueConfig],
+      [INTENT.ICON_COLOR, "#12abef"],
+      [INTENT.ICON_COLOR_OPACITY, 50],
+    ]);
+    applyIconToLayer(ui, "overlay1");
+    const inner = school.options.icon.createIcon().querySelector("i") as HTMLElement;
+    expect(inner.style.color).toBe("rgba(18, 171, 239, 0.5)");
+  });
+
+  it("falls back to the single detail when by-value has no fields", () => {
+    delete school.feature.properties.count;
+    delete hospital.feature.properties.count;
+    ui.runtimeStore.setFields("overlay1", []);
+    // The stored mode is by-value, but the fields it depended on are gone —
+    // the detail renders the single-glyph trigger instead of value controls.
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON_MODE, "byValue"]]);
+    const row = buildIconRow(ui, "overlay1")!;
+    // The mode is by-value but the field it depended on is gone — the detail
+    // renders the single-glyph trigger, not the value controls. (The mode
+    // select itself cannot show by-value: the option is only offered when the
+    // layer has a numeric field, so the browser keeps the first option.)
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_TRIGGER}`)).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ICON_FIELD_SELECT}`)).toBeNull();
+  });
+
+  it("an unknown scheme name writes no glyphs", () => {
+    const row = buildIconRow(ui, "overlay1")!;
+    const select = modeSelect(row);
+    select.value = "byValue";
+    select.dispatchEvent(new Event("change"));
+    const scheme = schemeSelect(row);
+    const spy = vi.spyOn(ui.intentStore, "setRaw");
+    scheme.value = "no-such-scheme";
+    scheme.dispatchEvent(new Event("change"));
+    expect(spy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });

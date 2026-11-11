@@ -562,6 +562,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
       const previous = displayIconMode(ui, layerId);
       const next = select.value as IconMode;
       if (next === previous) return;
+      /* v8 ignore next -- defensive: by-value is only offered with a numeric field, so zero fields here is an impossible panel state */
       if (!writeIconMode(ui, layerId, next)) return;
       renderIconDetail(ui, layerId, detail, next);
       if (next === ICON_MODE.BY_VALUE) {
