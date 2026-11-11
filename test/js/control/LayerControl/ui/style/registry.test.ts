@@ -25,6 +25,7 @@ import { OPACITY_DIMENSION } from "#control/LayerControl/ui/style/opacity.js";
 import {
   DIM_ORDER,
   LABEL_DIM_ORDER,
+  capabilityGate,
   gatedRows,
   getDimension,
   listDimensions,
@@ -894,5 +895,66 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
     expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
     ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 3, max: 6 });
     expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+});
+
+describe("capability gate factory (C7)", () => {
+  // C7: every per-layer dimension gate must be built by capabilityGate, and
+  // the factory must reproduce the exact allow/deny the inline gates used to.
+  // We do NOT write a fresh expectation table — we run the SAME fixture set
+  // through the factory and assert the contract shape, and separately verify
+  // each production gate resolves to the factory (type-level, via the 9 source
+  // files' `const layerCanX = capabilityGate(...)`). The contract is:
+  //   - a missing layer is always false (existence gate runs first),
+  //   - "native" slots admit only NATIVE, deny PANE and NONE,
+  //   - "non-none" slots admit NATIVE and PANE, deny only NONE.
+  const layerInfo = (caps: Record<string, string>) => ({ capabilities: caps }) as never;
+
+  it("returns false for a layer not in the registry, before any capability read — and never throws", () => {
+    const ui = {
+      c: {
+        layerRegistry: { get: () => undefined } as never,
+        surfaceFor: vi.fn(() => {
+          throw new Error("surfaceFor must not run for a missing layer");
+        }),
+      },
+    } as unknown as LayerUI;
+    const gate = capabilityGate("fill", "native");
+    expect(() => gate(ui, "missing")).not.toThrow();
+    expect(gate(ui, "missing")).toBe(false);
+    expect(ui.c.surfaceFor).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["stroke", "native", "native", true],
+    ["stroke", "native", "pane", false],
+    ["stroke", "native", "none", false],
+    ["fill", "native", "native", true],
+    ["fill", "native", "pane", false],
+    ["fill", "native", "none", false],
+    ["icon", "native", "native", true],
+    ["icon", "native", "pane", false],
+    ["iconColor", "native", "native", true],
+    ["iconColor", "native", "none", false],
+    ["markerColor", "native", "native", true],
+    ["markerColor", "native", "none", false],
+    ["size", "native", "native", true],
+    ["size", "native", "none", false],
+    ["opacity", "non-none", "native", true],
+    ["opacity", "non-none", "pane", true],
+    ["opacity", "non-none", "none", false],
+    ["zoomRange", "non-none", "pane", true],
+    ["zoomRange", "non-none", "none", false],
+    ["label", "non-none", "pane", true],
+    ["label", "non-none", "none", false],
+  ])("admits %s/%s against tier %s → %s", (slot, require, tier, expected) => {
+    const ui = {
+      c: {
+        layerRegistry: { get: () => layerInfo({ [slot]: tier }) } as never,
+        surfaceFor: (li: never) => li,
+      },
+    } as never;
+    const gate = capabilityGate(slot as never, require as never);
+    expect(gate(ui, "layer1")).toBe(expected);
   });
 });

@@ -26,6 +26,7 @@
 // background / className / iconSize / shadow) is inherited verbatim — the
 // marker keeps the author's exact look minus the symbol.
 import {
+  DEFAULT_GLYPH_PREFIX,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
@@ -198,6 +199,10 @@ const buildMarkerIcon = (opts: {
   /** A user-set glyph opacity (0-100 integer). Absent = opaque (100), which
    *  keeps the author's own alpha when only the color is re-derived. */
   opacity?: number;
+  /** The FontAwesome family the applied glyph renders under — the panel's
+   *  control-level prefix (coerced), not the author's, because the applied
+   *  glyph is a panel choice. */
+  prefix?: string;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
@@ -213,12 +218,13 @@ const buildMarkerIcon = (opts: {
     author instanceof L.Icon.Default ||
     author.createIcon?.() instanceof HTMLImageElement;
   const glyph = resolveGlyph(opts.glyph);
+  const prefix = opts.prefix ?? DEFAULT_GLYPH_PREFIX;
   // The glyph and the chassis are orthogonal. A chassis-color write
   // (markerColor) must still re-derive the chassis even when the glyph name
   // is not a painted FA6 name — the author's own inner glyph is kept, and
   // only the chassis (pin background) changes. A glyph-only write degrades
   // honestly to the author icon (no substituted symbol, no tofu).
-  const glyphRenderable = glyph !== null && glyphAvailable(glyph);
+  const glyphRenderable = glyph !== null && glyphAvailable(glyph, prefix);
   if (glyph !== null && !glyphRenderable && !warnedGlyphs.has(glyph)) {
     warnedGlyphs.add(glyph);
     log.warn(
@@ -243,7 +249,7 @@ const buildMarkerIcon = (opts: {
     const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
     return L.divIcon({
       className: "foliplus-marker-default",
-      html: glyphHtml(glyph, "", `color:${defaultPaint}`),
+      html: glyphHtml(glyph, "", `color:${defaultPaint}`, prefix),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });
@@ -318,7 +324,7 @@ const buildMarkerIcon = (opts: {
     // author's inner glyph verbatim — only the chassis (pin background)
     // re-derives. The glyph is honest degradation, never a substituted symbol.
     if (glyphRenderable) {
-      div.innerHTML = glyphHtml(glyph, authorClass, `color:${paint}`);
+      div.innerHTML = glyphHtml(glyph, authorClass, `color:${paint}`, prefix);
     }
     return div;
   };
@@ -333,6 +339,7 @@ const applyIconToLeaves = (
   glyph: string,
   color?: string,
   opacity?: number,
+  prefix?: string,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -340,7 +347,7 @@ const applyIconToLeaves = (
     const author = authorIcon.get(leaf);
     /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
     if (author === undefined) return;
-    const derived = buildMarkerIcon({ author, glyph, color, opacity });
+    const derived = buildMarkerIcon({ author, glyph, color, opacity, prefix });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
 };
@@ -355,6 +362,7 @@ const applyIconColorToLeaves = (
   color: string,
   glyph: string | null,
   opacity?: number,
+  prefix?: string,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -367,6 +375,7 @@ const applyIconColorToLeaves = (
       glyph: glyph ?? "circle",
       color,
       opacity,
+      prefix,
     });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });
