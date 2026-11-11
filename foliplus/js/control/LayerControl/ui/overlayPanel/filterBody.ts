@@ -292,6 +292,19 @@ const renderEnumBody = (
   dropdown.trigger.disabled = dim.options.length === 0;
   control.appendChild(dropdown.element);
 
+  // A truncated domain is a display-layer policy only: the matching
+  // semantics never change, so the hint tells the user the list is partial
+  // without implying the hidden values cannot be selected.
+  if (dim.truncated) {
+    control.appendChild(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.FILTER_ENUM_HINT },
+        deps.T("filter_enum_truncated"),
+      ),
+    );
+  }
+
   const sync = (next: LayerFilterModel): void => {
     const values = enumValuesOf(dim, next.filter);
     // Our own write lands here too, so only a real model change repaints.

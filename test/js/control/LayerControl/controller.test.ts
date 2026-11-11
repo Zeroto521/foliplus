@@ -6578,6 +6578,8 @@ describe("cleanEmptyFolders", () => {
           features: [],
           numericFields: ["mag", "depth"],
           ranges: { mag: [0, 10], depth: [0, 100] },
+          enumFields: [],
+          enumValues: {},
           total: 5,
         } as any);
         return s;
@@ -6612,5 +6614,181 @@ describe("cleanEmptyFolders", () => {
     model!.onField!("depth");
 
     expect(manager.layerFilters.get("overlay1")).toBeUndefined();
+  });
+});
+describe("genericFilterModel — enum dimensions", () => {
+  const makeRuntimeStore = (
+    features: Partial<import("#core/layer/index.js").LayerFilterFeatures>,
+  ) => {
+    const s = new LayerRuntimeStore();
+    s.setFilterFeatures("overlay1", {
+      features: [],
+      numericFields: [],
+      ranges: {},
+      enumFields: [],
+      enumValues: {},
+      total: 0,
+      ...features,
+    } as any);
+    return s;
+  };
+
+  const makeManager = () => {
+    const { manager } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    manager.uiContainer = document.createElement("div");
+    return manager;
+  };
+
+  it("produces an enum dimension for a string field and marks the field non-numeric", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: { kind: ["a", "b", "c"] },
+        total: 3,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    expect(model!.dimensions).toEqual([
+      {
+        kind: "enum",
+        field: "kind",
+        options: [
+          { value: "a", label: "a" },
+          { value: "b", label: "b" },
+          { value: "c", label: "c" },
+        ],
+        multi: true,
+        truncated: false,
+      },
+    ]);
+    expect(model!.fields).toEqual([{ value: "kind", label: "kind", numeric: false }]);
+  });
+
+  it("offers numeric fields before enum fields in the picker", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        numericFields: ["mag"],
+        ranges: { mag: [0, 10] },
+        enumFields: ["kind"],
+        enumValues: { kind: ["a", "b"] },
+        total: 5,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    expect(model!.dimensions.map(d => d.field)).toEqual(["mag", "kind"]);
+    expect(model!.dimensions[0]).toMatchObject({ kind: "range", field: "mag" });
+    expect(model!.dimensions[1]).toMatchObject({ kind: "enum", field: "kind" });
+    expect(model!.fields).toEqual([
+      { value: "mag", label: "mag", numeric: true },
+      { value: "kind", label: "kind", numeric: false },
+    ]);
+  });
+
+  it("returns null when the layer has neither numeric nor enum fields", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({}),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    expect(manager.genericFilterModel("overlay1")).toBeNull();
+  });
+
+  it("truncates a large enum domain to the panel limit and marks it", () => {
+    const manager = makeManager();
+    const many = Array.from({ length: 60 }, (_, i) => `v${i}`);
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: { kind: many },
+        total: 60,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    const dim = model!.dimensions[0] as any;
+    expect(dim.kind).toBe("enum");
+    expect(dim.truncated).toBe(true);
+    expect(dim.options).toHaveLength(50);
+    expect(dim.options[0]).toEqual({ value: "v0", label: "v0" });
+    expect(dim.options[49]).toEqual({ value: "v49", label: "v49" });
+  });
+
+  it("tolerates an enum field whose value table is missing (corrupt store) without throwing", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: {},
+        total: 3,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const model = manager.genericFilterModel("overlay1");
+    expect(model).not.toBeNull();
+    const dim = model!.dimensions[0] as any;
+    expect(dim.kind).toBe("enum");
+    expect(dim.options).toEqual([]);
+    expect(dim.truncated).toBe(false);
   });
 });

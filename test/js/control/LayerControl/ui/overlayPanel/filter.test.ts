@@ -550,6 +550,59 @@ describe("LayerUI filter panel", () => {
         expect(fieldRow.querySelector("select")).toBeNull();
         expect(fieldRow.textContent).toContain("magnitude");
       });
+      it("switches to an enum field through the picker and renders the enum body", () => {
+        let filter: LayerFilter | undefined;
+        registerPoints();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = (): LayerFilterModel => ({
+          dimensions: [
+            {
+              kind: "range",
+              field: "mag",
+              range: [0, 10] as [number, number],
+              step: 1,
+            },
+            {
+              kind: "enum",
+              field: "kind",
+              options: [
+                { value: "a", label: "A" },
+                { value: "b", label: "B" },
+              ],
+              multi: true,
+            },
+          ],
+          filter,
+          kept: 10,
+          total: 10,
+          fields: [
+            { value: "mag", label: "mag", numeric: true },
+            { value: "kind", label: "kind", numeric: false },
+          ],
+          onField: () => {
+            filter = undefined;
+          },
+        });
+        reg.filterSetter = (f: LayerFilter) => {
+          filter = f;
+        };
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        // The picker offers both fields and defaults to the first (mag).
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        expect(Array.from(select.options).map(o => o.value)).toEqual(["mag", "kind"]);
+
+        // Switch to the enum field: the body rebuilds as the enum dropdown.
+        select.value = "kind";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM}`)).not.toBeNull();
+      });
     });
 
     it("names the range group with the shared condition caption", () => {
@@ -1256,6 +1309,43 @@ describe("LayerUI filter panel", () => {
 
       expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
+    });
+    it("shows the truncation hint when the owner truncated the domain", () => {
+      const owner = makeEnumOwner(Array.from({ length: 60 }, (_, i) => `v${i}`));
+      // Patch the provider to set truncated=true on the dimension.
+      const baseProvider = owner.filterProvider;
+      owner.filterProvider = () => {
+        const model = baseProvider();
+        return {
+          ...model,
+          dimensions: model.dimensions.map(d => ({ ...d, truncated: true })),
+        };
+      };
+      manager.registerLayer({
+        id: "enum-owner",
+        name: "Enum owner",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
+      });
+      const item = findItem(ui, "enum-owner");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const hint = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_ENUM_HINT}`,
+      ) as HTMLElement;
+      expect(hint).not.toBeNull();
+      expect(hint.textContent).toBe("LayerControl.filter_enum_truncated");
+    });
+
+    it("renders no truncation hint for a full domain", () => {
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
     });
   });
 
