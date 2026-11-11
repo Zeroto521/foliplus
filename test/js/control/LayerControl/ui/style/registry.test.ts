@@ -958,3 +958,25 @@ describe("capability gate factory (C7)", () => {
     expect(gate(ui, "layer1")).toBe(expected);
   });
 });
+
+describe("content dimension slot omission (label)", () => {
+  // label is a *content* dimension, not a style-value dimension: its state
+  // lives in the label config manager, not LayerIntentStore keys. The
+  // intent-key slots (write/reset/valueSource) therefore do not apply, and
+  // this locks that decision so a future change cannot bolt the style slots
+  // onto a content dimension by mistake. See registry.ts header +
+  // .foliplus/design/label-dimension-slot.md.
+  it("omits the intent-key slots a style-value dimension carries", () => {
+    expect(LABEL_DIMENSION.write).toBeUndefined();
+    expect(LABEL_DIMENSION.reset).toBeUndefined();
+    expect(LABEL_DIMENSION.valueSource).toBeUndefined();
+  });
+
+  it("still carries the slots every dimension shares", () => {
+    // gate + row + contentChange are the content-dimension contract; only
+    // the intent-key slots are omitted.
+    expect(typeof LABEL_DIMENSION.gate).toBe("function");
+    expect(typeof LABEL_DIMENSION.row).toBe("function");
+    expect(LABEL_DIMENSION.contentChange).toBeDefined();
+  });
+});
