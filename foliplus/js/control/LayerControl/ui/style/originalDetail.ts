@@ -162,7 +162,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   // role at all — it is a Safari/WebKit-ism). A standard namable role makes
   // the name stable, so these readout groups take role="group" the way the
   // colors box takes role="img".
-  methodBox.setAttribute("aria-label", ui.T("classification_method"));
+  methodBox.setAttribute("aria-label", ui._("foliplus.classification_method"));
   const countBox = readOnlyBox(
     CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
     { role: "group" },
@@ -175,7 +175,7 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   countBox.setAttribute("aria-label", ui.T("style_fill_classes"));
   rows.push(
     formRow(
-      ui.T("classification_method"),
+      ui._("foliplus.classification_method"),
       inlineControls(methodBox, countBox),
       CONST.CLASSES.STYLE_FILL_ROW,
     ),

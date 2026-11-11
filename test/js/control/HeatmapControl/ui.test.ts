@@ -140,7 +140,7 @@ describe("bindControls — template render and initial values", () => {
       makeConfig({
         locale_tables: {
           en: {
-            "HeatmapControl.classify_method": "Method",
+            "foliplus.classification_method": "Method",
             "HeatmapControl.class_count": "Classes",
           },
         },
@@ -164,7 +164,7 @@ describe("bindControls — template render and initial values", () => {
         locale_code: "zh",
         locale_tables: {
           zh: {
-            "HeatmapControl.classify_method": "分类方法",
+            "foliplus.classification_method": "分类方法",
             "HeatmapControl.class_count": "分级数",
           },
         },

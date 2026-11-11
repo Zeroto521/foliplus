@@ -429,8 +429,8 @@ const buildValueDetail = (
     // visible label the heatmap panel uses (classify_method). The class count
     // keeps its own accessible name (see classesAriaLabel below) so the two
     // selects stay distinguishable.
-    label: ui.T("classification_method"),
-    methodAriaLabel: ui.T("classification_method"),
+    label: ui._("foliplus.classification_method"),
+    methodAriaLabel: ui._("foliplus.classification_method"),
     classesAriaLabel: ui.T("style_fill_classes"),
     methodValue: value.method,
     classesValue: value.classes,

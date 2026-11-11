@@ -3062,7 +3062,7 @@ describe("fill row — original colors", () => {
     });
     expect(
       readoutOf(blockOf(equalStepped.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBe("foliplus.classify_equal");
+    ).toBe("foliplus.classification_equal");
 
     // A continuous scale has no count to state: the number row says so.
     const continuous = initWithAuthorScale();
@@ -3074,8 +3074,10 @@ describe("fill row — original colors", () => {
     // classification that scale implies.
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBe("foliplus.classify_equal");
-    expect(labelsOf(blockOf(continuous.ui))).toContain("foliplus.classification_method");
+    ).toBe("foliplus.classification_equal");
+    expect(labelsOf(blockOf(continuous.ui))).toContain(
+      "foliplus.classification_method",
+    );
     expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
       "LayerControl.style_fill_original_continuous",
     );
