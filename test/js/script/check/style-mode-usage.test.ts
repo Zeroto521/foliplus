@@ -362,7 +362,10 @@ describe("style-mode-usage remaining branch coverage", () => {
     const dir = synthMany({
       "core/layer/intent.ts": "const m: FillMode = FILL_MODE.VALUE;\n",
     });
-    const r = check(dir) as unknown as { failing: boolean; perFace: Record<string, { value: number; type: number }> };
+    const r = check(dir) as unknown as {
+      failing: boolean;
+      perFace: Record<string, { value: number; type: number }>;
+    };
     rmSync(dir, { recursive: true, force: true });
     expect(r.failing).toBe(true);
   });
