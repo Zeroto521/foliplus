@@ -19,7 +19,7 @@ from conftest import _js, use_page
 from ._browser_base import LayerControlBrowserBase
 
 
-class TestRowColorFidelity(LayerControlBrowserBase):
+class TestRowColorFidelityBrowser(LayerControlBrowserBase):
     """Row readings agree with the map's real paint."""
 
     @staticmethod

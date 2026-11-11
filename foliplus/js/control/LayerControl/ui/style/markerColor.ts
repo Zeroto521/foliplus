@@ -57,6 +57,7 @@ const authorMarkerColor = (layer: unknown): string | null => {
   walkLeaf(layer, leaf => {
     if (found) return;
     const icon = authorIconOf(leaf);
+    if (!icon) return;
     const own = (
       icon as {
         options?: { markerColor?: unknown };
