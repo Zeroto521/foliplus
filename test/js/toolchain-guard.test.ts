@@ -381,6 +381,12 @@ describe("style-mode-usage guard wiring", () => {
     const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
     expect(pre).toMatch(/id: style-mode-usage/);
     expect(pre).toMatch(/entry: node script\/check\/style-mode-usage\.mjs --check/);
-    expect(pre).toMatch(/language: node/);
+    expect(pre).toMatch(/language: system/);
+    // pre-commit.ci has no system node and a local `language: node` hook needs
+    // package.json/additional_dependencies to build an env — both unavailable,
+    // so the hook is skipped on pre-commit.ci (CI coverage is kept by
+    // `npm run lint` guard:style-mode). Lock this combo so a future edit that
+    // removes the skip and re-breaks pre-commit.ci is caught.
+    expect(pre).toMatch(/skip:\s*\[style-mode-usage\]/);
   });
 });
