@@ -292,14 +292,14 @@ describe("in-place paint (no rebuild)", () => {
   it("applyMarkerColorToLeaves paints a mounted chassis span in place", () => {
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMountedMarker(author);
-    // Build the derived icon so the chassis span exists (custom hex → span).
+    // Build the derived icon so the chassis span exists (custom hex to span).
     applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
     const el = m._icon as HTMLElement;
     const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
     expect(span).toBeTruthy();
     const setIconCalls = m.setIcon.mock.calls.length;
-    // A pure chassis re-paint that KEEPS a span (preset at alpha 50 → the
-    // custom→preset mechanism switch is still one in-place write): same span
+    // A pure chassis re-paint that KEEPS a span (preset at alpha 50 to the
+    // custom-to-preset mechanism switch is still one in-place write): same span
     // reference, no rebuild, and the sprite offset/opacity are re-derived.
     applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
     expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
@@ -324,7 +324,7 @@ describe("in-place paint (no rebuild)", () => {
   it("applyMarkerColorToLeaves falls back to setIcon when no chassis span is mounted", () => {
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMountedMarker(author);
-    // A preset at alpha 100 → sprite class only, NO span.
+    // A preset at alpha 100 to sprite class only, NO span.
     applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star");
     const setIconCalls = m.setIcon.mock.calls.length;
     // A chassis colour change with no span mounted must rebuild.

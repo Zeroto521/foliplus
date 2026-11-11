@@ -477,10 +477,10 @@ const paintMountedGlyphColor = (
 /** Paint the mounted chassis span in place (no icon rebuild). Returns
  *  true when the write was handled in place — the mounted element already
  *  carries a chassis span AND the new paint still wants one (so the
- *  mechanism is preserved: sprite→sprite or mask→mask, only the offset /
+ *  mechanism is preserved: sprite-to-sprite or mask-to-mask, only the offset /
  *  flat colour / opacity change). The span is re-derived fully (clearing
- *  both faces) so a preset↔custom switch still paints correctly; a span
- *  presence change (custom / alpha<100 → preset at alpha 100, which drops
+ *  both faces) so a preset-to-custom switch still paints correctly; a span
+ *  presence change (custom / alpha<100 to preset at alpha 100, which drops
  *  the span) is NOT paintable in place and returns false so the caller
  *  rebuilds through the single setLeafIcon. */
 const paintMountedChassis = (
@@ -493,7 +493,7 @@ const paintMountedChassis = (
   const wantSpan = chassisPreset === null || opacity < 100;
   const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement | null;
   if (!span || !wantSpan) return false;
-  // Re-derive the span's full paint so a preset↔custom mechanism switch is
+  // Re-derive the span's full paint so a preset-to-custom mechanism switch is
   // still a single in-place write (clear both faces, then apply the new one).
   span.style.backgroundImage = "";
   span.style.backgroundPosition = "";

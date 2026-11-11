@@ -1,4 +1,4 @@
-// Task-95: verify the icon dimension's colour/opacity write paints the
+// Verify the icon dimension's colour/opacity write paints the
 // already-mounted inner glyph node IN PLACE — the same <i> element reference
 // (no rebuild, no setIcon) while the computed colour updates, and that a
 // glyph write still rebuilds (one setIcon). Runs against a real Leaflet
