@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Annotated
+from typing import Annotated, Literal
 
 from branca.element import Element
 from folium.map import Layer
