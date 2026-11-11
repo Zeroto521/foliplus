@@ -222,6 +222,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the glyph-prefix single-source guard over foliplus/js production (fa-solid literal only on the GLYPH_PREFIXES.solid declaration line), a tree guard not a script module",
   "check/style-dimension-cycle":
     "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
+  "check/event-names":
+    "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the
