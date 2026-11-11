@@ -98,7 +98,7 @@ const findEventNameDrift = (entries, knownDomains) => {
       });
     }
   }
-  // Key→domain association: the LAYER_ key prefix and the foliplus:layer:
+  // Key to domain association: the LAYER_ key prefix and the foliplus:layer:
   // value prefix are two halves of the same contract. A key that starts
   // LAYER_ must carry the foliplus:layer: value prefix, and a value that
   // starts foliplus:layer: must belong to a LAYER_ key — otherwise a

@@ -40,11 +40,14 @@ const knownDomains = () =>
 
 /** Build a synthetic entry list: the real dictionary with one entry's value
  *  replaced (key preserved). `line` is retained from the real entry. */
-const withValue = (key, value) =>
+const withValue = (key: string, value: string) =>
   realEntries().map(e => (e.key === key ? { ...e, value } : e));
 
 /** Build a synthetic entry list with one extra hypothetical entry. */
-const withExtra = (key, value) => [...realEntries(), { key, value, line: 0 }];
+const withExtra = (key: string, value: string) => [
+  ...realEntries(),
+  { key, value, line: 0 },
+];
 
 describe("event-name guard", () => {
   it("passes on the real EVENTS dictionary", () => {
@@ -107,7 +110,7 @@ describe("event-name guard", () => {
   it("flags a LAYER_ key carrying a non-layer value (LAYER_CHANGE -> foliplus:mode:change)", () => {
     // A hand-edit swaps the domain on a layer event: the shape is fine and
     // "mode" is a published domain, so the shape + known-domain checks pass.
-    // The key→domain association is what catches it — a LAYER_ key must carry
+    // The key to domain association is what catches it — a LAYER_ key must carry
     // the foliplus:layer: value prefix.
     const violations = findEventNameDrift(
       withValue("LAYER_CHANGE", "foliplus:mode:change"),
@@ -121,7 +124,7 @@ describe("event-name guard", () => {
   it("flags a LAYER_ key with a typo domain (LAYER_CHANGE -> foliplus:laryer:change)", () => {
     // A typo in the domain segment: "laryer" is a valid kebab-case segment so
     // the shape passes, but the known-domain check flags it as unpublished and
-    // the key→domain association flags the LAYER_ key carrying a non-layer
+    // the key to domain association flags the LAYER_ key carrying a non-layer
     // value — at least one violation names LAYER_CHANGE.
     const violations = findEventNameDrift(
       withValue("LAYER_CHANGE", "foliplus:laryer:change"),
@@ -133,7 +136,7 @@ describe("event-name guard", () => {
 
   it("flags a non-LAYER_ key carrying a layer value (MODE_CHANGE -> foliplus:layer:change)", () => {
     // The reverse direction: a mode event accidentally typed with the layer
-    // prefix. The key→domain association catches it — a non-LAYER_ key must
+    // prefix. The key to domain association catches it — a non-LAYER_ key must
     // not carry the foliplus:layer: value prefix (OVERLAY_CLEAR is the one
     // exempted key, and this is not it).
     const violations = findEventNameDrift(

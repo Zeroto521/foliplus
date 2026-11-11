@@ -368,3 +368,26 @@ describe("script module coverage", () => {
     expect(isCovered("never-a-module")).toBe(false);
   });
 });
+
+describe("event-name guard wiring", () => {
+  it("the pre-commit config registers the event-name guard", () => {
+    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
+    expect(pre).toMatch(/id: event-name/);
+    expect(pre).toMatch(/entry: node script\/check\/event-name\.mjs/);
+    expect(pre).toMatch(/language: node/);
+    expect(pre).toMatch(/pass_filenames: false/);
+  });
+
+  it("removing the event-name hook from the config must fail the assertion", () => {
+    // Counter-proof for the registration above: a config without the hook must
+    // not satisfy it. Otherwise the assertion is decorative and a drift in the
+    // hook config would go unnoticed.
+    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
+    const withoutHook = pre.replace(
+      /\n\s*- id: event-name[\s\S]*?pass_filenames: false/,
+      "",
+    );
+    expect(withoutHook).not.toMatch(/id: event-name/);
+    expect(withoutHook).not.toMatch(/entry: node script\/check\/event-name\.mjs/);
+  });
+});

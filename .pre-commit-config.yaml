@@ -130,3 +130,17 @@ repos:
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
         pass_filenames: true
+
+      # Event-name contract guard (node): the foliplus: layer-event name is a
+      # persisted contract (key prefix and value prefix are two halves of one
+      # association). A hand-edit that swaps a layer event into another domain
+      # is caught here, not after a record misreads. Same guard `npm run
+      # guard:event-name` runs; pre-commit is a second, cheaper gate for the
+      # editor loop. language: node because the guard is a node script
+      # (pre-commit provisions the node runtime; pre-commit.ci has no system
+      # node).
+      - id: event-name
+        name: event-name
+        entry: node script/check/event-name.mjs
+        language: node
+        pass_filenames: false
