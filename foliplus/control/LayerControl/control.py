@@ -102,11 +102,12 @@ class LayerControl(BaseControl):
     icon_prefix : Literal["fa-solid", "fa-regular"], default "fa-solid"
         FontAwesome family class prefix used when the panel renders a glyph
         picker icon or probes its availability. A layer whose author declared
-        its own prefix (folium Icon(prefix=...)) keeps that prefix; this
+        its own prefix (`folium.map.Icon(prefix=...)`) keeps that prefix; this
         control-level value is the fallback for every other layer. The
         control only supports FontAwesome's solid and regular families
         (the only two in the glyph table); another family needs its own
         glyph table and is a separate task.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
