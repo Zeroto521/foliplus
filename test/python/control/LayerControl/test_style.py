@@ -1,4 +1,5 @@
-"""Browser tests for foliplus.LayerControl — style panel, fill/border/color, zoom-range, attribution."""
+"""Browser tests for foliplu            page.set_viewport_size({"width": width, "height": 900})
+s.LayerControl — style panel, fill/border/color, zoom-range, attribution."""
 
 from __future__ import annotations
 
@@ -27,6 +28,16 @@ from conftest import (
 )
 
 from foliplus import HeatmapControl, LayerControl
+
+
+def _method_labels() -> tuple[str, str]:
+    """The method row label for each built-in language, read from the locale
+    table (single source — never pin the string twice)."""
+    base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
+    en = json.loads((base / "LayerControl.en.json").read_text(encoding="utf-8"))
+    zh = json.loads((base / "LayerControl.zh.json").read_text(encoding="utf-8"))
+    return en["LayerControl.style_method"], zh["LayerControl.style_method"]
+
 
 from ._browser_base import LayerControlBrowserBase
 from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
@@ -1734,16 +1745,72 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
 
-    def test_style_fill_row_label_names_the_method_on_one_line(self, browser, tmp_path):
+    @pytest.mark.parametrize("how", ["outside", "escape"])
+    def test_style_mode_dropdown_outside_press_dismisses(self, browser, tmp_path, how):
+        """Both mode dropdowns (fill and border) close on a dismissal.
+
+        The mode row uses the shared dropdown bridged to a hidden native
+        select. #1011 made the overlay registry the single Escape and
+        outside-press dispatcher; a mode dropdown that does not register its
+        overlay would never dismiss on an outside press or an Escape. This
+        pins both consumers (fill and border) register, by both dismissal
+        channels — the border row is the one that regressed. The fill row is
+        the control: it already registered.
+        """
+        data = load_geojson("common", "polygons_fuzhou_3offset")
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="mode_dropdown_press"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            # Border first: the regression. The mode row opens its dropdown
+            # on a click of the trigger; a dismissal must close it.
+            border = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"),
+                {"which": "border", "how": how},
+            )
+            assert border["ok"], border
+            assert border["openAfterClick"], border
+            assert border["dismissed"], (
+                f"border mode dropdown did not close on {how}: {border}"
+            )
+            # Fill: control, already registered — must behave the same.
+            fill = page.evaluate(
+                _js("LayerControl/mode_dropdown_outside_press"),
+                {"which": "fill", "how": how},
+            )
+            assert fill["ok"], fill
+            assert fill["openAfterClick"], fill
+            assert fill["dismissed"], (
+                f"fill mode dropdown did not close on {how}: {fill}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    @pytest.mark.parametrize("width", [380])
+    def test_style_fill_row_label_names_the_method_on_one_line(
+        self, browser, tmp_path, width
+    ):
         """The ramp row reads by its method in both panels, on one line.
 
         One visible label names two selects, so it takes the primary control's
-        name (Method / 分类方法) — the word the heatmap panel shows too. The
+        name (Classification Method / 分类方法) — the word the heatmap panel shows too. The
         class count stays announced by the count select's own aria label, so a
-        screen reader hears "Method" and "Classes" once each. The label column
+        screen reader hears "Classification Method" and "Classes" once each. The label column
         is the shared 88px token inside the 280px panel; Range.getClientRects()
         counts line boxes (the element rect always reports one row).
         """
+        _METHOD_EN, _METHOD_ZH = _method_labels()
         data = load_geojson("common", "polygons_fuzhou_3offset")
         layer = folium.GeoJson(json.dumps(data), name="Polygon data")
         with use_page(
@@ -1771,22 +1838,142 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # The visible label is locale-dependent; the panel's language follows
             # the browser, so pin both vocabularies rather than one page locale.
             label = next(
-                (text for text in ("Method", "分类方法") if text in rows), None
+                (text for text in (_METHOD_EN, _METHOD_ZH) if text in rows), None
             )
             assert label, f"no method-labelled row among {sorted(rows)}"
             row = rows[label]
             expected_aria = {
-                "Method": ["Method", "Classes"],
-                "分类方法": ["分类方法", "分级数"],
+                _METHOD_EN: [_METHOD_EN, "Classes"],
+                _METHOD_ZH: [_METHOD_ZH, "分级数"],
             }[label]
-            assert row["labelLines"] == 1, (
-                f"the Method label wrapped at the panel width: {row}"
+            # The method label ("Classification Method" / 分类方法) is the one
+            # label wider than the 88px shared column at the 12px label font
+            # (DejaVu ~124px). It is allowed to wrap to two lines, but the
+            # wrapped cell must stay inside the label column and must not
+            # overlap the control cell — a rect-intersection assertion, not a
+            # hard line count, so a future font/locale change either still
+            # fits (1 or 2 lines) or is caught by the overlap, never silently
+            # clipped.
+            assert row["labelLines"] <= 2, (
+                f"the Classification Method label wrapped past two lines: {row}"
+            )
+            assert row["labelOverlapsControl"] is False, (
+                f"the method label overlaps its control: {row}"
             )
             assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
             assert result["labelWidthToken"] == "88px", result
             assert result["panelWidthToken"] == "280px", result
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_label_column_fits_the_longest_label_class_string(
+        self, browser, tmp_path
+    ):
+        """The shared label column token fits the longest label-class string.
+
+        Every panel shares one label column (form-label-width). This guard
+        measures every label-class locale string for LayerControl and
+        HeatmapControl (en + zh) at the panel's real 12px label font and
+        asserts the widest one still fits the token minus its right padding.
+        A locale edit that lengthens any label turns this red instead of
+        silently wrapping again.
+        """
+        _METHOD_EN, _METHOD_ZH = _method_labels()
+        data = load_geojson("common", "polygons_fuzhou_3offset")
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="label_guard"
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
+            strings = set()
+            # Label-class keys only: the strings that render as a form-row
+            # label in a shared-label-column panel. A locale edit that
+            # lengthens any of them is caught here instead of silently
+            # wrapping the row again.
+            label_keys = {
+                "LayerControl.style_method",
+                "LayerControl.style_fill_field",
+                "LayerControl.style_fill_classes",
+                "LayerControl.style_fill_scheme",
+                "LayerControl.style_fill",
+                "LayerControl.style_fill_mode",
+                "LayerControl.style_border",
+                "LayerControl.style_border_color",
+                "LayerControl.style_border_weight",
+                "LayerControl.style_border_mode",
+                "LayerControl.style_border_follow_fill",
+                "LayerControl.style_icon",
+                "LayerControl.style_icon_color",
+                "LayerControl.style_opacity",
+                "LayerControl.style_zoom_range",
+                "LayerControl.style_label",
+                "LayerControl.style_label_field",
+                "LayerControl.style_label_color_size",
+                "LayerControl.style_label_format",
+                "LayerControl.style_label_avoidance",
+                "HeatmapControl.agg_field",
+                "HeatmapControl.field",
+                "HeatmapControl.classify_method",
+                "HeatmapControl.class_count",
+                "HeatmapControl.scheme",
+            }
+            for component in ("LayerControl", "HeatmapControl"):
+                for lang in ("en", "zh"):
+                    table = json.loads(
+                        (base / f"{component}.{lang}.json").read_text(encoding="utf-8")
+                    )
+                    for key in label_keys:
+                        value = table.get(key)
+                        if isinstance(value, str):
+                            strings.add(value)
+            result = page.evaluate(
+                _js("LayerControl/measure_label_widths"),
+                {
+                    "root": ".foliplus-layer-style-panel",
+                    "strings": sorted(strings),
+                },
+            )
+            assert result["ok"], result
+            # The method label ("Classification Method" / 分类方法) is the one
+            # string the 88px shared column cannot fit at the 12px label font
+            # (DejaVu ~124px). It is deliberately exempt: the row allows it to
+            # wrap to two lines (the overlap guard in
+            # test_style_fill_row_label_names_the_method_on_one_line catches a
+            # wrap that pushes into the control). EVERY other label-class string
+            # must still fit the token — a locale edit that lengthens any short
+            # label turns this red instead of silently wrapping.
+            method_strings = {_METHOD_EN, _METHOD_ZH}
+            assert method_strings <= strings, (
+                "the method-label strings are not part of the guard set"
+            )
+            max_short = max(
+                (x["w"] for x in result["widths"] if x["s"] not in method_strings),
+                default=0,
+            )
+            assert max_short <= result["token"] - result["paddingRight"], (
+                f"a non-method label-class string exceeds the label column token: "
+                f"max {max_short:.1f}px > token {result['token']} - "
+                f"padding {result['paddingRight']}px"
+            )
+
             assert not errors, f"JS errors: {errors}"
 
     def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
@@ -2678,10 +2865,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
         The reported regression: after choosing a chassis color, the marker's
         pin (the awesome-markers sprite container) disappears and only the
-        glyph <i> remains. This drives the real Leaflet runtime: the marker
-        element must still carry the `awesome-marker-icon-<color>` chassis
-        class and a non-empty background after the write, and Reset must
-        restore the author icon.
+        glyph <i> remains. The row is now [color swatch | opacity number]; the
+        chassis write drives the real Leaflet runtime, so the marker element
+        must still carry the `awesome-marker-icon-<color>` chassis class and a
+        non-empty background after the write, and Reset must restore the
+        author icon.
         """
         fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
@@ -2697,42 +2885,137 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
             # before: author chassis + glyph DOM
-            before = page.evaluate(_js("LayerControl/marker_color_probe"), [])
-            print("PROBE:", before)
-            assert before["panel"] and before["row"], before
-            assert before["before"] is not None, "no marker element read before"
-            assert before["before"]["hasChassisClass"], (
+            before = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert before["ok"], before
+            assert before["marker"]["hasChassisClass"], (
                 f"author marker has no chassis class: {before}"
             )
             page.screenshot(
                 path=str(tmp_path / "marker_color_before.png"), full_page=True
             )
 
-            # pick "blue" from the shared dropdown
-            written = page.evaluate(_js("LayerControl/marker_color_probe"), ["blue"])
-            assert written["option"], f"could not pick color: {written}"
+            # write the preset blue at alpha 100 through the swatch row
+            written = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert written["ok"], written
             page.screenshot(
                 path=str(tmp_path / "marker_color_after.png"), full_page=True
             )
-            assert written["after"] is not None, (
+            assert written["marker"] is not None, (
                 f"marker element missing after the write: {written}"
             )
             # The chassis container must survive: the sprite class + a real
             # background image, and the glyph must still be painted.
-            assert written["after"]["hasChassisClass"], (
+            assert written["marker"]["hasChassisClass"], (
                 f"marker lost its chassis container after the write: {written}"
             )
-            assert "awesome-marker-icon-blue" in written["after"]["cls"], (
+            assert "awesome-marker-icon-blue" in written["marker"]["cls"], (
                 f"chassis color did not re-derive: {written}"
+            )
+            assert written["marker"]["hasSpan"] is False, (
+                f"preset alpha 100 must NOT take a chassis span: {written}"
             )
             # The glyph must survive the write. When the author's glyph name
             # is not a FontAwesome 6 name (here: the bootstrap glyphicon
             # info-sign), the honest degradation keeps the author's inner
             # glyph verbatim — the chassis changes, the symbol does not.
-            glyph_cls = (written["after"]["glyph"] or {}).get("cls") or ""
-            assert written["after"]["glyph"], (
-                f"glyph missing after the write: {written}"
-            )
+            glyph_cls = (written["glyph"] or {}).get("cls") or ""
+            assert written["glyph"], f"glyph missing after the write: {written}"
             assert (
                 "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
+
+    def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
+        """Task-76: the marker chassis accepts a custom hex + opacity.
+
+        The row is [color swatch | opacity number]. Three paint paths:
+          • preset hex at alpha 100  → library sprite class, NO chassis span
+            (author-identical, acceptance ③);
+          • preset hex at alpha <100 → chassis <span> carries the sprite with
+            its own opacity, the glyph <i> is a sibling and stays opaque
+            (acceptance ①);
+          • custom hex (any alpha)    → chassis <span> carries a mask (same
+            sprite as mask-image) + flat background-color, glyph opaque
+            (acceptance ②).
+        """
+        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
+        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
+            fg
+        )
+
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="marker_color_custom",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            # ③ preset hex at alpha 100 → sprite class, NO span.
+            preset = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert preset["ok"], preset
+            assert preset["marker"]["hasChassisClass"], (
+                f"preset alpha 100 lost the sprite class: {preset}"
+            )
+            assert "awesome-marker-icon-blue" in preset["marker"]["cls"], (
+                f"preset alpha 100 did not re-derive blue: {preset}"
+            )
+            assert preset["marker"]["hasSpan"] is False, (
+                f"preset alpha 100 must NOT take a chassis span: {preset}"
+            )
+            assert preset["glyph"] and preset["glyph"]["opacity"] == "1", (
+                f"preset alpha 100 glyph not opaque: {preset}"
+            )
+
+            # ① preset hex at alpha 50 → chassis span + sprite + opacity 0.5.
+            half = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 50},
+            )
+            assert half["ok"], half
+            assert half["marker"]["hasSpan"] is True, (
+                f"preset alpha 50 must use a chassis span: {half}"
+            )
+            assert (
+                half["span"] is not None and "url(" in half["span"]["backgroundImage"]
+            ), f"preset alpha 50 span lost the sprite: {half}"
+            assert half["span"]["opacity"] == "0.5", (
+                f"preset alpha 50 span opacity: {half}"
+            )
+            assert half["marker"]["containerBackgroundImage"] == "none", (
+                f"preset alpha 50 container must clear the sprite: {half}"
+            )
+            assert half["glyph"] and half["glyph"]["opacity"] == "1", (
+                f"preset alpha 50 glyph must stay opaque: {half}"
+            )
+
+            # ② custom hex at alpha 50 → chassis span + mask + flat bg-color.
+            custom = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#ff9900", "opacity": 50},
+            )
+            assert custom["ok"], custom
+            assert custom["marker"]["hasSpan"] is True, (
+                f"custom hex must use a chassis span: {custom}"
+            )
+            assert (
+                custom["span"] is not None and "url(" in custom["span"]["maskImage"]
+            ), f"custom hex span lost the mask: {custom}"
+            assert custom["span"]["backgroundColor"] == "rgb(255, 153, 0)", (
+                f"custom hex span flat color: {custom}"
+            )
+            assert custom["span"]["opacity"] == "0.5", (
+                f"custom hex span opacity: {custom}"
+            )
+            assert custom["glyph"] and custom["glyph"]["opacity"] == "1", (
+                f"custom hex glyph must stay opaque: {custom}"
+            )

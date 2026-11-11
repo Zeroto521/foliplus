@@ -202,7 +202,7 @@ describe("applyMarkerColorToLeaves", () => {
     // stay reachable) instead of spreading it — Object.create path.
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", "star", "#ff0000");
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", "star", "#ff0000");
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("awesome-marker");
@@ -219,7 +219,7 @@ describe("applyMarkerColorToLeaves", () => {
       }),
     };
     const m = makeMarker(author);
-    applyMarkerColorToLeaves(makeMarkerGroup(m), "red", null);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", null);
     expect(m.setIcon).toHaveBeenCalledTimes(1);
     const div = m.options.icon.createIcon();
     expect(div.className).toContain("bare-icon");
@@ -228,7 +228,7 @@ describe("applyMarkerColorToLeaves", () => {
   it("skips a non-icon leaf in the walk", () => {
     const leaf = { options: {} };
     expect(() =>
-      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "red", null),
+      applyMarkerColorToLeaves(makeMarkerGroup(leaf), "#d63e2a", null),
     ).not.toThrow();
   });
 });
@@ -317,6 +317,123 @@ describe("authorGlyphPrefix", () => {
   });
 });
 
+describe("buildMarkerIcon chassis span", () => {
+  it("preset hex at alpha 100 keeps the sprite class and NO chassis span", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+
+  it("preset hex below 100 takes a chassis span carrying the sprite + opacity", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#38aadd",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundImage).toContain("url(");
+    expect(span.style.opacity).toBe("0.5");
+    expect(div.style.backgroundImage).toBe("none");
+  });
+
+  it("custom hex takes a chassis span with the sprite as a mask and background-color paint", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#ff9900",
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+  });
+
+  it("chassis opacity leaves the glyph sibling fully painted", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "star",
+      markerColor: "#38aadd",
+      markerColorOpacity: 0,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span.style.opacity).toBe("0");
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner).not.toBeNull();
+    expect(inner.style.color).toBe("blue");
+  });
+
+  it("falls back to a probe div for a preset whose sprite is not yet readable", () => {
+    // A preset not yet cached + an author with no inline background forces
+    // the readChassisSprite probe-div branch (append + getComputedStyle).
+    // jsdom does not resolve the class stylesheet, so no sprite is found and
+    // no span is painted — but the branch must run without throwing.
+    const author = makeAuthorIcon({ bg: "none" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#436978",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+  it("skips the probe div when the document body is unavailable", () => {
+    // The probe-div branch guards on document.body (a detached/headless
+    // context). With no body, readChassisSprite must return null without
+    // touching getComputedStyle — no throw, no span.
+    const author = makeAuthorIcon({ bg: "none" });
+    const body = document.body;
+    Object.defineProperty(document, "body", { value: null, configurable: true });
+    try {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "circle",
+        markerColor: "#ffcb92",
+        markerColorOpacity: 50,
+      }) as any;
+      const div = derived.createIcon();
+      expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+    } finally {
+      Object.defineProperty(document, "body", { value: body, configurable: true });
+    }
+  });
+  it("defaults an author sprite position to 0 0 when the inline position is empty", () => {
+    // The readChassisSprite fallback for a missing backgroundPosition.
+    // darkred is NOT cached by earlier tests (readChassisSprite caches per preset
+    // name), so this exercises the inline empty-position fallback.
+    const author = makeAuthorIcon({ bgPosition: "" });
+    const derived = buildMarkerIcon({
+      author,
+      glyph: "circle",
+      markerColor: "#a23336",
+      markerColorOpacity: 50,
+    }) as any;
+    const div = derived.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundPosition).toBe("0px 0px");
+  });
+  it("no chassis write adds no span even for a preset-looking hex", () => {
+    const author = makeAuthorIcon();
+    const derived = buildMarkerIcon({ author, glyph: "circle" }) as any;
+    const div = derived.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+});
 describe("buildMarkerIcon", () => {
   it("derives from the author and swaps only the inner symbol", () => {
     const author = makeAuthorIcon();

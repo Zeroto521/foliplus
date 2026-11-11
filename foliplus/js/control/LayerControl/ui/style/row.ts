@@ -52,9 +52,9 @@ const buildModeRow = (spec: {
   value: string;
   options: readonly ModeRowOption[];
   /** Popup host contract for the bridged dropdown (see ui/dropdown). */
-  surface?: DropdownSurface;
+  surface: DropdownSurface;
   /** Overlay-registry hook (single Escape dispatcher). */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
 }): ModeRow => {
   const select = selectInput({
     className: spec.selectClass,
@@ -67,7 +67,7 @@ const buildModeRow = (spec: {
     nativeSelect: select,
     ariaLabel: spec.label,
     ...spec.surface,
-    ...(spec.overlay ? { overlay: spec.overlay } : {}),
+    overlay: spec.overlay,
   });
 
   const detail = dom.el("div", { class: spec.detailClass });

@@ -1,16 +1,16 @@
 // Unit tests for core/ramp — the shared value → color ramp
 // (breaks + scheme colors + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/value/classify.js";
-import { SCHEME_FALLBACK_COLOR } from "#core/value/palette.js";
 import {
+  METHOD,
+  SCHEME_FALLBACK_COLOR,
   buildCategoryRamp,
   buildRamp,
   categoryLabel,
   colorFor,
   isFiniteNumber,
   leafPropertyValue,
-} from "#core/value/ramp.js";
+} from "#core/value/index.js";
 
 afterEach(() => {
   vi.clearAllMocks();

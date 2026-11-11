@@ -1,10 +1,11 @@
 // control/LayerControl/ui/style/markerColor — the per-layer marker
-// chassis color dimension (awesome-markers `markerColor` preset enum face),
-// orthogonal to the glyph and the glyph color. This file pins the
-// DOM/panel-level contract: the gate's positive and negative carriers, the
-// merged single-construction derive (chassis and glyph/color never split
-// across two writes), Reset restoring the author chassis without clearing a
-// user glyph or icon color, and the persistence parser.
+// chassis color dimension (custom hex swatch + chassis opacity), orthogonal
+// to the glyph and the glyph color. This file pins the DOM/panel-level
+// contract: the gate's positive and negative carriers, the merged
+// single-construction derive (chassis and glyph/color never split across two
+// writes), the chassis-span structure (preset sprite / custom mask, span
+// opacity leaves the glyph untouched), Reset restoring the author chassis
+// without clearing a user glyph or icon color, and the persistence parser.
 import {
   initFixture,
   makeAuthorIcon,
@@ -21,15 +22,13 @@ import {
   applyMarkerColorToLayer,
   buildMarkerColorRow,
   commitMarkerColor,
+  commitMarkerColorOpacity,
   layerCanMarkerColor,
   resetLayerMarkerColor,
 } from "#control/LayerControl/ui/style/markerColor.js";
 import { writeIntentKeys } from "#control/LayerControl/ui/style/registry.js";
 import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 
-// The shared L stub (test/js/setup.ts) defines no Icon key. The core
-// markerIcon module reads L.Icon.Default; provide a minimal Default class so
-// `author instanceof L.Icon.Default` does not throw.
 class TestDivIcon {
   options: any;
   constructor(options: any) {
@@ -58,9 +57,6 @@ afterEach(() => {
   (window as any).__glyphProbePainted = true;
 });
 
-// A marker leaf: the layer type the chassis dimension owns. It carries a
-// runtime `setIcon` (the duck-type the capability probe keys on) and an
-// `options.icon` that `setIcon` replaces in place.
 const makeMarker = (props: Record<string, unknown> = {}, icon?: unknown): any => {
   const leaf: any = {
     feature: { properties: props },
@@ -160,12 +156,12 @@ describe("layerCanMarkerColor", () => {
     expect(layerCanMarkerColor(ui, "nope")).toBe(false);
   });
 
-  it("authorMarkerColor falls back to the blue default when the author paints none", () => {
+  it("author default maps the author preset name to its hex", () => {
     const noPaint = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
     const { ui: uNoPaint } = fixtureWithMarkers([noPaint]);
     const row = buildMarkerColorRow(uNoPaint, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("blue");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
   });
 });
 
@@ -190,29 +186,20 @@ describe("buildMarkerColorRow", () => {
     const row = buildMarkerColorRow(ui, "overlay1");
     expect(row).not.toBeNull();
     expect(row!.classList.contains(CONST.CLASSES.STYLE_MARKER_COLOR_ROW)).toBe(true);
-    expect(row!.querySelector("select")).not.toBeNull();
+    expect(row!.querySelector("input[type=color]")).not.toBeNull();
+    expect(row!.querySelector("input[type=number]")).not.toBeNull();
   });
 
-  it("wraps the dropdown in the shared inline flex shell", () => {
+  it("wraps the swatch in the shared inline flex shell", () => {
     const row = buildMarkerColorRow(ui, "overlay1")!;
-    const select = row.querySelector("select")!;
-    // The select lives inside the shared dropdown wrapper (trigger + hidden
-    // native select); that wrapper sits in the shared inline flex shell.
-    const dropdown = select.closest(".foliplus-dropdown");
-    expect(dropdown).not.toBeNull();
-    expect(dropdown!.parentElement!.classList.contains("foliplus-form-inline")).toBe(
-      true,
-    );
+    const input = row.querySelector("input[type=color]")!;
+    expect(input.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
     expect(
-      dropdown!.parentElement!.parentElement!.classList.contains(
-        "foliplus-form-control",
-      ),
+      input.parentElement!.parentElement!.classList.contains("foliplus-form-control"),
     ).toBe(true);
   });
+
   it("row is null when the layer is registered but not findable (findLayer null)", () => {
-    // The gate passes (registry has the layer + a NATIVE surface) but the
-    // layer object itself is unresolved — findLayer returns null. The row
-    // must be null, never a half-built picker.
     const spy = vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
     expect(buildMarkerColorRow(ui, "overlay1")).toBeNull();
     spy.mockRestore();
@@ -224,15 +211,13 @@ describe("buildMarkerColorRow", () => {
     expect(buildMarkerColorRow(u6, "overlay1")).toBeNull();
   });
 
-  it("shows the author preset as the default value", () => {
+  it("shows the author preset hex as the default value", () => {
     const row = buildMarkerColorRow(ui, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("blue");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
   });
 
   it("short-circuits on the first painted leaf for a multi-leaf layer", () => {
-    // authorMarkerColor walks leaves and stops at the first painted chassis —
-    // two markers with different presets must yield the first leaf's preset.
     const blue = makeMarker(
       { type: "school" },
       makeAuthorIcon({ markerColor: "blue" }),
@@ -243,8 +228,8 @@ describe("buildMarkerColorRow", () => {
     );
     const { ui: u } = fixtureWithMarkers([blue, red]);
     const row = buildMarkerColorRow(u, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("blue");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
   });
   it("reads a nested group like the gate, not one level", () => {
     // The marker-color gate walks the whole tree (walkLeaf); the row must
@@ -259,8 +244,8 @@ describe("buildMarkerColorRow", () => {
     nested.eachLayer = vi.fn((fn: (child: unknown) => void) => fn(inner));
     const { ui: uNested } = fixtureWithMarkers([nested]);
     const row = buildMarkerColorRow(uNested, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("green");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#72b026");
   });
   it("keeps a declared author preset unchanged (no fallback to blue)", () => {
     // Counterexample: a standard author that DECLARES a chassis preset must
@@ -271,44 +256,39 @@ describe("buildMarkerColorRow", () => {
     );
     const { ui: uDeclared } = fixtureWithMarkers([declared]);
     const row = buildMarkerColorRow(uDeclared, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("red");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#d63e2a");
   });
 
-  it("falls through to no author default when the author markerColor is empty", () => {
-    // An empty markerColor string is not a painted preset — authorMarkerColor
-    // answers null and the row shows the fallback default (blue).
+  it("falls through to the blue default when the author markerColor is empty", () => {
     const empty = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
     const { ui: u } = fixtureWithMarkers([empty]);
     const row = buildMarkerColorRow(u, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("blue");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
   });
 
-  it("shows the user's stored preset when one is set", () => {
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+  it("shows the user's stored hex when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
     const row = buildMarkerColorRow(ui, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    expect(select.value).toBe("red");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#d63e2a");
   });
 
-  it("commits a preset from the select change event", () => {
+  it("commits a hex from the swatch input event", () => {
     const row = buildMarkerColorRow(ui, "overlay1")!;
-    const select = row.querySelector("select") as HTMLSelectElement;
-    select.value = "green";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBe("green");
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    input.value = "#72b026";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBe("#72b026");
   });
 
-  it("offers every preset enum name as an option", () => {
+  it("commits a 0-100 opacity from the number field", () => {
     const row = buildMarkerColorRow(ui, "overlay1")!;
-    const options = Array.from(row.querySelectorAll("option")).map(
-      o => (o as HTMLOptionElement).value,
-    );
-    expect(options).toContain("red");
-    expect(options).toContain("darkred");
-    expect(options).toContain("black");
-    expect(options.length).toBeGreaterThanOrEqual(19);
+    const input = row.querySelector("input[type=number]") as HTMLInputElement;
+    input.value = "50";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBe(50);
   });
 });
 
@@ -333,18 +313,58 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("commit writes the intent and schedules an apply", () => {
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     const intent = getIntent(ui, "overlay1", INTENT.MARKER_COLOR);
-    expect(intent).toBe("red");
+    expect(intent).toBe("#d63e2a");
     flushMarkerColor("overlay1");
     expect(school.setIcon).toHaveBeenCalled();
     const written = school.options.icon;
     expect(written).not.toBe(authorIcon);
-    // The derived icon carries the chassis in ONE construction with the glyph.
     const div = written.createIcon();
     expect(div.className).toContain("awesome-marker-icon-red");
     const inner = div.querySelector("i") as HTMLElement;
     expect(inner.className).toContain("foliplus-marker-glyph");
+  });
+
+  it("preset hex at alpha 100 keeps the library sprite class and NO chassis span", () => {
+    commitMarkerColor(ui, "overlay1", "#38aadd");
+    flushMarkerColor("overlay1");
+    const div = school.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+    expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+  });
+
+  it("preset hex below 100 takes a chassis span with the sprite background and span opacity", () => {
+    commitMarkerColor(ui, "overlay1", "#38aadd");
+    commitMarkerColorOpacity(ui, "overlay1", 50);
+    flushMarkerColor("overlay1");
+    const div = school.options.icon.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.backgroundImage).toContain("url(");
+    expect(span.style.opacity).toBe("0.5");
+    expect(div.style.backgroundImage).toBe("none");
+  });
+
+  it("custom hex takes a chassis span with the sprite as a mask and background-color paint", () => {
+    commitMarkerColor(ui, "overlay1", "#ff9900");
+    flushMarkerColor("overlay1");
+    const div = school.options.icon.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).not.toBeNull();
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+  });
+
+  it("chassis opacity does NOT fade the glyph (span carries only the pin)", () => {
+    commitMarkerColor(ui, "overlay1", "#38aadd");
+    commitMarkerColorOpacity(ui, "overlay1", 0);
+    flushMarkerColor("overlay1");
+    const div = school.options.icon.createIcon();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span.style.opacity).toBe("0");
+    const inner = div.querySelector("i") as HTMLElement;
+    expect(inner).not.toBeNull();
   });
 
   it("apply is a no-op without a marker-color intent", () => {
@@ -355,11 +375,10 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
 
   it("merged construction: setting a glyph then a chassis keeps both", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
-    commitMarkerColor(ui, "overlay1", "green");
+    commitMarkerColor(ui, "overlay1", "#72b026");
     flushMarkerColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
-    // The glyph survived the chassis write (single construction merged both).
     expect(div.className).toContain("awesome-marker-icon-green");
     expect(inner.className).toContain("foliplus-marker-glyph");
     expect(inner.className).toContain("fa-star");
@@ -367,7 +386,7 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
 
   it("merged construction: a user icon color survives the chassis write", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON_COLOR, "#ff0000"]]);
-    commitMarkerColor(ui, "overlay1", "purple");
+    commitMarkerColor(ui, "overlay1", "#d252b9");
     flushMarkerColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
@@ -376,7 +395,7 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("reset restores the author chassis and drops the intent", () => {
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     expect(school.options.icon).not.toBe(authorIcon);
     resetLayerMarkerColor(ui, "overlay1");
@@ -387,34 +406,29 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("reset with no author chassis, no glyph and no color skips the re-apply (both false arms)", () => {
-    // Neither a user glyph nor a user icon color: the else arm restores the
-    // author icon and the guard is false — nothing is re-applied.
     const plainAuthor = makePlainDivIconAuthor();
     const plainMarker = makeMarker({ type: "school" }, plainAuthor);
     ({ manager, ui } = fixtureWithMarkers([plainMarker]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
-    commitMarkerColor(ui, "overlay1", "red");
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     resetLayerMarkerColor(ui, "overlay1");
     flushMarkerColor("overlay1");
-    // The author icon is restored untouched (no re-apply).
     expect(plainMarker.options.icon).toBe(plainAuthor);
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 
   it("reset with no author chassis and a glyph but no icon color keeps the glyph on blue", () => {
-    // A user glyph with NO user icon color: the guard is true via the glyph,
-    // and the re-apply passes undefined color (ternary false arm).
     const plainAuthor = makePlainDivIconAuthor();
     const plainMarker = makeMarker({ type: "school" }, plainAuthor);
     ({ manager, ui } = fixtureWithMarkers([plainMarker]));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON, { kind: "glyph", value: "star" }],
-      [INTENT.MARKER_COLOR, "red"],
+      [INTENT.MARKER_COLOR, "#d63e2a"],
     ]);
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     resetLayerMarkerColor(ui, "overlay1");
     flushMarkerColor("overlay1");
@@ -426,9 +440,9 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   it("reset preserves a user-set glyph (orthogonal)", () => {
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON, { kind: "glyph", value: "star" }],
-      [INTENT.MARKER_COLOR, "red"],
+      [INTENT.MARKER_COLOR, "#d63e2a"],
     ]);
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     resetLayerMarkerColor(ui, "overlay1");
     flushMarkerColor("overlay1");
@@ -442,9 +456,9 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   it("reset preserves a user-set icon color (orthogonal)", () => {
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON_COLOR, "#00ff00"],
-      [INTENT.MARKER_COLOR, "red"],
+      [INTENT.MARKER_COLOR, "#d63e2a"],
     ]);
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     resetLayerMarkerColor(ui, "overlay1");
     flushMarkerColor("overlay1");
@@ -455,9 +469,6 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("reset with no author chassis re-applies the user glyph/color on blue (else arm)", () => {
-    // A plain DivIcon author declares no markerColor — authorMarkerColor returns
-    // undefined, so reset takes the else arm: restore the author icon, then
-    // re-apply the user glyph/color on the default blue chassis.
     const plainAuthor = makePlainDivIconAuthor();
     const plainMarker = makeMarker({ type: "school" }, plainAuthor);
     ({ manager, ui } = fixtureWithMarkers([plainMarker]));
@@ -465,19 +476,14 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     writeIntentKeys(ui, "overlay1", [
       [INTENT.ICON, { kind: "glyph", value: "star" }],
       [INTENT.ICON_COLOR, "#00ff00"],
-      [INTENT.MARKER_COLOR, "red"],
+      [INTENT.MARKER_COLOR, "#d63e2a"],
     ]);
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     resetLayerMarkerColor(ui, "overlay1");
     flushMarkerColor("overlay1");
     const div = plainMarker.options.icon.createIcon();
-    // The plain DivIcon author is not the <img> default chassis — it re-derives
-    // through the same build, keeping the author's chassis class and swapping
-    // the glyph. The else arm must not throw and must clear the intent.
     expect(div.className).toContain("plain-div-icon");
-    // The else arm must have re-derived a NEW icon (not the restored author)
-    // — proving applyMarkerColorToLeaves ran on the default blue chassis.
     expect(plainMarker.options.icon).not.toBe(plainAuthor);
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
@@ -487,7 +493,7 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
   });
 
   it("reset is a no-op when the layer left the map", () => {
-    commitMarkerColor(ui, "overlay1", "red");
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
     expect(() => resetLayerMarkerColor(ui, "overlay1")).not.toThrow();
@@ -495,17 +501,12 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     vi.restoreAllMocks();
   });
 
-  it("set Marker Color changes the chassis class only, NOT the glyph color", () => {
-    // The marker color dimension must NOT touch the glyph paint. The derived
-    // icon's outer div (chassis) carries the new preset sprite class while
-    // the inner <i> (glyph) keeps the default white paint.
-    commitMarkerColor(ui, "overlay1", "red");
+  it("set Marker Color changes the chassis only, NOT the glyph color", () => {
+    commitMarkerColor(ui, "overlay1", "#d63e2a");
     flushMarkerColor("overlay1");
     const div = school.options.icon.createIcon();
     const inner = div.querySelector("i") as HTMLElement;
     expect(div.className).toContain("awesome-marker-icon-red");
-    // The glyph paint is the author's declared iconColor ("blue") — the
-    // chassis change must NOT touch it.
     expect(inner.style.color).toBe("blue");
   });
 
@@ -513,7 +514,7 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
     const a = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" }));
     const b = makeMarker({ type: "hospital" }, makeAuthorIcon({ markerColor: "red" }));
     const { ui: uMulti, manager: mgr } = fixtureWithMarkers([a, b]);
-    commitMarkerColor(uMulti, "overlay1", "green");
+    commitMarkerColor(uMulti, "overlay1", "#72b026");
     flushMarkerColor("overlay1");
     expect(a.setIcon).toHaveBeenCalled();
     expect(b.setIcon).toHaveBeenCalled();
@@ -530,9 +531,6 @@ describe("applyMarkerColorToLayer / commitMarkerColor / resetLayerMarkerColor", 
 
 describe("markerColor dimension — surface integration", () => {
   it("registers the dimension with its own markerColor face", () => {
-    // The dimension must declare its own face so it never fights the icon or
-    // icon-color dimension over one coalescer slot (registry.test pins the
-    // faces set).
     expect(MARKER_COLOR_DIMENSION).toBeDefined();
     expect(MARKER_COLOR_DIMENSION.contentChange).toMatchObject({
       kind: "frame",
@@ -556,14 +554,24 @@ describe("markerColor dimension descriptor", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
   });
-  it("value returns the stored user preset, else undefined", () => {
+  it("value returns the stored user value, else undefined", () => {
     expect(MARKER_COLOR_DIMENSION.value(ui, "overlay1")).toBeUndefined();
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
-    expect(MARKER_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ value: "red" });
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    expect(MARKER_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ value: "#d63e2a" });
   });
-  it("write stores the preset and schedules an apply", () => {
-    MARKER_COLOR_DIMENSION.write!(ui, "overlay1", { value: "green" });
-    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBe("green");
+  it("value returns the stored opacity when only the opacity is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR_OPACITY, 50]]);
+    expect(MARKER_COLOR_DIMENSION.value(ui, "overlay1")).toEqual({ opacity: 50 });
+  });
+  it("write stores the value and schedules an apply", () => {
+    MARKER_COLOR_DIMENSION.write!(ui, "overlay1", { value: "#72b026" });
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBe("#72b026");
+    flushMarkerColor("overlay1");
+    expect(school.setIcon).toHaveBeenCalled();
+  });
+  it("write stores the opacity and schedules an apply", () => {
+    MARKER_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 40 });
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBe(40);
     flushMarkerColor("overlay1");
     expect(school.setIcon).toHaveBeenCalled();
   });
@@ -571,30 +579,44 @@ describe("markerColor dimension descriptor", () => {
     MARKER_COLOR_DIMENSION.write!(ui, "overlay1", { value: undefined });
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
-  it("reset clears the persisted preset", () => {
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+  it("write ignores an out-of-range opacity", () => {
+    MARKER_COLOR_DIMENSION.write!(ui, "overlay1", { opacity: 150 });
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBeUndefined();
+  });
+  it("reset clears the persisted value", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
     MARKER_COLOR_DIMENSION.reset!(ui, "overlay1");
     flushMarkerColor("overlay1");
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
   it("valueSource reports user after a write, author before", () => {
     expect(MARKER_COLOR_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    expect(MARKER_COLOR_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+  it("valueSource reports user when only the opacity is set", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR_OPACITY, 30]]);
     expect(MARKER_COLOR_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
   it("contentChange when is true only once a marker-color intent exists", () => {
     const policy = MARKER_COLOR_DIMENSION.contentChange;
     if (policy.kind !== "frame") throw new Error("expected a frame policy");
     expect(policy.when!(ui, "overlay1")).toBe(false);
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
     expect(policy.when!(ui, "overlay1")).toBe(true);
   });
-  it("row builds the preset row for a capable carrier", () => {
+  it("contentChange when is true for an opacity-only intent", () => {
+    const policy = MARKER_COLOR_DIMENSION.contentChange;
+    if (policy.kind !== "frame") throw new Error("expected a frame policy");
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR_OPACITY, 50]]);
+    expect(policy.when!(ui, "overlay1")).toBe(true);
+  });
+  it("row builds the color row for a capable carrier", () => {
     const row = MARKER_COLOR_DIMENSION.row(ui, "overlay1") as HTMLElement;
     expect(row.classList.contains(CONST.CLASSES.STYLE_MARKER_COLOR_ROW)).toBe(true);
   });
-  it("contentChange run applies the stored preset", () => {
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "purple"]]);
+  it("contentChange run applies the stored value", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d252b9"]]);
     const policy = MARKER_COLOR_DIMENSION.contentChange;
     if (policy.kind !== "frame") throw new Error("expected a frame policy");
     policy.run!(ui, "overlay1");
@@ -604,7 +626,7 @@ describe("markerColor dimension descriptor", () => {
     expect(div.className).toContain("awesome-marker-icon-purple");
   });
   it("apply is a no-op when findLayer returns null", () => {
-    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "red"]]);
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
     vi.spyOn(ui.c, "findLayer").mockReturnValue(null as never);
     applyMarkerColorToLayer(ui, "overlay1");
     expect(school.setIcon).not.toHaveBeenCalled();
@@ -614,5 +636,110 @@ describe("markerColor dimension descriptor", () => {
     const img = makeMarker({ type: "school" }, makeImgAuthor());
     const { ui: uImg } = fixtureWithMarkers([img]);
     expect(MARKER_COLOR_DIMENSION.valueSource!(uImg, "overlay1")).toBe("none");
+  });
+});
+
+// ── Branch-coverage: authorMarkerColorHex hex-author arm + unknown-name fallback,
+// commitMarkerColorOpacity out-of-range guard, resetLayerMarkerColor hex-author
+// + unknown-name arms, buildMarkerColorRow stored-opacity default, and the
+// commitMarkerColor invalid-hex guard. Each closes a patch branch that the
+// happy-path tests leave uncovered. ──
+describe("markerColor branch coverage", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let school: any;
+
+  beforeEach(() => {
+    school = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" }));
+    ({ manager, ui } = fixtureWithMarkers([school]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("uses a hex author chassis as-is (authorMarkerColorHex hex arm)", () => {
+    const hexAuthor = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "#a23336" }),
+    );
+    const { ui: uHex } = fixtureWithMarkers([hexAuthor]);
+    const row = buildMarkerColorRow(uHex, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#a23336");
+  });
+
+  it("falls back to blue for an author chassis name that is neither preset nor hex", () => {
+    const odd = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "chartreuse" }),
+    );
+    const { ui: uOdd } = fixtureWithMarkers([odd]);
+    const row = buildMarkerColorRow(uOdd, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#38aadd");
+  });
+
+  it("commitMarkerColorOpacity ignores an out-of-range value", () => {
+    commitMarkerColorOpacity(ui, "overlay1", 150);
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBeUndefined();
+    commitMarkerColorOpacity(ui, "overlay1", -5);
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR_OPACITY)).toBeUndefined();
+  });
+
+  it("reset re-derives at a hex author chassis as-is", () => {
+    const hexAuthor = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "#a23336" }),
+    );
+    const { ui: uHex } = fixtureWithMarkers([hexAuthor]);
+    writeIntentKeys(uHex, "overlay1", [[INTENT.MARKER_COLOR, "#38aadd"]]);
+    resetLayerMarkerColor(uHex, "overlay1");
+    const written = hexAuthor.options.icon;
+    const div = written.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-darkred");
+  });
+
+  it("reset falls back to blue for an author chassis name that is neither preset nor hex", () => {
+    const odd = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "chartreuse" }),
+    );
+    const { ui: uOdd } = fixtureWithMarkers([odd]);
+    writeIntentKeys(uOdd, "overlay1", [[INTENT.MARKER_COLOR, "#38aadd"]]);
+    resetLayerMarkerColor(uOdd, "overlay1");
+    const written = odd.options.icon;
+    const div = written.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+  });
+
+  it("buildMarkerColorRow defaults the opacity to 100 when only a color is stored", () => {
+    writeIntentKeys(ui, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const number = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(number.value).toBe("100");
+  });
+
+  it("buildMarkerColorRow shows the stored opacity when one is set", () => {
+    writeIntentKeys(ui, "overlay1", [
+      [INTENT.MARKER_COLOR, "#d63e2a"],
+      [INTENT.MARKER_COLOR_OPACITY, 50],
+    ]);
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const number = row.querySelector("input[type=number]") as HTMLInputElement;
+    expect(number.value).toBe("50");
+  });
+
+  it("commitMarkerColor ignores an invalid hex from the swatch", () => {
+    const row = buildMarkerColorRow(ui, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    input.type = "text";
+    input.value = "#12345";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
   });
 });

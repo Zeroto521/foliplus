@@ -1,7 +1,7 @@
 // core/lifecycle/controlEnv — shared component entry bootstrap.
 // Lives in core (not common) because it depends on the hint icon registry;
 // common must stay free of #core imports.
-import { registerHintIcon } from "../overlay/hint.js";
+import { registerHintIcon } from "../overlay/index.js";
 import { requireRuntime } from "./guard.js";
 
 /**

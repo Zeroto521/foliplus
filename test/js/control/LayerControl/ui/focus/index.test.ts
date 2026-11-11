@@ -12,10 +12,10 @@ import {
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureModes } from "#core/lifecycle/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureInteraction } from "#foliplus/core/interaction/index.js";
 import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
-import { ensureModes } from "#foliplus/core/lifecycle/mode.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import {

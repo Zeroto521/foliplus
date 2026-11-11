@@ -53,6 +53,7 @@ export {
   resetIconLeaves,
 } from "./markerIcon.js";
 export type { AuthorGlyph } from "./markerIcon.js";
+export { MARKER_COLOR_PRESET_HEX, presetNameOfHex } from "./markerColorPreset.js";
 export {
   PICKER_GLYPHS,
   GLYPH_PREFIXES,

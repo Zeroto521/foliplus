@@ -27,6 +27,28 @@
         text: (label.textContent || "").trim(),
         labelWidth: label.getBoundingClientRect().width,
         labelLines: range.getClientRects().length,
+        // The label cell and the control cell sit side by side in a flex row.
+        // A wrapped label must stay inside its fixed column: if its text
+        // boxes cross into the control cell, the two rects intersect. The
+        // method label ("Classification Method") is allowed to wrap, but it
+        // must never push into the control — that is the overlap this flags.
+        labelOverlapsControl: (() => {
+          const control = row.querySelector(".foliplus-form-control");
+          if (!control) return false;
+          const lr = label.getBoundingClientRect();
+          const cr = control.getBoundingClientRect();
+          return !(
+            lr.right <= cr.left ||
+            cr.right <= lr.left ||
+            lr.bottom <= cr.top ||
+            cr.bottom <= lr.top
+          );
+        })(),
+        // A label may wrap (white-space: normal) but must never be clipped or
+        // ellipsized: scrollWidth > clientWidth means the box is truncating
+        // the text. This is the "not truncated" semantic — without it a
+        // later text-overflow: ellipsis would silently cut the method label.
+        labelTruncated: label.scrollWidth > label.clientWidth + 1,
         whiteSpace: getComputedStyle(label).whiteSpace,
         panelWidth: rootEl.getBoundingClientRect().width,
         // Only the controls a user can reach count: the shared dropdown keeps a
