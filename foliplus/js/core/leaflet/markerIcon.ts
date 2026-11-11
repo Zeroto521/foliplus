@@ -32,6 +32,7 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
@@ -94,6 +95,54 @@ const composeColorAlpha = (hex: string, alpha: number): string => {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${a / 100})`;
+};
+
+/** A captured awesome-markers chassis sprite: the URL plus the
+ *  background-position offset of one preset cell. */
+type ChassisSprite = { url: string; position: string };
+
+/** The chassis sprite per preset name, read once from the live stylesheet
+ *  (never hardcoded — the CDN URL is read, not written) or from an author
+ *  div's inline style. Null-cached means "not readable here" (jsdom without a
+ *  stylesheet and without an inline-styled fixture) — the caller falls back
+ *  to the library class, which is always correct for a preset at alpha 100. */
+const chassisSpriteCache = new Map<string, ChassisSprite | null>();
+
+/** Read the sprite (URL + preset offset) for a preset name. Tries, in order:
+ *  1. an author div's inline backgroundImage/backgroundPosition (jsdom
+ *     fixtures and inline-styled authors);
+ *  2. a probe div appended to the document with the preset class, reading
+ *     the live stylesheet (the real browser path — the author's own div
+ *     paints the sprite via a CSS class, so its inline style is empty, and a
+ *     detached div has no computed style at all). */
+const readChassisSprite = (
+  presetName: string,
+  fallbackDiv?: HTMLElement | null,
+): ChassisSprite | null => {
+  const cached = chassisSpriteCache.get(presetName);
+  if (cached !== undefined) return cached;
+  let url = "";
+  let position = "";
+  const inline = fallbackDiv?.style;
+  if (inline?.backgroundImage && inline.backgroundImage !== "none") {
+    url = inline.backgroundImage;
+    position = inline.backgroundPosition || "0 0";
+  }
+  if (!url && typeof document !== "undefined" && document.body) {
+    const probe = document.createElement("div");
+    probe.className = `awesome-marker-icon-${presetName} awesome-marker`;
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.left = "-9999px";
+    document.body.appendChild(probe);
+    const computed = getComputedStyle(probe);
+    url = computed.backgroundImage;
+    position = computed.backgroundPosition || "0 0";
+    document.body.removeChild(probe);
+  }
+  const sprite = /^url\(/.test(url) ? { url, position } : null;
+  chassisSpriteCache.set(presetName, sprite);
+  return sprite;
 };
 
 /** The leaf probe for the icon axis: a runtime `setIcon` (a marker). Same
@@ -169,19 +218,22 @@ const authorGlyphColorOf = (
 
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
  *  object is the prototype; `createIcon` is overridden to build the same
- *  chassis div (via `_setIconStyles` with the author's chassis paint) but with
+ *  chassis div (via `_setIconStyles` with the author’s chassis paint) but with
  *  our glyph as the inner content. Every other inherited member —
  *  `createShadow`, `options`, `_setIconStyles` — is reused verbatim, so the
  *  sprite background, className, iconSize and popupAnchor stay pixel-identical.
  *
- *  (Chassis / glyph color is out of scope here.)
+ *  The chassis color and the glyph/color/opacity are three orthogonal paints.
+ *  A chassis-color write re-derives the pin background (the awesome-markers
+ *  sprite) in the SAME derived icon; a glyph write re-derives the inner <i>.
+ *  One construction, one `setIcon` — the three never split.
  *
  *  Returns the derived icon object (already `Object.create(author)`), or the
- *  author's icon unchanged when the author is not a Leaflet icon (no
+ *  author’s icon unchanged when the author is not a Leaflet icon (no
  *  `createIcon` to override) — honest degradation, not a fabricated divIcon.
  */
 const buildMarkerIcon = (opts: {
-  /** The author's captured icon object (or the Leaflet default prototype). */
+  /** The author’s captured icon object (or the Leaflet default prototype). */
   author: unknown;
   /** The glyph name to render. */
   glyph: string;
@@ -189,15 +241,18 @@ const buildMarkerIcon = (opts: {
    *  the glyph — `setIcon` replaces the whole icon object, so the color and
    *  the glyph must land in one derived icon, never two successive writes. */
   color?: string;
-  /** A user-set chassis color (one of the awesome-markers preset enum names,
-   *  e.g. "red"/"blue"). The chassis (pin background) is the awesome-markers
-   *  sprite class — re-derive the author icon and let its own
-   *  `_setIconStyles` paint the preset class, so the sprite (gradient +
-   *  stroke, pixel-identical) is never re-created in CSS. Independent of the
-   *  glyph color: both must land in the SAME derived icon, one `setIcon`. */
+  /** A user-set chassis color (hex). A hex that is one of the 19
+   *  awesome-markers presets keeps the library’s sprite class (pixel-identical);
+   *  a non-preset hex takes the flat mask (the sprite as a mask-image, the
+   *  baked gradient/stroke lost — the sprite’s physical limit). Independent of
+   *  the glyph color: both must land in the SAME derived icon, one `setIcon`. */
   markerColor?: string;
+  /** A user-set chassis opacity (0-100 integer). Absent = opaque (100). Rides
+   *  the chassis span’s opacity (both preset and custom), so the glyph is
+   *  unaffected. Independent of the glyph opacity. */
+  markerColorOpacity?: number;
   /** A user-set glyph opacity (0-100 integer). Absent = opaque (100), which
-   *  keeps the author's own alpha when only the color is re-derived. */
+   *  keeps the author’s own alpha when only the color is re-derived. */
   opacity?: number;
   /** The FontAwesome family the applied glyph renders under — the panel's
    *  control-level prefix (coerced), not the author's, because the applied
@@ -207,9 +262,9 @@ const buildMarkerIcon = (opts: {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
   if (!author || typeof author.createIcon !== "function") return opts.author;
-  // Leaflet's L.Icon.Default builds an <img> in createIcon; a DivIcon (or an
+  // Leaflet’s L.Icon.Default builds an <img> in createIcon; a DivIcon (or an
   // awesome-markers icon) builds a <div>. For the default chassis, reusing the
-  // author's <img> and setting innerHTML is a no-op (an <img> has no children),
+  // author’s <img> and setting innerHTML is a no-op (an <img> has no children),
   // so the glyph would silently vanish and Leaflet would fall back to the
   // default anchor, dropping the glyph below the point. Take the default icon
   // down a dedicated DivIcon branch that carries the glyph in an HTML shell and
@@ -221,7 +276,7 @@ const buildMarkerIcon = (opts: {
   const prefix = opts.prefix ?? DEFAULT_GLYPH_PREFIX;
   // The glyph and the chassis are orthogonal. A chassis-color write
   // (markerColor) must still re-derive the chassis even when the glyph name
-  // is not a painted FA6 name — the author's own inner glyph is kept, and
+  // is not a painted FA6 name — the author’s own inner glyph is kept, and
   // only the chassis (pin background) changes. A glyph-only write degrades
   // honestly to the author icon (no substituted symbol, no tofu).
   const glyphRenderable = glyph !== null && glyphAvailable(glyph, prefix);
@@ -234,14 +289,23 @@ const buildMarkerIcon = (opts: {
   const wantChassis = opts.markerColor !== undefined;
   if (!wantChassis && !glyphRenderable) {
     // A pure glyph write (no chassis change) with a non-renderable name keeps
-    // the author's icon — the honest degradation, never a substituted symbol.
+    // the author’s icon — the honest degradation, never a substituted symbol.
     return opts.author;
   }
+  // The chassis color path needs the preset verdict. `presetNameOfHex` maps a
+  // user hex back to a preset name when it is exactly one of the 19; a
+  // non-preset hex (or a bogus value a caller failed to validate) takes the
+  // mask path. The author’s declared preset name maps forward to its hex for
+  // the row default (done by the caller); here the direction is the reverse.
+  const chassisHex = opts.markerColor;
+  const chassisPreset =
+    typeof chassisHex === "string" ? presetNameOfHex(chassisHex) : null;
+  const chassisOpacity = opts.markerColorOpacity ?? 100;
   if (isDefaultIcon) {
     // The default chassis is an <img> — there is no awesome-markers sprite
     // to re-color, and a non-renderable glyph would be tofu. A chassis write
     // cannot reach here (the capability gate admits div-based icons only),
-    // so keep the author icon when the glyph isn't renderable.
+    // so keep the author icon when the glyph isn’t renderable.
     if (!glyphRenderable) return opts.author;
     // The default chassis carries no author paint to inherit, so paint the
     // glyph explicitly — white when neither the user nor the author named a
@@ -259,11 +323,11 @@ const buildMarkerIcon = (opts: {
     createShadow?: () => HTMLElement | undefined;
   };
   derived.createIcon = function (this: unknown) {
-    // Reuse the author's own chassis build and swap only the inner
+    // Reuse the author’s own chassis build and swap only the inner
     // content — className, backgroundImage/backgroundPosition, iconSize
     // and popupAnchor stay pixel-identical by construction, which is
     // exactly the DOM-level contract the lead pinned (m01511).
-    // A user chassis color re-derives the preset class through the author's
+    // A user chassis color re-derives the preset class through the author’s
     // own `_setIconStyles` (the awesome-markers override paints
     // `awesome-marker-icon-<color>` from `options.markerColor`), so the
     // sprite — gradient, stroke, offsets — is never re-created in CSS.
@@ -272,17 +336,17 @@ const buildMarkerIcon = (opts: {
       // (className: "awesome-marker", iconSize, anchors, shadow...) that the
       // constructor inherits through the prototype chain — the re-derived
       // class came out as "awesome-marker-icon-blue undefined". Inherit the
-      // author's options object so the defaults stay reachable, then
+      // author’s options object so the defaults stay reachable, then
       // override just the chassis color on top.
       const authorOptions = (author as { options?: object }).options;
       (this as { options?: { markerColor?: string } }).options = Object.assign(
         Object.create(authorOptions ?? null),
-        { markerColor: opts.markerColor },
+        { markerColor: chassisPreset ?? chassisHex },
       );
     }
     const div = author.createIcon?.call(this) as HTMLElement | undefined;
     if (!div) return div;
-    // Carry the author's inner <i> class + inline color (awesome-markers
+    // Carry the author’s inner <i> class + inline color (awesome-markers
     // paints `icon-white` via a class and an inline color), so our glyph
     // inherits the same paint. No inline author color -> white (a computed
     // color is not a signal: every element computes one, so reading it would
@@ -307,7 +371,7 @@ const buildMarkerIcon = (opts: {
     const paintHex = parsed?.hex ?? iconColor;
     const paintAlpha = userColor ? (opts.opacity ?? 100) : (parsed?.alpha ?? 100);
     const paint = composeColorAlpha(paintHex, paintAlpha);
-    // Drop the author's own icon-font classes (fa / fas / fa-star /
+    // Drop the author’s own icon-font classes (fa / fas / fa-star /
     // glyphicon-*) so only the paint classes survive and our FA glyph is the
     // one thing painting.
     const authorClass = (authorInner?.className ?? "")
@@ -321,10 +385,47 @@ const buildMarkerIcon = (opts: {
       )
       .join(" ");
     // A chassis-only write with a non-renderable glyph name keeps the
-    // author's inner glyph verbatim — only the chassis (pin background)
+    // author’s inner glyph verbatim — only the chassis (pin background)
     // re-derives. The glyph is honest degradation, never a substituted symbol.
     if (glyphRenderable) {
       div.innerHTML = glyphHtml(glyph, authorClass, `color:${paint}`, prefix);
+    }
+    // The chassis span: carries ONLY the pin pixels with its own opacity, so
+    // the glyph <i> (a sibling) is never faded with the pin. Two shapes:
+    //   • preset + alpha 100 — the library class already paints the sprite
+    //     pixel-identical (#1033); NO span, NO extra DOM (the fastest, and the
+    //     preset round-trip stays author-identical).
+    //   • preset + alpha < 100 — a span with the sprite as a background and
+    //     the alpha as the span’s opacity (gradient/stroke preserved).
+    //   • custom (any alpha) — a span with the sprite as a MASK (same URL,
+    //     same offset) and `background-color: <hex>` as the paint; the baked
+    //     gradient/stroke are color channels, not alpha, so they are lost (the
+    //     sprite’s physical limit — documented in the PR).
+    // The container div keeps the library sprite class (the author’s own
+    // createIcon painted it via _setIconStyles); when a span carries the pin,
+    // the container’s sprite is cleared so the pin is painted once.
+    const wantChassisSpan =
+      opts.markerColor !== undefined &&
+      (chassisPreset === null || chassisOpacity < 100);
+    if (wantChassisSpan && chassisHex) {
+      const sprite = readChassisSprite(chassisPreset ?? "blue", div);
+      if (sprite) {
+        div.style.backgroundImage = "none";
+        const span = document.createElement("span");
+        span.className = "foliplus-marker-chassis";
+        if (chassisPreset) {
+          span.style.backgroundImage = sprite.url;
+          span.style.backgroundPosition = sprite.position;
+          span.style.backgroundRepeat = "no-repeat";
+        } else {
+          span.style.maskImage = sprite.url;
+          span.style.maskPosition = sprite.position;
+          span.style.maskRepeat = "no-repeat";
+          span.style.backgroundColor = chassisHex;
+        }
+        if (chassisOpacity < 100) span.style.opacity = String(chassisOpacity / 100);
+        div.appendChild(span);
+      }
     }
     return div;
   };
@@ -390,6 +491,7 @@ const applyMarkerColorToLeaves = (
   markerColor: string,
   glyph: string | null,
   color?: string,
+  markerColorOpacity?: number,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
@@ -402,6 +504,7 @@ const applyMarkerColorToLeaves = (
       glyph: glyph ?? "circle",
       color,
       markerColor,
+      markerColorOpacity,
     });
     leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
   });

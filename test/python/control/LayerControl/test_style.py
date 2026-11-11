@@ -2678,10 +2678,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
         The reported regression: after choosing a chassis color, the marker's
         pin (the awesome-markers sprite container) disappears and only the
-        glyph <i> remains. This drives the real Leaflet runtime: the marker
-        element must still carry the `awesome-marker-icon-<color>` chassis
-        class and a non-empty background after the write, and Reset must
-        restore the author icon.
+        glyph <i> remains. The row is now [color swatch | opacity number]; the
+        chassis write drives the real Leaflet runtime, so the marker element
+        must still carry the `awesome-marker-icon-<color>` chassis class and a
+        non-empty background after the write, and Reset must restore the
+        author icon.
         """
         fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
         folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
@@ -2697,42 +2698,137 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ) as (page, errors):
             self._open_style_ramp(page)
             # before: author chassis + glyph DOM
-            before = page.evaluate(_js("LayerControl/marker_color_probe"), [])
-            print("PROBE:", before)
-            assert before["panel"] and before["row"], before
-            assert before["before"] is not None, "no marker element read before"
-            assert before["before"]["hasChassisClass"], (
+            before = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert before["ok"], before
+            assert before["marker"]["hasChassisClass"], (
                 f"author marker has no chassis class: {before}"
             )
             page.screenshot(
                 path=str(tmp_path / "marker_color_before.png"), full_page=True
             )
 
-            # pick "blue" from the shared dropdown
-            written = page.evaluate(_js("LayerControl/marker_color_probe"), ["blue"])
-            assert written["option"], f"could not pick color: {written}"
+            # write the preset blue at alpha 100 through the swatch row
+            written = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert written["ok"], written
             page.screenshot(
                 path=str(tmp_path / "marker_color_after.png"), full_page=True
             )
-            assert written["after"] is not None, (
+            assert written["marker"] is not None, (
                 f"marker element missing after the write: {written}"
             )
             # The chassis container must survive: the sprite class + a real
             # background image, and the glyph must still be painted.
-            assert written["after"]["hasChassisClass"], (
+            assert written["marker"]["hasChassisClass"], (
                 f"marker lost its chassis container after the write: {written}"
             )
-            assert "awesome-marker-icon-blue" in written["after"]["cls"], (
+            assert "awesome-marker-icon-blue" in written["marker"]["cls"], (
                 f"chassis color did not re-derive: {written}"
+            )
+            assert written["marker"]["hasSpan"] is False, (
+                f"preset alpha 100 must NOT take a chassis span: {written}"
             )
             # The glyph must survive the write. When the author's glyph name
             # is not a FontAwesome 6 name (here: the bootstrap glyphicon
             # info-sign), the honest degradation keeps the author's inner
             # glyph verbatim — the chassis changes, the symbol does not.
-            glyph_cls = (written["after"]["glyph"] or {}).get("cls") or ""
-            assert written["after"]["glyph"], (
-                f"glyph missing after the write: {written}"
-            )
+            glyph_cls = (written["glyph"] or {}).get("cls") or ""
+            assert written["glyph"], f"glyph missing after the write: {written}"
             assert (
                 "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
+
+    def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
+        """Task-76: the marker chassis accepts a custom hex + opacity.
+
+        The row is [color swatch | opacity number]. Three paint paths:
+          • preset hex at alpha 100  → library sprite class, NO chassis span
+            (author-identical, acceptance ③);
+          • preset hex at alpha <100 → chassis <span> carries the sprite with
+            its own opacity, the glyph <i> is a sibling and stays opaque
+            (acceptance ①);
+          • custom hex (any alpha)    → chassis <span> carries a mask (same
+            sprite as mask-image) + flat background-color, glyph opaque
+            (acceptance ②).
+        """
+        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
+        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
+            fg
+        )
+
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="marker_color_custom",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            # ③ preset hex at alpha 100 → sprite class, NO span.
+            preset = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 100},
+            )
+            assert preset["ok"], preset
+            assert preset["marker"]["hasChassisClass"], (
+                f"preset alpha 100 lost the sprite class: {preset}"
+            )
+            assert "awesome-marker-icon-blue" in preset["marker"]["cls"], (
+                f"preset alpha 100 did not re-derive blue: {preset}"
+            )
+            assert preset["marker"]["hasSpan"] is False, (
+                f"preset alpha 100 must NOT take a chassis span: {preset}"
+            )
+            assert preset["glyph"] and preset["glyph"]["opacity"] == "1", (
+                f"preset alpha 100 glyph not opaque: {preset}"
+            )
+
+            # ① preset hex at alpha 50 → chassis span + sprite + opacity 0.5.
+            half = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#38aadd", "opacity": 50},
+            )
+            assert half["ok"], half
+            assert half["marker"]["hasSpan"] is True, (
+                f"preset alpha 50 must use a chassis span: {half}"
+            )
+            assert (
+                half["span"] is not None and "url(" in half["span"]["backgroundImage"]
+            ), f"preset alpha 50 span lost the sprite: {half}"
+            assert half["span"]["opacity"] == "0.5", (
+                f"preset alpha 50 span opacity: {half}"
+            )
+            assert half["marker"]["containerBackgroundImage"] == "none", (
+                f"preset alpha 50 container must clear the sprite: {half}"
+            )
+            assert half["glyph"] and half["glyph"]["opacity"] == "1", (
+                f"preset alpha 50 glyph must stay opaque: {half}"
+            )
+
+            # ② custom hex at alpha 50 → chassis span + mask + flat bg-color.
+            custom = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#ff9900", "opacity": 50},
+            )
+            assert custom["ok"], custom
+            assert custom["marker"]["hasSpan"] is True, (
+                f"custom hex must use a chassis span: {custom}"
+            )
+            assert (
+                custom["span"] is not None and "url(" in custom["span"]["maskImage"]
+            ), f"custom hex span lost the mask: {custom}"
+            assert custom["span"]["backgroundColor"] == "rgb(255, 153, 0)", (
+                f"custom hex span flat color: {custom}"
+            )
+            assert custom["span"]["opacity"] == "0.5", (
+                f"custom hex span opacity: {custom}"
+            )
+            assert custom["glyph"] and custom["glyph"]["opacity"] == "1", (
+                f"custom hex glyph must stay opaque: {custom}"
+            )

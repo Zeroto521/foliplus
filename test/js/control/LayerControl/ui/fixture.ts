@@ -487,6 +487,7 @@ export const makeAuthorIcon = (
   opts: {
     className?: string;
     bg?: string;
+    bgPosition?: string;
     size?: [number, number];
     markerColor?: string;
     iconColor?: string;
@@ -496,7 +497,8 @@ export const makeAuthorIcon = (
 ) => {
   const cfg = {
     className: opts.className ?? "awesome-marker",
-    bg: opts.bg ?? "url(icon.png) -24px 0",
+    bg: opts.bg ?? "url(icon.png)",
+    bgPosition: opts.bgPosition ?? "-24px 0",
     size: opts.size ?? ([36, 46] as [number, number]),
     markerColor: opts.markerColor ?? "blue",
     iconColor: opts.iconColor ?? "blue",
@@ -516,7 +518,7 @@ export const makeAuthorIcon = (
       const div = document.createElement("div");
       div.className = cfg.className;
       div.style.backgroundImage = cfg.bg;
-      div.style.backgroundPosition = "-24px 0";
+      div.style.backgroundPosition = cfg.bgPosition;
       div.style.width = `${cfg.size[0]}px`;
       div.style.height = `${cfg.size[1]}px`;
       div.innerHTML = cfg.innerColor
