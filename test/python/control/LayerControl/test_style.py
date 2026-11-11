@@ -2792,9 +2792,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert half["marker"]["hasSpan"] is True, (
                 f"preset alpha 50 must use a chassis span: {half}"
             )
-            assert half["span"] is not None and "url(" in half["span"]["backgroundImage"], (
-                f"preset alpha 50 span lost the sprite: {half}"
-            )
+            assert (
+                half["span"] is not None and "url(" in half["span"]["backgroundImage"]
+            ), f"preset alpha 50 span lost the sprite: {half}"
             assert half["span"]["opacity"] == "0.5", (
                 f"preset alpha 50 span opacity: {half}"
             )
@@ -2814,9 +2814,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert custom["marker"]["hasSpan"] is True, (
                 f"custom hex must use a chassis span: {custom}"
             )
-            assert custom["span"] is not None and "url(" in custom["span"]["maskImage"], (
-                f"custom hex span lost the mask: {custom}"
-            )
+            assert (
+                custom["span"] is not None and "url(" in custom["span"]["maskImage"]
+            ), f"custom hex span lost the mask: {custom}"
             assert custom["span"]["backgroundColor"] == "rgb(255, 153, 0)", (
                 f"custom hex span flat color: {custom}"
             )
