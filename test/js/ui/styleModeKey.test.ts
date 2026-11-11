@@ -72,7 +72,7 @@ function referencedStyleKeys(): Set<string> {
       const k = m[1] as string;
       if (k.startsWith("style_")) refs.add(k);
     }
-    for (const m of s.matchAll(/STYLE_MODE\.([A-Z_]+)/g)) {
+    for (const m of s.matchAll(/STYLE_MODE(?:_KEY)?\.([A-Z_]+)/g)) {
       const key = (STYLE_MODE as Record<string, string>)[m[1] as string];
       if (key) refs.add(key);
     }
