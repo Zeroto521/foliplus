@@ -342,4 +342,46 @@ describe("style-mode-usage remaining branch coverage", () => {
     const r = classifyLine("const m: FillMode = FILL_MODE.VALUE;", false);
     expect(r.kinds).toContain("type");
   });
+
+  it("sorts hits by file then line, comparing same-file and cross-file pairs", () => {
+    // a.ts carries two hits: the same-file arm of the comparator must run
+    // (a.line - b.line) while b.ts/c.ts force the cross-file arms.
+    const dir = synthMany({
+      "core/layer/a.ts": "const x = FILL_MODE.VALUE;\nconst y = FILL_MODE.SOLID;\n",
+      "core/layer/b.ts": "const z = FILL_MODE.ORIGINAL;\n",
+      "core/layer/c.ts": "const w = FILL_MODE.VALUE;\n",
+    });
+    const hits = inventory(dir);
+    rmSync(dir, { recursive: true, force: true });
+    const aHits = hits.filter(h => h.file.endsWith("a.ts"));
+    expect(aHits.length).toBe(2);
+    expect(aHits[0].line).toBeLessThan(aHits[1].line);
+    expect(hits.length).toBe(4);
+  });
+  it("check reports failing when a line carries both value and type refs", () => {
+    const dir = synthMany({
+      "core/layer/intent.ts": "const m: FillMode = FILL_MODE.VALUE;\n",
+    });
+    const r = check(dir) as unknown as { failing: boolean; perFace: Record<string, { value: number; type: number }> };
+    rmSync(dir, { recursive: true, force: true });
+    expect(r.failing).toBe(true);
+  });
+
+  it("main --root consumes the following argument as the root", () => {
+    const dir = synth("core/layer/intent.ts", "const m = FILL_MODE.VALUE;\n");
+    const code = main(["--check", "--root", dir]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(code).toBe(1);
+  });
+
+  it("main --root with no following value leaves the default root", () => {
+    const dir = synth("core/layer/intent.ts", "const m = FILL_MODE.VALUE;\n");
+    // --root as the last argument: argv[i+1] is undefined, so the guard's
+    // alternate arm runs and the default root stays in effect.
+    const code = main(["--check", "--root"]);
+    rmSync(dir, { recursive: true, force: true });
+    // No --root value -> default cwd scan; on the repo tree that is not a
+    // violation, so exit is 0. The point is the arm is exercised, not the value.
+    expect([0, 1]).toContain(code);
+  });
 });

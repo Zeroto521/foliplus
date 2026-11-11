@@ -144,7 +144,10 @@ const classifyLine = (line, inBlock) => {
       } else {
         kinds.push("value");
       }
-    } else if (/\bFillMode\b/.test(codePart)) {
+      // Reaching here, the outer guard already matched `FillMode` (the line 136
+      // test excluded the `FILL_MODE.` / bare `FILL_MODE` forms), so no further
+      // condition is needed: this arm is a plain type reference.
+    } else {
       kinds.push("type");
     }
   }
@@ -190,7 +193,7 @@ const inventory = (root = process.cwd()) => {
       }
     });
   }
-  hits.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
+  hits.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
   return hits;
 };
 

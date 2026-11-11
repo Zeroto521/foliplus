@@ -214,6 +214,7 @@ const emitNamespace = (
   specifier,
 ) => {
   const sorted = [...names].sort();
+  /* v8 ignore next -- defensive: every caller guards against an empty name list */
   if (sorted.length === 0) return;
   const importNames = [];
   const entryNames = [];

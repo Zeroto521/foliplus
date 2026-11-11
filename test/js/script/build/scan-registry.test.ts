@@ -456,6 +456,23 @@ describe("generateRegistry", () => {
     expect(output).toContain('window.foliplus.core["classify"] = {');
     expect(output).toContain("METHOD");
   });
+
+  it("resolves a directory import spec without a .js extension", () => {
+    // branch line 123: spec.endsWith(".js") false -> idxBase stays the bare base.
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original" } as const;`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { STYLE_MODE } from "#core/layer";
+        const a = STYLE_MODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["layer"] = {');
+    expect(output).toContain("STYLE_MODE");
+  });
   it("skips a ui module nothing imports from", () => {
     // if (names.length === 0) continue — a ui module on disk that no
     // component imports must emit nothing (no empty namespace object).
@@ -623,6 +640,17 @@ describe("collectExportedNames", () => {
     const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
     expect(names.has("panelButton")).toBe(true);
     expect(names.has("closeButton")).toBe(true);
+  });
+
+  it("reaches the non-.js index fallback for a missing relative re-export target", () => {
+    // branch line 123: spec.endsWith(".js") false -> idxBase stays the bare base.
+    // A non-.js spec whose path does not exist falls through the candidate list
+    // to the directory-index fallback; the missing index makes it resolve null.
+    const d = dir({
+      "ui/index.ts": `export * from "./absent";`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.size).toBe(0);
   });
 
   it("collects local re-exports and direct declarations", () => {
