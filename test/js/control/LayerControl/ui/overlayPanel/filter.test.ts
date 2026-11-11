@@ -416,6 +416,99 @@ describe("LayerUI filter panel", () => {
         expect(rt[1].getAttribute("aria-valuenow")).toBe("100");
       });
 
+      it("a stale select change after the panel closed does not rebuild", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        ui.closeFilterPanel(false);
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement | null;
+        const select = panel?.querySelector("select") as HTMLSelectElement | null;
+        if (select) {
+          select.value = "depth";
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        // No throw, no rebuild: the closed panel stays closed.
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      });
+
+      it("falls back to the first field when the committed atom names an unknown field", () => {
+        // A persisted atom whose field is not offered falls back to the
+        // first available field (D8) without throwing.
+        const owner = makeMultiFieldOwner();
+        owner.filterSetter({
+          kind: "atom",
+          field: "ghost",
+          op: "between",
+          range: [1, 2],
+        });
+        registerPoints();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const fieldRow = panel
+          .querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)!
+          .closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+        const select = fieldRow.querySelector("select") as HTMLSelectElement;
+        expect(select.value).toBe("mag");
+        const host = panel.querySelector(
+          `.${CONST.CLASSES.FILTER_SLIDER}`,
+        ) as HTMLElement;
+        // The ghost atom is clamped onto the fallback (mag) dimension extent.
+        const thumbs = host.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
+        expect(thumbs[0].getAttribute("aria-valuenow")).toBe("1");
+        expect(thumbs[1].getAttribute("aria-valuenow")).toBe("2");
+      });
+
+      it("renders an empty picker when the owner offers an empty field list", () => {
+        let filter: LayerFilter | undefined;
+        registerPoints();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = (): LayerFilterModel => ({
+          dimensions: [
+            {
+              kind: "range",
+              field: "mag",
+              range: [0, 10] as [number, number],
+              step: 1,
+            },
+          ],
+          filter,
+          kept: 10,
+          total: 10,
+          fields: [],
+        });
+        reg.filterSetter = (f: LayerFilter) => {
+          filter = f;
+        };
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const fieldRow = panel
+          .querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)!
+          .closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
+        // fields: [] is truthy, so the picker branch still runs — an empty
+        // option list renders (the select exists but offers nothing).
+        const select = fieldRow.querySelector("select") as HTMLSelectElement;
+        expect(select).not.toBeNull();
+      });
       it("keeps the read-only field cell for owners without fields (zero change)", () => {
         // Counter-guard: a Heatmap/Measure owner (no fields) renders the
         // read-only cell, never a select — the regression the field picker

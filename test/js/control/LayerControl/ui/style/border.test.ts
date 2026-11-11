@@ -3174,3 +3174,128 @@ describe("border options per geometry", () => {
     expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
   });
 });
+describe("border solid derivation invariants", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+    installChroma(["#111111", "#222222"]);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    delete globalThis.chroma;
+  });
+
+  /** A per-feature border layer: each leaf carries its OWN author stroke, so
+   *  the style bag holds one colour per leaf (the explore output shape the
+   *  user reported). The border is the element's own stroke here (line leaf),
+   *  so value mode is offered. */
+  const makePerFeatureLeaf = (color: string, count: number): any => {
+    installLeafletGlobals();
+    const leaf = new (globalThis as any).L.Polyline() as any;
+    leaf.options = { color, weight: 2, stroke: true };
+    leaf.feature = {
+      geometry: { type: "LineString" },
+      properties: { count, __folium_color: color },
+    };
+    leaf.setStyle = vi.fn((style: Record<string, unknown>) => {
+      Object.assign(leaf.options, style);
+      return leaf;
+    });
+    leaf.on = vi.fn();
+    return leaf;
+  };
+
+  const registerPerFeatureBorderLayer = (id: string, leaves: any[]): void => {
+    installLeafletGlobals();
+    manager.registerLayer({
+      id,
+      name: id,
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: leaves.length,
+        stops: leaves.map((l: any) => l.options.color),
+      },
+    });
+    ui.runtimeStore.setFields(id, [{ name: "count", numeric: true }]);
+  };
+
+  const strokes = (leaves: any[]): unknown[] =>
+    leaves.map((l: any) => (l.setStyle.mock.calls.at(-1)?.[0] as any)?.color);
+
+  it("value -> solid flattens a per-feature border to one colour", () => {
+    const leaves = [makePerFeatureLeaf("#0d0887", 1), makePerFeatureLeaf("#f0f921", 9)];
+    registerPerFeatureBorderLayer("vec1", leaves);
+    // The layer is a line (border carries value). Paint it by value first.
+    setIntent(ui, "vec1", "borderStyleMode", "value");
+    setIntent(ui, "vec1", "borderValue", countRamp());
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    // The value mode classified the leaves: more than one colour is live.
+    expect(new Set(strokes(leaves)).size).toBeGreaterThan(1);
+
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    // SOLID owns exactly one colour: the authored base (first leaf's stroke
+    // bag), NOT the per-leaf author colours the bug restored.
+    const painted = strokes(leaves);
+    expect(new Set(painted).size).toBe(1);
+    expect(painted[0]).toBe("#0d0887");
+  });
+
+  it("original -> solid flattens a per-feature border to one colour (regression)", () => {
+    const leaves = [makePerFeatureLeaf("#0d0887", 1), makePerFeatureLeaf("#f0f921", 9)];
+    registerPerFeatureBorderLayer("vec1", leaves);
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    const painted = strokes(leaves);
+    expect(new Set(painted).size).toBe(1);
+    expect(painted[0]).toBe("#0d0887");
+  });
+
+  it("solid -> original restores the per-feature multi-colour stroke", () => {
+    const leaves = [makePerFeatureLeaf("#0d0887", 1), makePerFeatureLeaf("#f0f921", 9)];
+    registerPerFeatureBorderLayer("vec1", leaves);
+    setIntent(ui, "vec1", "borderStyleMode", "solid");
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    setIntent(ui, "vec1", "borderStyleMode", "original");
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    // Original mode must keep its per-leaf author colours — the fix must not
+    // flatten original to the base either.
+    const painted = strokes(leaves);
+    expect(new Set(painted).size).toBe(2);
+    expect(new Set(painted)).toEqual(new Set(["#0d0887", "#f0f921"]));
+  });
+
+  it("FOLLOW_FILL stays derived under a solid border mode (not overridden by the solid base)", () => {
+    // The polygon (area) leaf is the follow-fill shape: the border is the
+    // outline, the fill owns the face. Set a per-feature author fill, then
+    // follow-fill — the border must trace each leaf's CURRENT fill colour,
+    // never the solid border base.
+    const leaves = [makePerFeatureLeaf("#0d0887", 1), makePerFeatureLeaf("#f0f921", 9)];
+    registerPerFeatureBorderLayer("vec1", leaves);
+    // Give the leaves distinct live fill paints (the fill face was applied).
+    leaves[0].options.fillColor = "#111111";
+    leaves[1].options.fillColor = "#222222";
+    setIntent(ui, "vec1", "borderStyleMode", "followFill");
+    applyBorderToLayer(ui, "vec1");
+    flushStyleDimApply(FACE.STROKE, "vec1");
+    const painted = strokes(leaves);
+    expect(painted[0]).toBe("#111111");
+    expect(painted[1]).toBe("#222222");
+    expect(painted[0]).not.toBe(painted[1]);
+    // The border colour intent stays absent: derived, not copied.
+    expect(getIntent(ui, "vec1", "borderColor")).toBeUndefined();
+  });
+});

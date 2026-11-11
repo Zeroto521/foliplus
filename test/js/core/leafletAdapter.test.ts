@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import adapterSource from "#core/lifecycle/leafletAdapter?raw";
-import * as adapter from "#foliplus/core/lifecycle/leafletAdapter.js";
+import adapterSource from "#core/leafletAdapter?raw";
+import * as adapter from "#foliplus/core/leafletAdapter.js";
 
 // `getRendererFor` builds an SVG renderer; the shared Leaflet mock carries no
 // `svg` factory because no other module in this file needs one.
@@ -104,7 +104,7 @@ const codeOnly = (src: string): string => src.replace(COMMENT_RE, " ");
 // widened scan.
 const OUT_OF_CHARTER: ReadonlyArray<{ f: string; n: number }> = [];
 
-const ADAPTER = "foliplus/js/core/lifecycle/leafletAdapter.ts";
+const ADAPTER = "foliplus/js/core/leafletAdapter.ts";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
@@ -124,7 +124,7 @@ const walk = (dir: string): string[] => {
 const rel = (p: string) => p.slice(REPO_ROOT.length + 1).replace(/\\/g, "/");
 const code = (p: string) => codeOnly(readFileSync(p, "utf-8"));
 
-const adapterPath = resolve(JS_ROOT, "core/lifecycle/leafletAdapter.ts");
+const adapterPath = resolve(JS_ROOT, "core/leafletAdapter.ts");
 const sources = walk(JS_ROOT);
 
 describe("leafletAdapter is the only module touching the named Leaflet privates", () => {

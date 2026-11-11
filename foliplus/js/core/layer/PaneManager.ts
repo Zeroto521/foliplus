@@ -19,7 +19,7 @@ import {
   getRendererContainer,
   getRendererFor,
   layerShadow,
-} from "#core/lifecycle/leafletAdapter.js";
+} from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("PaneManager");
