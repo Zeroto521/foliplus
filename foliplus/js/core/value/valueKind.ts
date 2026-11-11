@@ -17,7 +17,7 @@
 //  - the filter field kind (core/layer/filterFeature.ts FieldKind:
 //    "numeric" / "string" / "boolean" — how a filter stores a field), and
 //  - the icon source kind (ICON_KIND.GLYPH in core/layer/intent.ts), and
-//  - the style mode (FILL_MODE solid/value/original in core/layer/intent.ts).
+//  - the style mode (STYLE_MODE solid/value/original in core/layer/intent.ts).
 // Mixing those vocabularies into one constant is the conflation the import
 // boundary and the intent guard both guard against.
 

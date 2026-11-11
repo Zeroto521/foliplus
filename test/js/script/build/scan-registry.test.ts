@@ -398,6 +398,81 @@ describe("generateRegistry", () => {
     expect(output).toContain("panelButton");
   });
 
+  it("aliases a same-named export from two modules (collision-safe)", () => {
+    // A vocab const (core) and a locale-key const (ui) can legitimately share
+    // a name like STYLE_MODE. A bare `import { STYLE_MODE }` from each would
+    // collapse in esbuild to the LAST import, publishing the wrong value on
+    // BOTH namespaces. The registry must alias the second import and keep the
+    // published name, so each namespace resolves to its module's OWN value.
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original", SOLID: "solid" } as const;`,
+      "ui/styleModeKey.ts": `export const STYLE_MODE = { ORIGINAL: "style_mode_original", SINGLE: "style_mode_single" } as const;`,
+      "ui/index.ts": `export { STYLE_MODE } from "./styleModeKey.js";`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { STYLE_MODE } from "#core/layer/index.js";
+        import { STYLE_MODE as UIMODE } from "#ui/index.js";
+        const a = STYLE_MODE.ORIGINAL;
+        const b = UIMODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    // The second (ui barrel) import must be aliased; the core one stays bare.
+    expect(output).toContain("STYLE_MODE as STYLE_MODE__ui_index");
+    expect(output).toContain("STYLE_MODE: STYLE_MODE__ui_index");
+    // The core import keeps the bare name (first use wins the published name).
+    expect(output).toContain('window.foliplus.core["layer"] = {');
+    expect(output).toMatch(
+      /window\.foliplus\.core\["layer"\] = \{[^}]*STYLE_MODE[^}]*\}/,
+    );
+    // No bare duplicate import remains.
+    const bareImports = output.match(/import { [^}]*STYLE_MODE[^}]* } from/g) || [];
+    expect(bareImports.filter(s => !s.includes("as STYLE_MODE__ui_index")).length).toBe(
+      1,
+    );
+    // The registration must keep the published name STYLE_MODE on BOTH namespaces.
+    expect(output).toMatch(
+      /window\.foliplus\.core\["layer"\] = \{[^}]*\bSTYLE_MODE\b[^}]*\}/,
+    );
+  });
+
+  it("registers a core single-file export through emitNamespace (coreSingleFiles path)", () => {
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/classify.ts": `export const METHOD = { EQUAL: "equal", QUANTILE: "quantile" } as const;`,
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original" } as const;`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { METHOD } from "#core/classify.js";
+        import { STYLE_MODE } from "#core/layer/index.js";
+        const a = METHOD.EQUAL;
+        const b = STYLE_MODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["classify"] = {');
+    expect(output).toContain("METHOD");
+  });
+
+  it("resolves a directory import spec without a .js extension", () => {
+    // branch line 123: spec.endsWith(".js") false -> idxBase stays the bare base.
+    const [jsDir, buildDir] = buildFakeTree({
+      "core/layer/index.ts": `export const STYLE_MODE = { ORIGINAL: "original" } as const;`,
+      "platform/dom.ts": `export const dom = {};`,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { STYLE_MODE } from "#core/layer";
+        const a = STYLE_MODE.ORIGINAL;
+      `,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain('window.foliplus.core["layer"] = {');
+    expect(output).toContain("STYLE_MODE");
+  });
   it("skips a ui module nothing imports from", () => {
     // if (names.length === 0) continue — a ui module on disk that no
     // component imports must emit nothing (no empty namespace object).
@@ -565,6 +640,17 @@ describe("collectExportedNames", () => {
     const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
     expect(names.has("panelButton")).toBe(true);
     expect(names.has("closeButton")).toBe(true);
+  });
+
+  it("reaches the non-.js index fallback for a missing relative re-export target", () => {
+    // branch line 123: spec.endsWith(".js") false -> idxBase stays the bare base.
+    // A non-.js spec whose path does not exist falls through the candidate list
+    // to the directory-index fallback; the missing index makes it resolve null.
+    const d = dir({
+      "ui/index.ts": `export * from "./absent";`,
+    });
+    const names = collectExportedNames(PATH.join(d, "ui/index.ts"));
+    expect(names.size).toBe(0);
   });
 
   it("collects local re-exports and direct declarations", () => {

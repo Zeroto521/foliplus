@@ -55,9 +55,9 @@ import {
 } from "./styleBag.js";
 import {
   DIM,
-  FILL_MODE,
-  type FillMode,
   GEOM_TYPE,
+  STYLE_MODE,
+  type StyleMode,
   type ValueConfig,
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
@@ -77,7 +77,7 @@ import {
 import {
   BORDER_WEIGHT,
   PANEL_CLASS,
-  STYLE_MODE,
+  STYLE_MODE as STYLE_MODE_KEY,
   type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
@@ -199,7 +199,7 @@ const effectiveBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undef
  *  mode always wins; a mode-less border defers to whether an own value
  *  exists. No fill-side fallback: the border never inherits the fill's
  *  config. */
-const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
+const effectiveBorderMode = (ui: LayerUI, layerId: string): StyleMode =>
   resolveStrokeMode(
     getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE),
     effectiveBorderValue(ui, layerId),
@@ -209,7 +209,7 @@ const effectiveBorderMode = (ui: LayerUI, layerId: string): FillMode =>
  *  mode is active exactly when the mode is value and a value exists; anything
  *  else paints the solid path. */
 const borderValueActive = (ui: LayerUI, layerId: string): boolean =>
-  effectiveBorderMode(ui, layerId) === FILL_MODE.VALUE &&
+  effectiveBorderMode(ui, layerId) === STYLE_MODE.VALUE &&
   effectiveBorderValue(ui, layerId) !== undefined;
 
 /** The seed field for a first user border classification: the fill's own
@@ -272,8 +272,8 @@ const persistedBorderValue = (value: ValueConfig): ValueConfig =>
 
 /** Write the border mode intent, seeding the border value when the user
  *  switches to the by-value mode and none is stored yet. */
-const writeBorderMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
-  if (mode === FILL_MODE.VALUE) {
+const writeBorderMode = (ui: LayerUI, layerId: string, mode: StyleMode): boolean => {
+  if (mode === STYLE_MODE.VALUE) {
     const fields = numericFields(ui, layerId);
     if (fields.length === 0) return false;
     getDimension(DIM.BORDER)!.write!(ui, layerId, {
@@ -299,7 +299,7 @@ const writeBorderValue = (
     ...patch,
   });
   getDimension(DIM.BORDER)!.write!(ui, layerId, {
-    mode: FILL_MODE.VALUE,
+    mode: STYLE_MODE.VALUE,
     value: next,
   });
   return next;
@@ -367,12 +367,12 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // each leaf's captured author face (mirror of fill's original mode). It stays
   // in the intent record, so a later switch back to solid still restores it.
   const mode = effectiveBorderMode(ui, layerId);
-  const original = mode === FILL_MODE.ORIGINAL;
-  const solid = mode === FILL_MODE.SOLID;
+  const original = mode === STYLE_MODE.ORIGINAL;
+  const solid = mode === STYLE_MODE.SOLID;
   // FOLLOW_FILL paints the border with the fill's current colour (single mode
   // only - displayBorderMode falls back otherwise). Never a copy: the intent
   // stays absent, so a fill edit recomputes the border through contentChange.
-  const followFill = mode === FILL_MODE.FOLLOW_FILL;
+  const followFill = mode === STYLE_MODE.FOLLOW_FILL;
   // SOLID owns exactly one colour (mirror of fill's deriveSolidBase). When no
   // BORDER_COLOR intent exists the base is the layer's authored stroke — NOT
   // each leaf's captured author bag, which for a per-feature layer holds a
@@ -445,7 +445,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
     pinStyleOnHighlight(node, DIM.BORDER, () => {
       // The author's own stroke is the paint in ORIGINAL: folium's mouseout
       // restore already put it back, so there is no user face to replay.
-      if (effectiveBorderMode(ui, layerId) === FILL_MODE.ORIGINAL) return null;
+      if (effectiveBorderMode(ui, layerId) === STYLE_MODE.ORIGINAL) return null;
       const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
       // Follow-fill replays this leaf's CURRENT derived colour, so a fill
       // change followed by a highlight restore keeps the border in step.
@@ -689,11 +689,11 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
   // original fill is the author's own), so the row owns a width control
   // only — no colour swatch at all. The width stays in the right column
   // (the shared `.foliplus-style-size-row` inline right-align).
-  if (mode === FILL_MODE.FOLLOW_FILL) {
+  if (mode === STYLE_MODE.FOLLOW_FILL) {
     return [buildBorderWidthOnlyRow(ui, layerId, author)];
   }
 
-  if (mode === FILL_MODE.ORIGINAL) {
+  if (mode === STYLE_MODE.ORIGINAL) {
     // ORIGINAL owns no user color: the row must show the author's own stroke,
     // never the color the user set in the single-color mode (that intent stays
     // stored and takes effect only when the mode returns to solid). Reading
@@ -765,7 +765,7 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  where the border is only the outline and never classifies by value — reads
  *  as the illegal value and falls back to "original"; no compatibility
  *  migration is performed. */
-const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
+const displayBorderMode = (ui: LayerUI, layerId: string): StyleMode => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
   // Same pre-mode record shape the fill side reads: a stored colour without a
   // mode means the user already painted the solid mode (the record written
@@ -774,12 +774,12 @@ const displayBorderMode = (ui: LayerUI, layerId: string): FillMode => {
   // modes and does not move the mode, same rule as the fill's opacity.
   if (stored === undefined) {
     if (getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined) {
-      return FILL_MODE.SOLID;
+      return STYLE_MODE.SOLID;
     }
-    return FILL_MODE.ORIGINAL;
+    return STYLE_MODE.ORIGINAL;
   }
-  if (stored === FILL_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
-    return FILL_MODE.ORIGINAL;
+  if (stored === STYLE_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
+    return STYLE_MODE.ORIGINAL;
   }
   // FOLLOW_FILL is a per-leaf derived paint: it holds across every fill
   // state (solid / by-value / original), because the border follows each
@@ -808,24 +808,24 @@ const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
 /** The detail mode the border block renders for the current display mode:
  *  'original' and 'solid' both show the solid controls; only an explicit
  *  'value' choice shows the value controls. */
-const borderDetailMode = (ui: LayerUI, layerId: string): FillMode => {
+const borderDetailMode = (ui: LayerUI, layerId: string): StyleMode => {
   const display = displayBorderMode(ui, layerId);
-  if (display === FILL_MODE.VALUE) return FILL_MODE.VALUE;
+  if (display === STYLE_MODE.VALUE) return STYLE_MODE.VALUE;
   // FOLLOW_FILL renders its own width-only row (no colour input): the
   // derived colour is not the user's to edit, but the width stays editable.
-  if (display === FILL_MODE.FOLLOW_FILL) return FILL_MODE.FOLLOW_FILL;
-  return FILL_MODE.SOLID;
+  if (display === STYLE_MODE.FOLLOW_FILL) return STYLE_MODE.FOLLOW_FILL;
+  return STYLE_MODE.SOLID;
 };
 
 const renderBorderDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillMode,
+  mode: StyleMode,
 ): void => {
   disposeBorderRow(ui);
   detail.replaceChildren();
-  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+  if (mode === STYLE_MODE.VALUE && numericFields(ui, layerId).length > 0) {
     const value = borderValueForUi(ui, layerId, numericFields(ui, layerId));
     for (const row of buildValueDetail(
       ui,
@@ -870,13 +870,13 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
   // dead entry on a line.
   const canFollowFill = !carriesValue;
   const options = [
-    { value: FILL_MODE.ORIGINAL, label: ui.T(STYLE_MODE.ORIGINAL) },
-    { value: FILL_MODE.SOLID, label: ui.T(STYLE_MODE.SINGLE) },
+    { value: STYLE_MODE.ORIGINAL, label: ui.T(STYLE_MODE_KEY.ORIGINAL) },
+    { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
     ...(canFollowFill
-      ? [{ value: FILL_MODE.FOLLOW_FILL, label: ui.T("style_border_follow_fill") }]
+      ? [{ value: STYLE_MODE.FOLLOW_FILL, label: ui.T("style_border_follow_fill") }]
       : []),
     ...(carriesValue
-      ? [{ value: FILL_MODE.VALUE, label: ui.T(STYLE_MODE.BY_VALUE) }]
+      ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
       : []),
   ];
   const modeRow = buildModeRow({
@@ -982,9 +982,9 @@ const bindBorderDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillMode,
+  mode: StyleMode,
 ): void => {
-  if (mode === FILL_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+  if (mode === STYLE_MODE.VALUE && numericFields(ui, layerId).length > 0) {
     bindBorderValueDetail(ui, layerId, detail);
     // Bind the width-only row appended to the value detail: the same shell
     // binder the other modes use, so the weight commits through one channel.
@@ -1038,7 +1038,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     // re-write the same mode.
     const previous = displayBorderMode(ui, layerId);
     const raw = select.value;
-    const next = raw as FillMode;
+    const next = raw as StyleMode;
     if (next === previous) return;
     if (!writeBorderMode(ui, layerId, next)) return;
 
@@ -1061,7 +1061,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
 const BORDER_DIMENSION = registerDimension<{
   color: string;
   weight: number;
-  mode: FillMode;
+  mode: StyleMode;
   value?: ValueConfig;
 }>({
   key: DIM.BORDER,
