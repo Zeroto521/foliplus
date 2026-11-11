@@ -1962,9 +1962,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # wrap that pushes into the control). EVERY other label-class string
             # must still fit the token — a locale edit that lengthens any short
             # label turns this red instead of silently wrapping.
-            method_strings = {
-                _METHOD_EN, _METHOD_ZH
-            }
+            method_strings = {_METHOD_EN, _METHOD_ZH}
             assert method_strings <= strings, (
                 "the method-label strings are not part of the guard set"
             )
@@ -1974,8 +1972,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert max_short <= result["token"] - result["paddingRight"], (
                 f"a non-method label-class string exceeds the label column token: "
-                f"max {max_short:.1f}px > token {result["token"]} - "
-                f"padding {result["paddingRight"]}px"
+                f"max {max_short:.1f}px > token {result['token']} - "
+                f"padding {result['paddingRight']}px"
             )
 
             assert not errors, f"JS errors: {errors}"
