@@ -3,7 +3,7 @@
 // registered shortcuts by priority, avoiding duplicate listeners across
 // components and resolving key conflicts.
 import { keyOwner, nativeConsumesKey } from "./inputOwnership.js";
-import { ensureMapFoliplus } from "#core/lifecycle/index.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 /**
  * A shortcut definition as accepted by `register()` (the caller-facing part).

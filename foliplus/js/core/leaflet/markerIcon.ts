@@ -32,7 +32,7 @@ import {
   resolveGlyph,
 } from "./glyphSource.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/lifecycle/leafletAdapter.js";
+import { detachMarkerIcons } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");
@@ -113,6 +113,17 @@ const captureAuthorIcon = (leaf: object): void => {
   authorIcon.set(leaf, own ?? defaultIconProto());
 };
 
+/** The author's icon for a leaf — the CAPTURED one when a write captured
+ *  it (setIcon replaces options.icon in place, so after a write the live
+ *  icon is the user's derived icon, not the author's), else the leaf's own
+ *  live icon (a leaf that never wrote IS its author). The row and reset
+ *  both read this, so the row never shows the user's paint as the author's
+ *  and reset restores exactly what the row showed. */
+const authorIconOf = (leaf: object): unknown =>
+  authorIcon.get(leaf) ??
+  (leaf as { options?: { icon?: unknown } }).options?.icon ??
+  defaultIconProto();
+
 /** The Leaflet default-icon prototype a leaf with no explicit icon falls
  *  back to, or undefined in a Leaflet-free DOM. */
 const defaultIconProto = (): unknown => {
@@ -127,6 +138,32 @@ const defaultIconProto = (): unknown => {
     undefined
   );
   /* v8 ignore stop */
+};
+
+/** The author's own glyph paint for one icon, read in the SAME order the
+ *  derive consumes it: the inner <i> inline color (the author's createIcon
+ *  output — awesome-markers paints the glyph inline) first, then the declared
+ *  iconColor option, then nothing (the caller applies its own default, e.g.
+ *  "#ffffff"). `renderedDiv` lets the derive pass the div it already built so
+ *  it is not created twice; without it the icon's createIcon is called once.
+ *  Empty strings mean "no paint" and fall through, matching the derive's ??
+ *  chain. The row and the derive both call this — one read, one order. */
+const authorGlyphColorOf = (
+  icon: unknown,
+  renderedDiv?: HTMLElement | null,
+): string | undefined => {
+  let div = renderedDiv;
+  if (!div) {
+    const create = (icon as { createIcon?: unknown })?.createIcon;
+    if (typeof create === "function") {
+      div = (create as () => HTMLElement).call(icon) as HTMLElement;
+    }
+  }
+  const inner = div ? div.querySelector("i") : null;
+  const inline = inner ? (inner as HTMLElement).style.color : "";
+  if (inline) return inline;
+  const declared = (icon as { options?: { iconColor?: unknown } })?.options?.iconColor;
+  return typeof declared === "string" && declared !== "" ? declared : undefined;
 };
 
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
@@ -246,26 +283,15 @@ const buildMarkerIcon = (opts: {
     // turn "the author named nothing" into black). The color dimension
     // itself is the icon color dimension.
     const authorInner = div.querySelector("i");
-    const authorInlineColor = authorInner
-      ? (authorInner as HTMLElement).style.color
-      : "";
-    // The user's color wins; else the author's inner <i> inline color
-    // (awesome-markers paints the glyph inline — the same paint the author's
-    // createIcon produced); else the author's declared iconColor option;
-    // else white. options.markerColor is the CHASSIS color (the pin's
-    // background) — the chassis is handled in buildMarkerIcon's markerColor
-    // path above, never read as a glyph source here. One derivation,
-    // one paint — color and glyph never split.
-    const authorIconColor = (author as { options?: { iconColor?: string } }).options
-      ?.iconColor;
-    // Empty string means "no author paint" (awesome-markers leaves the glyph
-    // uncolored), so normalise empties to undefined and fall through with ??.
-    const inlineColor = authorInlineColor || undefined;
-    // Normalise an empty author iconColor to undefined so a declared-but-empty
-    // value falls through to the default (a non-nullish empty string must not
-    // win over the default).
-    const authorIconColorVal = authorIconColor === "" ? undefined : authorIconColor;
-    const iconColor = opts.color ?? inlineColor ?? authorIconColorVal ?? "#fff";
+    // The user's color wins; else the author's own glyph paint, read in ONE
+    // order by the shared authorGlyphColorOf (the inner <i> inline color —
+    // awesome-markers paints the glyph inline, the same paint the author's
+    // createIcon produced — else the declared iconColor option); else white.
+    // options.markerColor is the CHASSIS color (the pin's background) — the
+    // chassis is handled in buildMarkerIcon's markerColor path above, never
+    // read as a glyph source here. One derivation, one paint — color and
+    // glyph never split.
+    const iconColor = opts.color ?? authorGlyphColorOf(author, div) ?? "#fff";
     // One paint, one alpha. A user color paints at the user's opacity
     // (default 100 = opaque); an author-derived color keeps the author's own
     // alpha parsed from the source, so an opacity-only write never silently
@@ -449,6 +475,8 @@ export {
   applyIconToLeaves,
   applyIconColorToLeaves,
   applyMarkerColorToLeaves,
+  authorGlyphColorOf,
+  authorIconOf,
   authorGlyphName,
   authorGlyphPrefix,
   buildMarkerIcon,
