@@ -9,11 +9,10 @@ import {
   polygonLayerWithStyle,
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLayerAlpha } from "#core/layer/index.js";
+import { GEOM_TYPE, getLayerAlpha } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
-import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
-import type { PaneSpec } from "#foliplus/core/layer/index.js";
+import { type PaneSpec } from "#foliplus/core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";

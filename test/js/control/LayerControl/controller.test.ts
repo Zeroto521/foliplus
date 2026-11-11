@@ -8,14 +8,15 @@ import {
 } from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerRuntimeStore, getLayerAlpha } from "#core/layer/index.js";
 import {
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
+  LayerRuntimeStore,
   ROLE,
   Z_INDEX,
-} from "#foliplus/core/layer/const.js";
-import * as coreLayer from "#foliplus/core/layer/index.js";
+  getLayerAlpha,
+} from "#core/layer/index.js";
+import * as coreLayer from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
