@@ -14,6 +14,7 @@ import {
   DEFAULT_LABEL_COLOR,
   type DropdownOverlay,
   type DropdownSurface,
+  LABEL_CLASS,
   LABEL_SIZE,
   PANEL_CLASS,
   bindLiveColor,
@@ -26,17 +27,9 @@ import {
 } from "#ui/index.js";
 
 /** CSS class names — the same vocabulary the label panel and the
- *  delegated drawer use. Defined here (not imported from a component const)
- *  because the shared runtime cannot depend on a component module. */
-const CLS = {
-  STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
-  STYLE_BODY: "foliplus-style-body",
-  STYLE_FORMAT_ROW: "foliplus-style-format-row",
-  STYLE_FORMAT_SELECT: "foliplus-style-format-select",
-  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
-  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
-  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
-} as const;
+ *  delegated drawer use. Single-sourced in ui/labelClassName so the shared
+ *  runtime renderer and the LayerControl panel cannot drift again. */
+const CLS = LABEL_CLASS;
 
 /** Style value shape read from a component's styleProvider. */
 interface LabelStyleValues {
