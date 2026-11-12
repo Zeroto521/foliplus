@@ -399,7 +399,6 @@ const mountedGlyphMatches = (
   return cls.includes(token) && cls.includes(prefix);
 };
 
-
 /** Paint the mounted chassis span in place (no icon rebuild). Returns
  *  true when the write was handled in place — the mounted element already
  *  carries a chassis span AND the new paint still wants one (so the

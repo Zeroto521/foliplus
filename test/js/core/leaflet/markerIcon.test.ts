@@ -360,7 +360,13 @@ describe("in-place paint (no rebuild)", () => {
     expect(innerBefore.className).toContain("fa-star");
     // A colour write under the panel default prefix matches the mounted fa-star
     // (the glyph name is bare "star", not "fa-star").
-    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "star", undefined, "fa-solid");
+    applyIconColorToLeaves(
+      makeMarkerGroup(m),
+      "#00ff00",
+      "star",
+      undefined,
+      "fa-solid",
+    );
     const innerAfter = el.querySelector("i") as HTMLElement;
     expect(innerAfter).toBe(innerBefore);
     expect(m.setIcon).toHaveBeenCalledTimes(1);
@@ -420,7 +426,13 @@ describe("in-place paint (no rebuild)", () => {
     // A glyph name already carrying the fa- prefix takes the consequent arm of
     // the prefix ternary — the mounted token matches verbatim, so the write
     // paints in place with no rebuild.
-    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "fa-star", undefined, "fa-solid");
+    applyIconColorToLeaves(
+      makeMarkerGroup(m),
+      "#00ff00",
+      "fa-star",
+      undefined,
+      "fa-solid",
+    );
     expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
     expect(inner.style.color).toBe("rgb(0, 255, 0)");
   });
