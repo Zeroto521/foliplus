@@ -6628,6 +6628,59 @@ describe("cleanEmptyFolders", () => {
     ).toBeUndefined();
     expect(manager.layerFilters.get("overlay1")).toBeUndefined();
   });
+
+  it("applyFilterClass is reached only through the store's host.apply (single write point)", () => {
+    const { manager } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    manager.uiContainer = document.createElement("div");
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: (() => {
+        const s = new LayerRuntimeStore();
+        s.setFilterFeatures("overlay1", {
+          features: [],
+          numericFields: ["mag"],
+          ranges: { mag: [0, 10] },
+          enumFields: [],
+          enumValues: {},
+          total: 5,
+        } as any);
+        return s;
+      })(),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    // The hidden-class carrier is the single place a committed filter touches
+    // the DOM leaves. If setLayerFilter re-applied the class directly (bypassing
+    // the store's host.apply), this spy would count a second call.
+    const applySpy = vi.spyOn(manager as any, "applyFilterClass");
+    manager.setLayerFilter("overlay1", {
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [2, 8],
+    } as any);
+
+    expect(applySpy).toHaveBeenCalledTimes(1);
+    expect(applySpy).toHaveBeenCalledWith("overlay1", {
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [2, 8],
+    });
+    applySpy.mockRestore();
+  });
 });
 describe("generic filter declaration seeding", () => {
   // The author's declared filter (CONF data[].filter) is a construction-time
