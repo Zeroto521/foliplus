@@ -16,6 +16,7 @@ import {
 } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
+  CATEGORY_SCHEMES,
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
   DEFAULT_SCHEMES,
@@ -102,9 +103,12 @@ export {
   declaredValue,
   effectiveFillValue,
   hasDeclaredValue,
-  numericFields,
+  hasValueField,
   resolvedValue,
+  valueFields,
   valueForUi,
+  valueSchemeForUi,
+  valueSchemes,
   writeFillMode,
 };
 
@@ -182,6 +186,22 @@ const categoryFields = (ui: LayerUI, layerId: string): string[] => {
   const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as L.Layer | null;
   return layer ? categoricalPropertiesKeys(layer) : [];
 };
+/** Whether the layer offers any field a by-value fill can drive: a numeric
+ *  field (range/classify) or a discrete string/boolean field (category). This
+ *  is the single entry condition both the fill row and the border row use, so
+ *  a string-only layer (GADM NAME_3, say) gains the by-value entry without
+ *  either panel inventing a second field list. */
+const hasValueField = (ui: LayerUI, layerId: string): boolean =>
+  numericFields(ui, layerId).length > 0 || categoryFields(ui, layerId).length > 0;
+
+/** The union field list the value mode offers: numeric fields first (the
+ *  classify/range machine), then categorical fields (the category machine).
+ *  Both kinds share one picker; the seeded config's kind decides which
+ *  machine drives. */
+const valueFields = (ui: LayerUI, layerId: string): string[] => [
+  ...numericFields(ui, layerId),
+  ...categoryFields(ui, layerId),
+];
 
 /** Resolve a stored value config's field against the fields the layer offers
  *  right now. Display (`valueForUi`), the dimension's value and the paint path
@@ -367,9 +387,24 @@ const valueForUi = (
   const declared = resolvedValue(ui, layerId, declaredValue(ui, layerId));
   if (declared) return declared;
   // Every caller reaches this line with a non-empty list: the detail only
-  // renders the value mode when a numeric field exists, and the mode write
-  // bails first when it does not.
-  return defaultValueConfig(seedField(ui, layerId, fields), seedClasses(ui, layerId));
+  // renders the value mode when a value field exists, and the mode write
+  // bails first when it does not. The seeded config's kind follows the
+  // seeded field's actual kind — a string-only layer seeds CATEGORY, a
+  // numeric layer seeds NUMERIC — so the row and the map agree on the
+  // classification machine from the first open.
+  const field = seedField(ui, layerId, fields);
+  const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
+    ui.c.findLayer(layerId)) as L.Layer | null;
+  const kind = layer ? inferFieldKind(layer, field) : "numeric";
+  return kind === VALUE_KIND.CATEGORY
+    ? {
+        kind: VALUE_KIND.CATEGORY,
+        field,
+        method: CONST.FILL_VALUE.METHOD_DEFAULT,
+        classes: CLASS_COUNT.DEFAULT,
+        scheme: CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT,
+      }
+    : defaultValueConfig(field, seedClasses(ui, layerId));
 };
 
 /** Write the mode intent, seeding the value config when the user switches to
@@ -381,8 +416,8 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: StyleMode): boolean =
     getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
     return true;
   }
-  const fields = numericFields(ui, layerId);
-  if (fields.length === 0) return false;
+  if (!hasValueField(ui, layerId)) return false;
+  const fields = valueFields(ui, layerId);
   getDimension(DIM.FILL)!.write!(ui, layerId, {
     mode,
     value: persistedValue(valueForUi(ui, layerId, fields)),
@@ -398,14 +433,57 @@ const writeFillValue = (
   layerId: string,
   patch: Partial<ValueConfig>,
 ): ValueConfig => {
-  const fields = numericFields(ui, layerId);
-  const next: ValueConfig = persistedValue({
+  const fields = valueFields(ui, layerId);
+  const merged: ValueConfig = {
     ...valueForUi(ui, layerId, fields),
     ...patch,
-  });
+  };
+  // A field switch must re-infer the classification kind: the stored config
+  // (or the seed) may be numeric, but the new field may be a category column
+  // (or vice versa). The kind is derived, never hand-copied, so the row and
+  // the paint machine stay on one vocabulary.
+  if (patch.field !== undefined) {
+    const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
+      ui.c.findLayer(layerId)) as L.Layer | null;
+    const inferred = layer ? inferFieldKind(layer, patch.field) : "numeric";
+    if (inferred === VALUE_KIND.CATEGORY) {
+      merged.kind = VALUE_KIND.CATEGORY;
+      // A scheme from the other vocabulary (a numeric palette name) cannot
+      // drive a category ramp: fall back to the qualitative default rather
+      // than offering the picker a value it does not list.
+      if (!(merged.scheme in CATEGORY_SCHEMES)) {
+        merged.scheme = CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT;
+      }
+    } else {
+      merged.kind = VALUE_KIND.NUMERIC;
+      if (!(DEFAULT_SCHEMES as readonly string[]).includes(merged.scheme)) {
+        merged.scheme = CONST.FILL_VALUE.SCHEME_DEFAULT;
+      }
+    }
+  }
+  const next: ValueConfig = persistedValue(merged);
   getDimension(DIM.FILL)!.write!(ui, layerId, { mode: STYLE_MODE.VALUE, value: next });
   return next;
 };
+
+/** The scheme vocabulary the value detail offers for one config: the
+ *  sequential palettes for a numeric classification, the qualitative palettes
+ *  for a category. One predicate, two vocabularies — the picker and the row
+ *  builder cannot disagree about which list is live. */
+const valueSchemes = (value: ValueConfig): readonly string[] =>
+  isCategoryKind(value.kind) ? Object.keys(CATEGORY_SCHEMES) : DEFAULT_SCHEMES;
+
+/** The scheme the panel should display for a stored value. A record may keep
+ *  an author palette from the other vocabulary (a sequential name on a
+ *  category record, say); the picker can only draw what its own list offers,
+ *  so the displayed value falls back to that kind's default while the stored
+ *  record keeps its author value untouched. */
+const valueSchemeForUi = (value: ValueConfig): string =>
+  valueSchemes(value).includes(value.scheme)
+    ? value.scheme
+    : isCategoryKind(value.kind)
+      ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
+      : CONST.FILL_VALUE.SCHEME_DEFAULT;
 
 /** The value mode's detail rows, built from the shared `core/rampForm`
  *  primitives: the heatmap panel and this panel therefore share the row
@@ -473,7 +551,9 @@ const buildValueDetail = (
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
   });
 
-  return [field.row, classes.row, scheme.row];
+  return isCategoryKind(value.kind)
+    ? [field.row, scheme.row]
+    : [field.row, classes.row, scheme.row];
 };
 
 /** State the committed class count on the value row.
@@ -514,13 +594,13 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   const hidden = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
-  const fields = numericFields(ui, layerId);
+  const fields = valueFields(ui, layerId);
   const value = valueForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
-    schemes: DEFAULT_SCHEMES,
-    value: value.scheme,
+    schemes: valueSchemes(value),
+    value: valueSchemeForUi(value),
     // Every scheme this panel offers is a registered chroma scale; the author
     // scale is no longer one of them, so the picker needs no consumer hook.
     colorScale: getColorScale,
@@ -555,25 +635,29 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
 
   const methodSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-  ) as HTMLSelectElement;
-  methodSelect.onchange = () =>
-    writeFillValue(ui, layerId, {
-      method: methodSelect.value as ValueConfig["method"],
-    });
+  ) as HTMLSelectElement | null;
+  if (methodSelect !== null) {
+    methodSelect.onchange = () =>
+      writeFillValue(ui, layerId, {
+        method: methodSelect.value as ValueConfig["method"],
+      });
+  }
 
   const classesSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
-  ) as HTMLSelectElement;
-  classesSelect.onchange = () => {
-    const next = writeFillValue(ui, layerId, {
-      classes: parseInt(classesSelect.value, 10),
-    });
-    // The strip has one block per class: keep the picker's preview in step
-    // with the count the map is now using.
-    picker.setNumClasses(next.classes);
-    // The row states what the map now paints — trigger label, tooltip and open
-    // list together — instead of leaving the declared count's presentation
-    // behind on a control the user has already overridden.
-    convergeClassesRow(classesSelect, next.classes);
-  };
+  ) as HTMLSelectElement | null;
+  if (classesSelect !== null) {
+    classesSelect.onchange = () => {
+      const next = writeFillValue(ui, layerId, {
+        classes: parseInt(classesSelect.value, 10),
+      });
+      // The strip has one block per class: keep the picker's preview in step
+      // with the count the map is now using.
+      picker.setNumClasses(next.classes);
+      // The row states what the map now paints — trigger label, tooltip and open
+      // list together — instead of leaving the declared count's presentation
+      // behind on a control the user has already overridden.
+      convergeClassesRow(classesSelect, next.classes);
+    };
+  }
 };

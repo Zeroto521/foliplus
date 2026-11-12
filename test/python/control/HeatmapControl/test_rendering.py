@@ -245,21 +245,15 @@ class TestHeatmapControlRendering:
     # ── Algorithm tests (rendering checks) ──
 
     def test_form_row_label_before_control(self):
-        """In each form-row, <label> appears before <div.form-control> in JS."""
+        """In a form row, <label> precedes the .foliplus-form-control cell."""
         html = render_control(HeatmapControl())
-        # For the classification method row, verify the JS creates label
-        # before form-control within the same form-row.
-        # In the rendered JS, 'classRow' should appear before 'classControlWrap'
-        # because label is appended to classRow first, then controlWrap.
-        row_pos = html.find("class: CONST.CLASSES.FORM_ROW, parent: styleSection")
-        label_pos = html.find(
-            "class: CONST.CLASSES.FORM_LABEL, parent: classRow, innerHTML: _"
+        # The row order is a visual contract, so assert the values the panel
+        # actually renders: <label class="foliplus-form-label"> opens before
+        # the .foliplus-form-control cell inside the same .foliplus-form-row.
+        row_pos = html.find('class="foliplus-form-row"')
+        label_pos = html.find('class="foliplus-form-label"')
+        ctrl_pos = html.find('class="foliplus-form-control"')
+        assert row_pos != -1 and label_pos != -1 and ctrl_pos != -1
+        assert label_pos < ctrl_pos, (
+            "label must be created before form-control in the same row"
         )
-        ctrl_pos = html.find(
-            "FORM_CONTROL} ${CONST.CLASSES.FORM_CONTROL_INLINE}`,\n        parent: classRow"
-        )
-        if row_pos >= 0 and label_pos >= 0 and ctrl_pos >= 0:
-            assert label_pos < ctrl_pos, (
-                f"label (pos {label_pos}) must be created before "
-                f"form-control (pos {ctrl_pos}) in the same row"
-            )

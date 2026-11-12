@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import {
   FALLBACK_PANE_PREFIX,
+  FILTER_SOURCE,
   GEOM_TYPE,
   LayerRuntimeStore,
   ROLE,
@@ -6610,12 +6611,119 @@ describe("cleanEmptyFolders", () => {
       range: [2, 8],
     } as any);
     expect(manager.layerFilters.get("overlay1")).toBeDefined();
+    // Transition assertion: the shared store carries the same committed value.
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toEqual({
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [2, 8],
+    });
 
     model!.onField!("depth");
 
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toBeUndefined();
     expect(manager.layerFilters.get("overlay1")).toBeUndefined();
   });
 });
+describe("generic filter declaration seeding", () => {
+  // The author's declared filter (CONF data[].filter) is a construction-time
+  // constant, not a user write: the constructor captures it on the shared
+  // store's declaration channel (never persisted, never owned) and mirrors it
+  // into the read-compatible map + registry slot exactly as the old
+  // write-through did. A declaration-only slot must NOT answer isOwned, so a
+  // later reload that re-seeds it keeps the declaration winning over a stale
+  // persisted value.
+  const declared = {
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [2, 8],
+  } as const;
+
+  it("seeds a declared filter as a store declaration, not an owned value", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayer(),
+          filter: declared,
+        },
+      ],
+    });
+
+    // The store carries the committed value read back as the declaration...
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toEqual(declared);
+    // ...but the slot is NOT owned: a declaration is construction-time state,
+    // and only a user write (setLayerFilter) takes the slot and persists.
+    expect(
+      (manager as any).filterStore.isOwned("overlay1", FILTER_SOURCE.GENERIC),
+    ).toBe(false);
+    // The read-compatible mirror and the registry slot carry the same value
+    // (S4b reads layers[id].filter directly; the panel never re-derives).
+    expect(manager.layerFilters.get("overlay1")).toEqual(declared);
+    expect(manager.layerRegistry.get("overlay1")!.filter).toEqual(declared);
+  });
+
+  it("a user write takes the slot, and the declaration no longer seeds it", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayer(),
+          filter: declared,
+        },
+      ],
+    });
+
+    // The user commits their own value over the declaration.
+    manager.setLayerFilter("overlay1", {
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [4, 9],
+    } as any);
+    expect(
+      (manager as any).filterStore.isOwned("overlay1", FILTER_SOURCE.GENERIC),
+    ).toBe(true);
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toEqual({
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [4, 9],
+    });
+    expect(manager.layerFilters.get("overlay1")).toEqual({
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [4, 9],
+    });
+  });
+
+  it("a layer with no declared filter keeps no committed filter", () => {
+    const { manager } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toBeUndefined();
+    expect(manager.layerFilters.has("overlay1")).toBe(false);
+  });
+});
+
 describe("genericFilterModel — enum dimensions", () => {
   const makeRuntimeStore = (
     features: Partial<import("#core/layer/index.js").LayerFilterFeatures>,

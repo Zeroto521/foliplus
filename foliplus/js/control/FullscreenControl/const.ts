@@ -1,4 +1,5 @@
-// FullscreenControl constants — CSS class names.
+// FullscreenControl constants — CSS class names. foliplus-hidden is the
+// shared panel vocabulary (ui/panelClassName), not a component class.
 import { generateId } from "#core/lifecycle/index.js";
 import { PSEUDO_FULLSCREEN_CLASS } from "#platform/fullscreen.js";
 
@@ -8,7 +9,6 @@ const CLASSES = {
   ZOOM_IN: "foliplus-zoom-in",
   ZOOM_OUT: "foliplus-zoom-out",
   TOGGLE: "foliplus-fullscreen-toggle",
-  HIDDEN: "foliplus-hidden",
 };
 
 const containerId = (name: string, position: string) =>

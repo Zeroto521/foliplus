@@ -16,7 +16,7 @@ import {
   setLayerAlpha,
 } from "#core/layer/index.js";
 import { CLASS_COUNT, METHOD, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
-import { BORDER_WEIGHT } from "#ui/index.js";
+import { BORDER_WEIGHT, PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
@@ -1728,7 +1728,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(ctrl.methodSelect.value).toBe(config.method);
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     // The cleared selection is persisted rather than the record dropped: a
     // stored layerId: null consumes the one-shot auto-select guard, so a reload
     // cannot resurrect the deleted layer. Dropping the record would make the

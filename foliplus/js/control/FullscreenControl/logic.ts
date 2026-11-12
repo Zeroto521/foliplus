@@ -6,6 +6,7 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
  *  narrowed to what this module reads — `name` and `hide_*` from CONFIG, plus
@@ -38,7 +39,7 @@ const updateUI = (
     const cid = containerId(config.name, config.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
-      c.classList.toggle(CLASSES.HIDDEN, isFull);
+      c.classList.toggle(PANEL_CLASS.HIDDEN, isFull);
     }
   }
 
@@ -46,7 +47,7 @@ const updateUI = (
     const selfBtns = container.querySelectorAll(
       `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
     );
-    for (const btn of selfBtns) btn.classList.toggle(CLASSES.HIDDEN, isFull);
+    for (const btn of selfBtns) btn.classList.toggle(PANEL_CLASS.HIDDEN, isFull);
   }
 
   map.foliplus!.showHint?.(

@@ -269,8 +269,8 @@ const CLASSES = {
   /* ── Shared slider component (common/slider.css) ──
      Both range controls are this component; a row adds only its own hook
      class for behaviour and tests. Geometry, marks and numbers are declared
-     once, inside the primitive. */
-  SLIDER: "foliplus-slider",
+     once, inside the primitive; the root name itself is owned by
+     ui/sliderClassName. */
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
   /** Floating filter panel opened from the layer overflow menu. */

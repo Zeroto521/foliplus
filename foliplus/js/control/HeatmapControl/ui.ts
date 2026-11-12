@@ -27,6 +27,7 @@ import {
   onFullscreenSurfaceChange,
 } from "#platform/fullscreen.js";
 import {
+  PANEL_CLASS,
   type SchemePicker,
   createDropdown,
   createSchemePicker,
@@ -429,7 +430,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     !ctrl.mgr.selectedLayerId
   ) {
     ctrl.mgr.selectedLayerId = ctrl.mgr.pointLayers[0].id;
-    if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
+    if (ctrl.extraBody) ctrl.extraBody.classList.remove(PANEL_CLASS.HIDDEN);
     syncSelect(ctrl, sel, ctrl.mgr.selectedLayerId);
     updateFieldSelector(ctrl);
     // Declared filter: the source and its field list are settled, and this is
@@ -465,7 +466,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   sel.onchange = () => {
     ctrl.mgr.selectedLayerId = sel.value || null;
     if (ctrl.extraBody) {
-      ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+      ctrl.extraBody.classList.toggle(PANEL_CLASS.HIDDEN, !ctrl.mgr.selectedLayerId);
     }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
@@ -486,7 +487,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   syncSelect(ctrl, sel, sel.value);
   if (ctrl.extraBody) {
-    ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+    ctrl.extraBody.classList.toggle(PANEL_CLASS.HIDDEN, !ctrl.mgr.selectedLayerId);
   }
 };
 
@@ -542,7 +543,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
       ctrl.mgr.saveConfig();
     }
     rebuildFieldOptions(ctrl, fields, "");
-    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    ctrl.fieldWrap.classList.add(PANEL_CLASS.HIDDEN);
     return;
   }
 
@@ -559,10 +560,10 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     // Keep the hidden select on a valid option rather than the empty string —
     // the effective field stays selected so switching aggregation keeps it.
     rebuildFieldOptions(ctrl, fields, effective);
-    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    ctrl.fieldWrap.classList.add(PANEL_CLASS.HIDDEN);
     return;
   }
-  ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
+  ctrl.fieldWrap.classList.remove(PANEL_CLASS.HIDDEN);
 
   // A stored field the data no longer offers displays the fallback (declaration
   // or first numeric field) while the stored pick stays untouched in the
@@ -692,7 +693,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   // Drop the published source rows — the canvas unregisters on clear, but the
   // shared meta object outlives it and would repopulate stale values on re-register.
   ctrl.mgr.syncSourceMeta();
-  ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
+  ctrl.extraBody.classList.add(PANEL_CLASS.HIDDEN);
 };
 
 const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {

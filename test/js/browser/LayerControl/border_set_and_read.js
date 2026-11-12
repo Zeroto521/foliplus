@@ -79,6 +79,8 @@
     panel: true,
     id: row.getAttribute("data-layer-id"),
     borderRows: panel.querySelectorAll(".foliplus-style-border-row").length,
+    borderMode:
+      panel.querySelector(".foliplus-style-border-mode-select")?.value ?? null,
     color: setColor ? setColor.value : null,
     weight: setWeight ? setWeight.value : null,
     labels: Array.from(panel.querySelectorAll(".foliplus-form-label")).map(

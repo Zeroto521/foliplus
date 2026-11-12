@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { CLASS_COUNT, METHOD } from "#core/value/index.js";
 import { dropdownOf } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
@@ -100,7 +101,7 @@ describe("bindControls — template render and initial values", () => {
     expect(triggerOf(ctrl.aggSelect).title).toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     // Nothing is written: a first open with a declaration must stay record-free.
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
@@ -217,11 +218,11 @@ describe("bindControls — change handlers", () => {
     expect(m.agg).toBe(CONST.AGG.SUM);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
 
     ctrl.aggSelect.value = CONST.AGG.COUNT;
     fire(ctrl.aggSelect, "change");
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("field change stores the resolved field and persists", () => {
@@ -377,7 +378,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.scheme).toBe(config.color_scheme);
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(false);
 
@@ -466,7 +467,7 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     // hidden under the count aggregation anyway.
     expect(ctrl.fieldSelect.value).toBe("");
     expect(ctrl.fieldSelect.querySelectorAll("option").length).toBe(0);
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("keeps the CONFIG aggregation through a reset with no numeric field", () => {
@@ -692,7 +693,7 @@ describe("layer dropdown change handler", () => {
     fire(ctrl.layerSelect, "change");
 
     expect(m.selectedLayerId).toBe("p1");
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -709,7 +710,7 @@ describe("layer dropdown change handler", () => {
     fire(ctrl.layerSelect, "change");
 
     expect(m.selectedLayerId).toBeNull();
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(clear).toHaveBeenCalled();
   });
 });
@@ -1143,7 +1144,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     const { ctrl, m } = seed({ name: "x", label: "y" });
     expect(m.field).toBe("");
     expect(ctrl.fieldSelect.options.length).toBe(0);
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("falls back to count when no numeric field exists", () => {
@@ -1157,7 +1158,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(triggerOf(ctrl.aggSelect).title).toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
       "count",
     );
@@ -1176,7 +1177,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("does not clear a stored field when the scan is momentarily empty", () => {
@@ -1200,13 +1201,13 @@ describe("updateFieldSelector — concrete field resolution", () => {
     ctrl.aggSelect.value = CONST.AGG.COUNT;
     fire(ctrl.aggSelect, "change");
 
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
   it("stays on count when the source supplies a numeric field again", () => {
     const { ctrl, m } = seed({ name: "x" });
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
 
@@ -1224,7 +1225,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(triggerOf(ctrl.aggSelect).title).not.toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 });
@@ -1267,7 +1268,7 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
 
     expect(m.selectedLayerId).toBe("p2");
     expect(ctrl.layerSelect.value).toBe("p2");
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("keeps the single-layer auto-select when the declared name misses", () => {
