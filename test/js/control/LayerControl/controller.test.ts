@@ -6724,7 +6724,6 @@ describe("generic filter declaration seeding", () => {
   });
 });
 
-
 describe("genericFilterModel — enum dimensions", () => {
   const makeRuntimeStore = (
     features: Partial<import("#core/layer/index.js").LayerFilterFeatures>,
