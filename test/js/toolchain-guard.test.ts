@@ -368,3 +368,29 @@ describe("script module coverage", () => {
     expect(isCovered("never-a-module")).toBe(false);
   });
 });
+describe("style-mode-usage guard wiring", () => {
+  it("npm run lint chains the style-mode guard inline", () => {
+    const lint = pkg.scripts.lint;
+    expect(lint).toContain("node script/check/style-mode-usage.mjs --check");
+    expect(lint).toContain(
+      "node script/check/style-mode-usage.mjs --check-legacy-alias",
+    );
+    // eslint must still follow the guards in the same chain.
+    expect(lint.indexOf("eslint")).toBeGreaterThan(lint.indexOf("style-mode-usage"));
+  });
+
+  it("no standalone guard:style-mode npm script exists", () => {
+    expect(pkg.scripts["guard:style-mode"]).toBeUndefined();
+  });
+
+  it("removing the inline guards from the lint chain must fail the assertion", () => {
+    const lint = pkg.scripts.lint;
+    const without = lint.replace(
+      /node script\/check\/style-mode-usage\.mjs --check(?: && )?/g,
+      "",
+    );
+    expect(without).not.toContain("style-mode-usage");
+    // The original chain must contain them.
+    expect(lint).toContain("style-mode-usage");
+  });
+});
