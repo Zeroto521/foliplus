@@ -1,4 +1,6 @@
 // platform/floating — the shared floating-layer lifecycle.
+import type { Floating } from "./type.js";
+
 //
 // A floating layer leaves its owning panel's clip box and mounts on a covering
 // surface (native/pseudo fullscreen or <body>), re-pins on scroll/resize
@@ -32,13 +34,6 @@ interface FloatingOptions {
   registerPortalRoot?: (root: HTMLElement, anchor: HTMLElement) => () => void;
   /** Targets whose scroll re-pins. Default [window]. */
   scrollTargets?: Array<Element | Window>;
-}
-
-interface Floating {
-  /** Re-pin in place (re-run the coordinate algorithm). */
-  repin: () => void;
-  /** Idempotent teardown: detach listeners, release the portal root. */
-  release: () => void;
 }
 
 /** The covering host for a floating root. */
