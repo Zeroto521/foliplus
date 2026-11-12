@@ -75,6 +75,7 @@ import {
   readFeatureFillColors,
 } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
+import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
@@ -129,7 +130,7 @@ const layerCanFill = capabilityGate("fill", "native");
  *  accepted degradation in unit tests; the real picker shows the resolved
  *  hex. */
 const toHexColor = (value: string): string => {
-  if (/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value)) return normalizeHexColor(value);
+  if (isHexColor(value)) return normalizeHexColor(value);
   const probe = document.createElement("input");
   probe.type = "color";
   probe.value = value;

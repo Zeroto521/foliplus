@@ -28,20 +28,20 @@ const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
 const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
   authorFill(ui, layerId)?.perFeature === true;
 
-/** Display label for one classification method. Written as literal T()
- *  calls rather than `T(\`style_method_\${method}\`)`: the locale-usage scanner
- *  only sees literal keys, and a template-built key would let a renamed locale
- *  entry pass silently. */
+/** Display label for one classification method. Written as literal _()
+ *  calls rather than `_("foliplus.classification_" + method)`: the
+ *  locale-usage scanner only sees literal keys, and a template-built key
+ *  would let a renamed locale entry pass silently. */
 const methodLabel = (ui: LayerUI, method: ValueConfig["method"]): string => {
   switch (method) {
     case METHOD.JENKS:
-      return ui.T("style_method_jenks");
+      return ui._("foliplus.classification_jenks");
     case METHOD.QUANTILE:
-      return ui.T("style_method_quantile");
+      return ui._("foliplus.classification_quantile");
     case METHOD.EQUAL:
-      return ui.T("style_method_equal");
+      return ui._("foliplus.classification_equal");
     case METHOD.HEADS:
-      return ui.T("style_method_heads");
+      return ui._("foliplus.classification_heads");
   }
 };
 

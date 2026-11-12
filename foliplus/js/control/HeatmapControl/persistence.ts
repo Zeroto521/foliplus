@@ -114,6 +114,54 @@ interface ManagerLike {
   hasScanned: boolean;
 }
 
+/** Every key the persisted record carries. The runtime single source of the
+ *  field list: the round-trip guard iterates it, and a field added to (or
+ *  dropped from) `toSavedConfig` without updating this list fails the
+ *  counterexample guard instead of silently drifting.
+ *
+ *  This is the *field list*, not the value rules — a rule that must survive
+ *  is a parser rule in `parseSavedConfig` (the read-side twin), which
+ *  keeps its own per-field validation. */
+const SAVED_FIELDS: readonly (keyof SavedConfig)[] = [
+  "version",
+  "layerId",
+  "agg",
+  "method",
+  "scheme",
+  "numClasses",
+  "borderWeight",
+  "borderColor",
+  "labelShow",
+  "labelColor",
+  "labelSize",
+  "labelFormat",
+  "field",
+] as const;
+
+/** Build the persisted record from the live manager state. The single
+ *  write-side home of the field list — `parseSavedConfig` is the read-side
+ *  twin, and the round-trip guard pins the two together so a field added on
+ *  one side and forgotten on the other is a test failure, not a silent drop.
+ *
+ *  `version` comes from the shape stamp (same value the inline write used);
+ *  `field` is written bare — the manager holds the user's bare pick, and the
+ *  reader re-namespaces it on apply via `bareFieldName`. */
+const toSavedConfig = (mgr: ManagerLike): SavedConfig => ({
+  version: CONST.RECORD_VERSION,
+  layerId: mgr.selectedLayerId,
+  agg: mgr.agg,
+  method: mgr.method,
+  scheme: mgr.scheme,
+  numClasses: mgr.numClasses,
+  borderWeight: mgr.borderWeight,
+  borderColor: mgr.borderColor,
+  labelShow: mgr.labelShow,
+  labelColor: mgr.labelColor,
+  labelSize: mgr.labelSize,
+  labelFormat: mgr.labelFormat,
+  field: mgr.field,
+});
+
 /** Load saved configuration from localStorage, through the runtime schema. */
 const loadSavedConfig = (): SavedConfig | null =>
   parseSavedConfig(Storage.loadRecord<unknown>(CONST.STORAGE.KEY, CONFIG.name));
@@ -160,4 +208,11 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   mgr.selectedLayerId = saved.layerId ?? null;
 };
 
-export { applySavedConfig, clearSavedConfig, loadSavedConfig };
+export {
+  applySavedConfig,
+  clearSavedConfig,
+  loadSavedConfig,
+  parseSavedConfig,
+  SAVED_FIELDS,
+  toSavedConfig,
+};
