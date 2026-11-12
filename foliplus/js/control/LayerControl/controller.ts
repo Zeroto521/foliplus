@@ -236,14 +236,11 @@ class LayerController implements LayerAPI {
    *  LayerControl panel reads/writes through the injected filterProvider /
    *  filterSetter, and LAYER_FILTER_CHANGE is published after the state here
    *  is settled. Absent = no filter. Heatmap/Measure own their own filters. */
-  declare layerFilters: Map<string, LayerFilter>;
   /** The shared per-map filter store (single persistence / ownership home for
    *  every filter surface on the map). The generic surface writes through it;
-   *  `layerFilters` remains the read-compatible mirror until step 4 of the
    *  filter-unify design removes the map. */
   private readonly filterStore: FilterStore;
   /** Generic filter hosts already registered on the store, per layer id. */
-  private readonly genericHosts = new Set<string>();
   /** The generic filter's hidden-leaf set per layer id, kept so the label
    *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
@@ -340,7 +337,7 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(this.map);
     this.surfaceIndex = new SurfaceIndex();
     this.intentStore = new LayerIntentStore();
-    this.layerFilters = new Map();
+
     this.hiddenSets = new Map();
 
     // Seed each layer's author-declared filter as its initial committed filter.
@@ -354,17 +351,20 @@ class LayerController implements LayerAPI {
     // the feature-build slice lands.
     for (const layerInfo of this.layerRegistry.items) {
       const declared = readDeclaredFilter(layerInfo);
-      if (declared !== undefined && !this.layerFilters.has(layerInfo.id)) {
+      if (
+        declared !== undefined &&
+        !this.filterStore.isOwned(layerInfo.id, FILTER_SOURCE.GENERIC) &&
+        this.filterStore.getFilter(layerInfo.id, FILTER_SOURCE.GENERIC) === undefined
+      ) {
         // The Python declaration is a construction-time constant, not a user
         // write: capture it on the store's declaration channel (in-memory,
         // never persisted, never marks the slot owned) so a reload keeps the
-        // user's own committed value when they took the slot. The mirror map,
-        // the per-layer slot and the hidden-class pass stay exactly as the
-        // original write-through did — the only change is where the
+        // user's own committed value when they took the slot. The registry
+        // slot (`layerInfo.filter`) and the hidden-class pass stay exactly as
+        // the original write-through did — the only change is where the
         // declaration is recorded.
         this.ensureGenericHost(layerInfo.id);
         this.filterStore.setDeclaration(layerInfo.id, FILTER_SOURCE.GENERIC, declared);
-        this.layerFilters.set(layerInfo.id, declared);
         // `layerInfo` IS the registry entry being iterated (the loop walks
         // registry.items and `get(id)` returns the same object), so the
         // registry slot is updated directly — a defensive `get`/null-check here
@@ -470,15 +470,15 @@ class LayerController implements LayerAPI {
       }
       // Replay the generic filter's hidden class onto a re-attached layer: a
       // re-add recreates the leaves' DOM elements, dropping the class a filter
-      // wrote. Guarded by "any filter active" so the common no-filter case pays
-      // O(1) instead of an O(layers) scan.
-      if (this.layerFilters.size > 0) {
-        for (const layerInfo of this.layers) {
-          const resolved = findLayer(this.map, layerInfo.id);
-          if (resolved && L.stamp(resolved) === stamp) {
-            this.replayFilter(layerInfo.id);
-            break;
-          }
+      // wrote. No replay fast path: a filter is read from the store per
+      // layeradd. A dedicated active-filter counter would have to stay in
+      // sync with the store - exactly the mirror state this unification
+      // removes. layeradd is not a hot path.
+      for (const layerInfo of this.layers) {
+        const resolved = findLayer(this.map, layerInfo.id);
+        if (resolved && L.stamp(resolved) === stamp) {
+          this.replayFilter(layerInfo.id);
+          break;
         }
       }
     };
@@ -1619,6 +1619,12 @@ class LayerController implements LayerAPI {
     }
     this.persistence.flushAll();
 
+    // Drop the layer's generic filter record: a departed layer must not
+    // leave a persisted filter that a later re-add of the same id would
+    // resurrect. filterStore.drop clears the value AND the declaration
+    // without applying or publishing (the layer's DOM is already gone).
+    this.filterStore.drop(id, FILTER_SOURCE.GENERIC);
+
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
     if (this.ui && announced) {
@@ -1863,7 +1869,7 @@ class LayerController implements LayerAPI {
     ) {
       return null;
     }
-    const filter = this.layerFilters.get(id);
+    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
     const hidden = filterLeafSet(features.features, filter);
     let kept = features.total;
     for (const feature of features.features) {
@@ -1915,11 +1921,10 @@ class LayerController implements LayerAPI {
   /** Register (or re-register) the generic filter host on the shared per-map
    *  store for one layer. The store owns normalize / compare / persist /
    *  apply / publish; the host supplies the carrier (the hidden-class write)
-   *  and the publish callback. Registered lazily on first write so a layer
-   *  never touched by the filter still costs nothing. */
+   *  and the publish callback. Registered on first write so a layer
+   *  never touched by the filter still costs nothing; the store treats a
+   *  repeated (layerId, source) registration as an idempotent overwrite. */
   private ensureGenericHost(id: string): void {
-    if (this.genericHosts.has(id)) return;
-    this.genericHosts.add(id);
     this.filterStore.registerHost(id, FILTER_SOURCE.GENERIC, {
       normalize: (filter: LayerFilter) => filter,
       apply: (filter: LayerFilter) => this.applyFilterClass(id, filter),
@@ -1937,17 +1942,16 @@ class LayerController implements LayerAPI {
     // Route the write through the shared per-map filter store (the generic
     // surface is the third host after Measure / Heatmap). The store normalizes,
     // compares, persists, applies through the registered host and publishes;
-    // `layerFilters` stays as a read-compatible mirror until step 4 of the
-    // filter-unify design removes it — the transition assertion in the test
-    // suite pins both to the same committed value.
+    // setLayerFilter itself carries no write path — the store's host.apply is
+    // the single carrier, and this method only keeps the registry slot in sync
+    // for the read side.
     this.ensureGenericHost(id);
     this.filterStore.setFilter(id, FILTER_SOURCE.GENERIC, filter);
-    // Keep the per-layer mirror slot (S4b reads layers[id].filter directly) in
+    // Keep the per-layer mirror slot (the registry slot) in
     // sync with the write-through so the panel never re-derives the committed
     // state. The store's `apply` (the host's carrier) already wrote the hidden
     // class and the publish callback announced the change; this mirror is the
     // read-side alias only.
-    this.layerFilters.set(id, filter);
     const li = this.layerRegistry.get(id);
     if (li) li.filter = filter;
   }
@@ -1978,8 +1982,9 @@ class LayerController implements LayerAPI {
    *  were recreated (layeradd late-binding, LAYER_ITEM_REFRESHED). A layer that
    *  was never filtered is skipped; a cleared filter re-applies no-hidden. */
   private replayFilter(id: string): void {
-    if (!this.layerFilters.has(id)) return;
-    this.applyFilterClass(id, this.layerFilters.get(id));
+    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    if (filter === undefined) return;
+    this.applyFilterClass(id, filter);
   }
 
   private notifyCapabilityChanges(): void {
