@@ -36,12 +36,11 @@ const rowIds = (ui: LayerUI): string[] =>
   );
 
 /** Three one-member folders A/B/C, in that order. */
-const abcData = () =>
-  [
-    { id: "a1", name: "A", role: "overlay", folder: "A", layer: polygonLayer() },
-    { id: "b1", name: "B", role: "overlay", folder: "B", layer: polygonLayer() },
-    { id: "c1", name: "C", role: "overlay", folder: "C", layer: polygonLayer() },
-  ] as const;
+const abcData = () => [
+  { id: "a1", name: "A", role: "overlay", folder: "A", layer: polygonLayer() },
+  { id: "b1", name: "B", role: "overlay", folder: "B", layer: polygonLayer() },
+  { id: "c1", name: "C", role: "overlay", folder: "C", layer: polygonLayer() },
+];
 
 describe("folder order invariants (delete path)", () => {
   beforeEach(() => {
