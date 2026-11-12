@@ -35,10 +35,20 @@
 // Dimension write/reset migration: `fill` / `border` own the intent+persist
 // slots (`write` / `reset` / `valueSource` on the descriptor). The named
 // helpers (`commitFillColor` / `resetLayerBorder` / …) stay as thin delegates.
-// `opacity` / `zoomRange` / `label` still keep their helpers as the
-// authoritative implementation until a later PR. styleBag remains the
-// setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
+// `opacity` / `zoomRange` migrated to the slots the same way. styleBag remains
+// the setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
 // descriptor write/reset call it.
+//
+// `label` is the one intentional exception, and it is NOT pending migration:
+// it is a *content* dimension, not a style-value dimension. Its state lives in
+// the label config manager (`ui.c.label.setConfig` / `clearConfig`), not in
+// LayerIntentStore keys, so the intent-key slots do not apply to it — its
+// `reset` deletes the config entry (back to "never configured") rather than
+// clearing an intent key (back to the author's declared value), and it has no
+// user/author provenance tiers. It carries `gate` / `row` / `contentChange`
+// only. See .foliplus/design/label-dimension-slot.md; the guard test
+// (registry.test.ts) locks this so a future change does not bolt the style
+// slots onto a content dimension by mistake.
 //
 // The registry is a module-level Map. BaseControl renders each control
 // instance as a fresh IIFE around the bundled JS, so every map eval gets
