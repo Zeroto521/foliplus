@@ -15,10 +15,10 @@ import { describe, expect, it } from "vitest";
 // author reintroducing a long parent-dir chain is caught at authoring time
 // (CI), not in review.
 const REPO_ROOT = resolve(".");
-// 3+ parent segments (../../.. = three parents, two slashes); the old
+// 3+ parent segments (three parents, two slashes); the old
 // /(?:..\/){3,}/ only caught 4+ levels and missed the common 3-level
-// chain the lead's grep targets. A 2-level ../.. is legitimate for
-// test-internal fixture imports, so it stays allowed.
+// chain the lead's grep targets. A chain of two parent segments is
+// legitimate for test-internal fixture imports, so it stays allowed.
 const CHAIN_RE = /(?:\.\.\/){2,}\.\.(?=\/|["']|$)/;
 const SOURCE_EXT = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 
