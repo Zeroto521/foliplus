@@ -34,7 +34,7 @@ import {
 } from "./glyphSource.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
-import { detachMarkerIcons } from "#core/leafletAdapter.js";
+import { detachMarkerIcons, mountedIconElement } from "#core/leafletAdapter.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("icon-dimension");
@@ -432,13 +432,6 @@ const buildMarkerIcon = (opts: {
   return derived;
 };
 
-/** The mounted icon DOM element of a leaf, or null when the leaf is
- *  detached (never added to the map) or the icon element was removed. */
-const mountedIconEl = (leaf: unknown): HTMLElement | null => {
-  const el = (leaf as { _icon?: HTMLElement | null })._icon;
-  return el instanceof HTMLElement ? el : null;
-};
-
 /** Whether a leaf's mounted glyph already carries the requested glyph token
  *  under the requested FontAwesome prefix — the condition for a colour /
  *  opacity write to paint the mounted node in place instead of rebuilding the
@@ -568,7 +561,7 @@ const applyIconColorToLeaves = (
     if (author === undefined) return;
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
-    const el = mountedIconEl(leaf);
+    const el = mountedIconElement(leaf);
     if (el && mountedGlyphMatches(el, glyph, panelPrefix)) {
       paintMountedGlyphColor(el, color, opacity);
       return;
@@ -605,7 +598,7 @@ const applyMarkerColorToLeaves = (
     // span already carries the pin paints the span in place — same element
     // reference, no rebuild. A mechanism change (span dropped by a preset at
     // alpha 100) is not paintable in place and falls through to a rebuild.
-    const el = mountedIconEl(leaf);
+    const el = mountedIconElement(leaf);
     if (el && paintMountedChassis(el, markerColor, markerColorOpacity)) {
       return;
     }

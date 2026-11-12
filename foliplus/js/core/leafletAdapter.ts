@@ -154,6 +154,18 @@ const layerUrl = (layer: L.Layer): string | null =>
  *  `setInteractive` re-runs the marker's own interaction setup for this node and
  *  must skip it in the manual class / hit-target pass. */
 const layerIcon = (layer: LeafInternals): HTMLElement | null => layer._icon ?? null;
+/** The mounted icon element of a leaf, or null when the leaf is detached
+ *  (never added to the map) or the icon element was removed.
+ *
+ *  Unlike `layerIcon`, this treats a stale `_icon` reference (the element was
+ *  removed from the document but the back-reference was not cleared) as
+ *  absent, so the incremental paint path rebuilds instead of painting a dead
+ *  node. The `instanceof` check is what separates a real element from the
+ *  null/undefined a detached or removed marker leaves behind. */
+const mountedIconElement = (layer: L.Layer): HTMLElement | null => {
+  const el = layer._icon ?? null;
+  return el instanceof HTMLElement ? el : null;
+};
 
 /** A marker's drop-shadow element, or null — the pin moves it into the
  *  layer's own shadow pane (`PaneManager.pinLateContent`), and a marker
@@ -323,6 +335,7 @@ export {
   isPixelRadiusLeaf,
   layerElements,
   layerIcon,
+  mountedIconElement,
   layerShadow,
   detachMarkerIcons,
   layerMap,
