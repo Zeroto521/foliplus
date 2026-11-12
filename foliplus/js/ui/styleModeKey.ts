@@ -12,10 +12,10 @@
 // key constants) — distinct from the *ClassName family, which owns CSS class
 // lists (see AGENTS.md directory notes).
 
-const STYLE_MODE = {
+const STYLE_MODE_KEY = {
   ORIGINAL: "style_mode_original",
   SINGLE: "style_mode_single",
   BY_VALUE: "style_mode_by_value",
 } as const;
 
-export { STYLE_MODE };
+export { STYLE_MODE_KEY };

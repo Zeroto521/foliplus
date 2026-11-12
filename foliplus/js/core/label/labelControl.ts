@@ -14,6 +14,7 @@ import {
   DEFAULT_LABEL_COLOR,
   type DropdownOverlay,
   type DropdownSurface,
+  LABEL_CLASS,
   LABEL_SIZE,
   PANEL_CLASS,
   bindLiveColor,
@@ -26,17 +27,8 @@ import {
 } from "#ui/index.js";
 
 /** CSS class names — the same vocabulary the label panel and the
- *  delegated drawer use. Defined here (not imported from a component const)
- *  because the shared runtime cannot depend on a component module. */
-const CLS = {
-  STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
-  STYLE_BODY: "foliplus-style-body",
-  STYLE_FORMAT_ROW: "foliplus-style-format-row",
-  STYLE_FORMAT_SELECT: "foliplus-style-format-select",
-  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
-  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
-  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
-} as const;
+ *  delegated drawer use. Single-sourced in ui/labelClassName so the shared
+ *  runtime renderer and the LayerControl panel cannot drift again. */
 
 /** Style value shape read from a component's styleProvider. */
 interface LabelStyleValues {
@@ -68,7 +60,7 @@ interface RenderLabelControlsOptions {
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
   /** Overlay-registry hook (single Escape dispatcher). */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
 }
 
 interface LabelControlsResult {
@@ -107,7 +99,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
             typeof values.labelColor === "string"
               ? values.labelColor
               : DEFAULT_LABEL_COLOR,
-          className: CLS.STYLE_LABEL_COLOR_INPUT,
+          className: LABEL_CLASS.STYLE_LABEL_COLOR_INPUT,
           ariaLabel: T("foliplus.label_color"),
         })
       : null;
@@ -120,7 +112,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
           min: LABEL_SIZE.SIZE_MIN,
           max: LABEL_SIZE.SIZE_MAX,
           step: LABEL_SIZE.SIZE_STEP,
-          className: CLS.STYLE_LABEL_SIZE_INPUT,
+          className: LABEL_CLASS.STYLE_LABEL_SIZE_INPUT,
           ariaLabel: T("foliplus.label_size"),
         })
       : null;
@@ -159,7 +151,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatSelect = dom.el(
       "select",
       {
-        class: `foliplus-input-skin foliplus-form-select ${CLS.STYLE_FORMAT_SELECT}`,
+        class: `foliplus-input-skin foliplus-form-select ${LABEL_CLASS.STYLE_FORMAT_SELECT}`,
         "aria-label": T("foliplus.label_format"),
       },
       ...numberFormatOptions(fmtLabel),
@@ -172,12 +164,12 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       nativeSelect: formatSelect as HTMLSelectElement,
       ariaLabel: T("foliplus.label_format"),
       ...opts.surface,
-      ...(opts.overlay ? { overlay: opts.overlay } : {}),
+      overlay: opts.overlay,
     });
     bodyRows.push(
       dom.el(
         "div",
-        { class: `${PANEL_CLASS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
+        { class: `${PANEL_CLASS.FORM_ROW} ${LABEL_CLASS.STYLE_FORMAT_ROW}` },
         dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, T("foliplus.label_format")),
         dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, formatDropdown.element),
       ),
@@ -187,7 +179,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   if (styleSetters.labelCollide) {
     const toggle = dom.el("input", {
       type: "checkbox",
-      class: CLS.STYLE_COLLIDE_INPUT,
+      class: LABEL_CLASS.STYLE_COLLIDE_INPUT,
       checked: values.labelCollide !== false ? "" : null,
       "aria-label": T("foliplus.label_collide_tooltip"),
     });
@@ -216,7 +208,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   if (styleSetters.labelShow) {
     const toggle = dom.el("input", {
       type: "checkbox",
-      class: CLS.STYLE_TOGGLE_INPUT,
+      class: LABEL_CLASS.STYLE_TOGGLE_INPUT,
       checked: showChecked ? "" : null,
       "aria-label": T("foliplus.label_tooltip"),
     });
@@ -242,7 +234,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   // Body wrapper: collapsed when the toggle is off — same "switch off → hide
   // body" rule the label panel uses.
   if (bodyRows.length) {
-    const body = dom.el("div", { class: CLS.STYLE_BODY }, ...bodyRows);
+    const body = dom.el("div", { class: LABEL_CLASS.STYLE_BODY }, ...bodyRows);
     body.classList.toggle(PANEL_CLASS.HIDDEN, !showChecked);
     rows.push(body);
   }
@@ -261,21 +253,23 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const setters = getSetters();
     if (
       t instanceof HTMLInputElement &&
-      t.classList.contains(CLS.STYLE_TOGGLE_INPUT) &&
+      t.classList.contains(LABEL_CLASS.STYLE_TOGGLE_INPUT) &&
       setters.labelShow
     ) {
-      const body = root.querySelector(`.${CLS.STYLE_BODY}`) as HTMLElement | null;
+      const body = root.querySelector(
+        `.${LABEL_CLASS.STYLE_BODY}`,
+      ) as HTMLElement | null;
       if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !t.checked);
       setters.labelShow(t.checked);
     } else if (
       t instanceof HTMLInputElement &&
-      t.classList.contains(CLS.STYLE_COLLIDE_INPUT) &&
+      t.classList.contains(LABEL_CLASS.STYLE_COLLIDE_INPUT) &&
       setters.labelCollide
     ) {
       setters.labelCollide(t.checked);
     } else if (
       t instanceof HTMLSelectElement &&
-      t.classList.contains(CLS.STYLE_FORMAT_SELECT) &&
+      t.classList.contains(LABEL_CLASS.STYLE_FORMAT_SELECT) &&
       setters.labelFormat
     ) {
       setters.labelFormat(t.value);
@@ -289,36 +283,36 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const v = styleProvider();
     if (!v) return;
     const showInput = root.querySelector(
-      `.${CLS.STYLE_TOGGLE_INPUT}`,
+      `.${LABEL_CLASS.STYLE_TOGGLE_INPUT}`,
     ) as HTMLInputElement | null;
     if (showInput && document.activeElement !== showInput) {
       showInput.checked = !!v.labelShow;
     }
     // Body follows the toggle: a remote show/off (the other panel, or the
     // component's own setter emitting back) must collapse the body too.
-    const body = root.querySelector(`.${CLS.STYLE_BODY}`) as HTMLElement | null;
+    const body = root.querySelector(`.${LABEL_CLASS.STYLE_BODY}`) as HTMLElement | null;
     if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !v.labelShow);
 
     const collideInput = root.querySelector(
-      `.${CLS.STYLE_COLLIDE_INPUT}`,
+      `.${LABEL_CLASS.STYLE_COLLIDE_INPUT}`,
     ) as HTMLInputElement | null;
     if (collideInput && document.activeElement !== collideInput) {
       collideInput.checked = v.labelCollide !== false;
     }
     const colorEl = root.querySelector(
-      `.${CLS.STYLE_LABEL_COLOR_INPUT}`,
+      `.${LABEL_CLASS.STYLE_LABEL_COLOR_INPUT}`,
     ) as HTMLInputElement | null;
     if (colorEl && document.activeElement !== colorEl) {
       if (typeof v.labelColor === "string") colorEl.value = v.labelColor;
     }
     const sizeEl = root.querySelector(
-      `.${CLS.STYLE_LABEL_SIZE_INPUT}`,
+      `.${LABEL_CLASS.STYLE_LABEL_SIZE_INPUT}`,
     ) as HTMLInputElement | null;
     if (sizeEl && document.activeElement !== sizeEl) {
       if (typeof v.labelSize === "number") sizeEl.value = String(v.labelSize);
     }
     const formatSelect = root.querySelector(
-      `.${CLS.STYLE_FORMAT_SELECT}`,
+      `.${LABEL_CLASS.STYLE_FORMAT_SELECT}`,
     ) as HTMLSelectElement | null;
     // The format select is bridged into a dropdown, so the user's focus sits on
     // the trigger (or an option in the open list), never on the hidden select.

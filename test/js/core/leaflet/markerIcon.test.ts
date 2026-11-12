@@ -5,7 +5,7 @@
 import {
   makeAuthorIcon,
   makeDefaultIconAuthor,
-} from "../../control/LayerControl/ui/fixture.js";
+} from "#test/control/LayerControl/ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PICKER_GLYPHS,

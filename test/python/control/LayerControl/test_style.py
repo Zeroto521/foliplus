@@ -1797,6 +1797,54 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    @pytest.mark.parametrize("which", ["border", "fill"])
+    @pytest.mark.parametrize("how", ["outside", "escape"])
+    def test_style_mode_dropdown_overlay_contract(self, browser, tmp_path, which, how):
+        """The shared dropdown overlay contract holds on both mode rows.
+
+        Every dropdown surface must register with the overlay registry (the
+        single Escape/outside-press dispatcher from #1011). Four behaviours pin
+        the contract: opening registers the dropdown above its host panel
+        (so an Escape or outside press closes the dropdown first and not the
+        panel), and the trigger regains focus after the dismissal. The border
+        row is the regression this guards; the fill row is the control.
+        """
+        data = load_geojson("common", "polygons_fuzhou_3offset")
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="dropdown_overlay_contract"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/dropdown_overlay_contract"),
+                {"which": which, "how": how},
+            )
+            assert result["ok"], result
+            assert result["openAfterClick"], result
+            assert result["panelOpenBefore"], result
+            assert result["focusedTriggerBefore"], result
+            assert result["dismissed"], (
+                f"{which} mode dropdown did not close on {how}: {result}"
+            )
+            assert result["panelStayedOpen"], (
+                f"{how} closed the style panel instead of only the dropdown: {result}"
+            )
+            assert result["focusReturned"], (
+                f"{which} trigger did not regain focus after {how}: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     @pytest.mark.parametrize("width", [380])
     def test_style_fill_row_label_names_the_method_on_one_line(
         self, browser, tmp_path, width

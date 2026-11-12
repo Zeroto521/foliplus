@@ -1,4 +1,5 @@
 // platform/rafLoop — Self-scheduling animation frame loop for continuous motion.
+import type { RafLoop } from "./type.js";
 
 // Self-scheduling animation frame loop — repeatedly run a tick at ~60Hz
 // until stopped. Used for keyboard-driven continuous movement (e.g. holding
@@ -15,11 +16,6 @@
 // this by returning a number; no separate canceller needed.
 type Handle = ReturnType<typeof setTimeout>;
 type Scheduler = (fn: () => void, ms: number) => Handle;
-
-type RafLoop = {
-  start(key?: string): void;
-  stop(): void;
-};
 
 /**
  * Create a self-scheduling loop.

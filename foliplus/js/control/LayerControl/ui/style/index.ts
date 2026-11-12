@@ -259,7 +259,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         );
       }
       const fmtSel = panel.querySelector(
-        ".foliplus-style-format-select",
+        `.${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
       ) as HTMLSelectElement | null;
       applyPatch(ui, layerId, {
         field: t.value,
