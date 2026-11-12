@@ -55,52 +55,6 @@ const JS_ROOT_REL = path.join("foliplus", "js");
  */
 const BASELINE_PENDING = [
   {
-    token: "foliplus-is-collapsed",
-    batch: "panel-shell state vocabulary",
-    sites: [
-      "foliplus/js/control/ExportControl/const.ts",
-      "foliplus/js/control/HeatmapControl/const.ts",
-      "foliplus/js/control/MeasureControl/const.ts",
-      "foliplus/js/control/SearchControl/const.ts",
-      "foliplus/js/core/leaflet/panel.ts",
-    ],
-    reason:
-      "Folds a whole control away, and is spelled by four component const" +
-      "maps plus core/leaflet/panel.ts. Resolving it means deciding which" +
-      "vocabulary owns panel shell state and sinking the four component copies" +
-      "into it.",
-  },
-  {
-    token: "foliplus-is-expanded",
-    batch: "panel-shell state vocabulary",
-    sites: [
-      "foliplus/js/control/ExportControl/const.ts",
-      "foliplus/js/control/HeatmapControl/const.ts",
-      "foliplus/js/control/MeasureControl/const.ts",
-      "foliplus/js/control/SearchControl/const.ts",
-      "foliplus/js/core/leaflet/panel.ts",
-    ],
-    reason:
-      "The inverse of foliplus-is-collapsed, owned by the same five files." +
-      "Must land with it, or the panel shell state vocabulary would split across" +
-      "two PRs.",
-  },
-  {
-    token: "foliplus-is-active",
-    batch: "panel-shell state vocabulary",
-    sites: [
-      "foliplus/js/control/ExportControl/const.ts",
-      "foliplus/js/control/HeatmapControl/const.ts",
-      "foliplus/js/control/MeasureControl/const.ts",
-      "foliplus/js/control/SearchControl/const.ts",
-      "foliplus/js/ui/schemePicker.ts",
-    ],
-    reason:
-      "Spelled by four component const maps and by ui/schemePicker.ts" +
-      "DEFAULT_CLASSES.active (a camelCase key the first audit pass filtered" +
-      "out). Needs the same ownership decision as foliplus-is-collapsed.",
-  },
-  {
     token: "foliplus-tool-btn",
     batch: "sink to ui/",
     sites: [

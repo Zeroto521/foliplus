@@ -55,10 +55,8 @@ const LABEL = {
 
 const CLASSES = {
   // foliplus-hidden, -form-inline and -section-divider are the shared panel
-  // vocabulary (ui/panelClassName); they are not component classes.
-  COLLAPSED: "foliplus-is-collapsed",
-  EXPANDED: "foliplus-is-expanded",
-  ACTIVE: "foliplus-is-active",
+  // vocabulary (ui/panelClassName); foliplus-is-collapsed/-expanded/-active
+  // are the shared panel state vocabulary. They are not component classes.
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
   SECTION_BLOCK: "foliplus-heatmap-section-block",

@@ -1739,7 +1739,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     // another one on top of it.
     expect(clearSpy).toHaveBeenCalledTimes(1);
     // Only the contents reset — the panel stays open for the next pick.
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
   });
 
   it("resets state and persists the cleared selection when own layer is deleted with no panel", () => {

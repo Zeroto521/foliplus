@@ -379,8 +379,8 @@ describe("bindControls — clear (reset) button", () => {
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
@@ -402,7 +402,7 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(clearSaved).toHaveBeenCalledTimes(1);
     expect(clearLayerState).toHaveBeenCalledTimes(1);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
   });
 
   it("clear falls back to library defaults when config omits style fields", () => {
@@ -494,12 +494,12 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     // record — the more-menu clear keeps the panel open for the next pick.
     const removeItem = vi.spyOn(window.localStorage, "removeItem");
     const { ctrl } = setup();
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
 
     resetPanel(ctrl);
 
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
     expect(removeItem).not.toHaveBeenCalled();
   });
 });
@@ -614,14 +614,14 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl } = setup();
     document.body.appendChild(ctrl.ctrl);
     setupObserver(ctrl);
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(openDropdown(ctrl)).not.toBeNull();
 
     // The header and the close button collapse through this class change; the
     // portalled list is not inside the panel, so nothing else would remove it.
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(openDropdown(ctrl)).toBeNull();
@@ -641,11 +641,11 @@ describe("bindControls — scheme dropdown", () => {
       remove.mock.calls.filter(call => call[0] === "click").length;
 
     for (let i = 0; i < 3; i += 1) {
-      ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
       ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(openDropdown(ctrl)).not.toBeNull();
-      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+      ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
       await new Promise(resolve => setTimeout(resolve, 0));
       expect(openDropdown(ctrl)).toBeNull();
     }
@@ -856,19 +856,19 @@ describe("setupObserver", () => {
     document.body.appendChild(ctrl.ctrl);
     setupObserver(ctrl);
 
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     await flush();
     expect(ctrl.expandHookDone).toBe(true);
     // The placeholder option is the only entry with no point layers.
     expect(ctrl.layerSelect.querySelectorAll("option").length).toBe(1);
 
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
     await flush();
     expect(ctrl.expandHookDone).toBe(false);
 
-    ctrl.ctrl.classList.remove(CONST.CLASSES.COLLAPSED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     await flush();
     expect(ctrl.expandHookDone).toBe(true);
     ctrl.observer?.disconnect();
