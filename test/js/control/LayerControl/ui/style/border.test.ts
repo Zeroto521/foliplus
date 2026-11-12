@@ -17,12 +17,14 @@ import {
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,
+  borderValueForUi,
   buildBorderRow,
   buildBorderRowShell,
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
   resetLayerBorder,
+  writeBorderValue,
 } from "#control/LayerControl/ui/style/border.js";
 import {
   FILL_DIMENSION,
@@ -3581,5 +3583,79 @@ describe("border category value wiring", () => {
     changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
     const stored = getIntent(ui, "g_sch", "borderValue") as ValueConfig;
     expect(stored.scheme).toBe("Blues");
+  });
+
+  it("switching a line layer field to a category column falls the sequential scheme back to Set3 (P2-1)", () => {
+    const leaves = [makeMixedLeaf(1, "a"), makeMixedLeaf(5, "b")];
+    registerFeatureLayer(manager, ui, "g_catsw", leaves);
+    ui.runtimeStore.setFields("g_catsw", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    setIntent(ui, "g_catsw", "borderValue", {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Viridis",
+    } as ValueConfig);
+    const block = openBorderRow("g_catsw");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    const fieldSelect = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const stored = getIntent(ui, "g_catsw", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(stored.field).toBe("name");
+    expect(stored.scheme).toBe("Set3");
+  });
+
+  it("resolves a field switch on an unregistered layer to a numeric border seed (P2-1)", () => {
+    const leaves = [makeMixedLeaf(1, "a"), makeMixedLeaf(5, "b")];
+    registerFeatureLayer(manager, ui, "g_bghost", leaves);
+    ui.runtimeStore.setFields("g_bghost", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    // Drop the layer from the registry: the seed path must degrade to the
+    // numeric machine rather than throw on a null layer reference.
+    manager.unregisterLayer("g_bghost");
+    const seeded = borderValueForUi(ui, "g_bghost", ["count", "name"]);
+    expect(seeded.kind).toBe("numeric");
+    expect(seeded.field).toBe("count");
+    // A field switch on the same unresolved reference stays numeric.
+    const merged = writeBorderValue(ui, "g_bghost", { field: "name" });
+    expect(merged.kind).toBe("numeric");
+    expect(merged.field).toBe("name");
+  });
+  it("keeps a category scheme that the vocabulary offers through a field switch (P2-1)", () => {
+    const leaves = [makeMixedLeaf(1, "a"), makeMixedLeaf(5, "b")];
+    registerFeatureLayer(manager, ui, "g_catsp", leaves);
+    ui.runtimeStore.setFields("g_catsp", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    setIntent(ui, "g_catsp", "borderValue", {
+      kind: "category",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Set3",
+    } as ValueConfig);
+    const block = openBorderRow("g_catsp");
+    changeSelect(modeSelectOf(block), STYLE_MODE.VALUE);
+    const fieldSelect = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const stored = getIntent(ui, "g_catsp", "borderValue") as ValueConfig;
+    expect(stored.kind).toBe("category");
+    expect(stored.field).toBe("name");
+    expect(stored.scheme).toBe("Set3");
   });
 });

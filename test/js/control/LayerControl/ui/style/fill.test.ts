@@ -21,6 +21,7 @@ import {
   replayFillState,
   resetLayerFill,
 } from "#control/LayerControl/ui/style/fill.js";
+import { valueForUi } from "#control/LayerControl/ui/style/fillValue.js";
 import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import {
   MAX_STOPS,
@@ -5064,6 +5065,104 @@ describe("category field fill — string-only layer", () => {
     select2.dispatchEvent(new Event("change"));
     const value = getIntent(ui, "overlay1", "fillValue") as
       Record<string, unknown> | undefined;
+    expect(value?.field).toBe("name");
+  });
+
+  it("falls back to a numeric seed when the layer reference cannot be resolved (P2-1)", () => {
+    const seeded = valueForUi(ui, "ghost", ["count"]);
+    expect(seeded.kind).toBe("numeric");
+    expect(seeded.field).toBe("count");
+  });
+
+  it("switching to a category field re-seeds a sequential scheme to the qualitative default (P2-1)", () => {
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.count = 1;
+      props.name = props.cat;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "cat", numeric: false },
+      { name: "name", numeric: false },
+    ]);
+    setIntent(ui, "overlay1", "fillValue", {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Viridis",
+    } as never);
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("category");
+    expect(value?.field).toBe("name");
+    expect(value?.scheme).toBe("Set3");
+  });
+
+  it("switching to a numeric field re-seeds a qualitative scheme to the sequential default (P2-1)", () => {
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.count = 1;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "cat", numeric: false },
+    ]);
+    setIntent(ui, "overlay1", "fillValue", {
+      kind: "category",
+      field: "cat",
+      method: "equal",
+      classes: 3,
+      scheme: "Set3",
+    } as never);
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "count";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("numeric");
+    expect(value?.field).toBe("count");
+    expect(value?.scheme).toBe("Viridis");
+  });
+
+  it("resolves a field switch on an unregistered layer to a numeric seed (P2-1)", () => {
+    ui.runtimeStore.setFields("ghost", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const block = buildFillRow(ui, "ghost");
+    document.body.appendChild(block);
+    bindFillRow(ui, "ghost", block);
+    const select = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+    select!.value = "value";
+    select!.dispatchEvent(new Event("change", { bubbles: true }));
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change", { bubbles: true }));
+    const value = getIntent(ui, "ghost", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("numeric");
     expect(value?.field).toBe("name");
   });
 });

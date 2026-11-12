@@ -1176,4 +1176,6 @@ export {
   disposeBorderRow,
   layerCanBorder,
   resetLayerBorder,
+  borderValueForUi,
+  writeBorderValue,
 };
