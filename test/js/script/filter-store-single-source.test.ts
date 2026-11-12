@@ -41,7 +41,7 @@ describe("generic filter single-source guard (G1)", () => {
 describe("filter persistence only through the shared store (G3b)", () => {
   const filterFiles = [CONTROLLER, MEASURE_MGR, HEATMAP_MGR];
 
-  it.each(filterFiles)("no direct storage write of a filter key in %s", (file) => {
+  it.each(filterFiles)("no direct storage write of a filter key in %s", file => {
     const src = read(file);
     const filterKeyCall = /(saveRecord|loadRecord|removeRecord)\s*\([^)]*filter/i;
     expect(src).not.toMatch(filterKeyCall);
