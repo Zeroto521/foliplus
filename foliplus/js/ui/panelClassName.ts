@@ -7,8 +7,9 @@
 // button). One spelling here; every consumer reads through it.
 //
 // The keys mirror the DOM vocabulary: form-row/label/control/inline,
-// toggle switch/slider, section divider, button row, panel button, read-only,
-// hidden, and the panel header/close/title/icon chrome.
+// toggle switch/slider, section divider, button row, panel button, the shared
+// control button skin, read-only, hidden, and the panel header/close/title/icon
+// chrome.
 const PANEL_CLASS = {
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",
@@ -19,6 +20,7 @@ const PANEL_CLASS = {
   SECTION_DIVIDER: "foliplus-section-divider",
   BTN_ROW: "foliplus-btn-row",
   PANEL_BTN: "foliplus-panel-btn",
+  TOOL_BTN: "foliplus-tool-btn",
   READONLY: "foliplus-readonly",
   HIDDEN: "foliplus-hidden",
   HEADER: "foliplus-panel-header",

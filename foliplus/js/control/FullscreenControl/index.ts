@@ -5,6 +5,7 @@ import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { ensureHint } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 const FullscreenControl = defineControl({
   config: CONFIG,
@@ -27,7 +28,7 @@ const FullscreenControl = defineControl({
     });
 
     createIconButton({
-      class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
+      class: `${PANEL_CLASS.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
       title: this.T("zoom_in"),
       ariaLabel: this.T("zoom_in"),
       svg: SVGs.ICON_ZOOM_IN,
@@ -39,7 +40,7 @@ const FullscreenControl = defineControl({
     });
 
     createIconButton({
-      class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
+      class: `${PANEL_CLASS.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
       title: this.T("zoom_out"),
       ariaLabel: this.T("zoom_out"),
       svg: SVGs.ICON_ZOOM_OUT,
@@ -51,7 +52,7 @@ const FullscreenControl = defineControl({
     });
 
     const fsBtn = createIconButton({
-      class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
+      class: `${PANEL_CLASS.TOOL_BTN} ${CLASSES.TOGGLE}`,
       title: this.T("title"),
       ariaLabel: this.T("title"),
       svg: SVGs.ICON_MAXIMIZE,

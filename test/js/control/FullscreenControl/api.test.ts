@@ -11,11 +11,12 @@ import { CLASSES, containerId } from "#control/FullscreenControl/const.js";
 describe("const.js", () => {
   it("CLASSES has expected keys", () => {
     expect(CLASSES.PSEUDO_FULLSCREEN).toBe("leaflet-pseudo-fullscreen");
-    expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
     expect(CLASSES.ZOOM_IN).toBe("foliplus-zoom-in");
     expect(CLASSES.ZOOM_OUT).toBe("foliplus-zoom-out");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
     expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
+    expect(PANEL_CLASS.TOOL_BTN).toBe("foliplus-tool-btn");
+    expect(PANEL_CLASS.TOOL_BTN).toBe("foliplus-tool-btn");
   });
 
   it("containerId formats correctly", () => {

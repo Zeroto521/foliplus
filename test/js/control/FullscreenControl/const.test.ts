@@ -5,11 +5,12 @@ import { CLASSES, containerId } from "#control/FullscreenControl/const.js";
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CLASSES.PSEUDO_FULLSCREEN).toBe("leaflet-pseudo-fullscreen");
-    expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
-    // foliplus-hidden is the shared panel vocabulary's, not a component key.
+    // foliplus-hidden and foliplus-tool-btn are the shared panel vocabulary's,
+    // not component keys.
     expect((CLASSES as Record<string, unknown>).HIDDEN).toBeUndefined();
     expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
+    expect(PANEL_CLASS.TOOL_BTN).toBe("foliplus-tool-btn");
   });
 });
 

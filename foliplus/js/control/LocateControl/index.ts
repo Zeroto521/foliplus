@@ -3,6 +3,7 @@ import { defineControl } from "#core/lifecycle/index.js";
 import { ensureHint } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
 const CROSSHAIR = `
@@ -28,7 +29,7 @@ const LocateControl = defineControl({
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
     const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
     this.btn = createIconButton({
-      class: "foliplus-tool-btn foliplus-locate-btn",
+      class: `${PANEL_CLASS.TOOL_BTN} foliplus-locate-btn`,
       title: this.T("title"),
       ariaLabel: this.T("title"),
       svg: BTN_HTML,
