@@ -68,7 +68,7 @@ interface RenderLabelControlsOptions {
    *  `dropdownSurface(map.getContainer())`). */
   surface?: DropdownSurface;
   /** Overlay-registry hook (single Escape dispatcher). */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
 }
 
 interface LabelControlsResult {
@@ -172,7 +172,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       nativeSelect: formatSelect as HTMLSelectElement,
       ariaLabel: T("foliplus.label_format"),
       ...opts.surface,
-      ...(opts.overlay ? { overlay: opts.overlay } : {}),
+      overlay: opts.overlay,
     });
     bodyRows.push(
       dom.el(

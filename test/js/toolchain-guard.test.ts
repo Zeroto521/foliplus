@@ -222,6 +222,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the glyph-prefix single-source guard over foliplus/js production (fa-solid literal only on the GLYPH_PREFIXES.solid declaration line), a tree guard not a script module",
   "check/style-dimension-cycle":
     "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
+  "check/event-name":
+    "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
   "check/deep-relative-path":
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
 };
@@ -368,6 +370,28 @@ describe("script module coverage", () => {
     expect(isCovered("never-a-module")).toBe(false);
   });
 });
+
+describe("event-name guard wiring", () => {
+  it("npm run lint chains the event-name guard inline", () => {
+    const lint = pkg.scripts.lint;
+    expect(lint).toContain("node script/check/event-name.mjs");
+    // eslint must still follow the guard in the same chain.
+    expect(lint.indexOf("eslint")).toBeGreaterThan(lint.indexOf("event-name"));
+  });
+
+  it("no standalone guard:event-name npm script exists", () => {
+    expect(pkg.scripts["guard:event-name"]).toBeUndefined();
+  });
+
+  it("removing the inline guard from the lint chain must fail the assertion", () => {
+    const lint = pkg.scripts.lint;
+    const without = lint.replace(/node script\/check\/event-name\.mjs(?: && )?/g, "");
+    expect(without).not.toContain("event-name");
+    // The original chain must contain it.
+    expect(lint).toContain("event-name");
+  });
+});
+
 describe("style-mode-usage guard wiring", () => {
   it("npm run lint chains the style-mode guard inline", () => {
     const lint = pkg.scripts.lint;

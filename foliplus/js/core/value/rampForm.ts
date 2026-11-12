@@ -114,7 +114,7 @@ type ClassesRowOptions = {
   /** Popup host contract for both bridged dropdowns (see FieldRowOptions). */
   surface?: DropdownSurface;
   /** Overlay-registry hook (single Escape dispatcher). Shared by both lists. */
-  overlay?: DropdownOverlay;
+  overlay: DropdownOverlay;
 };
 
 type ClassesRow = {
