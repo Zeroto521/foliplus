@@ -79,7 +79,7 @@ import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
-  STYLE_MODE as STYLE_MODE_KEY,
+  STYLE_MODE_KEY,
   bindLiveColor,
   bindLiveNumber,
   dropdownOverlay,

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { STYLE_MODE } from "#ui/styleModeKey.js";
+import { STYLE_MODE_KEY } from "#ui/styleModeKey.js";
 
 // Style-mode single-source guard. See ui/styleModeKey.ts.
 //
@@ -18,7 +18,7 @@ import { STYLE_MODE } from "#ui/styleModeKey.js";
 //     must be referenced from foliplus/js — an orphan key (e.g. a deleted
 //     feature's leftover vocabulary) fails. A key held "for later" must be
 //     registered in the explicit allow-list below with its reason.
-// (4) STYLE_MODE keys are defined and non-empty in both zh and en.
+// (4) STYLE_MODE_KEY keys are defined and non-empty in both zh and en.
 
 const JS_ROOT = join(process.cwd(), "foliplus/js");
 const LOCALE_EN = JSON.parse(
@@ -63,7 +63,7 @@ const localeStyleKeys = Object.keys(LOCALE_EN)
   .map(k => k.slice("LayerControl.".length));
 
 /** Collect every style_* key the JS sources reference, both as a literal
- *  T("style_*") and as a STYLE_MODE constant value. */
+ *  T("style_*") and as a STYLE_MODE_KEY constant value. */
 function referencedStyleKeys(): Set<string> {
   const refs = new Set<string>();
   for (const p of tsFiles) {
@@ -72,8 +72,8 @@ function referencedStyleKeys(): Set<string> {
       const k = m[1] as string;
       if (k.startsWith("style_")) refs.add(k);
     }
-    for (const m of s.matchAll(/STYLE_MODE(?:_KEY)?\.([A-Z_]+)/g)) {
-      const key = (STYLE_MODE as Record<string, string>)[m[1] as string];
+    for (const m of s.matchAll(/STYLE_MODE_KEY(?:_KEY)?\.([A-Z_]+)/g)) {
+      const key = (STYLE_MODE_KEY as Record<string, string>)[m[1] as string];
       if (key) refs.add(key);
     }
   }
@@ -111,8 +111,8 @@ describe("style mode single source", () => {
     expect(missing).toEqual([]);
   });
 
-  it("keeps STYLE_MODE keys consistent and non-empty across locales", () => {
-    for (const key of Object.values(STYLE_MODE)) {
+  it("keeps STYLE_MODE_KEY keys consistent and non-empty across locales", () => {
+    for (const key of Object.values(STYLE_MODE_KEY)) {
       const fk = `LayerControl.${key as string}`;
       const en = LOCALE_EN[fk];
       const zh = LOCALE_ZH[fk];
