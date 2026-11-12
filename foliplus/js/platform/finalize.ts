@@ -1,4 +1,6 @@
 // platform/finalize — run a teardown as a list of named, isolated steps.
+import type { FinalizeFailure, FinalizeResult, FinalizeStep } from "./type.js";
+
 //
 // A teardown is a list of things that must ALL happen: drop the gesture, detach
 // from the map, remove the row, unload the label. Written as inline
@@ -34,24 +36,10 @@
 // already made stay unreleasable.
 
 /** One named teardown step. The name is what a failure is reported against. */
-type FinalizeStep = readonly [name: string, run: () => void];
 
 /** One step that threw, and what it threw. */
-interface FinalizeFailure {
-  readonly name: string;
-  readonly error: unknown;
-}
 
 /** What one `finalize` pass observed. */
-interface FinalizeResult {
-  /** Every failure in execution order, paired with its step name. */
-  readonly failures: readonly FinalizeFailure[];
-  /**
-   * Raise the first failure, or return when every step succeeded. Callers that
-   * owe a commit (persistence, an announcement) call this AFTER it has landed.
-   */
-  throwIfFailed(): void;
-}
 
 /** One item a `finalizeEach` pass failed on. */
 interface FinalizeEachFailure<T> extends FinalizeFailure {
