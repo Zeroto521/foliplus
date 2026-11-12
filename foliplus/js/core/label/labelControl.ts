@@ -256,7 +256,9 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       t.classList.contains(LABEL_CLASS.STYLE_TOGGLE_INPUT) &&
       setters.labelShow
     ) {
-      const body = root.querySelector(`.${LABEL_CLASS.STYLE_BODY}`) as HTMLElement | null;
+      const body = root.querySelector(
+        `.${LABEL_CLASS.STYLE_BODY}`,
+      ) as HTMLElement | null;
       if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !t.checked);
       setters.labelShow(t.checked);
     } else if (
