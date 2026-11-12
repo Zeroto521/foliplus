@@ -111,6 +111,10 @@ describe("runtimeTarget", () => {
   it("maps ui modules to ui.<mod>", () => {
     expect(runtimeTarget("ui/panelChrome")).toBe("ui.panelChrome");
     expect(runtimeTarget("ui/style/icon")).toBe("ui.icon");
+    // The ui barrel (ui/index) is the package __init__: its names publish on
+    // the flat foliplus.ui root, so it maps to "ui", not "ui.index".
+    expect(runtimeTarget("ui/index")).toBe("ui");
+    expect(sharedGlobalNamespace("#ui/index.js")).toBe("foliplus.ui");
   });
 
   it("returns a #-prefixed spec untouched", () => {
@@ -692,12 +696,12 @@ describe("globalNamespacePlugin", () => {
     expect(result.contents).toContain("export const panelButton =");
   });
 
-  it("shims the ui barrel import to foliplus.ui.index, not flat foliplus.ui", () => {
+  it("shims the ui barrel import to the flat foliplus.ui root", () => {
     // #ui/index.js is a shared spec (the ui prefix branch): the strip chain
     // maps it to the source-relative path, and runtimeTarget resolves
-    // "ui/index" → "ui.index" (second path segment). The shim must read
-    // foliplus.ui.index — the namespace the generated registry publishes the
-    // barrel's re-exports under — and must NOT flatten onto foliplus.ui.
+    // "ui/index" → "ui" (the package __init__). The shim must read the flat
+    // foliplus.ui — the namespace the generated registry publishes the
+    // barrel's re-exports under — and must NOT index into foliplus.ui.index.
     writeFileSync(
       join(dir, "index.ts"),
       'import { panelButton } from "#ui/index.js";\n',
@@ -706,11 +710,27 @@ describe("globalNamespacePlugin", () => {
     const { onLoad } = setupPlugin([join(dir, "index.ts")]);
     const result = onLoad({ path: "#ui/index.js" });
     expect(result.loader).toBe("js");
-    expect(result.contents).toContain("globalThis.foliplus.ui.index");
-    expect(result.contents).not.toContain("globalThis.foliplus.ui.panelButton");
+    expect(result.contents).toContain("globalThis.foliplus.ui");
+    expect(result.contents).not.toContain("globalThis.foliplus.ui.index");
     expect(result.contents).toContain("export const panelButton =");
   });
 
+  it("shims the flat BaseControl value directly", () => {
+    // foliplus.BaseControl IS the class (not { BaseControl }), so the shim
+    // re-exports the value itself: `export const BaseControl = shim;` with no
+    // property index — the old ["BaseControl"] access would read undefined.
+    writeFileSync(
+      join(dir, "index.ts"),
+      'import { BaseControl } from "#foliplus/BaseControl.js";\n',
+      "utf-8",
+    );
+    const { onLoad } = setupPlugin([join(dir, "index.ts")]);
+    const result = onLoad({ path: "#foliplus/BaseControl.js" });
+    expect(result.loader).toBe("js");
+    expect(result.contents).toContain("globalThis.foliplus.BaseControl");
+    expect(result.contents).toContain("export const BaseControl =");
+    expect(result.contents).not.toContain('["BaseControl"]');
+  });
   it("shims star-imported property usage via starUsed", () => {
     writeFileSync(
       join(dir, "index.ts"),
