@@ -360,6 +360,7 @@ describe("LayerUI style panel — fill color", () => {
   // ─────────────────── row rendering ───────────────────
 
   it("renders the fill row for a fillable vector layer", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
@@ -369,6 +370,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("the fill row's aria-label comes from the scoped translator", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
@@ -378,6 +380,7 @@ describe("LayerUI style panel — fill color", () => {
   it("the mode row's label matches the trigger's aria-label key", () => {
     // The row that owns the mode control reads "Fill"; the swatch's aria-label
     // stays the color key, so neither one lies about what it names.
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
@@ -391,6 +394,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("the swatch defaults to the authored paint when no fill is committed", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
@@ -622,6 +626,7 @@ describe("LayerUI style panel — fill color", () => {
     // contract is that a non-hex authored value never reaches the input raw.
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[0].options.fillColor = "gray";
+    setIntent(fixture.ui, "overlay1", "fillStyleMode", "solid");
     fixture.ui.openStylePanel("overlay1");
     const item = findItem(fixture.ui, "overlay1");
     const value = fillInput(item)!.value;
@@ -787,6 +792,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
@@ -816,6 +822,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
@@ -844,6 +851,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
@@ -870,6 +878,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
@@ -892,7 +901,7 @@ describe("LayerUI style panel — fill color", () => {
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#aabbcc",
       opacity: 0.5,
-      mode: "solid",
+      mode: "original",
     });
     commitNow(ui, "overlay1", "color", "#445566");
     commitNow(ui, "overlay1", "opacity", 80);
@@ -1356,6 +1365,7 @@ describe("LayerUI style panel — fill color", () => {
   // ─────────────────── panel integration ───────────────────
 
   it("changing the swatch commits the color through the live binder", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const input = fillInput(item)!;
@@ -1368,6 +1378,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("the fill opacity input commits through the live binder", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const input = item.querySelector(
@@ -1382,6 +1393,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("the swatch keeps the value it was committed (no forced re-read)", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const input = fillInput(item)!;
@@ -1471,6 +1483,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("the panel's Reset button restores the fill color", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const input = fillInput(item)!;
@@ -1501,6 +1514,7 @@ describe("buildFillRow", () => {
   });
 
   it("emits the fill block: mode row + detail slot with the swatch input", () => {
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const row = buildFillRow(ui, "overlay1");
 
     expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_BLOCK)).toBe(true);
@@ -1533,11 +1547,11 @@ describe("buildFillRow", () => {
       'option[value="value"]',
     ) as HTMLOptionElement;
 
-    expect(select.value).toBe("solid");
+    expect(select.value).toBe("original");
     expect(rampOption.disabled).toBe(false);
   });
 
-  it("renders only the solid mode when the layer has no value field", () => {
+  it("offers the original and solid modes for a layer with no value field", () => {
     const fixture = initWithFillLayer();
     // Count is the only numeric property; make it a string-only layer.
     fixture.manager.registerLayer({
@@ -1551,9 +1565,8 @@ describe("buildFillRow", () => {
           setStyle: ReturnType<typeof vi.fn>;
         };
         leaf.options = { fillColor: "#aabbcc", fill: true };
-        // An empty feature bag: with no numeric and no categorical property
-        // the layer offers no value mode, so the solid-only row is the honest
-        // a string property is a legitimate category field.
+        // An empty feature bag: no value mode, but the mode row still offers
+        // ORIGINAL + SOLID (a fill-capable layer always has a baseline state).
         leaf.feature = { properties: {} };
         leaf.setStyle = vi.fn();
         return {
@@ -1571,30 +1584,33 @@ describe("buildFillRow", () => {
 
     const row = buildFillRow(fixture.ui, "textonly");
 
-    // No mode select at all: a layer with one honest mode does not get a
-    // dropdown that can only ever show that mode. No hint text either.
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
-    expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
-    ).not.toBeNull();
-    expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`),
-    ).not.toBeNull();
+    // A fill-capable layer always owns a baseline state (ORIGINAL) plus SOLID,
+    // so the mode row exists; VALUE is absent (no field).
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+    expect(select.querySelector('option[value="value"]')).toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
   });
 
-  it("puts the solid mode's color and opacity in one row", () => {
+  it("puts the original color and opacity in one readonly row", () => {
     const row = buildFillRow(ui, "overlay1");
     const fillRows = row.querySelectorAll(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
 
-    // One detail row (plus the mode row above it): color and opacity share it.
+    // The default state is ORIGINAL (no intent, m14358): the monochrome
+    // readout is one row [swatch | opacity], both readonly, no editable inputs.
     expect(fillRows.length).toBe(2);
     const detailRow = fillRows[1];
     expect(
       detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`),
-    ).not.toBeNull();
+    ).toBeNull();
+    expect(detailRow.querySelector(`.${PANEL_CLASS.READONLY}`)).not.toBeNull();
   });
 
   it("renders the ramp detail when a stored config says ramp", () => {
@@ -1666,33 +1682,39 @@ describe("buildFillRow", () => {
     );
   });
 
-  it("falls back to the Leaflet default for an unregistered layer", () => {
-    // No registry entry, no authored color — the swatch shows Leaflet's own
-    // fill default rather than inventing one.
+  it("falls back to the documented default for an unregistered layer", () => {
+    // No registry entry, no leaf — the monochrome ORIGINAL readout shows the
+    // documented default swatch (#cccccc, CONST.COLOR.DEFAULT) + 20%, the
+    // "no leaf declares a value" fallback (design §0).
     const row = buildFillRow(ui, "ghost");
-    const input = row.querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
-    ) as HTMLInputElement;
-
-    expect(input.value).toBe("#3388ff");
+    const boxes = Array.from(row.querySelectorAll(`.${PANEL_CLASS.READONLY}`));
+    expect(boxes.length).toBeGreaterThanOrEqual(2);
+    expect(row.textContent).toContain("20%");
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`),
+    ).not.toBeNull();
   });
 
-  it("falls back to the Leaflet default when no leaf declares a fill color", () => {
+  it("falls back to the documented default when no leaf declares a fill value", () => {
     const fixture = initWithFillLayer();
     delete fixture.fillLayer.leaves[0].options.fillColor;
+    delete fixture.fillLayer.leaves[0].options.fillOpacity;
     delete fixture.fillLayer.leaves[1].options.fillColor;
+    delete fixture.fillLayer.leaves[1].options.fillOpacity;
 
+    // ORIGINAL monochrome readout (no intent): with no leaf declaring a fill
+    // value at all, the documented defaults apply (design §0).
     const row = buildFillRow(fixture.ui, "overlay1");
-    const input = row.querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
-    ) as HTMLInputElement;
-
-    expect(input.value).toBe("#3388ff");
+    expect(row.textContent).toContain("20%");
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`),
+    ).not.toBeNull();
   });
 
   it("the fill opacity input allows any integer 0–100 (step 1)", () => {
     // The number field is the precise input; a coarse step would keep the
     // spinner on multiples of 5 while every integer is a legal opacity.
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const row = buildFillRow(ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -1707,6 +1729,7 @@ describe("buildFillRow", () => {
     // First leaf declares fillOpacity 0.5 — the field shows 50%, not the
     // Leaflet default constant, mirroring how the swatch shows the author's
     // color.
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
     const row = buildFillRow(ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -1720,6 +1743,7 @@ describe("buildFillRow", () => {
     delete fixture.fillLayer.leaves[0].options.fillOpacity;
     delete fixture.fillLayer.leaves[1].options.fillOpacity;
 
+    setIntent(fixture.ui, "overlay1", "fillStyleMode", "solid");
     const row = buildFillRow(fixture.ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -2603,9 +2627,10 @@ describe("fill mode row — solid ↔ color by value", () => {
     });
   });
 
-  it("renders no mode select and writes no mode when there is no numeric field", () => {
+  it("keeps the mode row but writes no mode when there is no value field", () => {
     // A text-only layer: the field cache has no numeric entry and the tree
-    // walk fallback finds no finite number either.
+    // walk fallback finds no finite number either. ORIGINAL + SOLID still
+    // apply (a fill-capable layer always has a baseline state), VALUE is absent.
     ui.runtimeStore.setFields("overlay1", []);
     for (const leaf of layer.leaves) {
       // No numeric and no categorical property: the honest no-value layer.
@@ -2614,7 +2639,12 @@ describe("fill mode row — solid ↔ color by value", () => {
     const block = buildFillRow(ui, "overlay1");
     bindFillRow(ui, "overlay1", block);
 
-    expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
+    const select = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.querySelector('option[value="value"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
     expect(getIntent(ui, "overlay1", "fillStyleMode")).toBeUndefined();
     expect(getIntent(ui, "overlay1", "fillValue")).toBeUndefined();
   });
@@ -2657,10 +2687,11 @@ describe("fill mode row — solid ↔ color by value", () => {
     expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "count" });
   });
 
-  it("shows the stored ramp as solid when the layer has no numeric field", () => {
+  it("reads the stored value mode as an absent option when the layer has no field", () => {
     // A record can outlive the data it was built for (field removed). The
-    // panel must fall back to the solid mode instead of showing a ramp select
-    // whose detail cannot classify anything.
+    // stored VALUE mode reads first, but the VALUE option is absent (nothing
+    // to classify), so the bridged select shows no selection; ORIGINAL +
+    // SOLID are the honest modes and the detail degrades to solid controls.
     ui.runtimeStore.setFields("overlay1", []);
     for (const leaf of layer.leaves) {
       leaf.feature.properties = {};
@@ -2674,12 +2705,15 @@ describe("fill mode row — solid ↔ color by value", () => {
     } as never);
 
     const block = buildFillRow(ui, "overlay1");
+    const select = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
 
-    // One honest mode: solid controls, no mode select, no ramp detail.
-    expect(block.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`)).toBeNull();
-    expect(
-      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
-    ).not.toBeNull();
+    // The mode row exists with ORIGINAL + SOLID; VALUE's option is gone and
+    // the select falls back to no selection ("").
+    expect(select).not.toBeNull();
+    expect(select.querySelector('option[value="value"]')).toBeNull();
+    expect(select.value).toBe("");
     expect(
       details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
     ).toBeNull();
@@ -3464,8 +3498,8 @@ describe("fill ramp persistence and reset", () => {
     expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
 
     const block = openPanel(ui);
-    expect(modeSelect(block).value).toBe("solid");
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    expect(modeSelect(block).value).toBe("original");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
   });
 
   it("clearIntent on the ramp keeps the solid mode untouched", () => {
@@ -3568,18 +3602,20 @@ describe("fill row — original colors option", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
-  it("keeps the solid mode when the leaves share one color", () => {
+  it("reads the original mode when the leaves share one color", () => {
     const { ui } = initWithPerFeatureLayer({
       colors: ["#aabbcc", "#aabbcc"],
       perFeature: false,
     });
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
-    expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="original"]')).toBeNull();
+    // Single-colour author, no intent: the honest baseline is ORIGINAL
+    // (m14358), and the option is now always offered.
+    expect(select.value).toBe("original");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
-  it("keeps the solid mode for a layer without the explore color property", () => {
+  it("reads the original mode for a layer without the explore color property", () => {
     const { ui } = initWithPerFeatureLayer({
       perFeature: false,
       fillAuthor: null,
@@ -3587,8 +3623,10 @@ describe("fill row — original colors option", () => {
     });
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
-    expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="original"]')).toBeNull();
+    // No author record and no intent: the baseline is still ORIGINAL
+    // (the map paints the layer's own defaults), option always offered.
+    expect(select.value).toBe("original");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
   it("keeps the original colors offered after the user chose solid", () => {
@@ -3601,12 +3639,14 @@ describe("fill row — original colors option", () => {
     expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
-  it("does not offer the state for an empty layer", () => {
+  it("reads the original mode for an empty layer", () => {
     const { ui } = initWithPerFeatureLayer({ colors: [], perFeature: false });
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
-    expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="original"]')).toBeNull();
+    // An empty layer has no leaf to read, but it is still fill-capable and
+    // the baseline readout is ORIGINAL (design §0 empty-layer fallback).
+    expect(select.value).toBe("original");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
   it("choosing solid takes the paint over and binds the swatch", () => {
@@ -3947,9 +3987,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // A declared ramp is an instruction, not a display approximation of the
     // author's palette: no per-feature/author note contradicts it.
     expect(mode.title).toBe("");
-    // No author per-feature paint on this layer, so there is no "Original
-    // colors" mode to offer beside the declared ramp.
-    expect(mode.querySelector('option[value="original"]')).toBeNull();
+    // ORIGINAL is now always offered for a fill-capable layer (m14358), even
+    // beside a declared ramp; the declared ramp still reads first.
+    expect(mode.querySelector('option[value="original"]')).not.toBeNull();
   });
 
   it("shows a declared class count outside the editable range and converges on edit", () => {
@@ -4078,8 +4118,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       ],
     });
     // The declaration is dropped whole: no by-value ramp takes over, the
-    // authored solid face stays.
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    // authored solid face stays — which reads as the author's original
+    // colours (m14358), not a claimed solid.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
   });
 
   it("drops a declaration whose field vanished from the matching field set", () => {
@@ -4099,7 +4140,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // schema changed. The declaration is not re-pointed at another column: it
     // steps aside whole, so the authored solid face stays.
     ui.runtimeStore.setFields("overlay1", [{ name: "value", numeric: true }]);
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
   });
 
   it("content-change gate resolves the declaration through findLayer while unlinked", () => {
@@ -4164,12 +4205,13 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     });
 
     // Not silently re-pointed at "count": the whole declaration falls back to
-    // the solid mode instead of painting a column the author never named.
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    // the original baseline instead of painting a column the author never
+    // named (m14358).
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
     const mode = buildFillRow(ui, "overlay1").querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
-    expect(mode.value).toBe("solid");
+    expect(mode.value).toBe("original");
   });
 
   it("a declared mode=solid ignores a ramp given beside it", () => {
@@ -4178,11 +4220,11 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       value: { field: "count" },
     });
 
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
     const mode = buildFillRow(ui, "overlay1").querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
-    expect(mode.value).toBe("solid");
+    expect(mode.value).toBe("original");
   });
 
   it("takes the declared ramp over the detected per-feature paint", () => {
@@ -4985,7 +5027,8 @@ describe("category field fill — string-only layer", () => {
     const block = openPanel(ui);
     const select = modeSelect(block);
     expect(select.querySelector(`option[value="value"]`)).not.toBeNull();
-    expect(select.querySelector(`option[value="original"]`)).toBeNull();
+    // ORIGINAL is always offered for a fill-capable layer (m14358).
+    expect(select.querySelector(`option[value="original"]`)).not.toBeNull();
   });
 
   it("seeds a category config on the string field and shows no method/classes row", () => {
@@ -5030,7 +5073,10 @@ describe("category field fill — string-only layer", () => {
     const select = block.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement | null;
-    expect(select).toBeNull();
+    // ORIGINAL + SOLID still apply; only VALUE is gone.
+    expect(select).not.toBeNull();
+    expect(select!.querySelector('option[value="value"]')).toBeNull();
+    expect(select!.querySelector('option[value="original"]')).not.toBeNull();
     expect(getIntent(ui, "overlay1", "fillStyleMode")).toBeUndefined();
   });
   it("keeps the selected category field in the intent after a field switch", () => {

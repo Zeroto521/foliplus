@@ -11,10 +11,17 @@
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
 import { originalGradient } from "./originalColor.js";
+import { type StyleCarrier, styleBagOf, walkFillLeaves } from "./styleBag.js";
 import { METHOD } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+
+/** A visible `fillOpacity` used to *display* the original readout's opacity
+ *  when neither a stored override nor an authored value exists — the same
+ *  0.2 Leaflet default the solid row's display floor uses, so a layer that
+ *  never declared a fill opacity reads what it is actually painting. */
+const VISIBLE_FILL_OPACITY = 0.2;
 
 /** What the author's strip is, in the author's own terms.
  *
@@ -187,4 +194,71 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   return rows;
 };
 
-export { buildOriginalDetail };
+/** The author's own fill paint for the monochrome original readout.
+ *
+ *  Reads the first fill leaf's captured author bag when one exists, else its
+ *  live options — the same priority `styleBaseOf` uses, so the row shows the
+ *  author's paint rather than the last user drag that mutates `options` in
+ *  place. Falls back to the documented constants only when no leaf declares a
+ *  value (design §0: `leaf.options.fillColor ?? CONST.COLOR.DEFAULT`;
+ *  `leaf.options.fillOpacity ?? VISIBLE_FILL_OPACITY`) — a layer the author
+ *  left transparent still has a real 0% readout, and an empty/offscreen layer
+ *  shows the default swatch + 20%. */
+const authorFillPaint = (
+  ui: LayerUI,
+  layerId: string,
+): { color: string; opacity: number | null } => {
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
+  if (!layer) return { color: CONST.COLOR.DEFAULT, opacity: null };
+  let color: string | null = null;
+  let opacity: number | null = null;
+  let found = false;
+  walkFillLeaves(layer, node => {
+    if (found) return;
+    found = true;
+    const bag = styleBagOf(node);
+    const opts = node.options ?? {};
+    color = bag?.fillColor ?? opts.fillColor ?? null;
+    opacity = bag?.fillOpacity ?? opts.fillOpacity ?? null;
+  });
+  return { color: color ?? CONST.COLOR.DEFAULT, opacity };
+};
+
+/** The monochrome original-colors readout: ONE form-row holding the author's
+ *  colour swatch and fill opacity side by side, both read-only (design §2.1).
+ *
+ *  Mirrors the SOLID row's shape ([colour | opacity] on one line) so the two
+ *  modes read as one grid; unlike SOLID neither half is editable — the
+ *  author's paint is not the user's to change. Reuses the shared read-only
+ *  frame and the existing inline/form-row primitives; no new layout. */
+const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
+  const paint = authorFillPaint(ui, layerId);
+  const pct = paint.opacity !== null ? paint.opacity : VISIBLE_FILL_OPACITY;
+  const colorBox = readOnlyValue(
+    {
+      className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`,
+      role: "img",
+    },
+    dom.el("div", {
+      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
+      style: `background:${paint.color}`,
+    }),
+  );
+  const opacityBox = readOnlyValue(
+    { className: CONST.CLASSES.STYLE_FILL_READONLY },
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      `${Math.round(pct * 100)}%`,
+    ),
+  );
+  return [
+    formRow(
+      ui.T("style_fill"),
+      inlineControls(colorBox, opacityBox),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
+  ];
+};
+
+export { buildMonochromeOriginalDetail, buildOriginalDetail };

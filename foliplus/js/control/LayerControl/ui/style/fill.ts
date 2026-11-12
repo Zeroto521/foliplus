@@ -33,13 +33,15 @@ import {
   effectiveFillValue,
   hasDeclaredValue,
   hasValueField,
-  resolveFillMode,
   resolvedValue,
   valueFields,
   valueForUi,
   writeFillMode,
 } from "./fillValue.js";
-import { buildOriginalDetail } from "./originalDetail.js";
+import {
+  buildMonochromeOriginalDetail,
+  buildOriginalDetail,
+} from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   capabilityGate,
@@ -214,7 +216,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       ? solidColorOf(ui, layerId, FACE.FILL, { excludeBasemap: true })
       : undefined);
   const color = original ? undefined : solidColor;
-  const opacity = original ? undefined : getIntent(ui, layerId, INTENT.FILL_OPACITY);
+  // An opacity override rides BOTH modes (#953): even in ORIGINAL the user's
+  // transparency is a real face the map must paint (the colour stays the
+  // author's). The `original ? undefined` guard would silently drop an
+  // opacity-only override the moment the mode reads ORIGINAL.
+  const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
@@ -279,7 +285,14 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
       // already put them back, so there is no user face to replay over it. The
       // mode is resolved, not read off the intent, because an explore layer
       // opens in it before any mode has been written.
-      if (displayFillMode(ui, layerId) === STYLE_MODE.ORIGINAL) return null;
+      if (displayFillMode(ui, layerId) === STYLE_MODE.ORIGINAL) {
+        // The author's own colours are the paint here: folium's mouseout
+        // restore already put them back, so there is no colour face to replay
+        // over it. An opacity override still rides the mode (#953) and must
+        // survive the hover — replay that alone.
+        const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+        return o === undefined ? null : styleDimPayload({ fillOpacity: o }, FACE.FILL);
+      }
       // Same derivation as the apply: a solid mode with no FILL_COLOR intent
       // owns the authored base colour, so a mouseout must replay THAT, not
       // folium's per-feature author face (which would bring the multi-colour
@@ -390,22 +403,27 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
   //   1. an explicit mode the user stored (INTENT.FILL_MODE);
   //   2. the author's declared value fill (#789) — a real instruction, so it
   //      outranks the presentation state detected from the author's paint;
-  //   3. the detected per-feature state, the pre-fillMode record shape and
-  //      the built-in fallback, in the order below.
+  //   3. the detected state and the built-in fallback, in the order below.
   // (2) cannot shadow (1): `declaredFill` reads undefined the moment either
   // fill intent exists, so a stored mode is never overridden by a declaration.
   if (stored !== undefined) return stored;
   if (declaredValue(ui, layerId)) return STYLE_MODE.VALUE;
-  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, value);
+  // No paint-owning intent (FILL_COLOR / FILL_VALUE / FILL_MODE): the map is
+  // painting the author's own colours (or the layer's own defaults), so the
+  // honest readout is ORIGINAL — SOLID would claim "the user picked a colour"
+  // when the row is really a state readout of what the map shows (lead
+  // m14358). An opacity-only override still rides both modes (#953): a user
+  // who only tuned transparency never asked for a single colour, so it never
+  // sinks the mode to SOLID either.
+  if (getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined && value === undefined) {
+    return STYLE_MODE.ORIGINAL;
+  }
   // A value config means the user already classified (the pre-fillMode record
-  // shape). A lone fill color means the solid mode owns the paint — that is how
-  // a record written before this mode existed still reads, and how a
-  // programmatic color write lands. Opacity alone does not move the mode: it
-  // rides both modes, and an explore layer with only an opacity override is
-  // still painting its author's colors.
+  // shape). A lone fill colour means the solid mode owns the paint — that is
+  // how a record written before this mode existed still reads, and how a
+  // programmatic colour write lands.
   if (value !== undefined) return STYLE_MODE.VALUE;
-  if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return STYLE_MODE.SOLID;
-  return STYLE_MODE.ORIGINAL;
+  return STYLE_MODE.SOLID;
 };
 /** The solid mode's detail: one row holding the color swatch and the
  *  fill-opacity number side by side (the border-row recipe). color and
@@ -455,7 +473,15 @@ const renderFillDetail = (
   // how many there are. No classification controls — those belong to the
   // user's own value fill.
   if (mode === STYLE_MODE.ORIGINAL) {
-    detail.append(...buildOriginalDetail(ui, layerId));
+    // A single-colour author has one paint to show: the compact [swatch |
+    // opacity] read-only row (design §2.1). A per-feature author has no
+    // single colour to put in a swatch — the shared original-colors detail
+    // (column/colors/method/count) is the honest readout.
+    if (paintsPerFeatureFill(ui, layerId)) {
+      detail.append(...buildOriginalDetail(ui, layerId));
+    } else {
+      detail.append(...buildMonochromeOriginalDetail(ui, layerId));
+    }
     return;
   }
   if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
@@ -496,22 +522,6 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   }
 
   const perFeature = paintsPerFeatureFill(ui, layerId);
-  // No value field (numeric or categorical) and no author record: one mode
-  // only, so there is no mode to choose. The wrapper keeps the same
-  // block/detail shape so a later field type can add a second mode without
-  // moving the panel's bind seam. A layer the author paints per feature
-  // keeps its mode row even without a value field: the read-only state still
-  // needs the solid override beside it.
-  if (!hasValueField(ui, layerId) && !perFeature) {
-    const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
-    detail.append(...buildSolidDetail(ui, layerId));
-    return dom.el(
-      "div",
-      { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
-      detail,
-    );
-  }
-
   // Opening on the original colors writes no intent: the map keeps the
   // author's own paint until the user edits a fill control, and the row states
   // what it is looking at. Once the user picks it, the choice is a stored mode
@@ -523,15 +533,17 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   // dead entry. Solid stays selectable even when the mode had no numeric field
   // a moment ago.
   const options = [
-    ...(perFeature
-      ? [
-          {
-            value: STYLE_MODE.ORIGINAL,
-            label: ui.T(STYLE_MODE_KEY.ORIGINAL),
-            title: ui.T("style_fill_per_feature_note"),
-          },
-        ]
-      : []),
+    // ORIGINAL is now always offered for a fill-capable layer: the map is
+    // always painting something, and the author's own colours (or the layer
+    // defaults) are the honest baseline readout (lead m14358). The
+    // per-feature note is a tooltip/description only when the author painted
+    // per feature; a single-colour author offers the same state without the
+    // "per feature" sentence.
+    {
+      value: STYLE_MODE.ORIGINAL,
+      label: ui.T(STYLE_MODE_KEY.ORIGINAL),
+      ...(perFeature ? { title: ui.T("style_fill_per_feature_note") } : {}),
+    },
     { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
     ...(hasValueField(ui, layerId)
       ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
