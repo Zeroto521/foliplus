@@ -170,7 +170,7 @@ const collectExportedNames = (filePath, seen = new Set(), depth = 0) => {
  *  import and its published name normally stay in lockstep; the only way they
  *  drift is editing `ui/index.ts` (deleting a re-export, or emptying the file)
  *  without touching the components. esbuild externalizes the barrel import to
- *  a shim that reads `window.foliplus.ui["index"]`, so the drift would
+ *  a shim that reads the flat `window.foliplus.ui`, so the drift would
  *  otherwise resolve to `undefined` at runtime while the build stays green. */
 const assertBarrelExports = (sourceDir, barrelName, names) => {
   const indexPath = resolve(sourceDir, barrelName, "index.ts");
@@ -366,33 +366,42 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   // The ui barrel (#ui/index.js): a component importing from it is scanned
   // under the canonical key "ui" (canonicalSpec strips /index), so the
   // per-module loop above never sees it. Publish the barrel's re-exports at
-  // window.foliplus.ui["index"] — exactly the namespace the component shim
-  // reads (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui.index").
+  // the flat window.foliplus.ui root — the same object the runtime exposes as
+  // foliplus.ui (the index module is the Python __init__ of the ui package,
+  // so its names land on the package itself, not on ui.index). The component
+  // shim reads the same namespace: sharedGlobalNamespace("#ui/index.js") ===
+  // "foliplus.ui".
   // This is separate from the per-module loop, which still handles direct
   // ui/<name>.js imports (a few build-script tests import those directly).
   const barrelNames = usedExports["ui"] || [];
   if (barrelNames.length > 0) {
     assertBarrelExports(sourceDir, "ui", barrelNames);
-    emitNamespace(
-      lines,
-      usedNames,
-      "ui_index",
-      `ui["index"]`,
-      barrelNames,
-      "#ui/index.js",
-    );
+    // A flat publish cannot host a per-module key with the same name as a
+    // barrel export — the deep ui module and the flat export would fight for
+    // one key. No such name exists today; the guard makes the collision loud.
+    for (const name of barrelNames) {
+      if (uiModules.includes(name)) {
+        throw new Error(
+          [
+            `ui barrel export "${name}" collides with the ui module of the`,
+            "same name. The flat foliplus.ui root cannot hold both the module",
+            "namespace and a barrel export under one key.",
+          ].join(" "),
+        );
+      }
+    }
+    emitNamespace(lines, usedNames, "ui", `ui`, barrelNames, "#ui/index.js");
   }
 
   const baseNames = usedExports["foliplus/BaseControl"] || ["BaseControl"];
   if (baseNames.length > 0) {
-    emitNamespace(
-      lines,
-      usedNames,
-      "basecontrol",
-      `BaseControl`,
-      baseNames,
-      "#foliplus/BaseControl.js",
-    );
+    // BaseControl publishes the class itself, not a { BaseControl } wrapper:
+    // foliplus.BaseControl IS the class, so a consumer can write
+    // `class MyControl extends foliplus.BaseControl`. The component shim for
+    // #foliplus/BaseControl.js reads it directly (no ["BaseControl"] index).
+    const baseName = baseNames.includes("BaseControl") ? "BaseControl" : baseNames[0];
+    lines.push(`import { ${baseNames.join(", ")} } from "#foliplus/BaseControl.js";`);
+    lines.push(`window.foliplus.BaseControl = ${baseName};`);
   }
 
   writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");

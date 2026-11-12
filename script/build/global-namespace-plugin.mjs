@@ -96,7 +96,12 @@ const collectExports = (filePath, seen = new Set(), depth = 0) => {
 const runtimeTarget = spec => {
   if (spec.startsWith("#")) return spec;
   if (spec.startsWith("platform/")) return `platform.${spec.split("/").at(-1)}`;
-  if (spec.startsWith("ui/")) return `ui.${spec.split("/").at(-1)}`;
+  if (spec.startsWith("ui/")) {
+    const last = spec.split("/").at(-1);
+    // The ui barrel (ui/index) is the package __init__: its names publish on
+    // the flat foliplus.ui root, so the shim reads foliplus.ui (not ui.index).
+    return last === "index" ? "ui" : `ui.${last}`;
+  }
   if (spec.startsWith("core/")) {
     const sub = spec.split("/")[1];
     return sub === "index" ? `#${spec}` : `core.${sub}`;
@@ -198,7 +203,14 @@ const globalNamespacePlugin = sourceRoot => ({
 
       const shimName = `${ns.replace(/\./g, "_")}_shim`;
       const shimDecl = `var ${shimName} = globalThis.${ns};`;
-      const lines = namesToShim.map(n => `export const ${n} = ${shimName}["${n}"];`);
+      const lines = namesToShim.map(n => {
+        // foliplus.BaseControl is the class itself (flat publish), so the shim
+        // re-exports the value directly rather than indexing a property.
+        if (ns === "foliplus.BaseControl" && n === "BaseControl") {
+          return `export const ${n} = ${shimName};`;
+        }
+        return `export const ${n} = ${shimName}["${n}"];`;
+      });
       lines.unshift(shimDecl);
       return { contents: lines.join("\n"), loader: "js" };
     });

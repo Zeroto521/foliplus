@@ -27,6 +27,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
 import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
+import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#platform/locale.js";
 
@@ -140,7 +141,7 @@ declare global {
     /** Hint module: per-map manager factory + shared icon registry. */
     hint: Record<string, unknown>;
     /** Leaflet `BaseControl` base class shared by every component. */
-    BaseControl: Record<string, unknown>;
+    BaseControl: typeof BaseControl;
     reverseGeocode: (
       map: Leaflet.Map,
       lng: number | string,
@@ -170,9 +171,11 @@ declare global {
      *  Maps component name to a dict of language code → string table, so
      *  the browser can auto-detect language at runtime. */
     _COMPONENT_TABLES?: Record<string, Record<string, Record<string, string>>>;
-    /** Shared core modules, exposed by the generated `_shared-registry.ts`;
-     *  `runtime/index.ts` also writes `component` and `mode` directly. */
+    /** Shared core modules, exposed by the generated `_shared-registry.ts`. */
     core: Record<string, unknown>;
+    /** Shared ui modules (the ui package root), exposed by the generated
+     *  `_shared-registry.ts`. */
+    ui: Record<string, unknown>;
   }
 
   const L: typeof Leaflet;

@@ -59,6 +59,32 @@ describe.skipIf(!distReady)("build artifacts", () => {
     expect(content).toContain("BaseControl");
   });
 
+  it("common JS publishes no index key on the runtime namespaces", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    // The index module is the Python __init__ of each package: its names must
+    // land on the package itself (foliplus.ui.Slider), never on a .index key
+    // (foliplus.ui.index.Slider). A .index publication is a namespace bug.
+    expect(content).not.toMatch(/foliplus\.(?:core|ui|platform)\.index/);
+  });
+
+  it("common JS publishes foliplus.BaseControl as the class itself", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    // foliplus.BaseControl IS the class (not a { BaseControl } wrapper), so a
+    // component can write `class X extends foliplus.BaseControl`. The wrapper
+    // form would make that a TypeError at runtime.
+    expect(content).toMatch(/foliplus\.BaseControl\s*=\s*[A-Za-z_$][\w$]*/);
+    expect(content).not.toMatch(/foliplus\.BaseControl\s*=\s*\{\s*BaseControl\s*\}/);
+  });
+
+  it("common JS no longer publishes the manual core.component/core.mode entries", () => {
+    const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
+    // These two were manually registered in runtime/index.ts; after the
+    // namespace collapse they are gone (the lifecycle sub carries them). A
+    // stray foliplus.core.component would be a duplicate source of truth.
+    expect(content).not.toContain("foliplus.core.component");
+    expect(content).not.toContain("foliplus.core.mode");
+  });
+
   it("common JS contains L.Control (Leaflet base)", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
     expect(content).toContain("L.Control");
