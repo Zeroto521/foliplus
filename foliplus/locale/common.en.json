@@ -18,5 +18,10 @@
   "foliplus.label_size": "Label Font Size",
   "foliplus.label_style": "Color / Font Size",
   "foliplus.label_tooltip": "Show text labels on features",
-  "foliplus.option_disabled": "Unavailable"
+  "foliplus.option_disabled": "Unavailable",
+  "foliplus.classification_method": "Classification Method",
+  "foliplus.classification_jenks": "Natural Breaks",
+  "foliplus.classification_quantile": "Quantile",
+  "foliplus.classification_equal": "Equal Interval",
+  "foliplus.classification_heads": "Equal Count"
 }
