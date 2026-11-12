@@ -141,4 +141,12 @@ describe("panelContentHTML", () => {
     const html = panelContentHTML(T);
     expect(html).toMatch(/foliplus-heatmap-section-block"\s+data-heatmap-ramp-rows/);
   });
+  it("clear button carries panel-btn and the heatmap clear hook on one element", () => {
+    const html = panelContentHTML(T);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const btn = doc.querySelector("button[data-heatmap-btn-clear]");
+    expect(btn).not.toBeNull();
+    expect(btn!.classList.contains("foliplus-panel-btn")).toBe(true);
+    expect(btn!.classList.contains("foliplus-heatmap-btn-clear")).toBe(true);
+  });
 });
