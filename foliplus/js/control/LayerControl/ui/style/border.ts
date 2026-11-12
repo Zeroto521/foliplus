@@ -77,7 +77,7 @@ import {
 import {
   BORDER_WEIGHT,
   PANEL_CLASS,
-  STYLE_MODE as STYLE_MODE_KEY,
+  STYLE_MODE_KEY,
   type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
