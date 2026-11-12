@@ -1,6 +1,6 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
+import { DEFAULT_LABEL_COLOR, LABEL_CLASS, LABEL_SIZE } from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -157,16 +157,16 @@ const CLASSES = {
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */
   STYLE_FIELD_SELECT: "foliplus-style-field-select",
-  STYLE_FORMAT_ROW: "foliplus-style-format-row",
-  STYLE_FORMAT_SELECT: "foliplus-style-format-select",
-  STYLE_TOGGLE_INPUT: "foliplus-style-toggle-input",
-  STYLE_BODY: "foliplus-style-body",
+  STYLE_FORMAT_ROW: LABEL_CLASS.STYLE_FORMAT_ROW,
+  STYLE_FORMAT_SELECT: LABEL_CLASS.STYLE_FORMAT_SELECT,
+  STYLE_TOGGLE_INPUT: LABEL_CLASS.STYLE_TOGGLE_INPUT,
+  STYLE_BODY: LABEL_CLASS.STYLE_BODY,
   /** The Label section's row wrapper — the `label` dimension's `row`
    *  element (toggle + body), so the panel assembly and the tests can
    *  select the section's content as one unit. No styles hang off it. */
   STYLE_LABEL_SECTION: "foliplus-style-label-section",
-  STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
-  STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  STYLE_LABEL_COLOR_INPUT: LABEL_CLASS.STYLE_LABEL_COLOR_INPUT,
+  STYLE_LABEL_SIZE_INPUT: LABEL_CLASS.STYLE_LABEL_SIZE_INPUT,
   /** Border row (vector layers): stroke swatch + width field. Each control
    *  gets its own class so the panel's change delegation and the tests can
    *  tell it apart from the label color swatch. */
@@ -185,7 +185,7 @@ const CLASSES = {
 
   /** The "avoid overlap" switch — its own class, because the panel's change
    *  delegation keys on the class to tell the two switches apart. */
-  STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
+  STYLE_COLLIDE_INPUT: LABEL_CLASS.STYLE_COLLIDE_INPUT,
   /** Fill color row (vector layers): swatch + native <input type=color>.
    *  Its own class so the change delegation can tell it from the label
    *  color swatch, and so a future delegated drawer can gate on it. */
