@@ -2985,8 +2985,53 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
 
+    def test_icon_color_incremental_paint(self, browser, tmp_path):
+        """The icon colour write paints the mounted glyph in place.
+
+        A pure colour/opacity write must NOT rebuild the icon: the derived
+        marker's inner <i> is the SAME element reference after the colour
+        write (no DOM churn), its computed colour updates, and the marker's
+        setIcon is called once for the glyph write and ZERO additional times
+        for the colour write. A glyph write still rebuilds (one setIcon).
+        """
+        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
+        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
+            fg
+        )
+
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="icon_color_incremental",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            marker_var = page.evaluate(_js("LayerControl/find_marker_var"))
+            assert marker_var is not None, "could not find the folium marker var"
+            page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
+
+            result = page.evaluate(_js("LayerControl/icon_incremental_probe"), {})
+            assert result["ok"], result
+            # The colour write must be incremental: same <i>, no rebuild.
+            assert result["sameElementAfterColor"] is True, (
+                f"colour write rebuilt the icon (element changed): {result}"
+            )
+            assert result["afterColor"]["color"] == "rgb(0, 255, 0)", (
+                f"colour write did not paint the glyph: {result}"
+            )
+            assert result["setIconDeltaColor"] == 0, (
+                f"colour write must not call setIcon: {result}"
+            )
+            # The glyph write must rebuild exactly once.
+            assert result["callsAfterGlyph"] >= 1, f"glyph write must rebuild: {result}"
+            assert (
+                result["afterGlyph"]
+                and "foliplus-marker-glyph" in result["afterGlyph"]["cls"].split()
+            ), f"glyph not painted: {result}"
+
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
-        """Task-76: the marker chassis accepts a custom hex + opacity.
+        """The marker chassis accepts a custom hex + opacity.
 
         The row is [color swatch | opacity number]. Three paint paths:
           • preset hex at alpha 100  → library sprite class, NO chassis span

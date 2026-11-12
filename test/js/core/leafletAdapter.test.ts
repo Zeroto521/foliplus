@@ -306,6 +306,7 @@ describe("source pins", () => {
       "layerMap",
       "layerShadow",
       "layerUrl",
+      "mountedIconElement",
       "primeControlMap",
       "refreshAttributions",
       "reinitInteraction",
