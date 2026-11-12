@@ -2143,9 +2143,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not state["hasClassesRow"], (
                 f"the category mode must not show a classes row: {state}"
             )
-            assert state["fieldOptions"] is not None and any(
-                o and "(" in o for o in state["fieldOptions"]
-            ), f"the field select must label the category column: {state}"
+            assert state["fieldOptions"] is not None and all(
+                o and "(" not in o for o in state["fieldOptions"]
+            ), f"the field options must be bare field names: {state}"
             assert not errors, f"JS errors: {errors}"
 
     def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
