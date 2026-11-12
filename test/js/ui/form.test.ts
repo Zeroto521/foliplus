@@ -1,3 +1,4 @@
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -286,7 +287,7 @@ describe("selectInput", () => {
 // the *relationships* between the stylesheet sources — which token feeds which
 // rule — rather than pixel values, which the browser probe records.
 
-const ROOT = resolve(__dirname, "../../..");
+const ROOT = repoPath(".");
 
 /** Read a stylesheet with normalized line endings.
  *

@@ -54,6 +54,7 @@
   "ui/canvasLabel",
   "ui/dropdown",
   "ui/form",
+  "ui/labelClassName",
   "ui/listbox",
   "ui/optionRow",
   "ui/panelChrome",

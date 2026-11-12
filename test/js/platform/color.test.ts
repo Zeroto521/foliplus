@@ -1,6 +1,6 @@
+import { repoPath } from "#test/path.js";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   composeColorAlpha,
@@ -88,8 +88,7 @@ describe("composeColorAlpha", () => {
 
 describe("single home for the hex/rgba regexes", () => {
   it("keeps every hex/rgba regex in platform/color.ts", () => {
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    const root = path.resolve(here, "../../..");
+    const root = repoPath(".");
     const jsRoot = path.join(root, "foliplus", "js");
     const files: string[] = [];
     const walk = (dir: string): void => {
