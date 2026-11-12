@@ -307,6 +307,25 @@ describe("in-place paint (no rebuild)", () => {
     expect(span.style.opacity).toBe("0.5");
   });
 
+  it("applyMarkerColorToLeaves re-paints a mounted span to a custom hex (mask + flat colour)", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    // A preset at alpha 50 builds a chassis span carrying the sprite face.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // Re-paint to a custom hex: the same span keeps its reference, the sprite
+    // face is swapped for a mask + flat colour, no rebuild.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(el.querySelector(".foliplus-marker-chassis")).toBe(span);
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+    expect(span.style.opacity).toBe("0.5");
+  });
+
   it("applyMarkerColorToLeaves rebuilds when the new paint drops the span", () => {
     const author = makeAuthorIcon({ iconColor: "blue" });
     const m = makeMountedMarker(author);
