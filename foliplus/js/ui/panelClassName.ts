@@ -2,7 +2,7 @@
 //
 // These names are shared across the platform/ui/core layers (form rows are used
 // by core/rampForm and core/label, affordances by the layer control panels and
-// the heatmap panel template), so they cannot live in ui/ — a class name is a
+// the heatmap panel template), so they live here in ui/ — a class name is a
 // contract, and two copies have already drifted once (SearchControl's close
 // button). One spelling here; every consumer reads through it.
 //
