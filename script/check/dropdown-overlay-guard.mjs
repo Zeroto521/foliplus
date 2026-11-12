@@ -74,16 +74,17 @@ const isCreateDropdownCall = node => {
 
 /** Whether an object literal has an `overlay` property assignment. */
 const hasOverlayProperty = obj =>
-  // Caller narrows to an object literal before invoking; the optional chain
-  // keeps a non-literal from throwing without a dead defensive branch.
-  obj.properties?.some(p => {
+  // Caller narrows to an object literal before invoking, so properties is
+  // always present; the direct .some() keeps the contract without a dead
+  // optional-chain fallback branch.
+  obj.properties.some(p => {
     if (ts.isPropertyAssignment(p)) {
       const name = p.name;
       return ts.isIdentifier(name) && name.text === "overlay";
     }
     if (ts.isShorthandPropertyAssignment(p)) return p.name.text === "overlay";
     return false;
-  }) ?? false;
+  });
 
 /**
  * Find overlay-contract violations in the production source tree.

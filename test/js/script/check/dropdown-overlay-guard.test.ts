@@ -120,6 +120,17 @@ describe("walk and CLI paths (coverage)", () => {
     expect(walk(join(tmpdir(), "overlay-guard-does-not-exist"))).toEqual([]);
   });
 
+  it("walk collects only .ts files (a non-ts sibling is skipped)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(join(dir, "foliplus", "js", "ui", "ok.ts"), "const x = 1;\n");
+    writeFileSync(join(dir, "foliplus", "js", "ui", "skip.mjs"), "const y = 2;\n");
+    const out = walk(join(dir, "foliplus", "js", "ui"));
+    rmSync(dir, { recursive: true, force: true });
+    expect(out.length).toBe(1);
+    expect(out[0].endsWith("ok.ts")).toBe(true);
+  });
+
   it("walk skips build and dependency directories", () => {
     const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
     mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
@@ -134,6 +145,18 @@ describe("walk and CLI paths (coverage)", () => {
     rmSync(dir, { recursive: true, force: true });
     expect(out.length).toBe(1);
     expect(out[0].endsWith("ok.ts")).toBe(true);
+  });
+
+  it("does not flag a no-argument call (nothing to prove)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "ui", "ok.ts"),
+      "const d = createDropdown();\n",
+    );
+    const hits = findOverlayContractViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(0);
   });
 
   it("flags a non-literal options object (cannot be proven)", () => {
@@ -157,6 +180,14 @@ describe("walk and CLI paths (coverage)", () => {
       "const d = createDropdown({ items, overlay });\n",
     );
     expect(runCli([clean], undefined)).toBe(undefined); // entry mismatch -> no run
+    const prev = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      runCli([clean], __entryUrl);
+      expect(process.exitCode).toBe(0); // clean tree -> exit 0 arm
+    } finally {
+      process.exitCode = prev;
+    }
     rmSync(clean, { recursive: true, force: true });
   });
 
