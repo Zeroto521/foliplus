@@ -90,8 +90,6 @@
   "LayerControl.style_fill_original_levels": "原始 · {n} 级",
   "LayerControl.style_fill_original_colors": "原始 · {n} 色",
   "LayerControl.style_fill_field": "字段",
-  "LayerControl.style_fill_field_category": "分类",
-  "LayerControl.style_fill_field_numeric": "数值",
   "LayerControl.style_fill_classes": "分级数",
   "LayerControl.style_fill_classes_out_of_range": "图层声明的分级数，超出可编辑范围 2–9；编辑后收敛到该范围。",
   "LayerControl.style_fill_scheme": "配色",

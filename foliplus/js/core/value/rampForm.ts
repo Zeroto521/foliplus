@@ -39,9 +39,6 @@ type FieldRowOptions = {
   ariaLabel: string;
   fields: readonly string[];
   value: string;
-  /** Per-field display label. Defaults to the field name itself; a consumer
-   *  that needs a typed suffix (category/numeric) passes one callback. */
-  optionLabel?: (field: string) => string;
   rowClass?: string;
   selectClass?: string;
   rowAttributes?: Attributes;
@@ -70,10 +67,7 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
     className: opts.selectClass,
     ariaLabel: opts.ariaLabel,
     value: opts.fields.includes(opts.value) ? opts.value : (opts.fields[0] ?? ""),
-    options: opts.fields.map(field => ({
-      value: field,
-      label: opts.optionLabel ? opts.optionLabel(field) : field,
-    })),
+    options: opts.fields.map(field => ({ value: field, label: field })),
   });
   applyAttributes(select, opts.selectAttributes);
   if (opts.onChange) select.onchange = () => opts.onChange!(select.value);
