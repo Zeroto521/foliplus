@@ -60,12 +60,6 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LocateControl.popup_title_geo",
     # localeFallback() in core/geocode/geocoder.ts — dynamic key lookup.
     "MeasureControl.geo_fail",
-    # HeatmapControl's method labels: the shared rampForm rows resolve
-    # T(method) by lookup (the method token is the locale key suffix).
-    "HeatmapControl.jenks",
-    "HeatmapControl.quantile",
-    "HeatmapControl.equal",
-    "HeatmapControl.heads",
     # Shared label vocabulary (common table) — resolved via dynamic lookup.
     "foliplus.label_format_auto",
     "foliplus.label_format_comma",
@@ -319,12 +313,13 @@ class TestFillClassificationVocabulary:
     """The fill / filter i18n contract: Field / Method / Classes / Scheme /
     Clear and the four classification methods read the same in both controls.
 
-    The keys stay component-scoped (each table is injected per component), but
-    the *text* must match, otherwise the same control reads differently in the
-    heatmap panel and the layer style drawer. The pairing is one concept, not
-    one visible row: both panels name the method + class-count row by its
-    method (classify_method / style_method), while class_count /
-    style_fill_classes supplies the count select's accessible name.
+    The classification vocabulary lives in the common table (foliplus.*) and
+    is read unscoped (`_()`) by both controls, so the two panels cannot drift:
+    the method label and the four method names are one concept, one place.
+    The remaining shared rows (Field / Classes / Scheme) stay component-scoped
+    (each table is injected per component) but their *text* must match;
+    class_count / style_fill_classes supplies the count select's accessible
+    name.
     """
 
     SHARED_LABELS = [
@@ -336,8 +331,7 @@ class TestFillClassificationVocabulary:
             "分级数",
         ),
         (
-            "LayerControl.style_method",
-            "HeatmapControl.classify_method",
+            "foliplus.classification_method",
             "Classification Method",
             "分类方法",
         ),
@@ -345,27 +339,56 @@ class TestFillClassificationVocabulary:
     ]
 
     METHOD_LABELS = [
-        ("style_method_jenks", "jenks", "Natural Breaks", "自然断点"),
-        ("style_method_quantile", "quantile", "Quantile", "分位数法"),
-        ("style_method_equal", "equal", "Equal Interval", "等距分段"),
-        ("style_method_heads", "heads", "Equal Count", "等数分段"),
+        ("foliplus.classification_jenks", "Natural Breaks", "自然断点"),
+        ("foliplus.classification_quantile", "Quantile", "分位数法"),
+        ("foliplus.classification_equal", "Equal Interval", "等距分段"),
+        ("foliplus.classification_heads", "Equal Count", "等数分段"),
     ]
 
     def test_shared_rows_use_one_vocabulary(self):
-        for layer_key, heatmap_key, en, zh in self.SHARED_LABELS:
-            assert _TABLES["en"][layer_key] == en, layer_key
-            assert _TABLES["en"][heatmap_key] == en, heatmap_key
-            assert _TABLES["zh"][layer_key] == zh, layer_key
-            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+        for entry in self.SHARED_LABELS:
+            if len(entry) == 4:
+                layer_key, heatmap_key, en, zh = entry
+                assert _TABLES["en"][layer_key] == en, layer_key
+                assert _TABLES["en"][heatmap_key] == en, heatmap_key
+                assert _TABLES["zh"][layer_key] == zh, layer_key
+                assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+            else:
+                # A shared common key: both components read it unscoped from
+                # the common table. Assert it lives only there — a per-component
+                # copy is exactly the drift this guards against.
+                key, en, zh = entry
+                assert _TABLES["en"][key] == en, key
+                assert _TABLES["zh"][key] == zh, key
+                for component in ("LayerControl", "HeatmapControl"):
+                    for lang in ("en", "zh"):
+                        table = json.loads(
+                            (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                        assert key not in table, (
+                            f"{component}.{lang} duplicates the shared classification"
+                            f" vocabulary: {key}"
+                        )
 
     def test_method_names_match_across_components(self):
-        for layer_suffix, heatmap_suffix, en, zh in self.METHOD_LABELS:
-            layer_key = f"LayerControl.{layer_suffix}"
-            heatmap_key = f"HeatmapControl.{heatmap_suffix}"
-            assert _TABLES["en"][layer_key] == en, layer_key
-            assert _TABLES["en"][heatmap_key] == en, heatmap_key
-            assert _TABLES["zh"][layer_key] == zh, layer_key
-            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+        for key, en, zh in self.METHOD_LABELS:
+            assert _TABLES["en"][key] == en, key
+            assert _TABLES["zh"][key] == zh, key
+            # The method names live only in the common table; a
+            # per-component copy is the drift this guards against.
+            for component in ("LayerControl", "HeatmapControl"):
+                for lang in ("en", "zh"):
+                    table = json.loads(
+                        (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    assert key not in table, (
+                        f"{component}.{lang} duplicates the classification"
+                        f" method names: {key}"
+                    )
 
     def test_clear_button_label(self):
         assert _TABLES["en"]["HeatmapControl.clear"] == "Clear"

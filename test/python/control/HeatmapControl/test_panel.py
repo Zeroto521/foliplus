@@ -58,11 +58,11 @@ from .helper import _make_page, _panel_open
 
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the
-    HeatmapControl locale table (single source — never pin the string twice)."""
+    common locale table (single source — never pin the string twice)."""
     base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
-    en = json.loads((base / "HeatmapControl.en.json").read_text(encoding="utf-8"))
-    zh = json.loads((base / "HeatmapControl.zh.json").read_text(encoding="utf-8"))
-    return en["HeatmapControl.classify_method"], zh["HeatmapControl.classify_method"]
+    en = json.loads((base / "common.en.json").read_text(encoding="utf-8"))
+    zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
+    return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
 
 # Every visible trigger in the panel, in DOM order, with the geometry a real

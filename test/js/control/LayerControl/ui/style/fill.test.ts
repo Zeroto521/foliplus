@@ -1647,9 +1647,9 @@ describe("buildFillRow", () => {
       .closest(`.${PANEL_CLASS.FORM_ROW}`)!
       .querySelector(`.${PANEL_CLASS.FORM_LABEL}`);
 
-    expect(label?.textContent).toBe("LayerControl.style_method");
+    expect(label?.textContent).toBe("foliplus.classification_method");
     expect(triggerOf(method).getAttribute("aria-label")).toBe(
-      "LayerControl.style_method",
+      "foliplus.classification_method",
     );
     expect(triggerOf(classes).getAttribute("aria-label")).toBe(
       "LayerControl.style_fill_classes",
@@ -2940,7 +2940,7 @@ describe("fill row — original colors", () => {
     }
     expect(labelsOf(row)).toEqual([
       "LayerControl.style_fill_field",
-      "LayerControl.style_method",
+      "foliplus.classification_method",
       "LayerControl.style_fill_scheme",
     ]);
     // The strip lives inside a row's control cell, never directly in the
@@ -3014,7 +3014,7 @@ describe("fill row — original colors", () => {
     // box's role="img") makes the name stable.
     expect(method!.getAttribute("role")).toBe("group");
     expect(count!.getAttribute("role")).toBe("group");
-    expect(method!.getAttribute("aria-label")).toBe("LayerControl.style_method");
+    expect(method!.getAttribute("aria-label")).toBe("foliplus.classification_method");
     expect(count!.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
     for (const box of [method!, count!]) {
       expect(box.classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(true);
@@ -3062,7 +3062,7 @@ describe("fill row — original colors", () => {
     });
     expect(
       readoutOf(blockOf(equalStepped.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBe("LayerControl.style_method_equal");
+    ).toBe("foliplus.classification_equal");
 
     // A continuous scale has no count to state: the number row says so.
     const continuous = initWithAuthorScale();
@@ -3074,8 +3074,10 @@ describe("fill row — original colors", () => {
     // classification that scale implies.
     expect(
       readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
-    ).toBe("LayerControl.style_method_equal");
-    expect(labelsOf(blockOf(continuous.ui))).toContain("LayerControl.style_method");
+    ).toBe("foliplus.classification_equal");
+    expect(labelsOf(blockOf(continuous.ui))).toContain(
+      "foliplus.classification_method",
+    );
     expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
       "LayerControl.style_fill_original_continuous",
     );
@@ -3095,7 +3097,7 @@ describe("fill row — original colors", () => {
       readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD),
     ).toBe("—");
     expect(labelsOf(blockOf(fallback.ui))).toEqual([
-      "LayerControl.style_method",
+      "foliplus.classification_method",
       "LayerControl.style_fill_scheme",
     ]);
   });
@@ -3242,7 +3244,7 @@ describe("fill row — original colors", () => {
     // so the bar renders; the panel must not invent a field name.
     expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
     expect(labelsOf(row)).toEqual([
-      "LayerControl.style_method",
+      "foliplus.classification_method",
       "LayerControl.style_fill_scheme",
     ]);
   });
