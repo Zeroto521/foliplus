@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import {
   FALLBACK_PANE_PREFIX,
+  FILTER_SOURCE,
   GEOM_TYPE,
   LayerRuntimeStore,
   ROLE,
@@ -6610,9 +6611,21 @@ describe("cleanEmptyFolders", () => {
       range: [2, 8],
     } as any);
     expect(manager.layerFilters.get("overlay1")).toBeDefined();
+    // Transition assertion: the shared store carries the same committed value.
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toEqual({
+      kind: "atom",
+      field: "mag",
+      op: "between",
+      range: [2, 8],
+    });
 
     model!.onField!("depth");
 
+    expect(
+      (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+    ).toBeUndefined();
     expect(manager.layerFilters.get("overlay1")).toBeUndefined();
   });
 });

@@ -39,7 +39,9 @@ const FILTER_STORE_KEY = "foliplus_filter_store";
  *  silently create a second record entry. A surface keyed by a dynamic source
  *  id (HeatmapControl's selected layer) does not need an entry. */
 const FILTER_SOURCE = {
+  /** The generic data-layer filter surface (LayerControl's feature filter). */
   MEASURE: "measure",
+  GENERIC: "generic",
 } as const;
 
 const log = createLogger("filterStore");
