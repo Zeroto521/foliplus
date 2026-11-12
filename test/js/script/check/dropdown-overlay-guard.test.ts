@@ -6,6 +6,8 @@ import {
   __entryUrl,
   findOverlayContractViolations,
   main,
+  runCli,
+  walk,
 } from "#script/check/dropdown-overlay-guard.mjs";
 
 // Overlay-contract guard: every createDropdown call in production must supply
@@ -109,6 +111,70 @@ describe("createDropdown overlay contract", () => {
       "const d = createDropdown({ items });\n",
     );
     expect(main(dir)).toBe(1);
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("walk and CLI paths (coverage)", () => {
+  it("walk returns empty for a missing directory", () => {
+    expect(walk(join(tmpdir(), "overlay-guard-does-not-exist"))).toEqual([]);
+  });
+
+  it("walk skips build and dependency directories", () => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    mkdirSync(join(dir, "foliplus", "js", "node_modules"), { recursive: true });
+    mkdirSync(join(dir, "foliplus", "js", "dist"), { recursive: true });
+    writeFileSync(join(dir, "foliplus", "js", "ui", "ok.ts"), "const x = 1;\n");
+    writeFileSync(
+      join(dir, "foliplus", "js", "node_modules", "pkg.ts"),
+      "const y = 2;\n",
+    );
+    const out = walk(join(dir, "foliplus", "js"));
+    rmSync(dir, { recursive: true, force: true });
+    expect(out.length).toBe(1);
+    expect(out[0].endsWith("ok.ts")).toBe(true);
+  });
+
+  it("flags a non-literal options object (cannot be proven)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "ui", "bad.ts"),
+      "const opts = { items };\nconst d = createDropdown(opts);\n",
+    );
+    const hits = findOverlayContractViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("call");
+  });
+
+  it("runCli exits 0 on a clean tree and 1 on a violation", () => {
+    const clean = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(clean, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(
+      join(clean, "foliplus", "js", "ui", "ok.ts"),
+      "const d = createDropdown({ items, overlay });\n",
+    );
+    expect(runCli([clean], undefined)).toBe(undefined); // entry mismatch -> no run
+    rmSync(clean, { recursive: true, force: true });
+  });
+
+  it("runCli sets exit code for a violation when the entry matches", () => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "ui", "bad.ts"),
+      "const d = createDropdown({ items });\n",
+    );
+    const prev = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      runCli([dir], __entryUrl);
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = prev;
+    }
     rmSync(dir, { recursive: true, force: true });
   });
 });
