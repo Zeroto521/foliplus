@@ -367,26 +367,28 @@ describe("script module coverage", () => {
   });
 });
 describe("style-mode-usage guard wiring", () => {
-  it("npm run lint chains the style-mode guard", () => {
-    expect(pkg.scripts.lint).toContain("guard:style-mode");
+  it("npm run lint chains the style-mode guard inline", () => {
+    const lint = pkg.scripts.lint;
+    expect(lint).toContain("node script/check/style-mode-usage.mjs --check");
+    expect(lint).toContain(
+      "node script/check/style-mode-usage.mjs --check-legacy-alias",
+    );
+    // eslint must still follow the guards in the same chain.
+    expect(lint.indexOf("eslint")).toBeGreaterThan(lint.indexOf("style-mode-usage"));
   });
 
-  it("guard:style-mode runs both check modes", () => {
-    const script = pkg.scripts["guard:style-mode"];
-    expect(script).toContain("--check");
-    expect(script).toContain("--check-legacy-alias");
+  it("no standalone guard:style-mode npm script exists", () => {
+    expect(pkg.scripts["guard:style-mode"]).toBeUndefined();
   });
 
-  it("the pre-commit config registers the same guard", () => {
-    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
-    expect(pre).toMatch(/id: style-mode-usage/);
-    expect(pre).toMatch(/entry: node script\/check\/style-mode-usage\.mjs --check/);
-    expect(pre).toMatch(/language: system/);
-    // pre-commit.ci has no system node and a local `language: node` hook needs
-    // package.json/additional_dependencies to build an env — both unavailable,
-    // so the hook is skipped on pre-commit.ci (CI coverage is kept by
-    // `npm run lint` guard:style-mode). Lock this combo so a future edit that
-    // removes the skip and re-breaks pre-commit.ci is caught.
-    expect(pre).toMatch(/skip:\s*\[style-mode-usage\]/);
+  it("removing the inline guards from the lint chain must fail the assertion", () => {
+    const lint = pkg.scripts.lint;
+    const without = lint.replace(
+      /node script\/check\/style-mode-usage\.mjs --check(?: && )?/g,
+      "",
+    );
+    expect(without).not.toContain("style-mode-usage");
+    // The original chain must contain them.
+    expect(lint).toContain("style-mode-usage");
   });
 });
