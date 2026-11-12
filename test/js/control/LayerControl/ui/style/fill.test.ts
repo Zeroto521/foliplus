@@ -1549,7 +1549,7 @@ describe("buildFillRow", () => {
         leaf.options = { fillColor: "#aabbcc", fill: true };
         // An empty feature bag: with no numeric and no categorical property
         // the layer offers no value mode, so the solid-only row is the honest
-        // answer (task-92 keeps a string property a legitimate category field).
+        // a string property is a legitimate category field.
         leaf.feature = { properties: {} };
         leaf.setStyle = vi.fn();
         return {
@@ -5026,5 +5026,39 @@ describe("category field fill — string-only layer", () => {
     ) as HTMLSelectElement | null;
     expect(select).toBeNull();
     expect(getIntent(ui, "overlay1", "fillStyleMode")).toBeUndefined();
+  });
+  it("keeps the selected category field in the intent after a field switch", () => {
+    // P3 guard: render and bind must agree. After the panel binds the value
+    // detail and the user picks another categorical field, the intent's
+    // field must follow — otherwise the panel shows one field while the map
+    // paints another (the bindFillDetail regression).
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    // The layer only has "cat"; add a second categorical column to switch to.
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.name = props.cat;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "cat", numeric: false },
+      { name: "name", numeric: false },
+    ]);
+    // Rebind so the picker sees the second field.
+    const block2 = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", block2);
+    const select2 = block2.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    if (!select2) throw new Error("field select missing");
+    select2.value = "name";
+    select2.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.field).toBe("name");
   });
 });

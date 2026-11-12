@@ -33,7 +33,6 @@ import {
   effectiveFillValue,
   hasDeclaredValue,
   hasValueField,
-  numericFields,
   resolveFillMode,
   resolvedValue,
   valueFields,
@@ -859,7 +858,6 @@ const FILL_DIMENSION = registerDimension<{
 export {
   buildValueDetail,
   hasValueField,
-  numericFields,
   resolvedValue,
   valueFields,
   applyFillToLayer,
