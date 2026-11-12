@@ -33,6 +33,7 @@
   "core/value/rampForm",
   "core/value/valueKind",
   "platform/cache",
+  "platform/color",
   "platform/cssvar",
   "platform/debounce",
   "platform/dom",

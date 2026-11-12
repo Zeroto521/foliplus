@@ -1,3 +1,4 @@
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -14,7 +15,7 @@ import { describe, expect, it } from "vitest";
 // shrink, no right-hug of its own) or it would be mistaken for a number
 // field again.
 
-const ROOT = resolve(__dirname, "../../../../../..");
+const ROOT = repoPath();
 
 /** Read a stylesheet with normalized line endings. */
 const css = (rel: string): string =>

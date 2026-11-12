@@ -76,11 +76,13 @@ type DimensionValueSource = "user" | "author" | "none";
  *  cannot drift from `DIM`. Persistence provenance is a different face
  *  (`LayerOverride`: `"fillColor"`, `"visible"`, …).
  *
- *  `write` / `reset` / `valueSource` are optional slots. Migrated
- *  dimensions (fill, border) own the intent+persist orchestration here;
- *  styleBag still owns the setStyle landing (commitStyleDim /
- *  restoreStyleDim / scheduleStyleDimApply) and is called from write/reset.
- *  Unmigrated dimensions keep their named helpers until a later PR. */
+ *  `write` / `reset` / `valueSource` are optional slots for *style-value*
+ *  dimensions (fill, border, opacity, zoomRange, size, …), which own the
+ *  intent+persist orchestration here; styleBag still owns the setStyle
+ *  landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply) and is
+ *  called from write/reset. A *content* dimension (label) omits all three by
+ *  design — see the registry file header. */
+
 /** How a dimension answers a content change (leaves landed or left on one
  *  layer). Mandatory on every descriptor — the type forces each dimension
  *  to state its policy, so a new dimension cannot silently skip the
@@ -131,17 +133,25 @@ type LayerDimension<D = unknown> = {
   row: (ui: LayerUI, layerId: string) => HTMLElement;
   /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
-   *  omitted keys leave that sub-dimension untouched. */
+   *  omitted keys leave that sub-dimension untouched.
+   *
+   *  Style-value dimensions only: a *content* dimension (label) writes through
+   *  its own config manager, not LayerIntentStore keys, so it omits this slot
+   *  by design (see registry.ts header + .foliplus/design/label-dimension-slot.md). */
   write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
   /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
    *  provenance) and restore the author's styleBag face. May return the
    *  projection delta the reset produced, so the complete reset entry can
    *  refresh its own row chrome before announcing — a notify fired mid-
    *  operation hands a subscriber a stale row. Dimensions without a projection
-   *  (fill/border) return nothing. */
+   *  (fill/border) return nothing. Style-value dimensions only — a content
+   *  dimension (label) resets by deleting its config entry, so it omits this
+   *  slot (see registry.ts header). */
   reset?: (ui: LayerUI, layerId: string) => ProjectionDelta | void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
-   *  store provenance → `"user"`; otherwise `"author"`. */
+   *  store provenance → `"user"`; otherwise `"author"`. Style-value dimensions
+   *  only — a content dimension (label) has no provenance tiers, so it omits
+   *  this slot. */
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
   /** The descriptor's content-change policy — see
    *  {@link ContentChangePolicy}. The hub (`onLayerItemCountChange` in

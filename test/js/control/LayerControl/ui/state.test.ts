@@ -1308,7 +1308,7 @@ describe("event-driven row refresh", () => {
     it("rides the solid mode onto the same new features", () => {
       const leaves = attachFeatures([1, 2, 3]);
       seedIntentMap(ui, "fillColor", { overlay1: "#abcdef" });
-      seedIntentMap(ui, "fillMode", { overlay1: "solid" });
+      seedIntentMap(ui, "fillStyleMode", { overlay1: "solid" });
 
       ui.onLayerItemCountChange("overlay1");
       flushStyleDimApplies("overlay1");

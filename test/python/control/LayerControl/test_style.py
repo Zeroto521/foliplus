@@ -34,9 +34,9 @@ def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
     base = Path(__file__).resolve().parents[4] / "foliplus" / "locale"
-    en = json.loads((base / "LayerControl.en.json").read_text(encoding="utf-8"))
-    zh = json.loads((base / "LayerControl.zh.json").read_text(encoding="utf-8"))
-    return en["LayerControl.style_method"], zh["LayerControl.style_method"]
+    en = json.loads((base / "common.en.json").read_text(encoding="utf-8"))
+    zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
+    return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
 
 from ._browser_base import LayerControlBrowserBase
@@ -1957,7 +1957,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # lengthens any of them is caught here instead of silently
             # wrapping the row again.
             label_keys = {
-                "LayerControl.style_method",
+                "foliplus.classification_method",
                 "LayerControl.style_fill_field",
                 "LayerControl.style_fill_classes",
                 "LayerControl.style_fill_scheme",
@@ -1979,7 +1979,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 "LayerControl.style_label_avoidance",
                 "HeatmapControl.agg_field",
                 "HeatmapControl.field",
-                "HeatmapControl.classify_method",
                 "HeatmapControl.class_count",
                 "HeatmapControl.scheme",
             }
@@ -1992,6 +1991,14 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         value = table.get(key)
                         if isinstance(value, str):
                             strings.add(value)
+            for lang in ("en", "zh"):
+                table = json.loads(
+                    (base / f"common.{lang}.json").read_text(encoding="utf-8")
+                )
+                for key in label_keys:
+                    value = table.get(key)
+                    if isinstance(value, str):
+                        strings.add(value)
             result = page.evaluate(
                 _js("LayerControl/measure_label_widths"),
                 {

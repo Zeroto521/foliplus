@@ -8,7 +8,12 @@ import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
-import { DIM, FILL_MODE, type FillMode, type ValueConfig } from "#core/layer/index.js";
+import {
+  DIM,
+  STYLE_MODE,
+  type StyleMode,
+  type ValueConfig,
+} from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   CLASS_COUNT,
@@ -44,9 +49,9 @@ const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
   value: ValueConfig | undefined,
-): FillMode =>
+): StyleMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ??
-  (value !== undefined ? FILL_MODE.VALUE : FILL_MODE.SOLID);
+  (value !== undefined ? STYLE_MODE.VALUE : STYLE_MODE.SOLID);
 
 /** The fill face's declaration — the specific surface the shared mode
  *  consumes. Every value here is a fill fact; the mode body carries none. */
@@ -60,7 +65,7 @@ const FILL_FACE_DECL: ValueFaceDecl = {
   },
   walkLeaves: walkFillLeaves,
   isValueActive: (ui, layerId, value) =>
-    resolveFillMode(ui, layerId, value) === FILL_MODE.VALUE,
+    resolveFillMode(ui, layerId, value) === STYLE_MODE.VALUE,
   readValueConfig: (ui, layerId) => getIntent(ui, layerId, INTENT.FILL_VALUE),
   logLabel: "value-based fill:",
 };
@@ -371,8 +376,8 @@ const valueForUi = (
  *  the by-value mode and none is stored yet. Solid and original keep whatever
  *  value config the other mode holds, and original owns no fill value at all —
  *  a mode alone — so a switch back to either mode restores its own state. */
-const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
-  if (mode !== FILL_MODE.VALUE) {
+const writeFillMode = (ui: LayerUI, layerId: string, mode: StyleMode): boolean => {
+  if (mode !== STYLE_MODE.VALUE) {
     getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
     return true;
   }
@@ -398,7 +403,7 @@ const writeFillValue = (
     ...valueForUi(ui, layerId, fields),
     ...patch,
   });
-  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: FILL_MODE.VALUE, value: next });
+  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: STYLE_MODE.VALUE, value: next });
   return next;
 };
 
@@ -429,8 +434,8 @@ const buildValueDetail = (
     // visible label the heatmap panel uses (classify_method). The class count
     // keeps its own accessible name (see classesAriaLabel below) so the two
     // selects stay distinguishable.
-    label: ui.T("style_method"),
-    methodAriaLabel: ui.T("style_method"),
+    label: ui._("foliplus.classification_method"),
+    methodAriaLabel: ui._("foliplus.classification_method"),
     classesAriaLabel: ui.T("style_fill_classes"),
     methodValue: value.method,
     classesValue: value.classes,
