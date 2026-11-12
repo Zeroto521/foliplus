@@ -4,13 +4,6 @@ ci:
 
     for more information, see https://pre-commit.ci
   autoupdate_commit_msg: "BOT: pre-commit hooks autoupdate"
-  # pre-commit.ci has no system node, and a local `language: node` hook
-  # requires package.json/additional_dependencies to build an env — both
-  # unavailable here. The guard runs in full in CI via the `lint` job's
-  # `node script/check/event-name.mjs` invocation, so skipping it on
-  # pre-commit.ci does not lower coverage. Keep the hook in the local
-  # pre-commit run (dev machines have node).
-  skip: [event-name]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -137,19 +130,3 @@ repos:
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
         pass_filenames: true
-
-      # Event-name contract guard (node): the foliplus: layer-event name is a
-      # persisted contract (key prefix and value prefix are two halves of one
-      # association). A hand-edit that swaps a layer event into another domain
-      # is caught here, not after a record misreads. Same guard `npm run
-      # guard:event-name` runs; pre-commit is a second, cheaper gate for the
-      # editor loop. language: system — a local hook needs only a system node
-      # (dev machines have one). pre-commit.ci has no system node and cannot
-      # build a local `language: node` env without package.json, so the ci
-      # block above skips this hook there; CI coverage is kept by the lint
-      # job's direct invocation. Check-only — fix the reference in the editor.
-      - id: event-name
-        name: event-name
-        entry: node script/check/event-name.mjs
-        language: system
-        pass_filenames: false

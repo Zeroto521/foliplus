@@ -1,5 +1,6 @@
 // core/rampForm — the Field / Method + Classes / Scheme rows shared by
 // LayerControl's value-based fill and HeatmapControl's classification panel.
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -262,7 +263,7 @@ describe("buildSchemeRow", () => {
 // classes and the consumers keep their own stylesheets geometry-free. These
 // assertions pin the token relationships, not pixel values.
 
-const ROOT = resolve(__dirname, "../../../..");
+const ROOT = repoPath();
 
 /** Read a stylesheet with normalized line endings.
  *

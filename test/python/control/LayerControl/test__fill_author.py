@@ -917,7 +917,7 @@ class TestFillAuthorBrowser:
             c = initial["countGeom"]
             k = initial["colorsGeom"]
             assert m is not None and c is not None and k is not None, initial
-            # Method starts at the control column's left edge and ends where the
+            # Classification Method starts at the control column's left edge and ends where the
             # count begins (side by side in one inline row).
             assert m["left"] == k["left"], initial
             assert c["left"] >= m["right"], initial
@@ -950,7 +950,7 @@ class TestFillAuthorBrowser:
             assert initial["methodRole"] == "group", initial
             assert initial["countRole"] == "group", initial
             assert initial["colorsRole"] == "img", initial
-            assert initial["methodAria"] == "Method", initial
+            assert initial["methodAria"] == "Classification Method", initial
             assert initial["countAria"] == "Classes", initial
             assert initial["caption"] == "Original · continuous", initial
             assert initial["colorsLabel"] == "Original · continuous", initial

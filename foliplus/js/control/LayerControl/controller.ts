@@ -25,6 +25,7 @@ import {
   type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
+  type FilterEnumDimension,
   type FilterRangeDimension,
   type FolderOrder,
   type FolderSection,
@@ -161,6 +162,12 @@ interface EnforceOrderResult {
  *  intermediate array per surface per pass. */
 const capabilityKey = (caps: LayerCapabilities): string =>
   `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.icon}|${caps.zoomRange}|${caps.visibility}|${caps.label}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+
+/** The generic enum filter truncates a large discrete domain for the panel.
+ *  The truncation is a display-layer policy only: the matching semantics never
+ *  change, so a value beyond the shown list still matches the committed filter.
+ *  The panel shows the shared hint so the user knows the list is partial. */
+const ENUM_OPTION_LIMIT = 50;
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -1823,27 +1830,53 @@ class LayerController implements LayerAPI {
    *  lazily so a registration before attach still resolves. */
   genericFilterModel(id: string): LayerFilterModel | null {
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
-    if (!features || features.numericFields.length === 0) return null;
+    if (
+      !features ||
+      (features.numericFields.length === 0 && features.enumFields.length === 0)
+    ) {
+      return null;
+    }
     const filter = this.layerFilters.get(id);
     const hidden = filterLeafSet(features.features, filter);
     let kept = features.total;
     for (const feature of features.features) {
       if (hidden.has(feature.leaf)) kept--;
     }
-    const dimensions: FilterRangeDimension[] = features.numericFields.map(field => ({
-      kind: "range",
-      field,
-      range: features.ranges[field],
-      step: filterStep(features.ranges[field]),
-    }));
-    // Field picker (D5): the panel offers every numeric field and switches
-    // through onField. The active field is NOT stored — the committed atom
-    // reports it (D8), so no extra persistent key.
-    const fields = features.numericFields.map(field => ({
-      value: field,
-      label: field,
-      numeric: true,
-    }));
+    // Numeric fields become range dimensions; discrete string/boolean fields
+    // become enum dimensions (S4c). Both share the panel's field picker, so a
+    // mixed layer switches between a slider and a value list.
+    const rangeDimensions: FilterRangeDimension[] = features.numericFields.map(
+      field => ({
+        kind: "range",
+        field,
+        range: features.ranges[field],
+        step: filterStep(features.ranges[field]),
+      }),
+    );
+    const enumDimensions: FilterEnumDimension[] = features.enumFields.map(field => {
+      const all = features.enumValues[field] ?? [];
+      const truncated = all.length > ENUM_OPTION_LIMIT;
+      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
+        value => ({ value, label: value }),
+      );
+      return { kind: "enum", field, options, multi: true, truncated };
+    });
+    const dimensions = [...rangeDimensions, ...enumDimensions];
+    // Field picker (D5): the panel offers every numeric and enum field and
+    // switches through onField. The active field is NOT stored — the
+    // committed atom reports it (D8), so no extra persistent key.
+    const fields = [
+      ...features.numericFields.map(field => ({
+        value: field,
+        label: field,
+        numeric: true,
+      })),
+      ...features.enumFields.map(field => ({
+        value: field,
+        label: field,
+        numeric: false,
+      })),
+    ];
     const onField = (_field: string): void => {
       // Clear the old field's atom so the panel re-derives from the new
       // dimension's full range. setLayerFilter is the single write-through.

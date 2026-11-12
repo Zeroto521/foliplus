@@ -224,6 +224,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
   "check/event-name":
     "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
+  "check/deep-relative-path":
+    "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the
@@ -370,30 +372,22 @@ describe("script module coverage", () => {
 });
 
 describe("event-name guard wiring", () => {
-  it("the pre-commit config registers the event-name guard", () => {
-    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
-    expect(pre).toMatch(/id: event-name/);
-    expect(pre).toMatch(/entry: node script\/check\/event-name\.mjs/);
-    expect(pre).toMatch(/language: system/);
-    // pre-commit.ci has no system node and a local `language: node` hook needs
-    // package.json/additional_dependencies to build an env — both unavailable,
-    // so the hook is skipped on pre-commit.ci (CI coverage is kept by the
-    // lint job's direct invocation). Lock this combo so a future edit that
-    // removes the skip and re-breaks pre-commit.ci is caught.
-    expect(pre).toMatch(/skip:\s*\[event-name\]/);
-    expect(pre).toMatch(/pass_filenames: false/);
+  it("npm run lint chains the event-name guard inline", () => {
+    const lint = pkg.scripts.lint;
+    expect(lint).toContain("node script/check/event-name.mjs");
+    // eslint must still follow the guard in the same chain.
+    expect(lint.indexOf("eslint")).toBeGreaterThan(lint.indexOf("event-name"));
   });
 
-  it("removing the event-name hook from the config must fail the assertion", () => {
-    // Counter-proof for the registration above: a config without the hook must
-    // not satisfy it. Otherwise the assertion is decorative and a drift in the
-    // hook config would go unnoticed.
-    const pre = readFileSync(resolve(ROOT, ".pre-commit-config.yaml"), "utf8");
-    const withoutHook = pre.replace(
-      /\n\s*- id: event-name[\s\S]*?pass_filenames: false/,
-      "",
-    );
-    expect(withoutHook).not.toMatch(/id: event-name/);
-    expect(withoutHook).not.toMatch(/entry: node script\/check\/event-name\.mjs/);
+  it("no standalone guard:event-name npm script exists", () => {
+    expect(pkg.scripts["guard:event-name"]).toBeUndefined();
+  });
+
+  it("removing the inline guard from the lint chain must fail the assertion", () => {
+    const lint = pkg.scripts.lint;
+    const without = lint.replace(/node script\/check\/event-name\.mjs(?: && )?/g, "");
+    expect(without).not.toContain("event-name");
+    // The original chain must contain it.
+    expect(lint).toContain("event-name");
   });
 });

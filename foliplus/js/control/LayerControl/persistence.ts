@@ -6,8 +6,8 @@ import type {
   PersistedLayerState,
 } from "./type.js";
 import {
-  FILL_MODE,
   type FolderOrder,
+  STYLE_MODE,
   type ValueConfig,
   isIconIntent,
   isValueConfig,
@@ -167,6 +167,18 @@ const isHexColor = (value: unknown): value is string =>
  *  `Record<LayerOverride, …>` is the extension pin — a new dimension without
  *  a parser is a compile error, and {@link OVERRIDE_VALUES} derives from this
  *  table so the vocabulary cannot drift. */
+/**
+ * The ONE legacy read point for the pre-rename key. The fill style mode
+ * key moved fillMode → fillStyleMode (INTENT.FILL_MODE spells the new key);
+ * a record written before the rename still carries the old key. Only this
+ * helper may read it — the guard script/check/style-mode-usage.mjs
+ * (--check-legacy-alias) asserts the literal appears nowhere else in
+ * production, so a second copy or a dropped mapping is a build failure.
+ */
+const LEGACY_FILL_MODE_KEY = "fillMode";
+const readLegacyFillMode = (data: Record<string, unknown>): unknown =>
+  data[LEGACY_FILL_MODE_KEY];
+
 const PARSE_OVERRIDE: Record<
   LayerOverride,
   (data: Record<string, unknown>) => unknown | null
@@ -176,21 +188,28 @@ const PARSE_OVERRIDE: Record<
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
   fillValue: data => parseFillValue(data.fillValue),
-  fillMode: data =>
-    data.fillMode === FILL_MODE.SOLID ||
-    data.fillMode === FILL_MODE.VALUE ||
-    data.fillMode === FILL_MODE.ORIGINAL
-      ? data.fillMode
-      : null,
+  fillStyleMode: data => {
+    // One-way key migration (fillMode → fillStyleMode): read the NEW key
+    // when present, else adopt the OLD key value — a record written
+    // before the rename still reads as the active style mode. The new key
+    // wins when both exist (a record mid-migration is already on the new
+    // shape). The value vocabulary is unchanged, so no literal remap.
+    const mode = data.fillStyleMode ?? readLegacyFillMode(data);
+    return mode === STYLE_MODE.SOLID ||
+      mode === STYLE_MODE.VALUE ||
+      mode === STYLE_MODE.ORIGINAL
+      ? mode
+      : null;
+  },
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
   borderValue: data => parseFillValue(data.borderValue),
   borderStyleMode: data =>
-    data.borderStyleMode === FILL_MODE.SOLID ||
-    data.borderStyleMode === FILL_MODE.VALUE ||
-    data.borderStyleMode === FILL_MODE.ORIGINAL ||
-    data.borderStyleMode === FILL_MODE.FOLLOW_FILL
+    data.borderStyleMode === STYLE_MODE.SOLID ||
+    data.borderStyleMode === STYLE_MODE.VALUE ||
+    data.borderStyleMode === STYLE_MODE.ORIGINAL ||
+    data.borderStyleMode === STYLE_MODE.FOLLOW_FILL
       ? data.borderStyleMode
       : null,
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
@@ -262,8 +281,17 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
   const data = asObject(raw);
   if (!data) return null;
   const declaredRaw = data.overrides;
+  // One-way key migration: an old record's provenance marker spells the old
+  // key ("fillMode"); the vocabulary now spells it "fillStyleMode", so the
+  // marker is re-mapped before the declared-override filter (marker follows
+  // key). The migration is version-agnostic — it applies whenever the old
+  // marker is present, old version or not.
   const declared = Array.isArray(declaredRaw)
-    ? OVERRIDE_VALUES.filter(override => declaredRaw.includes(override))
+    ? OVERRIDE_VALUES.filter(override =>
+        declaredRaw
+          .map((m: unknown) => (m === LEGACY_FILL_MODE_KEY ? "fillStyleMode" : m))
+          .includes(override),
+      )
     : [];
   const out: PersistedLayerState = { overrides: [] };
   for (const override of declared) {

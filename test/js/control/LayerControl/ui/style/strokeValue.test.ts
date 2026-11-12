@@ -6,7 +6,7 @@
 // the intent store: the caller supplies the live ramp / mode readers, so
 // this slice adds no persistence or intent-key edits.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { FillMode, ValueConfig } from "#core/layer/index.js";
+import type { StyleMode, ValueConfig } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import {
@@ -104,7 +104,7 @@ const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
 });
 
 const liveValueOf = (ramp: ValueConfig | undefined) => () => ramp;
-const liveModeOf = (mode: FillMode | undefined) => () => mode;
+const liveModeOf = (mode: StyleMode | undefined) => () => mode;
 
 describe("resolveStrokeMode", () => {
   it("prefers an explicit mode over a stored ramp", () => {

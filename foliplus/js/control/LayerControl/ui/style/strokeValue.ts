@@ -29,18 +29,18 @@
 import type { LayerUI } from "../surface.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
-import { DIM, type FillMode, type ValueConfig } from "#core/layer/index.js";
+import { DIM, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 
 /** The stroke mode in force. An absent mode defers to whether a value config
  *  exists — the pre-mode record shape, where a config alone meant "paint
- *  by value". `FillMode` is reused as the stroke-mode vocabulary: the two
+ *  by value". `StyleMode` is reused as the stroke-mode vocabulary: the two
  *  faces own the same literals (solid / value), and the border mode has no
  *  "original" today. Exported so the dimension's `value` readout and the
  *  replay guard agree with the apply path on what the map should show. */
 const resolveStrokeMode = (
-  mode: FillMode | undefined,
+  mode: StyleMode | undefined,
   ramp: ValueConfig | undefined,
-): FillMode => mode ?? (ramp !== undefined ? ("value" as const) : ("solid" as const));
+): StyleMode => mode ?? (ramp !== undefined ? ("value" as const) : ("solid" as const));
 
 /** Apply a value-based stroke to one layer — the stroke face's call through
  *  the shared by-value mode. The declaration below tells the mode what the
@@ -68,7 +68,7 @@ const applyValueStroke = (
    *  stored mode, so the pin asks for it rather than importing an intent key
    *  that does not exist yet. A mode that is not "value" returns null so a
    *  solid-mode leaf is never re-painted by a stale value pin. */
-  liveMode: () => FillMode | undefined,
+  liveMode: () => StyleMode | undefined,
   /** The border width to carry through the value mode. Default `undefined`
    *  keeps the existing color-only behavior (the author's width stays in
    *  force); the border dimension passes its live width so a user-set

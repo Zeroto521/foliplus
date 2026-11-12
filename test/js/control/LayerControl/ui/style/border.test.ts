@@ -1,7 +1,7 @@
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { DIM, FILL_MODE, GEOM_TYPE, type ValueConfig } from "#core/layer/index.js";
+import { DIM, GEOM_TYPE, STYLE_MODE, type ValueConfig } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -2700,7 +2700,7 @@ describe("follow-fill border mode", () => {
     openRow("poly1", leaves);
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     // Fill goes by-value (a state the old fallback collapsed to ORIGINAL).
-    setIntent(ui, "poly1", "fillMode", "value");
+    setIntent(ui, "poly1", "fillStyleMode", "value");
     const block2 = buildBorderRow(ui, "poly1") as HTMLElement;
     document.body.appendChild(block2);
     const select2 = selectOf(block2);
@@ -2715,7 +2715,7 @@ describe("follow-fill border mode", () => {
     // having been applied (solid colour lands in leaf.options.fillColor).
     const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillStyleMode", "solid");
     setIntent(ui, "poly1", "fillColor", "#123456");
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     applyBorderToLayer(ui, "poly1");
@@ -2759,7 +2759,7 @@ describe("follow-fill border mode", () => {
     // extra listener, no cross-face event.
     const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
     registerFeatureLayer(manager, ui, "poly1", leaves);
-    setIntent(ui, "poly1", "fillMode", "solid");
+    setIntent(ui, "poly1", "fillStyleMode", "solid");
     setIntent(ui, "poly1", "borderStyleMode", "followFill");
     // The user edits the fill colour through the dimension write.
     FILL_DIMENSION.write!(ui, "poly1", { color: "#abcdef" });
@@ -2808,6 +2808,51 @@ describe("follow-fill border mode", () => {
     expect(leaf.options.color).toBe("#123456");
     leaf.fireMouseout();
     expect(leaf.options.color).toBe("#123456");
+  });
+  it("per-feature ORIGINAL: read-only original rows + width-only row (no colour input)", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(2)];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf1",
+      name: "pf1",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#111111", "#222222"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    const block = buildBorderRow(ui, "pf1") as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, "pf1", block);
+    setIntent(ui, "pf1", "borderStyleMode", "original");
+    const block2 = buildBorderRow(ui, "pf1") as HTMLElement;
+    document.body.appendChild(block2);
+    // No colour input at all (the author has no single colour value).
+    expect(block2.querySelector("input[type=color]")).toBeNull();
+    // The read-only original rows are present: the colours strip box + count.
+    expect(block2.querySelector(".foliplus-style-fill-original-colors")).not.toBeNull();
+    expect(block2.querySelector(".foliplus-style-fill-original-count")).not.toBeNull();
+    // The width input exists and sits in the right column (size row).
+    const weight = block2.querySelector(".foliplus-style-border-weight-input");
+    expect(weight).not.toBeNull();
+    const sizeRow = weight!.closest(".foliplus-style-size-row");
+    expect(sizeRow).not.toBeNull();
+  });
+
+  it("single-colour author ORIGINAL keeps the real swatch (counter-guard)", () => {
+    const leaves = [makeAreaLeaf(1)];
+    registerFeatureLayer(manager, ui, "poly1", leaves);
+    setIntent(ui, "poly1", "borderStyleMode", "original");
+    const block = buildBorderRow(ui, "poly1") as HTMLElement;
+    document.body.appendChild(block);
+    // A single-colour author keeps the colour swatch (inert but present).
+    const swatch = block.querySelector(".foliplus-style-border-color-input");
+    expect(swatch).not.toBeNull();
+    expect((swatch as HTMLInputElement).readOnly).toBe(true);
+    // Width input present too.
+    expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
   });
 });
 
@@ -3096,9 +3141,9 @@ describe("border options per geometry", () => {
     registerGeometryLayer("g_line", "line");
     expectGeometryType("g_line", "line");
     expect(modeValues(openBorderRow("g_line"))).toEqual([
-      FILL_MODE.ORIGINAL,
-      FILL_MODE.SOLID,
-      FILL_MODE.VALUE,
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
     ]);
   });
 
@@ -3113,13 +3158,12 @@ describe("border options per geometry", () => {
       registerGeometryLayer(id, kind);
       expectGeometryType(id, kind);
       expect(modeValues(openBorderRow(id))).toEqual([
-        FILL_MODE.ORIGINAL,
-        FILL_MODE.SOLID,
-        FILL_MODE.FOLLOW_FILL,
+        STYLE_MODE.ORIGINAL,
+        STYLE_MODE.SOLID,
+        STYLE_MODE.FOLLOW_FILL,
       ]);
     },
   );
-
   it("the column is the DIM single source (border)", () => {
     expect(DIM.BORDER).toBe("border");
     registerGeometryLayer("g_dim", "line");
@@ -3129,21 +3173,21 @@ describe("border options per geometry", () => {
 
   it("stored by-value on a non-line reads back as original (display fallback)", () => {
     registerGeometryLayer("g_poly_fb", "polygon");
-    setIntent(ui, "g_poly_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_poly_fb", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_poly_fb", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_poly_fb"));
     expect(select).not.toBeNull();
     // The illegal stored value must never surface as a selected "value".
-    expect(select!.value).toBe(FILL_MODE.ORIGINAL);
+    expect(select!.value).toBe(STYLE_MODE.ORIGINAL);
   });
 
   it("stored by-value on a line stays value (guard against always-original fallback)", () => {
     registerGeometryLayer("g_line_fb", "line");
-    setIntent(ui, "g_line_fb", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_line_fb", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_line_fb", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_line_fb"));
     expect(select).not.toBeNull();
-    expect(select!.value).toBe(FILL_MODE.VALUE);
+    expect(select!.value).toBe(STYLE_MODE.VALUE);
   });
 
   it("guard 1: the option set is asserted exactly, so an extra illegal option fails", () => {
@@ -3154,11 +3198,11 @@ describe("border options per geometry", () => {
     // that containment would NOT catch the extra.
     registerGeometryLayer("g_guard1", "polygon");
     const actual = modeValues(openBorderRow("g_guard1"));
-    const contract = [FILL_MODE.ORIGINAL, FILL_MODE.SOLID, FILL_MODE.FOLLOW_FILL];
+    const contract = [STYLE_MODE.ORIGINAL, STYLE_MODE.SOLID, STYLE_MODE.FOLLOW_FILL];
     expect(actual).toEqual(contract);
     // The negative property: adding the illegal option to the contract must NOT
     // equal the actual set — this is what makes the matrix red on an extra.
-    const illegal = [...contract, FILL_MODE.VALUE];
+    const illegal = [...contract, STYLE_MODE.VALUE];
     expect(actual).not.toEqual(illegal);
   });
 
@@ -3167,11 +3211,82 @@ describe("border options per geometry", () => {
     // line-with-stored-value test above would fail. This test restates that
     // dependency as a direct invariant so the guard has its own name.
     registerGeometryLayer("g_guard2", "line");
-    setIntent(ui, "g_guard2", "borderStyleMode", FILL_MODE.VALUE);
+    setIntent(ui, "g_guard2", "borderStyleMode", STYLE_MODE.VALUE);
     setIntent(ui, "g_guard2", "borderValue", valueRamp());
     const select = modeSelectOf(openBorderRow("g_guard2"));
     expect(select).not.toBeNull();
-    expect(select!.value).not.toBe(FILL_MODE.ORIGINAL);
+    expect(select!.value).not.toBe(STYLE_MODE.ORIGINAL);
+  });
+  it("guard 3: every mode option value is a vocab literal, never a locale key", () => {
+    // The P1 regression: a generator-level name collision made the mode select
+    // value the locale-key string "style_mode_original" instead of the vocab
+    // literal "original". Every option value must be a vocab literal (in the
+    // STYLE_MODE value set) and must never carry the "style_mode_" prefix.
+    const vocabValues = new Set<string>(Object.values(STYLE_MODE));
+    for (const kind of ["line", "polygon", "point"] as const) {
+      const id = `g_guard3_${kind}`;
+      registerGeometryLayer(id, kind);
+      const values = modeValues(openBorderRow(id));
+      expect(values.length).toBeGreaterThan(0);
+      for (const value of values) {
+        expect(vocabValues.has(value)).toBe(true);
+        expect(value).not.toMatch(/^style_mode_/);
+      }
+    }
+  });
+
+  it("value mode width input commits the stroke weight through the shared shell", () => {
+    registerGeometryLayer("g_vwc", "line");
+    setIntent(ui, "g_vwc", "borderStyleMode", STYLE_MODE.VALUE);
+    setIntent(ui, "g_vwc", "borderValue", valueRamp());
+    const detail = openBorderRow("g_vwc");
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    weight.value = "8";
+    weight.dispatchEvent(new Event("change", { bubbles: true }));
+    applyBorderToLayer(ui, "g_vwc");
+    expect(getIntent(ui, "g_vwc", "borderWeight")).toBe(8);
+  });
+
+  it("by-value border mode keeps the width input editable (every mode owns the weight)", () => {
+    registerGeometryLayer("g_vw", "line");
+    const detail = openBorderRow("g_vw");
+    setIntent(ui, "g_vw", "borderStyleMode", STYLE_MODE.VALUE);
+    const mode = modeValues(openBorderRow("g_vw"));
+    expect(mode).toContain(STYLE_MODE.VALUE);
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    expect(weight.disabled).toBe(false);
+    // The fixture author stroke weight (makeLayerForGeometry) — the width
+    // field reads the author's weight when no user weight is stored.
+    expect(Number(weight.value)).toBe(2);
+  });
+
+  it("by-value border mode width input sits in the right column (size-row)", () => {
+    registerGeometryLayer("g_vw2", "line");
+    setIntent(ui, "g_vw2", "borderStyleMode", STYLE_MODE.VALUE);
+    const detail = openBorderRow("g_vw2");
+    const row = detail.querySelector(".foliplus-style-size-row") as HTMLElement;
+    expect(row).not.toBeNull();
+    const weight = row.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+  });
+
+  it("per-feature original border mode also keeps the width input", () => {
+    registerGeometryLayer("g_porig", "polygon");
+    setIntent(ui, "g_porig", "borderStyleMode", STYLE_MODE.ORIGINAL);
+    const detail = openBorderRow("g_porig");
+    const weight = detail.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement;
+    expect(weight).not.toBeNull();
+    expect(weight.disabled).toBe(false);
   });
 });
 describe("border solid derivation invariants", () => {

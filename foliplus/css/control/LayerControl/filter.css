@@ -76,6 +76,13 @@
     width: 100%;
     min-width: 0;
   }
+  /* Truncation hint under the enum dropdown: same muted style as the empty
+     state, but inline with the control cell rather than a full-width block. */
+  .foliplus-layer-filter-panel .foliplus-filter-enum-hint {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    margin-top: var(--foliplus-space-xs);
+  }
 }
 
 /* Hide a filtered leaf. Plain display:none (no !important) is enough: this

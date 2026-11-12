@@ -67,7 +67,6 @@
 .foliplus-style-fill-readonly {
   display: flex;
   align-items: center;
-  padding: 0 var(--foliplus-space-sm);
   cursor: default;
 }
 
