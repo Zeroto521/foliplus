@@ -39,7 +39,7 @@ import {
 } from "#core/leaflet/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
-import { POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
+import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Grid columns for the glyph picker popup. */
@@ -148,7 +148,7 @@ const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
 const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!layerCanIcon(ui, layerId)) return null;
   const trigger = dom.el("button", {
-    class: `${CONST.CLASSES.STYLE_ICON_TRIGGER} foliplus-input-skin foliplus-form-select`,
+    class: `${CONST.CLASSES.STYLE_ICON_TRIGGER} ${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}`,
     type: "button",
     "aria-haspopup": "grid",
     "aria-label": ui.T("style_icon"),

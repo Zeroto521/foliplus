@@ -30,7 +30,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && node script/typecheck-test.mjs",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
-    "lint": "node script/check/event-name.mjs && node script/check/style-mode-usage.mjs --check && node script/check/style-mode-usage.mjs --check-legacy-alias && eslint -c config/eslint/typed.mjs \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\" \"config/**/*.mjs\" \"eslint.config.js\"",
+    "lint": "node script/check/event-name.mjs && node script/check/style-mode-usage.mjs --check && node script/check/style-mode-usage.mjs --check-legacy-alias && node script/check/form-class-literal.mjs && eslint -c config/eslint/typed.mjs \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\" \"config/**/*.mjs\" \"eslint.config.js\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\" \"config/**/*.mjs\" \"eslint.config.js\"",
     "bundle-size:check": "node script/build/bundle-size-check.mjs",
     "bundle-size:fuse": "node script/build/bundle-fuse.mjs"
