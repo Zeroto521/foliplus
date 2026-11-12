@@ -1,3 +1,4 @@
+import { repoPath } from "#test/path.js";
 import {
   GridLayer,
   attachedPanel,
@@ -4984,7 +4985,7 @@ describe("style panel live capability refresh", () => {
 // carve-out and proves the same source detection fails on it: dropping the
 // `:has` rule is the regression a future edit would leave behind.
 
-const ROOT = resolve(__dirname, "../../../../../..");
+const ROOT = repoPath();
 
 /** Read a stylesheet with normalized line endings. */
 const css = (rel: string): string =>
