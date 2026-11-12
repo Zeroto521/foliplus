@@ -12,8 +12,10 @@ import {
   applyIconColorToLeaves,
   applyIconToLeaves,
   applyMarkerColorToLeaves,
+  authorGlyphColorOf,
   authorGlyphName,
   authorGlyphPrefix,
+  authorIconOf,
   buildMarkerIcon,
   captureAuthorIcon,
   composeColorAlpha,
@@ -79,6 +81,63 @@ const makeMarkerGroup = (...markers: any[]): any => ({
   eachLayer: vi.fn((fn: (child: unknown) => void) => {
     for (const marker of markers) fn(marker);
   }),
+});
+
+describe("authorIconOf / authorGlyphColorOf fallbacks", () => {
+  it("authorIconOf falls back to the default prototype for an uncaptured bare leaf", () => {
+    // The leaf was never captured (no WeakMap entry) AND carries no options.icon.
+    // authorIconOf falls through to defaultIconProto() (a real L.Icon.Default
+    // prototype in jsdom) — the semantic fallback reset uses for a bare leaf.
+    const leaf = makeMarker(undefined);
+    const icon = authorIconOf(leaf);
+    expect(icon).not.toBeUndefined();
+  });
+
+  it("authorIconOf returns the live icon for an uncaptured leaf that has one", () => {
+    // authorIcon.get(leaf) is null (never captured) but options.icon exists.
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const leaf = makeMarker(author);
+    expect(authorIconOf(leaf)).toBe(author);
+  });
+
+  it("authorGlyphColorOf returns undefined for an icon with no createIcon", () => {
+    // icon.createIcon is not a function → the !div / typeof create arm and the
+    // div-null querySelector arm both fall through to the declared option.
+    const icon = { options: { iconColor: "red" } };
+    expect(authorGlyphColorOf(icon)).toBe("red");
+  });
+
+  it("authorGlyphColorOf returns the declared iconColor when createIcon yields no glyph", () => {
+    // A createIcon that returns a div with no <i> → no inline paint → the
+    // declared iconColor is the fallback.
+    const icon = {
+      options: { iconColor: "red" },
+      createIcon: () => document.createElement("div"),
+    };
+    expect(authorGlyphColorOf(icon)).toBe("red");
+  });
+
+  it("authorGlyphColorOf reads the inline glyph colour first", () => {
+    // The author createIcon paints the glyph inline; that wins over the
+    // declared option (the order the derive consumes it).
+    const icon = {
+      options: { iconColor: "red" },
+      createIcon: () => {
+        const div = document.createElement("div");
+        const i = document.createElement("i");
+        i.style.color = "rgb(0, 255, 0)";
+        div.appendChild(i);
+        return div;
+      },
+    };
+    expect(authorGlyphColorOf(icon)).toBe("rgb(0, 255, 0)");
+  });
+
+  it("authorGlyphColorOf returns undefined when neither inline nor declared paints", () => {
+    // An icon with no createIcon and no declared iconColor → undefined, so the
+    // derive applies its own default (#fff).
+    expect(authorGlyphColorOf({ options: {} })).toBeUndefined();
+  });
 });
 
 describe("isIconLeaf", () => {
