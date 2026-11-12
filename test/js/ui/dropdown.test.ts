@@ -1,5 +1,7 @@
 // Tests for the shared select replacement (ui/dropdown.ts).
+import { repoPath } from "#test/path.js";
 import type * as L from "leaflet";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { DROPDOWN_OVERLAY_ID } from "#ui/dropdown.js";
@@ -1268,5 +1270,40 @@ describe("dropdown: remaining branches", () => {
       const returned = overlay.register(entry as never);
       expect(returned).toBe(unregister);
     });
+  });
+});
+
+const css = readFileSync(repoPath("foliplus/css/common/dropdown.css"), "utf8");
+
+describe("dropdown placeholder ink", () => {
+  it("paints the placeholder with a compound selector on the trigger", () => {
+    // The selector must be the compound (0,2,0), not the single class (0,1,0):
+    // .foliplus-form-select (form.css) declares color on a later file, so a
+    // single-class .foliplus-dropdown-placeholder would lose the tie.
+    const compound = css.match(
+      /\n\s*\.foliplus-dropdown-trigger\.foliplus-dropdown-placeholder\s*\{/,
+    );
+    expect(compound, "placeholder rule must be a compound class").not.toBeNull();
+
+    const single = css.match(/\n\s*\.foliplus-dropdown-placeholder\s*\{/);
+    expect(single, "placeholder rule must not be a bare single class").toBeNull();
+  });
+
+  it("keeps the muted token as the placeholder ink", () => {
+    const rule = css.match(
+      /\n\s*\.foliplus-dropdown-trigger\.foliplus-dropdown-placeholder\s*\{[^}]*\}/,
+    );
+    expect(rule).not.toBeNull();
+    expect(rule![0]).toContain("var(--foliplus-text-muted)");
+  });
+});
+
+describe("disabled option affordance", () => {
+  it("gives a disabled option a not-allowed cursor", () => {
+    // The disabled affordance is a stylesheet contract, not a JS behaviour: a
+    // disabled option must read as "exists but cannot be picked".
+    expect(css).toMatch(
+      /\.foliplus-dropdown-option\[disabled\]\s*\{[^}]*cursor:\s*not-allowed/,
+    );
   });
 });
