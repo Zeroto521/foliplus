@@ -1,12 +1,11 @@
 // platform/locale — Locale resolution for the foliplus runtime.
+import type { LocaleTables } from "./type.js";
 
 // Locale resolution for the foliplus runtime.
 //
 // Detects the browser language and selects a locale table from the
 // component tables injected once per map (`window.foliplus._COMPONENT_TABLES`).
 // CONFIG.locale_tables carries only user-custom strings (from LocaleConfig.from_json).
-
-type LocaleTables = Record<string, Record<string, string>>;
 
 /**
  * Resolve the active locale table by checking (in order):

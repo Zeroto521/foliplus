@@ -1,4 +1,5 @@
 // platform/debounce — Debounce a function so it fires only after a quiet period.
+import type { Debounced } from "./type.js";
 
 // Debounce utility for foliplus components.
 // Imported statically by components at build time.
@@ -8,10 +9,6 @@
  * `delayMs` ms have passed with no further call, plus two handles on the
  * pending call.
  */
-type Debounced = ((...args: unknown[]) => void) & {
-  cancel: () => void;
-  flush: () => void;
-};
 
 const debounce = (func: (...args: unknown[]) => void, delayMs: number): Debounced => {
   let timer: ReturnType<typeof setTimeout> | null = null;
