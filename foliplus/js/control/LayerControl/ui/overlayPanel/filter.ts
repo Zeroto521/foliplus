@@ -288,8 +288,11 @@ const reconcile = (
   cap: FilterCapability,
 ): void => {
   const model = cap.filterProvider();
-  // D8: the active field is the committed atom's field, else the first dimension.
-  const committedField = model?.filter?.kind === "atom" ? model.filter.field : null;
+  // D8: the active field is the committed atom's or enum's field, else the first dimension.
+  const committedField =
+    model?.filter?.kind === "atom" || model?.filter?.kind === "enum"
+      ? model.filter.field
+      : null;
   if (committedField) state.activeField = committedField;
   else if (
     !state.activeField ||

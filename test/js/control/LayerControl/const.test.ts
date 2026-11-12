@@ -1,3 +1,4 @@
+import { repoPath } from "#test/path.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -136,7 +137,7 @@ describe("FOCUS", () => {
     // The two values must stay in sync -- both dim selection boxes alike.
     // This is a gate, not a comment: if someone changes one and forgets
     // the other, this test goes red.
-    const ROOT = resolve(__dirname, "../../../../");
+    const ROOT = repoPath();
     const tokenCss = readFileSync(
       resolve(ROOT, "foliplus/css/common/token.css"),
       "utf-8",

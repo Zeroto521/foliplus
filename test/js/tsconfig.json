@@ -23,7 +23,8 @@
       "#ui/*": ["../../foliplus/js/ui/*"],
       "#control/*": ["../../foliplus/js/control/*"],
       "#foliplus/*": ["../../foliplus/js/*"],
-      "#script/*": ["../../script/*"]
+      "#script/*": ["../../script/*"],
+      "#test/*": ["./*"]
     }
   },
   "include": [

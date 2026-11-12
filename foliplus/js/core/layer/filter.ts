@@ -83,6 +83,11 @@ type FilterEnumDimension = {
   readonly field: string;
   readonly options: ReadonlyArray<FilterEnumOption>;
   /** Whether more than one option may be selected. Defaults to true. */
+  /** The owner truncated the option list for the panel (a large discrete
+   *  domain). The truncation is a display-layer policy only — the matching
+   *  semantics never change, so a value outside the shown list still
+   *  matches. The body shows the shared hint when set. */
+  readonly truncated?: boolean;
   readonly multi?: boolean;
 };
 

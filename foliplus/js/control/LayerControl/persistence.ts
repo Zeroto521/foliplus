@@ -14,9 +14,10 @@ import {
 } from "#core/layer/index.js";
 import { isGlyphSyntax } from "#core/leaflet/index.js";
 import { VALUE_KIND, isCategoryKind } from "#core/value/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import * as Storage from "#platform/storage.js";
-import { BORDER_WEIGHT, normalizeHexColor } from "#ui/index.js";
+import { BORDER_WEIGHT } from "#ui/index.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that
@@ -156,10 +157,6 @@ const parseSize = (raw: unknown): number | null => {
   return rounded >= CONST.SIZE.MIN && rounded <= CONST.SIZE.MAX ? rounded : null;
 };
 /** A hex color the panel's border and fill rows would accept: `#rgb` or
- *  `#rrggbb`. Longer / shorter strings and non-hex characters are dropped so a
- *  corrupt entry cannot leak a broken value into <input type=color>. */
-const isHexColor = (value: unknown): value is string =>
-  typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
 
 /** Disk parser per provenance key: normalizes the stored value or returns
  *  `null` to drop a corrupt one (its marker is dropped with it).

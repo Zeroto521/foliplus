@@ -13,6 +13,7 @@ import {
 import {
   CLASS_COUNT,
   type ClassifyMethod,
+  METHOD,
   buildClassesRow,
   buildFieldRow,
   buildSchemeRow,
@@ -151,12 +152,26 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // The row has one visible label but two selects: give each its own
   // accessible name so a screen reader does not announce "Classes" twice.
   const classesRow = buildClassesRow({
-    label: ctrl.T("classify_method"),
-    methodAriaLabel: ctrl.T("classify_method"),
+    label: ctrl._("foliplus.classification_method"),
+    methodAriaLabel: ctrl._("foliplus.classification_method"),
     classesAriaLabel: ctrl.T("class_count"),
     methodValue: ctrl.mgr.method as ClassifyMethod,
     classesValue: ctrl.mgr.numClasses,
-    methodLabel: method => ctrl.T(method),
+    // Written as literal _() calls rather than `_("foliplus.classification_" + method)`:
+    // the locale-usage scanner only sees literal keys, and a template-built key
+    // would let a renamed locale entry pass silently.
+    methodLabel: method => {
+      switch (method) {
+        case METHOD.JENKS:
+          return ctrl._("foliplus.classification_jenks");
+        case METHOD.QUANTILE:
+          return ctrl._("foliplus.classification_quantile");
+        case METHOD.EQUAL:
+          return ctrl._("foliplus.classification_equal");
+        case METHOD.HEADS:
+          return ctrl._("foliplus.classification_heads");
+      }
+    },
     methodClass: "",
     overlay: dropdownOverlayHook,
     classesClass: "foliplus-heatmap-class-select",

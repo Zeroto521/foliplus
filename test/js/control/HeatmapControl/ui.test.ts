@@ -2,6 +2,7 @@
 // Every UI function reads its config from the injected ctrl.config / ctrl.T
 // (set by the fixture), never from the ambient window.CONFIG — these tests
 // therefore prove both the behavior and the per-instance CONFIG injection.
+import { repoPath } from "#test/path.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -140,7 +141,7 @@ describe("bindControls — template render and initial values", () => {
       makeConfig({
         locale_tables: {
           en: {
-            "HeatmapControl.classify_method": "Method",
+            "foliplus.classification_method": "Method",
             "HeatmapControl.class_count": "Classes",
           },
         },
@@ -164,7 +165,7 @@ describe("bindControls — template render and initial values", () => {
         locale_code: "zh",
         locale_tables: {
           zh: {
-            "HeatmapControl.classify_method": "分类方法",
+            "foliplus.classification_method": "分类方法",
             "HeatmapControl.class_count": "分级数",
           },
         },
@@ -1342,7 +1343,7 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
 // which the browser probe records. The heatmap's own hooks are used so the fix
 // stays inside the heatmap stylesheet and LayerControl's rules are untouched.
 
-const ROOT = resolve(__dirname, "../../../../");
+const ROOT = repoPath();
 
 /** Read a stylesheet with normalized line endings (CRLF checkout / LF runner). */
 const css = (rel: string): string =>
