@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  HIDDEN_CLASS,
   bindControlZoomRange,
   intersectsMapZoom,
   isZoomRange,
   readZoomRange,
 } from "#core/leaflet/index.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 type FakeMap = {
   zoom: number;
@@ -72,28 +72,28 @@ describe("bindControlZoomRange", () => {
   it("shows the control inside the declared range and hides it outside", () => {
     const { map, container } = bind({ min: 8, max: 12 }, { zoom: 10 });
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
 
     map.setZoom(5);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(true);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
 
     map.setZoom(8);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
 
     map.setZoom(12);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
 
     map.setZoom(13);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(true);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("leaves an undeclared control visible without a listener", () => {
     const { container, map, cleanup } = bind(null, { zoom: 10 });
 
     expect(map.on).not.toHaveBeenCalled();
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     map.setZoom(18);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(() => cleanup()).not.toThrow();
   });
 
@@ -103,31 +103,31 @@ describe("bindControlZoomRange", () => {
     // disappearance the contract forbids, so it degrades to undeclared.
     const { container, log, map } = bind({ min: 20, max: 30 }, { zoom: 10 });
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
     expect(String(log.warn.mock.calls[0][0])).toContain("treating it as undeclared");
 
     map.setZoom(18);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
   });
 
   it("warns once about a malformed payload and stays visible", () => {
     const { container, log, map } = bind({ min: 12, max: 8 }, { zoom: 10 });
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
     expect(String(log.warn.mock.calls[0][0])).toContain("unusable zoom range");
 
     map.setZoom(18);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
   });
 
   it("warns once about a non-object payload", () => {
     const { container, log } = bind([8, 12], { zoom: 10 });
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
   });
 
@@ -136,11 +136,11 @@ describe("bindControlZoomRange", () => {
     // author's endpoints are not rewritten: zoom 10 is below the window.
     const { container, log, map } = bind({ min: 15, max: 30 }, { zoom: 10 });
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(true);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(log.warn).not.toHaveBeenCalled();
 
     map.setZoom(16);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("re-evaluates when a basemap changes the map's own zoom levels", () => {
@@ -149,14 +149,14 @@ describe("bindControlZoomRange", () => {
     // declaration becomes usable without a zoomend, so the zoomlevelschange
     // path must hide the control at the current level 10.
     const { container, log, map } = bind({ min: 20, max: 30 }, { zoom: 10 });
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(log.warn).toHaveBeenCalledTimes(1);
 
     map.minZoom = 20;
     map.maxZoom = 30;
     map.emit();
 
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(true);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("detaches its zoomend listener on cleanup", () => {
@@ -167,9 +167,9 @@ describe("bindControlZoomRange", () => {
 
     expect(map.off).toHaveBeenCalledWith("zoomend", expect.any(Function));
     expect(map.off).toHaveBeenCalledWith("zoomlevelschange", expect.any(Function));
-    container.classList.remove(HIDDEN_CLASS);
+    container.classList.remove(PANEL_CLASS.HIDDEN);
     map.setZoom(1);
-    expect(container.classList.contains(HIDDEN_CLASS)).toBe(false);
+    expect(container.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 });
 

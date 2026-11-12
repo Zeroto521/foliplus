@@ -70,7 +70,6 @@ export {
 } from "./glyphSource.js";
 export type { GlyphPrefix } from "./glyphSource.js";
 export {
-  HIDDEN_CLASS,
   bindControlZoomRange,
   intersectsMapZoom,
   isZoomRange,

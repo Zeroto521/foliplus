@@ -11,15 +11,13 @@
 // its own container and logger. It never writes Leaflet's native
 // `minZoom/maxZoom`, exactly like the layer policy.
 import type { Logger } from "#platform/type.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** The one shape carried from Python: both ends are integer zoom levels. */
 interface DeclaredZoomRange {
   min: number;
   max: number;
 }
-
-/** The shared hidden state (foliplus/reset.css). */
-const HIDDEN_CLASS = "foliplus-hidden";
 
 /** Whether `raw` is a usable declaration: both ends integer zoom levels, in
  *  order. The predicate is the JS half of the Python validation in
@@ -117,7 +115,7 @@ const bindControlZoomRange = (opts: BindControlZoomRangeOptions): (() => void) =
   const warned = { payload: false, degenerate: false };
   const range = readZoomRange(opts.range, opts.log, warned);
   if (!range) {
-    opts.container.classList.remove(HIDDEN_CLASS);
+    opts.container.classList.remove(PANEL_CLASS.HIDDEN);
     return () => undefined;
   }
 
@@ -129,12 +127,12 @@ const bindControlZoomRange = (opts: BindControlZoomRangeOptions): (() => void) =
         warned.degenerate = true;
         opts.log.warn(unreachableZoomRange(range));
       }
-      opts.container.classList.remove(HIDDEN_CLASS);
+      opts.container.classList.remove(PANEL_CLASS.HIDDEN);
       return;
     }
     const zoom = opts.map.getZoom();
     opts.container.classList.toggle(
-      HIDDEN_CLASS,
+      PANEL_CLASS.HIDDEN,
       !(zoom >= range.min && zoom <= range.max),
     );
   };
@@ -147,7 +145,6 @@ const bindControlZoomRange = (opts: BindControlZoomRangeOptions): (() => void) =
 };
 
 export {
-  HIDDEN_CLASS,
   bindControlZoomRange,
   intersectsMapZoom,
   isZoomRange,

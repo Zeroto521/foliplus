@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import { CLASSES } from "#control/FullscreenControl/const.js";
 import {
   buildFullscreenChangeHandler,
@@ -122,7 +123,7 @@ describe("updateUI", () => {
       ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
     );
     for (const btn of selfBtns) {
-      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(false);
+      expect(btn.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     }
   });
 
@@ -139,8 +140,8 @@ describe("updateUI", () => {
 
     updateUI(mapMock, fsBtn, container, makeEnv({ hide_others: true }));
 
-    expect(otherCtrl.classList.contains(CLASSES.HIDDEN)).toBe(true);
-    expect(selfCtrl.classList.contains(CLASSES.HIDDEN)).toBe(false);
+    expect(otherCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
+    expect(selfCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("hide_self: toggles HIDDEN on the toggle / zoom-in / zoom-out buttons", () => {
@@ -150,7 +151,7 @@ describe("updateUI", () => {
       ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
     );
     for (const btn of selfBtns) {
-      expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(true);
+      expect(btn.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     }
   });
 

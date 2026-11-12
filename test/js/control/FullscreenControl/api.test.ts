@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import {
   FULLSCREEN_CHANGE,
   getFullscreenEl,
@@ -14,7 +15,7 @@ describe("const.js", () => {
     expect(CLASSES.ZOOM_IN).toBe("foliplus-zoom-in");
     expect(CLASSES.ZOOM_OUT).toBe("foliplus-zoom-out");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
-    expect(CLASSES.HIDDEN).toBe("foliplus-hidden");
+    expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
   });
 
   it("containerId formats correctly", () => {
