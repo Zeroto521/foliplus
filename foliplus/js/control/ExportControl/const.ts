@@ -54,6 +54,8 @@ const TIMING = {
 
 /** CSS class names used during render. */
 const CLASSES = {
+  // foliplus-hidden and foliplus-close-btn are the shared panel vocabulary
+  // (ui/panelClassName); they are not component classes.
   COLLAPSED: "foliplus-is-collapsed",
   EXPANDED: "foliplus-is-expanded",
   TOOL_BTN: "foliplus-tool-btn",
@@ -69,8 +71,6 @@ const CLASSES = {
   HANDLE_DOT: "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
   CENTER_DOT: "foliplus-dot foliplus-dot-solid foliplus-export-center",
   PREVIEW: "foliplus-export-preview",
-  CLOSE: "foliplus-close-btn",
-  HIDDEN: "foliplus-hidden",
   LOCKED: "foliplus-locked",
   ACTIVE: "foliplus-is-active",
   CONFIRM: "foliplus-confirm",

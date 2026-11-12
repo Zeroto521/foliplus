@@ -15,6 +15,7 @@ import { download } from "#platform/download.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { createLogger } from "#platform/log.js";
 import { nextFrame } from "#platform/throttle.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
@@ -147,7 +148,7 @@ const doRender = function (
   // Hide-pass only (CONTROL list, same as main): control host + this bar.
   // Not traversal skip — content canvases stay measurable for layerInfo.canvas.
   const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
-  hideEls.forEach(el => el.classList.add(CONST.CLASSES.HIDDEN));
+  hideEls.forEach(el => el.classList.add(PANEL_CLASS.HIDDEN));
   // Force a synchronous layout so getBoundingClientRect() in the
   // render passes sees the final positions after hiding controls.
   void this.mapContainer.offsetHeight;
@@ -235,7 +236,7 @@ const onRenderSuccess = function (
   canvas: HTMLCanvasElement,
   hideEls: NodeListOf<Element>,
 ) {
-  hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
+  hideEls.forEach(el => el.classList.remove(PANEL_CLASS.HIDDEN));
   this.removeExportOverlay();
   this.unlockMap();
   // The persistent hint already reads "Exporting map... (N%)" from the
@@ -430,7 +431,7 @@ const onRenderError = function (
   err: Error,
   hideEls: NodeListOf<Element>,
 ) {
-  hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
+  hideEls.forEach(el => el.classList.remove(PANEL_CLASS.HIDDEN));
   // Local cleanup cannot depend on a subscriber: unlock, drop the blocker,
   // clear mode/isExporting even when AFTER_EXPORT throws. endExport owns the
   // settled broadcast and the state reset; this path only adds the map unlock

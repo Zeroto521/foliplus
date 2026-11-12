@@ -455,7 +455,7 @@ class Slider {
           },
         ],
         ["clear-children", () => this.root.replaceChildren()],
-        ["clear-class", () => this.root.classList.remove("foliplus-slider")],
+        ["clear-class", () => this.root.classList.remove(SLIDER_CLASS.ROOT)],
         ["clear-role", () => this.root.removeAttribute("role")],
         ["clear-label", () => this.root.removeAttribute("aria-label")],
         ["clear-mode", () => this.root.removeAttribute("data-mode")],

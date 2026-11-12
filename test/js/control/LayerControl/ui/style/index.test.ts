@@ -16,7 +16,7 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { registerPortalRoot } from "#platform/portalRoot.js";
-import { sliderOf } from "#ui/index.js";
+import { SLIDER_CLASS, sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
@@ -3702,7 +3702,7 @@ describe("LayerUI style panel", () => {
     expect(host).not.toBeNull();
     // The primitive owns the class, mode and aria; the row only names its
     // host so a later pass can reach the instance through sliderOf().
-    expect(host.classList.contains(CONST.CLASSES.SLIDER)).toBe(true);
+    expect(host.classList.contains(SLIDER_CLASS.ROOT)).toBe(true);
     expect(host.dataset.mode).toBe("single");
     const thumb = host.querySelector(".foliplus-slider-thumb") as HTMLElement;
     expect(thumb.getAttribute("role")).toBe("slider");
@@ -3989,7 +3989,7 @@ describe("LayerUI style panel — zoom range", () => {
     const row = zoomRowOf(panelOf(item)!)!;
     const host = zoomHostOf(row);
 
-    expect(host.classList.contains(CONST.CLASSES.SLIDER)).toBe(true);
+    expect(host.classList.contains(SLIDER_CLASS.ROOT)).toBe(true);
     expect(host.dataset.mode).toBe("range");
     expect(host.querySelector(".foliplus-slider-fill")).not.toBeNull();
     expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(3);

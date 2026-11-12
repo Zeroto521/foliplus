@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
+import { SLIDER_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -493,7 +494,7 @@ it("a declaration that cannot meet the map leaves the row on the map range, edit
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement;
   expect(row).toBeTruthy();
-  const slider = row.querySelector(`.${CONST.CLASSES.SLIDER}`);
+  const slider = row.querySelector(`.${SLIDER_CLASS.ROOT}`);
   // The row is editable — no disabled class, no hint.
   expect(slider?.classList.contains("is-disabled")).toBe(false);
   // No visually-hidden hint span remains (the mechanism was removed).

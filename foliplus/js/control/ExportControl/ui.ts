@@ -11,6 +11,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -41,7 +42,7 @@ const renderToolbarActions = (
     },
   });
   createIconButton({
-    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${PANEL_CLASS.CLOSE_BTN}`,
     title: cancel.title,
     svg: cancel.svg,
     parent: actions,

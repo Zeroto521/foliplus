@@ -101,7 +101,7 @@
 }
 
 /* Field selector: extra body / field reuse the shared `foliplus-hidden`
-   (display: none !important) class, toggled by CONST.CLASSES.HIDDEN. */
+   (display: none !important) class, toggled by PANEL_CLASS.HIDDEN. */
 /* Placeholder select styling */
 :is(
   .foliplus-heatmap-ctrl select.foliplus-heatmap-placeholder,
