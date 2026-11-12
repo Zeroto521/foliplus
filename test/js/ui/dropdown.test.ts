@@ -232,6 +232,7 @@ describe("dropdown: bridged single select", () => {
     document.body.appendChild(host);
     const { select } = makeCell("a", [{ value: "a", label: "Alpha" }]);
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       nativeSelect: select,
       resolveHost: () => host,
       onSurfaceChange: listener => {
@@ -350,9 +351,9 @@ describe("dropdown: bridged single select", () => {
 
   it("refuses a second dropdown on the same select", () => {
     const { select } = bridged("a", [{ value: "a", label: "Alpha" }]);
-    expect(() => createDropdown({ nativeSelect: select })).toThrow(
-      /already has a dropdown/,
-    );
+    expect(() =>
+      createDropdown({ overlay: mockOverlay().overlay, nativeSelect: select }),
+    ).toThrow(/already has a dropdown/);
   });
 });
 
@@ -368,6 +369,7 @@ describe("dropdown: multiple selections", () => {
   it("toggles options without closing and reports every value", () => {
     const changes: string[][] = [];
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items,
       multiple: true,
       placeholder: "Any value",
@@ -400,6 +402,7 @@ describe("dropdown: multiple selections", () => {
 
   it("carries the muted placeholder class until a value is picked", () => {
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items,
       multiple: true,
       placeholder: "Any value",
@@ -425,7 +428,11 @@ describe("dropdown: multiple selections", () => {
   });
 
   it("keeps focus in the list after a toggle", () => {
-    const dropdown = createDropdown({ items, multiple: true });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+    });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     key(dropdown.trigger, "ArrowDown");
@@ -436,6 +443,7 @@ describe("dropdown: multiple selections", () => {
 
   it("applies initial values and setValues", () => {
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items,
       multiple: true,
       values: ["b"],
@@ -450,7 +458,11 @@ describe("dropdown: multiple selections", () => {
   });
 
   it("renders no check slot in single mode", () => {
-    const dropdown = createDropdown({ items, value: "a" });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      value: "a",
+    });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     dropdown.trigger.click();
@@ -460,14 +472,19 @@ describe("dropdown: multiple selections", () => {
 
   it("refuses a native select backing a multiple dropdown", () => {
     const { select } = makeCell("a", [{ value: "a", label: "Alpha" }]);
-    expect(() => createDropdown({ nativeSelect: select, multiple: true })).toThrow(
-      /cannot back a multiple dropdown/,
-    );
+    expect(() =>
+      createDropdown({
+        overlay: mockOverlay().overlay,
+        nativeSelect: select,
+        multiple: true,
+      }),
+    ).toThrow(/cannot back a multiple dropdown/);
   });
 
   it("closes the single-value standalone control on pick", () => {
     const picks: string[] = [];
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items,
       value: "a",
       onChange: value => picks.push(value),
@@ -501,6 +518,7 @@ describe("dropdown: lifecycle", () => {
     const states: boolean[] = [];
     const { select } = makeCell("a", [{ value: "a", label: "Alpha" }]);
     const toggling = createDropdown({
+      overlay: mockOverlay().overlay,
       nativeSelect: select,
       onToggle: open => states.push(open),
     });
@@ -767,7 +785,11 @@ describe("dropdown: keyboard and edge cases", () => {
     }[],
     extra: Record<string, unknown> = {},
   ): Dropdown => {
-    const dropdown = createDropdown({ items, ...extra });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      ...extra,
+    });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     return dropdown;
@@ -1103,7 +1125,11 @@ describe("dropdown: remaining branches", () => {
     items: readonly { value: string; label: string; disabled?: boolean }[],
     extra: Record<string, unknown> = {},
   ): Dropdown => {
-    const dropdown = createDropdown({ items, ...extra });
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      ...extra,
+    });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
     return dropdown;
@@ -1158,6 +1184,7 @@ describe("dropdown: remaining branches", () => {
 
   it("keeps the empty state when the dropdown declares a placeholder", () => {
     const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
       items: [
         { value: "a", label: "Alpha" },
         { value: "b", label: "Bee" },
