@@ -6610,7 +6610,7 @@ describe("cleanEmptyFolders", () => {
       op: "between",
       range: [2, 8],
     } as any);
-    expect(manager.layerFilters.get("overlay1")).toBeDefined();
+    expect(manager.layerRegistry.get("overlay1")!.filter).toBeDefined();
     // Transition assertion: the shared store carries the same committed value.
     expect(
       (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
@@ -6626,7 +6626,7 @@ describe("cleanEmptyFolders", () => {
     expect(
       (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
     ).toBeUndefined();
-    expect(manager.layerFilters.get("overlay1")).toBeUndefined();
+    expect(manager.layerRegistry.get("overlay1")!.filter).toBeUndefined();
   });
 
   it("applyFilterClass is reached only through the store's host.apply (single write point)", () => {
@@ -6721,7 +6721,7 @@ describe("generic filter declaration seeding", () => {
     ).toBe(false);
     // The read-compatible mirror and the registry slot carry the same value
     // (S4b reads layers[id].filter directly; the panel never re-derives).
-    expect(manager.layerFilters.get("overlay1")).toEqual(declared);
+    expect(manager.layerRegistry.get("overlay1")!.filter).toEqual(declared);
     expect(manager.layerRegistry.get("overlay1")!.filter).toEqual(declared);
   });
 
@@ -6756,7 +6756,7 @@ describe("generic filter declaration seeding", () => {
       op: "between",
       range: [4, 9],
     });
-    expect(manager.layerFilters.get("overlay1")).toEqual({
+    expect(manager.layerRegistry.get("overlay1")!.filter).toEqual({
       kind: "atom",
       field: "mag",
       op: "between",
@@ -6773,7 +6773,7 @@ describe("generic filter declaration seeding", () => {
     expect(
       (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
     ).toBeUndefined();
-    expect(manager.layerFilters.has("overlay1")).toBe(false);
+    expect(manager.layerRegistry.get("overlay1")!.filter).toBeUndefined();
   });
 });
 
