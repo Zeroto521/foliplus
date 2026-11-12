@@ -350,6 +350,111 @@ describe("in-place paint (no rebuild)", () => {
     applyMarkerColorToLeaves(makeMarkerGroup(m), "#d63e2a", "star");
     expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls + 1);
   });
+
+  it("applyIconColorToLeaves matches a mounted fa- token (no fa- prefix on the glyph name)", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    const el = m._icon as HTMLElement;
+    const innerBefore = el.querySelector("i") as HTMLElement;
+    expect(innerBefore.className).toContain("fa-star");
+    // A colour write under the panel default prefix matches the mounted fa-star
+    // (the glyph name is bare "star", not "fa-star").
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "star", undefined, "fa-solid");
+    const innerAfter = el.querySelector("i") as HTMLElement;
+    expect(innerAfter).toBe(innerBefore);
+    expect(m.setIcon).toHaveBeenCalledTimes(1);
+    expect(innerAfter.style.color).toBe("rgb(0, 255, 0)");
+  });
+
+  it("applyIconColorToLeaves treats a null glyph as the panel default circle", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // A colour write that names no glyph falls back to circle and rebuilds
+    // when the mounted symbol is not the default.
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", null);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls + 1);
+  });
+
+  it("applyMarkerColorToLeaves re-paints a mounted span from preset to a custom hex (mask + flat colour)", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(el.querySelector(".foliplus-marker-chassis")).toBe(span);
+    expect(span.style.maskImage).toContain("url(");
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+    expect(span.style.opacity).toBe("0.5");
+  });
+
+  it("applyMarkerColorToLeaves re-paints a mounted span from custom to a preset hex (sprite face)", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#ff9900", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(el.querySelector(".foliplus-marker-chassis")).toBe(span);
+    expect(span.style.backgroundImage).toContain("url(");
+    expect(span.style.maskImage).toBe("");
+    expect(span.style.opacity).toBe("0.5");
+  });
+
+  it("applyIconColorToLeaves matches a mounted fa- token with an already-prefixed glyph name", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    const inner = m._icon.querySelector("i") as HTMLElement;
+    expect(inner.className).toContain("fa-star");
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // A glyph name already carrying the fa- prefix takes the consequent arm of
+    // the prefix ternary — the mounted token matches verbatim, so the write
+    // paints in place with no rebuild.
+    applyIconColorToLeaves(makeMarkerGroup(m), "#00ff00", "fa-star", undefined, "fa-solid");
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(inner.style.color).toBe("rgb(0, 255, 0)");
+  });
+
+  it("applyMarkerColorToLeaves keeps the span when a re-paint preset sprite is unreadable", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#38aadd", "star", undefined, 50);
+    const el = m._icon as HTMLElement;
+    const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span).toBeTruthy();
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // Purple (#d252b9) is a preset no earlier test read, so its sprite is not
+    // cached; the mounted container cleared its own background when the blue
+    // span was built, so readChassisSprite returns null in jsdom. The span is
+    // still kept (mechanism preserved) and the write stays in place.
+    applyMarkerColorToLeaves(makeMarkerGroup(m), "#d252b9", "star", undefined, 50);
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(el.querySelector(".foliplus-marker-chassis")).toBe(span);
+    expect(span.style.opacity).toBe("0.5");
+  });
+
+  it("applyIconColorToLeaves paints a mounted glyph with a named color it cannot parse", () => {
+    const author = makeAuthorIcon({ iconColor: "blue" });
+    const m = makeMountedMarker(author);
+    applyIconToLeaves(makeMarkerGroup(m), "star");
+    const inner = m._icon.querySelector("i") as HTMLElement;
+    const setIconCalls = m.setIcon.mock.calls.length;
+    // parseColorAlpha rejects a named color, so the compose falls back to the
+    // raw string (the author painted a name the derive must not re-invent).
+    applyIconColorToLeaves(makeMarkerGroup(m), "blue", "star");
+    expect(m.setIcon).toHaveBeenCalledTimes(setIconCalls);
+    expect(inner.style.color).toBe("blue");
+  });
 });
 
 describe("authorGlyphName", () => {

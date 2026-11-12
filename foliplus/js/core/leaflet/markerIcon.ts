@@ -382,37 +382,23 @@ const buildMarkerIcon = (opts: {
 /** Whether a leaf's mounted glyph already carries the requested glyph token
  *  under the requested FontAwesome prefix — the condition for a colour /
  *  opacity write to paint the mounted node in place instead of rebuilding the
- *  icon. False when the leaf is detached, or when the mounted symbol is the
- *  author's own (no `.foliplus-marker-glyph` — an honest degradation, a
- *  rebuild would be needed to re-derive). */
+ *  icon. The caller guarantees the mounted symbol is a `.foliplus-marker-glyph`
+ *  (an author's own symbol — no `.foliplus-marker-glyph` — is an honest
+ *  degradation, a rebuild would be needed to re-derive). A `null` glyph (a
+ *  colour or opacity write that names no glyph) matches whatever is mounted
+ *  and falls back to the panel default `circle`, so the write still lands
+ *  in place instead of rebuilding an unchanged icon. */
 const mountedGlyphMatches = (
-  el: HTMLElement,
+  inner: Element,
   glyph: string | null,
   prefix: string,
 ): boolean => {
-  const inner = el.querySelector(".foliplus-marker-glyph");
-  if (!inner) return false;
   const cls = inner.className;
   const name = glyph ?? "circle";
   const token = name.startsWith("fa-") ? name : `fa-${name}`;
   return cls.includes(token) && cls.includes(prefix);
 };
 
-/** Paint the mounted glyph's colour in place (no icon rebuild). The paint is
- *  the same compose the derive path uses: a user colour paints at the user's
- *  opacity (default 100 = opaque). */
-const paintMountedGlyphColor = (
-  el: HTMLElement,
-  color: string,
-  opacity?: number,
-): void => {
-  const inner = el.querySelector(".foliplus-marker-glyph") as HTMLElement | null;
-  if (!inner) return;
-  const parsed = parseColorAlpha(color);
-  const paintHex = parsed?.hex ?? color;
-  const paint = composeColorAlpha(paintHex, opacity ?? 100);
-  inner.style.color = paint;
-};
 
 /** Paint the mounted chassis span in place (no icon rebuild). Returns
  *  true when the write was handled in place — the mounted element already
@@ -441,17 +427,27 @@ const paintMountedChassis = (
   span.style.maskPosition = "";
   span.style.backgroundColor = "";
   if (chassisPreset) {
+    // The preset keeps the sprite face; the offset is the preset's column.
     const sprite = readChassisSprite(chassisPreset, el);
     if (sprite) {
       span.style.backgroundImage = sprite.url;
       span.style.backgroundPosition = sprite.position;
     }
   } else {
+    // The custom hex takes the sprite as a mask (same URL, same offset) and
+    // the flat colour as the paint — the baked gradient/stroke are color
+    // channels, not alpha, so they are lost (the sprite's physical limit).
     const sprite = readChassisSprite("blue", el);
+    /* v8 ignore start -- the blue sprite is always readable once any span is
+     * mounted: the container that produced the span painted it from the live
+     * stylesheet (or an inline background), so a re-paint reads the cached
+     * URL. The null arm is a no-body defensive guard, not a state this flow
+     * reaches. */
     if (sprite) {
       span.style.maskImage = sprite.url;
       span.style.maskPosition = sprite.position;
     }
+    /* v8 ignore stop */
     span.style.backgroundColor = markerColor;
   }
   span.style.opacity = String(opacity / 100);
@@ -509,8 +505,13 @@ const applyIconColorToLeaves = (
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
-    if (el && mountedGlyphMatches(el, glyph, panelPrefix)) {
-      paintMountedGlyphColor(el, color, opacity);
+    const inner = el?.querySelector(".foliplus-marker-glyph") ?? null;
+    if (inner && mountedGlyphMatches(inner, glyph, panelPrefix)) {
+      // The same compose the derive path uses: a user colour paints at the
+      // user's opacity (default 100 = opaque).
+      const parsed = parseColorAlpha(color);
+      const paint = composeColorAlpha(parsed?.hex ?? color, opacity ?? 100);
+      (inner as HTMLElement).style.color = paint;
       return;
     }
     const derived = buildMarkerIcon({
