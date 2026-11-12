@@ -12,6 +12,7 @@ import {
   applySavedConfig as applySavedConfigFn,
   clearSavedConfig as clearSavedConfigFn,
   loadSavedConfig as loadSavedConfigFn,
+  toSavedConfig,
 } from "./persistence.js";
 import {
   drawHexLabel as drawHexLabelFn,
@@ -314,31 +315,7 @@ class HeatmapManager {
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = createPersisted({
-      save: () =>
-        saveRecord(
-          CONST.STORAGE.KEY,
-          {
-            version: CONST.RECORD_VERSION,
-            layerId: this.selectedLayerId,
-            agg: this.agg,
-            method: this.method,
-            scheme: this.scheme,
-            numClasses: this.numClasses,
-            borderWeight: this.borderWeight,
-            borderColor: this.borderColor,
-            labelShow: this.labelShow,
-            labelColor: this.labelColor,
-            labelSize: this.labelSize,
-            labelFormat: this.labelFormat,
-            field: this.field,
-            // The filter half lives in the shared per-map store (one key
-            // for every control, under FILTER_STORE_KEY); the component key
-            // keeps only style fields. A seeded declaration is never
-            // persisted — a declaration is a construction-time constant, and
-            // the store keeps the user's owned value under its own key.
-          } satisfies SavedConfig,
-          CONFIG.name,
-        ),
+      save: () => saveRecord(CONST.STORAGE.KEY, toSavedConfig(this), CONFIG.name),
     });
     // Snapshot the Python CONFIG style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
