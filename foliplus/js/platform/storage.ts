@@ -4,6 +4,7 @@
 // Stateless over window.localStorage, so it is safe to inline per-component.
 import { debounce } from "./debounce.js";
 import { createLogger } from "./log.js";
+import type { Persisted, PersistedOpts } from "./type.js";
 
 /**
  * Read and parse a value from localStorage.
@@ -132,19 +133,6 @@ const loadVersioned = <T>(
  * owns the lifecycle (debounce, flush, cancel); the component owns the data
  * (what to write, how to restore, how to surface a failure).
  */
-type Persisted = {
-  /** Queue a write. Immediate when `debounceMs` is 0, otherwise coalesced. */
-  schedule: () => void;
-  /**
-   * Write any pending state now. No-op when nothing is pending (write-through
-   * components, or a caller that has not scheduled since the last write).
-   * Idempotent and teardown-safe — the timer is null after flush, so calling
-   * flush twice is equivalent to calling it once.
-   */
-  flush: () => void;
-  /** Drop any pending write without writing. */
-  cancel: () => void;
-};
 
 /**
  * Options for {@link createPersisted}.
@@ -167,11 +155,6 @@ type Persisted = {
  * which this helper cannot anticipate. Keeping a no-op `load` on the helper
  * would document a wiring that doesn't exist.
  */
-type PersistedOpts = {
-  save: () => boolean;
-  debounceMs?: number;
-  onFlushError?: (err: unknown) => void;
-};
 
 /**
  * Build a persisted binding. The helper owns timing — when to write and when to
