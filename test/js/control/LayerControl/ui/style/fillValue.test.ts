@@ -9,6 +9,7 @@ import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import {
   applyValueFill,
   resolveFillMode,
+  valueSchemeForUi,
 } from "#control/LayerControl/ui/style/fillValue.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 
@@ -982,5 +983,52 @@ describe("resolveFillMode", () => {
   it("prefers a stored fillMode over the value-based inference", () => {
     intentValues = { fillStyleMode: "original" };
     expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("original");
+  });
+});
+
+describe("valueSchemeForUi", () => {
+  it("keeps a stored scheme the vocabulary offers (P2-1)", () => {
+    expect(
+      valueSchemeForUi({
+        kind: "numeric",
+        field: "x",
+        method: "equal",
+        classes: 3,
+        scheme: "Viridis",
+      }),
+    ).toBe("Viridis");
+    expect(
+      valueSchemeForUi({
+        kind: "category",
+        field: "x",
+        method: "equal",
+        classes: 3,
+        scheme: "Set3",
+      }),
+    ).toBe("Set3");
+  });
+
+  it("falls a sequential name back to the sequential default on a numeric record (P2-1)", () => {
+    expect(
+      valueSchemeForUi({
+        kind: "numeric",
+        field: "x",
+        method: "equal",
+        classes: 3,
+        scheme: "Set3",
+      }),
+    ).toBe("Viridis");
+  });
+
+  it("falls a qualitative name back to the qualitative default on a category record (P2-1)", () => {
+    expect(
+      valueSchemeForUi({
+        kind: "category",
+        field: "x",
+        method: "equal",
+        classes: 3,
+        scheme: "Viridis",
+      }),
+    ).toBe("Set3");
   });
 });

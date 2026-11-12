@@ -32,9 +32,10 @@ import {
   disposeFillRow,
   effectiveFillValue,
   hasDeclaredValue,
-  numericFields,
+  hasValueField,
   resolveFillMode,
   resolvedValue,
+  valueFields,
   valueForUi,
   writeFillMode,
 } from "./fillValue.js";
@@ -472,8 +473,8 @@ const renderFillDetail = (
     detail.append(...buildOriginalDetail(ui, layerId));
     return;
   }
-  const fields = numericFields(ui, layerId);
-  if (mode === STYLE_MODE.VALUE && fields.length > 0) {
+  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
+    const fields = valueFields(ui, layerId);
     detail.append(
       ...buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields)),
     );
@@ -509,15 +510,14 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     );
   }
 
-  const fields = numericFields(ui, layerId);
   const perFeature = paintsPerFeatureFill(ui, layerId);
-  // No numeric field and no author record: one mode only, so there is no mode
-  // to choose. The wrapper keeps the same block/detail shape so a later
-  // categorical field type can add a second mode without moving the panel's
-  // bind seam. A layer the author paints per feature keeps its mode row even
-  // without a numeric field: the read-only state still needs the solid
-  // override beside it.
-  if (fields.length === 0 && !perFeature) {
+  // No value field (numeric or categorical) and no author record: one mode
+  // only, so there is no mode to choose. The wrapper keeps the same
+  // block/detail shape so a later field type can add a second mode without
+  // moving the panel's bind seam. A layer the author paints per feature
+  // keeps its mode row even without a value field: the read-only state still
+  // needs the solid override beside it.
+  if (!hasValueField(ui, layerId) && !perFeature) {
     const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
     detail.append(...buildSolidDetail(ui, layerId));
     return dom.el(
@@ -548,7 +548,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
         ]
       : []),
     { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
-    ...(fields.length > 0
+    ...(hasValueField(ui, layerId)
       ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
       : []),
   ];
@@ -637,7 +637,7 @@ const bindFillDetail = (
 ): void => {
   // The original-colors detail is a read-only readout: nothing to bind.
   if (mode === STYLE_MODE.ORIGINAL) return;
-  if (mode === STYLE_MODE.VALUE && numericFields(ui, layerId).length > 0) {
+  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
     bindValueDetail(ui, layerId, detail);
   } else {
     bindSolidDetail(ui, layerId, detail);
@@ -858,8 +858,9 @@ const FILL_DIMENSION = registerDimension<{
 
 export {
   buildValueDetail,
-  numericFields,
+  hasValueField,
   resolvedValue,
+  valueFields,
   applyFillToLayer,
   bindFillRow,
   buildFillRow,

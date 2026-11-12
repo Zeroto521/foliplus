@@ -21,6 +21,7 @@ import {
   replayFillState,
   resetLayerFill,
 } from "#control/LayerControl/ui/style/fill.js";
+import { valueForUi } from "#control/LayerControl/ui/style/fillValue.js";
 import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import {
   MAX_STOPS,
@@ -1536,7 +1537,7 @@ describe("buildFillRow", () => {
     expect(rampOption.disabled).toBe(false);
   });
 
-  it("renders only the solid mode when the layer has no numeric field", () => {
+  it("renders only the solid mode when the layer has no value field", () => {
     const fixture = initWithFillLayer();
     // Count is the only numeric property; make it a string-only layer.
     fixture.manager.registerLayer({
@@ -1550,7 +1551,10 @@ describe("buildFillRow", () => {
           setStyle: ReturnType<typeof vi.fn>;
         };
         leaf.options = { fillColor: "#aabbcc", fill: true };
-        leaf.feature = { properties: { name: "a" } };
+        // An empty feature bag: with no numeric and no categorical property
+        // the layer offers no value mode, so the solid-only row is the honest
+        // a string property is a legitimate category field.
+        leaf.feature = { properties: {} };
         leaf.setStyle = vi.fn();
         return {
           options: {},
@@ -1563,7 +1567,7 @@ describe("buildFillRow", () => {
         };
       })(),
     });
-    fixture.ui.runtimeStore.setFields("textonly", [{ name: "name", numeric: false }]);
+    fixture.ui.runtimeStore.setFields("textonly", []);
 
     const row = buildFillRow(fixture.ui, "textonly");
 
@@ -2570,15 +2574,14 @@ describe("fill mode row — solid ↔ color by value", () => {
     ).toBeNull();
   });
 
-  it("a stored category value config survives mode re-entry and value writes unclamped", () => {
+  it("a stored category value config survives mode re-entry unclamped", () => {
     // persistedValue (fill.ts) has two modes: the category mode returns the
     // record as-is (no class-count clamp — method/classes are type-required
     // but unused at runtime on a category), while only the numeric mode clamps
     // classes to the persistence validator's range. A category record must
-    // therefore survive a user write without being coerced to numeric. Both
-    // write paths are driven here: re-entering the value mode through the mode
-    // select (writeFillMode) and a method change on the value detail
-    // (writeFillValue).
+    // survive re-entering the value mode (writeFillMode persists
+    // valueForUi(...) through persistedValue's category mode) without being
+    // coerced to numeric.
     installChroma(["#111111", "#222222"]);
     setIntent(ui, "overlay1", "fillValue", {
       kind: "category",
@@ -2589,9 +2592,6 @@ describe("fill mode row — solid ↔ color by value", () => {
     });
     const block = openPanel(ui);
 
-    // value -> solid -> value: the second value entry writes through
-    // writeFillMode, which persists valueForUi(...) — the stored category
-    // record — through persistedValue's category mode.
     switchMode(block, "solid");
     switchMode(block, "value");
 
@@ -2601,30 +2601,15 @@ describe("fill mode row — solid ↔ color by value", () => {
       classes: 3,
       scheme: "Reds",
     });
-
-    // A method change on the value detail writes through writeFillValue,
-    // which spreads the stored category record and re-persists it: the kind
-    // stays category, the patch lands, and the classes are still not clamped.
-    const methodSelect = details(block).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-    ) as HTMLSelectElement;
-    methodSelect.value = "jenks";
-    methodSelect.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
-      kind: "category",
-      method: "jenks",
-      classes: 3,
-      scheme: "Reds",
-    });
   });
 
   it("renders no mode select and writes no mode when there is no numeric field", () => {
     // A text-only layer: the field cache has no numeric entry and the tree
     // walk fallback finds no finite number either.
-    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    ui.runtimeStore.setFields("overlay1", []);
     for (const leaf of layer.leaves) {
-      leaf.feature.properties = { name: "a" };
+      // No numeric and no categorical property: the honest no-value layer.
+      leaf.feature.properties = {};
     }
     const block = buildFillRow(ui, "overlay1");
     bindFillRow(ui, "overlay1", block);
@@ -2676,9 +2661,9 @@ describe("fill mode row — solid ↔ color by value", () => {
     // A record can outlive the data it was built for (field removed). The
     // panel must fall back to the solid mode instead of showing a ramp select
     // whose detail cannot classify anything.
-    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    ui.runtimeStore.setFields("overlay1", []);
     for (const leaf of layer.leaves) {
-      leaf.feature.properties = { name: "a" };
+      leaf.feature.properties = {};
     }
     setIntent(ui, "overlay1", "fillStyleMode", "value");
     setIntent(ui, "overlay1", "fillValue", {
@@ -3324,13 +3309,18 @@ describe("fill row — original colors", () => {
     expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({ field: "score" });
   });
 
-  it("leaves the by-value mode out when the layer offers no numeric field", () => {
+  it("leaves the by-value mode out when the layer offers no value field", () => {
     const { ui, layer } = initWithAuthorScale();
     for (const leaf of layer.leaves as Array<{
       feature: { properties: Record<string, unknown> };
     }>) {
-      delete leaf.feature.properties.score;
-      delete leaf.feature.properties.count;
+      // Clear every property, numeric and categorical alike: a layer with any
+      // value field (a numeric column or a discrete string column) legitimately
+      // offers the by-value mode, so the "no mode row" case is exactly an
+      // empty feature bag.
+      for (const key of Object.keys(leaf.feature.properties)) {
+        delete leaf.feature.properties[key];
+      }
     }
     ui.runtimeStore.setFields("overlay1", []);
 
@@ -4965,6 +4955,217 @@ describe("fill solid derivation invariants", () => {
   });
 });
 
+describe("category field fill — string-only layer", () => {
+  let ui: LayerUI;
+  let layer: ReturnType<typeof makePerFeatureLayer>;
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    layer = makePerFeatureLayer(["#0d0887", "#6a00a8", "#b12a90"]);
+    // A string-only layer: drop the numeric column, keep the categorical one.
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      delete props.count;
+      delete props.__folium_color;
+    }
+    ({ ui } = initFixture({
+      data: [{ id: "overlay1", name: "Strings", role: "overlay", layer }],
+    }));
+    ui.runtimeStore.setFields("overlay1", [{ name: "cat", numeric: false }]);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("offers the value mode for a string-only layer (fill)", () => {
+    const block = openPanel(ui);
+    const select = modeSelect(block);
+    expect(select.querySelector(`option[value="value"]`)).not.toBeNull();
+    expect(select.querySelector(`option[value="original"]`)).toBeNull();
+  });
+
+  it("seeds a category config on the string field and shows no method/classes row", () => {
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    expect(getIntent(ui, "overlay1", "fillValue")).toMatchObject({
+      kind: "category",
+      field: "cat",
+    });
+    const detail = details(block);
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
+    ).toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`),
+    ).toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+    ).not.toBeNull();
+    expect(
+      detail.querySelector(`.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`),
+    ).not.toBeNull();
+  });
+
+  it("offers the qualitative palettes for a category config", () => {
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const value = getIntent(ui, "overlay1", "fillValue") as Record<string, unknown>;
+    expect(["Set3", "Paired", "Set1", "Set2", "Dark2"]).toContain(value.scheme);
+  });
+
+  it("refuses a value switch when the layer has no value field at all", () => {
+    // Empty the bag entirely.
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      for (const k of Object.keys(props)) delete props[k];
+    }
+    ui.runtimeStore.setFields("overlay1", []);
+    const block = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", block);
+    const select = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(select).toBeNull();
+    expect(getIntent(ui, "overlay1", "fillStyleMode")).toBeUndefined();
+  });
+  it("keeps the selected category field in the intent after a field switch", () => {
+    // P3 guard: render and bind must agree. After the panel binds the value
+    // detail and the user picks another categorical field, the intent's
+    // field must follow — otherwise the panel shows one field while the map
+    // paints another (the bindFillDetail regression).
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    // The layer only has "cat"; add a second categorical column to switch to.
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.name = props.cat;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "cat", numeric: false },
+      { name: "name", numeric: false },
+    ]);
+    // Rebind so the picker sees the second field.
+    const block2 = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", block2);
+    const select2 = block2.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    if (!select2) throw new Error("field select missing");
+    select2.value = "name";
+    select2.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.field).toBe("name");
+  });
+
+  it("falls back to a numeric seed when the layer reference cannot be resolved (P2-1)", () => {
+    const seeded = valueForUi(ui, "ghost", ["count"]);
+    expect(seeded.kind).toBe("numeric");
+    expect(seeded.field).toBe("count");
+  });
+
+  it("switching to a category field re-seeds a sequential scheme to the qualitative default (P2-1)", () => {
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.count = 1;
+      props.name = props.cat;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "cat", numeric: false },
+      { name: "name", numeric: false },
+    ]);
+    setIntent(ui, "overlay1", "fillValue", {
+      kind: "numeric",
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Viridis",
+    } as never);
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("category");
+    expect(value?.field).toBe("name");
+    expect(value?.scheme).toBe("Set3");
+  });
+
+  it("switching to a numeric field re-seeds a qualitative scheme to the sequential default (P2-1)", () => {
+    for (const leaf of layer.leaves) {
+      const props = (leaf as { feature: { properties: Record<string, unknown> } })
+        .feature.properties;
+      props.count = 1;
+    }
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+      { name: "cat", numeric: false },
+    ]);
+    setIntent(ui, "overlay1", "fillValue", {
+      kind: "category",
+      field: "cat",
+      method: "equal",
+      classes: 3,
+      scheme: "Set3",
+    } as never);
+    const block = openPanel(ui);
+    switchMode(block, "value");
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "count";
+    fieldSelect!.dispatchEvent(new Event("change"));
+    const value = getIntent(ui, "overlay1", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("numeric");
+    expect(value?.field).toBe("count");
+    expect(value?.scheme).toBe("Viridis");
+  });
+
+  it("resolves a field switch on an unregistered layer to a numeric seed (P2-1)", () => {
+    ui.runtimeStore.setFields("ghost", [
+      { name: "count", numeric: true },
+      { name: "name", numeric: false },
+    ]);
+    const block = buildFillRow(ui, "ghost");
+    document.body.appendChild(block);
+    bindFillRow(ui, "ghost", block);
+    const select = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+    select!.value = "value";
+    select!.dispatchEvent(new Event("change", { bubbles: true }));
+    const fieldSelect = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement | null;
+    expect(fieldSelect).not.toBeNull();
+    fieldSelect!.value = "name";
+    fieldSelect!.dispatchEvent(new Event("change", { bubbles: true }));
+    const value = getIntent(ui, "ghost", "fillValue") as
+      Record<string, unknown> | undefined;
+    expect(value?.kind).toBe("numeric");
+    expect(value?.field).toBe("name");
+  });
+});
 // ── Original-colors readout geometry (stylesheet contract) ──
 //
 // The method and class count share one row (the by-value rampForm classes
