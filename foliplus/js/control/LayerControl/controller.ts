@@ -365,8 +365,11 @@ class LayerController implements LayerAPI {
         this.ensureGenericHost(layerInfo.id);
         this.filterStore.setDeclaration(layerInfo.id, FILTER_SOURCE.GENERIC, declared);
         this.layerFilters.set(layerInfo.id, declared);
-        const seeded = this.layerRegistry.get(layerInfo.id);
-        if (seeded) seeded.filter = declared;
+        // `layerInfo` IS the registry entry being iterated (the loop walks
+        // registry.items and `get(id)` returns the same object), so the
+        // registry slot is updated directly — a defensive `get`/null-check here
+        // would be a dead branch (no id on `items` can miss the id map).
+        layerInfo.filter = declared;
         this.applyFilterClass(layerInfo.id, declared);
         publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: layerInfo.id });
       }
