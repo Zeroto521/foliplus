@@ -1,6 +1,7 @@
+import { repoPath } from "#test/path.js";
 import type * as L from "leaflet";
 import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_DISMISS, type Dismiss } from "#core/leaflet/index.js";
 import {
@@ -35,7 +36,7 @@ const registeredEscapeIds = (): Set<string> => {
   // Anchor at the repo root via the test file, not cwd: vitest runs from the
   // repo root today, but a caller that changes cwd (or a packaged run) must not
   // silently scan nothing and report "all registered".
-  const root = resolve(import.meta.dirname, "../../../../foliplus/js");
+  const root = repoPath("foliplus/js");
   const files: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
