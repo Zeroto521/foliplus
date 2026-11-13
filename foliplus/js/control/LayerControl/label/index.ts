@@ -34,6 +34,7 @@ import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import {
   type CanvasLabelStyle,
+  LABEL_CLASS,
   clampLabelSize,
   normalizeHexColor,
   resolveCanvasLabelStyle,
@@ -832,7 +833,7 @@ class LabelManager {
     if (this.canvases.has(id)) return;
     const pane = this.map.getPane(CONST.LABEL_PANE_PREFIX + id);
     if (!pane) return; // no declared carrier (capability "none") — no labels
-    pane.classList.add("foliplus-label-pane");
+    pane.classList.add(LABEL_CLASS.PANE);
     const canvas = new LabelCanvas(this.map, pane);
     this.canvases.set(id, canvas);
     const alpha = this.layerAlphas.get(id);

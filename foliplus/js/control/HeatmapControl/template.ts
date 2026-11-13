@@ -6,7 +6,7 @@
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
 import * as CONST from "./const.js";
-import { FORM_CLASS } from "#ui/index.js";
+import { FORM_CLASS, PANEL_CLASS } from "#ui/index.js";
 
 // Template placement decision (#729 review): this template stays
 // Heatmap-specific. Only the scheme row's trigger + hidden select are
@@ -18,19 +18,19 @@ import { FORM_CLASS } from "#ui/index.js";
 // optional hidden select passed to createSchemePicker.
 /** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
-<div class="foliplus-heatmap-config-body">
-  <div class="foliplus-form-row">
-    <label class="foliplus-form-label">${T("layer")}</label>
-    <div class="foliplus-form-control">
+<div class="${CONST.CLASSES.CONFIG_BODY}">
+  <div class="${PANEL_CLASS.FORM_ROW}">
+    <label class="${PANEL_CLASS.FORM_LABEL}">${T("layer")}</label>
+    <div class="${PANEL_CLASS.FORM_CONTROL}">
       <select class="${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}" ${CONST.DATA_ATTR.LAYER}></select>
     </div>
   </div>
 
-  <div class="foliplus-heatmap-extra-body foliplus-hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
+  <div class="${CONST.CLASSES.EXTRA_BODY} foliplus-hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
 
-    <div class="foliplus-form-row">
-      <label class="foliplus-form-label">${T("agg_method")}</label>
-      <div class="foliplus-form-control">
+    <div class="${PANEL_CLASS.FORM_ROW}">
+      <label class="${PANEL_CLASS.FORM_LABEL}">${T("agg_method")}</label>
+      <div class="${PANEL_CLASS.FORM_CONTROL}">
         <select class="${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}" ${CONST.DATA_ATTR.AGG}>
           <option value="${CONST.AGG.COUNT}">${T("agg_count")}</option>
           <option value="${CONST.AGG.SUM}">${T("agg_sum")}</option>
@@ -44,12 +44,12 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
     <!-- Field / Classes / Scheme are built by core/rampForm (shared with
          LayerControl's fill ramp) and mounted here; this template keeps only
          the panel shell + the heatmap-specific Layer/Agg/Clear rows. -->
-    <div class="foliplus-heatmap-section-block" ${CONST.DATA_ATTR.RAMP_ROWS}></div>
+    <div class="${CONST.CLASSES.SECTION_BLOCK}" ${CONST.DATA_ATTR.RAMP_ROWS}></div>
 
     <hr class="foliplus-section-divider">
 
-    <div class="foliplus-heatmap-btn-row">
-      <button class="foliplus-panel-btn foliplus-heatmap-btn-clear" ${CONST.DATA_ATTR.BTN_CLEAR}>${T("clear")}</button>
+    <div class="${CONST.CLASSES.BTN_ROW}">
+      <button class="${PANEL_CLASS.PANEL_BTN} ${CONST.CLASSES.BTN_CLEAR}" ${CONST.DATA_ATTR.BTN_CLEAR}>${T("clear")}</button>
     </div>
 
   </div>

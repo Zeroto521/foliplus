@@ -69,7 +69,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
 const handleMenuClick = (ui: LayerUI, event: Event): void => {
   const target = event.target as HTMLElement;
   const menuItem = target.closest(
-    `.foliplus-layer-more-menu button`,
+    `.${CONST.CLASSES.MORE_MENU} button`,
   ) as HTMLElement | null;
   if (!menuItem) return;
   event.stopPropagation();
@@ -90,7 +90,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
+  const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
@@ -314,7 +314,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // The head is Filter when supported, Style otherwise — both are reversible
   // actions, so the trigger-adjacent slot is always safe.
   (
-    menu.querySelector<HTMLElement>(".foliplus-layer-more-menu button") as HTMLElement
+    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
   ).focus();
 };
 

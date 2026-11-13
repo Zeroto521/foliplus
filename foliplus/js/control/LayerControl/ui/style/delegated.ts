@@ -153,7 +153,7 @@ const renderDelegatedStylePanel = (
     title: ui.T("style_layer"),
     iconSvg: SVGs.ICON_STYLE,
     closeTitle: ui.T("close_title"),
-    iconClass: "foliplus-layer-style-icon foliplus-header-icon",
+    iconClass: `${CONST.CLASSES.STYLE_ICON_CLASS} ${PANEL_CLASS.ICON}`,
   });
 
   // The shared renderer emits controls only, no headings — the panel owns the

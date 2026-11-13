@@ -43,6 +43,7 @@ import {
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import {
   LABEL_SIZE,
+  PANEL_CLASS,
   bindLiveColor,
   bindLiveNumber,
   finishSlidersIn,
@@ -80,7 +81,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
     title: ui.T("style_layer"),
     iconSvg: SVGs.ICON_STYLE,
     closeTitle: ui.T("close_title"),
-    iconClass: "foliplus-layer-style-icon foliplus-header-icon",
+    iconClass: `${CONST.CLASSES.STYLE_ICON_CLASS} ${PANEL_CLASS.ICON}`,
   });
   // The Layer section renders only when the layer owns a capable dimension;
   // a layer without any of them reaches the panel for the Label section
@@ -227,7 +228,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       ) as HTMLElement | null;
       if (body) body.classList.toggle("foliplus-hidden", !show);
       const fieldSel = panel.querySelector(
-        ".foliplus-style-field-select",
+        `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
       ) as HTMLSelectElement | null;
       const cfg = ui.c.label.getConfig(layerId);
       const fields = layerFields(ui, layerId);
@@ -288,7 +289,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     // panel (Reset or header) detaches it mid-dispatch, so the click would keep
     // walking its original path with no live control ancestor — swallow it here
     // (the same guarantee as the ⋮ menu and the other row panels).
-    if (t.closest(".foliplus-style-reset-btn")) {
+    if (t.closest(`.${CONST.CLASSES.STYLE_RESET_BTN}`)) {
       controller.swallowClick(event as MouseEvent);
       // The whole Reset is one operation: every dimension restores first, then
       // the delegated defaults (or the label config drop), then the panel
@@ -351,7 +352,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       notifyDelta(ui, ui.c.layerRegistry.get(layerId), settled);
       return;
     }
-    if (t.closest(".foliplus-panel-header")) {
+    if (t.closest(`.${PANEL_CLASS.HEADER}`)) {
       controller.closeFromClick(event as MouseEvent);
     }
   });

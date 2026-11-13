@@ -223,11 +223,15 @@ class TestBaseControlRendering:
         applies the one centered-text recipe to both.
         """
         html = render_control(HeatmapControl())
-        assert "foliplus-panel-btn foliplus-heatmap-btn-clear" in html
+        # The pair is split across the shared (panel-btn) and the component
+        # (heatmap-btn-clear) bundles, so assert both tokens are present; the
+        # same-button contract is asserted in the jsdom template test.
+        assert "foliplus-panel-btn" in html
+        assert "foliplus-heatmap-btn-clear" in html
 
         # The DOM contract (panel-btn + caller class on the same button) is
-        # asserted in the jsdom style tests and ui/affordance.test.ts; the
-        # Python layer only pins the CSS recipe that both buttons share.
+        # asserted in the jsdom template test; the Python layer only pins the
+        # CSS recipe that both buttons share.
         button_css = Path("foliplus/css/common/button.css").read_text(encoding="utf-8")
         assert ".foliplus-panel-btn" in button_css
 

@@ -117,6 +117,7 @@ const CLASSES = {
    *  display — one class write instead of a per-leaf style loop. */
   FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
+  MORE_MENU: "foliplus-layer-more-menu",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   /** The section header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
   CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
@@ -169,6 +170,7 @@ const CLASSES = {
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */
   STYLE_FIELD_SELECT: "foliplus-style-field-select",
+  STYLE_RESET_BTN: "foliplus-style-reset-btn",
   STYLE_FORMAT_ROW: LABEL_CLASS.STYLE_FORMAT_ROW,
   STYLE_FORMAT_SELECT: LABEL_CLASS.STYLE_FORMAT_SELECT,
   STYLE_TOGGLE_INPUT: LABEL_CLASS.STYLE_TOGGLE_INPUT,
@@ -238,6 +240,9 @@ const CLASSES = {
   STYLE_SIZE_ROW: "foliplus-style-size-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
+  STYLE_MODE_BLOCK: "foliplus-style-mode-block",
+  /** The style panel header icon (a sliders glyph). */
+  STYLE_ICON_CLASS: "foliplus-layer-style-icon",
   STYLE_ICON_COLOR_ROW: "foliplus-style-icon-color-row",
   /** The opacity number field on the icon-color row — its own class so the
    *  shared number-field commit handler and the tests can tell it from the

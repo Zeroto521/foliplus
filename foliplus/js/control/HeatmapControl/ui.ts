@@ -144,7 +144,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ariaLabel: ctrl.T("field"),
     fields: [],
     value: "",
-    rowClass: "foliplus-heatmap-field foliplus-hidden",
+    rowClass: `${CONST.CLASSES.FIELD} foliplus-hidden`,
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
     surface,
@@ -175,7 +175,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
     methodClass: "",
     overlay: dropdownOverlayHook,
-    classesClass: "foliplus-heatmap-class-select",
+    classesClass: CONST.CLASSES.CLASS_COUNT_SELECT,
     methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
     surface,
@@ -190,8 +190,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   classesRow.classesDropdown.element.classList.add("foliplus-heatmap-classes-count");
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),
-    triggerClass: "foliplus-heatmap-scheme-bar",
-    barClass: "foliplus-heatmap-scheme-bar-inner",
+    triggerClass: CONST.CLASSES.SCHEME_BAR,
+    barClass: CONST.CLASSES.SCHEME_BAR_INNER,
     rowAttributes: { [CONST.DATA_ATTR.SCHEME_CTRL]: "" },
     hiddenAttributes: { [CONST.DATA_ATTR.SCHEME_HIDDEN]: "" },
   });

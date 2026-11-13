@@ -15,9 +15,11 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
+  PANEL_CLASS,
   createDropdown,
   selectInput,
 } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer
  *  (icon / size by value) show a mode it cannot offer yet with the reason on
@@ -74,14 +76,14 @@ const buildModeRow = (spec: {
 
   const block = dom.el(
     "div",
-    { class: "foliplus-style-mode-block" },
+    { class: CONST.CLASSES.STYLE_MODE_BLOCK },
     dom.el(
       "div",
-      { class: `foliplus-form-row ${spec.rowClass}` },
-      dom.el("label", { class: "foliplus-form-label" }, spec.label),
+      { class: `${PANEL_CLASS.FORM_ROW} ${spec.rowClass}` },
+      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, spec.label),
       dom.el(
         "div",
-        { class: "foliplus-form-control" },
+        { class: PANEL_CLASS.FORM_CONTROL },
         dom.el("div", { class: "foliplus-form-inline" }, dropdown.element),
       ),
     ),

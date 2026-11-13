@@ -42,7 +42,7 @@ const registerInteractions = (ui: LayerUI): (() => void) => {
  */
 const handleMoreClick = (ui: LayerUI, event: Event): void => {
   const btn = (event.target as HTMLElement).closest(
-    `.foliplus-layer-more-btn`,
+    `.${CONST.CLASSES.MORE_BTN}`,
   ) as HTMLButtonElement | null;
   if (!btn) return;
   event.stopPropagation();

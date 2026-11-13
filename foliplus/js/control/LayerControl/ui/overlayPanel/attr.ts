@@ -17,6 +17,7 @@ import {
 } from "#core/leaflet/index.js";
 import { dom } from "#platform/dom.js";
 import { formatNumber, formatTimestamp } from "#platform/format.js";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
@@ -127,14 +128,14 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
           {
             // Shared label/control geometry (common/panel.css), same as the
             // heatmap's form rows; the attrs class stays as the hook.
-            class: ["foliplus-form-row", kind].filter(Boolean).join(" "),
+            class: [PANEL_CLASS.FORM_ROW, kind].filter(Boolean).join(" "),
           },
           // Label/value pair; `wide` drops the control onto its own line.
-          dom.el("dt", { class: "foliplus-form-label" }, label),
+          dom.el("dt", { class: PANEL_CLASS.FORM_LABEL }, label),
           dom.el(
             "dd",
             {
-              class: ["foliplus-form-control", kind].filter(Boolean).join(" "),
+              class: [PANEL_CLASS.FORM_CONTROL, kind].filter(Boolean).join(" "),
               title: value,
             },
             value,
@@ -188,7 +189,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     ariaLabel: ui.T("attributes_layer"),
     iconSvg: typeSvg,
     closeTitle: ui.T("close_title"),
-    iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
+    iconClass: `${CONST.CLASSES.ATTRS_ICON} ${PANEL_CLASS.ICON}`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
   // of opening a second group, so the panel reads as one column of facts —
