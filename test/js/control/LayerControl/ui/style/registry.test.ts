@@ -612,10 +612,13 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   });
 
   it("value falls back to the authored value when no override is set", () => {
+    // A no-fill-intent layer reads ORIGINAL (lead m14358): the row is a state
+    // readout, and the map is painting the authored/default fill, not a solid
+    // the user picked. The authored colour + null opacity still fall through.
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       opacity: null,
-      mode: "solid",
+      mode: "original",
     });
   });
 

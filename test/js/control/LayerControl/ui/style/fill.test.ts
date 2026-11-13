@@ -5297,3 +5297,193 @@ describe("original-colors readout geometry (stylesheet contract)", () => {
     expect(value).toContain("text-align: center");
   });
 });
+
+type LeafOpts = { fillColor?: string; fillOpacity?: number; fill?: boolean };
+
+describe("fill original availability (P1)", () => {
+  const origMakeLayer = (leafOpts: LeafOpts[], fillAuthor?: unknown) => {
+    installLeafletGlobals();
+    const leaves = leafOpts.map(opts => {
+      const leaf = new L.Polygon() as L.Polygon & {
+        options: LeafOpts;
+        setStyle: ReturnType<typeof vi.fn>;
+      };
+      leaf.options = { ...opts };
+      leaf.setStyle = vi.fn();
+      return leaf;
+    });
+    const parent = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) =>
+        leaves.forEach(child => fn(child)),
+      ),
+      getBounds: vi.fn(() => ({
+        isValid: vi.fn(() => true),
+        getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+        getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+      })),
+      leaves,
+    };
+    const entry: Record<string, unknown> = {
+      id: "overlay1",
+      name: "Polygons",
+      role: "overlay",
+      layer: parent as never,
+    };
+    if (fillAuthor !== undefined) entry.fillAuthor = fillAuthor;
+    const { ui } = initFixture({
+      data: [
+        entry as never,
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    return { ui, layer: parent as never };
+  };
+
+  const origSelect = (block: HTMLElement): HTMLSelectElement =>
+    block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+  const origDetail = (block: HTMLElement): HTMLElement =>
+    block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
+
+  const origText = (el: HTMLElement): string => (el.textContent ?? "").trim();
+
+  const origToRgb = (hex: string): string => {
+    const h = hex.replace("#", "");
+    if (h.length !== 6) return hex;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  /** True when the subtree shows `needle` as text OR as an inline colour. The
+   *  monochrome swatch may be a text hex or a background-painted div; either is
+   *  a faithful readout. jsdom normalizes a `background:#hex` cssText to
+   *  `rgb(...)`, so the needle's rgb form is compared too. */
+  const origDetailShows = (root: HTMLElement, needle: string): boolean => {
+    const values: string[] = [root.textContent ?? ""];
+    root.querySelectorAll("*").forEach(el => {
+      const s = (el as HTMLElement).style;
+      if (s.background) values.push(s.background);
+      if (s.backgroundColor) values.push(s.backgroundColor);
+      if (s.backgroundImage) values.push(s.backgroundImage);
+      if (s.color) values.push(s.color);
+    });
+    const needles = [needle.toLowerCase(), origToRgb(needle).toLowerCase()];
+    return values.some(v => {
+      const low = v.toLowerCase();
+      return needles.some(n => low.includes(n));
+    });
+  };
+
+  const origOption = (select: HTMLSelectElement): Element | null =>
+    select.querySelector('option[value="original"]');
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("offers original by default for a fill-capable layer with no author record", () => {
+    // A polygon with no author record and no value field still paints a fill;
+    // the honest baseline readout is the original colors state.
+    const { ui } = origMakeLayer([{ fill: true }]);
+    const block = buildFillRow(ui, "overlay1");
+    const select = origSelect(block);
+    expect(select).not.toBeNull();
+    expect(origOption(select)).not.toBeNull();
+    // No intent -> the baseline readout is selected and writes no mode.
+    expect(select.value).toBe("original");
+    // The baseline readout writes no mode: ORIGINAL is a read state, not a user choice.
+    expect(getIntent(ui, "overlay1", "fillStyleMode")).toBeUndefined();
+    // The detail reads the layer's own paint; no leaf value -> the constants.
+    const d = origDetail(block);
+    expect(origDetailShows(d, CONST.COLOR.DEFAULT)).toBe(true);
+    expect(origText(d)).toContain("20%");
+  });
+
+  it("shows the author's own color and opacity for a monochrome author (revert guard)", () => {
+    // Revert guard: paintsPerFeatureFill is false (a single-color author), yet
+    // ORIGINAL is still offered because the author painted a fillColor. If
+    // hasOriginal regresses to paintsPerFeatureFill, this test goes red.
+    const { ui } = origMakeLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      { perFeature: false, distinct: 1, stops: ["#aabbcc"] },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const select = origSelect(block);
+    expect(select).not.toBeNull();
+    expect(origOption(select)).not.toBeNull();
+    const d = origDetail(block);
+    expect(origDetailShows(d, "#aabbcc")).toBe(true);
+    expect(origText(d)).toContain("45%");
+  });
+
+  it("shows 0% opacity (not a dash) when the author painted transparent", () => {
+    const { ui } = origMakeLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0, fill: true }],
+      { perFeature: false, distinct: 1, stops: ["#aabbcc"] },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const select = origSelect(block);
+    expect(select).not.toBeNull();
+    expect(origOption(select)).not.toBeNull();
+    const d = origDetail(block);
+    // 0% is a real value, not a missing one — the dash rule must not eat it.
+    expect(origText(d)).toContain("0%");
+  });
+
+  it("stays original when only the opacity was overridden (no color/mode intent)", () => {
+    // #953 invariant (lead m14358 ④): an opacity-only override still paints the
+    // author's colors — the mode readout must say ORIGINAL, not SOLID. A user
+    // who only tuned transparency never asked for a single color.
+    const { ui } = origMakeLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      { perFeature: false, distinct: 1, stops: ["#aabbcc"] },
+    );
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+    const block = buildFillRow(ui, "overlay1");
+    const select = origSelect(block);
+    expect(select).not.toBeNull();
+    expect(select.value).toBe("original");
+    expect(origOption(select)).not.toBeNull();
+  });
+
+  it("a monochrome author still gets original when perFeature is forced false", async () => {
+    // Revert guard: hasOriginal regressed to paintsPerFeatureFill. The dynamic
+    // import + spy make the module-level const observable without touching
+    // product code.
+    const fa = await import("#control/LayerControl/ui/style/fillAuthor.js");
+    const spy = vi.spyOn(fa, "paintsPerFeatureFill").mockReturnValue(false);
+    try {
+      const { ui } = origMakeLayer(
+        [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+        { perFeature: false, distinct: 1, stops: ["#aabbcc"] },
+      );
+      const block = buildFillRow(ui, "overlay1");
+      const select = origSelect(block);
+      expect(select).not.toBeNull();
+      expect(origOption(select)).not.toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("fill value opacity row (P4) and cmap opacity row (P3) — future slices", () => {
+  it.todo("offers an editable opacity number in the value detail");
+  it.todo("commits 40 as 0.4 without rewriting the value config");
+  it.todo("shows the same override when switching back to solid");
+  it.todo("keeps the cmap rows and adds a separate readonly opacity row (uniform)");
+  it.todo("shows the em-dash when the author's per-leaf opacity is inconsistent");
+});
