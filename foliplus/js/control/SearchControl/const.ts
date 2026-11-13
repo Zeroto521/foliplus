@@ -29,6 +29,8 @@ const CLASSES = {
   RESULT_CONTENT: "foliplus-search-result-content",
   /** Secondary coordinate display line inside a result item. */
   RESULT_COORD: "foliplus-search-result-coord",
+  /** Card anchored above its row — the up variant of the result panel. */
+  RESULT_PANEL_UP: "foliplus-search-result-panel-up",
 };
 
 /** Search history configuration. */

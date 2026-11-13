@@ -101,7 +101,7 @@ const positionPanel = (ctrl: SearchControlCtx) => {
   panel.style.top = `${placement.top}px`;
   panel.style.maxWidth = `${placement.maxWidth}px`;
   panel.style.maxHeight = `${placement.maxHeight}px`;
-  panel.classList.toggle("foliplus-search-result-panel-up", placement.side === "above");
+  panel.classList.toggle(CLASSES.RESULT_PANEL_UP, placement.side === "above");
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {

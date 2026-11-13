@@ -27,6 +27,7 @@ const PANEL_CLASS = {
   CLOSE_BTN: "foliplus-close-btn",
   TITLE: "foliplus-header-title",
   ICON: "foliplus-header-icon",
+  CTRL_BTN: "foliplus-ctrl-btn",
   // Panel shell state — a panel is expanded or collapsed, a list item or
   // button row carries the active marker. Shared by core/leaflet/panel.ts and
   // the four component const maps that used to spell each one themselves.
