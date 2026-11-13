@@ -241,19 +241,3 @@ class TestHeatmapControlRendering:
         """drawHexLabel uses cached font string to avoid repeated Canvas font parsing."""
         html = render_control(HeatmapControl())
         assert "font" in html
-
-    # ── Algorithm tests (rendering checks) ──
-
-    def test_form_row_label_before_control(self):
-        """In a form row, <label> precedes the .foliplus-form-control cell."""
-        html = render_control(HeatmapControl())
-        # The row order is a visual contract, so assert the values the panel
-        # actually renders: <label class="foliplus-form-label"> opens before
-        # the .foliplus-form-control cell inside the same .foliplus-form-row.
-        row_pos = html.find('class="foliplus-form-row"')
-        label_pos = html.find('class="foliplus-form-label"')
-        ctrl_pos = html.find('class="foliplus-form-control"')
-        assert row_pos != -1 and label_pos != -1 and ctrl_pos != -1
-        assert label_pos < ctrl_pos, (
-            "label must be created before form-control in the same row"
-        )

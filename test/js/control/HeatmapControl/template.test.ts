@@ -141,4 +141,31 @@ describe("panelContentHTML", () => {
     const html = panelContentHTML(T);
     expect(html).toMatch(/foliplus-heatmap-section-block"\s+data-heatmap-ramp-rows/);
   });
+  it("clear button carries panel-btn and the heatmap clear hook on one element", () => {
+    const html = panelContentHTML(T);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const btn = doc.querySelector("button[data-heatmap-btn-clear]");
+    expect(btn).not.toBeNull();
+    expect(btn!.classList.contains("foliplus-panel-btn")).toBe(true);
+    expect(btn!.classList.contains("foliplus-heatmap-btn-clear")).toBe(true);
+  });
+
+  it("keeps the label before the control inside every form row", () => {
+    // Visual contract: <label> opens before the .foliplus-form-control cell in
+    // the same row. Asserted on the built DOM (jsdom) because the template now
+    // reads the shared chrome from vocabulary constants; the Python rendering
+    // test cannot see through those constants without pinning JS internals.
+    const dom = new DOMParser().parseFromString(panelContentHTML(T), "text/html");
+    const rows = Array.from(dom.querySelectorAll(".foliplus-form-row"));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const label = row.querySelector(".foliplus-form-label");
+      const control = row.querySelector(".foliplus-form-control");
+      expect(label).not.toBeNull();
+      expect(control).not.toBeNull();
+      expect(
+        label!.compareDocumentPosition(control!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
 });
