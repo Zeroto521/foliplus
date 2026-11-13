@@ -114,7 +114,7 @@ const computeBreaks = (
     );
   }
   // Two is the floor, not three: the picker's own contract is 2-9 on both
-  // sides (HeatmapControl.py's num_classes and the fill ramp's classes), so
+  // sides (HeatmapControl/control.py's num_classes and the fill ramp's classes), so
   // asking for two classes must build two. Forcing three made the request a
   // different request, and one the caller's color scale did not match,
   // since the scale asks for exactly the class count it was handed.

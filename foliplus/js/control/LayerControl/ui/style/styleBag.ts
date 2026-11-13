@@ -16,6 +16,7 @@
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import type { LayerUI } from "../surface.js";
+import { isColorBasemap } from "./fillAuthor.js";
 import { EVENTS, publish } from "#core/event/index.js";
 import { findLeaf, isArealStyleLeaf, walkLeaf } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
@@ -198,6 +199,35 @@ const firstStyleLeaf = (node: StyleCarrier): StyleSetter | null =>
  *  options are not the answer the polygon is answering for. */
 const firstFillLeaf = (node: StyleCarrier): StyleSetter | null =>
   firstLeafWhere(node, isArealStyleLeaf);
+
+/** The derived base colour for the solid mode, or undefined when the layer
+ *  does not qualify.
+ *
+ *  Solid owns exactly one colour. When no colour intent exists the base is the
+ *  layer's authored face — NOT each leaf's captured author bag, which for a
+ *  per-feature layer holds a different colour per leaf (restoring it is the
+ *  original mode's job, not solid's). Only a per-feature layer needs the
+ *  derivation: a uniform layer's author face is already one colour, so no
+ *  intent means no walk (an uncommitted layer keeps folium's own hover
+ *  handling and gains no listener).
+ *
+ *  `excludeBasemap` is the fill face's gate: a solid-color basemap owns no
+ *  derivable base (its fill is the pane paint, routed to showSolidBasemap),
+ *  so it must not derive one. The stroke face never needs it — the
+ *  layerCanBorder capability gate already excludes the colour basemap.
+ */
+const solidColorOf = (
+  ui: LayerUI,
+  layerId: string,
+  face: StyleFace,
+  opts: { excludeBasemap?: boolean } = {},
+): string | undefined => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return undefined;
+  if (opts.excludeBasemap && isColorBasemap(layerInfo)) return undefined;
+  const base = styleBaseOf(ui, layerId);
+  return face === FACE.STROKE ? base.color : base.fillColor;
+};
 
 /**
  * Coverage-write family reader — the single shared source for the "author's
@@ -641,6 +671,7 @@ export {
   restoreStyleDim,
   scheduleStyleDimApply,
   setStyleApplyFailureReporter,
+  solidColorOf,
   styleBagOf,
   styleBaseOf,
   styleDimOverAuthor,

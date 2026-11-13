@@ -49,6 +49,7 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  solidColorOf,
   styleBagOf,
   styleBaseOf,
   styleDimPayload,
@@ -415,9 +416,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // derivation: a uniform layer's author stroke is already one colour, and a
   // colour basemap is excluded by the layerCanBorder capability gate.
   const deriveSolidBase = solid && paintsPerFeatureFill(ui, layerId);
-  const solidColor = deriveSolidBase
-    ? (getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? styleBaseOf(ui, layerId).color)
-    : getIntent(ui, layerId, INTENT.BORDER_COLOR);
+  const solidColor =
+    getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
+    (deriveSolidBase ? solidColorOf(ui, layerId, FACE.STROKE) : undefined);
   const color = original
     ? undefined
     : followFill
