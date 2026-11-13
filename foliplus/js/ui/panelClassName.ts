@@ -27,7 +27,18 @@ const PANEL_CLASS = {
   CLOSE_BTN: "foliplus-close-btn",
   TITLE: "foliplus-header-title",
   ICON: "foliplus-header-icon",
+  // Panel shell chrome -- the fold panel / row panel / wrap / content /
+  // pinned / align-right / control-button vocabulary shared by the panel
+  // shell builder and its consumers. Some were module-local consts in
+  // core/leaflet/panel.ts; one spelling here.
+  PANEL: "foliplus-panel",
+  ROW_PANEL: "foliplus-row-panel",
+  CONTENT: "foliplus-panel-content",
+  WRAP: "foliplus-panel-wrap",
+  PINNED: "foliplus-is-pinned",
+  ROW_PANEL_UP: "foliplus-row-panel-up",
   CTRL_BTN: "foliplus-ctrl-btn",
+  ALIGN_RIGHT: "foliplus-align-right",
   // Panel shell state — a panel is expanded or collapsed, a list item or
   // button row carries the active marker. Shared by core/leaflet/panel.ts and
   // the four component const maps that used to spell each one themselves.

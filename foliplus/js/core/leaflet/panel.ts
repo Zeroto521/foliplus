@@ -212,7 +212,7 @@ const createFoldControl = (opts: {
   );
   ctrl.appendChild(dom.el("div", { class: CLASSES.TOOL_BAR }));
   container.appendChild(ctrl);
-  if (!isLeft) ctrl.classList.add("foliplus-align-right");
+  if (!isLeft) ctrl.classList.add(PANEL_CLASS.ALIGN_RIGHT);
   L.DomEvent.disableClickPropagation(container);
   L.DomEvent.disableScrollPropagation(container);
   return {
@@ -306,7 +306,7 @@ const createPanelHeader = (opts: {
     closeButton({
       title: opts.closeTitle,
       iconSvg: ICON_CLOSE,
-      className: "foliplus-ctrl-btn",
+      className: PANEL_CLASS.CTRL_BTN,
     }),
   );
   return header;
@@ -322,10 +322,6 @@ const ROW_PANEL_MIN_HEIGHT = 120;
 const ROW_PANEL_GAP = 2;
 /** Minimum distance between a pinned card and the viewport's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
-/** Class that switches a row panel to the pinned (fixed, placed) variant. */
-const PINNED_CLASS = "foliplus-is-pinned";
-/** Class that records a card anchored above its row. */
-const ROW_PANEL_UP_CLASS = "foliplus-row-panel-up";
 
 /** The box a row panel has to fit into: the map's visible box clipped to the
  *  viewport when the card lives inside one, otherwise the viewport itself. */
@@ -361,7 +357,7 @@ const fitRowPanel = (
   const cardRect = panel.getBoundingClientRect();
   const cardHeight = cardRect.height;
   const content = panel.querySelector(
-    ":scope > .foliplus-panel-content",
+    `:scope > .${PANEL_CLASS.CONTENT}`,
   ) as HTMLElement | null;
   const natural = content
     ? Math.max(cardHeight, cardHeight - content.clientHeight + content.scrollHeight)
@@ -403,7 +399,7 @@ const fitRowPanel = (
   const cap = Math.max(floor, placement.maxHeight);
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
-  panel.classList.toggle(ROW_PANEL_UP_CLASS, flipUp);
+  panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
   return { flipUp, cap, natural };
 };
 
@@ -444,7 +440,7 @@ const createRowPanel = (opts: {
   content: HTMLElement;
 } => {
   const panel = dom.el("div", {
-    class: `${opts.cssClass} foliplus-panel foliplus-row-panel`,
+    class: `${opts.cssClass} ${PANEL_CLASS.PANEL} ${PANEL_CLASS.ROW_PANEL}`,
     role: "dialog",
     "aria-label": opts.ariaLabel ?? opts.title,
     // The panel is anchored inside the layer row, which carries a hover
@@ -459,7 +455,7 @@ const createRowPanel = (opts: {
     closeTitle: opts.closeTitle,
     iconClass: opts.iconClass,
   });
-  const content = dom.el("div", { class: "foliplus-panel-content" });
+  const content = dom.el("div", { class: PANEL_CLASS.CONTENT });
   // Touch over the scrollable panel body must not reach the map container
   // (Leaflet touch handlers would pan the map).
   bindFloatingGestures(content);
@@ -576,7 +572,7 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {
-  panel.classList.remove(PINNED_CLASS, ROW_PANEL_UP_CLASS);
+  panel.classList.remove(PANEL_CLASS.PINNED, PANEL_CLASS.ROW_PANEL_UP);
   panel.style.removeProperty("--foliplus-row-panel-max-height");
   // The pinned box wrote viewport coordinates; clear them so an unpinned card
   // returns to the row-anchored absolute box instead of staying at the old
@@ -621,7 +617,7 @@ const unbindRowPanelEvents = (): void => {
 const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   const previous = rowPanels.get(anchor);
   if (previous && previous !== panel) resetPinnedPanel(previous);
-  panel.classList.add(PINNED_CLASS);
+  panel.classList.add(PANEL_CLASS.PINNED);
   rowPanels.set(anchor, panel);
   if (!rowPanelEventsBound) {
     rowPanelEventsBound = true;
@@ -680,7 +676,7 @@ const createPanelControl = (opts: {
 } => {
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
-    class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${PANEL_CLASS.COLLAPSED}`,
+    class: `${PANEL_CLASS.PANEL} ${CLASSES.FOLD} ${opts.cssClass} ${PANEL_CLASS.COLLAPSED}`,
     // Every panel gets a stable id so tests and the fold-state store can key
     // on it; LayerControl passes an explicit one to keep its historic name.
     id: opts.ctrlId ?? `${opts.cssClass}_ctrl`,
@@ -696,7 +692,7 @@ const createPanelControl = (opts: {
       { html: opts.toggleSvg },
     ),
   );
-  const panelWrap = dom.el("div", { class: "foliplus-panel-wrap" });
+  const panelWrap = dom.el("div", { class: PANEL_CLASS.WRAP });
   const header = createPanelHeader({
     title: opts.panelTitle,
     iconSvg: opts.toggleSvg,
@@ -707,7 +703,7 @@ const createPanelControl = (opts: {
   header.setAttribute("role", "dialog");
   header.setAttribute("aria-label", opts.panelTitle);
   panelWrap.appendChild(header);
-  const panelContent = dom.el("div", { class: "foliplus-panel-content" });
+  const panelContent = dom.el("div", { class: PANEL_CLASS.CONTENT });
   // Touch over the scrollable panel body must not reach the map container
   // (Leaflet touch handlers would pan the map).
   bindFloatingGestures(panelContent);

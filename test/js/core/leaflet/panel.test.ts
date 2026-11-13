@@ -1411,9 +1411,9 @@ describe("floating gesture containment goes through the unified entry", () => {
     const createSites: string[] = [];
     panelSrc.split("\n").forEach((line, i) => {
       // A creation site is a dom.el element whose class is the panel-content
-      // (the selector `:scope > .foliplus-panel-content` is a reference, not
+      // (the selector `:scope > .${PANEL_CLASS.CONTENT}` is a reference, not
       // a creation point).
-      if (/class: "foliplus-panel-content"/.test(line)) {
+      if (/class: PANEL_CLASS.CONTENT/.test(line)) {
         createSites.push(`L${i + 1}: ${line.trim()}`);
       }
     });

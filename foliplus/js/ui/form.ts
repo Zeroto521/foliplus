@@ -45,7 +45,7 @@ const colorInput = (opts: {
 }): HTMLElement =>
   dom.el("input", {
     type: "color",
-    class: `foliplus-form-color-input${opts.className ? ` ${opts.className}` : ""}`,
+    class: `${FORM_CLASS.COLOR_INPUT}${opts.className ? ` ${opts.className}` : ""}`,
     value: normalizeHexColor(opts.value ?? "#ffffff"),
     "aria-label": opts.ariaLabel,
   });
@@ -61,7 +61,7 @@ const numberInput = (opts: {
 }): HTMLElement =>
   dom.el("input", {
     type: "number",
-    class: `${FORM_CLASS.INPUT_SKIN} foliplus-form-number-input${opts.className ? ` ${opts.className}` : ""}`,
+    class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.NUMBER_INPUT}${opts.className ? ` ${opts.className}` : ""}`,
     min: String(opts.min),
     max: String(opts.max),
     step: String(opts.step ?? 1),
