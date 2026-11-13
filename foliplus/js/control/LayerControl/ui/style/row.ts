@@ -15,6 +15,7 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
+  PANEL_CLASS,
   createDropdown,
   selectInput,
 } from "#ui/index.js";
@@ -77,11 +78,11 @@ const buildModeRow = (spec: {
     { class: "foliplus-style-mode-block" },
     dom.el(
       "div",
-      { class: `foliplus-form-row ${spec.rowClass}` },
-      dom.el("label", { class: "foliplus-form-label" }, spec.label),
+      { class: `${PANEL_CLASS.FORM_ROW} ${spec.rowClass}` },
+      dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, spec.label),
       dom.el(
         "div",
-        { class: "foliplus-form-control" },
+        { class: PANEL_CLASS.FORM_CONTROL },
         dom.el("div", { class: "foliplus-form-inline" }, dropdown.element),
       ),
     ),
