@@ -25,6 +25,7 @@ import type {
   CreateLayersAPI as CoreCreateLayersAPI,
   LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
+  type LayoutDocument as CoreLayoutDocument,
 } from "#core/layer/index.js";
 import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
@@ -280,6 +281,8 @@ declare global {
     interaction: InteractionManager;
     /** Per-map shared filter store (Measure/Heatmap/LayerControl). */
     filterStore: FilterStore;
+    /** Per-map folder layout document (v2, one storage key). */
+    layoutDoc: CoreLayoutDocument;
     /** Default geocode provider spec for this map, registered by provider-aware
      *  controls (e.g. SearchControl) so indirect geocoding follows it. */
     geocodeProvider?: string | ProviderConfig;
@@ -298,6 +301,9 @@ declare global {
 
   /** Per-map shared filter store (`map.foliplus.filterStore`). */
   type FilterStore = CoreFilterStore;
+
+  /** Per-map folder layout document (`map.foliplus.layoutDoc`). */
+  type LayoutDocument = CoreLayoutDocument;
 
   const map: Leaflet.Map;
   const foliplus: Foliplus;

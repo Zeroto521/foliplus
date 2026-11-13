@@ -47,11 +47,14 @@ export {
   normalizeFolderName,
   sectionOrder,
   fullDisplayOrder,
+  sectionOrderV2,
+  fullDisplayOrderV2,
   freezeSectionOrder,
   deleteFolderFromOrder,
   renameFolderInOrder,
+  emptyLayoutDoc,
 } from "./folderOrder.js";
-export type { FolderOrder, FolderSection } from "./folderOrder.js";
+export type { FolderOrder, FolderSection, LayoutDocument } from "./folderOrder.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -143,6 +146,13 @@ export {
   FILTER_STORE_KEY,
 } from "./filterStore.js";
 export type { FilterSourceHost, FilterStore } from "./filterStore.js";
+export {
+  LAYOUT_DOC_KEY,
+  ensureLayoutDoc,
+  readLayoutDoc,
+  writeLayoutDoc,
+  migrateV1toV2,
+} from "./layoutDoc.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type {
   FilterDimension,

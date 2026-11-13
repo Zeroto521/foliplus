@@ -35,6 +35,39 @@ type FolderOrder = {
   sections: Partial<Record<FolderSection, string[]>>;
 };
 
+/** The v2 folder layout document - the single persisted object holding the
+ *  folder identity/name catalog, the per-section block order, and the per-layer
+ *  member ownership (one storage key, one snapshot, one source of truth).
+ *
+ *  Identity keys are stable: `key = normalizeFolderName(name)` never changes
+ *  under a rename (rename edits `name` only), and `members` is keyed by the
+ *  stable `LayerInfo.id` so a re-registration does not drift the ownership.
+ *  The author CONF `folder` seeds a member on first registration; once a
+ *  member is in `members` it is the ONLY ownership truth, and `LayerInfo.folder`
+ *  becomes a derived display field. */
+type LayoutDocument = {
+  version: 2;
+  /** Folder identity catalog. `key` is the stable identity; `name` is the
+   *  first-seen display spelling (trim only) and the only thing a rename
+   *  edits. A folder absent from the catalog cannot be referenced. */
+  folders: Array<{ key: string; name: string }>;
+  /** Per-section ordered folder-key array = block order. Order is truth:
+   *  a drag rewrites this array. Only folders with live members OR a frozen
+   *  block are listed (a delete removes the key from here too). */
+  order: Partial<Record<FolderSection, string[]>>;
+  /** layerId -> membership. The ONLY ownership truth; `LayerInfo.folder` is
+   *  derived from this at read time. */
+  members: Record<string, { section: FolderSection; folder: string }>;
+};
+
+/** The empty layout document: no folders, no order, no members. */
+const emptyLayoutDoc = (): LayoutDocument => ({
+  version: 2,
+  folders: [],
+  order: {},
+  members: {},
+});
+
 /** One folder block: every member sharing (section, normalize(name)). */
 interface FolderBlock {
   /** The identity key = normalize(displayName). Never used for display. */
@@ -137,6 +170,70 @@ const fullDisplayOrder = (
   ...sectionOrder("base", registryEntries, folderOrder),
 ];
 
+/** The v2 two-segment display order for one section, read from the layout
+ *  document instead of the v1 `FolderOrder`:
+ *  (1) listed folders in `order[section]` list order, (2) unlisted folders by
+ *  anchor ascending appended after them, (3) root layers (no membership) in
+ *  anchor order at the end. Membership is read from `members` ONLY — a layer
+ *  with a live member entry is grouped by its folder key; a layer without one
+ *  is a root layer. `registryEntries` is the WHOLE registry in anchor order.
+ *  Pure: never mutates its inputs. */
+const sectionOrderV2 = (
+  section: FolderSection,
+  registryEntries: readonly LayerInfo[],
+  layout: LayoutDocument,
+): LayerInfo[] => {
+  // Group registry entries in this section by their member folder key.
+  const blocks = new Map<string, FolderBlock>();
+  const root: LayerInfo[] = [];
+  registryEntries.forEach((entry, globalIndex) => {
+    if (entry.role !== section) return;
+    const member = layout.members[entry.id];
+    if (!member || member.section !== section) {
+      root.push(entry);
+      return;
+    }
+    const key = member.folder;
+    let block = blocks.get(key);
+    if (!block) {
+      const folderMeta = layout.folders.find(f => f.key === key);
+      block = {
+        key,
+        displayName: folderMeta?.name ?? key,
+        anchor: globalIndex,
+        members: [],
+      };
+      blocks.set(key, block);
+    }
+    block.members.push(entry);
+  });
+  const listed = layout.order[section] ?? [];
+  const listedKeys = new Set(listed);
+  const ordered: FolderBlock[] = [];
+  // (1) listed folders in list order
+  for (const key of listed) {
+    const block = blocks.get(key);
+    if (block) ordered.push(block);
+  }
+  // (2) unlisted folders by anchor asc, appended after the listed blocks
+  const rest = [...blocks.values()]
+    .filter(block => !listedKeys.has(block.key))
+    .sort((a, b) => a.anchor - b.anchor);
+  ordered.push(...rest);
+  // (3) root layers at the end, in anchor order
+  return [...ordered.flatMap(block => block.members), ...root];
+};
+
+/** The v2 full panel display order: overlay then base, each in its own v2
+ *  two-segment order. Read from the layout document (see sectionOrderV2). */
+const fullDisplayOrderV2 = (
+  registryEntries: readonly LayerInfo[],
+  layout: LayoutDocument,
+): LayerInfo[] => [
+  ...sectionOrderV2("overlay", registryEntries, layout),
+  ...sectionOrderV2("base", registryEntries, layout),
+];
+
 /** Materialise a section's whole block order into `folderOrder` — the
  *  empty-folder freeze. Must be called with the PRE-removal registry snapshot
  *  (the folder still has its last member) so its block is part of the order;
@@ -207,8 +304,11 @@ export {
   normalizeFolderName,
   sectionOrder,
   fullDisplayOrder,
+  sectionOrderV2,
+  fullDisplayOrderV2,
   freezeSectionOrder,
   deleteFolderFromOrder,
   renameFolderInOrder,
+  emptyLayoutDoc,
 };
-export type { FolderOrder, FolderSection };
+export type { FolderOrder, FolderSection, LayoutDocument };

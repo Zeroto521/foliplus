@@ -42,6 +42,7 @@ import {
   type LayerKind,
   LayerOrder,
   type LayerSurface,
+  type LayoutDocument,
   PaneManager,
   ROLE,
   type RegisterLayerOpts,
@@ -54,6 +55,7 @@ import {
   filterStep,
   findLayer,
   freezeSectionOrder,
+  migrateV1toV2,
   normalizeFolderName,
   renameFolderInOrder,
   visibleDomOf,
@@ -227,6 +229,12 @@ class LayerController implements LayerAPI {
    *  record that `normalizeGroups` reads to place Folder blocks before root
    *  layers. Seeded from storage, written on freeze / folder delete. */
   declare folderOrder: FolderOrder;
+  /** The v2 folder layout document - the migrated single source of truth.
+   *  Holds folders catalog + block order + member ownership together.
+   *  Seeded from storage, or migrated from the v1 `folderOrder` record
+   *  (pure-read: the v1 record is kept untouched). `normalizeGroups` still
+   *  reads the v1 record for now; S3 switches the read side to this. */
+  declare layoutDoc: LayoutDocument;
   declare label: LabelManager;
   declare domain: LayerOrchestration;
   /** Per-layer intent store — domain-owned, exposed on
@@ -322,6 +330,12 @@ class LayerController implements LayerAPI {
       removedIds,
     });
     this.folderOrder = saved.folderOrder ?? { version: 1, sections: {} };
+    // S2: migrate the v1 folderOrder record into the v2 layout document.
+    // Pure-read: the v1 record stays untouched (presence-not-value); the v2
+    // key is not written here — the first user layout action persists it.
+    // `normalizeGroups` still reads the v1 record; S3 switches it to the
+    // layout document's read side.
+    this.layoutDoc = migrateV1toV2(this.folderOrder, this.layerRegistry.items);
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
