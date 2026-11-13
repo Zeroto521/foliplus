@@ -1,3 +1,4 @@
+import { CLASSES } from "./const.js";
 import * as SVGs from "./icon.js";
 import { ExportManager } from "./manager.js";
 import { requireLayerAPI } from "#core/layer/index.js";
@@ -22,7 +23,7 @@ const ExportControl = defineControl<ExportManager>({
     ),
   buildDOM(this: any) {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
-      cssClass: `foliplus-export-ctrl`,
+      cssClass: CLASSES.EXPORT_CTRL,
       toggleTitle: this.T("btn_title"),
       toggleSvg: SVGs.ICON_CAMERA,
       position: this.config.position,
