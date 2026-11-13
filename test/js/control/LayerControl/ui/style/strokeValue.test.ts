@@ -1025,7 +1025,7 @@ describe("applyValueStroke", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// task-81 migration contract — stroke side. The stroke face must wire the
+// mode resolution migration contract — stroke side. The stroke face must wire the
 // shared resolver from fillValue.ts (not inline its own mode ?? (value ? value
 // : solid)), proven by the B0 source guard below.
 // ─────────────────────────────────────────────────────────────────────────────

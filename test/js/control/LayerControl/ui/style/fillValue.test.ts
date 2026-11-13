@@ -1038,7 +1038,7 @@ describe("valueSchemeForUi", () => {
   });
 });
 // ─────────────────────────────────────────────────────────────────────────────
-// task-81 migration contract — shared mode resolver (S1) and convergence
+// mode resolution migration contract — shared mode resolver (S1) and convergence
 // symbols. The original concept-name contract file was split by module (per
 // user rule: name tests after the logic under test): fillValue.test.ts owns
 // the fill side + the shared resolveModeByValue; strokeValue.test.ts owns the

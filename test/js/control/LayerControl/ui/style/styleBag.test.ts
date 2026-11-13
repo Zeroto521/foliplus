@@ -623,7 +623,7 @@ describe("apply ownership", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// task-81 migration contract — styleBag side. solidColorOf is the S2 symbol;
+// mode resolution migration contract — styleBag side. solidColorOf is the S2 symbol;
 // B3 behavioural criteria are skipIf until S2 exports it. The B0 source guard
 // for solidColorOf moves to the S2 PR (staged per Lead m16122).
 // ─────────────────────────────────────────────────────────────────────────────
