@@ -118,8 +118,10 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
  *  authored restore. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR, color]]);
-  scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-    applyIconColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.ICON_COLOR,
+    layerId,
+    () => applyIconColorToLayer(ui, layerId),
     {
       owner: ui,
     },
@@ -137,8 +139,10 @@ const commitIconColorOpacity = (
   const value = Math.round(opacity);
   if (!(value >= 0 && value <= 100)) return;
   writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR_OPACITY, value]]);
-  scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-    applyIconColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.ICON_COLOR,
+    layerId,
+    () => applyIconColorToLayer(ui, layerId),
     {
       owner: ui,
     },
@@ -269,11 +273,13 @@ const ICON_COLOR_DIMENSION = registerDimension<{
     }
     if (keys.length === 0) return;
     writeIntentKeys(ui, layerId, keys);
-    scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-      applyIconColorToLayer(ui, layerId),
-    {
-      owner: ui,
-    },
+    scheduleStyleDimApply(
+      FACE.ICON_COLOR,
+      layerId,
+      () => applyIconColorToLayer(ui, layerId),
+      {
+        owner: ui,
+      },
     );
   },
   reset: (ui, layerId) => resetLayerIconColor(ui, layerId),

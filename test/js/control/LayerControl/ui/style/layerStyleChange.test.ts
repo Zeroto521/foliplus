@@ -9,7 +9,6 @@
 //
 // Deleting the publish in styleBag's runBox turns every style row red;
 // deleting the opacity descriptor's publish turns its row red.
-
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
@@ -171,9 +170,9 @@ const commit = (ui: LayerUI, dim: string): void => {
     case DIM.MARKER_COLOR:
       commitMarkerColor(ui, id, "#654321");
       flushStyleDimApply(FACE.MARKER_COLOR, id);
-      return;
+      break;
     default:
-      return;
+      break;
   }
 };
 
@@ -201,7 +200,7 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
   );
 
   for (const dim of styleDims) {
-    it(dim + ": a user commit announces once with the layer id", () => {
+    it(`${dim}: a user commit announces once with the layer id`, () => {
       const fixture = boot(familyOf(dim));
       manager = fixture.manager;
       const seen: Array<{ id: string }> = [];

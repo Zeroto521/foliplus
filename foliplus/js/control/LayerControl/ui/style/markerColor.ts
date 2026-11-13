@@ -125,8 +125,10 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
  *  instead of leaving it queued behind the authored restore. */
 const commitMarkerColor = (ui: LayerUI, layerId: string, markerColor: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR, markerColor]]);
-  scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-    applyMarkerColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.MARKER_COLOR,
+    layerId,
+    () => applyMarkerColorToLayer(ui, layerId),
     {
       owner: ui,
     },
@@ -144,8 +146,10 @@ const commitMarkerColorOpacity = (
   const value = Math.round(opacity);
   if (!(value >= 0 && value <= 100)) return;
   writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR_OPACITY, value]]);
-  scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-    applyMarkerColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.MARKER_COLOR,
+    layerId,
+    () => applyMarkerColorToLayer(ui, layerId),
     {
       owner: ui,
     },
@@ -269,11 +273,13 @@ const MARKER_COLOR_DIMENSION = registerDimension<{
     }
     if (keys.length === 0) return;
     writeIntentKeys(ui, layerId, keys);
-    scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-      applyMarkerColorToLayer(ui, layerId),
-    {
-      owner: ui,
-    },
+    scheduleStyleDimApply(
+      FACE.MARKER_COLOR,
+      layerId,
+      () => applyMarkerColorToLayer(ui, layerId),
+      {
+        owner: ui,
+      },
     );
   },
   reset: (ui, layerId) => resetLayerMarkerColor(ui, layerId),
