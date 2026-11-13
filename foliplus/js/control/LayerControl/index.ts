@@ -1,3 +1,4 @@
+import * as CONST from "./const.js";
 import {
   LayerController,
   installBringToFrontPatch,
@@ -37,7 +38,7 @@ const LayerControl = defineControl<LayerController>({
   buildDOM(this: any) {
     installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
-      cssClass: "foliplus-layer-ctrl",
+      cssClass: CONST.CLASSES.CTRL,
       ctrlId: `${this.config.name}_ctrl`,
       toggleTitle: this.T("toggle_title"),
       toggleSvg: SVGs.ICON_LAYERS,

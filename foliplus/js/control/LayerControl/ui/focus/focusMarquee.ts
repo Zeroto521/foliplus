@@ -23,10 +23,11 @@
 //
 // Corner rounding uses the shared roundedRectOutline (same math as focus.ts).
 import { type RectCorners, roundedRectOutline } from "./marqueeShape.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 const MARQUEE_PAD = 4;
 const NS = "http://www.w3.org/2000/svg";
-const MARQUEE_SEL = "path.foliplus-focus-marquee";
+const MARQUEE_SEL = `path.${CONST.CLASSES.FOCUS_MARQUEE}`;
 
 const clearMarquees = (root: ParentNode = document): void => {
   root.querySelectorAll(MARQUEE_SEL).forEach(n => n.remove());
@@ -53,7 +54,7 @@ const drawMarquee = (geometry: SVGGraphicsElement | null): void => {
     { u: box.x - MARQUEE_PAD, v: box.y + box.height + MARQUEE_PAD },
   ];
   const el = document.createElementNS(NS, "path");
-  el.setAttribute("class", "foliplus-focus-marquee");
+  el.setAttribute("class", CONST.CLASSES.FOCUS_MARQUEE);
   el.setAttribute("d", outlineToPath(roundedRectOutline(corners)));
   // Sit above the geometry so the marquee reads as a selection frame.
   host.appendChild(el);

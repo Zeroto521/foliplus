@@ -65,7 +65,7 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   if (!inStyleOverlay) ui.closeStylePanel(false);
   // The portalled list floats over the map, like the drawer itself: a press
   // there is still "inside" the row's surface, so the keyboard cursor stays.
-  if (!inStyleOverlay && !target.closest(".foliplus-layer-ctrl")) {
+  if (!inStyleOverlay && !target.closest(`.${CONST.CLASSES.CTRL}`)) {
     clearActiveItem(ui);
   }
 };

@@ -86,7 +86,7 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   ];
 
   ui.focusController.focusMask = L.polygon([outer, hole], {
-    className: "foliplus-focus-mask",
+    className: CONST.CLASSES.FOCUS_MASK,
     fillColor: "#000000",
     fillOpacity: CONST.FOCUS.MASK_OPACITY,
     stroke: false,
@@ -117,7 +117,7 @@ const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.c.map;
 
   ui.focusController.focusRect = L.polygon(roundedRectPoints(bounds), {
-    className: "foliplus-focus-rect",
+    className: CONST.CLASSES.FOCUS_RECT,
     fill: false,
     interactive: false,
     renderer: ui.focusController.focusRenderer ?? undefined,
