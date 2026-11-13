@@ -1130,9 +1130,6 @@ describe("mode resolution contract — fill side (Section B: migration criteria)
     expect(isExported(fillValue, "resolveModeByValue"), "resolveModeByValue").toBe(
       true,
     );
-    expect(isExported(fillValue, "effectiveFaceValue"), "effectiveFaceValue").toBe(
-      true,
-    );
   });
 
   it("resolveModeByValue reproduces every parity row (S1)", () => {

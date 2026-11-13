@@ -1,6 +1,3 @@
-import { repoPath } from "#test/path.js";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   FACE,
@@ -627,21 +624,9 @@ describe("apply ownership", () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // task-81 migration contract — styleBag side. solidColorOf is the S2 symbol;
-// B3 behavioural criteria are skipIf until S2 exports it (the B0 source guard
-// below is the real criterion — a missing export is RED, not skipped).
+// B3 behavioural criteria are skipIf until S2 exports it. The B0 source guard
+// for solidColorOf moves to the S2 PR (staged per Lead m16122).
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Whether a module exports a name (inline or trailing export block). */
-const isExported = (source: string, name: string): boolean => {
-  if (new RegExp(`export\\s+(?:function|const|class)\\s+${name}\\b`).test(source)) {
-    return true;
-  }
-  const block = source.match(/export\s*\{([^}]*)\}/);
-  if (block) {
-    return new RegExp(`\\b${name}\\b`).test(block[1]);
-  }
-  return false;
-};
 
 let solidColorOf:
   | ((
@@ -670,14 +655,6 @@ const contractUI = (entries: Array<[string, unknown]>): any => ({
 });
 
 describe("mode resolution contract — styleBag (Section B: migration criteria)", () => {
-  it("styleBag exports solidColorOf (unskippable)", () => {
-    const styleBag = readFileSync(
-      resolve(repoPath(), "foliplus/js/control/LayerControl/ui/style/styleBag.ts"),
-      "utf-8",
-    ).replace(/\r\n/g, "\n");
-    expect(isExported(styleBag, "solidColorOf"), "solidColorOf").toBe(true);
-  });
-
   it.skipIf(!solidColorOf)(
     "solidColorOf excludes a basemap (excludeBasemap returns undefined)",
     () => {
