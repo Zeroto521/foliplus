@@ -299,6 +299,11 @@ const rampFormSource = readFileSync(
   "utf-8",
 );
 
+const schemePickerVocabSource = readFileSync(
+  resolve(ROOT, "foliplus/js/ui/schemePickerClassName.ts"),
+  "utf-8",
+);
+
 describe("compact class-count select (stylesheet contract)", () => {
   it("applies the shared classes-select class from the builder", () => {
     // Both consumers get the class here; neither passes it by hand, so the
@@ -320,7 +325,15 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   const scheme = css("foliplus/css/common/scheme-picker.css");
 
   it("applies the shared trigger class from the builder", () => {
-    expect(rampFormSource).toContain("foliplus-scheme-picker-trigger");
+    // The name is owned by ui/schemePickerClassName.js (one vocabulary for
+    // the whole scheme-picker); rampForm.ts reads it through #ui/index.js.
+    // Asserting the two ends of that import catches either side drifting:
+    // the vocabulary spelling and the core-side usage.
+    expect(schemePickerVocabSource).toContain(
+      'const SCHEME_PICKER_TRIGGER = "foliplus-scheme-picker-trigger";',
+    );
+    expect(rampFormSource).toContain("SCHEME_PICKER_TRIGGER");
+    expect(rampFormSource).not.toContain('"foliplus-scheme-picker-trigger"');
   });
 
   it("owns the trigger box for every consumer", () => {

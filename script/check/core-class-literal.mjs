@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+/**
+ * Guard: no scheme-picker class literal in core production code.
+ *
+ * The scheme-picker vocabulary lives in ui/schemePickerClassName.js (one owner
+ * for every name the shared picker and the shared row builder spell). core
+ * cannot import a component const, so the names belong to ui/, and core
+ * callers (today: core/value/rampForm.ts) read the list through #ui/index.js.
+ *
+ * A bare `foliplus-scheme-picker-*` literal reappearing in core is the drift
+ * this guard fails on. Word-bounded so `data-foliplus-scheme-picker-x` and
+ * `--foliplus-scheme-picker-y` (a CSS variable) never trip it.
+ *
+ * Usage: `node script/check/core-class-literal.mjs [--check] [--root <dir>]`
+ *   Without `--check` the script prints its inventory and always exits 0.
+ *   With `--check` it exits 1 when any literal is found.
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+/** Production source root, relative to the repo root. Tests are out of scope:
+ *  the parity contract is enforced by the source itself reading the vocabulary,
+ *  not by a test-side literal. */
+const JS_ROOT_REL = path.join("foliplus", "js", "core");
+
+/** Class prefixes this guard watches. Word-bounded on the right. */
+const PREFIXES = ["foliplus-scheme-picker-"];
+
+/** Right-boundary: one or more name chars (the class tail), then not another.
+ *  Word-bounded on the right so `data-foliplus-scheme-picker-x` never trips it. */
+const SUFFIX = "[a-z0-9]+(?:-[a-z0-9]+)*(?![a-zA-Z0-9_-])";
+
+const walk = (dir, acc = []) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, acc);
+    else if (/\.(ts|mts|cts|js|mjs|cjs)$/.test(e.name)) acc.push(p);
+  }
+  return acc;
+};
+
+const stripComments = src =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+
+const scan = root => {
+  const hits = [];
+  for (const file of walk(path.join(root, JS_ROOT_REL))) {
+    const src = stripComments(fs.readFileSync(file, "utf8"));
+    for (const prefix of PREFIXES) {
+      const re = new RegExp(prefix + SUFFIX, "g");
+      let m;
+      while ((m = re.exec(src)) !== null) {
+        const line = src.slice(0, m.index).split("\n").length;
+        hits.push({
+          file: path.relative(root, file).split(path.sep).join("/"),
+          line,
+          token: m[0],
+        });
+      }
+    }
+  }
+  return hits;
+};
+
+const main = (argv = [], root = process.cwd()) => {
+  const check = argv.includes("--check");
+  const rootIdx = argv.indexOf("--root");
+  if (rootIdx !== -1) root = path.resolve(argv[rootIdx + 1] ?? root);
+  const hits = scan(root);
+  if (hits.length === 0) {
+    console.log(`core-class-literal: scheme-picker vocabulary clean in ${JS_ROOT_REL}`);
+    return 0;
+  }
+  console.error(
+    `core-class-literal: ${hits.length} bare literal(s) in ${JS_ROOT_REL}:`,
+  );
+  for (const h of hits) console.error(`  ${h.file}:${h.line}  ${h.token}`);
+  console.error("Read these from ui/schemePickerClassName.js (via #ui/index.js).");
+  return check ? 1 : 0;
+};
+
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).href
+) {
+  process.exit(main(process.argv.slice(2)));
+}
+
+export { main };

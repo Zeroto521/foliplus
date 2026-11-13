@@ -16,6 +16,9 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
+  SCHEME_PICKER_BAR as SCHEME_PICKER_BAR_CLASS,
+  SCHEME_PICKER_HIDDEN as SCHEME_PICKER_HIDDEN_CLASS,
+  SCHEME_PICKER_TRIGGER as SCHEME_PICKER_TRIGGER_CLASS,
   createDropdown,
   formRow,
   inlineControls,
@@ -26,10 +29,6 @@ import {
  *  same role as a number field beside a flexed control, so its width contract
  *  lives in one place (form.css) rather than per-component overrides. */
 const CLASSES_SELECT_CLASS = "foliplus-classes-select";
-
-/** Shared hook class for the scheme picker trigger: the trigger recipe is shared
- *  (common/scheme-picker.css); the consumer's class stays on the element as its own hook. */
-const SCHEME_PICKER_TRIGGER_CLASS = "foliplus-scheme-picker-trigger";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
  *  data-* seams that Python rendering tests pin. */
@@ -232,8 +231,8 @@ const buildSchemeRow = (
   hiddenSelect: HTMLSelectElement;
 } => {
   const barClass = opts.barInnerClass
-    ? `${opts.barClass} foliplus-scheme-picker-bar ${opts.barInnerClass}`
-    : `${opts.barClass} foliplus-scheme-picker-bar`;
+    ? `${opts.barClass} ${SCHEME_PICKER_BAR_CLASS} ${opts.barInnerClass}`
+    : `${opts.barClass} ${SCHEME_PICKER_BAR_CLASS}`;
   const bar = dom.el("div", {
     class: barClass,
     "data-scheme-bar-inner": "",
@@ -253,7 +252,7 @@ const buildSchemeRow = (
   );
   applyAttributes(trigger, opts.triggerAttributes);
   const hiddenSelect = dom.el("select", {
-    class: opts.hiddenClass ?? "foliplus-scheme-picker-hidden",
+    class: opts.hiddenClass ?? SCHEME_PICKER_HIDDEN_CLASS,
     tabindex: "-1",
     "aria-hidden": "true",
   }) as HTMLSelectElement;

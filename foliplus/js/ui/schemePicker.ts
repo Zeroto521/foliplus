@@ -10,6 +10,14 @@
 // Does NOT import any Heatmap or LayerControl module.
 import { createListbox } from "./listbox.js";
 import { PANEL_CLASS } from "./panelClassName.js";
+import {
+  SCHEME_PICKER_BAR as BAR,
+  SCHEME_PICKER_BLOCK as BLOCK,
+  SCHEME_PICKER_DROPDOWN as DROPDOWN,
+  SCHEME_PICKER_ITEM as ITEM,
+  SCHEME_PICKER_OPEN as OPEN,
+  SCHEME_PICKER_PORTAL as PORTAL_CLASS,
+} from "./schemePickerClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -19,21 +27,18 @@ import { createLogger } from "#platform/log.js";
 const log = createLogger("schemePicker");
 
 // ── Class-name defaults ────────────────────────────────────────────────
+//
+// The spellings live in ui/schemePickerClassName.js (one owner for the whole
+// scheme-picker vocabulary); this map re-shapes them into the keys the
+// withModifier(...) resolution below expects.
 
 const DEFAULT_CLASSES = {
-  open: "foliplus-scheme-picker-open",
-  dropdown: "foliplus-scheme-picker-dropdown",
-  item: "foliplus-scheme-picker-item",
-  bar: "foliplus-scheme-picker-bar",
-  block: "foliplus-scheme-picker-block",
+  open: OPEN,
+  dropdown: DROPDOWN,
+  item: ITEM,
+  bar: BAR,
+  block: BLOCK,
 } as const;
-
-// Extra class on a portaled dropdown only. A portaled dropdown lives outside
-// the panel that opened it, so it has to paint above that panel — while an
-// inline dropdown stays inside the trigger's own stacking context and needs no
-// lift. The class is what the stylesheet keys the z band off, so the JS keeps
-// its distance from z numbers. The engine's `classes.portal` slot carries it.
-const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
 interface SchemePickerClasses {
   open: string;
