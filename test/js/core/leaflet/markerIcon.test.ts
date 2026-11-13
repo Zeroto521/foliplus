@@ -24,8 +24,10 @@ import {
   isGlyphSyntax,
   isIconLeaf,
   parseColorAlpha,
+  registerIconReplay,
   resetIconLeaves,
   resolveGlyph,
+  unregisterIconReplay,
 } from "#core/leaflet/index.js";
 
 // The shared L stub (test/js/setup.ts) defines no Icon key; the lead's
@@ -1067,5 +1069,52 @@ describe("glyphSource", () => {
   it("keeps the 40-slot shortcut grid", () => {
     expect(PICKER_GLYPHS).toContain("star");
     expect(PICKER_GLYPHS.length).toBe(40);
+  });
+});
+
+describe("icon replay handlers (setLeafIcon post-build dispatch)", () => {
+  it("fires every registered handler after setLeafIcon and supports unregister", () => {
+    const leaf = makeMarker();
+    const seen: unknown[] = [];
+    const handler = (l: unknown) => seen.push(l);
+    registerIconReplay(handler);
+    // applyIconToLeaves walks a group and calls setLeafIcon per marker.
+    applyIconToLeaves(makeMarkerGroup(leaf), "star");
+    expect(seen).toContain(leaf);
+    unregisterIconReplay(handler);
+    const before = seen.length;
+    applyIconToLeaves(makeMarkerGroup(leaf), "star");
+    expect(seen.length).toBe(before);
+  });
+
+  it("a rebuilt element loses the class unless a handler re-applies it (kill-test contract)", () => {
+    // The contract the filter-hidden PR pins: after setLeafIcon swaps the
+    // element, a registered handler must be able to re-apply the hidden
+    // class, because Leaflet's rebuilt element starts classless.
+    let iconEl: HTMLElement | null = null;
+    const leaf: any = {
+      options: {},
+      getElement: () => iconEl,
+      setIcon: vi.fn((next: unknown) => {
+        leaf.options.icon = next;
+        iconEl =
+          typeof (next as { createIcon?: unknown })?.createIcon === "function"
+            ? (next as { createIcon: () => HTMLElement }).createIcon()
+            : document.createElement("div");
+        return leaf;
+      }),
+    };
+    const rebuilt: HTMLElement[] = [];
+    const handler = (l: unknown) => {
+      const el = (l as { getElement?: () => HTMLElement }).getElement?.();
+      if (el) rebuilt.push(el);
+    };
+    registerIconReplay(handler);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star");
+    unregisterIconReplay(handler);
+    expect(rebuilt.length).toBe(1);
+    // The rebuilt element is a fresh node (not the one setIcon started with)
+    // and the handler saw it — so it can re-apply the class there.
+    expect(rebuilt[0]).toBe(iconEl);
   });
 });
