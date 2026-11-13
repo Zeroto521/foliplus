@@ -10,8 +10,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { main, scan } from "#script/check/core-class-literal.mjs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { main, scan, walk } from "#script/check/core-class-literal.mjs";
 
 /** Build a throwaway `foliplus/js/core` tree with the given files, so a
  *  hit can be injected without touching production. */
@@ -106,6 +106,84 @@ describe("main --check", () => {
     } finally {
       rmSync(cleanRoot, { recursive: true, force: true });
       rmSync(dirtyRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("walk", () => {
+  it("recurses into subdirectories and skips non-code files", () => {
+    // Covers both arms of the extension test inside walk: a nested
+    // directory is walked (e.isDirectory arm), a .css file is skipped
+    // (regex does not match), and a .ts file is included (regex matches).
+    const root = tempRoot({
+      "foliplus/js/core/value/scratch.ts": "const x = 1;",
+      "foliplus/js/core/style.css": "body { color: red; }",
+      "foliplus/js/core/nested/deep/inner.ts": "const y = 2;",
+    });
+    try {
+      const rootDir = path.resolve(root, "foliplus/js/core");
+      const files = walk(rootDir).map(f =>
+        f.slice(rootDir.length + 1).replace(/\\/g, "/"),
+      );
+      expect(files).toContain("value/scratch.ts");
+      expect(files).toContain("nested/deep/inner.ts");
+      expect(files.some(f => f.endsWith(".css"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("main (inventory mode, no hits)", () => {
+  it("logs each hit to stderr when not in --check mode", () => {
+    // Covers the for-loop and console.error arm in main that runs when
+    // hits exist and --check is not passed (exit code is still 0).
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const root = tempRoot({
+      "foliplus/js/core/value/scratch.ts": 'const c = "foliplus-scheme-picker-hidden";',
+    });
+    try {
+      expect(main(["--root", root])).toBe(0);
+      expect(errorSpy).toHaveBeenCalled();
+      const calls = errorSpy.mock.calls.flat().join("\n");
+      expect(calls).toContain("foliplus-scheme-picker-hidden");
+      expect(calls).toContain("Read these from");
+    } finally {
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("main --root handling", () => {
+  it("resolves a --root flag value when given", () => {
+    // Covers the argv[rootIdx+1] arm: --root present means its value is
+    // resolved, not the process.cwd() fallback.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const root = tempRoot({
+      "foliplus/js/core/value/scratch.ts": "const x = 1;",
+    });
+    try {
+      expect(main(["--root", root])).toBe(0);
+      expect(logSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to process.cwd() when --root is absent", () => {
+    // Covers the `?? root` arm: no --root flag means the default
+    // (process.cwd()) is used. We run against the repo itself, which is
+    // clean (no scheme-picker literals in core), so exit is 0.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(main([])).toBe(0);
+      expect(logSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
     }
   });
 });

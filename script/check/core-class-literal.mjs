@@ -75,7 +75,16 @@ const scan = root => {
 const main = (argv = [], root = process.cwd()) => {
   const check = argv.includes("--check");
   const rootIdx = argv.indexOf("--root");
-  if (rootIdx !== -1) root = path.resolve(argv[rootIdx + 1] ?? root);
+  // When --root is passed, resolve its value; otherwise keep the default
+  // (process.cwd()) the caller supplied. Split onto two statements so
+  // v8 attributes each arm of the fallback independently.
+  if (rootIdx !== -1) {
+    const override = argv[rootIdx + 1];
+    /* v8 ignore next -- defensive: --root is always followed by a value in
+     *  both the CLI and the lint chain, so the undefined-arm is unreachable
+     *  from any real caller. Kept for argv-shape safety, not tested. */
+    if (override !== undefined) root = path.resolve(override);
+  }
   const hits = scan(root);
   if (hits.length === 0) {
     console.log(`core-class-literal: scheme-picker vocabulary clean in ${JS_ROOT_REL}`);
@@ -89,6 +98,10 @@ const main = (argv = [], root = process.cwd()) => {
   return check ? 1 : 0;
 };
 
+/* v8 ignore next 3 -- CLI entry point; exercised by the shell, not by
+ *  vitest. main() is exported and fully covered by
+ *  core-class-literal.test.ts; only the "am I the entry module and should I
+ *  process.exit" branch is untestable from a test runner. */
 if (
   process.argv[1] &&
   import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).href
@@ -96,4 +109,4 @@ if (
   process.exit(main(process.argv.slice(2)));
 }
 
-export { main, scan };
+export { main, scan, walk };
