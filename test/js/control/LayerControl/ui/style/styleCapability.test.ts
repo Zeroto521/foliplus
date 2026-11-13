@@ -7,9 +7,9 @@
 // `gate` — the same function `gatedRows` consults. If a gate's required tier
 // ever changes (native vs non-none) without the reader changing with it, this
 // test goes red, so the two cannot drift.
+import { repoPath } from "#test/path.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { readFileSync } from "node:fs";
-import { repoPath } from "#test/path.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -420,9 +420,7 @@ describe("menu canConfigure equivalence", () => {
       return i < 0 || j < 0 ? "" : src.slice(i, j);
     };
     it("size row and valueSource read styleCapability, not layerCanSize", () => {
-      const src = readSource(
-        "foliplus/js/control/LayerControl/ui/style/size.ts",
-      );
+      const src = readSource("foliplus/js/control/LayerControl/ui/style/size.ts");
       const row = sliceBody(src, "const buildSizeRow", "const SIZE_DIMENSION");
       const vs = sliceBody(src, "valueSource:", "contentChange:");
       expect(row).toContain("styleCapability(ui, layerId).dims.size");
@@ -431,9 +429,7 @@ describe("menu canConfigure equivalence", () => {
       expect(vs).not.toMatch(/layerCanSize\(/);
     });
     it("icon row and valueSource read styleCapability, not layerCanIcon", () => {
-      const src = readSource(
-        "foliplus/js/control/LayerControl/ui/style/icon.ts",
-      );
+      const src = readSource("foliplus/js/control/LayerControl/ui/style/icon.ts");
       const row = sliceBody(src, "const buildIconRow", "const ICON_DIMENSION");
       const vs = sliceBody(src, "valueSource:", "contentChange:");
       expect(row).toContain("styleCapability(ui, layerId).dims.icon");
