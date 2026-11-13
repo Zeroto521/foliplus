@@ -190,6 +190,11 @@
    content must not draw outside the container, so a long label truncates
    instead of overflowing. */
 .foliplus-slider-values {
+  /* The containing block for the drag-time readout: it is absolutely centred
+     over the track, so its offsets resolve against this row (position: relative
+     keeps that from collapsing to the slider root and shifting the readout by
+     half a thumb). flex and relative coexist. */
+  position: relative;
   display: flex;
   justify-content: space-between;
   gap: var(--foliplus-space-sm);
@@ -222,8 +227,11 @@
   /* The drag-time readout is centred over the track and must not take part in
      the end-number flex row (it would push the max away from the right edge).
      The > span rule above sets position: static with a higher specificity, so
-     this rule must be at least as specific to win. */
+     this rule must be at least as specific to win. It is absolutely centred
+     against the values row (position: relative there), so its vertical offset
+     is explicit rather than a static-position default. */
   position: absolute;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
 }

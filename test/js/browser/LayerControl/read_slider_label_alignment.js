@@ -22,7 +22,6 @@
       left: rect.left,
       right: rect.right,
       width: rect.width,
-      centerX: (rect.left + rect.right) / 2,
     };
   };
 
@@ -48,14 +47,10 @@
     const values = host.querySelector(".foliplus-slider-values");
     if (!track || !values) return { error: "slider structure missing" };
     const thumbs = [...host.querySelectorAll(".foliplus-slider-thumb")];
-    const content = document.querySelector(
-      ".foliplus-layer-style-panel .foliplus-panel-content",
-    );
     return {
       slider: boxOf(host),
       track: boxOf(track),
       values: boxOf(values),
-      content: boxOf(content),
       thumbs: thumbs.map(thumb => ({
         value: thumb.getAttribute("aria-valuenow"),
         box: boxOf(thumb),

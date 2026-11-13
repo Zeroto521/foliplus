@@ -2755,6 +2755,69 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
+        """A long value label truncates, a short one does not.
+
+        The end numbers are a flex row pinned to the values row's edges, so a
+        label's content must not paint past the row's own box: a long value
+        ellipsizes (its intrinsic scroll width exceeds the box it is given)
+        while a short value keeps its full text. Both end labels stay inside
+        the values row's box and never overlap each other. The labels are
+        built as a bare slider appended into the live style panel so the
+        clip ancestor is the real panel content, not a synthetic wrapper.
+        """
+        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            result = page.evaluate(_js("LayerControl/read_slider_end_labels_ellipsis"))
+            assert result.get("error") is None, f"setup failed: {result}"
+            for name, group in result["result"].items():
+                assert group["values"] is not None, f"{name}: no values row: {group}"
+                for side in ("min", "max"):
+                    label = group[side]
+                    assert label is not None, f"{name}: no {side} label: {group}"
+                    # The label's box stays inside the values row's box.
+                    assert label["box"]["left"] >= group["values"]["left"] - 0.5, (
+                        f"{name} {side} paints past the values row's left: "
+                        f"{label['box']} vs {group['values']}"
+                    )
+                    assert label["box"]["right"] <= group["values"]["right"] + 0.5, (
+                        f"{name} {side} paints past the values row's right: "
+                        f"{label['box']} vs {group['values']}"
+                    )
+                # The two end labels must not overlap.
+                assert group["min"]["box"]["right"] <= group["max"]["box"]["left"] + 0.5, (
+                    f"{name} end labels overlap: {group['min']['box']} vs "
+                    f"{group['max']['box']}"
+                )
+            # The long labels ellipsize; the short ones do not.
+            long_min = result["result"]["long"]["min"]
+            long_max = result["result"]["long"]["max"]
+            assert long_min["scrollWidth"] > long_min["clientWidth"], (
+                f"long min did not ellipsize: scrollWidth {long_min['scrollWidth']} "
+                f"<= clientWidth {long_min['clientWidth']}"
+            )
+            assert long_max["scrollWidth"] > long_max["clientWidth"], (
+                f"long max did not ellipsize: scrollWidth {long_max['scrollWidth']} "
+                f"<= clientWidth {long_max['clientWidth']}"
+            )
+            for name in ("short",):
+                for side in ("min", "max"):
+                    label = result["result"][name][side]
+                    assert label["scrollWidth"] == label["clientWidth"], (
+                        f"{name} {side} was truncated: scrollWidth "
+                        f"{label['scrollWidth']} != clientWidth "
+                        f"{label['clientWidth']}"
+                    )
+            assert not errors, f"JS errors: {errors}"
+
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #
     # Each of these three scrambles the registry or the panel so the two

@@ -814,17 +814,30 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-hint)" in bubble
         # Disabled is a primitive state, not a component special case.
         assert ".foliplus-slider.is-disabled" in css
-        # The end numbers name their edge with the logical start/end anchor and
-        # centre on it with a physical X shift; the mirrored page flips that
-        # shift so each number still centres on the edge it names.
-        assert "inset-inline-start: 0" in _rule(css, ".foliplus-slider-value-min {")
-        assert "translateX(-50%)" in _rule(css, ".foliplus-slider-value-min {")
-        assert "inset-inline-end: 0" in _rule(css, ".foliplus-slider-value-max {")
-        assert "translateX(50%)" in _rule(css, ".foliplus-slider-value-max {")
-        assert "translateX(50%)" in _rule(css, ":dir(rtl) .foliplus-slider-value-min {")
-        assert "translateX(-50%)" in _rule(
-            css, ":dir(rtl) .foliplus-slider-value-max {"
-        )
+        # The end numbers pin to the row's two edges (a flex row with
+        # justify-content: space-between), so a label never paints past the
+        # container: it is clipped and ellipsized at the row's own box. The
+        # flex direction follows the document direction, so RTL needs no
+        # extra rule. The row stays position: relative so the drag-time
+        # readout keeps it as its containing block.
+        values = _rule(css, ".foliplus-slider-values {")
+        assert "display: flex" in values
+        assert "justify-content: space-between" in values
+        assert "position: relative" in values
+        span = _rule(css, ".foliplus-slider-values > span {")
+        assert "position: static" in span
+        assert "overflow: hidden" in span
+        assert "text-overflow: ellipsis" in span
+        assert "white-space: nowrap" in span
+        min_rule = _rule(css, ".foliplus-slider-value-min {")
+        max_rule = _rule(css, ".foliplus-slider-value-max {")
+        assert "flex: 0 1 auto" in min_rule
+        assert "flex: 0 1 auto" in max_rule
+        assert ":dir(rtl) .foliplus-slider-value-min" not in css
+        current = _rule(css, ".foliplus-slider-values > span.foliplus-slider-value-current {")
+        assert "position: absolute" in current
+        assert "top: 0" in current
+        assert "translateX(-50%)" in current
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css
