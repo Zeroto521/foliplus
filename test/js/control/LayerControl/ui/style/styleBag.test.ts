@@ -621,3 +621,93 @@ describe("apply ownership", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mode resolution migration contract — styleBag side. solidColorOf is the S2 symbol;
+// B3 behavioural criteria are skipIf until S2 exports it. The B0 source guard
+// for solidColorOf moves to the S2 PR (staged per Lead m16122).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let solidColorOf:
+  | ((
+      ui: unknown,
+      layerId: string,
+      face: "fill" | "stroke",
+      opts?: { excludeBasemap?: boolean },
+    ) => string | undefined)
+  | undefined;
+try {
+  const mod = (await import("#control/LayerControl/ui/style/styleBag.js")) as Record<
+    string,
+    unknown
+  >;
+  if (typeof mod.solidColorOf === "function") solidColorOf = mod.solidColorOf as never;
+} catch {
+  /* not exported yet */
+}
+
+/** Minimal LayerUI for solidColorOf: a live registry + findLayer. */
+const contractUI = (entries: Array<[string, unknown]>): any => ({
+  c: {
+    layerRegistry: new Map(entries),
+    findLayer: (id: string) => entries.find(([k]) => k === id)?.[1],
+  },
+});
+
+describe("mode resolution contract — styleBag (Section B: migration criteria)", () => {
+  it.skipIf(!solidColorOf)(
+    "solidColorOf excludes a basemap (excludeBasemap returns undefined)",
+    () => {
+      const ui = contractUI([
+        [
+          "base1",
+          {
+            id: "base1",
+            name: "Base",
+            role: "base",
+            color: "#abcdef",
+            layer: { options: {}, setZIndex: vi.fn() },
+          },
+        ],
+      ]);
+      const got = solidColorOf!(ui, "base1", "fill", { excludeBasemap: true });
+      expect(got).toBeUndefined();
+    },
+  );
+
+  it.skipIf(!solidColorOf)(
+    "solidColorOf derives the authored base for a per-feature layer",
+    () => {
+      const baseColor = "#aabbcc";
+      const leaf = () => ({
+        options: { fillColor: baseColor, fillOpacity: 0.5, fill: true },
+        setStyle: vi.fn(),
+        eachLayer: undefined,
+      });
+      const leaves = [leaf(), leaf()];
+      const parent = {
+        options: {},
+        eachLayer: vi.fn((fn: (c: unknown) => void) => leaves.forEach(c => fn(c))),
+        leaves,
+      } as never;
+      const ui = contractUI([
+        [
+          "feature1",
+          {
+            id: "feature1",
+            name: "Per feature",
+            role: "overlay",
+            layer: parent,
+            fillAuthor: {
+              perFeature: true,
+              distinct: 2,
+              stops: [baseColor, "#ffffff"],
+            },
+          },
+        ],
+      ]);
+      const got = solidColorOf!(ui, "feature1", "fill");
+      expect(got).toBe(baseColor);
+    },
+  );
+});
