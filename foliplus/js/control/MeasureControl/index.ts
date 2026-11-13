@@ -11,6 +11,7 @@ import {
 import { defineControl } from "#core/lifecycle/index.js";
 import { createIconButton } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 const MeasureControl = defineControl<MeasureManager>({
   config: CONFIG,
@@ -66,7 +67,7 @@ const MeasureControl = defineControl<MeasureManager>({
     let exportBtn: HTMLElement | null = null;
     btnConfigs.forEach(({ mode, title, svg }) => {
       const btn = createIconButton({
-        class: "foliplus-tool-btn",
+        class: PANEL_CLASS.TOOL_BTN,
         title,
         svg,
         parent: toolBar,

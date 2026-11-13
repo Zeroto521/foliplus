@@ -57,8 +57,8 @@ const CLASSES = {
   // foliplus-hidden and foliplus-close-btn are the shared panel vocabulary
   // (ui/panelClassName); they are not component classes.
   // foliplus-is-collapsed/-expanded/-active are the shared panel state
-  // vocabulary (ui/panelClassName PANEL_CLASS).
-  TOOL_BTN: "foliplus-tool-btn",
+  // vocabulary (ui/panelClassName PANEL_CLASS). foliplus-tool-btn is the
+  // shared control button skin (ui/panelClassName PANEL_CLASS).
   EXPORT_MODE: "foliplus-export-mode",
   EXPORT_BOX: "foliplus-export-box",
   // Single-token identity — crop.ts hit-testing uses `classList.contains`,

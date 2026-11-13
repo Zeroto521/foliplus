@@ -13,7 +13,9 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BASELINE_PENDING,
+  EXEMPTIONS,
   findDuplicateClassDefs,
+  isExempt,
   isPending,
   main,
   parseClassDefs,
@@ -129,7 +131,9 @@ describe("findDuplicateClassDefs", () => {
 });
 
 describe("isPending", () => {
-  it("accepts a listed duplicate whose owner files match exactly", () => {
+  it("rejects every duplicate when the pending list is empty", () => {
+    // The audit's deferred work is done: BASELINE_PENDING is empty, so nothing
+    // is deferred and a duplicate of any name is new work.
     const dup = {
       token: "foliplus-tool-btn",
       sites: [
@@ -137,12 +141,22 @@ describe("isPending", () => {
         { rel: "foliplus/js/control/FullscreenControl/const.ts" },
       ],
     };
-    expect(isPending(dup, BASELINE_PENDING)).toBe(true);
+    expect(isPending(dup, BASELINE_PENDING)).toBe(false);
+    expect(BASELINE_PENDING).toEqual([]);
   });
 
   it("rejects a listed duplicate that gained a third owner", () => {
     // A new site for a listed name is a *new* duplicate, so the pending
     // list must not swallow it.
+    const pending = [
+      {
+        token: "foliplus-tool-btn",
+        sites: [
+          "foliplus/js/control/ExportControl/const.ts",
+          "foliplus/js/control/FullscreenControl/const.ts",
+        ],
+      },
+    ];
     const dup = {
       token: "foliplus-tool-btn",
       sites: [
@@ -151,7 +165,7 @@ describe("isPending", () => {
         { rel: "foliplus/js/control/LocateControl/const.ts" },
       ],
     };
-    expect(isPending(dup, BASELINE_PENDING)).toBe(false);
+    expect(isPending(dup, pending)).toBe(false);
   });
 
   it("rejects a duplicate nobody has listed", () => {
@@ -163,9 +177,66 @@ describe("isPending", () => {
     ).toBe(false);
   });
 
+  it("accepts a listed duplicate whose owner files match exactly", () => {
+    const pending = [
+      {
+        token: "foliplus-tool-btn",
+        sites: [
+          "foliplus/js/control/ExportControl/const.ts",
+          "foliplus/js/control/FullscreenControl/const.ts",
+        ],
+      },
+    ];
+    const dup = {
+      token: "foliplus-tool-btn",
+      sites: [
+        { rel: "foliplus/js/control/ExportControl/const.ts" },
+        { rel: "foliplus/js/control/FullscreenControl/const.ts" },
+      ],
+    };
+    expect(isPending(dup, pending)).toBe(true);
+  });
+
   it("has no exemptions at all: an empty pending list clears nothing", () => {
     const dup = { token: "foliplus-x", sites: [{ rel: "a.ts" }, { rel: "b.ts" }] };
     expect(isPending(dup, [])).toBe(false);
+  });
+});
+
+describe("isExempt", () => {
+  it("accepts the measure-label exemption with its recorded owner file", () => {
+    const dup = {
+      token: "foliplus-measure-label",
+      sites: [{ rel: "foliplus/js/control/MeasureControl/const.ts" }],
+    };
+    expect(isExempt(dup)).toBe(true);
+    expect(EXEMPTIONS.some(e => e.token === "foliplus-measure-label")).toBe(true);
+  });
+
+  it("rejects an unlisted duplicate", () => {
+    const dup = {
+      token: "foliplus-brand-new",
+      sites: [{ rel: "a.ts" }, { rel: "b.ts" }],
+    };
+    expect(isExempt(dup)).toBe(false);
+  });
+
+  it("rejects an exemption that gained a second owner file", () => {
+    const dup = {
+      token: "foliplus-measure-label",
+      sites: [
+        { rel: "foliplus/js/control/MeasureControl/const.ts" },
+        { rel: "foliplus/js/control/SearchControl/const.ts" },
+      ],
+    };
+    expect(isExempt(dup)).toBe(false);
+  });
+
+  it("the exemption list has a written reason for every entry", () => {
+    for (const e of EXEMPTIONS) {
+      expect(e.reason.length).toBeGreaterThan(10);
+      expect(e.sites.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -193,12 +264,10 @@ describe("duplicate-class-def CLI", () => {
     }
   });
 
-  it("main returns 0 when a listed duplicate is still exactly its listed sites", () => {
+  it("main returns 0 when the only duplicate is a listed exemption", () => {
     const dir = tempRoot({
-      "foliplus/js/control/ExportControl/const.ts":
-        'const CLASSES = {\n  TOOL_BTN: "foliplus-tool-btn",\n};\n',
-      "foliplus/js/control/FullscreenControl/const.ts":
-        'const CLASSES = {\n  TOOL_BTN: "foliplus-tool-btn",\n};\n',
+      "foliplus/js/control/MeasureControl/const.ts":
+        'const LABEL = {\n  CLASS: "foliplus-measure-label",\n};\nconst PANES = {\n  LABEL: "foliplus-measure-label",\n};\n',
     });
     const log: string[] = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
@@ -206,7 +275,7 @@ describe("duplicate-class-def CLI", () => {
     });
     try {
       expect(main(["--check"], dir)).toBe(0);
-      expect(log.some(l => l.includes("PENDING"))).toBe(true);
+      expect(log.some(l => l.includes("deferred"))).toBe(true);
     } finally {
       spy.mockRestore();
       rmSync(dir, { recursive: true, force: true });
