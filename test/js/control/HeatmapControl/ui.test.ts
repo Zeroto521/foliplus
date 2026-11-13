@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { CLASS_COUNT, METHOD } from "#core/value/index.js";
 import { dropdownOf } from "#ui/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
@@ -100,7 +101,7 @@ describe("bindControls — template render and initial values", () => {
     expect(triggerOf(ctrl.aggSelect).title).toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     // Nothing is written: a first open with a declaration must stay record-free.
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
@@ -217,11 +218,11 @@ describe("bindControls — change handlers", () => {
     expect(m.agg).toBe(CONST.AGG.SUM);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
 
     ctrl.aggSelect.value = CONST.AGG.COUNT;
     fire(ctrl.aggSelect, "change");
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("field change stores the resolved field and persists", () => {
@@ -377,9 +378,9 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.scheme).toBe(config.color_scheme);
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(false);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
@@ -401,7 +402,7 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(clearSaved).toHaveBeenCalledTimes(1);
     expect(clearLayerState).toHaveBeenCalledTimes(1);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
   });
 
   it("clear falls back to library defaults when config omits style fields", () => {
@@ -466,7 +467,7 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     // hidden under the count aggregation anyway.
     expect(ctrl.fieldSelect.value).toBe("");
     expect(ctrl.fieldSelect.querySelectorAll("option").length).toBe(0);
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("keeps the CONFIG aggregation through a reset with no numeric field", () => {
@@ -493,12 +494,12 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     // record — the more-menu clear keeps the panel open for the next pick.
     const removeItem = vi.spyOn(window.localStorage, "removeItem");
     const { ctrl } = setup();
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
 
     resetPanel(ctrl);
 
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
     expect(removeItem).not.toHaveBeenCalled();
   });
 });
@@ -613,14 +614,14 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl } = setup();
     document.body.appendChild(ctrl.ctrl);
     setupObserver(ctrl);
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(openDropdown(ctrl)).not.toBeNull();
 
     // The header and the close button collapse through this class change; the
     // portalled list is not inside the panel, so nothing else would remove it.
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(openDropdown(ctrl)).toBeNull();
@@ -640,11 +641,11 @@ describe("bindControls — scheme dropdown", () => {
       remove.mock.calls.filter(call => call[0] === "click").length;
 
     for (let i = 0; i < 3; i += 1) {
-      ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
       ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(openDropdown(ctrl)).not.toBeNull();
-      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+      ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
       await new Promise(resolve => setTimeout(resolve, 0));
       expect(openDropdown(ctrl)).toBeNull();
     }
@@ -692,7 +693,7 @@ describe("layer dropdown change handler", () => {
     fire(ctrl.layerSelect, "change");
 
     expect(m.selectedLayerId).toBe("p1");
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -709,7 +710,7 @@ describe("layer dropdown change handler", () => {
     fire(ctrl.layerSelect, "change");
 
     expect(m.selectedLayerId).toBeNull();
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(clear).toHaveBeenCalled();
   });
 });
@@ -855,19 +856,19 @@ describe("setupObserver", () => {
     document.body.appendChild(ctrl.ctrl);
     setupObserver(ctrl);
 
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     await flush();
     expect(ctrl.expandHookDone).toBe(true);
     // The placeholder option is the only entry with no point layers.
     expect(ctrl.layerSelect.querySelectorAll("option").length).toBe(1);
 
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
     await flush();
     expect(ctrl.expandHookDone).toBe(false);
 
-    ctrl.ctrl.classList.remove(CONST.CLASSES.COLLAPSED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
     await flush();
     expect(ctrl.expandHookDone).toBe(true);
     ctrl.observer?.disconnect();
@@ -1143,7 +1144,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     const { ctrl, m } = seed({ name: "x", label: "y" });
     expect(m.field).toBe("");
     expect(ctrl.fieldSelect.options.length).toBe(0);
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("falls back to count when no numeric field exists", () => {
@@ -1157,7 +1158,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(triggerOf(ctrl.aggSelect).title).toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
       "count",
     );
@@ -1176,7 +1177,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
   });
 
   it("does not clear a stored field when the scan is momentarily empty", () => {
@@ -1200,13 +1201,13 @@ describe("updateFieldSelector — concrete field resolution", () => {
     ctrl.aggSelect.value = CONST.AGG.COUNT;
     fire(ctrl.aggSelect, "change");
 
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
   it("stays on count when the source supplies a numeric field again", () => {
     const { ctrl, m } = seed({ name: "x" });
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
 
@@ -1224,7 +1225,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(triggerOf(ctrl.aggSelect).title).not.toBe(
       "Needs a numeric field to aggregate by value",
     );
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 });
@@ -1267,7 +1268,7 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
 
     expect(m.selectedLayerId).toBe("p2");
     expect(ctrl.layerSelect.value).toBe("p2");
-    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("keeps the single-layer auto-select when the declared name misses", () => {

@@ -6,7 +6,7 @@
 // primitives (foliplus-form-*); component-specific controls (scheme bar,
 // color/weight inputs) keep their own classes.
 import * as CONST from "./const.js";
-import { PANEL_CLASS } from "#ui/index.js";
+import { FORM_CLASS, PANEL_CLASS } from "#ui/index.js";
 
 // Template placement decision (#729 review): this template stays
 // Heatmap-specific. Only the scheme row's trigger + hidden select are
@@ -22,7 +22,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
   <div class="${PANEL_CLASS.FORM_ROW}">
     <label class="${PANEL_CLASS.FORM_LABEL}">${T("layer")}</label>
     <div class="${PANEL_CLASS.FORM_CONTROL}">
-      <select class="foliplus-input-skin foliplus-form-select" ${CONST.DATA_ATTR.LAYER}></select>
+      <select class="${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}" ${CONST.DATA_ATTR.LAYER}></select>
     </div>
   </div>
 
@@ -31,7 +31,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
     <div class="${PANEL_CLASS.FORM_ROW}">
       <label class="${PANEL_CLASS.FORM_LABEL}">${T("agg_method")}</label>
       <div class="${PANEL_CLASS.FORM_CONTROL}">
-        <select class="foliplus-input-skin foliplus-form-select" ${CONST.DATA_ATTR.AGG}>
+        <select class="${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}" ${CONST.DATA_ATTR.AGG}>
           <option value="${CONST.AGG.COUNT}">${T("agg_count")}</option>
           <option value="${CONST.AGG.SUM}">${T("agg_sum")}</option>
           <option value="${CONST.AGG.AVG}">${T("agg_avg")}</option>

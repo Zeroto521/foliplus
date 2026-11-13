@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import { CLASSES, containerId } from "#control/FullscreenControl/const.js";
 
 describe("CLASSES", () => {
@@ -6,7 +7,9 @@ describe("CLASSES", () => {
     expect(CLASSES.PSEUDO_FULLSCREEN).toBe("leaflet-pseudo-fullscreen");
     expect(CLASSES.TOOL_BTN).toBe("foliplus-tool-btn");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
-    expect(CLASSES.HIDDEN).toBe("foliplus-hidden");
+    // foliplus-hidden is the shared panel vocabulary's, not a component key.
+    expect((CLASSES as Record<string, unknown>).HIDDEN).toBeUndefined();
+    expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
   });
 });
 

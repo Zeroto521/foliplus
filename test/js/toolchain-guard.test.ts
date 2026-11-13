@@ -210,6 +210,8 @@ describe("eslint root entry", () => {
 const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   Makefile: "the root Makefile",
   "vitest.config": "vitest.config.mjs",
+  "filter-store-single-source":
+    "the generic-filter single-source + storage-boundary guard over foliplus/js production (controller must not reintroduce a layerFilters mirror; filter persistence only through the shared store), a tree guard not a script module",
   "import-boundary":
     "the JS layer import-boundary rules (foliplus/js), a tree guard not a script module",
   "check/task-number-drift":
@@ -228,6 +230,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
   "check/marker-icon-set-icon-guard":
     "the marker-icon setIcon single-site guard over foliplus/js production (leaf.setIcon( only in the setLeafIcon helper), a tree guard not a script module",
+  "check/form-class-literal":
+    "the FORM_CLASS single-source guard over foliplus/js production (foliplus-input-skin / foliplus-form-select literals only in ui/formClassName.ts), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

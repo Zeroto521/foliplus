@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/SearchControl/const.js";
 
 describe("MODE", () => {
@@ -57,6 +58,6 @@ describe("CLASSES", () => {
   it("defines CSS class constants", () => {
     expect(CONST.CLASSES.MAP_SEARCH).toBe("foliplus-search");
     expect(CONST.CLASSES.RESULT_PANEL).toBe("foliplus-search-result-panel");
-    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-is-active");
+    expect(PANEL_CLASS.ACTIVE).toBe("foliplus-is-active");
   });
 });

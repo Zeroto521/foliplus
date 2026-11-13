@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateId } from "#core/lifecycle/index.js";
+import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 
 describe("TIMING", () => {
@@ -52,7 +53,9 @@ describe("CLASSES", () => {
   it("HIDDEN is the shared foliplus-hidden class", () => {
     // Extra body / field toggling reuses the shared hidden class instead of
     // a component-local `.hidden` (which collided with Bootstrap's .hidden).
-    expect(CONST.CLASSES.HIDDEN).toBe("foliplus-hidden");
+    // The name lives in ui/panelClassName; the component no longer spells it.
+    expect((CONST.CLASSES as Record<string, unknown>).HIDDEN).toBeUndefined();
+    expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
   });
 });
 

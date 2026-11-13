@@ -9,6 +9,7 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { createListbox } from "./listbox.js";
+import { PANEL_CLASS } from "./panelClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -25,7 +26,6 @@ const DEFAULT_CLASSES = {
   item: "foliplus-scheme-picker-item",
   bar: "foliplus-scheme-picker-bar",
   block: "foliplus-scheme-picker-block",
-  active: "foliplus-is-active",
 } as const;
 
 // Extra class on a portaled dropdown only. A portaled dropdown lives outside
@@ -181,7 +181,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     item: withModifier(DEFAULT_CLASSES.item, consumerClasses.item),
     bar: withModifier(DEFAULT_CLASSES.bar, consumerClasses.bar),
     block: withModifier(DEFAULT_CLASSES.block, consumerClasses.block),
-    active: withModifier(DEFAULT_CLASSES.active, consumerClasses.active),
+    active: withModifier(PANEL_CLASS.ACTIVE, consumerClasses.active),
     open: consumerClasses.open ?? DEFAULT_CLASSES.open,
   };
 

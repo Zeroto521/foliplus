@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#core/layer/index.js";
+import { SLIDER_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 describe("init ready signal", () => {
@@ -165,7 +166,9 @@ describe("CLASSES opacity controls", () => {
     // The shared component both range controls are built from. Its inner
     // parts (rail, thumb, dot, bubble) are owned by LayerControl/slider.ts and
     // named there; only the root class is part of this component surface.
-    expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");
+    // The root name is owned by ui/sliderClassName, not this component.
+    expect((CONST.CLASSES as Record<string, unknown>).SLIDER).toBeUndefined();
+    expect(SLIDER_CLASS.ROOT).toBe("foliplus-slider");
     // The opacity row's own hooks (behavior and tests query these).
     expect(CONST.CLASSES.STYLE_OPACITY_TRACK).toBe("foliplus-style-opacity-track");
     expect(CONST.CLASSES.STYLE_OPACITY_SLIDER).toBe("foliplus-style-opacity-slider");

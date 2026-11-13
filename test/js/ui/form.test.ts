@@ -458,7 +458,11 @@ describe("ui/form.ts emits the shared chrome classes", () => {
     resolve(ROOT, "foliplus/js/ui/panelClassName.ts"),
     "utf-8",
   );
-  const source = readFileSync(resolve(ROOT, "foliplus/js/ui/form.ts"), "utf-8");
+  const source = readFileSync(
+    resolve(ROOT, "foliplus/js/ui/formClassName.ts"),
+    "utf-8",
+  );
+  const formSource = readFileSync(resolve(ROOT, "foliplus/js/ui/form.ts"), "utf-8");
   const form = css("foliplus/css/common/form.css");
 
   it("names the row, label and control classes the CSS styles", () => {
@@ -476,12 +480,14 @@ describe("ui/form.ts emits the shared chrome classes", () => {
   });
 
   it("names the input chrome classes the CSS styles", () => {
-    for (const cls of [
-      "foliplus-form-select",
-      "foliplus-form-number-input",
-      "foliplus-form-color-input",
-    ]) {
+    // form-select moved to the FORM_CLASS vocabulary; number/color inputs
+    // still live in form.ts (first batch: the two highest-risk tokens).
+    for (const cls of ["foliplus-form-select"]) {
       expect(source).toContain(cls);
+      expect(form).toContain(`.${cls}`);
+    }
+    for (const cls of ["foliplus-form-number-input", "foliplus-form-color-input"]) {
+      expect(formSource).toContain(cls);
       expect(form).toContain(`.${cls}`);
     }
   });

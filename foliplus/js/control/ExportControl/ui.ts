@@ -11,6 +11,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -41,7 +42,7 @@ const renderToolbarActions = (
     },
   });
   createIconButton({
-    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${CONST.CLASSES.CLOSE}`,
+    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${PANEL_CLASS.CLOSE_BTN}`,
     title: cancel.title,
     svg: cancel.svg,
     parent: actions,
@@ -209,8 +210,8 @@ const showCropBox = (mgr: ExportManager) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
-  mgr.exportCtrl?.classList.remove(CONST.CLASSES.COLLAPSED);
-  mgr.exportCtrl?.classList.add(CONST.CLASSES.EXPANDED);
+  mgr.exportCtrl?.classList.remove(PANEL_CLASS.COLLAPSED);
+  mgr.exportCtrl?.classList.add(PANEL_CLASS.EXPANDED);
 
   mgr.cropState = {
     overlay,
@@ -312,8 +313,8 @@ const removeCropBox = (mgr: ExportManager) => {
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
   if (mgr.exportCtrl) {
-    mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
-    mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
+    mgr.exportCtrl.classList.remove(PANEL_CLASS.EXPANDED);
+    mgr.exportCtrl.classList.add(PANEL_CLASS.COLLAPSED);
   }
   mgr.cropState = null;
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).

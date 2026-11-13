@@ -15,6 +15,7 @@ export {
 } from "./canvasLabel.js";
 export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
+export { FORM_CLASS } from "./formClassName.js";
 export {
   POPUP_ESCAPE_DELTA,
   POPUP_HOST_RANK,

@@ -54,10 +54,9 @@ const LABEL = {
 };
 
 const CLASSES = {
-  HIDDEN: "foliplus-hidden",
-  COLLAPSED: "foliplus-is-collapsed",
-  EXPANDED: "foliplus-is-expanded",
-  ACTIVE: "foliplus-is-active",
+  // foliplus-hidden, -form-inline and -section-divider are the shared panel
+  // vocabulary (ui/panelClassName); foliplus-is-collapsed/-expanded/-active
+  // are the shared panel state vocabulary. They are not component classes.
   PLACEHOLDER_OPTION: "foliplus-heatmap-placeholder-opt",
   SCHEME_DROPDOWN_ITEM: "foliplus-heatmap-scheme-dropdown-item",
   SECTION_BLOCK: "foliplus-heatmap-section-block",
@@ -74,8 +73,6 @@ const CLASSES = {
   BTN_ROW: "foliplus-heatmap-btn-row",
   BTN_CLEAR: "foliplus-heatmap-btn-clear",
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
-  FORM_CONTROL_INLINE: "foliplus-form-inline",
-  SECTION_DIVIDER: "foliplus-section-divider",
   CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
   HEATMAP_CTRL: "foliplus-heatmap-ctrl",
 };
