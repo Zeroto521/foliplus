@@ -8,6 +8,7 @@ import { LayerUI } from "./ui/index.js";
 import { createPanelControl } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import type { LayerData } from "#foliplus/config-schema.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 const LayerControl = defineControl<LayerController>({
   config: CONFIG,
@@ -37,7 +38,7 @@ const LayerControl = defineControl<LayerController>({
   buildDOM(this: any) {
     installBringToFrontPatch();
     const { container, panelContent, destroy } = createPanelControl({
-      cssClass: "foliplus-layer-ctrl",
+      cssClass: CONST.CLASSES.CTRL,
       ctrlId: `${this.config.name}_ctrl`,
       toggleTitle: this.T("toggle_title"),
       toggleSvg: SVGs.ICON_LAYERS,

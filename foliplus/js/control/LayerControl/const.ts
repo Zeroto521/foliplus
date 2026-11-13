@@ -87,6 +87,8 @@ const FOCUS_PANE = "foliplus-focus-overlay";
 /** CSS class names. */
 const CLASSES = {
   LAYER_ITEM: "foliplus-layer-item",
+  /** The control shell class (the container every layer row floats over). */
+  CTRL: "foliplus-layer-ctrl",
   ACTIVE: "foliplus-active",
   CHECKBOX: "foliplus-checkbox",
   DRAG_CELL: "foliplus-drag-cell",
@@ -107,6 +109,8 @@ const CLASSES = {
   COUNT_FILTERED: "foliplus-layer-count-filtered",
   /** The 12px neutral (text-primary) funnel glyph before a filtered count. */
   COUNT_FUNNEL: "foliplus-layer-count-funnel",
+  /** The compact kept-count span after the funnel glyph. */
+  COUNT_VALUE: "foliplus-layer-count-value",
   /** Set on a leaf hidden by the generic data-layer filter (path element /
    *  marker icon + shadow). CSS `display:none` removes it from paint AND from
    *  hit-testing, and ExportControl's SVG/marker channels skip it via computed
@@ -139,12 +143,20 @@ const CLASSES = {
   /** Added to the focused layer's element(s) so its accent drop-shadow glow
    *  fades in (CSS animation) — a single element, not a per-layer loop. */
   FOCUS_GLOW: "foliplus-focus-glow",
+  /** Marching-ants bbox on geometry focus (SVG path). */
+  FOCUS_MARQUEE: "foliplus-focus-marquee",
+  /** Spotlight mask drawn outside the focus bounds (an SVG overlay). */
+  FOCUS_MASK: "foliplus-focus-mask",
+  /** Focus rectangle outline (an SVG overlay). */
+  FOCUS_RECT: "foliplus-focus-rect",
   /** Inline rename input shown inside a layer label. */
   RENAME_INPUT: "foliplus-layer-rename-input",
   /** Set on a layer row while its inline rename input is open. */
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
+  /** The ⋮ overflow menu's root (shared by list row and style panel). */
+  MORE_MENU: "foliplus-layer-more-menu",
   /** Divider above the ⋮ menu's destructive entry — its own <li> so the
    *  keyboard order stays one slot per entry. */
   MENU_DIVIDER: "foliplus-layer-more-menu-divider",
