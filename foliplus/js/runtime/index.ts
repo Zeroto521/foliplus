@@ -26,14 +26,6 @@
 import "./_shared-registry.js";
 import { cacheSuggestion, geocode, reverseGeocode } from "#core/geocode/index.js";
 import {
-  COMPONENTS,
-  ModeManager,
-  assertComponentName,
-  ensureModes,
-  generateId,
-  guardBlocked,
-} from "#core/lifecycle/index.js";
-import {
   HINT_DURATION,
   HintManager,
   ensureHint,
@@ -62,20 +54,10 @@ if (!foliplus.isInitialized) {
     reverseGeocode,
     cacheSuggestion,
     // BaseControl base class (shared by all components).
-    BaseControl: { BaseControl },
+    BaseControl,
     // Hint module (per-map HintManager factory + shared icon registry).
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });
-
-  // Core module - single file, manually registered. These two live at
-  // core/lifecycle/component and core/lifecycle/mode; after the clustering the
-  // shims read them from foliplus.core.lifecycle (the namespace scan-registry
-  // folds the whole lifecycle sub into), so these manual publications are the
-  // runtime's own entry points — kept for direct callers, not for shims.
-  if (!foliplus.core) foliplus.core = {};
-  foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
-  // Mode module - single file, manually registered.
-  foliplus.core.mode = { ensureModes, guardBlocked, ModeManager };
 }
 
 export { cacheSuggestion, geocode, reverseGeocode };

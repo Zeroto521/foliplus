@@ -9,6 +9,7 @@
 // per-surface teardown callback to forget.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FILTER_SOURCE,
   FILTER_STORE_KEY,
   type FilterSourceHost,
   type LayerFilter,
@@ -525,5 +526,69 @@ describe("filterStore — invariants", () => {
     expect(store.getFilter("L1", "measure")).toEqual(enumFilter("time"));
     // Never persisted: a declaration is a construction-time constant.
     expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+  });
+
+  describe("filterStore — generic vs measure source isolation", () => {
+    it("generic and measure sources on the same layer never cross-affect (G2)", () => {
+      const store = createFilterStore();
+      store.registerHost("L1", FILTER_SOURCE.GENERIC, {
+        normalize: filter => filter,
+        apply: vi.fn(),
+        publish: vi.fn(),
+      });
+      store.registerHost(
+        "L1",
+        FILTER_SOURCE.MEASURE,
+        makeEnumHost(["marker", "distance"]),
+      );
+      const generic = {
+        kind: "atom",
+        field: "mag",
+        op: "between",
+        range: [2, 8],
+      } as LayerFilter;
+      store.setFilter("L1", FILTER_SOURCE.GENERIC, generic);
+      expect(store.getFilter("L1", FILTER_SOURCE.GENERIC)).toEqual(generic);
+      expect(store.isOwned("L1", FILTER_SOURCE.GENERIC)).toBe(true);
+      expect(store.getFilter("L1", FILTER_SOURCE.MEASURE)).toBeUndefined();
+      expect(store.isOwned("L1", FILTER_SOURCE.MEASURE)).toBe(false);
+      store.setFilter("L1", FILTER_SOURCE.MEASURE, enumFilter("marker"));
+      expect(store.getFilter("L1", FILTER_SOURCE.MEASURE)).toEqual(
+        enumFilter("marker"),
+      );
+      expect(store.getFilter("L1", FILTER_SOURCE.GENERIC)).toEqual(generic);
+      expect(store.sources("L1")).toEqual([
+        FILTER_SOURCE.GENERIC,
+        FILTER_SOURCE.MEASURE,
+      ]);
+    });
+    it("a generic reset clears only the generic slot and keeps the declaration (G2)", () => {
+      const store = createFilterStore();
+      const apply = vi.fn();
+      store.registerHost("L1", FILTER_SOURCE.GENERIC, {
+        normalize: filter => filter,
+        apply,
+        publish: vi.fn(),
+      });
+      store.registerHost(
+        "L1",
+        FILTER_SOURCE.MEASURE,
+        makeEnumHost(["marker", "distance"]),
+      );
+      store.setDeclaration("L1", FILTER_SOURCE.GENERIC, enumFilter("distance"));
+      store.setFilter("L1", FILTER_SOURCE.GENERIC, {
+        kind: "atom",
+        field: "mag",
+        op: "between",
+        range: [2, 8],
+      });
+      store.reset("L1", FILTER_SOURCE.GENERIC);
+      expect(store.getFilter("L1", FILTER_SOURCE.GENERIC)).toEqual(
+        enumFilter("distance"),
+      );
+      expect(store.isOwned("L1", FILTER_SOURCE.GENERIC)).toBe(false);
+      expect(store.getFilter("L1", FILTER_SOURCE.MEASURE)).toBeUndefined();
+      expect(apply).toHaveBeenCalledWith(enumFilter("distance"));
+    });
   });
 });

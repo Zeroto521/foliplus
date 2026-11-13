@@ -226,6 +226,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
   "check/deep-relative-path":
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
+  "check/marker-icon-set-icon-guard":
+    "the marker-icon setIcon single-site guard over foliplus/js production (leaf.setIcon( only in the setLeafIcon helper), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

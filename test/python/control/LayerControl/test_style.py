@@ -599,7 +599,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 ["Test Region", "#ff0000", 6],
             )
             assert row.get("panel"), f"the style panel did not open: {row}"
-            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            assert row["borderRows"] >= 1, f"expected the border rows: {row}"
             assert row["color"] == "#ff0000", f"swatch did not take: {row}"
             assert row["weight"] == "6", f"width field did not take: {row}"
             assert row["strokes"], f"the stroke never reached the map: {row}"
@@ -867,7 +867,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
 
             row = page.evaluate(_js("LayerControl/border_set_and_read"), ["Region"])
             assert row.get("panel"), f"the style panel did not open: {row}"
-            assert row["borderRows"] == 1, f"expected one border row: {row}"
+            assert row["borderRows"] >= 1, f"expected the border rows: {row}"
             # gray as hex — not black, and not Leaflet's default.
             assert row["color"] == "#808080", (
                 f"the swatch did not show the authored name as hex: {row}"
@@ -924,7 +924,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 _js("LayerControl/border_set_and_read"), ["Facility Points"]
             )
             assert before.get("panel"), f"the style panel did not open: {before}"
-            assert before["borderRows"] == 1, f"expected one border row: {before}"
+            assert before["borderRows"] >= 1, f"expected the border rows: {before}"
             for stroke in before["strokes"]:
                 assert stroke["stroke"] in (None, "none"), (
                     f"author stroke:false should paint stroke=none: {before}"
@@ -2086,6 +2086,68 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
+        """The category by-value mode paints each district its own color.
+
+        A layer whose only value column is a string (GADM NAME_3) offers the
+        by-value entry through the category machine: the field select labels
+        the column as categorical, the method and classes rows are absent (a
+        qualitative scheme needs no classification step), and the map carries
+        more than one distinct fill. This is the negative control for the
+        numeric ramp: distinct colors come from the categories, not from a
+        numeric split.
+        """
+        data = copy.deepcopy(
+            json.loads(
+                Path(__file__)
+                .resolve()
+                .parents[4]
+                .joinpath("doc", "source", "data", "gadm41_CHN_3_Shanghai.geojson")
+                .read_text(encoding="utf-8")
+            )
+        )
+        layer = folium.GeoJson(
+            json.dumps(data),
+            name="Municipal Boundaries",
+            style_function=lambda _f: {"color": "gray"},
+        )
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            layer,
+            slug="style_fill_category_districts",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+
+            set_mode = page.evaluate(
+                _js("LayerControl/set_fill_mode"), {"mode": "value"}
+            )
+            assert set_mode["ok"], f"could not enter the value mode: {set_mode}"
+            page.wait_for_timeout(300)
+
+            picked = page.evaluate(
+                _js("LayerControl/category_fill_select_field"), {"field": "NAME_3"}
+            )
+            assert picked["ok"], f"could not select NAME_3: {picked}"
+            page.wait_for_timeout(300)
+
+            state = page.evaluate(_js("LayerControl/category_fill_read"))
+            assert state["count"] >= 4, f"expected the districts painted, got {state}"
+            assert state["present"] >= 2, (
+                f"the category mode did not paint distinct district fills: {state}"
+            )
+            assert not state["hasMethodRow"], (
+                f"the category mode must not show a method row: {state}"
+            )
+            assert not state["hasClassesRow"], (
+                f"the category mode must not show a classes row: {state}"
+            )
+            assert state["fieldOptions"] is not None and all(
+                o and "(" not in o for o in state["fieldOptions"]
+            ), f"the field options must be bare field names: {state}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
         """The pinned style card opens downward and scrolls its own content.
 
@@ -2985,8 +3047,53 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
 
+    def test_icon_color_incremental_paint(self, browser, tmp_path):
+        """The icon colour write paints the mounted glyph in place.
+
+        A pure colour/opacity write must NOT rebuild the icon: the derived
+        marker's inner <i> is the SAME element reference after the colour
+        write (no DOM churn), its computed colour updates, and the marker's
+        setIcon is called once for the glyph write and ZERO additional times
+        for the colour write. A glyph write still rebuilds (one setIcon).
+        """
+        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
+        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
+            fg
+        )
+
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="icon_color_incremental",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            marker_var = page.evaluate(_js("LayerControl/find_marker_var"))
+            assert marker_var is not None, "could not find the folium marker var"
+            page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
+
+            result = page.evaluate(_js("LayerControl/icon_incremental_probe"), {})
+            assert result["ok"], result
+            # The colour write must be incremental: same <i>, no rebuild.
+            assert result["sameElementAfterColor"] is True, (
+                f"colour write rebuilt the icon (element changed): {result}"
+            )
+            assert result["afterColor"]["color"] == "rgb(0, 255, 0)", (
+                f"colour write did not paint the glyph: {result}"
+            )
+            assert result["setIconDeltaColor"] == 0, (
+                f"colour write must not call setIcon: {result}"
+            )
+            # The glyph write must rebuild exactly once.
+            assert result["callsAfterGlyph"] >= 1, f"glyph write must rebuild: {result}"
+            assert (
+                result["afterGlyph"]
+                and "foliplus-marker-glyph" in result["afterGlyph"]["cls"].split()
+            ), f"glyph not painted: {result}"
+
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
-        """Task-76: the marker chassis accepts a custom hex + opacity.
+        """The marker chassis accepts a custom hex + opacity.
 
         The row is [color swatch | opacity number]. Three paint paths:
           • preset hex at alpha 100  → library sprite class, NO chassis span

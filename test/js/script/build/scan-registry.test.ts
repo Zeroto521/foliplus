@@ -336,6 +336,22 @@ describe("generateRegistry", () => {
     expect(output).not.toContain("BaseControlNS");
   });
 
+  it("falls back to the first import when BaseControl is not among them", () => {
+    // baseNames can be a single non-BaseControl name (a component importing a
+    // helper alongside BaseControl); the ternary must pick that name rather
+    // than silently publishing the hardcoded "BaseControl".
+    const [jsDir, buildDir] = buildFakeTree({
+      "platform/dom.ts": `export const dom = {};`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `import { NotBase } from "#foliplus/BaseControl.js";`,
+    });
+    generateRegistry(jsDir, buildDir);
+    const output = readRegistry(buildDir);
+    expect(output).toContain("window.foliplus.BaseControl = NotBase;");
+    expect(output).toContain('import { NotBase } from "#foliplus/BaseControl.js";');
+  });
+
   it("uses an empty ui list when no ui/ directory exists", () => {
     // The existsSync(uiDir) ? ... : [] false branch: a source tree without a
     // ui/ layer must not throw and must not emit a ui namespace line.
@@ -369,13 +385,14 @@ describe("generateRegistry", () => {
     expect(output).toContain("panelButton");
   });
 
-  it("publishes the ui barrel at window.foliplus.ui.index", () => {
+  it("publishes the ui barrel at the flat window.foliplus.ui root", () => {
     // A component importing from "#ui/index.js" is scanned under canonical
     // key "ui" (canonicalSpec strips /index), separate from the per-module
     // ui/<name> keys. The registry must publish the barrel's re-exports at
-    // window.foliplus.ui["index"] — exactly the namespace the component shim
-    // reads (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui.index") —
-    // and not flattened onto the ui root.
+    // window.foliplus.ui — the namespace the component shim reads
+    // (sharedGlobalNamespace("#ui/index.js") === "foliplus.ui") — and not at
+    // window.foliplus.ui.index (the index module is the package __init__, so
+    // its names land on the package itself, not on a .index key).
     const [jsDir, buildDir] = buildFakeTree({
       "platform/dom.ts": `export const dom = {};`,
       "ui/panelChrome.ts": `export const panelButton = () => {};`,
@@ -389,13 +406,36 @@ describe("generateRegistry", () => {
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
-    expect(output).toContain('window.foliplus.ui["index"]');
+    expect(output).toContain("window.foliplus.ui = {");
     expect(output).toContain('from "#ui/index.js"');
     // Published as an inline object literal: the generated file carries no
     // per-namespace variable names, so there is nothing to keep consistent.
-    expect(output).toContain('window.foliplus.ui["index"] = {');
-    expect(output).not.toContain("uiIndexNS");
+    // The bootstrap legitimately emits `window.foliplus.ui = {};`, so the
+    // real negative is the old .index key: no `window.foliplus.ui["index"]`.
+    expect(output).not.toContain('window.foliplus.ui["index"]');
     expect(output).toContain("panelButton");
+  });
+
+  it("throws when a ui barrel export name collides with a ui module name", () => {
+    // A flat window.foliplus.ui root cannot hold both a per-module key and a
+    // barrel export under the same name: the deep ui/<name>.js module and the
+    // barrel re-export would fight for one key. The guard must throw loudly
+    // rather than silently publish one of the two.
+    const [jsDir, buildDir] = buildFakeTree({
+      "platform/dom.ts": `export const dom = {};`,
+      "ui/panelChrome.ts": `export const panelChrome = () => {};`,
+      "ui/panelButton.ts": `export const panelChrome = () => {};`,
+      "ui/index.ts": `export { panelChrome } from "./panelButton.js";`,
+      "core/empty.ts": ``,
+      "runtime/index.ts": ``,
+      "control/MyComponent/index.ts": `
+        import { panelChrome } from "#ui/index.js";
+        import { dom } from "#platform/dom.js";
+      `,
+    });
+    expect(() => generateRegistry(jsDir, buildDir)).toThrow(
+      /collides with the ui module/,
+    );
   });
 
   it("aliases a same-named export from two modules (collision-safe)", () => {
@@ -420,8 +460,8 @@ describe("generateRegistry", () => {
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
     // The second (ui barrel) import must be aliased; the core one stays bare.
-    expect(output).toContain("STYLE_MODE as STYLE_MODE__ui_index");
-    expect(output).toContain("STYLE_MODE: STYLE_MODE__ui_index");
+    expect(output).toContain("STYLE_MODE as STYLE_MODE__ui");
+    expect(output).toContain("STYLE_MODE: STYLE_MODE__ui");
     // The core import keeps the bare name (first use wins the published name).
     expect(output).toContain('window.foliplus.core["layer"] = {');
     expect(output).toMatch(
@@ -429,9 +469,7 @@ describe("generateRegistry", () => {
     );
     // No bare duplicate import remains.
     const bareImports = output.match(/import { [^}]*STYLE_MODE[^}]* } from/g) || [];
-    expect(bareImports.filter(s => !s.includes("as STYLE_MODE__ui_index")).length).toBe(
-      1,
-    );
+    expect(bareImports.filter(s => !s.includes("as STYLE_MODE__ui")).length).toBe(1);
     // The registration must keep the published name STYLE_MODE on BOTH namespaces.
     expect(output).toMatch(
       /window\.foliplus\.core\["layer"\] = \{[^}]*\bSTYLE_MODE\b[^}]*\}/,
@@ -515,7 +553,7 @@ describe("generateRegistry", () => {
   it("throws when a component imports a name the ui barrel does not re-export", () => {
     // The guard's core case: `ui/index.ts` re-exports `panelButton` but the
     // component asks the barrel for `missingName`. Without the guard the
-    // registry would publish `window.foliplus.ui["index"] = { missingName }`
+    // registry would publish `window.foliplus.ui = { missingName }`
     // and the shimmed import would resolve to `undefined` at runtime.
     const [jsDir, buildDir] = buildFakeTree({
       "platform/dom.ts": `export const dom = {};`,
@@ -585,7 +623,7 @@ describe("generateRegistry", () => {
     });
     generateRegistry(jsDir, buildDir);
     const output = readRegistry(buildDir);
-    expect(output).toContain('window.foliplus.ui["index"]');
+    expect(output).toContain("window.foliplus.ui");
     expect(output).toContain("panelButton");
   });
 
