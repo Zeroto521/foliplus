@@ -22,6 +22,15 @@ import {
   selectInput,
 } from "#ui/index.js";
 
+/** Shared hook class for the compact class-count select: the class select is the
+ *  same role as a number field beside a flexed control, so its width contract
+ *  lives in one place (form.css) rather than per-component overrides. */
+const CLASSES_SELECT_CLASS = "foliplus-classes-select";
+
+/** Shared hook class for the scheme picker trigger: the trigger recipe is shared
+ *  (common/scheme-picker.css); the consumer's class stays on the element as its own hook. */
+const SCHEME_PICKER_TRIGGER_CLASS = "foliplus-scheme-picker-trigger";
+
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
  *  data-* seams that Python rendering tests pin. */
 type Attributes = Record<string, string>;
@@ -140,8 +149,8 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   // lives in one place (form.css) rather than per-component overrides.
   const classesSelect = selectInput({
     className: opts.classesClass
-      ? `${opts.classesClass} foliplus-classes-select`
-      : "foliplus-classes-select",
+      ? `${opts.classesClass} ${CLASSES_SELECT_CLASS}`
+      : CLASSES_SELECT_CLASS,
     ariaLabel: opts.classesAriaLabel,
     value: String(opts.classesValue),
     options: CLASS_COUNT_VALUES.map(count => ({
@@ -172,7 +181,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     ariaLabel: opts.classesAriaLabel,
     // The wrapper replaces the select in the flex row, so the compact-count
     // width contract (form.css) has to size it.
-    className: "foliplus-classes-select",
+    className: CLASSES_SELECT_CLASS,
     ...opts.surface,
     overlay: opts.overlay,
   });
@@ -235,7 +244,7 @@ const buildSchemeRow = (
   const trigger = dom.el(
     "div",
     {
-      class: `${opts.triggerClass} foliplus-scheme-picker-trigger`,
+      class: `${opts.triggerClass} ${SCHEME_PICKER_TRIGGER_CLASS}`,
       tabindex: "0",
       role: "combobox",
       "aria-haspopup": "listbox",
