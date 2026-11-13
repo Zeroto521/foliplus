@@ -140,15 +140,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // in its style panel, and tile basemaps can still tune opacity.
   // One projection answers both the panel and the menu: a layer is
   // configurable when any style dimension it honestly supports is on. The
-  // matrix reads the same capability slots and author declarations the rows
+  // the reader reads the same capability slots and author declarations the rows
   // use, so the entry can never enable a panel whose rows would not render
   // (or vice versa) — and it cannot drift from the panel's dimension list.
-  const matrix = styleCapability(ui, layerId);
+  const cap = styleCapability(ui, layerId);
   const canConfigure =
-    matrix.dims.opacity ||
-    matrix.dims.zoomRange ||
-    matrix.dims.label ||
-    matrix.styleDelegation;
+    cap.dims.opacity || cap.dims.zoomRange || cap.dims.label || cap.styleDelegation;
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(

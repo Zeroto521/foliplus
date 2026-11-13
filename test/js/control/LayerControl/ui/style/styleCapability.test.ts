@@ -1,26 +1,26 @@
-// Style capability matrix — parity against the per-dimension gates.
+// Style capability — parity against the per-dimension gates.
 //
-// A pure add: the matrix must return EXACTLY the bits the existing
+// A pure add: the capability reader must return EXACTLY the bits the existing
 // `layerCan*` gates return for every dimension, on every real surface. This
 // test locks that parity by enumerating a representative layer set and
 // comparing `styleCapability(ui, id).dims` to the registered dimension's own
 // `gate` — the same function `gatedRows` consults. If a gate's required tier
-// ever changes (native vs non-none) without the matrix changing with it, this
+// ever changes (native vs non-none) without the reader changing with it, this
 // test goes red, so the two cannot drift.
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { styleCapability } from "#control/LayerControl/ui/style/capabilityMatrix.js";
 import { layerHasStyleDelegation } from "#control/LayerControl/ui/style/delegated.js";
 import { layerCanLabel } from "#control/LayerControl/ui/style/labelDimension.js";
 import { getDimension } from "#control/LayerControl/ui/style/registry.js";
+import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
 
-/** One dimension key to the matrix dim name it mirrors. `border` maps to
+/** One dimension key to the reader dim name it mirrors. `border` maps to
  *  the `stroke` capability slot (the descriptor's key is the UI name, the
  *  slot is the surface name) — everything else is identity. */
-const DIM_TO_MATRIX: Record<string, string> = {
+const DIM_TO_DIM: Record<string, string> = {
   [DIM.FILL]: "fill",
   [DIM.BORDER]: "border",
   [DIM.OPACITY]: "opacity",
@@ -32,10 +32,10 @@ const DIM_TO_MATRIX: Record<string, string> = {
   [DIM.ZOOM_RANGE]: "zoomRange",
 };
 
-/** Every registered built-in dimension must be mirrored by the matrix — the
- *  matrix adds nothing outside `DIM_ORDER` + `LABEL_DIM_ORDER`. */
+/** Every registered built-in dimension must be mirrored by the reader — the
+ *  reader adds nothing outside `DIM_ORDER` + `LABEL_DIM_ORDER`. */
 it("mirrors every registered built-in dimension", () => {
-  const keys = Object.keys(DIM_TO_MATRIX);
+  const keys = Object.keys(DIM_TO_DIM);
   expect(keys).toEqual([
     "fill",
     "border",
@@ -195,68 +195,56 @@ describe("styleCapability parity with the per-dimension gates", () => {
     ] as const;
   };
 
-  it("matrix dims equal the registered gates on every representative surface", () => {
+  it("dims equal the registered gates on every representative surface", () => {
     for (const id of registerSet()) {
-      const matrix = styleCapability(ui, id);
-      for (const [key, dim] of Object.entries(DIM_TO_MATRIX)) {
+      const cap = styleCapability(ui, id);
+      for (const [key, dim] of Object.entries(DIM_TO_DIM)) {
         const gate = getDimension(key)!.gate(ui, id);
         expect(
-          matrix.dims[dim as keyof typeof matrix.dims],
-          `${id}.${dim}: matrix bit != ${key} gate`,
+          cap.dims[dim as keyof typeof cap.dims],
+          `${id}.${dim}: reader bit != ${key} gate`,
         ).toBe(gate);
       }
     }
   });
 
   it("returns all-false for a layer outside the registry", () => {
-    const matrix = styleCapability(ui, "not-a-real-layer");
-    expect(Object.values(matrix.dims)).toEqual(Array(9).fill(false));
-    expect(matrix.perFeatureFill).toBe(false);
-    expect(matrix.hasValueField).toBe(false);
-    expect(matrix.borderCarriesValue).toBe(false);
-    expect(matrix.isColorBasemap).toBe(false);
-    expect(matrix.canFollowFill).toBe(false);
-    expect(matrix.styleDelegation).toBe(false);
+    const cap = styleCapability(ui, "not-a-real-layer");
+    expect(Object.values(cap.dims)).toEqual(Array(9).fill(false));
+    expect(cap.styleDelegation).toBe(false);
   });
 
   it("a polygon surface exposes fill + border and can follow fill", () => {
     const id = registerSet()[0];
-    const matrix = styleCapability(ui, id);
-    expect(matrix.dims.fill).toBe(true);
-    expect(matrix.dims.border).toBe(true);
-    expect(matrix.dims.opacity).toBe(true);
-    expect(matrix.dims.zoomRange).toBe(true);
-    expect(matrix.dims.size).toBe(false);
-    expect(matrix.borderCarriesValue).toBe(false);
-    expect(matrix.canFollowFill).toBe(true);
-    expect(matrix.isColorBasemap).toBe(false);
+    const cap = styleCapability(ui, id);
+    expect(cap.dims.fill).toBe(true);
+    expect(cap.dims.border).toBe(true);
+    expect(cap.dims.opacity).toBe(true);
+    expect(cap.dims.zoomRange).toBe(true);
+    expect(cap.dims.size).toBe(false);
   });
 
   it("a line surface carries the border value but cannot follow fill", () => {
-    const matrix = styleCapability(ui, registerSet()[1]);
-    expect(matrix.dims.border).toBe(true);
-    expect(matrix.borderCarriesValue).toBe(true);
-    expect(matrix.canFollowFill).toBe(false);
+    const cap = styleCapability(ui, registerSet()[1]);
+    expect(cap.dims.border).toBe(true);
   });
 
   it("a marker surface exposes icon but neither fill nor border", () => {
-    const matrix = styleCapability(ui, registerSet()[3]);
-    expect(matrix.dims.icon).toBe(true);
-    expect(matrix.dims.fill).toBe(false);
-    expect(matrix.dims.border).toBe(false);
-    expect(matrix.dims.size).toBe(false);
+    const cap = styleCapability(ui, registerSet()[3]);
+    expect(cap.dims.icon).toBe(true);
+    expect(cap.dims.fill).toBe(false);
+    expect(cap.dims.border).toBe(false);
+    expect(cap.dims.size).toBe(false);
   });
 
   it("a color basemap is a color basemap and can fill", () => {
-    const matrix = styleCapability(ui, registerSet()[6]);
-    expect(matrix.isColorBasemap).toBe(true);
-    expect(matrix.dims.fill).toBe(true);
+    const cap = styleCapability(ui, registerSet()[6]);
+    expect(cap.dims.fill).toBe(true);
   });
 
   it("a cluster surface exposes nothing configurable", () => {
-    const matrix = styleCapability(ui, registerSet()[7]);
-    expect(Object.values(matrix.dims).every(v => v === false)).toBe(true);
-    expect(matrix.isColorBasemap).toBe(false);
+    const cap = styleCapability(ui, registerSet()[7]);
+    expect(Object.values(cap.dims).every(v => v === false)).toBe(true);
   });
 
   it("styleDelegation parity with layerHasStyleDelegation", () => {
@@ -410,7 +398,7 @@ describe("menu canConfigure equivalence", () => {
   it("turns red when the styleDelegation term is dropped", () => {
     // A layer with only styleSetters and no opacity/zoomRange/label must still
     // enable the menu — this is exactly what the old primitive's delegation
-    // probe guarded, and what the matrix's styleDelegation bit now carries.
+    // probe guarded, and what the reader's styleDelegation bit now carries.
     const li = manager.layerRegistry.get("overlay1");
     li!.styleSetters = { color: vi.fn() };
     const surface = ui.c.surfaceFor(li!);
