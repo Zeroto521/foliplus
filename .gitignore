@@ -90,6 +90,7 @@ package-lock.json
 .claude/plans/myagents/
 .agents/
 .foliplus/
+.foliplus-scratch/
 memory/
 .myagents/
 myagents_files/
