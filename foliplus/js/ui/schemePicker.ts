@@ -311,7 +311,9 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     inlineHost: options.portal
       ? undefined
       : () =>
-          trigger.closest(".foliplus-form-control") ?? trigger.parentElement ?? trigger,
+          trigger.closest(`.${PANEL_CLASS.FORM_CONTROL}`) ??
+          trigger.parentElement ??
+          trigger,
     triggerKeys: "cycle",
     stopTriggerClick: true,
     detachOnClose: true,
