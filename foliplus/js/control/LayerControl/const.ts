@@ -156,8 +156,6 @@ const CLASSES = {
   RENAMING: "foliplus-layer-renaming",
   /** Floating style panel opened from the layer overflow menu. */
   STYLE_PANEL: "foliplus-layer-style-panel",
-  /** The ⋮ overflow menu's root (shared by list row and style panel). */
-  MORE_MENU: "foliplus-layer-more-menu",
   /** Divider above the ⋮ menu's destructive entry — its own <li> so the
    *  keyboard order stays one slot per entry. */
   MENU_DIVIDER: "foliplus-layer-more-menu-divider",
