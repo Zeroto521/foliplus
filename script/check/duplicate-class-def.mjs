@@ -74,7 +74,9 @@ const EXEMPTIONS = [
  *  entry here to silence a duplicate; fix the duplicate.
  *
  *  The only allowed repeat is `EXEMPTIONS` below, and that needs a written
- *  reason for two spellings of one name to be correct. */
+ *  reason for two spellings of one name to be correct.
+ * @type {{token: string, batch: string, sites: string[], reason: string}[]}
+ */
 const BASELINE_PENDING = [];
 
 /** A single `foliplus-*` class name. */

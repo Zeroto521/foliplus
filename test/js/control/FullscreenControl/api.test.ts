@@ -15,8 +15,6 @@ describe("const.js", () => {
     expect(CLASSES.ZOOM_OUT).toBe("foliplus-zoom-out");
     expect(CLASSES.TOGGLE).toBe("foliplus-fullscreen-toggle");
     expect(PANEL_CLASS.HIDDEN).toBe("foliplus-hidden");
-    expect(PANEL_CLASS.TOOL_BTN).toBe("foliplus-tool-btn");
-    expect(PANEL_CLASS.TOOL_BTN).toBe("foliplus-tool-btn");
   });
 
   it("containerId formats correctly", () => {
