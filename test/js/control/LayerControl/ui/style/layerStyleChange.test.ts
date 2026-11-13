@@ -12,7 +12,7 @@
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { DIM } from "#core/layer/index.js";
+import { DIM, STYLE_MODE } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { commitBorderColor } from "#control/LayerControl/ui/style/border.js";
@@ -34,7 +34,6 @@ import {
   flushStyleDimApply,
   scheduleStyleDimApply,
 } from "#control/LayerControl/ui/style/styleBag.js";
-import { commitZoomRange } from "#control/LayerControl/ui/style/zoomRange.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // One carrier per capability family: a dimension only passes its gate on the
@@ -210,7 +209,7 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
 
       commit(fixture.ui, dim);
 
-      expect(seen).toHaveLength(1, "expected exactly one announcement");
+      expect(seen).toHaveLength(1);
       expect(seen[0]).toEqual({ id: "overlay1" });
     });
   }
@@ -238,15 +237,74 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
       seen.push(payload as { id: string });
     });
 
-    commitZoomRange(ui, "overlay1", { min: 3, max: 9 });
+    getDimension<{ min: number; max: number }>(DIM.ZOOM_RANGE)!.write!(ui, "overlay1", {
+      min: 3,
+      max: 9,
+    });
 
     expect(seen).toHaveLength(0);
   });
 
   it("label: no user write at all — the dimension rides its content replay", () => {
     for (const dim of LABEL_DIM_ORDER) {
-      expect(getDimension(dim).write).toBeUndefined();
+      expect(getDimension(dim)?.write).toBeUndefined();
     }
+  });
+
+  it("fill+border follow-fill: one user action announces twice", () => {
+    const fixture = boot("vector");
+    manager = fixture.manager;
+    const ui = fixture.ui;
+    // Establish the stored follow-fill border mode: the fill write is the
+    // single commit path, and the border replay rides here because the
+    // stored mode is FOLLOW_FILL.
+    getDimension(DIM.BORDER)!.write!(ui, "overlay1", {
+      mode: STYLE_MODE.FOLLOW_FILL,
+    });
+    flushStyleDimApply(FACE.STROKE, "overlay1");
+    const seen: Array<{ id: string }> = [];
+    ui.events.on(EVENTS.LAYER_STYLE_CHANGE, payload => {
+      seen.push(payload as { id: string });
+    });
+
+    // A follow-fill border is a per-leaf DERIVED paint: the fill write is
+    // the single commit path, so the border replay rides here. One user
+    // action therefore lands two announcements — one per face — and both
+    // name the same layer. This pins the contract against a future
+    // merge-into-one optimization that would collapse them.
+    commitFillColor(ui, "overlay1", "#ff0000");
+    flushStyleDimApply(FACE.FILL, "overlay1");
+    flushStyleDimApply(FACE.STROKE, "overlay1");
+
+    expect(seen).toHaveLength(2);
+    expect(seen.every(entry => entry.id === "overlay1")).toBe(true);
+  });
+
+  it("LayerControl style panel subscription does not re-publish", () => {
+    const fixture = boot("vector");
+    manager = fixture.manager;
+    const ui = fixture.ui;
+
+    // The real subscription the delegated style drawer installs
+    // (style/index.ts): a LAYER_STYLE_CHANGE for this layer pulls fresh
+    // values and refreshes the controls. The test drives the same bus, so a
+    // subscription callback that re-commits would grow the count past one.
+    const seen: Array<{ id: string }> = [];
+    const layerId = "overlay1";
+    const bus = ui.c.events;
+    const refresh = vi.fn();
+    bus.on(EVENTS.LAYER_STYLE_CHANGE, (payload: { id: string }) => {
+      if (payload.id !== layerId) return;
+      seen.push(payload);
+      refresh();
+    });
+
+    commitFillColor(ui, layerId, "#ff0000");
+    flushStyleDimApply(FACE.FILL, layerId);
+
+    // Exactly one announcement, and the subscription's refresh ran once.
+    expect(seen).toHaveLength(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
 
