@@ -240,7 +240,7 @@ const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElemen
       role: "img",
     },
     dom.el("div", {
-      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
+      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_SWATCH,
       style: `background:${paint.color}`,
     }),
   );

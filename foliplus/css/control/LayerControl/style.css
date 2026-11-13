@@ -121,6 +121,19 @@
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   border-radius: var(--foliplus-radius-sm);
 }
+/* The monochrome original-colors swatch: a FIXED-SIZE solid colour square,
+   same scale as the SOLID row's colour input (ctrl-size token), NOT the cmap
+   strip's flex:1 — beside the opacity readout that strip would be squeezed to
+   a slit (lead m15473 ③). The cmap path keeps the strip; this class is only
+   for the single-colour read-only row. */
+.foliplus-style-fill-original-swatch {
+  flex-shrink: 0;
+  width: var(--foliplus-ctrl-size);
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
+  border-radius: var(--foliplus-radius-sm);
+}
 
 /* Scheme trigger and color strip: the shared scheme-picker recipe
    (common/scheme-picker.css) owns the box, the chevron and the bar geometry.

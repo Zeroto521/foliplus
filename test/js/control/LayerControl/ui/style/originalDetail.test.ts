@@ -127,6 +127,22 @@ describe("monochrome original detail (P2)", () => {
     expect(text(rows[0])).toContain("45%");
   });
 
+  it("falls back to the constants when a fill leaf carries no options object", () => {
+    // authorFillPaint: `node.options ?? {}` — a leaf whose options were wiped
+    // (a streamed replacement, a bare duck) must not throw; the readout falls
+    // back to the documented defaults, same as an empty layer.
+    const { ui, layer } = makeFillLayer([{ fill: true }]);
+    // The fixture always assigns options; drop them to exercise the `?? {}` arm.
+    (layer as unknown as { leaves: { options?: unknown }[] }).leaves.forEach(leaf => {
+      delete leaf.options;
+    });
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    // Both default constants appear (no leaf value anywhere).
+    expect(detailShows(d, "#cccccc")).toBe(true);
+    expect(text(d)).toContain("20%");
+  });
+
   it.todo("a per-feature author keeps the cmap multi-row original form (P3)");
   // P3 (a later slice): a per-feature author keeps buildOriginalDetail's
   // multi-row form — column row, colors strip, method/count row — plus an

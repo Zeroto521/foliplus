@@ -228,6 +228,12 @@ const CLASSES = {
   STYLE_FILL_ORIGINAL_COLUMN: "foliplus-style-fill-original-column",
   STYLE_FILL_ORIGINAL_COLORS: "foliplus-style-fill-original-colors",
   STYLE_FILL_ORIGINAL_STRIP: "foliplus-style-fill-original-strip",
+  /** The monochrome original-colors swatch: a FIXED-SIZE solid colour block, the
+   *  same ctrl-size token as the SOLID row's colour input. The cmap strip's
+   *  flex:1 would be squeezed to a slit beside the opacity readout, so the
+   *  monochrome row uses this class instead — one square, clearly visible, not
+   *  a stretched sliver (lead m15473 ③). */
+  STYLE_FILL_ORIGINAL_SWATCH: "foliplus-style-fill-original-swatch",
   STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
   STYLE_FILL_ORIGINAL_METHOD: "foliplus-style-fill-original-method",
   STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
