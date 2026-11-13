@@ -1,7 +1,11 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { DEFAULT_LABEL_COLOR, LABEL_CLASS, LABEL_SIZE } from "#ui/index.js";
-import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js";
+import {
+  DEFAULT_LABEL_COLOR,
+  LABEL_CLASS,
+  LABEL_SIZE,
+  SCHEME_PICKER_CLASS,
+} from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;

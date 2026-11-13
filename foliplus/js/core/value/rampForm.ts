@@ -16,12 +16,12 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
+  SCHEME_PICKER_CLASS,
   createDropdown,
   formRow,
   inlineControls,
   selectInput,
 } from "#ui/index.js";
-import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js";
 
 /** Shared hook class for the compact class-count select: the class select is the
  *  same role as a number field beside a flexed control, so its width contract

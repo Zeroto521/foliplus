@@ -43,6 +43,7 @@ export {
   selectInput,
 } from "./form.js";
 export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
+export { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";

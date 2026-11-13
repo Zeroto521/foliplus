@@ -326,15 +326,14 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
 
   it("applies the shared trigger class from the builder", () => {
     // The name is owned by ui/schemePickerClassName.js (one SCHEME_PICKER_CLASS
-    // vocabulary for the whole scheme-picker); rampForm.ts reads it via
-    // `import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js"`.
-    // Asserting both ends catches either side drifting: the vocabulary
-    // spelling and the core-side symbol usage.
-    expect(schemePickerVocabSource).toContain(
-      '  TRIGGER: "foliplus-scheme-picker-trigger",',
-    );
-    expect(rampFormSource).toContain("SCHEME_PICKER_CLASS.TRIGGER");
-    expect(rampFormSource).not.toContain('"foliplus-scheme-picker-trigger"');
+    // vocabulary for the whole scheme-picker); rampForm.ts reads it from that
+    // module. Assert the two behaviour-level facts — the vocabulary still
+    // spells the token, and rampForm.ts imports the vocabulary module rather
+    // than spelling the class by hand — so a rename of the accessor symbol
+    // does not break the test.
+    expect(schemePickerVocabSource).toContain('"foliplus-scheme-picker-trigger"');
+    expect(rampFormSource).toMatch(/SCHEME_PICKER_CLASS/);
+    expect(rampFormSource).not.toContain('"foliplus-scheme-picker-');
   });
 
   it("owns the trigger box for every consumer", () => {

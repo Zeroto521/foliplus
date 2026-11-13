@@ -7,8 +7,8 @@
 // (common/scheme-picker.css), so the names belong to one list rather than
 // one const in each caller — two spellings drift independently and the
 // stylesheet only ever sees one of them. core cannot import a component
-// const, so the list lives here (ui/), and both callers read it via
-// `import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js"`.
+// const, so the list lives here (ui/), and both callers read it through
+// the ui barrel (#ui/index.js) or the local module, depending on tier.
 //
 // Same shape as FORM_CLASS / LABEL_CLASS / PANEL_CLASS / SLIDER_CLASS: an
 // `as const` object, one key per token, so `git grep SCHEME_PICKER_CLASS\.`

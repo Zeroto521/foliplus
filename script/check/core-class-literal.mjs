@@ -8,8 +8,11 @@
  * callers (today: core/value/rampForm.ts) read the list through #ui/index.js.
  *
  * A bare `foliplus-scheme-picker-*` literal reappearing in core is the drift
- * this guard fails on. Word-bounded so `data-foliplus-scheme-picker-x` and
- * `--foliplus-scheme-picker-y` (a CSS variable) never trip it.
+ * this guard fails on. Left-side negative lookbehind plus right-side word-
+ * bound means only an independent class-name token matches; a
+ * `data-foliplus-scheme-picker-x` attribute or a `--foliplus-scheme-picker-y`
+ * CSS variable never trips it — the name char to their left trips the
+ * lookbehind.
  *
  * Usage: `node script/check/core-class-literal.mjs [--check] [--root <dir>]`
  *   Without `--check` the script prints its inventory and always exits 0.
@@ -26,8 +29,15 @@ const JS_ROOT_REL = path.join("foliplus", "js", "core");
 /** Class prefixes this guard watches. Word-bounded on the right. */
 const PREFIXES = ["foliplus-scheme-picker-"];
 
+/** Left-side negative lookbehind + right-side word-bound: the match must be
+ *  an independent class-name token. A `data-foliplus-scheme-picker-x`
+ *  attribute or a `--foliplus-scheme-picker-x` CSS variable does not count —
+ *  the name char immediately to its left (`-`) trips the lookbehind. */
+const PREFIX = "(?<![A-Za-z0-9_-])";
+
 /** Right-boundary: one or more name chars (the class tail), then not another.
- *  Word-bounded on the right so `data-foliplus-scheme-picker-x` never trips it. */
+ *  Word-bounded on the right so a longer class sharing the prefix never
+ *  absorbs the match. */
 const SUFFIX = "[a-z0-9]+(?:-[a-z0-9]+)*(?![a-zA-Z0-9_-])";
 
 const walk = (dir, acc = []) => {
@@ -47,7 +57,7 @@ const scan = root => {
   for (const file of walk(path.join(root, JS_ROOT_REL))) {
     const src = stripComments(fs.readFileSync(file, "utf8"));
     for (const prefix of PREFIXES) {
-      const re = new RegExp(prefix + SUFFIX, "g");
+      const re = new RegExp(PREFIX + prefix + SUFFIX, "g");
       let m;
       while ((m = re.exec(src)) !== null) {
         const line = src.slice(0, m.index).split("\n").length;
@@ -75,7 +85,7 @@ const main = (argv = [], root = process.cwd()) => {
     `core-class-literal: ${hits.length} bare literal(s) in ${JS_ROOT_REL}:`,
   );
   for (const h of hits) console.error(`  ${h.file}:${h.line}  ${h.token}`);
-  console.error("Read these from ui/schemePickerClassName.js (via #ui/index.js).");
+  console.error("Read these from ui/schemePickerClassName.js via #ui/index.js.");
   return check ? 1 : 0;
 };
 
@@ -86,4 +96,4 @@ if (
   process.exit(main(process.argv.slice(2)));
 }
 
-export { main };
+export { main, scan };
