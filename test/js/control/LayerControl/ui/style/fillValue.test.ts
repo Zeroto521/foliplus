@@ -3,15 +3,20 @@
 // The mutual exclusion logic (Solid ↔ value) is covered in fill.test.ts
 // through the FILL_DIMENSION descriptor; applyValueFill is tested here
 // directly with mock layers.
+import { repoPath } from "#test/path.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ValueConfig } from "#core/layer/index.js";
+import { type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import {
   applyValueFill,
   resolveFillMode,
+  resolveModeByValue,
   valueSchemeForUi,
 } from "#control/LayerControl/ui/style/fillValue.js";
 import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
+import { resolveStrokeMode } from "#control/LayerControl/ui/style/strokeValue.js";
 
 // A live intent table keyed by the intent-key string, so a test can set the
 // value config and the opacity independently — the pin reads both live.
@@ -1031,4 +1036,165 @@ describe("valueSchemeForUi", () => {
       }),
     ).toBe("Set3");
   });
+});
+// ─────────────────────────────────────────────────────────────────────────────
+// task-81 migration contract — shared mode resolver (S1) and convergence
+// symbols. The original concept-name contract file was split by module (per
+// user rule: name tests after the logic under test): fillValue.test.ts owns
+// the fill side + the shared resolveModeByValue; strokeValue.test.ts owns the
+// stroke side; styleBag.test.ts owns solidColorOf.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Read a tracked source file with normalized line endings. */
+const sourceOf = (rel: string): string =>
+  readFileSync(resolve(repoPath(), rel), "utf-8").replace(/\r\n/g, "\n");
+
+/** Whether a module exports a name (inline or trailing export block). */
+const isExported = (source: string, name: string): boolean => {
+  if (new RegExp(`export\\s+(?:function|const|class)\\s+${name}\\b`).test(source)) {
+    return true;
+  }
+  const block = source.match(/export\s*\{([^}]*)\}/);
+  if (block) {
+    return new RegExp(`\\b${name}\\b`).test(block[1]);
+  }
+  return false;
+};
+
+// The 6 (mode, value) combinations the shared resolver must answer identically
+// for the fill face and the stroke face.
+const PARITY: Array<{
+  mode: StyleMode | undefined;
+  hasValue: boolean;
+  expect: StyleMode;
+}> = [
+  { mode: undefined, hasValue: false, expect: "solid" },
+  { mode: undefined, hasValue: true, expect: "value" },
+  { mode: "solid", hasValue: false, expect: "solid" },
+  { mode: "solid", hasValue: true, expect: "solid" },
+  { mode: "value", hasValue: false, expect: "value" },
+  { mode: "original", hasValue: true, expect: "original" },
+];
+
+// The convergence symbol not exported until S4 is imported lazily so this file
+// compiles before the migration lands; the B0 source guard is the real
+// criterion (a missing export is RED, not skipped).
+let effectiveFaceValue:
+  | ((
+      ui: unknown,
+      layerId: string,
+      face: "fill" | "stroke",
+      opts?: { allowDeclared?: boolean },
+    ) => ValueConfig | undefined)
+  | undefined;
+try {
+  const mod = (await import("#control/LayerControl/ui/style/fillValue.js")) as Record<
+    string,
+    unknown
+  >;
+  if (typeof mod.effectiveFaceValue === "function") {
+    effectiveFaceValue = mod.effectiveFaceValue as never;
+  }
+} catch {
+  /* not exported yet — B0 catches a missing export without depending on this */
+}
+
+describe("mode resolution contract — fill side (Section A: must stay green)", () => {
+  it("fill and stroke agree on every shared (mode, value) pair", () => {
+    for (const { mode, hasValue, expect: expected } of PARITY) {
+      intentValues = {};
+      const value = hasValue ? makeRamp() : undefined;
+      if (mode !== undefined) intentValues = { fillStyleMode: mode };
+      expect(resolveFillMode(makeUI({}), "overlay1", value)).toBe(expected);
+      expect(resolveStrokeMode(mode, value)).toBe(expected);
+    }
+  });
+
+  it("a stored fill mode always wins over the value inference (fill side)", () => {
+    intentValues = { fillStyleMode: "original" };
+    expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("original");
+  });
+
+  it("no stored mode + no value config resolves to solid on both faces", () => {
+    intentValues = {};
+    expect(resolveFillMode(makeUI({}), "overlay1", undefined)).toBe("solid");
+    expect(resolveStrokeMode(undefined, undefined)).toBe("solid");
+  });
+});
+
+describe("mode resolution contract — fill side (Section B: migration criteria)", () => {
+  it("source files export the convergence symbols (unskippable)", () => {
+    const fillValue = sourceOf(
+      "foliplus/js/control/LayerControl/ui/style/fillValue.ts",
+    );
+    expect(isExported(fillValue, "resolveModeByValue"), "resolveModeByValue").toBe(
+      true,
+    );
+    expect(isExported(fillValue, "effectiveFaceValue"), "effectiveFaceValue").toBe(
+      true,
+    );
+  });
+
+  it("resolveModeByValue reproduces every parity row (S1)", () => {
+    for (const { mode, hasValue, expect: expected } of PARITY) {
+      expect(resolveModeByValue(mode, hasValue ? makeRamp() : undefined)).toBe(
+        expected,
+      );
+    }
+  });
+
+  it("resolveModeByValue matches the live fill resolver on every row (S1)", () => {
+    for (const { mode, hasValue } of PARITY) {
+      intentValues = {};
+      if (mode !== undefined) intentValues = { fillStyleMode: mode };
+      const value = hasValue ? makeRamp() : undefined;
+      expect(resolveModeByValue(mode, value)).toBe(
+        resolveFillMode(makeUI({}), "overlay1", value),
+      );
+    }
+  });
+
+  it.skipIf(!effectiveFaceValue)(
+    "effectiveFaceValue keeps fill's declared fallback and stroke's stored-only semantics",
+    () => {
+      // Four-cell truth table: (stored, declared) × allowDeclared.
+      const stored = makeRamp({ field: "storedCol" });
+      const layer = { options: { foliplus: { fill: { field: "declaredCol" } } } };
+      const ui = () =>
+        ({ c: { layerRegistry: new Map(), findLayer: () => layer } }) as any;
+
+      // Cell 1 + 2: stored present, declared present.
+      intentValues = { fillValue: stored };
+      expect(
+        effectiveFaceValue!(ui(), "overlay1", "fill", { allowDeclared: true }),
+      ).toEqual(stored);
+      expect(
+        effectiveFaceValue!(ui(), "overlay1", "stroke", { allowDeclared: false }),
+      ).toEqual(stored);
+      // Cell 3 + 4: no stored, declared present.
+      intentValues = {};
+      const fill = effectiveFaceValue!(ui(), "overlay1", "fill", {
+        allowDeclared: true,
+      });
+      expect(fill).toEqual(expect.objectContaining({ field: "declaredCol" }));
+      expect(
+        effectiveFaceValue!(ui(), "overlay1", "stroke", { allowDeclared: false }),
+      ).toBeUndefined();
+      // Cell 5: stored present, no declared.
+      intentValues = { fillValue: stored };
+      const noDeclared = {
+        c: { layerRegistry: new Map(), findLayer: () => ({ options: {} }) },
+      } as any;
+      expect(
+        effectiveFaceValue!(noDeclared, "overlay1", "fill", {
+          allowDeclared: true,
+        }),
+      ).toEqual(stored);
+      expect(
+        effectiveFaceValue!(noDeclared, "overlay1", "stroke", {
+          allowDeclared: false,
+        }),
+      ).toEqual(stored);
+    },
+  );
 });

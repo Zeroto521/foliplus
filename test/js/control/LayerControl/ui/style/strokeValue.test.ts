@@ -5,6 +5,9 @@
 // here directly with mock layers. The engine is deliberately decoupled from
 // the intent store: the caller supplies the live ramp / mode readers, so
 // this slice adds no persistence or intent-key edits.
+import { repoPath } from "#test/path.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StyleMode, ValueConfig } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
@@ -1018,5 +1021,22 @@ describe("applyValueStroke", () => {
       expect(out).not.toBeNull();
       expect(out!.color).toBe("#999");
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// task-81 migration contract — stroke side. The stroke face must wire the
+// shared resolver from fillValue.ts (not inline its own mode ?? (value ? value
+// : solid)), proven by the B0 source guard below.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("mode resolution contract — stroke side (Section B: migration criteria)", () => {
+  it("stroke side wires the shared resolver from fillValue (unskippable)", () => {
+    const strokeValue = readFileSync(
+      resolve(repoPath(), "foliplus/js/control/LayerControl/ui/style/strokeValue.ts"),
+      "utf-8",
+    ).replace(/\r\n/g, "\n");
+    expect(strokeValue).toMatch(/resolveModeByValue/);
+    expect(strokeValue).toMatch(/from\s+["']\.\/fillValue\.js["']/);
   });
 });
