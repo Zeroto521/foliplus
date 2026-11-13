@@ -8,7 +8,7 @@
 // split into this file to break the facade <-> mode import cycle (each mode and
 // the facade import this instead of each other).
 import type { LayerUI } from "../surface.js";
-import type { LayerInfo, ValueConfig } from "#core/layer/index.js";
+import { type LayerInfo, ROLE, type ValueConfig } from "#core/layer/index.js";
 import { METHOD } from "#core/value/index.js";
 
 type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
@@ -28,6 +28,23 @@ const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
 const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
   authorFill(ui, layerId)?.perFeature === true;
 
+/** Whether the layer is a solid-color basemap: a base layer whose fill is the
+ *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
+ *
+ *  `layerInfo.color` is the discriminator, not `layerInfo.canvas`: the color basemap *does*
+ *  carry a `canvas` (its face element, which the export renderer draws — see
+ *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
+ *  and silently drops its fill row. A heatmap canvas has no `color`, so it
+ *  still belongs to the canvas family and is excluded here.
+ *
+ *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
+ *  to route the color basemap's fill to `showSolidBasemap` instead of walking
+ *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
+const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
+  if (!layerInfo || layerInfo.styleSetters) return false;
+  return Boolean(layerInfo.color) && layerInfo.role === ROLE.BASE;
+};
+
 /** Display label for one classification method. Written as literal _()
  *  calls rather than `_("foliplus.classification_" + method)`: the
  *  locale-usage scanner only sees literal keys, and a template-built key
@@ -45,6 +62,6 @@ const methodLabel = (ui: LayerUI, method: ValueConfig["method"]): string => {
   }
 };
 
-export { authorFill, paintsPerFeatureFill, methodLabel };
+export { authorFill, isColorBasemap, paintsPerFeatureFill, methodLabel };
 
 export type { AuthorFill };

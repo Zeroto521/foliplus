@@ -1,3 +1,6 @@
+import { repoPath } from "#test/path.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   FACE,
@@ -628,6 +631,18 @@ describe("apply ownership", () => {
 // for solidColorOf moves to the S2 PR (staged per Lead m16122).
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Whether a module exports a name (inline or trailing export block). */
+const isExported = (source: string, name: string): boolean => {
+  if (new RegExp(`export\\s+(?:function|const|class)\\s+${name}\\b`).test(source)) {
+    return true;
+  }
+  const block = source.match(/export\s*\{([^}]*)\}/);
+  if (block) {
+    return new RegExp(`\\b${name}\\b`).test(block[1]);
+  }
+  return false;
+};
+
 let solidColorOf:
   | ((
       ui: unknown,
@@ -650,11 +665,19 @@ try {
 const contractUI = (entries: Array<[string, unknown]>): any => ({
   c: {
     layerRegistry: new Map(entries),
-    findLayer: (id: string) => entries.find(([k]) => k === id)?.[1],
+    findLayer: (id: string) => (entries.find(([k]) => k === id)?.[1] as any)?.layer,
   },
 });
 
 describe("mode resolution contract — styleBag (Section B: migration criteria)", () => {
+  it("styleBag exports solidColorOf (unskippable)", () => {
+    const styleBag = readFileSync(
+      resolve(repoPath(), "foliplus/js/control/LayerControl/ui/style/styleBag.ts"),
+      "utf-8",
+    ).replace(/\r\n/g, "\n");
+    expect(isExported(styleBag, "solidColorOf"), "solidColorOf").toBe(true);
+  });
+
   it.skipIf(!solidColorOf)(
     "solidColorOf excludes a basemap (excludeBasemap returns undefined)",
     () => {
@@ -682,6 +705,7 @@ describe("mode resolution contract — styleBag (Section B: migration criteria)"
       const leaf = () => ({
         options: { fillColor: baseColor, fillOpacity: 0.5, fill: true },
         setStyle: vi.fn(),
+        feature: { geometry: { type: "Polygon" } },
         eachLayer: undefined,
       });
       const leaves = [leaf(), leaf()];

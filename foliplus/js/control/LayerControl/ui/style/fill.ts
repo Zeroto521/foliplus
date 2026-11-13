@@ -22,7 +22,7 @@
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { paintsPerFeatureFill } from "./fillAuthor.js";
+import { isColorBasemap, paintsPerFeatureFill } from "./fillAuthor.js";
 import {
   applyValueFill,
   bindValueDetail,
@@ -60,6 +60,7 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  solidColorOf,
   styleBagOf,
   styleBaseOf,
   styleDimPayload,
@@ -67,9 +68,7 @@ import {
 } from "./styleBag.js";
 import {
   DIM,
-  type LayerInfo,
   type LayerOverride,
-  ROLE,
   STYLE_MODE,
   type StyleMode,
   type ValueConfig,
@@ -91,23 +90,6 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-
-/** Whether the layer is a solid-color basemap: a base layer whose fill is the
- *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
- *
- *  `layerInfo.color` is the discriminator, not `layerInfo.canvas`: the color basemap *does*
- *  carry a `canvas` (its face element, which the export renderer draws — see
- *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
- *  and silently drops its fill row. A heatmap canvas has no `color`, so it
- *  still belongs to the canvas family and is excluded here.
- *
- *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
- *  to route the color basemap's fill to `showSolidBasemap` instead of walking
- *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
-const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
-  if (!layerInfo || layerInfo.styleSetters) return false;
-  return Boolean(layerInfo.color) && layerInfo.role === ROLE.BASE;
-};
 
 /** Whether the layer's surface can honestly carry a fill write.
  *  Pure capability check: `capabilities.fill === "native"`.
@@ -225,9 +207,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // no derivable base either.
   const deriveSolidBase =
     solid && !isColorBasemap(layerInfo) && paintsPerFeatureFill(ui, layerId);
-  const solidColor = deriveSolidBase
-    ? (getIntent(ui, layerId, INTENT.FILL_COLOR) ?? styleBaseOf(ui, layerId).fillColor)
-    : getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const solidColor =
+    getIntent(ui, layerId, INTENT.FILL_COLOR) ??
+    (deriveSolidBase
+      ? solidColorOf(ui, layerId, FACE.FILL, { excludeBasemap: true })
+      : undefined);
   const color = original ? undefined : solidColor;
   const opacity = original ? undefined : getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
