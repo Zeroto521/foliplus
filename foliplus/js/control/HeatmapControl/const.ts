@@ -75,6 +75,11 @@ const CLASSES = {
   CLASS_COUNT_SELECT: "foliplus-heatmap-class-select",
   CLASS_PLACEHOLDER: "foliplus-heatmap-placeholder",
   HEATMAP_CTRL: "foliplus-heatmap-ctrl",
+  METHOD: "foliplus-heatmap-method",
+  CLASSES_COUNT: "foliplus-heatmap-classes-count",
+  FILL_BG: "foliplus-heatmap-fill-bg",
+  FILL_CENTER: "foliplus-heatmap-fill-center",
+  FILL_SECONDARY: "foliplus-heatmap-fill-secondary",
 };
 
 const SEL = {
