@@ -226,7 +226,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       // belongs to the menu keyboard branch; a manual Enter dispatch here
       // would double-run the action (the native click already did).
       const menuBtn = ((document.activeElement as HTMLElement | null)?.closest?.(
-        ".foliplus-layer-more-menu button",
+        `.${CONST.CLASSES.MORE_MENU} button`,
       ) ?? null) as HTMLElement | null;
       // The menu controller is rebuilt per open, so the keyboard path cannot
       // hold a persistent reference; the display state on the component is the
@@ -306,7 +306,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // not a new entry here.
   if (
     isNativeControl(target) ||
-    target.closest(".foliplus-layer-more-menu, .drag-handle")
+    target.closest(`.${CONST.CLASSES.MORE_MENU}, .drag-handle`)
   ) {
     return;
   }

@@ -11,6 +11,7 @@
 // layer may import it.
 const FORM_CLASS = {
   INPUT_SKIN: "foliplus-input-skin",
+  INPUT: "foliplus-input",
   FORM_SELECT: "foliplus-form-select",
 } as const;
 

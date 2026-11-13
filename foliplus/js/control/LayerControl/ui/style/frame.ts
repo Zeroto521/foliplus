@@ -4,6 +4,7 @@
 // the track's coordinate space.
 import type { LayerUI } from "../surface.js";
 import { buttonRow, panelButton, sectionDivider } from "#ui/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 
 /** Reset footer — divider + button, same vocabulary for the label
  *  and the delegated panel. */
@@ -13,7 +14,7 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
     buttonRow(
       panelButton({
         label: ui.T("style_reset"),
-        className: "foliplus-style-reset-btn",
+        className: CONST.CLASSES.STYLE_RESET_BTN,
       }),
     ),
   );

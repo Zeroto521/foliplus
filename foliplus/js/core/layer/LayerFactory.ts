@@ -34,6 +34,7 @@ import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import { throttleRaf } from "#platform/throttle.js";
+import { LABEL_CLASS } from "#ui/index.js";
 
 /** Dependency injection contract for LayerFactory. */
 interface LayerFactoryDeps {
@@ -538,7 +539,7 @@ class LayerFactory {
       // already styles). Drawing one pixel of it is not "canvas drawing" — it
       // keeps the fourth variant of viewport geometry from being born here.
       const face = dom.el("canvas", {
-        class: "foliplus-canvas-layer",
+        class: LABEL_CLASS.CANVAS_LAYER,
       }) as HTMLCanvasElement;
       const ctx = face.getContext("2d");
       if (!ctx) throw new Error(log.msg("color surface requires a 2d context"));
@@ -697,7 +698,7 @@ class LayerFactory {
     // Detached until `preRegister` mounts it: the pane is created at register
     // time so it can be priced at its slot from birth (see `mountFace`).
     const canvas = dom.el("canvas", {
-      class: "foliplus-canvas-layer",
+      class: LABEL_CLASS.CANVAS_LAYER,
     }) as HTMLCanvasElement;
     if (className) canvas.classList.add(className);
 

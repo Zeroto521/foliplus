@@ -18,6 +18,9 @@ const LABEL_CLASS = {
   STYLE_COLLIDE_INPUT: "foliplus-style-collide-input",
   STYLE_LABEL_COLOR_INPUT: "foliplus-style-label-color-input",
   STYLE_LABEL_SIZE_INPUT: "foliplus-style-label-size-input",
+  CANVAS_LAYER: "foliplus-canvas-layer",
+  CANVAS: "foliplus-label-canvas",
+  PANE: "foliplus-label-pane",
 } as const;
 
 export { LABEL_CLASS };

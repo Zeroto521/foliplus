@@ -11,6 +11,7 @@ import { setLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import {
   type CanvasLabelStyle,
+  LABEL_CLASS,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
@@ -37,7 +38,7 @@ class LabelCanvas {
     // events are handed down by the base `.foliplus-layer-pane` rule, no inline
     // style needed. Without it the pane's hit-test rule would turn this canvas
     // `auto`, swallowing every click over the map.
-    this.canvas.className = "foliplus-label-canvas foliplus-canvas-layer";
+    this.canvas.className = `${LABEL_CLASS.CANVAS} ${LABEL_CLASS.CANVAS_LAYER}`;
     this.canvas.style.position = "absolute";
     this.canvas.style.inset = "0";
     pane.appendChild(this.canvas);
