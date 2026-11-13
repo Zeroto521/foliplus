@@ -186,4 +186,17 @@ describe("main --root handling", () => {
       logSpy.mockRestore();
     }
   });
+
+  it("falls back to cwd when --root has no value", () => {
+    // A dangling --root (no value after it) is malformed argv. The guard
+    // must not crash: override is undefined, root stays process.cwd(), and
+    // scan runs against the repo core tree (which is clean).
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(main(["--root"])).toBe(0);
+      expect(logSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });

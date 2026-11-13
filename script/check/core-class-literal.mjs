@@ -80,9 +80,6 @@ const main = (argv = [], root = process.cwd()) => {
   // v8 attributes each arm of the fallback independently.
   if (rootIdx !== -1) {
     const override = argv[rootIdx + 1];
-    /* v8 ignore next -- defensive: --root is always followed by a value in
-     *  both the CLI and the lint chain, so the undefined-arm is unreachable
-     *  from any real caller. Kept for argv-shape safety, not tested. */
     if (override !== undefined) root = path.resolve(override);
   }
   const hits = scan(root);
