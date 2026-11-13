@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEL_ICON_CHAR } from "#core/leaflet/index.js";
 import { generateId } from "#core/lifecycle/index.js";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 
 describe("TIMING", () => {
@@ -54,7 +55,7 @@ describe("LABEL anchors", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.ACTIVE).toBe("foliplus-is-active");
+    expect(PANEL_CLASS.ACTIVE).toBe("foliplus-is-active");
     expect(CONST.CLASSES.MEASURING).toBe("foliplus-measuring");
     expect(CONST.CLASSES.PATH_SOLID).toContain("foliplus-measure-path-solid");
     expect(CONST.CLASSES.PATH_DASHED).toContain("foliplus-measure-path-dashed");

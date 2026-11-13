@@ -210,8 +210,8 @@ const showCropBox = (mgr: ExportManager) => {
       onclick: () => mgr.removeCropBox(),
     },
   });
-  mgr.exportCtrl?.classList.remove(CONST.CLASSES.COLLAPSED);
-  mgr.exportCtrl?.classList.add(CONST.CLASSES.EXPANDED);
+  mgr.exportCtrl?.classList.remove(PANEL_CLASS.COLLAPSED);
+  mgr.exportCtrl?.classList.add(PANEL_CLASS.EXPANDED);
 
   mgr.cropState = {
     overlay,
@@ -313,8 +313,8 @@ const removeCropBox = (mgr: ExportManager) => {
   if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
   if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
   if (mgr.exportCtrl) {
-    mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
-    mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
+    mgr.exportCtrl.classList.remove(PANEL_CLASS.EXPANDED);
+    mgr.exportCtrl.classList.add(PANEL_CLASS.COLLAPSED);
   }
   mgr.cropState = null;
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).

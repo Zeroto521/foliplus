@@ -49,6 +49,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
  *  This is the filter's whole domain and its option order: the panel offers
@@ -677,7 +678,7 @@ class MeasureManager {
     this.modes.setMode(this.config.name, mode);
 
     this.toolBtns.forEach(btn =>
-      btn.classList.toggle(CONST.CLASSES.ACTIVE, btn.dataset.mode === mode),
+      btn.classList.toggle(PANEL_CLASS.ACTIVE, btn.dataset.mode === mode),
     );
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
@@ -959,7 +960,7 @@ class MeasureManager {
     this.map.getContainer().classList.toggle(CONST.CLASSES.EDITING, on);
     this.toolBtns.forEach(btn => {
       if (btn.dataset.mode === CONST.MEASURE_MODE.EDIT) {
-        btn.classList.toggle(CONST.CLASSES.ACTIVE, on);
+        btn.classList.toggle(PANEL_CLASS.ACTIVE, on);
       }
     });
     // Node drag is tied to edit mode (not the overlay): entering edit makes
@@ -991,7 +992,7 @@ class MeasureManager {
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
     this.modes.setMode(this.config.name, null);
-    this.toolBtns.forEach(btn => btn.classList.remove(CONST.CLASSES.ACTIVE));
+    this.toolBtns.forEach(btn => btn.classList.remove(PANEL_CLASS.ACTIVE));
     this.map.foliplus!.hideHint(this.config.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
@@ -1029,8 +1030,8 @@ class MeasureManager {
           "collapse-panel",
           () => {
             if (!this.ctrl) return;
-            this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-            this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+            this.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+            this.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
             adjustPanelZIndex({ container: this.ctrl, expanded: false });
           },
         ],

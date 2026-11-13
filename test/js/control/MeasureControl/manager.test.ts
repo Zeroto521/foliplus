@@ -3,6 +3,7 @@ import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.j
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { FILTER_SOURCE, FILTER_STORE_KEY } from "#core/layer/index.js";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
 
@@ -309,7 +310,7 @@ describe("MeasureManager — mode switching", () => {
     btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
     manager.toolBtns = [btn];
     manager.setMode(CONST.MEASURE_MODE.MARKER);
-    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(btn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(true);
   });
 
   it("setMode completes its UI sync when a MODE_CHANGE consumer throws", () => {
@@ -325,7 +326,7 @@ describe("MeasureManager — mode switching", () => {
 
     expect(() => manager.setMode(CONST.MEASURE_MODE.MARKER)).not.toThrow();
 
-    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(btn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(true);
     expect(manager.currentMode).toBe(CONST.MEASURE_MODE.MARKER);
   });
 
@@ -388,8 +389,8 @@ describe("MeasureManager — applyEditMode", () => {
     manager.applyEditMode(true);
 
     expect(manager.isEditMode).toBe(true);
-    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
-    expect(otherBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(true);
+    expect(otherBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
     expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
       "MeasureControl",
       expect.any(String),
@@ -419,7 +420,7 @@ describe("MeasureManager — applyEditMode", () => {
     manager.applyEditMode(false);
 
     expect(manager.isEditMode).toBe(false);
-    expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
     expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
     expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
   });
@@ -693,10 +694,10 @@ describe("MeasureManager — persistence edge cases", () => {
   it("clearAll collapses expanded panel when ctrl exists", () => {
     const { manager } = makeManager();
     const ctrl = document.createElement("div");
-    ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.classList.add(PANEL_CLASS.EXPANDED);
     manager.ctrl = ctrl;
     manager.clearAll();
-    expect(ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+    expect(ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
   });
 
   it("clearAll is safe when ctrl is null", () => {

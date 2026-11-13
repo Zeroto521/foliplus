@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/ExportControl/const.js";
 
 // ===========================================================================
@@ -164,7 +165,7 @@ describe("MIME_LOSSLESS", () => {
 
 describe("CLASSES", () => {
   it("defines CSS class constants", () => {
-    expect(CONST.CLASSES.COLLAPSED).toBe("foliplus-is-collapsed");
+    expect(PANEL_CLASS.COLLAPSED).toBe("foliplus-is-collapsed");
     expect(CONST.CLASSES.LOCKED).toBe("foliplus-locked");
     expect(CONST.CLASSES.DRAGGING).toBe("foliplus-is-dragging");
     // Hit-testing identity stays a single token — `classList.contains` does

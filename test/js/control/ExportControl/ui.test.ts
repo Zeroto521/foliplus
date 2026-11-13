@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { createScopedTranslator } from "#platform/locale.js";
+import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/ExportControl/const.js";
 import { type CropState, ExportManager } from "#control/ExportControl/manager.js";
 import {
@@ -90,7 +91,7 @@ describe("ExportControl ui — extra hint and toolbar paths", () => {
     const cancelUnlocked = buttons().find(b => b.title === manager.T("btn_cancel"));
     cancelUnlocked!.click();
     expect(manager.cropState).toBeNull();
-    expect(ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(true);
+    expect(ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
     expect(manager.map.foliplus.hideHint).toHaveBeenCalled();
   });
 });
