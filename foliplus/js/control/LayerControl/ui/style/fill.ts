@@ -412,7 +412,7 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
   // painting the author's own colours (or the layer's own defaults), so the
   // honest readout is ORIGINAL — SOLID would claim "the user picked a colour"
   // when the row is really a state readout of what the map shows (lead
-  // m14358). An opacity-only override still rides both modes (#953): a user
+  // An opacity-only override still rides both modes (#953): a user
   // who only tuned transparency never asked for a single colour, so it never
   // sinks the mode to SOLID either.
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined && value === undefined) {
@@ -535,7 +535,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const options = [
     // ORIGINAL is now always offered for a fill-capable layer: the map is
     // always painting something, and the author's own colours (or the layer
-    // defaults) are the honest baseline readout (lead m14358). The
+    // defaults) are the honest baseline readout. The
     // per-feature note is a tooltip/description only when the author painted
     // per feature; a single-colour author offers the same state without the
     // "per feature" sentence.

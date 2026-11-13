@@ -1,5 +1,5 @@
 // originalDetail.test.ts
-// The original-colours detail's P2 contract (the monochrome original readout, lead m14178):
+// The original-colours detail's P2 contract (the monochrome original readout):
 //
 // A monochrome author's ORIGINAL mode reads as ONE form-row holding the author's
 // colour swatch and fill opacity side by side, both readOnlyValue boxes — the

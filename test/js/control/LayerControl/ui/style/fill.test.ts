@@ -2348,8 +2348,12 @@ describe("buildFillRow", () => {
 
     expect(select.querySelector('option[value="value"]')).toBeNull();
 
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
-
+    // The colour block reuses the SOLID chrome but as a read-only div (no
+    // editable input, no number field) — the ORIGINAL baseline is a state
+    // readout, not a control.
+    const colorBlock = row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`);
+    expect(colorBlock).not.toBeNull();
+    expect(colorBlock?.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`)).toBeNull();
   });
 
@@ -2358,17 +2362,22 @@ describe("buildFillRow", () => {
 
     const fillRows = row.querySelectorAll(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
 
-    // The default state is ORIGINAL (no intent, m14358): the monochrome
+    // The default state is ORIGINAL (no intent): the monochrome
 
-    // readout is one row [swatch | opacity], both readonly, no editable inputs.
+    // readout is one row [colour | opacity], both readonly, no editable inputs.
 
     expect(fillRows.length).toBe(2);
 
     const detailRow = fillRows[1];
 
-    expect(
-      detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
-    ).toBeNull();
+    // The monochrome colour block reuses the SOLID row's own chrome
+    // (STYLE_FILL_COLOR_INPUT), so it is present — but as a read-only div,
+    // not an editable input: the readonly marker and no number input.
+    const colorBlock = detailRow.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    );
+    expect(colorBlock).not.toBeNull();
+    expect(colorBlock?.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
 
     expect(
       detailRow.querySelector(`.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`),
@@ -2491,8 +2500,10 @@ describe("buildFillRow", () => {
 
     expect(row.textContent).toContain("20%");
 
+    // The monochrome colour block reuses the SOLID row's own chrome
+    // (STYLE_FILL_COLOR_INPUT) — the default fallback paints it.
     expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`),
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
   });
 
@@ -2515,8 +2526,10 @@ describe("buildFillRow", () => {
 
     expect(row.textContent).toContain("20%");
 
+    // The monochrome colour block reuses the SOLID row's own chrome
+    // (STYLE_FILL_COLOR_INPUT) — the default fallback paints it.
     expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`),
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
   });
 
@@ -5100,13 +5113,11 @@ describe("fill row — original colors", () => {
     expect(strip.style.background).toBe("rgb(204, 204, 204)");
   });
 
-  it("paints the monochrome swatch as a fixed-size block, not a stretched strip", async () => {
-    // Lead m15473 ③: the monochrome ORIGINAL row's colour readout was the
-    // cmap strip's flex:1 class, which beside the opacity readout is squeezed
-    // to a vertical slit. The row now uses the dedicated SWATCH class — a
-    // fixed ctrl-size square (style.css gives it width/height = ctrl-size and
-    // flex-shrink:0). jsdom has no layout engine, so the non-zero visible size
-    // is enforced by the class contract + the stylesheet rule, not a rect.
+  it("reuses the solid row colour chrome for the monochrome original block", async () => {
+    // The monochrome ORIGINAL colour block must use the SAME chrome as the
+    // SOLID row (STYLE_FILL_COLOR_INPUT) so the two paint one box — flex:1,
+    // ctrl-size tall, one border, one radius — and the colour fills the whole
+    // block instead of a small square floating in an empty frame.
     installLeafletGlobals();
     const layer = makeFillableLayer();
     const { ui } = initFixture({
@@ -5121,25 +5132,25 @@ describe("fill row — original colors", () => {
       ],
     });
     const row = blockOf(ui);
-    const swatch = row.querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_SWATCH}`,
+    const colorBlock = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLElement | null;
-    // The monochrome row MUST use the swatch class and MUST NOT use the
-    // flex:1 strip — the two facts that separate a visible square from a slit.
-    expect(swatch).not.toBeNull();
+    // The monochrome row MUST use the SOLID chrome class.
+    expect(colorBlock).not.toBeNull();
+    // ...and it must NOT use the cmap strip (the flex:1 strip belongs to the
+    // per-feature multi-row form the monochrome row no longer paints).
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP}`)).toBeNull();
-    // The stylesheet rule pins the fixed geometry (a real box, not flex:1).
-    // Read the rule text with node:fs (vitest's jsdom never loads the CSS
-    // files, so document.styleSheets is empty here) and assert the class + the
-    // fixed width declaration are present — the facts that separate a visible
-    // square from a flex:1 slit.
+    // The block is read-only (no colour picker interaction) and carries the
+    // author's colour as its own background, filling the whole box.
+    expect(colorBlock?.classList.contains(PANEL_CLASS.READONLY)).toBe(true);
+    expect(colorBlock?.getAttribute("role")).toBe("img");
+    expect(colorBlock?.style.background).toBe("rgb(170, 187, 204)");
+    // The old fixed-size square class is gone entirely: the stylesheet no
+    // longer defines it, so nothing can re-introduce the floating-square
+    // layout.
     const { readFileSync } = await import("node:fs");
     const css = readFileSync("foliplus/css/control/LayerControl/style.css", "utf8");
-    expect(css).toContain(".foliplus-style-fill-original-swatch");
-    expect(css).toMatch(/width: var\(--foliplus-ctrl-size\)/);
-    // The strip rule legitimately stays for the cmap path; what the
-    // querySelector assertions above already prove is that the monochrome
-    // row's element uses the swatch class, not the strip class.
+    expect(css).not.toContain(".foliplus-style-fill-original-swatch");
   });
   it("reads the default constants when the per-feature record carries no author data", async () => {
     // originalCaption/originalCount/originalGradient all guard `author?.` — a
@@ -5485,7 +5496,7 @@ describe("fill row — original colors option", () => {
 
     // Single-colour author, no intent: the honest baseline is ORIGINAL
 
-    // (m14358), and the option is now always offered.
+    // and the option is now always offered.
 
     expect(select.value).toBe("original");
 
@@ -6035,7 +6046,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     expect(mode.title).toBe("");
 
-    // ORIGINAL is now always offered for a fill-capable layer (m14358), even
+    // ORIGINAL is now always offered for a fill-capable layer, even
 
     // beside a declared ramp; the declared ramp still reads first.
 
@@ -6239,7 +6250,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     // authored solid face stays — which reads as the author's original
 
-    // colours (m14358), not a claimed solid.
+    // colours, not a claimed solid.
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
   });
@@ -6373,7 +6384,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     // the original baseline instead of painting a column the author never
 
-    // named (m14358).
+    // named.
 
     expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
 
@@ -7596,7 +7607,7 @@ describe("category field fill — string-only layer", () => {
 
     expect(select.querySelector(`option[value="value"]`)).not.toBeNull();
 
-    // ORIGINAL is always offered for a fill-capable layer (m14358).
+    // ORIGINAL is always offered for a fill-capable layer.
 
     expect(select.querySelector(`option[value="original"]`)).not.toBeNull();
   });
@@ -8247,7 +8258,7 @@ describe("fill original availability (P1)", () => {
   });
 
   it("stays original when only the opacity was overridden (no color/mode intent)", () => {
-    // #953 invariant (lead m14358 ④): an opacity-only override still paints the
+    // #953 invariant: an opacity-only override still paints the
 
     // author's colors — the mode readout must say ORIGINAL, not SOLID. A user
 

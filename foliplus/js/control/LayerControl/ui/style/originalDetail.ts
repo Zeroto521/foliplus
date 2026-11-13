@@ -14,7 +14,13 @@ import { originalGradient } from "./originalColor.js";
 import { type StyleCarrier, styleBagOf, walkFillLeaves } from "./styleBag.js";
 import { METHOD } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
-import { formRow, inlineControls, readOnlyValue } from "#ui/index.js";
+import {
+  FORM_CLASS,
+  PANEL_CLASS,
+  formRow,
+  inlineControls,
+  readOnlyValue,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** A visible `fillOpacity` used to *display* the original readout's opacity
@@ -234,16 +240,23 @@ const authorFillPaint = (
 const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const paint = authorFillPaint(ui, layerId);
   const pct = paint.opacity !== null ? paint.opacity : VISIBLE_FILL_OPACITY;
-  const colorBox = readOnlyValue(
-    {
-      className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS}`,
-      role: "img",
-    },
-    dom.el("div", {
-      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_SWATCH,
-      style: `background:${paint.color}`,
-    }),
-  );
+  // The read-only colour block reuses the SOLID row's own chrome verbatim:
+  // the same shared form-color-input element and the same component class, so
+  // the two rows paint the same box — flex:1, ctrl-size tall, one border, one
+  // radius, the colour filling the whole block. Only the interaction differs:
+  // a div is not focusable and carries an accessible name naming the colour
+  // and the percentage instead of a colour picker.
+  const colorBox = dom.el("div", {
+    // The SOLID row's own chrome (form-color-input + the component class) with
+    // the shared readonly marker on top: same box as the editable colour input,
+    // but the input.css hover/focus rule skips it via :not(.foliplus-readonly)
+    // and the background is the colour itself, not the picker swatch.
+    class: `${FORM_CLASS.COLOR_INPUT} ${PANEL_CLASS.READONLY} ${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    style: `background:${paint.color};cursor:default`,
+    role: "img",
+    "aria-label": `${ui.T("style_fill")} ${paint.color} ${Math.round(pct * 100)}%`,
+    "aria-disabled": "true",
+  });
   const opacityBox = readOnlyValue(
     { className: CONST.CLASSES.STYLE_FILL_READONLY },
     dom.el(

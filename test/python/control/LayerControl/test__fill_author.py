@@ -1231,7 +1231,7 @@ class TestDeclaredFillBrowser:
             assert initial["mode"] == "value", initial
             # P1 makes the original-colours state always available for a
             # fill-capable layer, even when the author painted a single colour
-            # (lead m14358). The declaration is the by-value mode, but the
+            # The declaration is the by-value mode, but the
             # option is offered alongside it.
             assert initial["originalAvailable"] is True, initial
             assert initial["hasSwatch"] is False, initial
