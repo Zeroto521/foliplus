@@ -2690,12 +2690,16 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 max_label = labels["max"]
                 if min_label and max_label:
                     if mirrored:
-                        assert max_label["box"]["right"] <= min_label["box"]["left"] + 0.5, (
+                        assert (
+                            max_label["box"]["right"] <= min_label["box"]["left"] + 0.5
+                        ), (
                             f"{name} end numbers overlap: {min_label['box']} vs "
                             f"{max_label['box']}"
                         )
                     else:
-                        assert min_label["box"]["right"] <= max_label["box"]["left"] + 0.5, (
+                        assert (
+                            min_label["box"]["right"] <= max_label["box"]["left"] + 0.5
+                        ), (
                             f"{name} end numbers overlap: {min_label['box']} vs "
                             f"{max_label['box']}"
                         )
