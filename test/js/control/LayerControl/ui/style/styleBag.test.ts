@@ -734,4 +734,40 @@ describe("mode resolution contract — styleBag (Section B: migration criteria)"
       expect(got).toBe(baseColor);
     },
   );
+
+  it.skipIf(!solidColorOf)(
+    "solidColorOf returns undefined for an unregistered layer",
+    () => {
+      const ui = contractUI([]);
+      expect(solidColorOf!(ui, "ghost", "fill")).toBeUndefined();
+    },
+  );
+
+  it.skipIf(!solidColorOf)(
+    "solidColorOf reads the stroke colour when the face is stroke",
+    () => {
+      const baseColor = "#334455";
+      const leaf = () => ({
+        options: { color: baseColor, weight: 2 },
+        setStyle: vi.fn(),
+        eachLayer: undefined,
+      });
+      const parent = {
+        options: {},
+        eachLayer: vi.fn((fn: (c: unknown) => void) => [leaf()].forEach(c => fn(c))),
+      } as never;
+      const ui = contractUI([
+        [
+          "stroke1",
+          {
+            id: "stroke1",
+            name: "Stroke",
+            role: "overlay",
+            layer: parent,
+          },
+        ],
+      ]);
+      expect(solidColorOf!(ui, "stroke1", "stroke")).toBe(baseColor);
+    },
+  );
 });
