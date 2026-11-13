@@ -10,6 +10,7 @@ import {
   freezeSectionOrder,
   fullDisplayOrder,
   normalizeFolderName,
+  renameFolderInOrder,
   sectionOrder,
 } from "#core/layer/index.js";
 
@@ -268,5 +269,50 @@ describe("third-party same-name-same-role grouping", () => {
     const baseOrder = sectionOrder("base", entries, EMPTY);
     expect(overlayOrder.map(l => l.id)).toEqual(["third-overlay"]);
     expect(baseOrder.map(l => l.id)).toEqual(["third-base"]);
+  });
+});
+
+describe("renameFolderInOrder", () => {
+  it("replaces the old key with the new key at the same position", () => {
+    const order = {
+      version: 1 as const,
+      sections: { overlay: ["roads", "water", "parks"] },
+    };
+    const out = renameFolderInOrder("overlay", "Roads", "Streets", order);
+    expect(out.sections.overlay).toEqual(["streets", "water", "parks"]);
+  });
+
+  it("does not move the block when the new key already exists (collision guarded upstream)", () => {
+    const order = { version: 1 as const, sections: { overlay: ["roads", "water"] } };
+    const out = renameFolderInOrder("overlay", "Water", "Streets", order);
+    expect(out.sections.overlay).toEqual(["roads", "streets"]);
+  });
+
+  it("leaves the order untouched when the old key is not listed", () => {
+    const order = { version: 1 as const, sections: { overlay: ["roads"] } };
+    const out = renameFolderInOrder("overlay", "NeverListed", "Streets", order);
+    expect(out).toBe(order);
+  });
+
+  it("is a no-op (same reference) for a normalisation-identical rename", () => {
+    const order = { version: 1 as const, sections: { overlay: ["roads"] } };
+    const out = renameFolderInOrder("overlay", "Roads", "roads", order);
+    expect(out).toBe(order);
+  });
+
+  it("does not touch other sections", () => {
+    const order = {
+      version: 1 as const,
+      sections: { overlay: ["roads"], base: ["roads"] },
+    };
+    const out = renameFolderInOrder("overlay", "Roads", "Streets", order);
+    expect(out.sections.overlay).toEqual(["streets"]);
+    expect(out.sections.base).toEqual(["roads"]);
+  });
+
+  it("normalises both keys before comparing", () => {
+    const order = { version: 1 as const, sections: { overlay: ["roads", "water"] } };
+    const out = renameFolderInOrder("overlay", "  Roads  ", "  Streets  ", order);
+    expect(out.sections.overlay).toEqual(["streets", "water"]);
   });
 });

@@ -55,6 +55,7 @@ import {
   findLayer,
   freezeSectionOrder,
   normalizeFolderName,
+  renameFolderInOrder,
   visibleDomOf,
   walkLeaf,
   zFor,
@@ -1635,6 +1636,132 @@ class LayerController implements LayerAPI {
     }
     if (retired.error) throw retired.error;
     operation.throwIfFailed();
+    return true;
+  }
+
+  /** Explicitly create one (possibly empty) folder block in one section.
+   *
+   *  This is the user-facing counterpart of the empty-folder freeze (#911)
+   *  for the CREATE direction: a folder with no live member is materialised
+   *  into `folderOrder` via {@link freezeSectionOrder} so the block survives
+   *  at the section tail (a section that was never frozen anchors it by
+   *  member position; a frozen section appends it at the tail — invariant 9).
+   *
+   *  Returns false (and writes nothing) when the name is blank after
+   *  normalisation, or when a folder with the same normalised name already
+   *  exists in this section (identity key collision). A different section may
+   *  freely reuse the same name — base and overlay folders are distinct.
+   *
+   * @param section - The UI section (role) the folder belongs to.
+   * @param name - The folder's display name (normalised for the key).
+   * @param opts - Optional control over persistence.
+   * @returns true when the folder was created, false otherwise.
+   */
+  createFolder(
+    section: FolderSection,
+    name: string,
+    opts?: { persist?: boolean },
+  ): boolean {
+    const key = normalizeFolderName(name);
+    if (key === "") return false;
+    const listed = this.folderOrder.sections[section] ?? [];
+    if (listed.includes(key)) return false;
+    if (
+      this.layerRegistry.layers.some(
+        l =>
+          l.role === section &&
+          l.folder != null &&
+          normalizeFolderName(l.folder) === key,
+      )
+    ) {
+      return false;
+    }
+    // Materialise the empty folder at the tail: append the new key to the
+    // section's listed order, preserving every existing key (a persisted empty
+    // folder must survive). The registry is unchanged (no members added), so
+    // the block has no anchor yet and lands at the end of the listed segment;
+    // a frozen section likewise appends at the tail (invariant 9).
+    this.folderOrder = {
+      ...this.folderOrder,
+      sections: { ...this.folderOrder.sections, [section]: [...listed, key] },
+    };
+    this.layerRegistry.normalizeGroups(this.folderOrder);
+
+    if (opts?.persist !== false) {
+      this.persistence.schedule({ folderOrder: () => this.folderOrder });
+      this.persistence.flushAll();
+    }
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Rename one folder block in one section.
+   *
+   *  The rename changes the folder's identity key AND every live member's
+   *  `folder` display spelling, but NEVER moves the block: the old key is
+   *  replaced by the new key at the same position in `folderOrder` (rev2
+   *  §1.2). A rename of a folder that is not listed (anchor-ordered, never
+   *  frozen) leaves `folderOrder` untouched — the block stays unlisted and
+   *  its members move with it because their `folder` spelling changed.
+   *
+   *  Returns false (and writes nothing) when the old folder does not exist in
+   *  this section, when the new name is blank after normalisation, or when a
+   *  folder with the same normalised new name already exists in this section
+   *  (other than the old folder itself — a normalisation-only rename is a
+   *  no-op that returns true without writing).
+   *
+   * @param section - The UI section (role) the folder belongs to.
+   * @param oldName - The folder's current display name.
+   * @param newName - The folder's new display name.
+   * @param opts - Optional control over persistence.
+   * @returns true when the folder was renamed, false otherwise.
+   */
+  renameFolder(
+    section: FolderSection,
+    oldName: string,
+    newName: string,
+    opts?: { persist?: boolean },
+  ): boolean {
+    const oldKey = normalizeFolderName(oldName);
+    const newKey = normalizeFolderName(newName);
+    if (newKey === "") return false;
+    if (oldKey === newKey) return true; // normalisation-only rename: no-op
+    const listed = this.folderOrder.sections[section] ?? [];
+    if (!listed.includes(oldKey)) {
+      // Not listed: check for live members so the folder "exists" here too.
+      const hasLive = this.layerRegistry.layers.some(
+        l =>
+          l.role === section &&
+          l.folder != null &&
+          normalizeFolderName(l.folder) === oldKey,
+      );
+      if (!hasLive) return false;
+    } else if (listed.includes(newKey)) {
+      return false; // collision with a different folder in the same section
+    }
+    const hasLiveCollision = this.layerRegistry.layers.some(
+      l =>
+        l.role === section &&
+        l.folder != null &&
+        normalizeFolderName(l.folder) === newKey &&
+        normalizeFolderName(l.folder) !== oldKey,
+    );
+    if (hasLiveCollision) return false;
+
+    for (const member of this.layerRegistry.layers) {
+      if (member.role !== section || member.folder == null) continue;
+      if (normalizeFolderName(member.folder) === oldKey) {
+        member.folder = newName;
+      }
+    }
+    this.folderOrder = renameFolderInOrder(section, oldName, newName, this.folderOrder);
+    this.layerRegistry.normalizeGroups(this.folderOrder);
+
+    if (opts?.persist !== false) {
+      this.persistence.schedule({ folderOrder: () => this.folderOrder });
+      this.persistence.flushAll();
+    }
+    if (this.ui) this.ui.reindexAfterMove();
     return true;
   }
 
