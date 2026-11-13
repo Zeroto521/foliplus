@@ -162,6 +162,10 @@ const renderRangeBody = (
       { at: dim.range[0], tone: "limit" },
       { at: dim.range[1], tone: "limit" },
     ],
+    // S1: the filter's two end values stay visible at all times (not just
+    // during a drag/focus). The shared bubble is portaled to <body>, so this
+    // adds no panel layout; opacity/zoom-range do not opt in.
+    alwaysVisible: true,
     disabled: dim.range[0] === dim.range[1],
     input: value => deps.write(atomOf(dim.field, value as [number, number])),
     change: value => deps.write(atomOf(dim.field, value as [number, number])),
