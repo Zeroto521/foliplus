@@ -1,0 +1,12 @@
+﻿
+foliplus.SearchControl
+======================
+
+.. currentmodule:: foliplus
+
+.. autoclass:: SearchControl
+   :members:
+   :undoc-members:
+   :inherited-members:
+   :show-inheritance:
+   :special-members: __init__

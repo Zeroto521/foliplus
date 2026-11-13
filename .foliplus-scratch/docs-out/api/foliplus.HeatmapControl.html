@@ -1,0 +1,911 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>foliplus.HeatmapControl &#8212; foliplus 0.4.2.dev181+gcbf9347d8.d20261104 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=680c9987" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=e702e1e8"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=59dd9b28"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/foliplus.HeatmapControl';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <script defer="defer" src="../_static/icon.js?v=9d107278"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="foliplus.LayerControl" href="foliplus.LayerControl.html" />
+    <link rel="prev" title="foliplus.FullscreenControl" href="foliplus.FullscreenControl.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4.2.dev181+gcbf9347d8.d20261104" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">foliplus</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../quickstart.html">
+    Quickstart
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../changelog.html">
+    <no title>
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Zeroto521/foliplus" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/foliplus" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-lg" data-prefix="fa-custom" data-icon="pypi" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../quickstart.html">
+    Quickstart
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../changelog.html">
+    <no title>
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Zeroto521/foliplus" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/foliplus" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-lg" data-prefix="fa-custom" data-icon="pypi" aria-hidden="true"></i><span class="visually-hidden">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="foliplus.BaseControl.html">foliplus.BaseControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.ExportControl.html">foliplus.ExportControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.FullscreenControl.html">foliplus.FullscreenControl</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">foliplus.HeatmapControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.LayerControl.html">foliplus.LayerControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.LocaleConfig.html">foliplus.LocaleConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.LocateControl.html">foliplus.LocateControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.MeasureControl.html">foliplus.MeasureControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.ScaleControl.html">foliplus.ScaleControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.SearchControl.html">foliplus.SearchControl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="foliplus.locale.html">foliplus.locale</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../api.html" class="nav-link">API Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">foliplus.HeatmapControl</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="foliplus-heatmapcontrol">
+<h1>foliplus.HeatmapControl<a class="headerlink" href="#foliplus-heatmapcontrol" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">foliplus.</span></span><span class="sig-name descname"><span class="pre">HeatmapControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">*,</span> <span class="pre">position:</span> <span class="pre">~typing.Literal['topleft',</span> <span class="pre">'topright',</span> <span class="pre">'bottomleft',</span> <span class="pre">'bottomright']</span> <span class="pre">=</span> <span class="pre">'topleft',</span> <span class="pre">layer:</span> <span class="pre">~typing.Annotated[str</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Point</span> <span class="pre">layer</span> <span class="pre">name</span> <span class="pre">selected</span> <span class="pre">on</span> <span class="pre">first</span> <span class="pre">load;</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">selection</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">agg:</span> <span class="pre">~typing.Literal['count',</span> <span class="pre">'sum',</span> <span class="pre">'avg',</span> <span class="pre">'min',</span> <span class="pre">'max']</span> <span class="pre">=</span> <span class="pre">'count',</span> <span class="pre">field:</span> <span class="pre">~typing.Annotated[str</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Aggregation</span> <span class="pre">field</span> <span class="pre">selected</span> <span class="pre">on</span> <span class="pre">first</span> <span class="pre">load</span> <span class="pre">(and</span> <span class="pre">the</span> <span class="pre">field</span> <span class="pre">a</span> <span class="pre">declared</span> <span class="pre">filter</span> <span class="pre">range</span> <span class="pre">binds</span> <span class="pre">to);</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">selection</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">filter:</span> <span class="pre">~typing.Annotated[dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Declared</span> <span class="pre">filter</span> <span class="pre">on</span> <span class="pre">the</span> <span class="pre">aggregation</span> <span class="pre">field:</span> <span class="pre">a</span> <span class="pre">mapping</span> <span class="pre">with</span> <span class="pre">min</span> <span class="pre">and</span> <span class="pre">max</span> <span class="pre">(bound</span> <span class="pre">to</span> <span class="pre">field=),</span> <span class="pre">normalised</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">shared</span> <span class="pre">filter</span> <span class="pre">AST;</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">filter</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">method:</span> <span class="pre">~typing.Literal['jenks',</span> <span class="pre">'quantile',</span> <span class="pre">'equal',</span> <span class="pre">'heads']</span> <span class="pre">=</span> <span class="pre">'jenks',</span> <span class="pre">num_classes:</span> <span class="pre">~typing.Annotated[int,</span> <span class="pre">~foliplus._validate.Bound(low=2,</span> <span class="pre">high=9,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">6,</span> <span class="pre">color_scheme:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'Reds',</span> <span class="pre">schemes:</span> <span class="pre">~typing.Annotated[list[str],</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Available</span> <span class="pre">color</span> <span class="pre">scheme</span> <span class="pre">names.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">['Blues',</span> <span class="pre">'Greens',</span> <span class="pre">'Reds',</span> <span class="pre">'Oranges',</span> <span class="pre">'Purples',</span> <span class="pre">'YlOrRd',</span> <span class="pre">'Viridis'],</span> <span class="pre">border_color:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'#333333',</span> <span class="pre">border_weight:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=None,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">1.5,</span> <span class="pre">border_opacity:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=1.0,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">0.9,</span> <span class="pre">fill_opacity:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=1.0,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">0.7,</span> <span class="pre">label_show:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">label_color:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'#fff',</span> <span class="pre">label_size:</span> <span class="pre">~typing.Annotated[int,</span> <span class="pre">~foliplus._validate.Bound(low=0,</span> <span class="pre">high=None,</span> <span class="pre">exclusive_low=True,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">11,</span> <span class="pre">label_format:</span> <span class="pre">~typing.Annotated[~typing.Literal['auto',</span> <span class="pre">'int',</span> <span class="pre">'comma',</span> <span class="pre">'percent'],</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Number</span> <span class="pre">format</span> <span class="pre">for</span> <span class="pre">hexagon</span> <span class="pre">value</span> <span class="pre">labels.,</span> <span class="pre">shape=None,</span> <span class="pre">name=NumberStyle,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">'auto',</span> <span class="pre">collapse_on_outside:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">zoom_range:</span> <span class="pre">~typing.Annotated[dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=ZoomRange,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Declared</span> <span class="pre">zoom</span> <span class="pre">range:</span> <span class="pre">the</span> <span class="pre">control</span> <span class="pre">is</span> <span class="pre">visible</span> <span class="pre">only</span> <span class="pre">while</span> <span class="pre">the</span> <span class="pre">map's</span> <span class="pre">zoom</span> <span class="pre">is</span> <span class="pre">inside</span> <span class="pre">it;</span> <span class="pre">a</span> <span class="pre">malformed</span> <span class="pre">or</span> <span class="pre">unreachable</span> <span class="pre">range</span> <span class="pre">is</span> <span class="pre">treated</span> <span class="pre">as</span> <span class="pre">undeclared.,</span> <span class="pre">shape={'min':</span> <span class="pre">'number',</span> <span class="pre">'max':</span> <span class="pre">'number'},</span> <span class="pre">name=ZoomRange,</span> <span class="pre">config_key=zoomRange)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">locale:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~foliplus.locale.LocaleConfig</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/Zeroto521/foliplus/blob/main/foliplus/control/HeatmapControl.py#L20-L335"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="foliplus.BaseControl.html#foliplus.BaseControl" title="foliplus.BaseControl.BaseControl"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseControl</span></code></a></p>
+<p>H3 hexbin heatmap with zoom-adaptive resolution and labeled hexagons.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Only markers with a <code class="docutils literal notranslate"><span class="pre">.feature</span></code> property (GeoJSON / <code class="docutils literal notranslate"><span class="pre">df.explore</span></code>) are
+counted. Annotation or label markers without <code class="docutils literal notranslate"><span class="pre">.feature</span></code> are skipped to avoid
+double-counting in hexbin aggregation.</p>
+</div>
+<section id="shortcuts">
+<h2>Shortcuts<a class="headerlink" href="#shortcuts" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ArrowUp</p></td>
+<td><p>Select the previous color scheme</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrowDown</p></td>
+<td><p>Select the next color scheme</p></td>
+</tr>
+<tr class="row-even"><td><p>Enter / Space</p></td>
+<td><p>Open the scheme dropdown</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrowDown (dropdown)</p></td>
+<td><p>Focus the next scheme option</p></td>
+</tr>
+<tr class="row-even"><td><p>ArrowUp (dropdown)</p></td>
+<td><p>Focus the previous scheme option</p></td>
+</tr>
+<tr class="row-odd"><td><p>Enter (dropdown)</p></td>
+<td><p>Select the focused scheme option</p></td>
+</tr>
+<tr class="row-even"><td><p>Escape (dropdown)</p></td>
+<td><p>Close the dropdown without selecting</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
+<dl>
+<dt>position<span class="classifier">str, default “topleft”</span></dt><dd><p>One of “topleft”, “topright”, “bottomleft”, “bottomright”.</p>
+</dd>
+<dt>layer<span class="classifier">str, optional</span></dt><dd><p>Name of the point layer to select when the map first loads. Matching is
+by the layer’s folium <code class="docutils literal notranslate"><span class="pre">name</span></code> (the same text the panel’s Layer row
+lists); the first match wins. This is a starting selection only: a
+layer the user picked earlier (persisted in the browser) wins, and the
+panel still lets the user switch. A name that matches no point layer is
+ignored with a console warning and the panel falls back to its normal
+auto-selection (the only point layer is selected automatically).</p>
+</dd>
+<dt>agg<span class="classifier">Literal[“count”, “sum”, “avg”, “min”, “max”], default “count”</span></dt><dd><p>Default aggregation method. A <code class="docutils literal notranslate"><span class="pre">filter</span></code> declaration needs a value
+aggregation (not <code class="docutils literal notranslate"><span class="pre">&quot;count&quot;</span></code>) — count aggregates by nothing, so a range
+has no field to bind to and raises (see Notes).</p>
+</dd>
+<dt>field<span class="classifier">str, optional</span></dt><dd><p>Aggregation field to select when the map first loads. Only a numeric
+field the layer actually carries is accepted; anything else is ignored
+with a console warning and the panel falls back to its normal default
+field (the first numeric field). Like <code class="docutils literal notranslate"><span class="pre">layer</span></code>, a persisted user
+choice wins, and a <code class="docutils literal notranslate"><span class="pre">count</span></code> aggregation does not use the field until
+the user switches to a value aggregation — a <code class="docutils literal notranslate"><span class="pre">filter</span></code> declaration
+with <code class="docutils literal notranslate"><span class="pre">agg=&quot;count&quot;</span></code> is therefore API misuse and raises (see Notes).</p>
+</dd>
+<dt>filter<span class="classifier">dict, optional</span></dt><dd><p>Starting filter on the aggregation field: a mapping with <code class="docutils literal notranslate"><span class="pre">min</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max</span></code> (the range is bound to <code class="docutils literal notranslate"><span class="pre">field=</span></code>). See Notes for the declaration
+shape and the failure modes listed there.</p>
+</dd>
+<dt>method<span class="classifier">Literal[“jenks”, “quantile”, “equal”, “heads”], default “jenks”</span></dt><dd><p>Default classification method.</p>
+</dd>
+<dt>num_classes<span class="classifier">int, default 6</span></dt><dd><p>Number of classification classes, range 2-9.</p>
+</dd>
+<dt>color_scheme<span class="classifier">str, default “Reds”</span></dt><dd><p>Default color scheme name. Supports chroma.js / ColorBrewer palettes: <code class="docutils literal notranslate"><span class="pre">Blues</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Greens</span></code>, <code class="docutils literal notranslate"><span class="pre">Reds</span></code>, <code class="docutils literal notranslate"><span class="pre">Oranges</span></code>, <code class="docutils literal notranslate"><span class="pre">Purples</span></code>, <code class="docutils literal notranslate"><span class="pre">YlOrRd</span></code>, <code class="docutils literal notranslate"><span class="pre">Viridis</span></code>.</p>
+</dd>
+<dt>schemes<span class="classifier">list[str], default [“Blues”, “Greens”, “Reds”, “Oranges”, “Purples”, “YlOrRd”, “Viridis”]</span></dt><dd><p>List of available color scheme names. Can include custom hex values like
+<code class="docutils literal notranslate"><span class="pre">[&quot;#f00&quot;,</span> <span class="pre">&quot;#0f0&quot;,</span> <span class="pre">&quot;#00f&quot;]</span></code>.</p>
+</dd>
+<dt>border_color<span class="classifier">str, default “#333333”</span></dt><dd><p>Hexagon border color.</p>
+</dd>
+<dt>border_weight<span class="classifier">float, default 1.5</span></dt><dd><p>Hexagon border width in canvas units. Must not be negative.</p>
+</dd>
+<dt>border_opacity<span class="classifier">float, default 0.9</span></dt><dd><p>Hexagon border opacity, between 0.0 and 1.0.</p>
+</dd>
+<dt>fill_opacity<span class="classifier">float, default 0.7</span></dt><dd><p>Hexagon fill opacity, between 0.0 and 1.0.</p>
+</dd>
+<dt>label_show<span class="classifier">bool, default True</span></dt><dd><p>Whether to show the aggregated value as a label at each hex center.</p>
+</dd>
+<dt>label_color<span class="classifier">str, default “#fff”</span></dt><dd><p>Label text color.</p>
+</dd>
+<dt>label_size<span class="classifier">int, default 11</span></dt><dd><p>Label font size (px). Must be positive.</p>
+</dd>
+<dt>label_format<span class="classifier">Literal[“auto”, “int”, “comma”, “percent”], default “auto”</span></dt><dd><p>Number format for hexagon value labels:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>: locale-native compact notation (en <code class="docutils literal notranslate"><span class="pre">10K</span></code>, zh <code class="docutils literal notranslate"><span class="pre">1.2万</span></code>);
+zh values below 1万 render ungrouped (<code class="docutils literal notranslate"><span class="pre">6000</span></code>). Follows the plugin
+locale.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;int&quot;</span></code>: plain integer with no grouping (<code class="docutils literal notranslate"><span class="pre">6000</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;comma&quot;</span></code>: thousands separator (<code class="docutils literal notranslate"><span class="pre">6,000</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code>: fraction × 100 with a <code class="docutils literal notranslate"><span class="pre">%</span></code> suffix (<code class="docutils literal notranslate"><span class="pre">0.35</span></code> → <code class="docutils literal notranslate"><span class="pre">35%</span></code>).</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;int&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;comma&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">&quot;percent&quot;</span></code> are locale-agnostic.</p>
+</dd>
+<dt>collapse_on_outside<span class="classifier">bool, default True</span></dt><dd><p>Whether a press outside the panel collapses it.</p>
+</dd>
+<dt>zoom_range<span class="classifier">dict, optional</span></dt><dd><p>Visibility window over the map’s zoom levels: a mapping with <code class="docutils literal notranslate"><span class="pre">min</span></code>
+and <code class="docutils literal notranslate"><span class="pre">max</span></code> (both required integers, <code class="docutils literal notranslate"><span class="pre">min</span> <span class="pre">&lt;=</span> <span class="pre">max</span></code>) that keeps the
+control visible only while the map’s zoom is inside the range. Outside
+the range the whole control is hidden with the shared
+<code class="docutils literal notranslate"><span class="pre">foliplus-hidden</span></code> class; it comes back on the next zoom that is
+inside. A malformed declaration, or one that cannot meet the map’s own
+zoom range, warns once and is treated as undeclared (the control stays
+visible) — never as a declaration that hides it everywhere.</p>
+</dd>
+<dt>locale<span class="classifier">str or LocaleConfig, optional</span></dt><dd><p>Language code (“en”, “zh”) or a LocaleConfig instance.
+Defaults to auto-detection, falling back to English.</p>
+</dd>
+</dl>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h2>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">folium</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">foliplus</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeatmapControl</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">HeatmapControl</span><span class="p">()</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>With a declared starting filter on the aggregation field:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">folium</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">foliplus</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeatmapControl</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">HeatmapControl</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">agg</span><span class="o">=</span><span class="s2">"sum"</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="s2">"score"</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">"min"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">:</span> <span class="mi">50</span><span class="p">}</span>
+<span class="gp">... </span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Only show the control while the map is between zoom levels 8 and 12:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">folium</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">foliplus</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeatmapControl</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">HeatmapControl</span><span class="p">(</span><span class="n">zoom_range</span><span class="o">=</span><span class="p">{</span><span class="s2">"min"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">:</span> <span class="mi">12</span><span class="p">})</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">#</a></h2>
+<p><strong>Filter declaration</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">filter</span></code> is a mapping with <code class="docutils literal notranslate"><span class="pre">min</span></code> and <code class="docutils literal notranslate"><span class="pre">max</span></code> (the list form, a list of
+measurement-type names, belongs to <code class="docutils literal notranslate"><span class="pre">MeasureControl</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">min</span></code> / <code class="docutils literal notranslate"><span class="pre">max</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">number</span></code> each</p></td>
+<td><p>yes</p></td>
+<td><p>Inclusive range on the aggregation field
+(<code class="docutils literal notranslate"><span class="pre">field=</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Situation → behavior</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Situation</p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">field</span></code> key inside <code class="docutils literal notranslate"><span class="pre">filter</span></code>, no
+aggregation field (no <code class="docutils literal notranslate"><span class="pre">field=</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">agg=&quot;count&quot;</span></code>), or a list of value names</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ValueError</span></code> in the cell that wrote the
+declaration.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Data-shaped problem (no numeric extent,
+range outside the data, non-numeric
+bound)</p></td>
+<td><p>Reported once with a warning; treated as
+undeclared — never silently filtered to
+empty.</p></td>
+</tr>
+<tr class="row-even"><td><p>User write (the filter row)</p></td>
+<td><p>Wins from then on; the declaration is a
+starting condition only.</p></td>
+</tr>
+<tr class="row-odd"><td><p>The filter row’s Clear</p></td>
+<td><p>Keeps the user’s clear: the declaration
+does not come back (this session or on
+reload).</p></td>
+</tr>
+<tr class="row-even"><td><p>Factory Reset (the panel’s Clear)</p></td>
+<td><p>Deletes the saved record and re-seeds the
+declaration (this session and on reload).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Zoom-range declaration</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">zoom_range={&quot;min&quot;:</span> <span class="pre">8,</span> <span class="pre">&quot;max&quot;:</span> <span class="pre">12}</span></code> takes the same shape the per-layer
+<code class="docutils literal notranslate"><span class="pre">foliplus</span></code> declaration uses:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">min</span></code></p></td>
+<td><p>int</p></td>
+<td><p>yes</p></td>
+<td><p>Lowest zoom at which the control is visible.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max</span></code></p></td>
+<td><p>int</p></td>
+<td><p>yes</p></td>
+<td><p>Highest zoom at which the control is visible.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Outside the range the control is hidden, not disabled, so its saved state
+survives the trip. A malformed declaration (missing key, non-int,
+inverted, unknown key) and a range that cannot intersect the map’s own
+zoom levels both warn once and are treated as undeclared: the control
+stays visible rather than disappearing for every map view.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">*,</span> <span class="pre">position:</span> <span class="pre">~typing.Literal['topleft',</span> <span class="pre">'topright',</span> <span class="pre">'bottomleft',</span> <span class="pre">'bottomright']</span> <span class="pre">=</span> <span class="pre">'topleft',</span> <span class="pre">layer:</span> <span class="pre">~typing.Annotated[str</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Point</span> <span class="pre">layer</span> <span class="pre">name</span> <span class="pre">selected</span> <span class="pre">on</span> <span class="pre">first</span> <span class="pre">load;</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">selection</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">agg:</span> <span class="pre">~typing.Literal['count',</span> <span class="pre">'sum',</span> <span class="pre">'avg',</span> <span class="pre">'min',</span> <span class="pre">'max']</span> <span class="pre">=</span> <span class="pre">'count',</span> <span class="pre">field:</span> <span class="pre">~typing.Annotated[str</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Aggregation</span> <span class="pre">field</span> <span class="pre">selected</span> <span class="pre">on</span> <span class="pre">first</span> <span class="pre">load</span> <span class="pre">(and</span> <span class="pre">the</span> <span class="pre">field</span> <span class="pre">a</span> <span class="pre">declared</span> <span class="pre">filter</span> <span class="pre">range</span> <span class="pre">binds</span> <span class="pre">to);</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">selection</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">filter:</span> <span class="pre">~typing.Annotated[dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Declared</span> <span class="pre">filter</span> <span class="pre">on</span> <span class="pre">the</span> <span class="pre">aggregation</span> <span class="pre">field:</span> <span class="pre">a</span> <span class="pre">mapping</span> <span class="pre">with</span> <span class="pre">min</span> <span class="pre">and</span> <span class="pre">max</span> <span class="pre">(bound</span> <span class="pre">to</span> <span class="pre">field=),</span> <span class="pre">normalised</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">shared</span> <span class="pre">filter</span> <span class="pre">AST;</span> <span class="pre">a</span> <span class="pre">persisted</span> <span class="pre">user</span> <span class="pre">filter</span> <span class="pre">wins.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">method:</span> <span class="pre">~typing.Literal['jenks',</span> <span class="pre">'quantile',</span> <span class="pre">'equal',</span> <span class="pre">'heads']</span> <span class="pre">=</span> <span class="pre">'jenks',</span> <span class="pre">num_classes:</span> <span class="pre">~typing.Annotated[int,</span> <span class="pre">~foliplus._validate.Bound(low=2,</span> <span class="pre">high=9,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">6,</span> <span class="pre">color_scheme:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'Reds',</span> <span class="pre">schemes:</span> <span class="pre">~typing.Annotated[list[str],</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Available</span> <span class="pre">color</span> <span class="pre">scheme</span> <span class="pre">names.,</span> <span class="pre">shape=None,</span> <span class="pre">name=None,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">['Blues',</span> <span class="pre">'Greens',</span> <span class="pre">'Reds',</span> <span class="pre">'Oranges',</span> <span class="pre">'Purples',</span> <span class="pre">'YlOrRd',</span> <span class="pre">'Viridis'],</span> <span class="pre">border_color:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'#333333',</span> <span class="pre">border_weight:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=None,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">1.5,</span> <span class="pre">border_opacity:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=1.0,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">0.9,</span> <span class="pre">fill_opacity:</span> <span class="pre">~typing.Annotated[float,</span> <span class="pre">~foliplus._validate.Bound(low=0.0,</span> <span class="pre">high=1.0,</span> <span class="pre">exclusive_low=False,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">0.7,</span> <span class="pre">label_show:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">label_color:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'#fff',</span> <span class="pre">label_size:</span> <span class="pre">~typing.Annotated[int,</span> <span class="pre">~foliplus._validate.Bound(low=0,</span> <span class="pre">high=None,</span> <span class="pre">exclusive_low=True,</span> <span class="pre">exclusive_high=False)]</span> <span class="pre">=</span> <span class="pre">11,</span> <span class="pre">label_format:</span> <span class="pre">~typing.Annotated[~typing.Literal['auto',</span> <span class="pre">'int',</span> <span class="pre">'comma',</span> <span class="pre">'percent'],</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Number</span> <span class="pre">format</span> <span class="pre">for</span> <span class="pre">hexagon</span> <span class="pre">value</span> <span class="pre">labels.,</span> <span class="pre">shape=None,</span> <span class="pre">name=NumberStyle,</span> <span class="pre">config_key=None)]</span> <span class="pre">=</span> <span class="pre">'auto',</span> <span class="pre">collapse_on_outside:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">zoom_range:</span> <span class="pre">~typing.Annotated[dict[str,</span> <span class="pre">~typing.Any]</span> <span class="pre">|</span> <span class="pre">None,</span> <span class="pre">~foliplus._config_schema.FieldSpec(ts=ZoomRange,</span> <span class="pre">optional=False,</span> <span class="pre">nullable=False,</span> <span class="pre">values=None,</span> <span class="pre">item=None,</span> <span class="pre">dynamic=False,</span> <span class="pre">default=&lt;object</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x0000018599BA07C0&gt;,</span> <span class="pre">note=Declared</span> <span class="pre">zoom</span> <span class="pre">range:</span> <span class="pre">the</span> <span class="pre">control</span> <span class="pre">is</span> <span class="pre">visible</span> <span class="pre">only</span> <span class="pre">while</span> <span class="pre">the</span> <span class="pre">map's</span> <span class="pre">zoom</span> <span class="pre">is</span> <span class="pre">inside</span> <span class="pre">it;</span> <span class="pre">a</span> <span class="pre">malformed</span> <span class="pre">or</span> <span class="pre">unreachable</span> <span class="pre">range</span> <span class="pre">is</span> <span class="pre">treated</span> <span class="pre">as</span> <span class="pre">undeclared.,</span> <span class="pre">shape={'min':</span> <span class="pre">'number',</span> <span class="pre">'max':</span> <span class="pre">'number'},</span> <span class="pre">name=ZoomRange,</span> <span class="pre">config_key=zoomRange)]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">locale:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~foliplus.locale.LocaleConfig</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/Zeroto521/foliplus/blob/main/foliplus/control/HeatmapControl.py#L228-L335"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.add_child">
+<span class="sig-name descname"><span class="pre">add_child</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">child</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L143-L159"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.add_child" title="Link to this definition">#</a></dt>
+<dd><p>Add a child.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.add_children">
+<span class="sig-name descname"><span class="pre">add_children</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">child</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L129-L141"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.add_children" title="Link to this definition">#</a></dt>
+<dd><p>Add a child.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.add_css_link">
+<span class="sig-name descname"><span class="pre">add_css_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/python-visualization/folium/blob/main/folium/elements.py#L48-L50"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.add_css_link" title="Link to this definition">#</a></dt>
+<dd><p>Add or update css resource link.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.add_js_link">
+<span class="sig-name descname"><span class="pre">add_js_link</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/python-visualization/folium/blob/main/folium/elements.py#L52-L54"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.add_js_link" title="Link to this definition">#</a></dt>
+<dd><p>Add or update JS resource link.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.add_to">
+<span class="sig-name descname"><span class="pre">add_to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L161-L169"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.add_to" title="Link to this definition">#</a></dt>
+<dd><p>Add element to a parent.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.default_css">
+<span class="sig-name descname"><span class="pre">default_css</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.15)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.15)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></span><a class="headerlink" href="#foliplus.HeatmapControl.default_css" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.default_js">
+<span class="sig-name descname"><span class="pre">default_js</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[('h3-js',</span> <span class="pre">'https://cdn.jsdelivr.net/npm/h3-js&#64;4/dist/h3-js.umd.js'),</span> <span class="pre">('simple-statistics',</span> <span class="pre">'https://cdn.jsdelivr.net/npm/simple-statistics&#64;7/dist/simple-statistics.min.js'),</span> <span class="pre">('chroma-js',</span> <span class="pre">'https://cdn.jsdelivr.net/npm/chroma-js&#64;2/chroma.min.js')]</span></span><a class="headerlink" href="#foliplus.HeatmapControl.default_js" title="Link to this definition">#</a></dt>
+<dd><p>CDN dependencies for the control, as <code class="docutils literal notranslate"><span class="pre">[(name,</span> <span class="pre">url),</span> <span class="pre">...]</span></code>.</p>
+<p>Derived by <code class="xref py py-meth docutils literal notranslate"><span class="pre">__init_subclass__()</span></code> from <code class="xref py py-mod docutils literal notranslate"><span class="pre">foliplus._cdn_loader</span></code>
+for controls with a schema entry (which is every shipped control), so
+renaming a class cannot silently break its CDN wiring. Controls without
+a schema entry keep whatever they (or a base class) declared.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.get_bounds">
+<span class="sig-name descname"><span class="pre">get_bounds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.15)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.15)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L109-L127"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.get_bounds" title="Link to this definition">#</a></dt>
+<dd><p>Computes the bounds of the object and all it’s children
+in the form [[lat_min, lon_min], [lat_max, lon_max]].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.get_name">
+<span class="sig-name descname"><span class="pre">get_name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L95-L101"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.get_name" title="Link to this definition">#</a></dt>
+<dd><p>Returns a string representation of the object.
+This string has to be unique and to be a python and
+javascript-compatible
+variable name.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.get_root">
+<span class="sig-name descname"><span class="pre">get_root</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://python-visualization.github.io/branca/element.html#branca.element.Element" title="(in branca v0.8.2)"><span class="pre">Element</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L199-L204"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.get_root" title="Link to this definition">#</a></dt>
+<dd><p>Returns the root of the elements tree.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.render">
+<span class="sig-name descname"><span class="pre">render</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference external" href="https://github.com/Zeroto521/foliplus/blob/main/foliplus/BaseControl.py#L394-L412"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.render" title="Link to this definition">#</a></dt>
+<dd><p>Inject the shared asset bundle into the figure header exactly once.</p>
+<p>The runtime JS, shared CSS, common locale tables, and per-component
+locale tables are identical for every control, so they are emitted a
+single time per map (deduplicated by <code class="xref py py-data docutils literal notranslate"><span class="pre">_SHARED_ASSETS_NAME</span></code>)
+instead of being repeated in each control’s template. Placing them in
+<code class="docutils literal notranslate"><span class="pre">&lt;head&gt;</span></code> also guarantees they load before any control’s body script runs.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#bytes" title="(in Python v3.15)"><span class="pre">bytes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.BinaryIO" title="(in Python v3.15)"><span class="pre">BinaryIO</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">close_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L210-L235"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.save" title="Link to this definition">#</a></dt>
+<dd><p>Saves an Element into a file.</p>
+<section id="id1">
+<h3>Parameters<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>outfile<span class="classifier">str or file object</span></dt><dd><p>The file (or filename) where you want to output the html.</p>
+</dd>
+<dt>close_file<span class="classifier">bool, default True</span></dt><dd><p>Whether the file has to be closed after write.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordered</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.html#collections.OrderedDict" title="(in Python v3.15)"><span class="pre">OrderedDict</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L171-L193"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.to_dict" title="Link to this definition">#</a></dt>
+<dd><p>Returns a dict representation of the object.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="foliplus.HeatmapControl.to_json">
+<span class="sig-name descname"><span class="pre">to_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference external" href="https://github.com/python-visualization/branca/blob/main/branca/element.py#L195-L197"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#foliplus.HeatmapControl.to_json" title="Link to this definition">#</a></dt>
+<dd><p>Returns a JSON representation of the object.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="foliplus.FullscreenControl.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">foliplus.FullscreenControl</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="foliplus.LayerControl.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">foliplus.LayerControl</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl"><code class="docutils literal notranslate"><span class="pre">HeatmapControl</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.__init__"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.add_child"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.add_child()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.add_children"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.add_children()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.add_css_link"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.add_css_link()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.add_js_link"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.add_js_link()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.add_to"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.add_to()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.default_css"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.default_css</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.default_js"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.default_js</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.get_bounds"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.get_bounds()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.get_name"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.get_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.get_root"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.get_root()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.render"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.render()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.save"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.save()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.to_dict"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.to_dict()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#foliplus.HeatmapControl.to_json"><code class="docutils literal notranslate"><span class="pre">HeatmapControl.to_json()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/Zeroto521/foliplus/edit/main/doc/source/api/foliplus.HeatmapControl.rst">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026-2026 @Zeroto521.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

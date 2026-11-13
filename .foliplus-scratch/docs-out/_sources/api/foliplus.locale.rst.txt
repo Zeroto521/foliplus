@@ -1,0 +1,18 @@
+﻿foliplus.locale
+===============
+
+.. automodule:: foliplus.locale
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      resolve_locale
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      LocaleConfig
+   

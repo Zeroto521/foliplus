@@ -49,6 +49,7 @@ doc = [
   "my-data-toolkit",
   "matplotlib",
   "mapclassify",
+  "docutils<0.23",  # sphinx 9 requires docutils<0.23; pinning here keeps the RTD doc-group resolve from downgrading sphinx
 ]
 dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 

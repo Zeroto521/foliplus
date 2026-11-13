@@ -1,0 +1,12 @@
+﻿
+foliplus.LocateControl
+======================
+
+.. currentmodule:: foliplus
+
+.. autoclass:: LocateControl
+   :members:
+   :undoc-members:
+   :inherited-members:
+   :show-inheritance:
+   :special-members: __init__

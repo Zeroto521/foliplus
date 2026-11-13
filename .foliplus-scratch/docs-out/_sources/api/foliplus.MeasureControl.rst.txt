@@ -1,0 +1,12 @@
+﻿
+foliplus.MeasureControl
+=======================
+
+.. currentmodule:: foliplus
+
+.. autoclass:: MeasureControl
+   :members:
+   :undoc-members:
+   :inherited-members:
+   :show-inheritance:
+   :special-members: __init__
