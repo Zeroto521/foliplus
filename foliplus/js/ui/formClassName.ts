@@ -5,13 +5,16 @@
 // primitives themselves). A class name is a contract, and two copies have
 // already drifted once (SearchControl's close button); one spelling here,
 // every consumer reads through it. The keys mirror the DOM vocabulary:
-// input-skin (the shared input chrome) and form-select (the select chrome).
+// input-skin (the shared input chrome), form-select (the select chrome),
+// color-input and number-input (the color/number input chrome).
 //
 // This module is pure data — no runtime import, no map, no DOM — so any
 // layer may import it.
 const FORM_CLASS = {
   INPUT_SKIN: "foliplus-input-skin",
   FORM_SELECT: "foliplus-form-select",
+  COLOR_INPUT: "foliplus-form-color-input",
+  NUMBER_INPUT: "foliplus-form-number-input",
 } as const;
 
 export { FORM_CLASS };
