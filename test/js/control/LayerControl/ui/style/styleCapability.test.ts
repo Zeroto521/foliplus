@@ -8,6 +8,7 @@
 // ever changes (native vs non-none) without the reader changing with it, this
 // test goes red, so the two cannot drift.
 import { initFixture, installLeafletGlobals } from "../fixture.js";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -24,6 +25,8 @@ const DIM_TO_DIM: Record<string, string> = {
   [DIM.OPACITY]: "opacity",
   [DIM.LABEL]: "label",
   [DIM.ZOOM_RANGE]: "zoomRange",
+  [DIM.SIZE]: "size",
+  [DIM.ICON]: "icon",
 };
 
 /** Every published dimension must mirror a registered built-in dimension —
@@ -31,7 +34,7 @@ const DIM_TO_DIM: Record<string, string> = {
  *  a gate to parity against. */
 it("mirrors every published dimension to a registered built-in dimension", () => {
   const keys = Object.keys(DIM_TO_DIM);
-  expect(keys).toEqual(["opacity", "label", "zoomRange"]);
+  expect(keys).toEqual(["opacity", "label", "zoomRange", "size", "icon"]);
   for (const key of keys) {
     expect(getDimension(key), `missing dimension ${key}`).toBeDefined();
   }
@@ -195,7 +198,7 @@ describe("styleCapability parity with the per-dimension gates", () => {
 
   it("returns all-false for a layer outside the registry", () => {
     const cap = styleCapability(ui, "not-a-real-layer");
-    expect(Object.values(cap.dims)).toEqual([false, false, false]);
+    expect(Object.values(cap.dims)).toEqual([false, false, false, false, false]);
     expect(cap.styleDelegation).toBe(false);
   });
 
@@ -217,7 +220,7 @@ describe("styleCapability parity with the per-dimension gates", () => {
 
   it("a marker surface exposes only the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[3]);
-    expect(cap.dims.icon).toBeUndefined();
+    expect(cap.dims.icon).toBe(true);
     expect(cap.dims.fill).toBeUndefined();
     expect(cap.dims.border).toBeUndefined();
   });
@@ -225,6 +228,8 @@ describe("styleCapability parity with the per-dimension gates", () => {
   it("a color basemap exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[6]);
     expect(cap.dims.fill).toBeUndefined();
+    expect(cap.dims.size).toBe(false);
+    expect(cap.dims.icon).toBe(false);
   });
 
   it("a cluster surface exposes nothing configurable", () => {
@@ -398,5 +403,45 @@ describe("menu canConfigure equivalence", () => {
     expect(m.dims.label).toBe(false);
     expect(m.styleDelegation).toBe(true);
     expect(newMenuCanConfigure("overlay1")).toBe(true);
+  });
+
+  /** Structural lock: the row/valueSource call sites must read the projection,
+   *  not the local gate alias. The descriptor's own `gate:` field stays on the
+   *  alias (it is the parity source of truth), so this test must NOT assert the
+   *  whole file is alias-free — only that the two UI call sites in each row
+   *  migrated. If a future edit adds a new `layerCanSize(` call in the row or
+   *  valueSource body, this goes red. */
+  describe("size/icon call sites read the projection", () => {
+    const readSource = (rel: string): string => {
+      const url = new URL(rel, import.meta.url);
+      return readFileSync(url, "utf8");
+    };
+    const sliceBody = (src: string, start: string, end: string): string => {
+      const i = src.indexOf(start);
+      const j = src.indexOf(end, i);
+      return i < 0 || j < 0 ? "" : src.slice(i, j);
+    };
+    it("size row and valueSource read styleCapability, not layerCanSize", () => {
+      const src = readSource(
+        "../../../../../../foliplus/js/control/LayerControl/ui/style/size.ts",
+      );
+      const row = sliceBody(src, "const buildSizeRow", "const SIZE_DIMENSION");
+      const vs = sliceBody(src, "valueSource:", "contentChange:");
+      expect(row).toContain("styleCapability(ui, layerId).dims.size");
+      expect(row).not.toMatch(/layerCanSize\(/);
+      expect(vs).toContain("styleCapability(ui, layerId).dims.size");
+      expect(vs).not.toMatch(/layerCanSize\(/);
+    });
+    it("icon row and valueSource read styleCapability, not layerCanIcon", () => {
+      const src = readSource(
+        "../../../../../../foliplus/js/control/LayerControl/ui/style/icon.ts",
+      );
+      const row = sliceBody(src, "const buildIconRow", "const ICON_DIMENSION");
+      const vs = sliceBody(src, "valueSource:", "contentChange:");
+      expect(row).toContain("styleCapability(ui, layerId).dims.icon");
+      expect(row).not.toMatch(/layerCanIcon\(/);
+      expect(vs).toContain("styleCapability(ui, layerId).dims.icon");
+      expect(vs).not.toMatch(/layerCanIcon\(/);
+    });
   });
 });
