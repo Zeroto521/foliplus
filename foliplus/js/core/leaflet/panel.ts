@@ -322,10 +322,6 @@ const ROW_PANEL_MIN_HEIGHT = 120;
 const ROW_PANEL_GAP = 2;
 /** Minimum distance between a pinned card and the viewport's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
-/** Class that switches a row panel to the pinned (fixed, placed) variant. */
-const PINNED_CLASS = PANEL_CLASS.PINNED;
-/** Class that records a card anchored above its row. */
-const ROW_PANEL_UP_CLASS = PANEL_CLASS.ROW_PANEL_UP;
 
 /** The box a row panel has to fit into: the map's visible box clipped to the
  *  viewport when the card lives inside one, otherwise the viewport itself. */
@@ -403,7 +399,7 @@ const fitRowPanel = (
   const cap = Math.max(floor, placement.maxHeight);
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
-  panel.classList.toggle(ROW_PANEL_UP_CLASS, flipUp);
+  panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
   return { flipUp, cap, natural };
 };
 
@@ -576,7 +572,7 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {
-  panel.classList.remove(PINNED_CLASS, ROW_PANEL_UP_CLASS);
+  panel.classList.remove(PANEL_CLASS.PINNED, PANEL_CLASS.ROW_PANEL_UP);
   panel.style.removeProperty("--foliplus-row-panel-max-height");
   // The pinned box wrote viewport coordinates; clear them so an unpinned card
   // returns to the row-anchored absolute box instead of staying at the old
@@ -621,7 +617,7 @@ const unbindRowPanelEvents = (): void => {
 const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   const previous = rowPanels.get(anchor);
   if (previous && previous !== panel) resetPinnedPanel(previous);
-  panel.classList.add(PINNED_CLASS);
+  panel.classList.add(PANEL_CLASS.PINNED);
   rowPanels.set(anchor, panel);
   if (!rowPanelEventsBound) {
     rowPanelEventsBound = true;
