@@ -46,13 +46,22 @@ import {
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
 
+/** The one resolver the fill face and the stroke face share.
+ *  An explicit mode wins; an absent mode defers to whether a value config
+ *  exists — the pre-mode record shape, where a config alone meant "paint
+ *  by value". `StyleMode` is the vocabulary for both faces.
+ *  Exported so the stroke face (strokeValue.ts) imports it and the migration
+ *  contract (B1/B2) can drive it directly. */
+const resolveModeByValue = (
+  mode: StyleMode | undefined,
+  value: ValueConfig | undefined,
+): StyleMode => mode ?? (value !== undefined ? STYLE_MODE.VALUE : STYLE_MODE.SOLID);
+
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
   value: ValueConfig | undefined,
-): StyleMode =>
-  getIntent(ui, layerId, INTENT.FILL_MODE) ??
-  (value !== undefined ? STYLE_MODE.VALUE : STYLE_MODE.SOLID);
+): StyleMode => resolveModeByValue(getIntent(ui, layerId, INTENT.FILL_MODE), value);
 
 /** The fill face's declaration — the specific surface the shared mode
  *  consumes. Every value here is a fill fact; the mode body carries none. */
@@ -95,6 +104,7 @@ const applyValueFill = (
 
 export {
   applyValueFill,
+  resolveModeByValue,
   resolveFillMode,
   buildValueDetail,
   bindValueDetail,

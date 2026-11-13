@@ -27,6 +27,7 @@
 // active mode live, and supplies the live readers. The engine paints
 // exactly what it is asked to.
 import type { LayerUI } from "../surface.js";
+import { resolveModeByValue } from "./fillValue.js";
 import { FACE, walkStyleLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
 import { DIM, type StyleMode, type ValueConfig } from "#core/layer/index.js";
@@ -40,7 +41,7 @@ import { DIM, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 const resolveStrokeMode = (
   mode: StyleMode | undefined,
   ramp: ValueConfig | undefined,
-): StyleMode => mode ?? (ramp !== undefined ? ("value" as const) : ("solid" as const));
+): StyleMode => resolveModeByValue(mode, ramp);
 
 /** Apply a value-based stroke to one layer — the stroke face's call through
  *  the shared by-value mode. The declaration below tells the mode what the
