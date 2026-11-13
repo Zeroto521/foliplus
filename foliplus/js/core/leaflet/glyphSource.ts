@@ -19,6 +19,11 @@
 const GLYPH_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const GLYPH_NAME_MAX = 64;
 
+/** The glyph shell class every marker glyph <i> carries (glyphHtml below). The
+ *  selector hook markerIcon matches against; the markerIcon.ts spellings move to
+ *  this constant when markerIcon joins the vocabulary batch. */
+const GLYPH_SHELL_CLASS = "foliplus-marker-glyph";
+
 /** The picker's 40-slot grid (8 columns x 5 rows) — a SHORTCUT collection,
  *  NOT a validity whitelist. Any syntactically valid FA6 name works through a
  *  Python declaration or persisted value; these are just the ones the panel
@@ -206,7 +211,7 @@ const glyphHtml = (
   style = "",
   prefix: string = DEFAULT_GLYPH_PREFIX,
 ): string => {
-  const classes = ["foliplus-marker-glyph", extraClass, glyphClassName(name, prefix)]
+  const classes = [GLYPH_SHELL_CLASS, extraClass, glyphClassName(name, prefix)]
     .filter(Boolean)
     .join(" ");
   return `<i class="${classes}"${style ? ` style="${style}"` : ""} aria-hidden="true"></i>`;

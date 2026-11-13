@@ -32,7 +32,7 @@ const renderToolbarActions = (
   if (!actions) return;
   actions.innerHTML = "";
   createIconButton({
-    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
+    class: `${PANEL_CLASS.TOOL_BTN} ${CONST.CLASSES.CONFIRM}`,
     title: confirm.title,
     svg: confirm.svg,
     parent: actions,
@@ -42,7 +42,7 @@ const renderToolbarActions = (
     },
   });
   createIconButton({
-    class: `${CONST.CLASSES.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${PANEL_CLASS.CLOSE_BTN}`,
+    class: `${PANEL_CLASS.TOOL_BTN} ${CONST.CLASSES.CANCEL} ${PANEL_CLASS.CLOSE_BTN}`,
     title: cancel.title,
     svg: cancel.svg,
     parent: actions,

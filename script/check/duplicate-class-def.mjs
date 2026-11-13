@@ -33,13 +33,13 @@
  *   Without `--check` the script prints an inventory and always exits 0. With
  *   `--check` it exits 1 when any duplicate sits outside `BASELINE_PENDING`.
  *
- * `BASELINE_PENDING` is the audit remaining work: duplicate names whose
+ * `BASELINE_PENDING` was the audit's remaining work -- duplicate names whose
  * resolution needs an ownership decision (a new panel shell state vocabulary,
  * or sinking a name from a component into `ui/`) rather than a mechanical
- * delete. Each entry records the owning batch and why D0 defers it, so the list
- * reads as a work queue: an entry is dropped the moment its batch lands. A name
+ * delete. Each entry recorded the owning batch and why D0 deferred it, so the list
+ * read as a work queue: an entry was dropped the moment its batch landed. A name
  * absent from the list, or a *new* site for a listed name, fails `--check`.
- * Do not add an entry here to silence a duplicate; fix the duplicate.
+ * The list is now empty; `EXEMPTIONS` below is the only allowed repeat.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -49,34 +49,35 @@ import path from "node:path";
 const JS_ROOT_REL = path.join("foliplus", "js");
 
 /**
- * Class names still owned more than once, with the batch that resolves each.
- * `sites` lists every owner file of the token (repo-relative), so the CLI can
- * tell "the same sites the audit already knows" from "someone added a sixth".
+ * Exempted duplicates -- class names intentionally owned more than once.
+ *
+ * Each exemption records why the repeated spelling is correct, so removing a
+ * name from this list means the reason changed, not that the guard relaxed.
+ * The one exemption is `measure-label`: `LABEL.CLASS` and `PANES.LABEL`
+ * in MeasureControl/const.ts spell the same string but are different API
+ * surfaces -- the pane name is a Leaflet createPane() argument, the class is a
+ * style hook. They are never merged on the strength of a shared string.
  */
-const BASELINE_PENDING = [
-  {
-    token: "foliplus-tool-btn",
-    batch: "sink to ui/",
-    sites: [
-      "foliplus/js/control/ExportControl/const.ts",
-      "foliplus/js/control/FullscreenControl/const.ts",
-    ],
-    reason:
-      "A button skin shared by three controls (Export, Fullscreen," +
-      "Measure). It cannot live in any one component const map -- it has to move" +
-      "down to ui/ before a single owner exists.",
-  },
+const EXEMPTIONS = [
   {
     token: "foliplus-measure-label",
-    batch: "ownership decision outstanding",
     sites: ["foliplus/js/control/MeasureControl/const.ts"],
     reason:
-      "LABEL.CLASS and PANES.LABEL both spell it, inside one file. They are" +
-      "different API surfaces: the pane name is a Leaflet createPane() argument," +
-      "the class is a style hook. Merging on the strength of a shared string is" +
-      "wrong unless the two are proven to never diverge.",
+      "LABEL.CLASS and PANES.LABEL are different API surfaces: the pane name" +
+      " is a Leaflet createPane() argument, the class is a style hook.",
   },
 ];
+
+/** The audit's remaining work. Every deferred duplicate has landed its batch,
+ *  so the list is empty. A name on this list would be a *known* duplicate
+ *  awaiting its batch; a name absent from it fails `--check`. Do not add an
+ *  entry here to silence a duplicate; fix the duplicate.
+ *
+ *  The only allowed repeat is `EXEMPTIONS` below, and that needs a written
+ *  reason for two spellings of one name to be correct.
+ * @type {{token: string, batch: string, sites: string[], reason: string}[]}
+ */
+const BASELINE_PENDING = [];
 
 /** A single `foliplus-*` class name. */
 const TOKEN_RE = /^foliplus-[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -151,6 +152,16 @@ const isPending = (dup, pending) => {
   return actual.size === entry.sites.length && entry.sites.every(f => actual.has(f));
 };
 
+/** True when `dup` is an intentionally repeated spelling on the exemption
+ *  list with the recorded owner files. An exemption is a documented decision,
+ *  not a place to hide a duplicate. */
+const isExempt = (dup, exempts = EXEMPTIONS) => {
+  const entry = exempts.find(e => e.token === dup.token);
+  if (!entry) return false;
+  const actual = new Set(dup.sites.map(s => s.rel));
+  return actual.size === entry.sites.length && entry.sites.every(f => actual.has(f));
+};
+
 /** Walk the production .ts files under a directory. */
 const walk = (dir, out) => {
   for (const name of fs.readdirSync(dir)) {
@@ -179,7 +190,9 @@ const main = (argv = [], root = process.cwd()) => {
   // `--check` is the gate: the pending list applies only there. Without it the
   // script is an inventory and reports what it finds without failing.
   const pendingList = check ? BASELINE_PENDING : [];
-  const blocking = check ? dupes.filter(d => !isPending(d, pendingList)) : [];
+  const blocking = check
+    ? dupes.filter(d => !isPending(d, pendingList) && !isExempt(d))
+    : [];
 
   console.log(
     `duplicate-class-def: ${sites.length} owner sites scanned, ${dupes.length} ` +
@@ -221,9 +234,11 @@ const runCli = entry => {
 
 export {
   BASELINE_PENDING,
+  EXEMPTIONS,
   TOKEN_RE,
   codeOnly,
   findDuplicateClassDefs,
+  isExempt,
   isPending,
   main,
   parseClassDefs,
