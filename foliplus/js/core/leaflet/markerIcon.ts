@@ -452,6 +452,26 @@ const paintMountedChassis = (
   span.style.opacity = String(opacity / 100);
   return true;
 };
+/** A per-leaf callback invoked after `setLeafIcon` rebuilds a marker's icon
+ *  element. The filter hidden-class projection (controller hiddenSets) is
+ *  keyed by leaf identity, but the DOM class lives on the element identity —
+ *  a rebuild swaps the element, so the controller re-applies the class here.
+ *  Registered per controller (idempotent, unregistered on destroy) so
+ *  multi-map pages each dispatch to their own hidden set. */
+type IconReplayHandler = (leaf: L.Layer) => void;
+
+const iconReplayHandlers = new Set<IconReplayHandler>();
+
+/** Register a controller's icon-replay handler. Idempotent: re-registering the
+ *  same handler is a no-op; unregister removes it. */
+const registerIconReplay = (handler: IconReplayHandler): void => {
+  iconReplayHandlers.add(handler);
+};
+
+/** Unregister a controller's icon-replay handler. */
+const unregisterIconReplay = (handler: IconReplayHandler): void => {
+  iconReplayHandlers.delete(handler);
+};
 
 /** The single `leaf.setIcon` call site. The architecture guard whitelists
  *  exactly this one direct call; every other icon write in this module either
@@ -459,8 +479,11 @@ const paintMountedChassis = (
  *  write) or routes through here for a rebuild. */
 const setLeafIcon = (leaf: L.Marker, derived: unknown): void => {
   leaf.setIcon(derived as Parameters<L.Marker["setIcon"]>[0]);
+  // A rebuilt element starts classless (Leaflet tears down the old one); let
+  // each registered controller re-apply its filter hidden-class projection so
+  // the DOM class and the leaf-keyed hidden set never drift.
+  for (const handler of iconReplayHandlers) handler(leaf);
 };
-
 /** Apply the layer's glyph to every marker leaf, capturing each leaf's
  *  author icon on first write. A missing intent is a no-op — a layer the
  *  user never touched keeps exactly what the author declared. */
@@ -637,6 +660,8 @@ export type { AuthorGlyph };
 
 export {
   applyIconToLeaves,
+  registerIconReplay,
+  unregisterIconReplay,
   applyIconColorToLeaves,
   applyMarkerColorToLeaves,
   authorGlyphColorOf,
