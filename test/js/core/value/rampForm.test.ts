@@ -325,14 +325,15 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   const scheme = css("foliplus/css/common/scheme-picker.css");
 
   it("applies the shared trigger class from the builder", () => {
-    // The name is owned by ui/schemePickerClassName.js (one vocabulary for
-    // the whole scheme-picker); rampForm.ts reads it through #ui/index.js.
-    // Asserting the two ends of that import catches either side drifting:
-    // the vocabulary spelling and the core-side usage.
+    // The name is owned by ui/schemePickerClassName.js (one SCHEME_PICKER_CLASS
+    // vocabulary for the whole scheme-picker); rampForm.ts reads it via
+    // `import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js"`.
+    // Asserting both ends catches either side drifting: the vocabulary
+    // spelling and the core-side symbol usage.
     expect(schemePickerVocabSource).toContain(
-      'const SCHEME_PICKER_TRIGGER = "foliplus-scheme-picker-trigger";',
+      '  TRIGGER: "foliplus-scheme-picker-trigger",',
     );
-    expect(rampFormSource).toContain("SCHEME_PICKER_TRIGGER");
+    expect(rampFormSource).toContain("SCHEME_PICKER_CLASS.TRIGGER");
     expect(rampFormSource).not.toContain('"foliplus-scheme-picker-trigger"');
   });
 

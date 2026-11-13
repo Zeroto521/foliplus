@@ -10,14 +10,7 @@
 // Does NOT import any Heatmap or LayerControl module.
 import { createListbox } from "./listbox.js";
 import { PANEL_CLASS } from "./panelClassName.js";
-import {
-  SCHEME_PICKER_BAR as BAR,
-  SCHEME_PICKER_BLOCK as BLOCK,
-  SCHEME_PICKER_DROPDOWN as DROPDOWN,
-  SCHEME_PICKER_ITEM as ITEM,
-  SCHEME_PICKER_OPEN as OPEN,
-  SCHEME_PICKER_PORTAL as PORTAL_CLASS,
-} from "./schemePickerClassName.js";
+import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -26,19 +19,12 @@ import { createLogger } from "#platform/log.js";
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
 const log = createLogger("schemePicker");
 
-// ── Class-name defaults ────────────────────────────────────────────────
+// ── Class names ────────────────────────────────────────────────────────
 //
-// The spellings live in ui/schemePickerClassName.js (one owner for the whole
-// scheme-picker vocabulary); this map re-shapes them into the keys the
-// withModifier(...) resolution below expects.
-
-const DEFAULT_CLASSES = {
-  open: OPEN,
-  dropdown: DROPDOWN,
-  item: ITEM,
-  bar: BAR,
-  block: BLOCK,
-} as const;
+// The scheme-picker vocabulary lives in ui/schemePickerClassName.js; this
+// adapter reads SCHEME_PICKER_CLASS directly at each use site — no
+// intermediate re-shaping map, so grep SCHEME_PICKER_CLASS\. shows the
+// full consumer surface.
 
 interface SchemePickerClasses {
   open: string;
@@ -182,12 +168,12 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   const withModifier = (base: string, extra: string | undefined): string =>
     extra ? `${base} ${extra}` : base;
   const classes: SchemePickerClasses = {
-    dropdown: withModifier(DEFAULT_CLASSES.dropdown, consumerClasses.dropdown),
-    item: withModifier(DEFAULT_CLASSES.item, consumerClasses.item),
-    bar: withModifier(DEFAULT_CLASSES.bar, consumerClasses.bar),
-    block: withModifier(DEFAULT_CLASSES.block, consumerClasses.block),
+    dropdown: withModifier(SCHEME_PICKER_CLASS.DROPDOWN, consumerClasses.dropdown),
+    item: withModifier(SCHEME_PICKER_CLASS.ITEM, consumerClasses.item),
+    bar: withModifier(SCHEME_PICKER_CLASS.BAR, consumerClasses.bar),
+    block: withModifier(SCHEME_PICKER_CLASS.BLOCK, consumerClasses.block),
     active: withModifier(PANEL_CLASS.ACTIVE, consumerClasses.active),
-    open: consumerClasses.open ?? DEFAULT_CLASSES.open,
+    open: consumerClasses.open ?? SCHEME_PICKER_CLASS.OPEN,
   };
 
   const trigger = options.trigger;
@@ -297,7 +283,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     classes: {
       list: classes.dropdown,
       row: classes.item,
-      portal: PORTAL_CLASS,
+      portal: SCHEME_PICKER_CLASS.PORTAL,
       up: "",
       open: classes.open,
     },

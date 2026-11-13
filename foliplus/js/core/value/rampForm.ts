@@ -16,14 +16,12 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
-  SCHEME_PICKER_BAR as SCHEME_PICKER_BAR_CLASS,
-  SCHEME_PICKER_HIDDEN as SCHEME_PICKER_HIDDEN_CLASS,
-  SCHEME_PICKER_TRIGGER as SCHEME_PICKER_TRIGGER_CLASS,
   createDropdown,
   formRow,
   inlineControls,
   selectInput,
 } from "#ui/index.js";
+import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js";
 
 /** Shared hook class for the compact class-count select: the class select is the
  *  same role as a number field beside a flexed control, so its width contract
@@ -231,8 +229,8 @@ const buildSchemeRow = (
   hiddenSelect: HTMLSelectElement;
 } => {
   const barClass = opts.barInnerClass
-    ? `${opts.barClass} ${SCHEME_PICKER_BAR_CLASS} ${opts.barInnerClass}`
-    : `${opts.barClass} ${SCHEME_PICKER_BAR_CLASS}`;
+    ? `${opts.barClass} ${SCHEME_PICKER_CLASS.BAR} ${opts.barInnerClass}`
+    : `${opts.barClass} ${SCHEME_PICKER_CLASS.BAR}`;
   const bar = dom.el("div", {
     class: barClass,
     "data-scheme-bar-inner": "",
@@ -243,7 +241,7 @@ const buildSchemeRow = (
   const trigger = dom.el(
     "div",
     {
-      class: `${opts.triggerClass} ${SCHEME_PICKER_TRIGGER_CLASS}`,
+      class: `${opts.triggerClass} ${SCHEME_PICKER_CLASS.TRIGGER}`,
       tabindex: "0",
       role: "combobox",
       "aria-haspopup": "listbox",
@@ -252,7 +250,7 @@ const buildSchemeRow = (
   );
   applyAttributes(trigger, opts.triggerAttributes);
   const hiddenSelect = dom.el("select", {
-    class: opts.hiddenClass ?? SCHEME_PICKER_HIDDEN_CLASS,
+    class: opts.hiddenClass ?? SCHEME_PICKER_CLASS.HIDDEN,
     tabindex: "-1",
     "aria-hidden": "true",
   }) as HTMLSelectElement;

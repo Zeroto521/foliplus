@@ -7,49 +7,29 @@
 // (common/scheme-picker.css), so the names belong to one list rather than
 // one const in each caller — two spellings drift independently and the
 // stylesheet only ever sees one of them. core cannot import a component
-// const, so the list lives here (ui/), and both callers read it.
+// const, so the list lives here (ui/), and both callers read it via
+// `import { SCHEME_PICKER_CLASS } from "#ui/schemePickerClassName.js"`.
+//
+// Same shape as FORM_CLASS / LABEL_CLASS / PANEL_CLASS / SLIDER_CLASS: an
+// `as const` object, one key per token, so `git grep SCHEME_PICKER_CLASS\.`
+// shows the full consumer surface, and `Object.values(SCHEME_PICKER_CLASS)`
+// is the token inventory for a future "every token is in the CSS and has
+// exactly one owner" guard.
 //
 // Guard: script/check/core-class-literal.mjs fails when a
 // `foliplus-scheme-picker-*` literal reappears in core production code.
 
-/** The compact class-count select trigger hook: a thin class on top of the
- *  consumer's own trigger class so the shared CSS can find it. */
-const SCHEME_PICKER_TRIGGER = "foliplus-scheme-picker-trigger";
+/** The scheme-picker class vocabulary. See the file header for why these
+ *  live together rather than per-caller. */
+const SCHEME_PICKER_CLASS = {
+  TRIGGER: "foliplus-scheme-picker-trigger",
+  BAR: "foliplus-scheme-picker-bar",
+  HIDDEN: "foliplus-scheme-picker-hidden",
+  OPEN: "foliplus-scheme-picker-open",
+  DROPDOWN: "foliplus-scheme-picker-dropdown",
+  ITEM: "foliplus-scheme-picker-item",
+  BLOCK: "foliplus-scheme-picker-block",
+  PORTAL: "foliplus-scheme-picker-portal",
+} as const;
 
-/** The colour bar drawn inside the trigger (and inside each dropdown row).
- *  One recipe in common/scheme-picker.css. */
-const SCHEME_PICKER_BAR = "foliplus-scheme-picker-bar";
-
-/** The hidden `<select>` the row builder renders for form submission and
- *  aria wiring — visually gone, structurally present. */
-const SCHEME_PICKER_HIDDEN = "foliplus-scheme-picker-hidden";
-
-/** The dropdown surface when it is open. The engine toggles it. */
-const SCHEME_PICKER_OPEN = "foliplus-scheme-picker-open";
-
-/** The dropdown surface element itself (the listbox popup). */
-const SCHEME_PICKER_DROPDOWN = "foliplus-scheme-picker-dropdown";
-
-/** One selectable scheme row inside the dropdown. */
-const SCHEME_PICKER_ITEM = "foliplus-scheme-picker-item";
-
-/** The scheme-name block inside a row — swatch plus label. */
-const SCHEME_PICKER_BLOCK = "foliplus-scheme-picker-block";
-
-/** Extra class on a portaled dropdown only. A portaled dropdown lives outside
- *  the panel that opened it, so it has to paint above that panel — while an
- *  inline dropdown stays inside the trigger's own stacking context and needs no
- *  lift. The class is what the stylesheet keys the z band off, so the JS keeps
- *  its distance from z numbers. The engine's `classes.portal` slot carries it. */
-const SCHEME_PICKER_PORTAL = "foliplus-scheme-picker-portal";
-
-export {
-  SCHEME_PICKER_TRIGGER,
-  SCHEME_PICKER_BAR,
-  SCHEME_PICKER_HIDDEN,
-  SCHEME_PICKER_OPEN,
-  SCHEME_PICKER_DROPDOWN,
-  SCHEME_PICKER_ITEM,
-  SCHEME_PICKER_BLOCK,
-  SCHEME_PICKER_PORTAL,
-};
+export { SCHEME_PICKER_CLASS };
