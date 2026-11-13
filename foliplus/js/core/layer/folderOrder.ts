@@ -179,11 +179,36 @@ const deleteFolderFromOrder = (
   };
 };
 
+/** Replace a folder's identity key in `folderOrder` — the rename write-side.
+ *  The old (normalised) key is replaced by the new (normalised) key at the
+ *  SAME position: a rename never moves the block (rev2 §1.2). If the old key
+ *  is not in the list (an unlisted folder, ordered by anchor), the new key is
+ *  not added — the folder stays unlisted and anchor-ordered, so no list edit
+ *  is owed. Pure: never mutates its input. */
+const renameFolderInOrder = (
+  section: FolderSection,
+  oldName: string,
+  newName: string,
+  folderOrder: FolderOrder,
+): FolderOrder => {
+  const oldKey = normalizeFolderName(oldName);
+  const newKey = normalizeFolderName(newName);
+  if (oldKey === newKey) return folderOrder; // normalisation-only rename: no-op
+  const listed = folderOrder.sections[section] ?? [];
+  if (!listed.includes(oldKey)) return folderOrder;
+  const renamed = listed.map(k => (k === oldKey ? newKey : k));
+  return {
+    ...folderOrder,
+    sections: { ...folderOrder.sections, [section]: renamed },
+  };
+};
+
 export {
   normalizeFolderName,
   sectionOrder,
   fullDisplayOrder,
   freezeSectionOrder,
   deleteFolderFromOrder,
+  renameFolderInOrder,
 };
 export type { FolderOrder, FolderSection };
