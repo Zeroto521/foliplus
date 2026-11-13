@@ -310,9 +310,9 @@ describe("renameFolderInOrder", () => {
     expect(out.sections.base).toEqual(["roads"]);
   });
 
-  it("normalises both keys before comparing", () => {
-    const order = { version: 1 as const, sections: { overlay: ["roads", "water"] } };
-    const out = renameFolderInOrder("overlay", "  Roads  ", "  Streets  ", order);
-    expect(out.sections.overlay).toEqual(["streets", "water"]);
+  it("is a no-op when the section has no listed keys", () => {
+    const order = { version: 1 as const, sections: {} };
+    const out = renameFolderInOrder("overlay", "Roads", "Streets", order);
+    expect(out).toBe(order);
   });
 });

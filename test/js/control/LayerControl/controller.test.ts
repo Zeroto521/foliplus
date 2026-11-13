@@ -6759,16 +6759,27 @@ describe("createFolder", () => {
     expect(reindex).toHaveBeenCalledTimes(1);
   });
 
-  it("createFolder on a frozen section appends at the tail", () => {
+  it("createFolder rejects a name already held by a live member not yet listed", () => {
+    // A layer can carry an author-declared folder name before the order lists it
+    // (folderOrder is only materialised on freeze / explicit create). createFolder
+    // must reject that name as a duplicate even though it is absent from `listed`.
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["water"] } } },
-      data: [],
+      seed: { folderOrder: { version: 1, sections: {} } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
     });
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["water", "roads"]);
+    expect(ok).toBe(false);
+    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
   });
 });
 
