@@ -1,9 +1,9 @@
-// Geometry probe: the scale's end numbers must sit centred on the rail's
-// ends — directly under the thumb that owns each end — and that centring must
-// not change the control's own box. The values row takes the track's half-thumb
-// inset, so the rail's ends are the values row's edges: a label centred on an
-// edge overhangs by half its width, and that overhang has to land inside the
-// panel's padding, not outside its scroll box.
+// Geometry probe: the scale's end numbers must sit pinned to the values
+// row's two edges — a label never paints past the row's own box, and a long
+// label truncates (ellipsis) instead of overflowing the container. This is
+// the flex layout's contract: the content must not draw outside the values
+// row. The row takes the track's half-thumb inset, so its edges align with
+// the rail's ends (and the thumbs parked there).
 //
 // Measured in the live style panel, where the rows get real layout. A real tile
 // basemap's panel carries both slider rows, so one visit covers the single
@@ -33,6 +33,10 @@
       text: el.textContent,
       box: boxOf(el),
       visible: style.visibility !== "hidden" && style.display !== "none",
+      // Proves the ellipsis actually engages on a long label: the content's
+      // intrinsic width exceeds the box the label is given.
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
     };
   };
 

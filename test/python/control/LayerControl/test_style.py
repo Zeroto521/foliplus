@@ -2635,19 +2635,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_slider_scale_ends_center_on_their_thumbs(self, browser, tmp_path):
-        """The end numbers of a slider scale sit centred on the rail's ends.
+    def test_slider_scale_ends_flush_inside_the_values_row(self, browser, tmp_path):
+        """The end numbers of a slider scale sit pinned to the values row's edges.
 
-        The values row takes the track's half-thumb inset, so the rail's ends
-        are the values row's edges and each end number has to be centred on
-        its own edge -- directly under the thumb parked there. Flush numbers
-        (outer edges on the row's edges) read as a scale whose ends belong to
-        the field rather than to the thumbs. Both rows that carry numbers are
-        measured in the live style panel: the single opacity thumb and the
-        dual zoom-range pair. The same pass pins that the centring did not
-        widen the control (a centred number overhangs the field by half its
-        width, which is why the flush layout existed) and did not clip the
-        numbers against the panel's scroll box.
+        The values row takes the track's half-thumb inset, so its edges align
+        with the rail's ends (the thumbs parked there). The end numbers are a
+        flex row (justify-content: space-between), so each label's outer edge
+        sits on the row's edge and the label never paints past the row's own
+        box — a long label truncates (ellipsis) rather than overflowing the
+        container, because the content must not draw outside it. Both rows
+        that carry numbers are measured in the live style panel: the single
+        opacity thumb and the dual zoom-range pair. The same pass pins that
+        the labels did not widen the control, that the values row still spans
+        the track, and that a long label actually ellipsizes (its intrinsic
+        width exceeds its box).
         """
         overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
         with use_page(
@@ -2673,37 +2674,51 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # names the right edge and the maximum the left one.
                 if mirrored:
                     ends = (
-                        ("min", labels["min"], row["track"]["right"]),
-                        ("max", labels["max"], row["track"]["left"]),
+                        ("min", labels["min"], row["values"]["right"], "right"),
+                        ("max", labels["max"], row["values"]["left"], "left"),
                     )
                 else:
                     ends = (
-                        ("min", labels["min"], row["track"]["left"]),
-                        ("max", labels["max"], row["track"]["right"]),
+                        ("min", labels["min"], row["values"]["left"], "left"),
+                        ("max", labels["max"], row["values"]["right"], "right"),
                     )
-                for side, label, edge in ends:
+                # The two labels must not overlap: in a flex row with
+                # justify-content: space-between, the min sits on the start
+                # edge and the max on the end edge, so the min's far side
+                # stays at or left of the max's near side.
+                min_label = labels["min"]
+                max_label = labels["max"]
+                if min_label and max_label:
+                    if mirrored:
+                        assert max_label["box"]["right"] <= min_label["box"]["left"] + 0.5, (
+                            f"{name} end numbers overlap: {min_label['box']} vs "
+                            f"{max_label['box']}"
+                        )
+                    else:
+                        assert min_label["box"]["right"] <= max_label["box"]["left"] + 0.5, (
+                            f"{name} end numbers overlap: {min_label['box']} vs "
+                            f"{max_label['box']}"
+                        )
+                for side, label, edge, outer in ends:
                     assert label is not None, f"{name} has no {side} number: {row}"
                     assert label["visible"], f"{name} {side} number is hidden: {row}"
-                    drift = abs(label["box"]["centerX"] - edge)
-                    assert drift <= 1.0, (
-                        f"{name} {side} number is not centred on the rail's "
-                        f"end: centre {label['box']['centerX']:.2f}px vs edge "
-                        f"{edge:.2f}px, drift {drift:.2f}px"
+                    # The label's outer edge sits on the values row's edge (the
+                    # rail's end): it is pinned there, not centred, so it never
+                    # paints past the container's box.
+                    pin = abs(label["box"][outer] - edge)
+                    assert pin <= 1.0, (
+                        f"{name} {side} number is not pinned to the values row's "
+                        f"{outer} edge: {label['box'][outer]:.2f}px vs {edge:.2f}px, "
+                        f"pin {pin:.2f}px"
                     )
-
-                # The overhang of a centred end number has to land inside the
-                # panel's scroll box; outside it the row's hidden overflow
-                # clips the digits.
-                content = row["content"]
-                assert content is not None, f"no style panel around {name}: {row}"
-                for side, label, _edge in ends:
-                    assert label["box"]["left"] >= content["left"] - 0.5, (
-                        f"{name} {side} number is clipped on the left: "
-                        f"{label['box']} vs {content}"
+                    # The label must not paint past the values row's own box.
+                    assert label["box"]["left"] >= row["values"]["left"] - 0.5, (
+                        f"{name} {side} number paints past the values row's left: "
+                        f"{label['box']} vs {row['values']}"
                     )
-                    assert label["box"]["right"] <= content["right"] + 0.5, (
-                        f"{name} {side} number is clipped on the right: "
-                        f"{label['box']} vs {content}"
+                    assert label["box"]["right"] <= row["values"]["right"] + 0.5, (
+                        f"{name} {side} number paints past the values row's right: "
+                        f"{label['box']} vs {row['values']}"
                     )
 
                 # Not widened: the slider is the track plus the half-thumb
@@ -2720,13 +2735,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
             check_row("opacity", result["opacity"], thumbs=1)
             check_row("zoom range", result["zoomRange"], thumbs=2)
 
-            # The dual row keeps the current-level number the flush layout had.
+            # The dual row keeps the current-level number the centred layout had.
             current = result["zoomRange"]["labels"]["current"]
             assert current is not None, f"zoom range lost its current number: {result}"
 
             # A mirrored page keeps the same invariant: the logical anchors
-            # swap sides, the physical shift flips with them, so every number
-            # still centres on the edge (and therefore the thumb) it names.
+            # swap sides, the physical pin flips with them, so every number
+            # still sits on the edge it names.
             page.evaluate(_js("LayerControl/set_document_dir_rtl"))
             mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"

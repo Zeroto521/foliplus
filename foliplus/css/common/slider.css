@@ -182,11 +182,18 @@
 }
 
 /* ── The scale's numbers ────────────────────────────────────────────
-   Under the marks they belong to; the box takes the track's half-thumb
-   inset, so 0% and 100% are the rail's ends. */
+   The end numbers sit pinned to the row's two edges (a flex row with
+   justify-content: space-between), so a label never paints past the
+   container: its content is clipped and ellipsized at the row's own box.
+   This replaces the old centred geometry, where a label overhung the row
+   (and could spill past the panel's scroll clip) by half its width — the
+   content must not draw outside the container, so a long label truncates
+   instead of overflowing. */
 .foliplus-slider-values {
-  position: relative;
-  /* Same inset as the track, so a number sits under the thumb that owns it. */
+  display: flex;
+  justify-content: space-between;
+  gap: var(--foliplus-space-sm);
+  /* Same inset as the track, so the ends line up with the rail's ends. */
   margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   height: var(--foliplus-font-size-md);
   line-height: var(--foliplus-font-size-md);
@@ -195,35 +202,28 @@
   font-variant-numeric: tabular-nums;
 }
 .foliplus-slider-values > span {
-  position: absolute;
-  top: 0;
+  position: static;
+  transform: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The end numbers centre on the rail's ends, i.e. under the thumb parked
-   there: the box already takes the track's half-thumb inset, so shifting a
-   number by half its own width puts its centre on the edge it names. The
-   overhang past the box costs no width — the slider is measured by its box,
-   and the values row keeps the track's width, not the spans' — so the control
-   still lines up with the fields below. The X offset is physical while the
-   inset is logical, so each end number shifts the other way when the row is
-   mirrored. */
+/* The end numbers pin to the row's edges. The flex direction follows the
+   document direction, so in RTL the min (logically first) still lands on the
+   right and the max on the left; no extra rule is needed. */
 .foliplus-slider-value-min {
-  inset-inline-start: 0;
-  inset-inline-end: auto;
-  transform: translateX(-50%);
+  flex: 0 1 auto;
 }
 .foliplus-slider-value-max {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  transform: translateX(50%);
+  flex: 0 1 auto;
 }
-:dir(rtl) .foliplus-slider-value-min {
-  transform: translateX(50%);
-}
-:dir(rtl) .foliplus-slider-value-max {
-  transform: translateX(-50%);
-}
-.foliplus-slider-value-current {
+.foliplus-slider-values > span.foliplus-slider-value-current {
+  /* The drag-time readout is centred over the track and must not take part in
+     the end-number flex row (it would push the max away from the right edge).
+     The > span rule above sets position: static with a higher specificity, so
+     this rule must be at least as specific to win. */
+  position: absolute;
   left: 50%;
   transform: translateX(-50%);
 }
