@@ -101,4 +101,3 @@ m
 [32m    101[39m js = (dist_dir / [33m"[39m[33mfoliplus-common.min.js[39m[33m"[39m).read_text(encoding=[33m"[39m[33mutf-8[39m[33m"[39m)
 
 [31mMissingAssetsError[39m: foliplus bundled assets missing: foliplus\dist\foliplus-common.min.css, foliplus\dist\foliplus-common.min.js. Run `make build-js` in the source checkout, then rebuild the package with `uv build` (`make dist` does both).
-
