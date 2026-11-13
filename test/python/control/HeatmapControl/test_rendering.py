@@ -241,5 +241,3 @@ class TestHeatmapControlRendering:
         """drawHexLabel uses cached font string to avoid repeated Canvas font parsing."""
         html = render_control(HeatmapControl())
         assert "font" in html
-
-    # ── Algorithm tests (rendering checks) ──
