@@ -1,6 +1,6 @@
 import { initFixture, makeAuthorIcon } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FILTER_SOURCE, type LayerFilterFeatures } from "#core/layer/index.js";
+import { type LayerFilterFeatures } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -134,9 +134,7 @@ describe("filter hidden-class survives a glyph rebuild (kill-test)", () => {
 
   it("a layer with no committed filter keeps its rebuilt element unclassed", () => {
     ui.runtimeStore.setFilterFeatures("flt1", featuresOf(marker));
-    expect(
-      manager.filterStore.getFilter("flt1", FILTER_SOURCE.GENERIC),
-    ).toBeUndefined();
+    expect(manager.layerRegistry.get("flt1")?.filter).toBeUndefined();
     expect(hasHiddenClass(marker.getElement())).toBe(false);
 
     commitGlyph(ui, "flt1", "star");
