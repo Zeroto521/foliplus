@@ -13,8 +13,8 @@
 //
 // This module is a read-only projection over the surface — never a second
 // derivation. It returns the same bits the per-dimension gates return, so the
-// row presence is unchanged; the only intended behavior change (S3-2) is the
-// menu's `canConfigure` widening to the full dimension set by construction.
+// row presence is unchanged; the only intended behavior change is the
+// menu's `canConfigure` delegation — the menu asks the same one projection.
 //
 // The sub-questions are exposed as booleans, not re-derived per call site, so
 // a row cannot drift from the capability it belongs to.
@@ -59,6 +59,10 @@ interface StyleCapability {
   /** FOLLOW_FILL is offered only where the border is an outline over a filled
    *  face (polygon/point) — never on a line (its border IS the colour). */
   canFollowFill: boolean;
+  /** The layer publishes styleSetters (third-party canvas layers: Heatmap,
+   *  Measure) — the menu's delegation gate, exactly as
+   *  `layerHasStyleDelegation` reads it. */
+  styleDelegation: boolean;
 }
 
 /** The geometry category of the layer, resolved from the surface (never a
@@ -95,6 +99,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
       borderCarriesValue: false,
       isColorBasemap: false,
       canFollowFill: false,
+      styleDelegation: false,
     };
   }
   const caps = ui.c.surfaceFor(layerInfo).capabilities;
@@ -119,6 +124,8 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
       layerInfo.role === ROLE.BASE &&
       !layerInfo.styleSetters,
     canFollowFill: !borderCarriesValue,
+    styleDelegation:
+      !!layerInfo.styleSetters && Object.keys(layerInfo.styleSetters).length > 0,
   };
 };
 

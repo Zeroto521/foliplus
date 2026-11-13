@@ -1,10 +1,10 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
-import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
+import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { isFilterCapable } from "./filter.js";
-import { CAP_TIER, sectionOf } from "#core/layer/index.js";
+import { sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -138,16 +138,17 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // geographic extent to focus on — so it keeps its style entry enabled.
   // Basemaps are configurable too: the solid-color basemap has a fill row
   // in its style panel, and tile basemaps can still tune opacity.
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const caps = layerInfo ? ui.c.surfaceFor(layerInfo).capabilities : null;
-  // `layerCanLabel` is the Label section's gate itself (pure capability
-  // bit) — the menu and the panel ask one function, so the entry can never
-  // enable a panel whose Label section would not render (or vice versa).
+  // One projection answers both the panel and the menu: a layer is
+  // configurable when any style dimension it honestly supports is on. The
+  // matrix reads the same capability slots and author declarations the rows
+  // use, so the entry can never enable a panel whose rows would not render
+  // (or vice versa) — and it cannot drift from the panel's dimension list.
+  const matrix = styleCapability(ui, layerId);
   const canConfigure =
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- booleans, || is intended
-    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
-    layerCanLabel(ui, layerId) ||
-    layerHasStyleDelegation(ui, layerId);
+    matrix.dims.opacity ||
+    matrix.dims.zoomRange ||
+    matrix.dims.label ||
+    matrix.styleDelegation;
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(

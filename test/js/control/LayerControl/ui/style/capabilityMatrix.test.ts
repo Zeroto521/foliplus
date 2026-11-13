@@ -1,6 +1,6 @@
 // Style capability matrix — parity against the per-dimension gates.
 //
-// S3-1 is a pure add: the matrix must return EXACTLY the bits the existing
+// A pure add: the matrix must return EXACTLY the bits the existing
 // `layerCan*` gates return for every dimension, on every real surface. This
 // test locks that parity by enumerating a representative layer set and
 // comparing `styleCapability(ui, id).dims` to the registered dimension's own
@@ -8,12 +8,14 @@
 // ever changes (native vs non-none) without the matrix changing with it, this
 // test goes red, so the two cannot drift.
 import { initFixture, installLeafletGlobals } from "../fixture.js";
-import { styleCapability } from "#control/LayerControl/ui/style/capabilityMatrix.js";
-import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DIM } from "#core/layer/index.js";
+import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { styleCapability } from "#control/LayerControl/ui/style/capabilityMatrix.js";
+import { layerHasStyleDelegation } from "#control/LayerControl/ui/style/delegated.js";
+import { layerCanLabel } from "#control/LayerControl/ui/style/labelDimension.js";
+import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 /** One dimension key to the matrix dim name it mirrors. `border` maps to
  *  the `stroke` capability slot (the descriptor's key is the UI name, the
@@ -214,6 +216,7 @@ describe("styleCapability parity with the per-dimension gates", () => {
     expect(matrix.borderCarriesValue).toBe(false);
     expect(matrix.isColorBasemap).toBe(false);
     expect(matrix.canFollowFill).toBe(false);
+    expect(matrix.styleDelegation).toBe(false);
   });
 
   it("a polygon surface exposes fill + border and can follow fill", () => {
@@ -254,5 +257,173 @@ describe("styleCapability parity with the per-dimension gates", () => {
     const matrix = styleCapability(ui, registerSet()[7]);
     expect(Object.values(matrix.dims).every(v => v === false)).toBe(true);
     expect(matrix.isColorBasemap).toBe(false);
+  });
+
+  it("styleDelegation parity with layerHasStyleDelegation", () => {
+    const li = manager.layerRegistry.get("overlay1");
+    li!.styleSetters = undefined;
+    expect(styleCapability(ui, "overlay1").styleDelegation).toBe(false);
+    li!.styleSetters = { color: vi.fn() };
+    expect(styleCapability(ui, "overlay1").styleDelegation).toBe(true);
+    li!.styleSetters = {};
+    expect(styleCapability(ui, "overlay1").styleDelegation).toBe(false);
+  });
+});
+
+describe("menu canConfigure equivalence", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const makePolygonLeaf = () => {
+    const leaf = Object.create((window.L as any).Polygon.prototype) as any;
+    leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+    leaf.setStyle = vi.fn();
+    leaf.getLatLngs = () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ];
+    return leaf;
+  };
+  const makeFillableLayer = (leaves: any[] = [makePolygonLeaf()]) => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+  });
+  const makeLineLayer = () => {
+    const line = Object.create((window.L as any).Polyline.prototype) as any;
+    line.options = { color: "#000000", weight: 2 };
+    line.setStyle = vi.fn();
+    line.getLatLngs = () => [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ];
+    return { options: {}, eachLayer: vi.fn((fn: (c: unknown) => void) => fn(line)) };
+  };
+  const makeMarker = (icon?: unknown) => {
+    const leaf: any = {
+      feature: { properties: {} },
+      options: { icon },
+      setIcon: vi.fn((next: unknown) => {
+        leaf.options.icon = next;
+        return leaf;
+      }),
+    };
+    return leaf;
+  };
+  const makeMarkerLayer = (...markers: any[]) => ({
+    options: {},
+    eachLayer: vi.fn((fn: (c: unknown) => void) => markers.forEach(fn)),
+  });
+  const makeGridLayer = () => new (window.L as any).TileLayer();
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture());
+  });
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** Reconstruct the OLD menu primitive verbatim — the surface caps plus the
+   *  label gate plus the delegation probe — so the migration can be proven
+   *  equivalent on the same representative set. If any term is dropped from
+   *  the new gate, this test goes red. */
+  const oldMenuCanConfigure = (id: string): boolean => {
+    const layerInfo = ui.c.layerRegistry.get(id);
+    const caps = layerInfo ? ui.c.surfaceFor(layerInfo).capabilities : null;
+    return (
+      (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
+      layerCanLabel(ui, id) ||
+      layerHasStyleDelegation(ui, id)
+    );
+  };
+
+  const newMenuCanConfigure = (id: string): boolean => {
+    const m = styleCapability(ui, id);
+    return m.dims.opacity || m.dims.zoomRange || m.dims.label || m.styleDelegation;
+  };
+
+  it("menu gate equals the old primitive on every representative surface", () => {
+    const ids = [
+      "poly",
+      "line",
+      "circle",
+      "markers",
+      "awesome",
+      "tile",
+      "color",
+      "cluster",
+    ];
+    manager.registerLayer({
+      id: "poly",
+      name: "Poly",
+      role: "overlay",
+      layer: makeFillableLayer(),
+    });
+    manager.registerLayer({
+      id: "line",
+      name: "Line",
+      role: "overlay",
+      layer: makeLineLayer(),
+    });
+    manager.registerLayer({
+      id: "markers",
+      name: "Markers",
+      role: "overlay",
+      layer: makeMarkerLayer(makeMarker(), makeMarker()),
+    });
+    manager.registerLayer({
+      id: "tile",
+      name: "Tile",
+      role: "base",
+      layer: makeGridLayer(),
+      paneName: "tilePane",
+    });
+    manager.registerLayer({
+      id: "color",
+      name: "Color",
+      role: "base",
+      color: "#3366cc",
+    });
+    manager.registerLayer({
+      id: "cluster",
+      name: "Cluster",
+      layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
+    });
+    for (const id of ids) {
+      expect(newMenuCanConfigure(id), `menu gate drifted for ${id}`).toBe(
+        oldMenuCanConfigure(id),
+      );
+    }
+  });
+
+  it("turns red when the styleDelegation term is dropped", () => {
+    // A layer with only styleSetters and no opacity/zoomRange/label must still
+    // enable the menu — this is exactly what the old primitive's delegation
+    // probe guarded, and what the matrix's styleDelegation bit now carries.
+    const li = manager.layerRegistry.get("overlay1");
+    li!.styleSetters = { color: vi.fn() };
+    const surface = ui.c.surfaceFor(li!);
+    (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
+      opacity: "none",
+      zoomRange: "none",
+      label: "none",
+    };
+    const m = styleCapability(ui, "overlay1");
+    expect(m.dims.opacity).toBe(false);
+    expect(m.dims.zoomRange).toBe(false);
+    expect(m.dims.label).toBe(false);
+    expect(m.styleDelegation).toBe(true);
+    expect(newMenuCanConfigure("overlay1")).toBe(true);
   });
 });

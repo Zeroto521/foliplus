@@ -463,4 +463,5 @@ export {
 } from "./label.js";
 export { LABEL_DIMENSION, layerCanLabel } from "./labelDimension.js";
 export { layerHasStyleDelegation } from "./delegated.js";
+export { styleCapability } from "./capabilityMatrix.js";
 export { replayDeclaredFill, replayFillState } from "./fill.js";
