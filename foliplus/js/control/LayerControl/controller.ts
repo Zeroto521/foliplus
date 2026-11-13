@@ -59,6 +59,7 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
+import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
@@ -244,6 +245,17 @@ class LayerController implements LayerAPI {
   /** The generic filter's hidden-leaf set per layer id, kept so the label
    *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
+  /** The icon-replay handler registered on the shared markerIcon module. A
+   *  marker icon rebuild swaps the element but not the leaf; this re-applies
+   *  the filter hidden class so the DOM class and the leaf-keyed hidden set
+   *  stay in agreement. Registered idempotently, unregistered on destroy. */
+  private readonly onIconReplay: (leaf: L.Layer) => void = (leaf: L.Layer): void => {
+    const id = this.layerIdOfLeaf(leaf);
+    if (id === null) return;
+    const hidden = this.hiddenSets.get(id);
+    if (hidden?.has(leaf)) this.applyHiddenClass(leaf, true);
+  };
+
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
@@ -265,6 +277,7 @@ class LayerController implements LayerAPI {
     // tail, and LayerAPI mounting live in a separate phase (mirrors
     // MeasureManager). Constructor return completes with init done; external
     // callers never see an intermediate state.
+    registerIconReplay(this.onIconReplay);
     this.init(data);
   }
 
@@ -1962,6 +1975,28 @@ class LayerController implements LayerAPI {
    *  same hidden set via the label manager — never walkLeaf/walkFillLeaves
    *  (the ramp/legend domain must not follow the filter). No event is
    *  published: a caller that also announces the change publishes separately. */
+  /** Toggle the filter hidden class on every visible element of one leaf. */
+  /** Map a leaf back to the layer id that owns it, or null when the leaf is
+   *  not owned by a registered layer. A marker-icon rebuild only carries the
+   *  leaf, so the replay handler needs the reverse lookup to reach the
+   *  layer-keyed hidden set. */
+  private layerIdOfLeaf(leaf: L.Layer): string | null {
+    for (const li of this.layerRegistry) {
+      let found = false;
+      walkLeaf(li.layer, child => {
+        if (child === leaf) found = true;
+      });
+      if (found) return li.id;
+    }
+    return null;
+  }
+
+  private applyHiddenClass(leaf: L.Layer, hide: boolean): void {
+    for (const el of visibleDomOf(leaf)) {
+      el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
+    }
+  }
+
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
     if (!features) {
@@ -1971,13 +2006,9 @@ class LayerController implements LayerAPI {
     const hidden = filterLeafSet(features.features, filter);
     this.hiddenSets.set(id, hidden);
     for (const feature of features.features) {
-      const hide = hidden.has(feature.leaf);
-      for (const el of visibleDomOf(feature.leaf)) {
-        el.classList.toggle(CONST.CLASSES.FILTER_HIDDEN, hide);
-      }
+      this.applyHiddenClass(feature.leaf, hidden.has(feature.leaf));
     }
   }
-
   /** Re-apply a committed filter's hidden class after a layer's DOM elements
    *  were recreated (layeradd late-binding, LAYER_ITEM_REFRESHED). A layer that
    *  was never filtered is skipped; a cleared filter re-applies no-hidden. */
@@ -2097,6 +2128,7 @@ class LayerController implements LayerAPI {
       ],
       failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
     );
+    unregisterIconReplay(this.onIconReplay);
     // Plain field resets — they cannot throw, and deciding them by step success
     // would leave a destroyed manager holding a dead UI or a stale registry.
     // The DOM is left alone: LayerController.destroy() drops the registry

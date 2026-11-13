@@ -45,6 +45,8 @@ export {
 } from "./panel.js";
 export {
   applyIconToLeaves,
+  registerIconReplay,
+  unregisterIconReplay,
   applyIconColorToLeaves,
   authorGlyphColorOf,
   authorIconOf,
