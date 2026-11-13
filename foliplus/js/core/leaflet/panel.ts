@@ -13,8 +13,6 @@ import { PANEL_CLASS, closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
-  COLLAPSED: "foliplus-is-collapsed",
-  EXPANDED: "foliplus-is-expanded",
   FOLD: "foliplus-ctrl-fold",
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
@@ -62,8 +60,8 @@ const bindPanelToggle = (opts: {
   if (btn) {
     L.DomEvent.on(btn, "click", (event: Event) => {
       L.DomEvent.stop(event);
-      opts.container.classList.remove(CLASSES.COLLAPSED);
-      opts.container.classList.add(CLASSES.EXPANDED);
+      opts.container.classList.remove(PANEL_CLASS.COLLAPSED);
+      opts.container.classList.add(PANEL_CLASS.EXPANDED);
       adjustPanelZIndex({ container: opts.container, expanded: true });
     });
   }
@@ -71,8 +69,8 @@ const bindPanelToggle = (opts: {
   if (hdr) {
     L.DomEvent.on(hdr, "click", (event: Event) => {
       L.DomEvent.stop(event);
-      opts.container.classList.remove(CLASSES.EXPANDED);
-      opts.container.classList.add(CLASSES.COLLAPSED);
+      opts.container.classList.remove(PANEL_CLASS.EXPANDED);
+      opts.container.classList.add(PANEL_CLASS.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
     });
   }
@@ -91,9 +89,9 @@ const bindFoldToggle = (opts: {
 }): void => {
   L.DomEvent.on(opts.toggleBtn, "click", (event: Event) => {
     L.DomEvent.stop(event);
-    const expanding = opts.container.classList.contains(CLASSES.COLLAPSED);
-    opts.container.classList.toggle(CLASSES.COLLAPSED);
-    opts.container.classList.toggle(CLASSES.EXPANDED);
+    const expanding = opts.container.classList.contains(PANEL_CLASS.COLLAPSED);
+    opts.container.classList.toggle(PANEL_CLASS.COLLAPSED);
+    opts.container.classList.toggle(PANEL_CLASS.EXPANDED);
     adjustPanelZIndex({ container: opts.container, expanded: expanding });
     if (expanding) opts.onExpand?.();
     else opts.onCollapse?.();
@@ -157,10 +155,10 @@ const bindOutsideCollapse = (opts: {
     if (skipCheck()) return;
     if (
       !insidePress.has(event) &&
-      opts.container.classList.contains(CLASSES.EXPANDED)
+      opts.container.classList.contains(PANEL_CLASS.EXPANDED)
     ) {
-      opts.container.classList.remove(CLASSES.EXPANDED);
-      opts.container.classList.add(CLASSES.COLLAPSED);
+      opts.container.classList.remove(PANEL_CLASS.EXPANDED);
+      opts.container.classList.add(PANEL_CLASS.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
     }
   };
@@ -203,7 +201,7 @@ const createFoldControl = (opts: {
     opts.position !== undefined ? opts.position.indexOf("left") >= 0 : opts.isLeft;
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
-    class: `${opts.cssClass} ${CLASSES.FOLD} ${CLASSES.COLLAPSED}`,
+    class: `${opts.cssClass} ${CLASSES.FOLD} ${PANEL_CLASS.COLLAPSED}`,
   });
   ctrl.appendChild(
     dom.el(
@@ -682,7 +680,7 @@ const createPanelControl = (opts: {
 } => {
   const container = dom.el("div", { class: CLASSES.LEAFLET_BAR });
   const ctrl = dom.el("div", {
-    class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${CLASSES.COLLAPSED}`,
+    class: `foliplus-panel ${CLASSES.FOLD} ${opts.cssClass} ${PANEL_CLASS.COLLAPSED}`,
     // Every panel gets a stable id so tests and the fold-state store can key
     // on it; LayerControl passes an explicit one to keep its historic name.
     id: opts.ctrlId ?? `${opts.cssClass}_ctrl`,

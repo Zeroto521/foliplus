@@ -26,6 +26,7 @@ import { NUMBER_FORMAT } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
+  FORM_CLASS,
   LABEL_SIZE,
   PANEL_CLASS,
   clampLabelSize,
@@ -136,7 +137,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const formatSelect = dom.el(
     "select",
     {
-      class: `foliplus-input-skin foliplus-form-select ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
+      class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT} ${CONST.CLASSES.STYLE_FORMAT_SELECT}`,
       "aria-label": ui._("foliplus.label_format"),
     },
     ...formatOpts,

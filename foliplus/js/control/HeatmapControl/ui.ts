@@ -355,8 +355,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     resetPanel(ctrl);
     ctrl.mgr.clearSavedConfig();
     ctrl.mgr.clearLayerState();
-    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
@@ -371,11 +371,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
 const setupObserver = (ctrl: HeatmapControlUI) => {
   ctrl.observer = new MutationObserver(() => {
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED) && !ctrl.expandHookDone) {
+    if (ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED) && !ctrl.expandHookDone) {
       ctrl.expandHookDone = true;
       rebuildLayerDropdown(ctrl);
     }
-    if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
+    if (ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)) {
       ctrl.expandHookDone = false;
       // The scheme list is portalled to the map surface (not into the panel),
       // so collapsing the panel does not hide it: the header, the close button

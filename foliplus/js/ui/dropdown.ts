@@ -9,7 +9,7 @@
 // button). The six historical shape divergences from the scheme picker are
 // explicit engine config (ui/listbox.ts), so a bug fix lands in one place.
 //
-// Trigger: a <button> that keeps the existing `.foliplus-form-select` chrome
+// Trigger: a <button> that keeps the existing FORM_CLASS.FORM_SELECT chrome
 // (ui/form.css). Popup: joins the shared floating-menu shell
 // (ui/menu.css) for border, background, shadow and item states;
 // dropdown.css adds only what the shell leaves per-component (anchoring,
@@ -23,6 +23,7 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
+import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
 import type { Dropdown, DropdownSurface } from "./type.js";
@@ -250,7 +251,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   }
   const trigger = dom.el("button", {
     type: "button",
-    class: `foliplus-input-skin foliplus-form-select ${DROPDOWN_CLASSES.trigger}`,
+    class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT} ${DROPDOWN_CLASSES.trigger}`,
     "aria-haspopup": "listbox",
     "aria-expanded": "false",
   }) as HTMLButtonElement;

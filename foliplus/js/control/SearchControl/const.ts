@@ -18,8 +18,6 @@ const AUTOCOMPLETE = {
 };
 const PARAM = { Q: "q", LNG: "lng", LAT: "lat" };
 const CLASSES = {
-  EXPANDED: "foliplus-is-expanded",
-  COLLAPSED: "foliplus-is-collapsed",
   MAP_SEARCH: "foliplus-search",
   SEARCH_MODE_BTN: "foliplus-search-mode-btn",
   CLEAR: "clear",
@@ -27,7 +25,6 @@ const CLASSES = {
   RESULT_ITEM: "foliplus-search-result-item",
   RESULT_ICON: "foliplus-search-result-icon",
   RESULT_TEXT: "foliplus-search-result-text",
-  ACTIVE: "foliplus-is-active",
   /** Content wrapper inside a result item (address + coord display). */
   RESULT_CONTENT: "foliplus-search-result-content",
   /** Secondary coordinate display line inside a result item. */

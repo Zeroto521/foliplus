@@ -56,8 +56,8 @@ const TIMING = {
 const CLASSES = {
   // foliplus-hidden and foliplus-close-btn are the shared panel vocabulary
   // (ui/panelClassName); they are not component classes.
-  COLLAPSED: "foliplus-is-collapsed",
-  EXPANDED: "foliplus-is-expanded",
+  // foliplus-is-collapsed/-expanded/-active are the shared panel state
+  // vocabulary (ui/panelClassName PANEL_CLASS).
   TOOL_BTN: "foliplus-tool-btn",
   EXPORT_MODE: "foliplus-export-mode",
   EXPORT_BOX: "foliplus-export-box",
@@ -72,7 +72,6 @@ const CLASSES = {
   CENTER_DOT: "foliplus-dot foliplus-dot-solid foliplus-export-center",
   PREVIEW: "foliplus-export-preview",
   LOCKED: "foliplus-locked",
-  ACTIVE: "foliplus-is-active",
   CONFIRM: "foliplus-confirm",
   CANCEL: "foliplus-cancel",
   DRAGGING: "foliplus-is-dragging",

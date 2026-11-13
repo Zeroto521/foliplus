@@ -11,6 +11,7 @@ import type { SearchControl } from "./type.js";
 import { ListCursor, ensureInteraction } from "#core/interaction/index.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
 import { type ControlEnv, guardBlocked } from "#core/lifecycle/index.js";
+import { PANEL_CLASS } from "#ui/index.js";
 
 /** Full ctrl type for interaction — SearchControl instance + control ctx. */
 type InteractionCtrl = SearchControl & ControlEnv;
@@ -35,7 +36,7 @@ const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
   ctrl.listCursor ??= new ListCursor({
     root: ctrl.panelWrap,
     itemSelector: `.${CLASSES.RESULT_ITEM}`,
-    activeClass: CLASSES.ACTIVE,
+    activeClass: PANEL_CLASS.ACTIVE,
     mode: "active-descendant",
     input: ctrl.inp,
     // Rows already carry the option contract from renderResults
@@ -138,8 +139,8 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
           removePanel(ctrl);
           return;
         }
-        ctrl.ctrl.classList.remove(CLASSES.EXPANDED);
-        ctrl.ctrl.classList.add(CLASSES.COLLAPSED);
+        ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+        ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
         map.foliplus!.hideHint(ctrl.config.name);
       },
@@ -193,7 +194,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   // Watch for collapse state changes (via toggle, Escape, or outside click)
   // to remove the floating history/suggestions panel.
   const collapseObserver = new MutationObserver(() => {
-    if (ctrl.ctrl.classList.contains(CLASSES.COLLAPSED)) removePanel(ctrl);
+    if (ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)) removePanel(ctrl);
   });
   collapseObserver.observe(ctrl.ctrl, { attributes: true, attributeFilter: ["class"] });
 
