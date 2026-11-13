@@ -14,10 +14,15 @@
 // row presence is unchanged; the only intended behavior change is the
 // menu's `canConfigure` delegation — the menu asks the same one projection.
 //
+// The projection deliberately publishes ONLY the capability bits the menu
+// consumes today (opacity / zoomRange / label / delegation). The remaining
+// dimensions (fill / border / size / icon / iconColor / markerColor) still
+// answer through their own per-dimension gates; each one joins this projection
+// together with its consumer, in the PR that introduces that consumer.
 import type { LayerUI } from "../surface.js";
 import { CAP_TIER } from "#core/layer/index.js";
 
-/** The style dimensions the reader projects. Ordered like the panel's
+/** The style dimensions the reader can project. Ordered like the panel's
  *  `DIM_ORDER` + `LABEL_DIM_ORDER` union (the reader adds nothing outside
  *  those two arrays — `registry.test` locks that union). */
 type StyleDim =
@@ -33,10 +38,13 @@ type StyleDim =
 
 /** The full style-capability answer for one layer, in one object. */
 interface StyleCapability {
-  /** One boolean per dimension: the surface's capability slot against the
-   *  gate's required tier (native for stroke/fill/size/icon/iconColor/
-   *  markerColor, non-none for opacity/zoomRange/label). */
-  dims: Record<StyleDim, boolean>;
+  /** One boolean per dimension the projection currently PUBLISHES (the ones a
+   *  production consumer reads). The type keeps the full vocabulary so a
+   *  future consumer extends this map with its dimension — one line in the
+   *  `dims` object below plus one parity assertion — instead of a type edit.
+   *  Dimensions without a consumer still answer through their own gate and are
+   *  absent from this map. */
+  dims: Partial<Record<StyleDim, boolean>>;
   /** The layer publishes styleSetters (third-party canvas layers: Heatmap,
    *  Measure) — the menu's delegation gate, exactly as
    *  `layerHasStyleDelegation` reads it. */
@@ -54,15 +62,9 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
   if (!layerInfo) {
     return {
       dims: {
-        fill: false,
-        border: false,
         opacity: false,
-        size: false,
-        label: false,
-        icon: false,
-        iconColor: false,
-        markerColor: false,
         zoomRange: false,
+        label: false,
       },
       styleDelegation: false,
     };
@@ -70,15 +72,9 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
   const caps = ui.c.surfaceFor(layerInfo).capabilities;
   return {
     dims: {
-      fill: caps.fill === CAP_TIER.NATIVE,
-      border: caps.stroke === CAP_TIER.NATIVE,
       opacity: caps.opacity !== CAP_TIER.NONE,
-      size: caps.size === CAP_TIER.NATIVE,
-      label: caps.label !== CAP_TIER.NONE,
-      icon: caps.icon === CAP_TIER.NATIVE,
-      iconColor: caps.iconColor === CAP_TIER.NATIVE,
-      markerColor: caps.markerColor === CAP_TIER.NATIVE,
       zoomRange: caps.zoomRange !== CAP_TIER.NONE,
+      label: caps.label !== CAP_TIER.NONE,
     },
     styleDelegation:
       !!layerInfo.styleSetters && Object.keys(layerInfo.styleSetters).length > 0,

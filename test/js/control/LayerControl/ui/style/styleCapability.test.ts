@@ -21,32 +21,17 @@ import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.
  *  the `stroke` capability slot (the descriptor's key is the UI name, the
  *  slot is the surface name) — everything else is identity. */
 const DIM_TO_DIM: Record<string, string> = {
-  [DIM.FILL]: "fill",
-  [DIM.BORDER]: "border",
   [DIM.OPACITY]: "opacity",
-  [DIM.SIZE]: "size",
   [DIM.LABEL]: "label",
-  [DIM.ICON]: "icon",
-  [DIM.ICON_COLOR]: "iconColor",
-  [DIM.MARKER_COLOR]: "markerColor",
   [DIM.ZOOM_RANGE]: "zoomRange",
 };
 
-/** Every registered built-in dimension must be mirrored by the reader — the
- *  reader adds nothing outside `DIM_ORDER` + `LABEL_DIM_ORDER`. */
-it("mirrors every registered built-in dimension", () => {
+/** Every published dimension must mirror a registered built-in dimension —
+ *  the reader adds nothing outside the vocabulary, and each published key has
+ *  a gate to parity against. */
+it("mirrors every published dimension to a registered built-in dimension", () => {
   const keys = Object.keys(DIM_TO_DIM);
-  expect(keys).toEqual([
-    "fill",
-    "border",
-    "opacity",
-    "size",
-    "label",
-    "icon",
-    "iconColor",
-    "markerColor",
-    "zoomRange",
-  ]);
+  expect(keys).toEqual(["opacity", "label", "zoomRange"]);
   for (const key of keys) {
     expect(getDimension(key), `missing dimension ${key}`).toBeDefined();
   }
@@ -210,36 +195,36 @@ describe("styleCapability parity with the per-dimension gates", () => {
 
   it("returns all-false for a layer outside the registry", () => {
     const cap = styleCapability(ui, "not-a-real-layer");
-    expect(Object.values(cap.dims)).toEqual(Array(9).fill(false));
+    expect(Object.values(cap.dims)).toEqual([false, false, false]);
     expect(cap.styleDelegation).toBe(false);
   });
 
-  it("a polygon surface exposes fill + border and can follow fill", () => {
+  it("a polygon surface exposes the published dimensions", () => {
     const id = registerSet()[0];
     const cap = styleCapability(ui, id);
-    expect(cap.dims.fill).toBe(true);
-    expect(cap.dims.border).toBe(true);
     expect(cap.dims.opacity).toBe(true);
     expect(cap.dims.zoomRange).toBe(true);
-    expect(cap.dims.size).toBe(false);
+    expect(cap.dims.label).toBe(false);
+    expect(cap.dims.fill).toBeUndefined();
+    expect(cap.dims.border).toBeUndefined();
   });
 
-  it("a line surface carries the border value but cannot follow fill", () => {
+  it("a line surface exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[1]);
-    expect(cap.dims.border).toBe(true);
+    expect(cap.dims.opacity).toBe(true);
+    expect(cap.dims.zoomRange).toBe(true);
   });
 
-  it("a marker surface exposes icon but neither fill nor border", () => {
+  it("a marker surface exposes only the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[3]);
-    expect(cap.dims.icon).toBe(true);
-    expect(cap.dims.fill).toBe(false);
-    expect(cap.dims.border).toBe(false);
-    expect(cap.dims.size).toBe(false);
+    expect(cap.dims.icon).toBeUndefined();
+    expect(cap.dims.fill).toBeUndefined();
+    expect(cap.dims.border).toBeUndefined();
   });
 
-  it("a color basemap is a color basemap and can fill", () => {
+  it("a color basemap exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[6]);
-    expect(cap.dims.fill).toBe(true);
+    expect(cap.dims.fill).toBeUndefined();
   });
 
   it("a cluster surface exposes nothing configurable", () => {
