@@ -93,7 +93,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
       { at: 0, tone: "limit" },
       { at: 100, tone: "limit" },
     ],
-    values: { min: "0", max: "100" },
+    values: { min: "0%", max: "100%" },
     input: value => commitOpacityPct(ui, layerId, host, Number(value)),
   });
   return dom.el(

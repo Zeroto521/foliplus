@@ -39,6 +39,7 @@ import {
   authorIconOf,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
+import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
   colorInput,
@@ -205,7 +206,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     max: 100,
     step: 1,
     className: CONST.CLASSES.STYLE_MARKER_COLOR_OPACITY_NUMBER,
-    ariaLabel: ui.T("style_marker_color_opacity"),
+    ariaLabel: withUnit(ui.T("style_marker_color_opacity"), ui._("foliplus.unit_pct")),
   }) as HTMLInputElement;
   const row = formRow(
     ui.T("style_marker_color"),

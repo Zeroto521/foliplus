@@ -77,6 +77,7 @@ import {
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
+import { withUnit } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   STYLE_MODE_KEY,
@@ -427,7 +428,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     max: 100,
     step: 1,
     className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
-    ariaLabel: ui.T("style_fill_opacity"),
+    ariaLabel: withUnit(ui.T("style_fill_opacity"), ui._("foliplus.unit_pct")),
   }) as HTMLInputElement;
 
   return [

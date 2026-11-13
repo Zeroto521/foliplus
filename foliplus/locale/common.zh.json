@@ -23,5 +23,7 @@
   "foliplus.classification_jenks": "自然断点",
   "foliplus.classification_quantile": "分位数法",
   "foliplus.classification_equal": "等距分段",
-  "foliplus.classification_heads": "等数分段"
+  "foliplus.classification_heads": "等数分段",
+  "foliplus.unit_px": "像素",
+  "foliplus.unit_pct": "百分比"
 }
