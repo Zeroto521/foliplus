@@ -834,7 +834,9 @@ class TestLayerControlRendering:
         assert "flex: 0 1 auto" in min_rule
         assert "flex: 0 1 auto" in max_rule
         assert ":dir(rtl) .foliplus-slider-value-min" not in css
-        current = _rule(css, ".foliplus-slider-values > span.foliplus-slider-value-current {")
+        current = _rule(
+            css, ".foliplus-slider-values > span.foliplus-slider-value-current {"
+        )
         assert "position: absolute" in current
         assert "top: 0" in current
         assert "translateX(-50%)" in current

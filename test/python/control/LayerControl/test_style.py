@@ -2793,7 +2793,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"{label['box']} vs {group['values']}"
                     )
                 # The two end labels must not overlap.
-                assert group["min"]["box"]["right"] <= group["max"]["box"]["left"] + 0.5, (
+                assert (
+                    group["min"]["box"]["right"] <= group["max"]["box"]["left"] + 0.5
+                ), (
                     f"{name} end labels overlap: {group['min']['box']} vs "
                     f"{group['max']['box']}"
                 )
