@@ -78,7 +78,7 @@ const doExport = function (this: ExportManager) {
   // during export so Leaflet's JS event listeners on SVG paths
   // cannot trigger hover highlights.
   this.exportOverlay = dom.el("div", {
-    class: "foliplus-export-blocker",
+    class: CONST.CLASSES.EXPORT_BLOCKER,
     parent: document.body,
   });
   // Lock map interactions (pan/zoom) so layer positions stay stable.

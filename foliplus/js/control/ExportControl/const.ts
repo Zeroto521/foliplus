@@ -60,6 +60,8 @@ const CLASSES = {
   // vocabulary (ui/panelClassName PANEL_CLASS). foliplus-tool-btn is the
   // shared control button skin (ui/panelClassName PANEL_CLASS).
   EXPORT_MODE: "foliplus-export-mode",
+  EXPORT_BLOCKER: "foliplus-export-blocker",
+  EXPORT_OVERLAY: "foliplus-export-overlay",
   EXPORT_BOX: "foliplus-export-box",
   // Single-token identity — crop.ts hit-testing uses `classList.contains`,
   // which does not split a multi-token lookup. Keep these one token each.

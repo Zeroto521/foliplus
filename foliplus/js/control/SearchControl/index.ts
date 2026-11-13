@@ -19,7 +19,7 @@ import { createIconButton, dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import type { Floating } from "#platform/floating.js";
 import * as Icons from "#platform/icon.js";
-import { closeButton } from "#ui/index.js";
+import { FORM_CLASS, PANEL_CLASS, closeButton } from "#ui/index.js";
 
 class SearchControl extends defineControl({
   config: CONFIG,
@@ -115,13 +115,13 @@ class SearchControl extends defineControl({
     });
     const inp = dom.el("input", {
       type: "text",
-      class: "foliplus-input",
+      class: FORM_CLASS.INPUT,
       placeholder: this.T("coord_placeholder"),
     }) as HTMLInputElement;
     const clearBtn = closeButton({
       title: this.T("clear_title"),
       iconSvg: Icons.ICON_CLOSE,
-      className: "foliplus-ctrl-btn",
+      className: PANEL_CLASS.CTRL_BTN,
     });
     this.modeBtn = modeBtn;
     this.inp = inp;
