@@ -695,7 +695,7 @@ const buildBorderWidthOnlyRow = (
 ): HTMLElement => {
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
   return buildBorderRowShell({
-    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW} foliplus-style-size-row`,
+    rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW} ${CONST.CLASSES.STYLE_SIZE_ROW}`,
     label: ui.T("border"),
     color: "",
     weight,

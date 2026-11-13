@@ -406,7 +406,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     ariaLabel: ui.T("filter_layer"),
     iconSvg: SVGs.ICON_FILTER,
     closeTitle: ui.T("close_title"),
-    iconClass: `${CONST.CLASSES.FILTER_ICON} foliplus-header-icon`,
+    iconClass: `${CONST.CLASSES.FILTER_ICON} ${PANEL_CLASS.ICON}`,
   });
 
   const state: FilterPanelState = {

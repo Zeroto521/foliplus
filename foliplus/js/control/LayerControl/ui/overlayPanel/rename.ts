@@ -11,6 +11,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#platform/dom.js";
+import { FORM_CLASS } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /**
@@ -49,7 +50,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   createInlineEditInput({
     label,
     initialValue: currentName,
-    className: `${CONST.CLASSES.RENAME_INPUT} foliplus-input`,
+    className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
     ariaLabel: ui.T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
