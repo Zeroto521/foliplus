@@ -82,4 +82,3 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
 };
 
 export { styleCapability };
-export type { StyleCapability, StyleDim };

@@ -144,8 +144,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // use, so the entry can never enable a panel whose rows would not render
   // (or vice versa) — and it cannot drift from the panel's dimension list.
   const cap = styleCapability(ui, layerId);
-  const canConfigure =
-    cap.dims.opacity || cap.dims.zoomRange || cap.dims.label || cap.styleDelegation;
+  const canConfigure = [
+    cap.dims.opacity,
+    cap.dims.zoomRange,
+    cap.dims.label,
+    cap.styleDelegation,
+  ].some(Boolean);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
