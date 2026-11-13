@@ -186,8 +186,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // and the class count sits at the compact secondary width — the
   // LayerControl by-value row's shape. The classes-select hook class on the
   // native select and the data-* seams stay untouched.
-  classesRow.methodDropdown.element.classList.add("foliplus-heatmap-method");
-  classesRow.classesDropdown.element.classList.add("foliplus-heatmap-classes-count");
+  classesRow.methodDropdown.element.classList.add(CONST.CLASSES.METHOD);
+  classesRow.classesDropdown.element.classList.add(CONST.CLASSES.CLASSES_COUNT);
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),
     triggerClass: CONST.CLASSES.SCHEME_BAR,
