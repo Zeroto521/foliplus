@@ -9,6 +9,7 @@
 // test goes red, so the two cannot drift.
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { readFileSync } from "node:fs";
+import { repoPath } from "#test/path.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
@@ -412,10 +413,7 @@ describe("menu canConfigure equivalence", () => {
    *  migrated. If a future edit adds a new `layerCanSize(` call in the row or
    *  valueSource body, this goes red. */
   describe("size/icon call sites read the projection", () => {
-    const readSource = (rel: string): string => {
-      const url = new URL(rel, import.meta.url);
-      return readFileSync(url, "utf8");
-    };
+    const readSource = (rel: string): string => readFileSync(repoPath(rel), "utf8");
     const sliceBody = (src: string, start: string, end: string): string => {
       const i = src.indexOf(start);
       const j = src.indexOf(end, i);
@@ -423,7 +421,7 @@ describe("menu canConfigure equivalence", () => {
     };
     it("size row and valueSource read styleCapability, not layerCanSize", () => {
       const src = readSource(
-        "../../../../../../foliplus/js/control/LayerControl/ui/style/size.ts",
+        "foliplus/js/control/LayerControl/ui/style/size.ts",
       );
       const row = sliceBody(src, "const buildSizeRow", "const SIZE_DIMENSION");
       const vs = sliceBody(src, "valueSource:", "contentChange:");
@@ -434,7 +432,7 @@ describe("menu canConfigure equivalence", () => {
     });
     it("icon row and valueSource read styleCapability, not layerCanIcon", () => {
       const src = readSource(
-        "../../../../../../foliplus/js/control/LayerControl/ui/style/icon.ts",
+        "foliplus/js/control/LayerControl/ui/style/icon.ts",
       );
       const row = sliceBody(src, "const buildIconRow", "const ICON_DIMENSION");
       const vs = sliceBody(src, "valueSource:", "contentChange:");
