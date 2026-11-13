@@ -1229,7 +1229,11 @@ class TestDeclaredFillBrowser:
             _open_declared_style_panel(page)
             initial = page.evaluate(_DECLARED_READ)
             assert initial["mode"] == "value", initial
-            assert initial["originalAvailable"] is False, initial
+            # P1 makes the original-colours state always available for a
+            # fill-capable layer, even when the author painted a single colour
+            # (lead m14358). The declaration is the by-value mode, but the
+            # option is offered alongside it.
+            assert initial["originalAvailable"] is True, initial
             assert initial["hasSwatch"] is False, initial
             assert initial["field"] == "score", initial
             assert initial["classes"] == "3", initial
