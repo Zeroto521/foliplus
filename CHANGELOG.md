@@ -56,6 +56,7 @@
 - Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 - Panels and overlays: one press dismisses one surface — an outside press closes a click-phase overlay even when the press stops propagation, Escape ranks every open surface, and a panel close button no longer bubbles a pan to the map; a wheel over an open popup scrolls it instead of zooming the map ([#816](https://github.com/Zeroto521/foliplus/pull/816), [#832](https://github.com/Zeroto521/foliplus/pull/832), [#833](https://github.com/Zeroto521/foliplus/pull/833), [#870](https://github.com/Zeroto521/foliplus/pull/870), [#977](https://github.com/Zeroto521/foliplus/pull/977))
 - `SearchControl`: a wheel over the result panel scrolls its list instead of zooming the map, including at the panel's top/bottom edge and when the list is shorter than the panel ([#866](https://github.com/Zeroto521/foliplus/pull/866), [#921](https://github.com/Zeroto521/foliplus/pull/921))
+- `ui`: the shared form-input chrome is one source — `foliplus-input-skin` and `foliplus-form-select` are read from a single `FORM_CLASS` vocabulary instead of hand-spelled across HeatmapControl, LayerControl and core/label, with a source guard in the lint chain ([#1080](https://github.com/Zeroto521/foliplus/pull/1080))
 
 ## [v0.4.1] (2026-10-18)
 

@@ -14,6 +14,7 @@ import {
   DEFAULT_LABEL_COLOR,
   type DropdownOverlay,
   type DropdownSurface,
+  FORM_CLASS,
   LABEL_CLASS,
   LABEL_SIZE,
   PANEL_CLASS,
@@ -151,7 +152,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatSelect = dom.el(
       "select",
       {
-        class: `foliplus-input-skin foliplus-form-select ${LABEL_CLASS.STYLE_FORMAT_SELECT}`,
+        class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT} ${LABEL_CLASS.STYLE_FORMAT_SELECT}`,
         "aria-label": T("foliplus.label_format"),
       },
       ...numberFormatOptions(fmtLabel),
