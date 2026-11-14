@@ -13,6 +13,17 @@
  *      by core-class-literal and skipped here; pass --include-core to fold
  *      it in when auditing.
  *
+ *   3. A token with NO declared owner that is still written bare. The
+ *      owner system only polices owned tokens; a no-owner literal is
+ *      duplicate-class-def's candidate, but spelling it bare means no
+ *      single source exists yet. The baseline allowlist
+ *      (test/js/script/check/class-owner.baseline.json) records the
+ *      legitimate exceptions: a permanent non-class token (asset name,
+ *      id prefix) or a real class awaiting its owner batch (task-122 /
+ *      task-125). A new no-owner bare write not in the baseline is a
+ *      drift; a baseline token that later gains an owner is stale and
+ *      the entry must be deleted.
+ *
  * Owner files are the shared vocabulary modules
  * (`foliplus/js/ui/*ClassName.ts`, one exported `*_CLASS` object each) and
  * the per-component `const.ts` files (one `CLASSES` object each).
@@ -242,6 +253,79 @@ const scanPyConsumers = (root, ownerMap) => {
   return hits;
 };
 
+/** Find every bare `foliplus-...` literal in a non-owner file whose token
+ *  has NO declared owner. The baseline allowlist decides whether a
+ *  no-owner literal is a known exception (permanent or awaiting an owner
+ *  batch) or a new drift. Mirrors scanConsumers but collects unowned.
+ */
+const scanUnownedConsumers = (root, ownerMap, { includeCore }) => {
+  const hits = [];
+  for (const file of prodFiles(root)) {
+    const rel = path.relative(root, file).split(path.sep).join("/");
+    if (!includeCore && rel.startsWith("foliplus/js/core/")) continue;
+    if (isOwnerFile(rel)) continue;
+    if (EXCLUDED_DIR_PARTS.some(part => rel.split("/").includes(part))) continue;
+    const text = stripComments(fs.readFileSync(file, "utf8"));
+    const re = /"([^"`]*)"|'([^'`]*)'|`([^`\\]*)`/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const literal = match[1] ?? match[2] ?? match[3];
+      if (literal.includes("$")) continue;
+      for (const token of tokensIn(literal)) {
+        const owners = ownerMap.get(token);
+        if (owners && owners.length > 0) continue;
+        const line = text.slice(0, match.index).split("\n").length;
+        hits.push({ file: rel, line, token });
+      }
+    }
+  }
+  return hits;
+};
+
+/** The Python mirror of scanUnownedConsumers. A no-owner token spelled in
+ *  a Python string (asset path, config literal) is checked against the
+ *  baseline the same way. */
+const scanUnownedPyConsumers = (root, ownerMap) => {
+  const hits = [];
+  for (const file of pyFiles(root)) {
+    const rel = path.relative(root, file).split(path.sep).join("/");
+    const text = stripPyComments(fs.readFileSync(file, "utf8"));
+    const re = /"([^"\n]*)"|'([^'\n]*)'/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const literal = match[1] ?? match[2];
+      if (literal.includes("$")) continue;
+      for (const token of tokensIn(literal)) {
+        const owners = ownerMap.get(token);
+        if (owners && owners.length > 0) continue;
+        const line = text.slice(0, match.index).split("\n").length;
+        hits.push({ file: rel, line, token });
+      }
+    }
+  }
+  return hits;
+};
+
+/** Load the baseline allowlist. The baseline lists every no-owner token
+ *  that is legitimately written bare, each with the reason it is exempt
+ *  and, for a real class awaiting its owner batch, the task that owns the
+ *  fix. A missing or unreadable file yields an empty map, so any unowned
+ *  bare write is then a drift. */
+const loadBaseline = root => {
+  const file = path.join(
+    root,
+    "test",
+    "js",
+    "script",
+    "check",
+    "class-owner.baseline.json",
+  );
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return {};
+  }
+};
 const main = (argv = [], root = process.cwd()) => {
   const check = argv.includes("--check");
   const includeCore = argv.includes("--include-core");
@@ -252,12 +336,29 @@ const main = (argv = [], root = process.cwd()) => {
   const duplicates = [...ownerMap.entries()].filter(([, sites]) => sites.length > 1);
   const consumerHits = scanConsumers(root, ownerMap, { includeCore });
   const pyHits = scanPyConsumers(root, ownerMap);
+  const baseline = loadBaseline(root);
+  const unownedHits = scanUnownedConsumers(root, ownerMap, { includeCore });
+  const unownedPyHits = scanUnownedPyConsumers(root, ownerMap);
+  // A baseline entry whose token now has a declared owner is stale: the
+  // exception no longer applies and the entry should be deleted, or the
+  // owner scan will keep missing it.
+  const staleBaseline = Object.keys(baseline).filter(
+    token => ownerMap.get(token)?.length > 0,
+  );
+  // A no-owner bare write is allowed only when the baseline lists the token
+  // WITH a reason. A missing entry, or an entry with no reason, is a drift.
+  const allowedUnowned = hit => {
+    const entry = baseline[hit.token];
+    return !!entry && !!entry.reason;
+  };
+  const unownedDrift = unownedHits.filter(hit => !allowedUnowned(hit));
+  const unownedPyDrift = unownedPyHits.filter(hit => !allowedUnowned(hit));
 
   const tier = includeCore
     ? "foliplus/js (all tiers)"
     : "foliplus/js (ui/control/platform; core is guarded by core-class-literal)";
   console.log(
-    `class-owner: ${ownerMap.size} tokens, ${duplicates.length} duplicate owner(s), ${consumerHits.length} non-owner literal(s) in ${tier}, ${pyHits.length} python literal(s)`,
+    `class-owner: ${ownerMap.size} tokens, ${duplicates.length} duplicate owner(s), ${consumerHits.length} non-owner literal(s) in ${tier}, ${pyHits.length} python literal(s), ${unownedDrift.length + unownedPyDrift.length} unowned literal(s), ${staleBaseline.length} stale baseline`,
   );
 
   let failed = false;
@@ -285,6 +386,20 @@ const main = (argv = [], root = process.cwd()) => {
       console.error(`  ${hit.file}:${hit.line}  ${hit.token}  (owner: ${ownerList})`);
     }
   }
+  if (unownedDrift.length > 0 || unownedPyDrift.length > 0) {
+    failed = true;
+    console.error("Unowned bare literals (not in class-owner.baseline.json):");
+    for (const hit of [...unownedDrift, ...unownedPyDrift]) {
+      console.error(`  ${hit.file}:${hit.line}  ${hit.token}`);
+    }
+  }
+  if (staleBaseline.length > 0) {
+    failed = true;
+    console.error("Stale baseline entries (token now has an owner; delete the entry):");
+    for (const token of staleBaseline) {
+      console.error(`  ${token}`);
+    }
+  }
   if (!failed) return 0;
   console.error(
     "Read vocabulary tokens from their owner module (import the *_CLASS object).",
@@ -308,6 +423,9 @@ export {
   main,
   pyFiles,
   scanConsumers,
+  scanUnownedConsumers,
+  scanUnownedPyConsumers,
+  loadBaseline,
   scanPyConsumers,
   scanOwnerFile,
   stripPyComments,

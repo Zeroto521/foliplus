@@ -1,0 +1,156 @@
+{
+  "foliplus-common": {
+    "reason": "Asset filename (foliplus-common.min.css/.js) written by BaseControl.py, not a class token in the foliplus-* vocabulary."
+  },
+  "foliplus-opt": {
+    "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md §4b: 'NOT a class — an element-id prefix')."
+  },
+  "foliplus-marker-glyph": {
+    "reason": "A-class: real owner GLYPH_SHELL_CLASS at core/leaflet/glyphSource.ts:25 but glyphSource.ts is not a *ClassName.ts/const.ts owner file (class-owner scanner blind spot). task-122 makes the markerIcon.ts consumer read GLYPH_SHELL_CLASS.",
+    "batch": "task-122"
+  },
+  "foliplus-scale-wrap": {
+    "reason": "B-class: needs new owner (ScaleControl const or shared PANEL_CLASS); consumed bare by ScaleControl/index.ts + FullscreenControl/logic.ts. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-layer-pane": {
+    "reason": "B-class: PaneManager pane-name rule should be single-sourced (prefix + suffix template) instead of 5 bare literals. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-icon-grid-cursor": {
+    "reason": "B-class: needs LayerControl const.ts CLASSES key. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-measure-ctrl": {
+    "reason": "B-class: needs MeasureControl const.ts CLASSES key. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-scale-zoom-label": {
+    "reason": "B-class: needs ScaleControl const key. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-marker-default": {
+    "reason": "B-class: needs markerIcon named const. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-marker-chassis": {
+    "reason": "B-class: needs markerIcon named const. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-hint-icon": {
+    "reason": "B-class: needs hint.ts CLASS const new ICON key. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-spin": {
+    "reason": "B-class: needs platform/icon named const. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-popup-content": {
+    "reason": "B-class: needs platform/dom named const. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-pin": {
+    "reason": "B-class: needs platform/icon named const. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dot": {
+    "reason": "Owned as compound values in MeasureControl/const.ts NODE_HOLLOW/NODE_SOLID + ExportControl/const.ts; class-owner scanOwnerFile skips compound values (' ' skip) so buildOwnerMap misses them. task-125 splits into single-token keys (or guard widened).",
+    "batch": "task-125"
+  },
+  "foliplus-dot-hollow": {
+    "reason": "Owned as compound in MeasureControl/const.ts NODE_HOLLOW + ExportControl/const.ts; scanner-blind (compound value). task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dot-solid": {
+    "reason": "Owned as compound in MeasureControl/const.ts NODE_SOLID + ExportControl/const.ts; scanner-blind (compound value). task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-focus-overlay": {
+    "reason": "Owned in LayerControl/const.ts; scanner-blind (value not seen as owner by class-owner). task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-measure-path": {
+    "reason": "Owned as compound in MeasureControl/const.ts PATH_SOLID/PATH_DASHED/PATH_PREVIEW; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-measure-path-solid": {
+    "reason": "Owned as compound in MeasureControl/const.ts PATH_SOLID; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-measure-path-dashed": {
+    "reason": "Owned as compound in MeasureControl/const.ts PATH_DASHED; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-measure-path-preview": {
+    "reason": "Owned as compound in MeasureControl/const.ts PATH_PREVIEW; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-del-icon": {
+    "reason": "Owned at delicon.ts:8 named const but delicon.ts is not a *ClassName.ts/const.ts owner file; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-toggle-btn": {
+    "reason": "Owned at panel.ts:17 named const; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-tool-bar": {
+    "reason": "Owned at panel.ts:19 named const; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-hint": {
+    "reason": "Owned at hint.ts:16 named const; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-classes-select": {
+    "reason": "Owned at rampForm.ts:27 named const; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown": {
+    "reason": "Owned as inline vocab at ui/dropdown.ts:37; dropdown.ts is not a *ClassName.ts/const.ts owner file; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-trigger": {
+    "reason": "Owned at ui/dropdown.ts:38; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-label": {
+    "reason": "Owned at ui/dropdown.ts:39; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-placeholder": {
+    "reason": "Owned at ui/dropdown.ts:40; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-list": {
+    "reason": "Owned at ui/dropdown.ts:41; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-option": {
+    "reason": "Owned at ui/dropdown.ts:42; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-option-label": {
+    "reason": "Owned at ui/dropdown.ts:43; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-open": {
+    "reason": "Owned at ui/dropdown.ts:44; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-up": {
+    "reason": "Owned at ui/dropdown.ts:45; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-portal": {
+    "reason": "Owned at ui/dropdown.ts:46; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-is-selected": {
+    "reason": "Owned at ui/dropdown.ts:47; scanner-blind. task-125.",
+    "batch": "task-125"
+  },
+  "foliplus-dropdown-native-host": {
+    "reason": "Owned at ui/dropdown.ts:48; scanner-blind. task-125.",
+    "batch": "task-125"
+  }
+}

@@ -16,11 +16,13 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildOwnerMap,
+  loadBaseline,
   main,
   pyFiles,
   scanConsumers,
   scanOwnerFile,
   scanPyConsumers,
+  scanUnownedConsumers,
   stripPyComments,
   tokensIn,
   walk,
@@ -623,6 +625,121 @@ describe("main", () => {
     } finally {
       logSpy.mockRestore();
       errorSpy.mockRestore();
+    }
+  });
+});
+
+describe("unowned literal baseline", () => {
+  it("reports a new no-owner bare write that the baseline does not cover", () => {
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const hits = scanUnownedConsumers(root, ownerMap, { includeCore: false });
+      expect(hits).toHaveLength(1);
+      expect(hits[0].token).toBe("foliplus-orphan");
+      expect(hits[0].file).toBe("foliplus/js/control/X/ui.ts");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a baseline-covered no-owner write with a reason", () => {
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+      "test/js/script/check/class-owner.baseline.json": JSON.stringify({
+        "foliplus-orphan": { reason: "permanent exception" },
+      }),
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const baseline = loadBaseline(root);
+      const hits = scanUnownedConsumers(root, ownerMap, { includeCore: false });
+      expect(hits).toHaveLength(1);
+      expect(baseline["foliplus-orphan"].reason).toBeTruthy();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a baseline entry with no reason", () => {
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+      "test/js/script/check/class-owner.baseline.json": JSON.stringify({
+        "foliplus-orphan": {},
+      }),
+    });
+    try {
+      const baseline = loadBaseline(root);
+      expect(baseline["foliplus-orphan"].reason).toBeFalsy();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("flags a stale baseline entry whose token gained an owner", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "test/js/script/check/class-owner.baseline.json": JSON.stringify({
+        "foliplus-x": { reason: "should be deleted" },
+      }),
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const baseline = loadBaseline(root);
+      const stale = Object.keys(baseline).filter(
+        token => ownerMap.get(token)?.length > 0,
+      );
+      expect(stale).toEqual(["foliplus-x"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not report the owner file's own write as a consumer", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({ "foliplus/js/ui/aClassName.ts": vocab });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+      expect(scanUnownedConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 with --check when a new no-owner literal appears", () => {
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main(["--check", "--root", root])).toBe(1);
+      const calls = errorSpy.mock.calls.flat().join("\n");
+      expect(calls).toContain("Unowned bare literals");
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 0 with --check when every no-owner literal is baseline-covered", () => {
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+      "test/js/script/check/class-owner.baseline.json": JSON.stringify({
+        "foliplus-orphan": { reason: "permanent exception" },
+      }),
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(main(["--check", "--root", root])).toBe(0);
+    } finally {
+      logSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
