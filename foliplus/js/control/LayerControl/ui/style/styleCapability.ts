@@ -65,6 +65,8 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
         opacity: false,
         zoomRange: false,
         label: false,
+        size: false,
+        icon: false,
       },
       styleDelegation: false,
     };
@@ -75,6 +77,8 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
       opacity: caps.opacity !== CAP_TIER.NONE,
       zoomRange: caps.zoomRange !== CAP_TIER.NONE,
       label: caps.label !== CAP_TIER.NONE,
+      size: caps.size === CAP_TIER.NATIVE,
+      icon: caps.icon === CAP_TIER.NATIVE,
     },
     styleDelegation:
       !!layerInfo.styleSetters && Object.keys(layerInfo.styleSetters).length > 0,

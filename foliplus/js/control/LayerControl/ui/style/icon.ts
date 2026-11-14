@@ -21,6 +21,7 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import {
@@ -146,7 +147,7 @@ const authorGlyphPrefix = (ui: LayerUI, layerId: string): string | null => {
  *  matrix (arrows + Enter), independent of the listbox engine's vertical
  *  list. */
 const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
-  if (!layerCanIcon(ui, layerId)) return null;
+  if (!styleCapability(ui, layerId).dims.icon) return null;
   const trigger = dom.el("button", {
     class: `${CONST.CLASSES.STYLE_ICON_TRIGGER} ${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT}`,
     type: "button",
@@ -393,7 +394,7 @@ const ICON_DIMENSION = registerDimension<IconIntent>({
   },
   reset: (ui, layerId) => resetLayerIcon(ui, layerId),
   valueSource: (ui, layerId) => {
-    if (!layerCanIcon(ui, layerId)) return "none";
+    if (!styleCapability(ui, layerId).dims.icon) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.ICON) ? "user" : "author";
   },
   contentChange: {
@@ -409,6 +410,6 @@ export {
   buildIconRow,
   commitGlyph,
   currentGlyph,
-  layerCanIcon,
   resetLayerIcon,
+  layerCanIcon,
 };

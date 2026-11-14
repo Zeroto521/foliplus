@@ -63,6 +63,7 @@
   "ui/panelField",
   "ui/placement",
   "ui/schemePicker",
+  "ui/schemePickerClassName",
   "ui/scrollIntoView",
   "ui/slider",
   "ui/sliderClassName",
