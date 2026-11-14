@@ -213,7 +213,8 @@ describe("styleCapability parity with the per-dimension gates", () => {
     expect(cap.dims.opacity).toBe(true);
     expect(cap.dims.zoomRange).toBe(true);
     expect(cap.dims.label).toBe(false);
-    expect(cap.dims.fill).toBeUndefined();
+    // fill is not a published dim — it answers through its own gate.
+    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.border).toBe(true);
   });
 
@@ -226,13 +227,13 @@ describe("styleCapability parity with the per-dimension gates", () => {
   it("a marker surface exposes only the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[3]);
     expect(cap.dims.icon).toBe(true);
-    expect(cap.dims.fill).toBeUndefined();
+    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.border).toBe(false);
   });
 
   it("a color basemap exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[6]);
-    expect(cap.dims.fill).toBeUndefined();
+    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.size).toBe(false);
     expect(cap.dims.icon).toBe(false);
   });
