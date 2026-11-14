@@ -19,6 +19,7 @@ const SLIDER_CLASS = {
   VALUE_MIN: "foliplus-slider-value-min",
   VALUE_MAX: "foliplus-slider-value-max",
   VALUE_CURRENT: "foliplus-slider-value-current",
+  VALUE_CLAMP: "is-clamp",
   BUBBLE: "foliplus-slider-bubble",
   LABEL_HIDDEN: "foliplus-slider-label-hidden",
   DRAGGING: "is-dragging",

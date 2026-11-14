@@ -225,6 +225,9 @@ class Slider {
   private readonly thumbs: HTMLElement[] = [];
   private dotEls: HTMLElement[] = [];
   private currentEl: HTMLElement | null = null;
+  private minEl: HTMLElement | null = null;
+  private maxEl: HTMLElement | null = null;
+  private fitObserver?: ResizeObserver;
   private disabled: boolean;
   private rtl: boolean;
   private bubbleFrame = 0;
@@ -310,6 +313,17 @@ class Slider {
     this.bind();
     this.sync();
     this.applyAria();
+    // The end numbers fit-measure is deferred a frame: the constructor can
+    // run before the panel has laid the row out, so a synchronous read would
+    // see a zero-height box and flip every label to the clamp state for a
+    // frame. The resize observer then covers later width changes.
+    if (typeof ResizeObserver === "function") {
+      this.fitObserver = new ResizeObserver(() => this.measureValuesFit());
+      this.fitObserver.observe(this.valuesRow);
+    }
+    requestAnimationFrame(() => {
+      if (this.root.isConnected) this.measureValuesFit();
+    });
   }
 
   // ── Public API ──────────────────────────────────────────────
@@ -455,6 +469,7 @@ class Slider {
           },
         ],
         ["clear-children", () => this.root.replaceChildren()],
+        ["stop-fit-observer", () => this.fitObserver?.disconnect()],
         ["clear-class", () => this.root.classList.remove(SLIDER_CLASS.ROOT)],
         ["clear-role", () => this.root.removeAttribute("role")],
         ["clear-label", () => this.root.removeAttribute("aria-label")],
@@ -525,11 +540,19 @@ class Slider {
   private renderValues(): void {
     this.valuesRow.replaceChildren();
     if (!this.opts.values) return;
-    this.valuesRow.append(
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MIN }, this.opts.values.min),
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MAX }, this.opts.values.max),
+    this.minEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MIN },
+      this.opts.values.min,
     );
+    this.maxEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MAX },
+      this.opts.values.max,
+    );
+    this.valuesRow.append(this.minEl, this.maxEl);
     this.renderCurrent();
+    this.measureValuesFit();
   }
 
   private renderCurrent(): void {
@@ -540,6 +563,34 @@ class Slider {
     const label = dom.el("span", { class: SLIDER_CLASS.VALUE_CURRENT }, current.text);
     this.currentEl = label;
     this.valuesRow.appendChild(label);
+  }
+
+  /** Width-adaptive end labels: a label that fits on its half stays
+   *  dot-centred (its centre on the parked dot's centre); a label too wide
+   *  to fit centred without crossing the row's middle switches to the clamp
+   *  state (class is-clamp), which pins it to the row's edge and clips its
+   *  text inward. Measured on render / open / resize — never on a drag
+   *  frame, so a pointermove cannot churn the layout. */
+  private measureValuesFit(): void {
+    if (!this.minEl || !this.maxEl || !this.opts.values) return;
+    const rowWidth = this.valuesRow.clientWidth;
+    // A detached row (the constructor can run before the panel mounts) has no
+    // laid-out width; skip and let the deferred measure or the resize observer
+    // decide once the row is in the document.
+    if (rowWidth === 0) return;
+    const thumb =
+      parseFloat(
+        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
+      ) || 14;
+    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
+    // A label may stay dot-centred while it does not cross the row's middle:
+    // half the row, minus the half-thumb anchor and the gap to its sibling.
+    const half = rowWidth / 2 - thumb / 2 - gap;
+    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
+    const minClamp = !fits(this.minEl);
+    const maxClamp = !fits(this.maxEl);
+    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
+    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
   }
 
   private renderMarks(): void {

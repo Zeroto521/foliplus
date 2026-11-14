@@ -35,6 +35,7 @@
         box: boxOf(el),
         scrollWidth: el.scrollWidth,
         clientWidth: el.clientWidth,
+        clamp: el.classList.contains("is-clamp"),
       };
     };
     return { values: boxOf(values), min: readLabel(minEl), max: readLabel(maxEl) };

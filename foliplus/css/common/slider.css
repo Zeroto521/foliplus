@@ -181,25 +181,24 @@
   box-shadow: var(--foliplus-focus-ring);
 }
 
-/* ── The scale's numbers ────────────────────────────────────────────
-   The end numbers sit pinned to the row's two edges (a flex row with
-   justify-content: space-between), so a label never paints past the
-   container: its content is clipped and ellipsized at the row's own box.
-   This replaces the old centred geometry, where a label overhung the row
-   (and could spill past the panel's scroll clip) by half its width — the
-   content must not draw outside the container, so a long label truncates
-   instead of overflowing. */
+/* ── The scale's numbers ────────────────────────────────────────
+   The end numbers are a width-adaptive pair: a label that fits on its half
+   is centred on the dot it names (a thumb parks at the rail's end, so its
+   centre is half a thumb in from the control's edge); a label too wide to
+   fit centred without crossing the row's middle switches to the clamp state
+   (class is-clamp) and pins to the row's own edge, clipping its text toward
+   the inside so it never paints past the container or overlaps its sibling.
+   The row spans the control's width (no inset), so the dot-centre anchor is
+   a half thumb in from the row edge on each side. */
 .foliplus-slider-values {
-  /* The containing block for the drag-time readout: it is absolutely centred
-     over the track, so its offsets resolve against this row (position: relative
-     keeps that from collapsing to the slider root and shifting the readout by
-     half a thumb). flex and relative coexist. */
+  /* The containing block for the drag-time readout and the dot-centred end
+     numbers: their offsets resolve against this row (position: relative
+     keeps that from collapsing to the slider root and shifting the readout
+     by half a thumb). flex and relative coexist. */
   position: relative;
   display: flex;
   justify-content: space-between;
   gap: var(--foliplus-space-sm);
-  /* Same inset as the track, so the ends line up with the rail's ends. */
-  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   height: var(--foliplus-font-size-md);
   line-height: var(--foliplus-font-size-md);
   font-size: var(--foliplus-font-size-sm);
@@ -214,22 +213,44 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The end numbers pin to the row's edges. The flex direction follows the
-   document direction, so in RTL the min (logically first) still lands on the
-   right and the max on the left; no extra rule is needed. */
-.foliplus-slider-value-min {
-  flex: 0 1 auto;
+/* The end numbers default to dot-centred: each is anchored a half thumb in
+   from the row edge (the parked dot's centre) and shifted back half its own
+   width, so the label's centre sits on the dot. The flex direction follows
+   the document direction, so in RTL the logical anchors mirror the row. */
+.foliplus-slider-value-min:not(.is-clamp) {
+  position: absolute;
+  inset-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+  transform: translateX(-50%);
 }
-.foliplus-slider-value-max {
+.foliplus-slider-value-max:not(.is-clamp) {
+  position: absolute;
+  inset-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+  transform: translateX(50%);
+}
+:dir(rtl) .foliplus-slider-value-min:not(.is-clamp) {
+  transform: translateX(50%);
+}
+:dir(rtl) .foliplus-slider-value-max:not(.is-clamp) {
+  transform: translateX(-50%);
+}
+/* The clamp state returns the label to the flex row: it pins to the row's
+   edge (space-between) and clips its text toward the inside so the long
+   content truncates instead of overflowing the container. */
+.foliplus-slider-value-min.is-clamp {
   flex: 0 1 auto;
+  text-align: start;
+}
+.foliplus-slider-value-max.is-clamp {
+  flex: 0 1 auto;
+  text-align: end;
 }
 .foliplus-slider-values > span.foliplus-slider-value-current {
   /* The drag-time readout is centred over the track and must not take part in
-     the end-number flex row (it would push the max away from the right edge).
-     The > span rule above sets position: static with a higher specificity, so
-     this rule must be at least as specific to win. It is absolutely centred
-     against the values row (position: relative there), so its vertical offset
-     is explicit rather than a static-position default. */
+     the end-number flex row (it would push a clamped max away from the right
+     edge). The > span rule above sets position: static with a higher
+     specificity, so this rule must be at least as specific to win. It is
+     absolutely centred against the values row (position: relative there), so
+     its vertical offset is explicit rather than a static-position default. */
   position: absolute;
   top: 0;
   left: 50%;

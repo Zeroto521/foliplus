@@ -1331,3 +1331,83 @@ describe("Slider teardown and keyboard edges", () => {
     expect(sliderOf(host)!.value).toBe(39);
   });
 });
+
+describe("Slider width-adaptive end numbers", () => {
+  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
+    return row;
+  };
+
+  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
+    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  };
+
+  const endNumbers = (host: HTMLElement): [HTMLElement, HTMLElement] => [
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement,
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement,
+  ];
+
+  const measure = (slider: Slider): void =>
+    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+
+  it("keeps an end number that fits on its half out of the clamp state", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it("clamps the end number that no longer fits on its half", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "a very long upper bound" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 90);
+    measure(sliderOf(host)!);
+    // The same width that fit the short half does not fit the long one,
+    // so the two halves are measured independently.
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("re-measures when the row's width changes, both ways", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 60);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    stubRow(host, 40);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    stubRow(host, 240);
+    measure(sliderOf(host)!);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+});
