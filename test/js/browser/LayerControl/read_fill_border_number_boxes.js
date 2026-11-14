@@ -31,21 +31,28 @@ arg => {
   if (!drawer) return { error: "no-drawer" };
   const fillBlock = drawer.querySelector('[data-style-dim="fill"]');
   const borderBlock = drawer.querySelector('[data-style-dim="border"]');
-  if (!fillBlock || !borderBlock) return { error: "no-block", fill: !!fillBlock, border: !!borderBlock };
+  if (!fillBlock || !borderBlock)
+    return { error: "no-block", fill: !!fillBlock, border: !!borderBlock };
   const box = el => {
     const r = el.getBoundingClientRect();
-    return { w: Math.round(r.width * 10) / 10, left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10 };
+    return {
+      w: Math.round(r.width * 10) / 10,
+      left: Math.round(r.left * 10) / 10,
+      right: Math.round(r.right * 10) / 10,
+    };
   };
   // The fill number slot: the opacity input in solid/value mode, the readOnlyValue
   // BOX in original mode (not the inner value span).
-  const fillNumber = fillBlock.querySelector(".foliplus-style-fill-opacity-number")
-    ?? fillBlock.querySelector(".foliplus-style-fill-readonly")
-    ?? null;
+  const fillNumber =
+    fillBlock.querySelector(".foliplus-style-fill-opacity-number") ??
+    fillBlock.querySelector(".foliplus-style-fill-readonly") ??
+    null;
   // The border number slot: the weight input, or the readOnlyValue box when the
   // border row is a read-only original.
-  const borderNumber = borderBlock.querySelector(".foliplus-style-border-weight-input")
-    ?? borderBlock.querySelector(".foliplus-style-fill-readonly")
-    ?? null;
+  const borderNumber =
+    borderBlock.querySelector(".foliplus-style-border-weight-input") ??
+    borderBlock.querySelector(".foliplus-style-fill-readonly") ??
+    null;
   const fillInline = fillBlock.querySelector(".foliplus-form-inline");
   const borderInline = borderBlock.querySelector(".foliplus-form-inline");
   return {
