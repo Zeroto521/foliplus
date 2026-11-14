@@ -151,6 +151,9 @@ const main = ({
     try {
       root = resolveRoot(argv);
     } catch (e) {
+      /* v8 ignore next -- resolveRoot only throws Error (which always has
+       *  .message), so the `?? e` fallback is defensive and unreachable
+       *  from any real caller. */
       error(String(e.message ?? e));
       return 1;
     }
@@ -188,6 +191,10 @@ const isMain = (importMetaUrl, argv1) => argv1 === fileURLToPath(importMetaUrl);
 // The module's only load-time side effect. One expression, so the decision and
 // the action sit on the same line and importing the module leaves nothing
 // behind.
+/* v8 ignore next -- CLI entry point; exercised by the shell, not by
+ *  vitest. main() is exported and covered by typecheck-test.test.ts; only
+ *  the "am I the entry module and should I run main" branch is untestable
+ *  from a test runner. */
 process.exitCode = isMain(import.meta.url, process.argv[1]) ? main() : process.exitCode;
 
 export { PRODUCTION, filterProduction, isMain, main, parseErrors, resolveRoot, runTsc };
