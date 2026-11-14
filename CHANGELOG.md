@@ -80,6 +80,7 @@
 - `LayerControl`: with several basemaps checked, attribution names only the topmost one, and the zoom ceiling follows Leaflet's own derivation ([#702](https://github.com/Zeroto521/foliplus/pull/702))
 - `LayerControl`: the no-basemap hatch counts a basemap outside its zoom range or at opacity 0 as invisible ([#712](https://github.com/Zeroto521/foliplus/pull/712))
 - `ExportControl`: a crop-box drag interrupted by the window losing focus ends cleanly, so the next press starts from the box's real position instead of jumping ([#1130](https://github.com/Zeroto521/foliplus/pull/1130))
+- `MeasureControl`: a measurement node dragged and then released over another window stops following the pointer, and the map's own panning is always restored — one shared drag session now ends every gesture ([#1132](https://github.com/Zeroto521/foliplus/pull/1132))
 
 ## [v0.4.0] (2026-10-10)
 

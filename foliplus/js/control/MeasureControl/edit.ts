@@ -3,6 +3,7 @@
 // for readability; kept as pure helpers, not a manager class, because edit-mode
 // lifecycle (isEditMode toggle, ModeManager lock, Escape priority) lives in
 // MeasureManager and can't be cleanly delegated to a separate controller.
+import { type DragSession, beginDragSession } from "#platform/dragSession.js";
 
 /** Input the overlay expects from its host — a subset of MeasureManager. */
 interface EditOverlayHost {
@@ -110,9 +111,17 @@ const bindNodeDrag = (
   handlers: NodeDragHandlers,
 ): NodeDragHandle => {
   let enabled = false;
-  let dragging = false;
   let moved = false;
   let startPt: { x: number; y: number } | null = null;
+  /** The live gesture, or null. One at a time: a second press mid-drag would
+   *  overwrite the session and strand the first one's restore. */
+  let session: DragSession | null = null;
+  /** The release's own position, when the release is what ends the gesture.
+   *  An interrupt names no position, so the node's current one is used. */
+  let endAt: L.LatLng | null = null;
+  /** Whether the map could be panned before this drag took panning away, so
+   *  an ending restores what was there instead of forcing panning on. */
+  let restoreMapDrag = false;
 
   // Query the element fresh each time: resortLayers() removes/re-adds nodes,
   // which re-creates their SVG path, so a captured element reference would go
@@ -122,21 +131,58 @@ const bindNodeDrag = (
     if (el) el.style.cursor = cursor;
   };
 
+  /** Set once the binding is torn down: a drag that is still live then may
+   *  restore the map but must not report an end for a node that is gone. */
+  let disposed = false;
+
+  /** The node's current position, for an ending that names none. */
+  const nodeLatLng = (): L.LatLng | null =>
+    typeof (node as L.Marker).getLatLng === "function"
+      ? (node as L.Marker).getLatLng()
+      : null;
+
+  /** The one restore path. Every ending — a release here, a release over
+   *  another window, a blur, a hidden tab — lands here exactly once, so the
+   *  map's own dragging can never be left disabled. */
+  const finishDrag = () => {
+    session = null;
+    startPt = null;
+    setCursor(enabled && !disposed ? "move" : "");
+    // Only give back what the press took: a map whose panning was already off
+    // (another mode, the host's own choice) must stay off.
+    if (restoreMapDrag) map.dragging.enable();
+    const at = endAt ?? nodeLatLng();
+    endAt = null;
+    const didMove = moved;
+    moved = false;
+    if (didMove && !disposed && at) handlers.onEnd?.(at);
+  };
+
   const onDown = (ev: L.LeafletMouseEvent) => {
     if (!enabled) return;
+    // One gesture at a time: a second press would overwrite the session and
+    // strand the first one's restore (the map's dragging would stay off).
+    if (session) return;
     const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
     if (!raw) return;
     startPt = map.mouseEventToContainerPoint(raw);
-    dragging = true;
     moved = false;
+    endAt = null;
     setCursor("move");
+    // `enabled` is absent on partial mocks; assume panning was available.
+    restoreMapDrag = map.dragging.enabled?.() ?? true;
     map.dragging.disable();
+    session = beginDragSession(finishDrag);
   };
 
   const onMove = (ev: L.LeafletMouseEvent) => {
-    if (!dragging || !startPt) return;
+    if (!session || !startPt) return;
     const raw = (ev.originalEvent as MouseEvent | undefined) ?? undefined;
     if (!raw) return;
+    // The move carries the truth about the button: `buttons === 0` means the
+    // release already happened, somewhere this page could not hear it. The
+    // session ends the gesture and this move is not applied.
+    if (!session.track(raw)) return;
     const pt = map.mouseEventToContainerPoint(raw);
     if (
       !moved &&
@@ -154,11 +200,9 @@ const bindNodeDrag = (
   };
 
   const onUp = (ev: L.LeafletMouseEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    setCursor(enabled ? "move" : "");
-    map.dragging.enable();
-    if (moved) handlers.onEnd?.(ev.latlng);
+    if (!session) return;
+    endAt = ev.latlng ?? null;
+    session.end();
   };
 
   const onNodeUp = (ev: L.LeafletMouseEvent) => {
@@ -176,6 +220,10 @@ const bindNodeDrag = (
   };
 
   const cleanup = () => {
+    disposed = true;
+    // A live session would otherwise keep the map's dragging disabled after
+    // the node it belonged to is deleted.
+    session?.end();
     node.off("mousedown", onDown);
     node.off("mouseup", onNodeUp);
     map.off("mousemove", onMove);

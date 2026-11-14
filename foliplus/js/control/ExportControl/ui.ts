@@ -303,8 +303,11 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.unregisterShortcuts();
   mgr.dragCleanup?.();
   // The crop session is going away, so no interrupt should reach this manager.
-  mgr.dragRetireCleanup?.();
-  mgr.dragRetireCleanup = null;
+  // End a gesture that is still live: the session restores the box's own
+  // state, and leaving it running would keep the drag listeners installed.
+  mgr.dragSession?.end();
+  mgr.dragSession = null;
+  mgr.dragEndEvent = null;
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
   mgr.dragState.pointerId = null;
