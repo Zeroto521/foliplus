@@ -438,7 +438,8 @@ const buildFillOpacityInput = (
   base: { fillOpacity?: number | null } = {},
 ): HTMLInputElement => {
   const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const opacityPct = (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const opacityPct =
+    Math.round((storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 1000) / 10;
   return numberInput({
     value: opacityPct,
     min: 0,
@@ -626,6 +627,9 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
       min: 0,
       max: 100,
       fallback: VISIBLE_FILL_OPACITY * 100,
+      // One decimal place in percent space: 0.555 reads and writes 55.5,
+      // never 55.49999... — display and commit agree through the same step.
+      normalize: value => Math.round(value * 10) / 10,
       onCommit: value => commitFillOpacity(ui, layerId, value),
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush

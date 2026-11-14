@@ -254,7 +254,7 @@ const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElemen
     class: `${FORM_CLASS.COLOR_INPUT} ${PANEL_CLASS.READONLY} ${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     style: `background:${paint.color};cursor:default`,
     role: "img",
-    "aria-label": `${ui.T("style_fill")} ${paint.color} ${Math.round(pct * 100)}%`,
+    "aria-label": `${ui.T("style_fill")} ${paint.color} ${Math.round(pct * 1000) / 10}%`,
     "aria-disabled": "true",
   });
   const opacityBox = readOnlyValue(
@@ -262,7 +262,7 @@ const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElemen
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-      `${Math.round(pct * 100)}%`,
+      `${Math.round(pct * 1000) / 10}%`,
     ),
   );
   return [
