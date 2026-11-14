@@ -185,6 +185,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through platform/fullscreen's shared subscription",
   },
   {
+    f: "platform/gesture.ts",
+    n: 3,
+    pairedOff: 0,
+    reason:
+      "the page-level gesture interrupt is a shared subscription, not a control: one window blur + one document visibilitychange + one capture-phase pointercancel for the whole page, installed with the first consumer and removed with the last (bind/unbind). No BaseControl instance is in scope, and per-slider copies would multiply the same three native listeners across every row a panel ever built — the shared-overlay reason platform/fullscreen.ts is on this list for",
+  },
+  {
     f: "control/MeasureControl/mode/circle.ts",
     n: 1,
     pairedOff: 0,

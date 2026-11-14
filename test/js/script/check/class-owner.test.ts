@@ -17,10 +17,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildOwnerMap,
   main,
+  pyFiles,
   scanConsumers,
   scanOwnerFile,
+  scanPyConsumers,
+  stripPyComments,
   tokensIn,
   walk,
+  walkPy,
 } from "#script/check/class-owner.mjs";
 
 /** Build a throwaway `foliplus/js` tree with the given source files. */
@@ -322,6 +326,186 @@ describe("walk", () => {
     expect(walk(path.join(os.tmpdir(), `class-owner-missing-${Date.now()}`))).toEqual(
       [],
     );
+  });
+});
+
+describe("scanPyConsumers", () => {
+  it("flags a Python string literal spelling an owned token", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'class X:\n    CLS = "foliplus-x"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const hits = scanPyConsumers(root, ownerMap);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].token).toBe("foliplus-x");
+      expect(hits[0].file).toBe("foliplus/control/X.py");
+      expect(hits[0].owners[0].owner).toBe("foliplus/js/ui/aClassName.ts");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not flag a token mentioned only in a docstring or comment", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = [
+      '"""Uses the foliplus-x class for theming."""',
+      "# foliplus-x in a comment",
+      "class X: pass",
+    ].join("\n");
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanPyConsumers(root, ownerMap)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips a token with no declared owner", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'class X:\n    CLS = "foliplus-orphan"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanPyConsumers(root, ownerMap)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips an interpolated f-string literal", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'CLS = f"foliplus-x-{n}"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanPyConsumers(root, ownerMap)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 with --check when a Python file spells an owned token", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'class X:\n    CLS = "foliplus-x"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main(["--check", "--root", root])).toBe(1);
+      const calls = errorSpy.mock.calls.flat().join("\n");
+      expect(calls).toContain("Python non-owner bare literals");
+      expect(calls).toContain("foliplus-x");
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("walkPy finds python files and skips the locale dir", () => {
+    const root = tempRoot({
+      "foliplus/control/a.py": "x = 1\n",
+      "foliplus/control/b.py": "y = 2\n",
+      "foliplus/locale/LayerControl/en.json": "{}\n",
+      "foliplus/locale/LayerControl/zh.py": "z = 3\n",
+    });
+    try {
+      const pyRoot = path.join(root, "foliplus");
+      const files = walkPy(pyRoot).map(x =>
+        x.slice(pyRoot.length + 1).replace(/\\/g, "/"),
+      );
+      expect(files.sort()).toEqual(["control/a.py", "control/b.py"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("stripPyComments removes docstrings and comments", () => {
+    const py = [
+      '"""module docstring foliplus-x"""',
+      "# comment foliplus-x",
+      'CLS = "foliplus-x"  # trailing foliplus-x',
+    ].join("\n");
+    const stripped = stripPyComments(py);
+    expect(stripped).not.toContain("module docstring");
+    expect(stripped).not.toContain("# comment");
+    expect(stripped).toContain('CLS = "foliplus-x"');
+  });
+
+  it("pyFiles returns the python source files under the root", () => {
+    const root = tempRoot({
+      "foliplus/control/a.py": "x = 1\n",
+      "foliplus/control/b.py": "y = 2\n",
+      "foliplus/js/notpy.ts": "const a = 1;\n",
+    });
+    try {
+      const files = pyFiles(root);
+      expect(files).toHaveLength(2);
+      expect(files.some(x => x.endsWith("a.py"))).toBe(true);
+      expect(files.some(x => x.endsWith("b.py"))).toBe(true);
+      expect(files.some(x => x.endsWith("notpy.ts"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("walkPy tolerates a missing directory", () => {
+    // Regression for the !fs.existsSync early return: a missing scan root
+    // must yield no files, not throw.
+    expect(walkPy(path.join(os.tmpdir(), "class-owner-missing-py"))).toEqual([]);
+  });
+
+  it("scanPyConsumers skips an interpolated f-string literal with a real $", () => {
+    // The \${...} interpolated-skip branch is only reached when the literal
+    // contains a dollar sign; a plain f-string prefix does not count.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'CLS = "foliplus-x $n"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanPyConsumers(root, ownerMap)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("scanPyConsumers finds a hit in a single-quoted python string", () => {
+    // Both quote styles are scanned; the single-quote branch of the literal
+    // regex must also be exercised.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = "class X:\n    CLS = \'foliplus-x\'\n";
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const hits = scanPyConsumers(root, ownerMap);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].token).toBe("foliplus-x");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

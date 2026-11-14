@@ -43,6 +43,7 @@
   "platform/floating",
   "platform/format",
   "platform/fullscreen",
+  "platform/gesture",
   "platform/icon",
   "platform/locale",
   "platform/log",

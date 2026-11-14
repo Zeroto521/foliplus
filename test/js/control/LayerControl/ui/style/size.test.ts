@@ -562,10 +562,12 @@ describe("panel integration", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
+  // All .foliplus-form-row elements, not just the editable ones: the ORIGINAL
+  // monochrome fill readout is a readonly form-row (no input), but it is still
+  // a row the size row sits right after — the adjacency contract is about the
+  // DOM order, not about whether a row holds an input.
   const rows = (row: HTMLElement) =>
-    Array.from(row.querySelectorAll<HTMLElement>(`div.${PANEL_CLASS.FORM_ROW}`)).filter(
-      el => el.querySelector("input") !== null,
-    );
+    Array.from(row.querySelectorAll<HTMLElement>(`div.${PANEL_CLASS.FORM_ROW}`));
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();

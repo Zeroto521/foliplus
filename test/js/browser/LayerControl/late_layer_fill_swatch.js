@@ -42,6 +42,17 @@
   styleItem.click();
   const panel = row.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { row: true, styleItem: true, panel: false };
+  // The fill row opens on the original-colours read-only state (no editable
+  // color input). The #679 gate is about the swatch reading the author's
+  // declared fillColor rather than the #3388ff fallback while the entry is
+  // still pending — in SOLID the input reads styleBaseOf fillColor (the
+  // author's color when resolved, the default fallback when pending), which
+  // is exactly the invariant under test. So drive the row to solid first.
+  const modeSelect = panel.querySelector(".foliplus-style-fill-mode-select");
+  if (modeSelect) {
+    modeSelect.value = "solid";
+    modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   const fillInput = panel.querySelector(".foliplus-style-fill-color-input");
   const fillValue = fillInput ? fillInput.value : null;
   // A layer entry at `layer: null` with a non-"no-carrier" kind is

@@ -45,6 +45,16 @@ layer => {
   ui.openStylePanel(layerId);
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { error: `style panel did not open for ${layer}` };
+  // A data layer's fill row now opens on the original-colours read-only
+  // state (no editable color input). The native-activation contract is about
+  // the color picker, so drive the row to the solid mode first when a mode
+  // select exists. The solid-color basemap (color-map) keeps its single
+  // swatch row and has no mode select.
+  const modeSelect = panel.querySelector(".foliplus-style-fill-mode-select");
+  if (modeSelect) {
+    modeSelect.value = "solid";
+    modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   const input = panel.querySelector(".foliplus-style-fill-color-input");
   if (!input) return { error: "no Fill Color input in the style panel" };
   input.focus();
