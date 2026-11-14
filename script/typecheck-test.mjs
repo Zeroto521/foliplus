@@ -15,12 +15,39 @@
  * The parsing and the split are pure so they can be asserted directly; only
  * `runTsc` and the `main` shell touch the filesystem or the exit status.
  */
-import { repoRoot } from "./build-path.mjs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = repoRoot(import.meta.url);
+/** Resolve the target repo root from CLI args or `process.cwd()`.
+ *
+ *  `npm run` sets cwd to the package.json directory, so the default case
+ *  is identical to the old `repoRoot(import.meta.url)` — both land on the
+ *  tree that owns the script. The difference is that a caller running
+ *  this script from a different tree (e.g. `node
+ *  /main/checkout/script/typecheck-test.mjs` from a worktree) now checks
+ *  the worktree, not the main checkout.
+ *
+ *  Pass `--root <dir>` to target a specific tree explicitly.
+ *
+ *  @param {string[]} argv — CLI args (defaults to process.argv.slice(2))
+ *  @returns {string} absolute path to the target repo root
+ *  @throws {Error} when cwd is not a repo root and no --root is given
+ */
+const resolveRoot = (argv = process.argv.slice(2)) => {
+  const rootIdx = argv.indexOf("--root");
+  if (rootIdx !== -1) {
+    const override = argv[rootIdx + 1];
+    if (override !== undefined) return resolve(override);
+  }
+  const cwd = process.cwd();
+  if (existsSync(resolve(cwd, "package.json"))) return cwd;
+  throw new Error(
+    `typecheck-test: process.cwd() is not a repo root (no package.json in "${cwd}"). ` +
+      `Pass --root <dir> to target a specific tree, or cd to the repo root.`,
+  );
+};
 
 /**
  * Paths whose errors belong to the production program, not this one. tsc
@@ -86,7 +113,7 @@ const filterProduction = blocks => {
 const runTsc = ({
   spawn = spawnSync,
   execPath = process.execPath,
-  cwd = REPO_ROOT,
+  cwd = process.cwd(),
 } = {}) =>
   spawn(
     execPath,
@@ -109,8 +136,26 @@ const runTsc = ({
  * @param {{run?: () => SpawnResult, log?: (text: string) => void, error?: (text: string) => void}} options
  * @returns {number} the process exit code
  */
-const main = ({ run = runTsc, log = console.log, error = console.error } = {}) => {
-  const out = run();
+const main = ({
+  run,
+  spawn = spawnSync,
+  log = console.log,
+  error = console.error,
+  argv = process.argv.slice(2),
+} = {}) => {
+  let out;
+  if (run) {
+    out = run();
+  } else {
+    let root;
+    try {
+      root = resolveRoot(argv);
+    } catch (e) {
+      error(String(e.message ?? e));
+      return 1;
+    }
+    out = runTsc({ cwd: root, spawn });
+  }
 
   if (out.error || (out.status !== 0 && out.status !== 2)) {
     error(out.error ? String(out.error) : `tsc exited ${out.status}`);
@@ -145,4 +190,4 @@ const isMain = (importMetaUrl, argv1) => argv1 === fileURLToPath(importMetaUrl);
 // behind.
 process.exitCode = isMain(import.meta.url, process.argv[1]) ? main() : process.exitCode;
 
-export { PRODUCTION, filterProduction, isMain, main, parseErrors, runTsc };
+export { PRODUCTION, filterProduction, isMain, main, parseErrors, resolveRoot, runTsc };
