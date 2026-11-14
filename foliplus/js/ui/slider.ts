@@ -235,8 +235,9 @@ class Slider {
   private unsubscribeRetire: (() => void) | null = null;
   /** Whether the root has ever been in the document. A row is built detached
    *  and mounted a moment later; only a root that was mounted and then left is
-   *  a dropped row. */
-  private everConnected = false;
+   *  a dropped row. Seeded at construction, because the panel usually mounts
+   *  the row and drops it again without any interrupt landing in between. */
+  private everConnected: boolean;
   /** Set when an interrupt ended the gesture; cleared by real input.
    *
    *  Coming back to the page re-fires `focus` at the element the browser
@@ -264,6 +265,9 @@ class Slider {
       ...options,
     };
     this.disabled = options.disabled ?? false;
+    // A row may be built already mounted (a re-render into a live panel) or
+    // detached and appended a moment later; either way the truth is known here.
+    this.everConnected = host.isConnected;
     this.rtl = getComputedStyle(host).direction === "rtl";
     // Rows are built detached and mounted by the panel right after, so the
     // read above only sees an ancestor direction once the host is connected.
@@ -271,7 +275,12 @@ class Slider {
     // later changes.
     if (!host.isConnected) {
       requestAnimationFrame(() => {
-        if (this.root.isConnected) this.refreshDirection();
+        if (!this.root.isConnected) return;
+        // The row the panel built detached is mounted now; remembering it is
+        // what lets a later removal be recognised as "dropped" rather than
+        // "never mounted".
+        this.everConnected = true;
+        this.refreshDirection();
       });
     }
     const initial = options.value;
@@ -821,13 +830,8 @@ class Slider {
     // the page-level set cannot grow by one entry per panel the user opened.
     // A root that was never mounted yet is not dropped — it is still being
     // built — so only a root that left the document counts.
-    if (this.root.isConnected) this.everConnected = true;
-    else if (this.everConnected) {
-      this.unsubscribeRetire?.();
-      this.unsubscribeRetire = null;
-      this.drag = null;
-      return;
-    }
+    const dropped = !this.root.isConnected && this.everConnected;
+
     const drag = this.drag;
     if (drag) {
       if (event instanceof PointerEvent && event.pointerId !== drag.id) return;
@@ -840,11 +844,18 @@ class Slider {
     // Nothing paints the readout again until the user actually touches the
     // control: the browser's own focus restoration on return is not a request.
     this.interrupted = true;
+    // A dropped row still commits what its pointer produced — the value is the
+    // user's, and the panel already showed it. Only the *subscription* is
+    // released, so a row the panel forgot to destroy stops costing the page.
     this.endSession(true);
     // Runs with no drag too: a focused thumb shows a readout without one.
     // Its no-index form also cancels a parked fade, whose throttled timer
     // would otherwise land long after the switch and paint the node again.
     this.hideBubble();
+    if (dropped) {
+      this.unsubscribeRetire?.();
+      this.unsubscribeRetire = null;
+    }
   };
 
   /** Whether the two thumbs sit close enough that a press cannot say which

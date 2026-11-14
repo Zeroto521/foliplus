@@ -1580,6 +1580,47 @@ describe("Slider bubbles retire when the window loses the pointer", () => {
     expect(change).toHaveBeenCalledTimes(1);
   });
 
+  it("releases a mounted row that is dropped with no interrupt in between", async () => {
+    // The real shape: the panel builds the row detached (opacity.ts,
+    // zoomRange.ts do exactly that), appends it, the user opens another panel,
+    // and the row is removed — all without a single blur landing while it was
+    // attached. A "was it ever mounted" flag updated only during an interrupt
+    // would still read false and the dropped row would keep its registration
+    // for the life of the page.
+    const change = vi.fn();
+    const host = document.createElement("div");
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 30, label: "row", change });
+    document.body.appendChild(host);
+    // The panel mounts the row on the frame after building it; that is when
+    // "has ever been mounted" becomes true.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // First interrupt after the drop: it still commits what the pointer
+    // produced (the value is the user's), then releases its subscription.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    expect(change).toHaveBeenCalledTimes(1);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // The subscription really is released: the dropped row's own DOM still
+    // answers events dispatched straight at it, but the page-level interrupt no
+    // longer reaches it. Re-open a drag locally and interrupt: a row that kept
+    // its registration would be retired (and commit) a second time.
+    track.dispatchEvent(pointer("pointerdown", 90));
+    window.dispatchEvent(new Event("blur"));
+    // 2 is the local pointer's own doings (press commits nothing; the interrupt
+    // does) — the marker is that the row is NOT registered again afterwards.
+    const afterSecond = change.mock.calls.length;
+    track.dispatchEvent(pointer("pointerdown", 95));
+    window.dispatchEvent(new Event("blur"));
+    expect(change.mock.calls.length).toBe(afterSecond);
+  });
+
   it("never releases a row that was built detached and then mounted", async () => {
     // Rows are constructed before the panel appends them (opacity.ts,
     // zoomRange.ts build the slider in a detached div). An interrupt can land
