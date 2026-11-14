@@ -329,3 +329,42 @@ describe("computePlacement — strategy params (kill-tests)", () => {
     ).toBe(32);
   });
 });
+
+describe("computePlacement — side preference", () => {
+  it("tries below first when both strips fit (default)", () => {
+    const anchor = rect(400, 220, 430, 120);
+    const p = computePlacement(anchor, { width: 200, height: 100 }, viewport);
+    expect(p.side).toBe("below");
+  });
+
+  it("tries above first with prefer: 'above' even when below also fits", () => {
+    const anchor = rect(300, 220, 330, 120);
+    const p = computePlacement(anchor, { width: 200, height: 100 }, viewport, {
+      prefer: "above",
+    });
+    expect(p.side).toBe("above");
+    expect(p.top).toBe(200); // anchor.top (300) - maxHeight (100)
+  });
+
+  it("flips below with prefer: 'above' when the above strip is short", () => {
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(20, 220, 40, 120);
+    const p = computePlacement(anchor, { width: 200, height: 50 }, shortBounds, {
+      prefer: "above",
+    });
+    expect(p.side).toBe("below");
+  });
+
+  it("flips below with prefer: 'above' even when the below strip has less room", () => {
+    // Above holds 30px and below 20px: the default picks above (more room),
+    // while the above-first rule flips down because the above strip cannot
+    // hold the 50px surface. This is the slider bubble's rule.
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(30, 220, 80, 120);
+    const surface = { width: 200, height: 50 };
+    expect(computePlacement(anchor, surface, shortBounds).side).toBe("above");
+    expect(
+      computePlacement(anchor, surface, shortBounds, { prefer: "above" }).side,
+    ).toBe("below");
+  });
+});

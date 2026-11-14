@@ -67,10 +67,10 @@ interface PlacementOpts {
    */
   width?: "anchor" | number;
   /**
-   * Minimum below-room (px) that counts as "fits below" for the flip
-   * decision. A two-row minimum lets a popup flip above early while it
-   * still has partial room below; the default (the surface's full height)
-   * flips only when the below strip cannot hold the whole surface.
+   * Minimum room (px) on the first-tried side that counts as "fits" for the
+   * flip decision. A two-row minimum lets a popup flip early while it still
+   * has partial room on that side; the default (the surface's full height)
+   * flips only when the first strip cannot hold the whole surface.
    */
   minRoom?: number;
   /**
@@ -86,6 +86,13 @@ interface PlacementOpts {
    * clamped into the edge-inset frame.
    */
   align?: "left" | "right" | "center";
+  /**
+   * Which side to try first. "below" (default) is the panel rule; "above" is
+   * the slider bubble's: sit above whenever the above strip holds `minRoom`,
+   * otherwise flip below. Above-first deliberately compares no rooms — a
+   * bubble that cannot fit above belongs below its thumb.
+   */
+  prefer?: "below" | "above";
 }
 
 interface Placement {
