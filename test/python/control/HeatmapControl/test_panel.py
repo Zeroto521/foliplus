@@ -155,7 +155,7 @@ class TestHeatmapControlPanelBrowser:
             page,
             errors,
         ):
-            vals = page.evaluate(_js("HeatmapControl/read_defaults"))
+            vals = page.evaluate(_js("HeatmapControl/read_manager_defaults"))
             assert vals["numClasses"] == 6, (
                 f"numClasses expected 6 got {vals['numClasses']}"
             )
@@ -265,7 +265,7 @@ class TestHeatmapControlPanelBrowser:
             page.wait_for_timeout(2000)
 
             # overlay (Canvas) should be visible with content after renderHexagons
-            has_cached = page.evaluate(_js("HeatmapControl/read_cached_features_set"))
+            has_cached = page.evaluate(_js("HeatmapControl/read_manager_cached_features_set"))
             canvas_visible = page.evaluate(
                 _js("HeatmapControl/read_canvas_display_visible")
             )
