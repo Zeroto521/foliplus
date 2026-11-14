@@ -236,7 +236,7 @@ describe("main", () => {
 
 describe("resolveRoot", () => {
   /** Mock process.cwd() to return `dir`, run resolveRoot(argv). */
-  const withMockCwd = (dir, argv) => {
+  const withMockCwd = (dir: string, argv: string[]) => {
     const spy = vi.spyOn(process, "cwd").mockReturnValue(dir);
     try {
       return resolveRoot(argv);

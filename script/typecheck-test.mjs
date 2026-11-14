@@ -133,7 +133,7 @@ const runTsc = ({
  * exiting, so the shell can run in-process without killing the caller.
  * Status 2 is tsc's "compilation failed", which still carries usable output.
  *
- * @param {{run?: () => SpawnResult, log?: (text: string) => void, error?: (text: string) => void}} options
+ * @param {{run?: () => SpawnResult, spawn?: typeof spawnSync, log?: (text: string) => void, error?: (text: string) => void, argv?: string[]}} options
  * @returns {number} the process exit code
  */
 const main = ({
