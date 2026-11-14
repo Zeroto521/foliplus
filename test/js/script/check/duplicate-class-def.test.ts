@@ -97,6 +97,25 @@ describe("parseClassDefs", () => {
   });
 });
 
+it("finds an exported file-level named const", () => {
+  // The object-map scanner and the named-const scanner both match /^const\s+/;
+  // an `export const` form was invisible to both. A vocabulary spelled as an
+  // exported binding must be an owner too, else its token drifts unowned.
+  const sites = parseClassDefs('export const HIDDEN_CLASS = "foliplus-hidden";\n');
+  expect(sites).toEqual([
+    { token: "foliplus-hidden", key: "HIDDEN_CLASS", owner: "HIDDEN_CLASS", line: 1 },
+  ]);
+});
+
+it("finds an exported const map", () => {
+  const sites = parseClassDefs(
+    'export const DEFAULT_CLASSES = {\n  active: "foliplus-is-active",\n} as const;\n',
+  );
+  expect(sites).toEqual([
+    { token: "foliplus-is-active", key: "active", owner: "DEFAULT_CLASSES", line: 2 },
+  ]);
+});
+
 describe("findDuplicateClassDefs", () => {
   it("groups owner sites that spell one class name", () => {
     const sites = [
