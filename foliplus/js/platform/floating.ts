@@ -25,7 +25,7 @@ interface FloatingOptions {
   /** The trigger/anchor the popup follows (also the portal-root owner). */
   anchor: HTMLElement;
   /** Coordinate algorithm; re-run on every re-pin and re-seat. The consumer
-   *  owns the numbers (S2 deliberately does not touch them). */
+   *  owns the numbers: this module reads them and never rewrites them. */
   position: () => void;
   /** The covering surface. Default: <body> (or the native fullscreen element). */
   surface?: FloatingSurface | null;

@@ -226,7 +226,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;
-      if (body) body.classList.toggle("foliplus-hidden", !show);
+      if (body) body.classList.toggle(PANEL_CLASS.HIDDEN, !show);
       const fieldSel = panel.querySelector(
         `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
       ) as HTMLSelectElement | null;
@@ -463,4 +463,5 @@ export {
 } from "./label.js";
 export { LABEL_DIMENSION, layerCanLabel } from "./labelDimension.js";
 export { layerHasStyleDelegation } from "./delegated.js";
+export { styleCapability } from "./styleCapability.js";
 export { replayDeclaredFill, replayFillState } from "./fill.js";

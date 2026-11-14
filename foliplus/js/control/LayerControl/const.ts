@@ -1,6 +1,11 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { DEFAULT_LABEL_COLOR, LABEL_CLASS, LABEL_SIZE } from "#ui/index.js";
+import {
+  DEFAULT_LABEL_COLOR,
+  LABEL_CLASS,
+  LABEL_SIZE,
+  SCHEME_PICKER_CLASS,
+} from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -231,7 +236,7 @@ const CLASSES = {
   STYLE_FILL_CLASSES_SELECT: "foliplus-style-fill-classes-select",
   STYLE_FILL_SCHEME_TRIGGER: "foliplus-style-scheme-trigger",
   STYLE_FILL_SCHEME_BAR: "foliplus-style-scheme-bar",
-  STYLE_FILL_SCHEME_HIDDEN: "foliplus-scheme-picker-hidden",
+  STYLE_FILL_SCHEME_HIDDEN: SCHEME_PICKER_CLASS.HIDDEN,
   /** Size row (CircleMarker only): a number field plus its unit suffix. Its
    *  own class so the change delegation and the tests can tell it from the
    *  label-size and border-weight number fields. */

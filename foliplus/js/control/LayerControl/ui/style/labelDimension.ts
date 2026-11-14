@@ -200,7 +200,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       ),
     ),
   );
-  body.classList.toggle("foliplus-hidden", !showChecked);
+  body.classList.toggle(PANEL_CLASS.HIDDEN, !showChecked);
 
   return dom.el(
     "div",

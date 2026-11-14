@@ -44,6 +44,7 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import { DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
 import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 import { withUnit } from "#platform/format.js";
@@ -161,7 +162,7 @@ const firstAuthorRadius = (ui: LayerUI, layerId: string): number => {
  *  open. An author-declared radius outside the bounds is shown as declared
  *  rather than clamped, so the field is never a lie about the map. */
 const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
-  if (!layerCanSize(ui, layerId)) return null;
+  if (!styleCapability(ui, layerId).dims.size) return null;
   const label = ui.T("style_size");
   return formRow(
     label,
@@ -228,7 +229,7 @@ const SIZE_DIMENSION = registerDimension<number>({
   /** Cohesive reset: clear the override, save, restore the authored radii. */
   reset: (ui, layerId) => resetLayerSize(ui, layerId),
   valueSource: (ui, layerId) => {
-    if (!layerCanSize(ui, layerId)) return "none";
+    if (!styleCapability(ui, layerId).dims.size) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.SIZE) ? "user" : "author";
   },
   /** Content-change replay: a pixel radius chosen before a leaf landed
@@ -249,6 +250,6 @@ export {
   bindSizeRow,
   buildSizeRow,
   commitSize,
-  layerCanSize,
   resetLayerSize,
+  layerCanSize,
 };
