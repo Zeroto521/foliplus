@@ -12,6 +12,7 @@ import {
   FALLBACK_PANE_PREFIX,
   FILTER_SOURCE,
   GEOM_TYPE,
+  LAYOUT_DOC_KEY,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
@@ -35,6 +36,26 @@ import {
   saveNamesState,
   saveState,
 } from "#control/LayerControl/ui/state.js";
+
+/** Build a v2 folder-layout document from a v1 sections shape, for tests
+ *  that seed a persisted block order. Each key also gets a folder entry with a
+ *  display name equal to its key (the seeded order is all that matters here). */
+const layoutFromSections = (
+  sections: Record<string, string[]>,
+): Record<string, unknown> => {
+  const keys = new Set<string>();
+  for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+  return {
+    version: 2,
+    folders: [...keys].map(key => ({ key, name: key })),
+    order: sections,
+    members: {},
+  };
+};
+
+/** Read the persisted folder-layout document (null when never written). */
+const readLayoutStorage = (): Record<string, unknown> | null =>
+  JSON.parse(window.localStorage.getItem(LAYOUT_DOC_KEY) ?? "null");
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -2990,7 +3011,7 @@ describe("LayerController", () => {
 
   it("deleteLayer freezes the folder order before the last member leaves", () => {
     // Removing the last member of a folder must materialise the section's
-    // block order into folderOrder BEFORE the
+    // block order into layout.order BEFORE the
     // removal (PRE-removal snapshot), so the emptied folder keeps its block
     // position instead of the order becoming self-contradictory.
     manager.map.hasLayer.mockReturnValue(true);
@@ -3003,7 +3024,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("rd1")).toBe(true);
-    expect(manager.folderOrder.sections.overlay).toContain("roads");
+    expect(manager.folderLayoutView.order.overlay).toContain("roads");
   });
 
   it("deleteLayer does not freeze a folder that still has a member", () => {
@@ -3024,7 +3045,7 @@ describe("LayerController", () => {
 
     expect(manager.deleteLayer("rd1")).toBe(true);
     // The folder still has rd2, so there is nothing to freeze.
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
   });
 
   it("deleteLayer freezes a base folder's block order too", () => {
@@ -3038,7 +3059,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("b1")).toBe(true);
-    expect(manager.folderOrder.sections.base).toContain("roads");
+    expect(manager.folderLayoutView.order.base).toContain("roads");
   });
 
   it("never builds a layer the user deleted", () => {
@@ -6317,9 +6338,9 @@ describe("deleteFolder", () => {
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
   });
 
-  it("deleting a non-empty folder keeps its layers and removes the order key: one schedule", () => {
+  it("deleting a non-empty folder keeps its layers, pins them to root, and removes the order key: one layout write", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6330,49 +6351,50 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.deleteFolder("overlay", "Roads");
 
     expect(ok).toBe(true);
     expect(manager.layerRegistry.get("rd1")).toBeDefined();
-    expect(manager.layerRegistry.get("rd1")!.folder).toBeNull();
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
-    expect(schedule).toHaveBeenCalledTimes(1);
+    // v2: the author declaration is untouched; the member pin drives the UI.
+    expect(manager.folderNameOf("rd1")).toBeNull();
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.members.rd1).toEqual({
+      section: "overlay",
+      folder: "",
+    });
+    expect(readLayoutStorage()).not.toBeNull();
   });
 
   it("deleting an empty folder removes only the key", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.deleteFolder("overlay", "roads");
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(readLayoutStorage()).not.toBeNull();
   });
 
-  it("deleting a missing folder returns false and does not persist", () => {
+  it("deleting a missing folder returns false and does not write the layout", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
     const ok = manager.deleteFolder("overlay", "never-existed");
 
     expect(ok).toBe(false);
-    expect(schedule).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 
   it("deleting a base folder keeps an overlay folder of the same name", () => {
     const { manager } = initFixture({
-      seed: {
-        folderOrder: { version: 1, sections: { overlay: ["foo"], base: ["foo"] } },
-      },
+      seedLayout: layoutFromSections({ overlay: ["foo"], base: ["foo"] }),
       data: [
         {
           id: "b1",
@@ -6387,8 +6409,8 @@ describe("deleteFolder", () => {
     const ok = manager.deleteFolder("base", "foo");
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.base ?? []).not.toContain("foo");
-    expect(manager.folderOrder.sections.overlay ?? []).toContain("foo");
+    expect(manager.folderLayoutView.order.base ?? []).not.toContain("foo");
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("foo");
   });
 
   it("a later freeze of another folder does not bring a deleted folder back", () => {
@@ -6397,7 +6419,7 @@ describe("deleteFolder", () => {
     // This deliberately uses a different folder to trigger freeze, distinguishing
     // from #911's same-name keep-alive semantics (which DOES preserve the key).
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -6416,20 +6438,20 @@ describe("deleteFolder", () => {
       ],
     });
     manager.deleteFolder("overlay", "Roads");
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
 
     // Water loses its last member -> freezeSectionOrder runs.
     manager.map.hasLayer.mockReturnValue(true);
     manager.deleteLayer("wt1");
     manager.map.hasLayer.mockReturnValue(false);
 
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
-    expect(manager.folderOrder.sections.overlay ?? []).toContain("water");
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("water");
   });
 
   it("deleteFolder does not go through freezeEmptyFolder", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6440,54 +6462,50 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
     const ok = manager.deleteFolder("overlay", "Roads");
     expect(ok).toBe(true);
-    expect(manager.layerRegistry.get("rd1")!.folder).toBeNull();
+    // The author declaration is untouched; the member pin moved to root.
+    expect(manager.folderNameOf("rd1")).toBeNull();
     // If the implementation wrongly went through freezeEmptyFolder first, the
-    // key would be written back then deleted (folder still null here) — but the
-    // schedule count would be 2, or "roads" would survive. Pin both.
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
-    expect(schedule).toHaveBeenCalledTimes(1);
+    // key would be written back then deleted — but the order must not keep it.
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
   });
 
-  it("[BR-1] deleteFolder: opts.persist=false skips persistence (persist branch)", () => {
+  it("[BR-1] deleteFolder: opts.persist=false skips the layout write", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
-    const flushAll = vi.spyOn(manager.persistence, "flushAll");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+
     const ok = manager.deleteFolder("overlay", "roads", { persist: false });
+
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
-    expect(schedule).not.toHaveBeenCalled();
-    expect(flushAll).not.toHaveBeenCalled();
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 
   it("[BR-2] deleteFolder: absent section key -> ?? [] empty-branch (no crash)", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: {} } },
+      seedLayout: layoutFromSections({}),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
     // No "overlay" key in sections: listed ?? [] = []. members empty. Neither
     // existed nor members => false without writing.
     const ok = manager.deleteFolder("overlay", "roads");
     expect(ok).toBe(false);
-    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("[BR-3] deleteFolder: no ui -> reindexAfterMove not called (if(this.ui) false)", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
     const reindex = vi.fn();
     (manager as any).ui = null;
     const ok = manager.deleteFolder("overlay", "roads");
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
     expect(reindex).not.toHaveBeenCalled();
   });
 });
@@ -6498,14 +6516,9 @@ describe("cleanEmptyFolders", () => {
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
   });
 
-  it("cleanEmptyFolders schedules once and flushes once for each empty key", () => {
+  it("cleanEmptyFolders removes each empty key and writes the layout once", () => {
     const { manager } = initFixture({
-      seed: {
-        folderOrder: {
-          version: 1,
-          sections: { overlay: ["empty1", "empty2", "full"] },
-        },
-      },
+      seedLayout: layoutFromSections({ overlay: ["empty1", "empty2", "full"] }),
       data: [
         {
           id: "rd1",
@@ -6516,20 +6529,18 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
-    const flushAll = vi.spyOn(manager.persistence, "flushAll");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
     const count = manager.cleanEmptyFolders("overlay");
 
     expect(count).toBe(2);
-    expect(schedule).toHaveBeenCalledTimes(1);
-    expect(flushAll).toHaveBeenCalledTimes(1);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["full"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["full"]);
+    expect(readLayoutStorage()).not.toBeNull();
   });
 
   it("[BR-4] cleanEmptyFolders: absent section key -> ?? [] empty-branch", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: {} } },
+      seedLayout: layoutFromSections({}),
       data: [],
     });
     const count = manager.cleanEmptyFolders("overlay");
@@ -6538,7 +6549,7 @@ describe("cleanEmptyFolders", () => {
 
   it("[BR-5] cleanEmptyFolders: no empty keys -> return 0 (emptyKeys.length===0)", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["full"] } } },
+      seedLayout: layoutFromSections({ overlay: ["full"] }),
       data: [
         {
           id: "rd1",
@@ -6549,21 +6560,22 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
     const count = manager.cleanEmptyFolders("overlay");
     expect(count).toBe(0);
-    expect(schedule).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 
   it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["empty1"] } } },
+      seedLayout: layoutFromSections({ overlay: ["empty1"] }),
       data: [],
     });
     (manager as any).ui = null;
     const count = manager.cleanEmptyFolders("overlay");
     expect(count).toBe(1);
   });
+
   it("onField clears the committed filter via setLayerFilter(id, undefined)", () => {
     const { manager } = initFixture({
       data: [
@@ -6690,52 +6702,51 @@ describe("createFolder", () => {
 
   it("creates an empty folder and materialises it at the section tail", () => {
     const { manager } = initFixture({ data: [] });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
+    expect(readLayoutStorage()).not.toBeNull();
   });
 
   it("creates an empty folder at the tail after an existing folder", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["water"] } } },
+      seedLayout: layoutFromSections({ overlay: ["water"] }),
       data: [],
     });
 
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["water", "roads"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
   it("createFolder rejects a blank name", () => {
     const { manager } = initFixture({ data: [] });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.createFolder("overlay", "   ");
 
     expect(ok).toBe(false);
-    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("createFolder rejects a duplicate name in the same section", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
 
     const ok = manager.createFolder("overlay", "roads");
 
     expect(ok).toBe(false);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder allows the same name in a different section", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { base: ["roads"] } } },
+      seedLayout: layoutFromSections({ base: ["roads"] }),
       data: [],
     });
 
@@ -6744,27 +6755,24 @@ describe("createFolder", () => {
 
     expect(okOverlay).toBe(true);
     expect(okBase).toBe(false); // base already has "roads"
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
-    expect(manager.folderOrder.sections.base ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
   });
 
-  it("createFolder schedules once and reindexes", () => {
+  it("createFolder writes the layout and reindexes", () => {
     const { manager } = initFixture({ data: [] });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
     const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
 
     manager.createFolder("overlay", "Roads");
 
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(readLayoutStorage()).not.toBeNull();
     expect(reindex).toHaveBeenCalledTimes(1);
   });
 
   it("createFolder rejects a name already held by a live member not yet listed", () => {
-    // A layer can carry an author-declared folder name before the order lists it
-    // (folderOrder is only materialised on freeze / explicit create). createFolder
-    // must reject that name as a duplicate even though it is absent from `listed`.
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: {} } },
+      seedLayout: layoutFromSections({}),
       data: [
         {
           id: "rd1",
@@ -6779,32 +6787,30 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toBe(false);
-    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
   });
+
   it("createFolder honours persist:false and tolerates a detached UI", () => {
-    // persist:false skips the persistence write; a null ui (control detached
-    // mid-lifecycle) must not throw when reindexAfterMove is skipped.
     const { manager } = initFixture({ data: [] });
     manager.ui = null;
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
-    expect(schedule).not.toHaveBeenCalled();
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 });
-
 describe("renameFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
   });
 
-  it("renameFolder moves members and preserves the key position", () => {
+  it("renameFolder rewrites only the display name, keeping the order key and member assignments", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -6822,70 +6828,73 @@ describe("renameFolder", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
     expect(ok).toBe(true);
-    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Streets");
+    // v2: the author declaration is untouched; the directory name is the display.
+    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
     expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets", "water"]);
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(manager.folderNameOf("rd1")).toBe("Streets");
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
+    expect(manager.folderLayoutView.folders).toEqual([
+      { key: "roads", name: "Streets" },
+      { key: "water", name: "water" },
+    ]);
   });
 
   it("renameFolder normalises the new name", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
 
     const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
+    expect(manager.folderLayoutView.folders[0]).toEqual({
+      key: "roads",
+      name: "Streets",
+    });
   });
 
   it("renameFolder rejects a duplicate new name", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
       data: [],
     });
 
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
     expect(ok).toBe(false);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads", "water"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
   });
 
   it("renameFolder rejects a blank new name", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.renameFolder("overlay", "Roads", "   ");
 
     expect(ok).toBe(false);
-    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("renameFolder is a no-op for a missing old folder", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.renameFolder("overlay", "NeverExisted", "Streets");
 
     expect(ok).toBe(false);
-    expect(schedule).not.toHaveBeenCalled();
   });
 
-  it("renameFolder moves members to the new display spelling", () => {
+  it("renameFolder keeps the member assignment when the new spelling differs", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6900,29 +6909,25 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "Roads", "streets");
 
     expect(ok).toBe(true);
-    expect(manager.layerRegistry.get("rd1")!.folder).toBe("streets");
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
+    expect(manager.folderNameOf("rd1")).toBe("streets");
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("renameFolder is a no-op for a normalisation-only rename", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.renameFolder("overlay", "Roads", "roads");
 
     expect(ok).toBe(true);
-    expect(schedule).not.toHaveBeenCalled();
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
+
   it("renameFolder renames an unlisted folder that has live members", () => {
-    // A folder can exist only through its live members (never frozen into the
-    // order). renameFolder must still find it through the members, move their
-    // spelling, and leave the order untouched (the block stays unlisted).
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: {} } },
+      seedLayout: layoutFromSections({}),
       data: [
         {
           id: "rd1",
@@ -6933,21 +6938,17 @@ describe("renameFolder", () => {
         },
       ],
     });
-    const schedule = vi.spyOn(manager.persistence, "schedule");
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
     expect(ok).toBe(true);
-    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Streets");
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual([]);
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(manager.folderNameOf("rd1")).toBe("Streets");
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
   });
+
   it("renameFolder rejects a new name already held by a live member in the same section", () => {
-    // The collision check must include live members, not just the listed order:
-    // an author-declared (unlisted) folder can hold the new name even when the
-    // order does not list it.
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6969,25 +6970,27 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
     expect(ok).toBe(false);
-    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
-    expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
+    expect(manager.folderNameOf("rd1")).toBe("roads");
   });
+
   it("renameFolder honours persist:false and tolerates a detached UI", () => {
     const { manager } = initFixture({
-      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      seedLayout: layoutFromSections({ overlay: ["roads"] }),
       data: [],
     });
     manager.ui = null;
-    const schedule = vi.spyOn(manager.persistence, "schedule");
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
 
     expect(ok).toBe(true);
-    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
-    expect(schedule).not.toHaveBeenCalled();
+    expect(manager.folderLayoutView.folders[0]).toEqual({
+      key: "roads",
+      name: "Streets",
+    });
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 });
-
 describe("generic filter declaration seeding", () => {
   // The author's declared filter (CONF data[].filter) is a construction-time
   // constant, not a user write: the constructor captures it on the shared

@@ -14,7 +14,7 @@ import {
 } from "./cursor.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
-import { ROLE, normalizeFolderName } from "#core/layer/index.js";
+import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -391,7 +391,7 @@ const syncRowOrder = (ui: LayerUI): void => {
 const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
   if (ui.c.layers.some(l => l.role === role)) return true;
   const keys =
-    ui.c.folderOrder.sections[role as keyof typeof ui.c.folderOrder.sections];
+    ui.c.folderLayoutView.order[role as keyof typeof ui.c.folderLayoutView.order];
   return Boolean(keys && keys.length > 0);
 };
 
@@ -584,14 +584,17 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
  *  A key is empty when no live layer in the section has normalize(folder)===key.
  *  Called on every render — never cached (hard constraint 3). */
 const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
-  const keys =
-    ui.c.folderOrder.sections[role as keyof typeof ui.c.folderOrder.sections] ?? [];
+  const layout = ui.c.folderLayoutView;
+  const keys = layout.order[role as keyof typeof layout.order] ?? [];
   if (keys.length === 0) return [];
   return keys.filter(
     k =>
-      !ui.c.layers.some(
-        l => l.role === role && l.folder != null && normalizeFolderName(l.folder) === k,
-      ),
+      !ui.c.layers.some(l => {
+        const info = ui.c.layerRegistry.get(l.id);
+        if (!info) return false;
+        const f = folderOf(layout, info);
+        return f !== null && normalizeFolderName(f) === k;
+      }),
   );
 };
 

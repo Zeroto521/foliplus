@@ -1288,7 +1288,7 @@ describe("LayerUI keyboard", () => {
 
     it("handleKeyDown does not toggle the row on Enter when the clean button is focused", () => {
       // Seed an empty folder key so the section header renders the clean button.
-      manager.folderOrder = { version: 1, sections: { overlay: ["my folder"] } };
+      manager.createFolder("overlay", "my folder");
       manager.ui?.reindexAfterMove?.();
       const cleanBtn = attachedPanel(ui).querySelector(
         `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,

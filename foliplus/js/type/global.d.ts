@@ -24,6 +24,7 @@ import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
   LayerAPI as CoreLayerAPI,
+  FolderLayoutManager as CoreFolderLayoutManager,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
 import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
@@ -280,6 +281,8 @@ declare global {
     interaction: InteractionManager;
     /** Per-map shared filter store (Measure/Heatmap/LayerControl). */
     filterStore: FilterStore;
+    /** Per-map folder layout manager (folder identity/order/members). */
+    folderLayout: CoreFolderLayoutManager;
     /** Default geocode provider spec for this map, registered by provider-aware
      *  controls (e.g. SearchControl) so indirect geocoding follows it. */
     geocodeProvider?: string | ProviderConfig;

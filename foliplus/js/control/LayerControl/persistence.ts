@@ -6,7 +6,6 @@ import type {
   PersistedLayerState,
 } from "./type.js";
 import {
-  type FolderOrder,
   STYLE_MODE,
   type ValueConfig,
   isIconIntent,
@@ -25,7 +24,6 @@ import { BORDER_WEIGHT } from "#ui/index.js";
  *  never touched. */
 type LiveState = {
   order?: () => string[];
-  folderOrder?: () => FolderOrder | null;
   removed?: () => string[];
   foldedRoles?: () => string[];
   renamedNames?: () => Record<string, string>;
@@ -309,23 +307,6 @@ const parseLayerState = (raw: unknown): PersistedLayerState | null => {
  * failing closed as a whole: each section is independent, so a corrupt one must
  * not take the rest of the user's saved state down with it.
  */
-/** Tolerant read of the persisted folder order: shape must be
- *  `{ version: 1, sections: { [overlay|base]: string[] } }`. Any other shape
- *  reads as absent (the section then runs on the anchor-derived order). */
-const isFolderOrder = (raw: unknown): raw is FolderOrder => {
-  if (!raw || typeof raw !== "object") return false;
-  const o = raw as Record<string, unknown>;
-  if (o.version !== 1) return false;
-  const sections = o.sections;
-  if (!sections || typeof sections !== "object") return false;
-  for (const [sec, names] of Object.entries(sections)) {
-    if (sec !== "overlay" && sec !== "base") return false;
-    if (!Array.isArray(names) || !names.every(n => typeof n === "string")) return false;
-  }
-  return true;
-};
-const parseFolderOrder = (raw: unknown): FolderOrder | null =>
-  isFolderOrder(raw) ? raw : null;
 
 const parseRecord = (raw: unknown): LayerPersistedRecord => {
   const data = asObject(raw);
@@ -341,8 +322,6 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
     record.removed = data.removed as string[];
   }
-  const parsed = parseFolderOrder(data.folderOrder);
-  if (parsed) record.folderOrder = parsed;
   if (
     Array.isArray(data.foldedRoles) &&
     data.foldedRoles.every(role => typeof role === "string")
@@ -379,7 +358,6 @@ const mergeFields = (
   return {
     version: RECORD_VERSION,
     order: fields.order ? fields.order() : record.order,
-    folderOrder: fields.folderOrder ? fields.folderOrder() : record.folderOrder,
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
