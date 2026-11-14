@@ -105,16 +105,4 @@ const onGestureRetire = (retire: GestureRetire): (() => void) => {
   };
 };
 
-/** How many registrations are still live. Exposed for the guard test that
- *  pins the weak-holding contract: a consumer that is collected without
- *  unregistering must not be counted after the next retire. */
-const liveGestureRetires = (): number => {
-  let live = 0;
-  for (const registration of retires) {
-    if (registration.ref.deref()) live += 1;
-    else retires.delete(registration);
-  }
-  return live;
-};
-
-export { liveGestureRetires, onGestureRetire };
+export { onGestureRetire };

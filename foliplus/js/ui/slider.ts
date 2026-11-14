@@ -233,6 +233,10 @@ class Slider {
   private readonly bubbleAnchors = new Set<HTMLElement>();
   /** Releases the page-level gesture interrupt subscription. */
   private unsubscribeRetire: (() => void) | null = null;
+  /** Whether the root has ever been in the document. A row is built detached
+   *  and mounted a moment later; only a root that was mounted and then left is
+   *  a dropped row. */
+  private everConnected = false;
   /** Set when an interrupt ended the gesture; cleared by real input.
    *
    *  Coming back to the page re-fires `focus` at the element the browser
@@ -815,7 +819,10 @@ class Slider {
     // A row whose panel was dropped without calling destroy() is no longer
     // anybody's: release the subscription here rather than waiting for GC, so
     // the page-level set cannot grow by one entry per panel the user opened.
-    if (!this.root.isConnected) {
+    // A root that was never mounted yet is not dropped — it is still being
+    // built — so only a root that left the document counts.
+    if (this.root.isConnected) this.everConnected = true;
+    else if (this.everConnected) {
       this.unsubscribeRetire?.();
       this.unsubscribeRetire = null;
       this.drag = null;

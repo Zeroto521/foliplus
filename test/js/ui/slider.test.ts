@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
-import { liveGestureRetires } from "#platform/gesture.js";
 import {
   SLIDER_CLASS,
   Slider,
@@ -1558,21 +1557,49 @@ describe("Slider bubbles retire when the window loses the pointer", () => {
     expect(bubbleNodes()).toHaveLength(0);
   });
 
-  it("releases a detached row's subscription instead of accumulating it", async () => {
-    // Panels drop their rows with replaceChildren()/remove() and never call
-    // the row's own destroy — a real path (opacity.ts, zoomRange.ts). If the
-    // page-level registration outlived the row, every panel open would add
-    // one more callback that keeps a removed slider alive.
-    const before = liveGestureRetires();
-    for (let i = 0; i < 5; i += 1) {
-      const { host } = make({ min: 0, max: 100, value: 30, label: "row" });
-      expect(liveGestureRetires()).toBe(before + 1);
-      // The panel drops the row without destroying the slider.
-      host.remove();
+  it("stops serving a row whose panel dropped it without destroying it", async () => {
+    // Panels drop their rows with remove()/replaceChildren() and never call the
+    // row's own destroy — a real path (opacity.ts, zoomRange.ts). The slider
+    // releases its page-level subscription on the next interrupt instead of
+    // waiting for a collection, so opening panels repeatedly cannot accumulate
+    // one live callback (and one removed slider) per open.
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 30, label: "row", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // Observed from the outside: the interrupt still ends whatever was live,
+    // but the row is no longer a listener afterwards — a second interrupt has
+    // nothing to retire, and the detached row cannot show chrome again.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("never releases a row that was built detached and then mounted", async () => {
+    // Rows are constructed before the panel appends them (opacity.ts,
+    // zoomRange.ts build the slider in a detached div). An interrupt can land
+    // in that window; "not mounted yet" is not "dropped", so the row must
+    // still work once the panel mounts it.
+    const host = document.createElement("div");
+    const slider = new Slider(host, { min: 0, max: 100, value: 30, label: "row" });
+    try {
+      document.body.appendChild(host);
       window.dispatchEvent(new Event("blur"));
+
+      // Still live: a press shows its readout and a drag reaches the value.
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 70));
+      expect(liveBubbles()).toHaveLength(1);
+      expect(slider.value).toBe(70);
+    } finally {
+      slider.destroy();
+      host.remove();
     }
-    // Each interrupt saw a detached row and unregistered it.
-    expect(liveGestureRetires()).toBe(before);
   });
 
   it("stops listening once the slider is destroyed", async () => {
