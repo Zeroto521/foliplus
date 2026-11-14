@@ -742,6 +742,143 @@ describe("bindNodeDrag", () => {
     expect(onEnd).not.toHaveBeenCalled();
   });
 
+  it("ends an interrupted drag and gives the map back", () => {
+    // The reported shape: press a node, switch windows, release there. No
+    // mouseup reaches this page, so the drag would keep moving the node — and
+    // the map's own dragging, disabled by the press, would stay off for good.
+    const latlng = { lat: 3, lng: 4 };
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => latlng),
+      setLatLng: vi.fn(),
+    };
+    const onDrag = vi.fn();
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {
+      onDrag,
+      onEnd,
+    });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    expect(map.dragging.disable).toHaveBeenCalled();
+    onMove({
+      originalEvent: { clientX: 20, clientY: 0, buttons: 1 },
+      latlng: { lat: 2, lng: 2 },
+    });
+    expect(onDrag).toHaveBeenCalled();
+
+    // The interruption: the window loses the pointer.
+    window.dispatchEvent(new Event("blur"));
+
+    // The map takes panning back, and the moved measurement is committed at
+    // the position the node actually reached.
+    expect(map.dragging.enable).toHaveBeenCalledTimes(1);
+    expect(onEnd).toHaveBeenCalledWith(latlng);
+
+    // Further moves do nothing: the gesture is over.
+    onDrag.mockClear();
+    onMove({
+      originalEvent: { clientX: 40, clientY: 0, buttons: 0 },
+      latlng: { lat: 9, lng: 9 },
+    });
+    expect(onDrag).not.toHaveBeenCalled();
+  });
+
+  it("ends the drag on a move whose button is already up", () => {
+    // The release happened over another window and the window did not blur, so
+    // only the pointer's own state reveals that the gesture is over.
+    const node = {
+      on: vi.fn(),
+      off: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 5, lng: 6 })),
+      setLatLng: vi.fn(),
+    };
+    const onDrag = vi.fn();
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(
+        (raw: { clientX: number; clientY: number }) => ({
+          x: raw.clientX,
+          y: raw.clientY,
+        }),
+      ),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {
+      onDrag,
+      onEnd,
+    });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onMove({
+      originalEvent: { clientX: 20, clientY: 0, buttons: 1 },
+      latlng: { lat: 2, lng: 2 },
+    });
+    expect(onEnd).not.toHaveBeenCalled();
+
+    onDrag.mockClear();
+    onMove({
+      originalEvent: { clientX: 60, clientY: 0, buttons: 0 },
+      latlng: { lat: 9, lng: 9 },
+    });
+
+    expect(map.dragging.enable).toHaveBeenCalledTimes(1);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    // The move that revealed the release is not applied.
+    expect(onDrag).not.toHaveBeenCalled();
+    expect(node.setLatLng).not.toHaveBeenCalledWith({ lat: 9, lng: 9 });
+  });
+
+  it("refuses a second press while a drag is live", () => {
+    const node = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onDown({ originalEvent: { clientX: 80, clientY: 80 } });
+
+    // One gesture: the second press must not disable dragging twice or start a
+    // session whose restore would never run.
+    expect(map.dragging.disable).toHaveBeenCalledTimes(1);
+  });
+
   it("gracefully ignores a synthesized mousedown with no originalEvent", () => {
     const node = { on: vi.fn(), off: vi.fn() };
     const onDrag = vi.fn();
