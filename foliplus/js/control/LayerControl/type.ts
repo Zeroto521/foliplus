@@ -12,11 +12,7 @@
 import type { ProjectionDelta } from "./ui/apply.js";
 import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
-import type {
-  FolderOrder,
-  LayerDimKey,
-  PersistedLayerState,
-} from "#core/layer/index.js";
+import type { LayerDimKey, PersistedLayerState } from "#core/layer/index.js";
 
 export type {
   LabelConfig,
@@ -44,10 +40,6 @@ type LayerPersistedRecord = {
   version: number;
   /** Layer ids in the panel's order, or null when the user never reordered. */
   order: string[] | null;
-  /** The user's folder block order, per section (see core/layer/folderOrder).
-   *  Absent/null means no section has ever been frozen: the display runs on
-   *  the anchor-derived order (folders by first-member registry index). */
-  folderOrder?: FolderOrder | null;
   /** Layer ids the user deleted, in the order they were deleted.
    *
    *  One-way: nothing removes an entry and `deleteLayer` is the only writer.

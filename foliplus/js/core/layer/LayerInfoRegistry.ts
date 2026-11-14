@@ -1,7 +1,11 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { ROLE } from "./const.js";
-import { type FolderOrder, fullDisplayOrder } from "./folderOrder.js";
+import {
+  type FolderLayout,
+  emptyFolderLayout,
+  fullDisplayOrder,
+} from "./folderLayout.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 import { safeSVG } from "#core/sanitize.js";
@@ -521,7 +525,7 @@ class LayerInfoRegistry {
   }
 
   /** Reorder so the panel's display order is the two-segment folder order:
-   *  per section, Folder blocks first (folderOrder priority, then anchor) and
+   *  per section, Folder blocks first (layout.order priority, then anchor) and
    *  root layers after. The overlay section precedes the base section (the
    *  historical overlay-before-base partition). The anchor axis is the CURRENT
    *  items order (the user's saved arrangement, or the CONF registration order
@@ -529,8 +533,8 @@ class LayerInfoRegistry {
    *  anchor as its position in `this.items` before the grouping reorders it,
    *  so the anchor is not rewritten by the display grouping (the grouping
    *  only reorders what is shown, never the registry's index axis). */
-  normalizeGroups(folderOrder: FolderOrder = { version: 1, sections: {} }) {
-    const display = fullDisplayOrder(this.items, folderOrder);
+  normalizeGroups(layout: FolderLayout = emptyFolderLayout()) {
+    const display = fullDisplayOrder(this.items, layout);
     this.items.splice(0, this.items.length, ...display);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.reindex();
