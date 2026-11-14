@@ -158,7 +158,11 @@ const scanConsumers = (root, ownerMap, { includeCore }) => {
     const re = /"([^"\`]*)"|'([^'\`]*)'|`([^`\\]*)`/g;
     let match;
     while ((match = re.exec(text)) !== null) {
-      const literal = match[1] ?? match[2] ?? match[3] ?? "";
+      // The regex has three mutually exclusive alternatives, each with one capture
+      // group, so a match always sets exactly one of match[1..3]; the expression is
+      // never undefined, and the empty-string fallback would be dead code.
+
+      const literal = match[1] ?? match[2] ?? match[3];
       if (literal.includes("$")) continue;
       for (const token of tokensIn(literal)) {
         const owners = ownerMap.get(token);

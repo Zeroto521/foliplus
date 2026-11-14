@@ -1,7 +1,7 @@
 // Guard test for `script/check/class-owner.mjs` — every `foliplus-*` class
 // token has one owner and consumers read it from the owner module.
 //
-// The two red cases below are manufactured in a throwaway tree (via --root),
+// The red cases below are manufactured in a throwaway tree (via --root),
 // never in the repo, so the lint chain stays green while this file is being
 // written:
 //
@@ -88,6 +88,27 @@ describe("scanOwnerFile", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("dedupes the same token declared by two keys in one object", () => {
+    // Two keys in one object spelling the same token are one owner site,
+    // not two (the guard against PATH_SOLID / PATH_DASHED duplication).
+    const src = [
+      "const THING_CLASS = {",
+      '  A: "foliplus-thing",',
+      '  B: "foliplus-thing",',
+      "} as const;",
+      "export { THING_CLASS };",
+    ].join("\n");
+    const root = tempRoot({ "foliplus/js/ui/thingClassName.ts": src });
+    try {
+      const abs = path.join(root, "foliplus/js/ui/thingClassName.ts");
+      const sites = scanOwnerFile(abs, "foliplus/js/ui/thingClassName.ts");
+      expect(sites).toHaveLength(1);
+      expect(sites[0].token).toBe("foliplus-thing");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("buildOwnerMap", () => {
@@ -166,6 +187,112 @@ describe("scanConsumers", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("skips a token spelled inside an excluded directory", () => {
+    // test/ (and foliplus/locale, doc, script, .foliplus) are readers of the
+    // class names, not TS-import consumers — a literal there is not a drift.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "test/js/x.ts": 'export const cls = "foliplus-x";',
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips a non-owner file that lives in an excluded directory", () => {
+    // EXCLUDED_DIR_PARTS (test, doc, script, .foliplus, foliplus/locale) are
+    // readers of the class names, not TS-import consumers; a literal there is
+    // not a drift even when it spells an owned token. The excluded check runs
+    // on the path segments, so a file at foliplus/js/test/x.ts is skipped.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/test/x.ts": 'export const c = "foliplus-x";',
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reads single-quoted and template literals", () => {
+    const vocab =
+      'const A = { K: "foliplus-x", L: "foliplus-y" } as const;\nexport { A };\n';
+    const consumer = [
+      "export const a = 'foliplus-x';",
+      "export const b = `foliplus-y`;",
+    ].join("\n");
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/control/X/ui.ts": consumer,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const hits = scanConsumers(root, ownerMap, { includeCore: false });
+      expect(hits).toHaveLength(2);
+      expect(hits.map(h => h.token).sort()).toEqual(["foliplus-x", "foliplus-y"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips a template literal with interpolation", () => {
+    // `${...}` makes the literal non-static; only static literals are policed.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const consumer = "export const t = `foliplus-x ${v}`;";
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/control/X/ui.ts": consumer,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores a token with no declared owner", () => {
+    // Unknown tokens are duplicate-class-def's problem, not this guard's.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-orphan";',
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not flag a file that owns the token in a hand-built map", () => {
+    // Defensive: an ownerMap entry may point at a non-owner file that also
+    // spells the token; that file is an owner, not a drifting consumer.
+    const ownerMap = new Map<
+      string,
+      { token: string; owner: string; line: number }[]
+    >();
+    ownerMap.set("foliplus-x", [
+      { token: "foliplus-x", owner: "foliplus/js/control/X/ui.ts", line: 1 },
+    ]);
+    const root = tempRoot({
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-x";',
+    });
+    try {
+      expect(scanConsumers(root, ownerMap, { includeCore: false })).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("walk", () => {
@@ -186,6 +313,15 @@ describe("walk", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("returns an empty list for a non-existent directory", () => {
+    // The guard lets the walker be pointed at a path that is not there
+    // (e.g. a freshly created tree before the source root exists) without
+    // crashing — it yields no files and the scans are vacuously clean.
+    expect(walk(path.join(os.tmpdir(), `class-owner-missing-${Date.now()}`))).toEqual(
+      [],
+    );
   });
 });
 
@@ -209,6 +345,100 @@ describe("main", () => {
       errorSpy.mockRestore();
       rmSync(cleanRoot, { recursive: true, force: true });
       rmSync(dirtyRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 1 when a non-owner file spells an owned token with --check", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const consumer = [
+      "export function paint() {",
+      '  const cls = "foliplus-x";',
+      "  return cls;",
+      "}",
+    ].join("\n");
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/control/X/ui.ts": consumer,
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main(["--check", "--root", root])).toBe(1);
+      expect(errorSpy).toHaveBeenCalled();
+      const calls = errorSpy.mock.calls.flat().join("\n");
+      expect(calls).toContain("Non-owner bare literals");
+      expect(calls).toContain("foliplus-x");
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("inventory mode exits 0 even when there are failures", () => {
+    // Without --check the script prints the inventory and always exits 0;
+    // the failure is reported but is not a lint error in inventory mode.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const consumer = [
+      "export function paint() {",
+      '  const cls = "foliplus-x";',
+      "  return cls;",
+      "}",
+    ].join("\n");
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/js/control/X/ui.ts": consumer,
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main(["--root", root])).toBe(0);
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports the all-tiers scope when --include-core is passed", () => {
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const root = tempRoot({ "foliplus/js/ui/aClassName.ts": vocab });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(main(["--include-core", "--root", root])).toBe(0);
+      expect(logSpy).toHaveBeenCalled();
+      const calls = logSpy.mock.calls.flat().join("\n");
+      expect(calls).toContain("all tiers");
+    } finally {
+      logSpy.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses process.cwd() when --root is absent", () => {
+    // The real repo is the clean baseline; no --root means the default
+    // (process.cwd()) is scanned and the baseline passes.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main([])).toBe(0);
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("falls back to the caller root when --root has no value", () => {
+    // A dangling --root (no value) leaves the caller-supplied root in place;
+    // the real repo is clean, so the scan passes and exit is 0.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(main(["--root"])).toBe(0);
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
     }
   });
 });
