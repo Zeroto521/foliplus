@@ -23,8 +23,8 @@ import type { EventBus as CoreEventBus } from "#core/event/index.js";
 import type {
   CreateCanvasAPI as CoreCreateCanvasAPI,
   CreateLayersAPI as CoreCreateLayersAPI,
-  LayerAPI as CoreLayerAPI,
   FolderLayoutManager as CoreFolderLayoutManager,
+  LayerAPI as CoreLayerAPI,
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
 import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";

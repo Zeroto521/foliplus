@@ -1,7 +1,11 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { ROLE } from "./const.js";
-import { type FolderLayout, emptyFolderLayout, fullDisplayOrder } from "./folderLayout.js";
+import {
+  type FolderLayout,
+  emptyFolderLayout,
+  fullDisplayOrder,
+} from "./folderLayout.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 import { safeSVG } from "#core/sanitize.js";

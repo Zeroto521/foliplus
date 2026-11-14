@@ -134,7 +134,7 @@ const isFolderLayout = (raw: unknown): raw is FolderLayout => {
     if (sec !== "overlay" && sec !== "base") return false;
     if (!Array.isArray(keys) || !keys.every(k => typeof k === "string")) return false;
   }
-  for (const [_id, a] of Object.entries(o.members)) {
+  for (const a of Object.values(o.members)) {
     if (!a || typeof a !== "object") return false;
     const m = a as Record<string, unknown>;
     if (typeof m.section !== "string" || typeof m.folder !== "string") return false;
@@ -406,7 +406,7 @@ const moveLayerToRoot = (
   section: FolderSection,
 ): FolderLayout => {
   const existing = layout.members[layerId];
-  if (existing && existing.folder === "") return layout;
+  if (existing?.folder === "") return layout;
   return {
     ...layout,
     members: { ...layout.members, [layerId]: { section, folder: "" } },
