@@ -63,7 +63,7 @@ _NOTES = _DOC.split("Notes\n-----", 1)[1]
 _FLAT = " ".join(_NOTES.replace("|", " ").split())
 
 # ── browser: the declared seed ──
-_READ = _js("HeatmapControl/read_declared_filter")
+_READ = _js("HeatmapControl/read_manager_declared_filter")
 _PICK = _js("HeatmapControl/pick_layer")
 
 # One point layer, three points carrying val = 26.07 / 26.08 / 26.09.

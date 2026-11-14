@@ -14,6 +14,7 @@ import { activateDeleteItem } from "#control/LayerControl/ui/overlayPanel/index.
 import {
   MENU_ACTIONS,
   handleMenuClick,
+  runMenuAction,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
 
 describe("LayerUI menu", () => {
@@ -1100,6 +1101,22 @@ describe("LayerUI menu", () => {
       for (const action of Object.values(CONST.ACTION)) {
         expect(typeof MENU_ACTIONS[action]).toBe("function");
       }
+    });
+
+    // Kill test for the unknown-action branch in runMenuAction: a data-action
+    // the MENU_ACTIONS table does not know must close the menu and return row
+    // focus (the old click fallthrough contract). Deleting that branch (letting
+    // the lookup hit `undefined`) is caught by the coverage-patch gate on the
+    // runMenuAction unknown-action branch.
+    it("an unknown data-action closes the menu and returns focus", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      expect(menu).not.toBeNull();
+      const bogus = document.createElement("button");
+      bogus.setAttribute("data-action", "bogus-action");
+      runMenuAction(ui, bogus);
+      expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
     });
 
     // The single-dispatch guarantee: a native <button> consumes Enter/Space
