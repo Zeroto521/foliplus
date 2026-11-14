@@ -168,6 +168,12 @@ const checkPixelLimit = function (this: ExportManager, r: CropRect) {
 const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   const st = this.cropState;
   if (!st || st.locked) return;
+  // One gesture at a time. A second pointer arriving mid-drag would overwrite
+  // both cleanups below, leaking the first pair: the document drag listeners
+  // and the page-level interrupt subscription would never be released, and the
+  // first pointer's session would be unreachable. The slider primitive states
+  // the same rule for the same reason.
+  if (this.dragState.dragging) return;
   const target = event.target as HTMLElement;
   let type: string | null = null;
   if (target.classList.contains(CONST.CLASSES.HANDLE)) {
@@ -305,13 +311,11 @@ const onPointerMove = function (this: ExportManager, event: PointerEvent) {
  *  drift; a synthetic event carrying the gesture's own pointer id keeps the
  *  capture release working when the real event names no target. */
 const retireDrag = function (this: ExportManager, event: Event): void {
+  // The subscription exists only while a gesture is live (it is taken in
+  // onPointerDown and released by onPointerUp), so there is nothing to check
+  // for "no gesture": that pair cannot drift without a second pointer being
+  // allowed to overwrite the first, which onPointerDown now refuses.
   const { pointerId, captureTarget } = this.dragState;
-  if (!this.dragState.dragging) {
-    // Nothing in flight: a blur outside a gesture still means "done".
-    this.dragRetireCleanup?.();
-    this.dragRetireCleanup = null;
-    return;
-  }
   // A cancel that names a different pointer belongs to another gesture.
   if (
     event instanceof PointerEvent &&
@@ -343,12 +347,13 @@ const onPointerUp = function (
   if (wasDragging) {
     this.dragCleanup?.();
     this.dragCleanup = undefined;
-    // The gesture is over, so the page-level interrupt has nothing left to
-    // retire: unsubscribing here keeps a crop session from leaving a listener
-    // behind between drags.
-    this.dragRetireCleanup?.();
-    this.dragRetireCleanup = null;
   }
+  // Unconditionally: the interrupt subscription is what makes a gesture
+  // survivable, and this is the one place a gesture ends. Releasing it only
+  // when `wasDragging` would strand it for any ending that reached here with
+  // the flag already clear.
+  this.dragRetireCleanup?.();
+  this.dragRetireCleanup = null;
   // Give the pointer back. Skip it when the gesture never started — a
   // synthetic pointerup with no matching down must not strip the .dragging
   // class off a box that is mid-drag by another pointer.

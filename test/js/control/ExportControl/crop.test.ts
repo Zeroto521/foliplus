@@ -764,6 +764,33 @@ describe("cropMethods — pointer drag", () => {
       expect(manager.cropState!.rect).not.toEqual(before);
     });
 
+    it("refuses a second pointer instead of leaking the first gesture", () => {
+      // A second press mid-drag would overwrite dragCleanup and the interrupt
+      // subscription, so the first pair could never be released and the first
+      // session would become unreachable.
+      const handle = beginDrag(7);
+      const firstCleanup = manager.dragCleanup;
+      const firstRetire = manager.dragRetireCleanup;
+      expect(firstCleanup).toBeTypeOf("function");
+      expect(firstRetire).toBeTypeOf("function");
+      const rectBefore = { ...manager.cropState!.rect };
+
+      manager.onPointerDown(
+        makePointerEvent({
+          target: handle,
+          clientX: 400,
+          clientY: 300,
+          pointerId: 8,
+        }) as any,
+      );
+
+      // Nothing taken over: same session, same cleanups, same geometry.
+      expect(manager.dragState.pointerId).toBe(7);
+      expect(manager.dragCleanup).toBe(firstCleanup);
+      expect(manager.dragRetireCleanup).toBe(firstRetire);
+      expect(manager.cropState!.rect).toEqual(rectBefore);
+    });
+
     it("stops listening after the drag really ends", () => {
       beginDrag();
       expect(manager.dragRetireCleanup).not.toBeNull();
