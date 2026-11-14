@@ -207,12 +207,10 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     ariaLabel: withUnit(ui.T("style_icon_color_opacity"), ui._("foliplus.unit_pct")),
     unitSuffix: ui._("foliplus.unit_pct"),
   });
-  const opacityInput = opacityGroup.querySelector(
-    "input",
-  ) as HTMLInputElement;
+  const opacityInput = opacityGroup.querySelector("input") as HTMLInputElement;
   const row = formRow(
     ui.T("style_icon_color"),
-    inlineControls(input, opacityInput),
+    inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
   input.addEventListener("input", () => {

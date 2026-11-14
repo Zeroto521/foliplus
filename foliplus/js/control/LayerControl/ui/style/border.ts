@@ -768,7 +768,7 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
         weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
         colorAria: ui.T("style_border_color"),
         weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
-  weightUnit: ui._("foliplus.unit_px"),
+        weightUnit: ui._("foliplus.unit_px"),
         colorReadOnly: true,
       }),
     ];
@@ -785,7 +785,7 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
       colorAria: ui.T("style_border_color"),
       weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
-  weightUnit: ui._("foliplus.unit_px"),
+      weightUnit: ui._("foliplus.unit_px"),
     }),
   ];
 };
