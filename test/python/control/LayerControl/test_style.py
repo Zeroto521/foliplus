@@ -1151,6 +1151,35 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 assert field["text"] in ("px", "%"), (
                     f"the suffix text must be the unit symbol: {field}"
                 )
+            # Every suffixed field right-aligns its value and the digit-to-unit
+            # gap is the same constant for every count and unit (the CSS pins
+            # the gap, so the unit follows the last digit instead of drifting
+            # with the field width — "5 %" and "1.5px" must look identical).
+            gaps = [field["digitGap"] for field in result["fields"]]
+            assert gaps, f"no suffixed fields to measure: {result}"
+            for field in result["fields"]:
+                assert field["textAlign"] == "right", (
+                    f"a suffixed field must right-align its value: {field}"
+                )
+                assert field["digitGap"] >= -0.5, (
+                    f"the unit must not overlap the value: {field}"
+                )
+                assert field["digitGap"] <= 3.0, (
+                    f"the digit-to-unit gap must be a small fixed value: {field}"
+                )
+            assert max(gaps) - min(gaps) <= 1.0, (
+                f"the digit-to-unit gap must not drift with the value: {gaps}"
+            )
+            # The same field's gap must not move with how many digits are typed:
+            # "5" vs "55.5" vs "100" all land the unit at the same offset (the
+            # centered-text bug made the gap depend on the value width).
+            drift = result.get("drift")
+            assert drift and drift.get("spread") is not None, (
+                f"no gap-drift measurement: {result}"
+            )
+            assert drift["spread"] <= 1.0, (
+                f"the gap must not move with the digit count: {drift}"
+            )
             focus = result.get("focus")
             assert focus, f"no suffixed field to focus: {result}"
             assert focus["editingOn"] is True, (

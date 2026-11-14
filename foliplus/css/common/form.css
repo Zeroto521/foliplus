@@ -118,10 +118,18 @@
    the number. */
 .foliplus-form-number-suffix {
   position: absolute;
-  inset-inline-end: 0;
+  /* The digit right edge is right-aligned at (field right - border - size-16);
+     the suffix left edge sits (space-xs) later, so the digit-to-unit gap is a
+     constant 2px for every count and unit instead of drifting with the field
+     width. size-16 is the suffixed field's own right padding (the group rule) —
+     wide enough for the widest suffix ("px") plus the gap — space-xs the fixed
+     gap, border-thin the field's own border. */
+  inset-inline-start: calc(
+    100% - var(--foliplus-size-16) - var(--foliplus-border-thin) +
+      var(--foliplus-space-xs)
+  );
   top: 50%;
   transform: translateY(-50%);
-  padding-inline-end: var(--foliplus-size-6);
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-muted);
   white-space: nowrap;
@@ -149,6 +157,16 @@
   &[type="number"] {
     appearance: textfield;
   }
+}
+
+/* A number field with a unit suffix right-aligns its value and reserves the
+   suffix width plus a fixed gap in its own right padding, so the unit always
+   follows the last digit at the same visual offset instead of drifting with
+   the field width. Right-align applies only to the suffixed field — a bare
+   number input keeps its centered value. */
+.foliplus-form-number-group .foliplus-form-number-input {
+  text-align: right;
+  padding-inline-end: var(--foliplus-size-16);
 }
 
 /* Shared select (mirrors HeatmapControl's form-select visual). The wide

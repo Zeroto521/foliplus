@@ -40,9 +40,14 @@ async ([layerName] = []) => {
       if (!input || !suffix) return null;
       const inputRect = input.getBoundingClientRect();
       const suffixRect = suffix.getBoundingClientRect();
-      // The value's right edge: the input's text is centered, so approximate the
-      // value extent from the input rect inset by its padding. We measure the
-      // rendered text via the input's scrollWidth vs clientWidth instead.
+      // The value is right-aligned in the suffixed field, so the last digit's
+      // right edge is the input content-box right edge. The digit-to-suffix gap
+      // is then suffix.left - content.right; the CSS pins it to a constant
+      // (space-xs) instead of letting it drift with the field width.
+      const style = getComputedStyle(input);
+      const borderRight = parseFloat(style.borderRightWidth) || 0;
+      const paddingRight = parseFloat(style.paddingRight) || 0;
+      const contentRight = inputRect.right - borderRight - paddingRight;
       const value = input.value;
       return {
         text: suffix.textContent,
@@ -54,6 +59,8 @@ async ([layerName] = []) => {
           top: inputRect.top,
           bottom: inputRect.bottom,
         },
+        textAlign: style.textAlign,
+        digitGap: suffixRect.left - contentRight,
         suffixRect: {
           left: suffixRect.left,
           right: suffixRect.right,
@@ -69,6 +76,32 @@ async ([layerName] = []) => {
       };
     })
     .filter(Boolean);
+
+  // Gap stability across digit counts: a suffixed field right-aligns its
+  // value, so the digit-right edge is always the content-box right edge no
+  // matter how many digits are typed — the gap must not move with "5" vs
+  // "55.5" vs "100". This is the regression the centered text caused.
+  let drift = null;
+  const probeGroup = panel.querySelector(
+    ".foliplus-form-number-group .foliplus-form-number-input",
+  );
+  if (probeGroup) {
+    const group = probeGroup.closest(".foliplus-form-number-group");
+    const input = group.querySelector("input");
+    const suffix = group.querySelector(".foliplus-form-number-suffix");
+    const gaps = [];
+    for (const v of ["5", "55.5", "100"]) {
+      input.value = v;
+      const ir = input.getBoundingClientRect();
+      const sr = suffix.getBoundingClientRect();
+      const st = getComputedStyle(input);
+      const br = parseFloat(st.borderRightWidth) || 0;
+      const pr = parseFloat(st.paddingRight) || 0;
+      gaps.push(sr.left - (ir.right - br - pr));
+    }
+    drift = { gaps, spread: Math.max(...gaps) - Math.min(...gaps) };
+    input.value = probeGroup.value; // restore
+  }
 
   // Focus behaviour on the first field with a suffix.
   let focus = null;
@@ -102,5 +135,6 @@ async ([layerName] = []) => {
     hasPx: units.has("px"),
     hasPct: units.has("%"),
     fieldCount: fields.length,
+    drift,
   };
 };
