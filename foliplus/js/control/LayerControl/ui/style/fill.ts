@@ -425,6 +425,30 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
   if (value !== undefined) return STYLE_MODE.VALUE;
   return STYLE_MODE.SOLID;
 };
+/** Build the shared fill-opacity number input used by every fill mode.
+ *
+ *  One construction point: the SOLID row, the by-value row and the
+ *  original-colours row all mount the same 0-100 number input, so the width,
+ *  step and aria contract can never drift between modes. The value is the
+ *  stored override, else the authored base, else the 0.2 Leaflet default the
+ *  solid row already displays. */
+const buildFillOpacityInput = (
+  ui: LayerUI,
+  layerId: string,
+  base: { fillOpacity?: number | null } = {},
+): HTMLInputElement => {
+  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+  const opacityPct = (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  return numberInput({
+    value: opacityPct,
+    min: 0,
+    max: 100,
+    step: 1,
+    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_fill_opacity"),
+  }) as HTMLInputElement;
+};
+
 /** The solid mode's detail: one row holding the color swatch and the
  *  fill-opacity number side by side (the border-row recipe). color and
  *  opacity are one idea — a fill without either half is rarely what the user
@@ -438,16 +462,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
 
-  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const opacityPct = (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
-  const opacityInput = numberInput({
-    value: opacityPct,
-    min: 0,
-    max: 100,
-    step: 1,
-    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
-    ariaLabel: ui.T("style_fill_opacity"),
-  }) as HTMLInputElement;
+  const opacityInput = buildFillOpacityInput(ui, layerId, base);
 
   return [
     formRow(
@@ -860,6 +875,7 @@ export {
   valueFields,
   applyFillToLayer,
   bindFillRow,
+  buildFillOpacityInput,
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
