@@ -607,7 +607,8 @@ describe("cropMethods — pointer drag", () => {
       expect(manager.dragState.pointerId).toBeNull();
       expect(manager.dragState.captureTarget).toBeNull();
       expect(manager.dragCleanup).toBeUndefined();
-      expect(manager.dragRetireCleanup).toBeNull();
+      // The session is the gesture: gone means the ending really ran.
+      expect(manager.dragSession).toBeNull();
     };
 
     /** Start a real gesture through the press path, so the subscription the
@@ -719,7 +720,7 @@ describe("cropMethods — pointer drag", () => {
       expect(() => window.dispatchEvent(new Event("blur"))).not.toThrow();
 
       expect(manager.dragState.dragging).toBe(before);
-      expect(manager.dragRetireCleanup).toBeNull();
+      expect(manager.dragSession).toBeNull();
     });
 
     it("ends the drag on a move whose button is already up", () => {
@@ -770,9 +771,9 @@ describe("cropMethods — pointer drag", () => {
       // session would become unreachable.
       const handle = beginDrag(7);
       const firstCleanup = manager.dragCleanup;
-      const firstRetire = manager.dragRetireCleanup;
+      const firstSession = manager.dragSession;
       expect(firstCleanup).toBeTypeOf("function");
-      expect(firstRetire).toBeTypeOf("function");
+      expect(firstSession).not.toBeNull();
       const rectBefore = { ...manager.cropState!.rect };
 
       manager.onPointerDown(
@@ -787,20 +788,62 @@ describe("cropMethods — pointer drag", () => {
       // Nothing taken over: same session, same cleanups, same geometry.
       expect(manager.dragState.pointerId).toBe(7);
       expect(manager.dragCleanup).toBe(firstCleanup);
-      expect(manager.dragRetireCleanup).toBe(firstRetire);
+      expect(manager.dragSession).toBe(firstSession);
       expect(manager.cropState!.rect).toEqual(rectBefore);
     });
 
-    it("stops listening after the drag really ends", () => {
+    it("handles a press whose pointer id is unknown", () => {
+      // Older synthetic events and some pointer implementations report no id;
+      // the gesture must still start and end cleanly.
+      const handle = document.createElement("div");
+      handle.classList.add(CONST.CLASSES.HANDLE);
+      handle.dataset.pos = "br";
+      handle.setPointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn(() => true);
+      handle.releasePointerCapture = vi.fn();
+      const box = document.createElement("div");
+      box.appendChild(handle);
+      manager.cropState!.box = box;
+
+      manager.onPointerDown({
+        target: handle,
+        clientX: 120,
+        clientY: 110,
+        pointerId: undefined,
+        preventDefault: vi.fn(),
+        stopImmediatePropagation: vi.fn(),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(true);
+      expect(manager.dragState.pointerId).toBeNull();
+      expect(manager.dragSession).not.toBeNull();
+    });
+
+    it("a release with no event still gives the recorded capture back", () => {
+      // An interrupt names no event at all; the capture recorded at press time
+      // is the only handle left on it.
+      const handle = beginDrag(13);
+
+      manager.onPointerUp(null as any);
+
+      expect(manager.dragState.dragging).toBe(false);
+      expect(manager.dragSession).toBeNull();
+      expect(handle.releasePointerCapture).toHaveBeenCalledWith(13);
+    });
+
+    it("ends the session after the drag really ends", () => {
       beginDrag();
-      expect(manager.dragRetireCleanup).not.toBeNull();
+      expect(manager.dragSession).not.toBeNull();
 
       manager.onPointerUp({
         target: document.createElement("div"),
         pointerId: 7,
       } as any);
 
-      expect(manager.dragRetireCleanup).toBeNull();
+      expect(manager.dragSession).toBeNull();
+      // A later interrupt must not reach the finished gesture.
+      expect(() => window.dispatchEvent(new Event("blur"))).not.toThrow();
+      expect(manager.dragSession).toBeNull();
     });
   });
 

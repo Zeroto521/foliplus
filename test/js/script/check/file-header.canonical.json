@@ -37,6 +37,7 @@
   "platform/cssvar",
   "platform/debounce",
   "platform/dom",
+  "platform/dragSession",
   "platform/download",
   "platform/fetch",
   "platform/finalize",
