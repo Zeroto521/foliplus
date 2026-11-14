@@ -5,7 +5,7 @@
 // lockstep on the palette vocabulary.
 //
 // `DEFAULT_SCHEMES` is the canonical JS-side list. The Python-side
-// declaration (HeatmapControl.py's `schemes or [...]`) is the author-facing
+// declaration (HeatmapControl/control.py's `schemes or [...]`) is the author-facing
 // default and must mirror this list — the Python docstring names the same
 // seven palettes, so a drift on either side is a bug that surfaces the
 // moment a user's saved state asks for a scheme neither side lists.

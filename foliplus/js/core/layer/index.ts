@@ -49,6 +49,7 @@ export {
   fullDisplayOrder,
   freezeSectionOrder,
   deleteFolderFromOrder,
+  renameFolderInOrder,
 } from "./folderOrder.js";
 export type { FolderOrder, FolderSection } from "./folderOrder.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager

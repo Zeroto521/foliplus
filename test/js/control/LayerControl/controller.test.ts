@@ -6682,6 +6682,312 @@ describe("cleanEmptyFolders", () => {
     applySpy.mockRestore();
   });
 });
+describe("createFolder", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("creates an empty folder and materialises it at the section tail", () => {
+    const { manager } = initFixture({ data: [] });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.createFolder("overlay", "Roads");
+
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+    expect(schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates an empty folder at the tail after an existing folder", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["water"] } } },
+      data: [],
+    });
+
+    const ok = manager.createFolder("overlay", "Roads");
+
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["water", "roads"]);
+  });
+
+  it("createFolder rejects a blank name", () => {
+    const { manager } = initFixture({ data: [] });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.createFolder("overlay", "   ");
+
+    expect(ok).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("createFolder rejects a duplicate name in the same section", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+
+    const ok = manager.createFolder("overlay", "roads");
+
+    expect(ok).toBe(false);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+  });
+
+  it("createFolder allows the same name in a different section", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { base: ["roads"] } } },
+      data: [],
+    });
+
+    const okOverlay = manager.createFolder("overlay", "Roads");
+    const okBase = manager.createFolder("base", "roads");
+
+    expect(okOverlay).toBe(true);
+    expect(okBase).toBe(false); // base already has "roads"
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderOrder.sections.base ?? []).toEqual(["roads"]);
+  });
+
+  it("createFolder schedules once and reindexes", () => {
+    const { manager } = initFixture({ data: [] });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+
+    manager.createFolder("overlay", "Roads");
+
+    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(reindex).toHaveBeenCalledTimes(1);
+  });
+
+  it("createFolder rejects a name already held by a live member not yet listed", () => {
+    // A layer can carry an author-declared folder name before the order lists it
+    // (folderOrder is only materialised on freeze / explicit create). createFolder
+    // must reject that name as a duplicate even though it is absent from `listed`.
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: {} } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.createFolder("overlay", "Roads");
+
+    expect(ok).toBe(false);
+    expect(manager.folderOrder.sections.overlay ?? []).not.toContain("roads");
+  });
+  it("createFolder honours persist:false and tolerates a detached UI", () => {
+    // persist:false skips the persistence write; a null ui (control detached
+    // mid-lifecycle) must not throw when reindexAfterMove is skipped.
+    const { manager } = initFixture({ data: [] });
+    manager.ui = null;
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.createFolder("overlay", "Roads", { persist: false });
+
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe("renameFolder", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("renameFolder moves members and preserves the key position", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "wt1",
+          name: "Water",
+          role: "overlay",
+          folder: "Water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+
+    expect(ok).toBe(true);
+    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Streets");
+    expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets", "water"]);
+    expect(schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("renameFolder normalises the new name", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
+
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
+  });
+
+  it("renameFolder rejects a duplicate new name", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads", "water"] } } },
+      data: [],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    expect(ok).toBe(false);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads", "water"]);
+  });
+
+  it("renameFolder rejects a blank new name", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "Roads", "   ");
+
+    expect(ok).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("renameFolder is a no-op for a missing old folder", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "NeverExisted", "Streets");
+
+    expect(ok).toBe(false);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("renameFolder moves members to the new display spelling", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "streets");
+
+    expect(ok).toBe(true);
+    expect(manager.layerRegistry.get("rd1")!.folder).toBe("streets");
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
+  });
+
+  it("renameFolder is a no-op for a normalisation-only rename", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "Roads", "roads");
+
+    expect(ok).toBe(true);
+    expect(schedule).not.toHaveBeenCalled();
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["roads"]);
+  });
+  it("renameFolder renames an unlisted folder that has live members", () => {
+    // A folder can exist only through its live members (never frozen into the
+    // order). renameFolder must still find it through the members, move their
+    // spelling, and leave the order untouched (the block stays unlisted).
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: {} } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+
+    expect(ok).toBe(true);
+    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Streets");
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual([]);
+    expect(schedule).toHaveBeenCalledTimes(1);
+  });
+  it("renameFolder rejects a new name already held by a live member in the same section", () => {
+    // The collision check must include live members, not just the listed order:
+    // an author-declared (unlisted) folder can hold the new name even when the
+    // order does not list it.
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "wt1",
+          name: "Water",
+          role: "overlay",
+          folder: "Water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    expect(ok).toBe(false);
+    expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
+    expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
+  });
+  it("renameFolder honours persist:false and tolerates a detached UI", () => {
+    const { manager } = initFixture({
+      seed: { folderOrder: { version: 1, sections: { overlay: ["roads"] } } },
+      data: [],
+    });
+    manager.ui = null;
+    const schedule = vi.spyOn(manager.persistence, "schedule");
+
+    const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
+
+    expect(ok).toBe(true);
+    expect(manager.folderOrder.sections.overlay ?? []).toEqual(["streets"]);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
 describe("generic filter declaration seeding", () => {
   // The author's declared filter (CONF data[].filter) is a construction-time
   // constant, not a user write: the constructor captures it on the shared
