@@ -73,6 +73,7 @@ import {
   inferFieldKind,
 } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
+import { withUnit } from "#platform/format.js";
 import {
   dropdownSurface,
   fullscreenSurface,
@@ -127,6 +128,8 @@ interface BorderRowBuildTarget {
   colorAria?: string;
   /** Optional aria-label for the width input. */
   weightAria?: string;
+  /** Optional visible unit suffix for the width input (e.g. "px"). */
+  weightUnit?: string;
   /** Render the color input inert (the author's own stroke in ORIGINAL mode).
    *  Same swatch control as the editable mode, so the row stays pixel-identical
    *  and only its editability differs. Absent = editable. */
@@ -621,6 +624,7 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
         step: BORDER_WEIGHT.STEP,
         className: target.weightClassName,
         ariaLabel: target.weightAria,
+        unitSuffix: target.weightUnit,
       }),
     );
   }
@@ -705,7 +709,8 @@ const buildBorderWidthOnlyRow = (
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     colorAria: ui.T("style_border_color"),
-    weightAria: ui.T("style_border_weight"),
+    weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+    weightUnit: ui._("foliplus.unit_px"),
   });
 };
 /** The solid mode's border detail: color swatch + width number, one row.
@@ -762,7 +767,8 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
         className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
         weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
         colorAria: ui.T("style_border_color"),
-        weightAria: ui.T("style_border_weight"),
+        weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+        weightUnit: ui._("foliplus.unit_px"),
         colorReadOnly: true,
       }),
     ];
@@ -778,7 +784,8 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
       colorAria: ui.T("style_border_color"),
-      weightAria: ui.T("style_border_weight"),
+      weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+      weightUnit: ui._("foliplus.unit_px"),
     }),
   ];
 };

@@ -22,7 +22,7 @@ import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js"
 import { DIM } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
-import { NUMBER_FORMAT } from "#platform/format.js";
+import { NUMBER_FORMAT, withUnit } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
@@ -109,7 +109,8 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     max: LABEL_SIZE.SIZE_MAX,
     step: LABEL_SIZE.SIZE_STEP,
     className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
-    ariaLabel: ui._("foliplus.label_size"),
+    ariaLabel: withUnit(ui._("foliplus.label_size"), ui._("foliplus.unit_px")),
+    unitSuffix: ui._("foliplus.unit_px"),
   }) as HTMLInputElement;
 
   const formatOpts = numberFormatOptions(fmtLabel);

@@ -1082,6 +1082,90 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"reading the polygon stored a size: {polygon}"
             )
 
+    def test_unit_suffix_sits_inside_the_field_and_hides_on_focus(
+        self, browser, tmp_path
+    ):
+        """The visible unit suffix is drawn inside the number field's own rect.
+
+        Every unit-suffixed field must keep the bare number in its value (no
+        unit text leaks into the input), draw the suffix inside the field's
+        right padding without overlapping the value, and hide the suffix while
+        the field is focused (is-editing) so the unit is never read as part of
+        the number. Both unit families must be present on one page: px (border
+        width, size radius) and % (fill opacity, icon/marker opacity).
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        folium.CircleMarker(
+            [30.02, 120.02],
+            radius=9,
+            color="#e74c3c",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_unit_suffix_geometry.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            result = page.evaluate(
+                _js("LayerControl/unit_suffix_geometry"), ["Facility Points"]
+            )
+            assert result.get("panel"), f"the style panel did not open: {result}"
+            assert result["fieldCount"] >= 3, (
+                f"expected at least the fill %, size px and border px fields: {result}"
+            )
+            # Both unit families on one page.
+            assert result["hasPx"], f"no px suffix found on the page: {result}"
+            assert result["hasPct"], f"no % suffix found on the page: {result}"
+            for field in result["fields"]:
+                assert field["bareNumber"], (
+                    f"the field value is not a bare number (unit leaked in?): {field}"
+                )
+                assert field["suffixInsideInput"], (
+                    f"the suffix must be drawn inside the input's rect: {field}"
+                )
+                assert field["suffixTopInside"], (
+                    f"the suffix must be vertically inside the field: {field}"
+                )
+                assert field["text"] in ("px", "%"), (
+                    f"the suffix text must be the unit symbol: {field}"
+                )
+            focus = result.get("focus")
+            assert focus, f"no suffixed field to focus: {result}"
+            assert focus["editingOn"] is True, (
+                f"focus must add the is-editing state: {focus}"
+            )
+            assert focus["suffixOpacityOn"] < 0.5, (
+                f"the suffix must hide on focus: {focus}"
+            )
+            assert focus["editingOff"] is False, (
+                f"blur must remove the is-editing state: {focus}"
+            )
+            assert focus["suffixOpacityOff"] > 0.5, (
+                f"the suffix must return on blur: {focus}"
+            )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 

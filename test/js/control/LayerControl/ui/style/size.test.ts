@@ -237,7 +237,9 @@ describe("buildSizeRow", () => {
     const row = buildSizeRow(ui, "overlay1")!;
     const labelText = row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)?.textContent;
     expect(labelText).toBe("LayerControl.style_size");
-    expect(sizeInput(row).getAttribute("aria-label")).toBe("LayerControl.style_size");
+    expect(sizeInput(row).getAttribute("aria-label")).toBe(
+      "LayerControl.style_size (foliplus.unit_px)",
+    );
   });
 
   it("seeds the field from the authored radius, not a constant", () => {

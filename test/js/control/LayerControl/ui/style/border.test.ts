@@ -1251,7 +1251,9 @@ describe("buildBorderRow", () => {
     expect(width.min).toBe("0");
     expect(width.max).toBe("10");
     expect(width.step).toBe("0.5");
-    expect(width.getAttribute("aria-label")).toBe("LayerControl.style_border_weight");
+    expect(width.getAttribute("aria-label")).toBe(
+      "LayerControl.style_border_weight (foliplus.unit_px)",
+    );
   });
 
   it("shows the stored choice over the authored value", () => {

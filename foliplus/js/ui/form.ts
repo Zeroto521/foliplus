@@ -50,7 +50,19 @@ const colorInput = (opts: {
     "aria-label": opts.ariaLabel,
   });
 
-/** `<input type=number>` on the shared form-number-input chrome. */
+/** `<input type=number>` on the shared form-number-input chrome.
+ *
+ *  `unitSuffix` appends a read-only unit label beside the field (e.g. "px").
+ *  The suffix is *visual only*: the input still holds the bare number and
+ *  keeps its `aria-label` (which already carries the unit for screen readers,
+ *  so the suffix is `aria-hidden`). When `unitSuffix` is omitted the bare
+ *  input is returned unchanged — zero DOM change for every existing caller —
+ *  and when present a group container
+ *  (`<span class="foliplus-form-number-group">` with input + suffix span) is
+ *  returned instead. Callers that need the input element itself must
+ *  `querySelector` it out of the group; selector-based binders (querySelector
+ *  by class) keep working because the input keeps its `className`.
+ */
 const numberInput = (opts: {
   value: number;
   min: number;
@@ -58,8 +70,9 @@ const numberInput = (opts: {
   step?: number;
   className?: string;
   ariaLabel?: string;
-}): HTMLElement =>
-  dom.el("input", {
+  unitSuffix?: string;
+}): HTMLElement => {
+  const input = dom.el("input", {
     type: "number",
     class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.NUMBER_INPUT}${opts.className ? ` ${opts.className}` : ""}`,
     min: String(opts.min),
@@ -68,6 +81,26 @@ const numberInput = (opts: {
     value: String(opts.value),
     "aria-label": opts.ariaLabel,
   });
+  if (!opts.unitSuffix) return input;
+  const group = dom.el(
+    "span",
+    { class: FORM_CLASS.NUMBER_GROUP },
+    input,
+    dom.el(
+      "span",
+      { class: FORM_CLASS.NUMBER_SUFFIX, "aria-hidden": "true" },
+      opts.unitSuffix,
+    ),
+  );
+  // The suffix lives inside the input's right padding; while the user edits the
+  // field it must not be mistaken for part of the number, so focus hides it
+  // (the wrapper carries the editing state so the CSS stays declarative).
+  input.addEventListener("focus", () => group.classList.add(FORM_CLASS.NUMBER_EDITING));
+  input.addEventListener("blur", () =>
+    group.classList.remove(FORM_CLASS.NUMBER_EDITING),
+  );
+  return group;
+};
 
 /** One select option for {@link selectInput}. */
 type SelectOption = {
