@@ -317,6 +317,43 @@ def _make_layout_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     return page, errors
 
 
+
+class TestMoreMenuPlacementBrowser:
+    """The ⋮ overflow menu opens against its owning row's clip container.
+
+    The menu is fixed and placed by computePlacement against the panel
+    content box (the nearest visible clip container). A bottom-row menu
+    must flip upward and stay fully inside the clip; a top-row menu must
+    open downward and also stay inside. When the clip is too short the
+    menu is capped and scrolls internally.
+    """
+
+    def test_more_menu_stays_inside_clip_and_flips(self, browser, tmp_path):
+        """First and last row: menu rect inside clip, correct side."""
+        with use_page(_make_layout_page, browser, tmp_path, 10) as (page, errors):
+            page.set_viewport_size({"width": 1280, "height": 720})
+            page.wait_for_timeout(300)
+            r = page.evaluate(snippet("LayerControl/more_menu_placement"))
+            assert r["first"] is not None and r["last"] is not None, (
+                f"probe failed: {r}"
+            )
+            # Top row opens downward, inside the clip.
+            assert r["first"]["inside"] is True, (
+                f"first-row menu escaped its clip: {r['first']}"
+            )
+            assert r["first"]["side"] == "below", (
+                f"first-row menu should open below: {r['first']}"
+            )
+            # Bottom row flips upward, still inside the clip.
+            assert r["last"]["inside"] is True, (
+                f"last-row menu escaped its clip: {r['last']}"
+            )
+            assert r["last"]["side"] == "above", (
+                f"last-row menu should flip above: {r['last']}"
+            )
+            page.screenshot(path=str(SHOTS / "accept_4_more_menu_flip.png"))
+            assert not errors, f"JS errors: {errors}"
+
 class TestRowPanelLayoutBrowser:
     """Row-panel placement against the map's visible area.
 

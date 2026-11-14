@@ -53,9 +53,10 @@
      Shell + item hover/active live in common.css (Unified Dropdown / Menu);
      this block owns position/size and the action-menu specifics. */
   .foliplus-layer-more-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
+    position: fixed;
+    /* left/top are written by placeMoreMenu (the computePlacement engine).
+       fixed escapes the panel's scroll box, so a bottom-row menu is no longer
+       clipped by it; the engine caps maxHeight to the clip box instead. */
     /* Flush with the owning row's bottom edge — the shared dropdown shell
        adds a 2px margin-top that would open a sliver of list under the cursor
        path to the menu (the row below would light up there, and the owner row

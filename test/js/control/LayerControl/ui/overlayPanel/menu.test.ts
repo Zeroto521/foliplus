@@ -74,6 +74,23 @@ describe("LayerUI menu", () => {
       expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
     });
 
+    it("places the menu against its owning row and releases on close", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU}`)!;
+      // jsdom rects are all zeros, so the engine's below-first branch yields
+      // 0 for left/top; the assertion is that the placement pass ran and wrote
+      // explicit coordinates rather than leaving the CSS default.
+      expect(menu.style.left).toBe("0px");
+      expect(menu.style.top).toBe("0px");
+      expect(menu.style.maxWidth).not.toBe("");
+      expect(menu.style.maxHeight).not.toBe("");
+      // The reposition pass is bound while open and released on close.
+      expect(ui.overlayPanel.menuReposition).not.toBeNull();
+      ui.closeMoreMenu(false);
+      expect(ui.overlayPanel.menuReposition).toBeNull();
+    });
+
     it("orders style, focus, rename, attributes, then delete behind a divider", () => {
       // Deliberate ordering, not append order: the primary configure action
       // leads, then the reversible view action, the one entry that writes to
