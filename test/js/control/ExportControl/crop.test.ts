@@ -792,6 +792,45 @@ describe("cropMethods — pointer drag", () => {
       expect(manager.cropState!.rect).toEqual(rectBefore);
     });
 
+    it("handles a press whose pointer id is unknown", () => {
+      // Older synthetic events and some pointer implementations report no id;
+      // the gesture must still start and end cleanly.
+      const handle = document.createElement("div");
+      handle.classList.add(CONST.CLASSES.HANDLE);
+      handle.dataset.pos = "br";
+      handle.setPointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn(() => true);
+      handle.releasePointerCapture = vi.fn();
+      const box = document.createElement("div");
+      box.appendChild(handle);
+      manager.cropState!.box = box;
+
+      manager.onPointerDown({
+        target: handle,
+        clientX: 120,
+        clientY: 110,
+        pointerId: undefined,
+        preventDefault: vi.fn(),
+        stopImmediatePropagation: vi.fn(),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(true);
+      expect(manager.dragState.pointerId).toBeNull();
+      expect(manager.dragSession).not.toBeNull();
+    });
+
+    it("a release with no event still gives the recorded capture back", () => {
+      // An interrupt names no event at all; the capture recorded at press time
+      // is the only handle left on it.
+      const handle = beginDrag(13);
+
+      manager.onPointerUp(null as any);
+
+      expect(manager.dragState.dragging).toBe(false);
+      expect(manager.dragSession).toBeNull();
+      expect(handle.releasePointerCapture).toHaveBeenCalledWith(13);
+    });
+
     it("ends the session after the drag really ends", () => {
       beginDrag();
       expect(manager.dragSession).not.toBeNull();

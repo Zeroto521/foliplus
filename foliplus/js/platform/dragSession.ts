@@ -55,13 +55,15 @@ const beginDragSession = (
   options: DragSessionOptions = {},
 ): DragSession => {
   let active = true;
-  let release: () => void = () => {};
+  /** Set by the registration below; declared first so `finish` can call it. */
+  let release: (() => void) | null = null;
   const ownerId = options.pointerId ?? null;
 
   const finish = (): void => {
     if (!active) return;
     active = false;
-    release();
+    release?.();
+    release = null;
     onEnd();
   };
 
@@ -102,4 +104,4 @@ const beginDragSession = (
 };
 
 export { beginDragSession };
-export type { DragSession, DragMoveEvent };
+export type { DragSession };

@@ -904,6 +904,85 @@ describe("bindNodeDrag", () => {
     expect(map.dragging.disable).toHaveBeenCalledTimes(1);
   });
 
+  it("a release with no live gesture changes nothing", () => {
+    // A synthetic mouseup, or a mouseup that arrives after the interrupt
+    // already ended the drag: there is no session, so there is nothing to
+    // restore and no onEnd to report.
+    const node = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const onEnd = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onEnd });
+    setEnabled(true);
+    const onUp = (map.on as any).mock.calls.find(([ev]: any) => ev === "mouseup")?.[1];
+
+    expect(() =>
+      onUp({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } }),
+    ).not.toThrow();
+
+    expect(map.dragging.enable).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it("ignores a move with no original event", () => {
+    // Leaflet can emit a synthetic move with no DOM event behind it; it must
+    // not move the node or be read as a release.
+    const node = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const onDrag = vi.fn();
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onMove({ latlng: { lat: 8, lng: 8 } });
+
+    expect(onDrag).not.toHaveBeenCalled();
+    expect(node.setLatLng).not.toHaveBeenCalled();
+  });
+
+  it("clears the cursor when disabled, and an ending leaves it cleared", () => {
+    // Leaving edit mode mid-drag: the move cursor must stop, and the ending
+    // must not put it back for a binding that is no longer enabled.
+    const current = { style: { cursor: "" } };
+    const node = { on: vi.fn(), off: vi.fn(), getElement: vi.fn(() => current) };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn() },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
+    setEnabled(true);
+    expect(current.style.cursor).toBe("move");
+
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]: any) => ev === "mouseup")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    setEnabled(false);
+    expect(current.style.cursor).toBe("");
+
+    onUp({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
+    expect(current.style.cursor).toBe("");
+  });
+
   it("gracefully ignores a synthesized mousedown with no originalEvent", () => {
     const node = { on: vi.fn(), off: vi.fn() };
     const onDrag = vi.fn();

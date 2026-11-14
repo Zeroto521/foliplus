@@ -3,8 +3,7 @@
 // for readability; kept as pure helpers, not a manager class, because edit-mode
 // lifecycle (isEditMode toggle, ModeManager lock, Escape priority) lives in
 // MeasureManager and can't be cleanly delegated to a separate controller.
-import { beginDragSession } from "#platform/dragSession.js";
-import type { DragSession } from "#platform/dragSession.js";
+import { type DragSession, beginDragSession } from "#platform/dragSession.js";
 
 /** Input the overlay expects from its host — a subset of MeasureManager. */
 interface EditOverlayHost {
