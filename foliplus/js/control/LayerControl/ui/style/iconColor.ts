@@ -198,14 +198,18 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     ariaLabel: ui.T("style_icon_color"),
   }) as HTMLInputElement;
   const storedOpacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
-  const opacityInput = numberInput({
+  const opacityGroup = numberInput({
     value: typeof storedOpacity === "number" ? storedOpacity : 100,
     min: 0,
     max: 100,
     step: 1,
     className: CONST.CLASSES.STYLE_ICON_COLOR_OPACITY_NUMBER,
     ariaLabel: withUnit(ui.T("style_icon_color_opacity"), ui._("foliplus.unit_pct")),
-  }) as HTMLInputElement;
+    unitSuffix: ui._("foliplus.unit_pct"),
+  });
+  const opacityInput = opacityGroup.querySelector(
+    "input",
+  ) as HTMLInputElement;
   const row = formRow(
     ui.T("style_icon_color"),
     inlineControls(input, opacityInput),

@@ -110,6 +110,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     step: LABEL_SIZE.SIZE_STEP,
     className: CONST.CLASSES.STYLE_LABEL_SIZE_INPUT,
     ariaLabel: withUnit(ui._("foliplus.label_size"), ui._("foliplus.unit_px")),
+    unitSuffix: ui._("foliplus.unit_px"),
   }) as HTMLInputElement;
 
   const formatOpts = numberFormatOptions(fmtLabel);

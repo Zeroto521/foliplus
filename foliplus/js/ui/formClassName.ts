@@ -16,6 +16,8 @@ const FORM_CLASS = {
   FORM_SELECT: "foliplus-form-select",
   COLOR_INPUT: "foliplus-form-color-input",
   NUMBER_INPUT: "foliplus-form-number-input",
+  NUMBER_GROUP: "foliplus-form-number-group",
+  NUMBER_SUFFIX: "foliplus-form-number-suffix",
 } as const;
 
 export { FORM_CLASS };

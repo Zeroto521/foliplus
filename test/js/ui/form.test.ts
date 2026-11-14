@@ -73,6 +73,39 @@ describe("colorInput / numberInput / inlineControls", () => {
     expect(row.children.length).toBe(2);
   });
 
+  it("appends a visible unit suffix group only when unitSuffix is given", () => {
+    // With unitSuffix: a group container wraps the bare input + the suffix.
+    const grouped = numberInput({
+      value: 8,
+      min: 0,
+      max: 10,
+      ariaLabel: "px field",
+      unitSuffix: "像素",
+    });
+    const group = grouped as HTMLElement;
+    expect(group.className).toBe("foliplus-form-number-group");
+    const input = group.querySelector("input") as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.type).toBe("number");
+    expect(input.value).toBe("8");
+    expect(input.getAttribute("aria-label")).toBe("px field");
+    const suffix = group.querySelector(".foliplus-form-number-suffix");
+    expect(suffix?.textContent).toBe("像素");
+    // The suffix is visual only — never re-announced (aria-label already has it).
+    expect(suffix?.getAttribute("aria-hidden")).toBe("true");
+
+    // Without unitSuffix: the bare input, no group, no suffix — zero DOM change
+    // for every existing caller, and the inline row stays 2 children.
+    const bare = numberInput({ value: 5, min: 0, max: 10 }) as HTMLInputElement;
+    expect(bare.className).toBe("foliplus-input-skin foliplus-form-number-input");
+    expect(bare.querySelector(".foliplus-form-number-group")).toBeNull();
+    const row = inlineControls(
+      colorInput({}),
+      numberInput({ value: 5, min: 0, max: 10 }),
+    );
+    expect(row.children.length).toBe(2);
+  });
+
   it("formRow assembles the shared row chrome (label + control cell)", () => {
     const control = inlineControls(
       colorInput({}),

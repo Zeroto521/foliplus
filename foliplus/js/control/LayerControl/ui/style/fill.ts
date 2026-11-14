@@ -429,6 +429,7 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     step: 1,
     className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
     ariaLabel: withUnit(ui.T("style_fill_opacity"), ui._("foliplus.unit_pct")),
+    unitSuffix: ui._("foliplus.unit_pct"),
   }) as HTMLInputElement;
 
   return [

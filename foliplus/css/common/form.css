@@ -98,6 +98,24 @@
 }
 
 /* Compact integer / weight field beside a color swatch. */
+.foliplus-form-number-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* The visible unit suffix beside a number field (e.g. "px" next to the border
+   weight). Visual only: aria-hidden, the field's aria-label already carries the
+   unit for screen readers. Reads the existing muted/type tokens — no new
+   variable, so the suffix cannot drift from the panel's other secondary text. */
+.foliplus-form-number-suffix {
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .foliplus-form-number-input {
   width: var(--foliplus-form-secondary-width);
   padding: 0 var(--foliplus-size-6);

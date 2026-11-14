@@ -173,6 +173,7 @@ const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         step: CONST.SIZE.STEP,
         className: CONST.CLASSES.STYLE_SIZE_INPUT,
         ariaLabel: withUnit(label, ui._("foliplus.unit_px")),
+        unitSuffix: ui._("foliplus.unit_px"),
       }),
     ),
     CONST.CLASSES.STYLE_SIZE_ROW,
