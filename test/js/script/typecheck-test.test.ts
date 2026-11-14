@@ -305,6 +305,33 @@ describe("main with resolveRoot (cwd not a repo root)", () => {
     }
   });
 });
+
+describe("main resolveRoot success path", () => {
+  it("runs tsc and exits 0 when cwd is a valid repo root", () => {
+    // The `out = runTsc({ cwd: root, spawn })` arm on the success path:
+    // resolveRoot resolves, runTsc is invoked with that cwd, and the
+    // stubbed spawn returns a clean tsc result so main exits 0.
+    const repo = mkdtempSync(join(os.tmpdir(), "typecheck-ok-"));
+    writeFileSync(join(repo, "package.json"), "{}\n");
+    const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(repo);
+    const spawn = vi.fn(() => ({ status: 0, stdout: "", stderr: "" }));
+    try {
+      const log = vi.fn();
+      const code = main({ spawn, log, error: vi.fn(), argv: [] });
+      expect(code).toBe(0);
+      expect(spawn).toHaveBeenCalledTimes(1);
+      const [, args, options] = spawn.mock.calls[0];
+      expect(options.cwd).toBe(repo);
+      expect(args).toContain("-p");
+      expect(log).toHaveBeenCalledWith(
+        "test/js typecheck: 0 errors (production lines filtered by design: 0)",
+      );
+    } finally {
+      cwdSpy.mockRestore();
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
 describe("isMain", () => {
   it("fires when node runs the file directly", () => {
     const url = "file:///C:/repo/script/typecheck-test.mjs";
