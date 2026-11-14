@@ -36,6 +36,12 @@ import path from "node:path";
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");
 
+/** Python source root, relative to the repo root. The Python surface is a
+ *  separate world from the TS import graph: a token spelled in a Python
+ *  string (Jinja template, config, asset path) can drift from its owner
+ *  module without the JS scan noticing, so it is policed too. */
+const PY_ROOT_REL = path.join("foliplus");
+
 /** Directories excluded from the consumer scan. Tests, browser probes, CSS,
  *  docs, locale files and internal notes are readers of the class names (or
  *  not code at all), not consumers via the TS import graph. */
@@ -47,9 +53,16 @@ const EXCLUDED_DIR_PARTS = [
   ".foliplus",
 ];
 
+/** Python directories excluded from the consumer scan. `foliplus/locale` is
+ *  data (locale tables), not control code that could spell a class name. */
+const PY_EXCLUDED_DIR_PARTS = ["locale"];
+
 /** File suffixes the consumer scan reads. CSS is a definition side; locale
  *  is data; markdown is documentation. */
 const SCAN_SUFFIXES = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"];
+
+/** File suffixes the Python consumer scan reads. */
+const PY_SCAN_SUFFIXES = [".py"];
 
 /** A token must start with the foliplus namespace to be in the owner system.
  *  `is-dragging`, `leaflet-control`, ... are not ours to own. */
@@ -78,6 +91,30 @@ const walk = (dir, acc = []) => {
 };
 
 /** All production TS files under JS_ROOT. */
+/** Strip Python docstrings (triple-quoted) + line comments so a mention in
+ *  prose does not count as a hit. A class name documented in a docstring is
+ *  not a spelling of the token in control code. */
+const stripPyComments = src =>
+  src
+    .replace(/"""[\s\S]*?"""/g, "")
+    .replace(/'''[\s\S]*?'''/g, "")
+    .replace(/#[^\r\n]*/g, "");
+
+/** All Python source files under the Python root. */
+const pyFiles = root => walkPy(path.join(root, PY_ROOT_REL));
+
+/** Walk a directory for Python files, skipping excluded dirs. */
+const walkPy = (dir, acc = []) => {
+  if (!fs.existsSync(dir)) return acc;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (PY_EXCLUDED_DIR_PARTS.includes(entry.name)) continue;
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkPy(p, acc);
+    else if (PY_SCAN_SUFFIXES.includes(path.extname(entry.name))) acc.push(p);
+  }
+  return acc;
+};
+
 const prodFiles = root => walk(path.join(root, JS_ROOT_REL));
 
 /** Split a string-literal body into individual `foliplus-...` tokens. A
@@ -179,6 +216,32 @@ const scanConsumers = (root, ownerMap, { includeCore }) => {
   return hits;
 };
 
+/** Find every bare `foliplus-...` literal in a Python source file. The
+ *  Python surface has no TS import graph, so the owner map is checked
+ *  directly: a token with a declared owner must be read from that owner,
+ *  and a Python string spelling it is a drift. Docstrings and comments
+ *  are stripped first. */
+const scanPyConsumers = (root, ownerMap) => {
+  const hits = [];
+  for (const file of pyFiles(root)) {
+    const rel = path.relative(root, file).split(path.sep).join("/");
+    const text = stripPyComments(fs.readFileSync(file, "utf8"));
+    const re = /"([^"\n]*)"|'([^'\n]*)'/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const literal = match[1] ?? match[2];
+      if (literal.includes("$")) continue;
+      for (const token of tokensIn(literal)) {
+        const owners = ownerMap.get(token);
+        if (!owners || owners.length === 0) continue;
+        const line = text.slice(0, match.index).split("\n").length;
+        hits.push({ file: rel, line, token, owners });
+      }
+    }
+  }
+  return hits;
+};
+
 const main = (argv = [], root = process.cwd()) => {
   const check = argv.includes("--check");
   const includeCore = argv.includes("--include-core");
@@ -188,12 +251,13 @@ const main = (argv = [], root = process.cwd()) => {
   const ownerMap = buildOwnerMap(root);
   const duplicates = [...ownerMap.entries()].filter(([, sites]) => sites.length > 1);
   const consumerHits = scanConsumers(root, ownerMap, { includeCore });
+  const pyHits = scanPyConsumers(root, ownerMap);
 
   const tier = includeCore
     ? "foliplus/js (all tiers)"
     : "foliplus/js (ui/control/platform; core is guarded by core-class-literal)";
   console.log(
-    `class-owner: ${ownerMap.size} tokens, ${duplicates.length} duplicate owner(s), ${consumerHits.length} non-owner literal(s) in ${tier}`,
+    `class-owner: ${ownerMap.size} tokens, ${duplicates.length} duplicate owner(s), ${consumerHits.length} non-owner literal(s) in ${tier}, ${pyHits.length} python literal(s)`,
   );
 
   let failed = false;
@@ -209,6 +273,14 @@ const main = (argv = [], root = process.cwd()) => {
     failed = true;
     console.error("Non-owner bare literals:");
     for (const hit of consumerHits) {
+      const ownerList = hit.owners.map(o => o.owner).join(", ");
+      console.error(`  ${hit.file}:${hit.line}  ${hit.token}  (owner: ${ownerList})`);
+    }
+  }
+  if (pyHits.length > 0) {
+    failed = true;
+    console.error("Python non-owner bare literals:");
+    for (const hit of pyHits) {
       const ownerList = hit.owners.map(o => o.owner).join(", ");
       console.error(`  ${hit.file}:${hit.line}  ${hit.token}  (owner: ${ownerList})`);
     }
@@ -231,4 +303,15 @@ if (
   process.exit(main(process.argv.slice(2)));
 }
 
-export { buildOwnerMap, main, scanConsumers, scanOwnerFile, tokensIn, walk };
+export {
+  buildOwnerMap,
+  main,
+  pyFiles,
+  scanConsumers,
+  scanPyConsumers,
+  scanOwnerFile,
+  stripPyComments,
+  tokensIn,
+  walk,
+  walkPy,
+};

@@ -99,7 +99,7 @@ const parseClassDefs = source => {
   let depth = 0;
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const opens = line.match(/^const\s+([A-Za-z_$][\w$]*)\s*=\s*\{\s*$/);
+    const opens = line.match(/^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{\s*$/);
     if (opens) {
       mapOwner = opens[1];
       depth = 1;
@@ -121,7 +121,9 @@ const parseClassDefs = source => {
       }
       continue;
     }
-    const named = line.match(/^const\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]+)"\s*;\s*$/);
+    const named = line.match(
+      /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]+)"\s*;\s*$/,
+    );
     if (named && TOKEN_RE.test(named[2])) {
       sites.push({ token: named[2], key: named[1], owner: named[1], line: i + 1 });
     }
