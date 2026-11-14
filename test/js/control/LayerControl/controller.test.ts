@@ -6358,6 +6358,7 @@ describe("deleteFolder", () => {
     expect(manager.layerRegistry.get("rd1")).toBeDefined();
     // v2: the author declaration is untouched; the member pin drives the UI.
     expect(manager.folderNameOf("rd1")).toBeNull();
+    expect(manager.folderNameOf("missing")).toBeNull();
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
     expect(manager.folderLayoutView.members.rd1).toEqual({
       section: "overlay",
