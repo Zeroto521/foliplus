@@ -977,6 +977,60 @@ describe("pinRowPanel", () => {
     expect(panel.style.left).toBe("108px");
   });
 
+  it("keeps a narrowed card capped when a later pass measures the narrowed box", async () => {
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 200, height: 400 });
+    stubBox(row, { top: 200, left: 110, width: 180, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+    expect(panel.style.maxWidth).toBe("184px");
+
+    // A browser now reports the narrowed box. Re-reading that as the natural
+    // width would clear the cap and grow the card back off the map.
+    stubBox(panel, { top: 0, left: 0, width: 184, height: 200 });
+    window.dispatchEvent(new Event("resize"));
+    await flushPlacement();
+
+    expect(panel.style.maxWidth).toBe("184px");
+    expect(panel.style.left).toBe("108px");
+  });
+
+  it("clears the width cap and re-aligns when the map grows back", async () => {
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    map.append(row);
+    row.append(panel);
+    document.body.append(map);
+    stubBox(map, { top: 100, left: 100, width: 200, height: 400 });
+    stubBox(row, { top: 200, left: 110, width: 180, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 280, height: 200 });
+
+    pinRowPanel(panel, row);
+    expect(panel.style.maxWidth).toBe("184px");
+
+    // The map grows while the browser still reports the narrowed card. The
+    // remembered natural width (280) wins: the cap clears and the card
+    // right-aligns to the row again (450 - 280 = 170), instead of staying at
+    // the narrowed width (266).
+    stubBox(map, { top: 100, left: 100, width: 500, height: 400 });
+    stubBox(row, { top: 200, left: 150, width: 300, height: 30 });
+    stubBox(panel, { top: 0, left: 0, width: 184, height: 200 });
+    window.dispatchEvent(new Event("resize"));
+    await flushPlacement();
+
+    expect(panel.style.maxWidth).toBe("");
+    expect(panel.style.left).toBe("170px");
+  });
+
   it("holds the floor inside the map's top edge on a short map", () => {
     // 8px below, 58px above, 300px of content: the flip lands on the wider
     // strip but the 120px floor is taller than it, so the top clamps to the
