@@ -81,6 +81,12 @@ Features
 
 .. toctree::
    :maxdepth: 1
+   :caption: How-To
+
+   icon-dimension
+
+.. toctree::
+   :maxdepth: 1
    :caption: API Reference
 
    api
