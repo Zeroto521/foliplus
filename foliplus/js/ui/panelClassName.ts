@@ -38,6 +38,7 @@ const PANEL_CLASS = {
   PINNED: "foliplus-is-pinned",
   ROW_PANEL_UP: "foliplus-row-panel-up",
   CTRL_BTN: "foliplus-ctrl-btn",
+  FOLD: "foliplus-ctrl-fold",
   ALIGN_RIGHT: "foliplus-align-right",
   // Panel shell state — a panel is expanded or collapsed, a list item or
   // button row carries the active marker. Shared by core/leaflet/panel.ts and
