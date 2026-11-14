@@ -465,6 +465,48 @@ describe("scanPyConsumers", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("walkPy tolerates a missing directory", () => {
+    // Regression for the !fs.existsSync early return: a missing scan root
+    // must yield no files, not throw.
+    expect(walkPy(path.join(os.tmpdir(), "class-owner-missing-py"))).toEqual([]);
+  });
+
+  it("scanPyConsumers skips an interpolated f-string literal with a real $", () => {
+    // The \${...} interpolated-skip branch is only reached when the literal
+    // contains a dollar sign; a plain f-string prefix does not count.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = 'CLS = "foliplus-x $n"\n';
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(scanPyConsumers(root, ownerMap)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("scanPyConsumers finds a hit in a single-quoted python string", () => {
+    // Both quote styles are scanned; the single-quote branch of the literal
+    // regex must also be exercised.
+    const vocab = 'const A = { K: "foliplus-x" } as const;\nexport { A };\n';
+    const py = "class X:\n    CLS = \'foliplus-x\'\n";
+    const root = tempRoot({
+      "foliplus/js/ui/aClassName.ts": vocab,
+      "foliplus/control/X.py": py,
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      const hits = scanPyConsumers(root, ownerMap);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].token).toBe("foliplus-x");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("main", () => {
