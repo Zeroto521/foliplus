@@ -1,15 +1,16 @@
-// Geometry probe: the scale's end numbers must sit centred on the rail's
-// ends — directly under the thumb that owns each end — and that centring must
-// not change the control's own box. The values row takes the track's half-thumb
-// inset, so the rail's ends are the values row's edges: a label centred on an
-// edge overhangs by half its width, and that overhang has to land inside the
-// panel's padding, not outside its scroll box.
+// Geometry probe: every number under the scale must centre on the dot it
+// names. The end numbers sit on the rail's end dots, the current-level number
+// on its own marker dot — so the probe reports the rail's dots with their
+// positions, letting the assertion compare a label's centre against its own
+// dot instead of an offset. Measured in the live style panel, where the rows
+// get real layout; a long label also truncates (ellipsis) instead of
+// overflowing.
 //
 // Measured in the live style panel, where the rows get real layout. A real tile
 // basemap's panel carries both slider rows, so one visit covers the single
 // opacity thumb and the dual zoom-range pair (which also owns the
 // current-level number).
-() => {
+async () => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
   const ui = ctrl.mgr.ui;
@@ -22,7 +23,7 @@
       left: rect.left,
       right: rect.right,
       width: rect.width,
-      centerX: (rect.left + rect.right) / 2,
+      cx: (rect.left + rect.right) / 2,
     };
   };
 
@@ -33,6 +34,10 @@
       text: el.textContent,
       box: boxOf(el),
       visible: style.visibility !== "hidden" && style.display !== "none",
+      // Proves the ellipsis actually engages on a long label: the content's
+      // intrinsic width exceeds the box the label is given.
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
     };
   };
 
@@ -44,17 +49,20 @@
     const values = host.querySelector(".foliplus-slider-values");
     if (!track || !values) return { error: "slider structure missing" };
     const thumbs = [...host.querySelectorAll(".foliplus-slider-thumb")];
-    const content = document.querySelector(
-      ".foliplus-layer-style-panel .foliplus-panel-content",
-    );
     return {
       slider: boxOf(host),
       track: boxOf(track),
       values: boxOf(values),
-      content: boxOf(content),
       thumbs: thumbs.map(thumb => ({
         value: thumb.getAttribute("aria-valuenow"),
         box: boxOf(thumb),
+      })),
+      dots: [...host.querySelectorAll(".foliplus-slider-dot")].map(dot => ({
+        at: dot.dataset.at,
+        tone: dot.classList.contains("foliplus-slider-dot-current")
+          ? "current"
+          : "rail",
+        box: boxOf(dot),
       })),
       labels: {
         min: readLabel(host.querySelector(".foliplus-slider-value-min")),
@@ -72,6 +80,11 @@
   }
 
   ui.openStylePanel(realBases[0].id);
+  // The style panel mounts the sliders in the same tick, but the
+  // current-level label is positioned on its dot by a deferred fit
+  // measure (the constructor's sync runs before the row lays out).
+  // Wait two frames so that measure has run before reading geometry.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const opacityHost = document.querySelector(".foliplus-style-opacity-track");
   const zoomHost = document.querySelector(".foliplus-style-zoom-range-control");
   const result = {
