@@ -265,7 +265,9 @@ class TestHeatmapControlPanelBrowser:
             page.wait_for_timeout(2000)
 
             # overlay (Canvas) should be visible with content after renderHexagons
-            has_cached = page.evaluate(_js("HeatmapControl/read_manager_cached_features_set"))
+            has_cached = page.evaluate(
+                _js("HeatmapControl/read_manager_cached_features_set")
+            )
             canvas_visible = page.evaluate(
                 _js("HeatmapControl/read_canvas_display_visible")
             )

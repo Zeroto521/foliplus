@@ -264,9 +264,9 @@ class TestHeatmapControlSelectionBrowser:
                 timeout=5000,
             )
             heatmap_ready(page)
-            declared = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))[
-                "selectedLayerId"
-            ]
+            declared = page.evaluate(
+                _js("HeatmapControl/read_manager_auto_select_state")
+            )["selectedLayerId"]
 
             page.evaluate(_js("HeatmapControl/click_clear_button"))
             page.wait_for_selector(
@@ -274,7 +274,9 @@ class TestHeatmapControlSelectionBrowser:
                 state="attached",
                 timeout=5000,
             )
-            cleared = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
+            cleared = page.evaluate(
+                _js("HeatmapControl/read_manager_auto_select_state")
+            )
             assert cleared["selectedLayerId"] is None, "Clear must drop the selection"
             assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
                 "Clear must delete the persisted record"

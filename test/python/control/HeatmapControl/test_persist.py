@@ -253,7 +253,9 @@ class TestHeatmapControlPersistBrowser:
             page.evaluate(_js("HeatmapControl/call_clear_heatmap_canvas"))
             page.wait_for_timeout(500)
 
-            cached_gone = page.evaluate(_js("HeatmapControl/read_manager_cached_features_null"))
+            cached_gone = page.evaluate(
+                _js("HeatmapControl/read_manager_cached_features_null")
+            )
             canvas_gone = page.evaluate(_js("HeatmapControl/read_canvas_hidden_class"))
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"
