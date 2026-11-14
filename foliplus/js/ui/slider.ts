@@ -657,6 +657,12 @@ class Slider {
     const maxBox = this.maxEl?.getBoundingClientRect();
     const leftBound = minBox ? minBox.right - row.left + gap : gap;
     const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
     const room = Math.min(centre - leftBound, rightBound - centre) * 2;
     if (this.currentEl.scrollWidth <= room + 1) return;
     this.currentEl.style.maxWidth = `${Math.max(room, 0)}px`;

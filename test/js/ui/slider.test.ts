@@ -1463,6 +1463,12 @@ describe("Slider width-adaptive current label", () => {
     host.querySelector(`.${SLIDER_CLASS.VALUE_CURRENT}`) as HTMLElement;
   const measure = (slider: Slider): void =>
     (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+  const positionCurrent = (slider: Slider): void =>
+    (slider as unknown as { positionCurrent: () => void }).positionCurrent();
+  const dotCentre = (slider: Slider): number | null =>
+    (slider as unknown as { currentDotCentre: () => number | null }).currentDotCentre();
+  const measureCurrent = (slider: Slider): void =>
+    (slider as unknown as { measureCurrentFit: () => void }).measureCurrentFit();
 
   it("keeps a current number that fits between the ends unclamped", () => {
     const { host } = makeCurrent();
@@ -1498,5 +1504,127 @@ describe("Slider width-adaptive current label", () => {
     stubLabel(cur, 200);
     measure(sliderOf(host)!);
     expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+  it("defers the current label while its dot has no laid-out box", () => {
+    const { host } = makeCurrent();
+    const cur = currentEl(host);
+    // The constructor sync runs before the panel has laid the row out, so
+    // both the row and the dot report zero width. The label must keep the
+    // CSS row-centre default rather than pinning to a fabricated 0.
+    expect(dotCentre(sliderOf(host)!)).toBeNull();
+    positionCurrent(sliderOf(host)!);
+    expect(cur.style.left).toBe("");
+    // Once the row reports real geometry the same label lands on its dot.
+    stubRow(host, 160);
+    stubDot(host, 80);
+    expect(dotCentre(sliderOf(host)!)).toBe(80);
+    positionCurrent(sliderOf(host)!);
+    expect(cur.style.left).toBe("80px");
+  });
+
+  it("caps the current label to the room left of its dot", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measureCurrent(sliderOf(host)!);
+    // The nearer end number sits 56px away from the dot, and a dot-
+    // centred label may grow that far on either side of the dot: 2 * 56.
+    expect(cur.style.maxWidth).toBe("112px");
+  });
+
+  it("skips the current fit while the dot has no box", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The row is laid out but its dot is not (jsdom reports a 0x0 box), so
+    // there is no centre to measure against and the cap stays off.
+    measureCurrent(sliderOf(host)!);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("keeps the fit deferred across a re-render of the current label", async () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    // A new level rebuilds the label node and schedules the re-measure a
+    // frame later: a synchronous read at that point would still see zero
+    // boxes and pin the label to the row edge instead of its dot.
+    sliderOf(host)!.setCurrent({ at: 60, text: "60" });
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(cur.style.left).toBe("80px");
+    expect(cur.style.maxWidth).toBe("112px");
+  });
+
+  it("re-measures the end numbers when the row resizes", async () => {
+    const callbacks: Array<(entries: unknown[], observer: unknown) => void> = [];
+
+    class StubObserver {
+      constructor(cb: (entries: unknown[], observer: unknown) => void) {
+        callbacks.push(cb);
+      }
+      observe = (): void => {};
+      disconnect = (): void => {};
+      unobserve = (): void => {};
+    }
+    vi.stubGlobal("ResizeObserver", StubObserver);
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(callbacks.length).toBeGreaterThan(0);
+    // The resize callback is the only path that re-measures after the
+    // first frame, so it must run the same fit pass as a render.
+    for (const cb of callbacks) cb([], null);
+    expect(cur.style.maxWidth).toBe("112px");
+    vi.unstubAllGlobals();
+  });
+  it("skips the current fit when the row has no laid-out width", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The row reports geometry but then loses it (the panel collapses):
+    // there is no space to measure against, so the cap must stay off
+    // rather than cap to the room of a row that no longer exists.
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    row.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 0, height: 14 });
+    measureCurrent(sliderOf(host)!);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("caps the current label when one end number is not in the document", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The end numbers own the row's two edges; when an end number is not
+    // in the document its edge is unknown, so the boundary falls back to the
+    // row's own edge instead of pinning the label to an overhang.
+    const [minEl, maxEl] = [
+      host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`),
+      host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`),
+    ];
+    minEl!.getBoundingClientRect = () => null as unknown as DOMRect;
+    maxEl!.getBoundingClientRect = () => null as unknown as DOMRect;
+    measureCurrent(sliderOf(host)!);
+    // Left bound falls back to the gap, right bound to the row's edge: the
+    // dot sits 80px in, so the cap is 2 * min(76, 76) = 152px. A fallback
+    // that collapsed to 0 would cap the label to nothing.
+    expect(cur.style.maxWidth).toBe("152px");
   });
 });
