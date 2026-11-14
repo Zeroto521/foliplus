@@ -233,6 +233,15 @@ class Slider {
   private readonly bubbleAnchors = new Set<HTMLElement>();
   /** Releases the page-level gesture interrupt subscription. */
   private unsubscribeRetire: (() => void) | null = null;
+  /** Set when an interrupt ended the gesture; cleared by real input.
+   *
+   *  Coming back to the page re-fires `focus` at the element the browser
+   *  restores, and the element's own `blur` on the way out cannot be used to
+   *  tell the difference (the browser delivers it too, so a marker set on
+   *  deactivation is always cleared again). The reliable rule is the user's:
+   *  after an interruption nothing paints the readout until they actually
+   *  touch the control — a pointer press or a key. */
+  private interrupted = false;
   private drag: {
     id: number;
     index: number;
@@ -636,7 +645,7 @@ class Slider {
     this.thumbs.forEach((thumb, index) => {
       thumb.addEventListener("pointerdown", event => this.onThumbDown(event, index));
       thumb.addEventListener("keydown", event => this.onKeyDown(event, index));
-      thumb.addEventListener("focus", () => this.showBubble(index));
+      thumb.addEventListener("focus", () => this.onThumbFocus(index));
       thumb.addEventListener("blur", () => this.hideBubble(index));
     });
   }
@@ -668,10 +677,21 @@ class Slider {
     );
   };
 
+  /** A focus shows the readout the user is asking for — except in the wake of
+   *  an interrupt, where a focus can be the browser restoring the page rather
+   *  than the user asking for a value. Real input (a press, a key) clears the
+   *  marker first, so this only swallows the automatic one. */
+  private onThumbFocus(index: number): void {
+    if (this.interrupted) return;
+    this.showBubble(index);
+  }
+
   private begin(event: PointerEvent, index: number, fromThumb: boolean): void {
     // One session at a time: a second finger must not overwrite the first
     // one's drag, or the first release would find nothing to commit.
     if (this.drag) return;
+    // A press is real input: the control may show its readout again.
+    this.interrupted = false;
     event.preventDefault();
     this.drag = { id: event.pointerId, index, dirty: false };
     try {
@@ -801,8 +821,13 @@ class Slider {
         // Already released — the interrupt may have taken it.
       }
     }
+    // Nothing paints the readout again until the user actually touches the
+    // control: the browser's own focus restoration on return is not a request.
+    this.interrupted = true;
     this.endSession(true);
     // Runs with no drag too: a focused thumb shows a readout without one.
+    // Its no-index form also cancels a parked fade, whose throttled timer
+    // would otherwise land long after the switch and paint the node again.
     this.hideBubble();
   };
 
@@ -915,6 +940,8 @@ class Slider {
 
   private readonly onKeyDown = (event: KeyboardEvent, index: number): void => {
     if (this.disabled) return;
+    // A key is the user driving the control: allowed to show the readout again.
+    this.interrupted = false;
     const { min, max } = this.opts;
     const step = this.opts.step ?? 1;
     const page = Math.max(step, (max - min) / 10);

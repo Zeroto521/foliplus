@@ -1475,6 +1475,69 @@ describe("Slider bubbles retire when the window loses the pointer", () => {
     expect(sliderOf(host)!.value).toBe(70);
   });
 
+  it("does not revive the readout when the browser restores focus on return", async () => {
+    // The reported symptom is not "the bubble survived the switch" — it is
+    // "the bubble came back", every time. A returning browser re-fires focus
+    // at the element it restores, so a focus callback alone cannot tell the
+    // user from the browser. The thumb's own blur is no help either: the
+    // browser delivers that on the way out, so a marker is always cleared.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+
+    // Deactivation, in the browser's order: element blur, window blur, hidden.
+    thumbEl.dispatchEvent(new Event("blur"));
+    window.dispatchEvent(new Event("blur"));
+    hideVisibility();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // Reactivation: the browser restores the page and re-fires focus.
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("shows the readout again on the next real input, not before", async () => {
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key press is the user driving the control: the readout comes back.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+    thumbEl.dispatchEvent(new Event("blur"));
+    await settleHide();
+
+    // So is a fresh press, even with no intervening focus.
+    track.dispatchEvent(pointer("pointerdown", 70));
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
+  it("drops a parked fade node before the hidden tab can show it", async () => {
+    // The fade timer is throttled in a background tab; the node it is meant
+    // to detach can still be painted on return, which is a second way the
+    // readout reappears.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(pointer("pointerup", 40));
+    // The 150ms fade has parked the node, not removed it yet.
+    expect(bubbleNodes()).toHaveLength(1);
+
+    window.dispatchEvent(new Event("blur"));
+    // Gone immediately, without waiting for the throttled timer.
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
   it("stops listening once the slider is destroyed", async () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
     const thumbEl = thumb(host);

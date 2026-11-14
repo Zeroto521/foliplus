@@ -1,7 +1,13 @@
 // Blur-retire probe: a slider drag that never gets a pointerup, then the
-// window loses focus (the alt-tab / tab-switch case). The acceptance is that
-// the value bubble and the drag state are gone, and that becoming visible
-// again does not bring the bubble back.
+// window loses the pointer (the alt-tab / tab-switch case), then the page is
+// shown again.
+//
+// Two separate defects are covered, because fixing only the first is what made
+// the symptom look worse:
+//   1. the drag and its bubble must be gone while the page is away;
+//   2. coming back must not paint them again — the browser re-fires focus at
+//      the thumb that still holds activeElement, and a parked fade node can
+//      survive a throttled timer in a hidden tab.
 async data => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
@@ -55,7 +61,8 @@ async data => {
     pointerType: "mouse",
     button: 0,
   };
-  // Press and move, then never release: the browser is about to lose focus.
+  // Press and move, then never release: the browser is about to take the
+  // pointer away instead of delivering a pointerup.
   thumb.dispatchEvent(
     new PointerEvent("pointerdown", { ...base, clientX: xOf(start), buttons: 1 }),
   );
@@ -66,18 +73,47 @@ async data => {
   const draggingBefore = dragging();
   const textBefore = live()[0]?.textContent ?? null;
 
-  // The interruption: window blur (what an alt-tab delivers).
+  // Deactivation, in the order a browser delivers it: the element loses DOM
+  // focus, the window blurs, the document goes hidden.
+  thumb.blur();
   window.dispatchEvent(new Event("blur"));
+  const visibility = Object.getOwnPropertyDescriptor(
+    Document.prototype,
+    "visibilityState",
+  );
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => "hidden",
+  });
+  document.dispatchEvent(new Event("visibilitychange"));
   const liveAfterBlur = live().length;
   const draggingAfterBlur = dragging();
   await settle();
   const nodesAfterBlur = nodes().length;
 
-  // Coming back must not revive the readout, and the row must still work.
+  // Reactivation. `activeElement` is body after the blur above, so the probe
+  // puts focus back on the thumb the way a returning browser re-fires it —
+  // that is the exact event that used to repaint the readout.
   window.dispatchEvent(new Event("focus"));
-  window.dispatchEvent(new Event("scroll"));
+  document.dispatchEvent(new Event("visibilitychange"));
+  thumb.focus();
   await settle();
   const nodesAfterReturn = nodes().length;
+  const liveAfterReturn = live().length;
+
+  // Real input still shows the readout — the fix must not mute the control,
+  // only refuse to repaint it on the browser's automatic restore. A key is
+  // the unambiguous "the user is driving this" signal.
+  const valueBefore = Number(thumb.getAttribute("aria-valuenow"));
+  thumb.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
+  );
+  await settle();
+  const keyboardWorks =
+    live().length === 1 &&
+    Number(thumb.getAttribute("aria-valuenow")) === valueBefore - 1;
+  thumb.dispatchEvent(new Event("blur"));
+  await settle();
 
   // A later press still drives the control: the stale session is gone.
   const resumeFrom = Number(thumb.getAttribute("aria-valuenow"));
@@ -97,6 +133,7 @@ async data => {
   await settle();
   const nodesAfterResume = nodes().length;
 
+  if (visibility) Object.defineProperty(document, "visibilityState", visibility);
   ui.closeStylePanel(false);
   return {
     liveBefore,
@@ -105,9 +142,10 @@ async data => {
     liveAfterBlur,
     draggingAfterBlur,
     nodesAfterBlur,
+    liveAfterReturn,
     nodesAfterReturn,
+    keyboardWorks,
     resumed,
     nodesAfterResume,
-    target,
   };
 };

@@ -2337,8 +2337,18 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["nodesAfterBlur"] == 0, (
                 f"the bubble node was left in the document: {result}"
             )
-            assert result["nodesAfterReturn"] == 0, (
+            # The reported symptom: it comes back. Returning re-fires focus at
+            # the still-active thumb, which must not repaint the readout.
+            assert result["liveAfterReturn"] == 0, (
                 f"the bubble came back when the page was shown again: {result}"
+            )
+            assert result["nodesAfterReturn"] == 0, (
+                f"a bubble node was painted again on return: {result}"
+            )
+            # ... but real input still shows it: the fix refuses the browser's
+            # automatic restore, it does not mute the control.
+            assert result["keyboardWorks"] is True, (
+                f"real input no longer shows the readout: {result}"
             )
             assert result["resumed"] is True, (
                 f"the slider no longer responds after the interrupt: {result}"
