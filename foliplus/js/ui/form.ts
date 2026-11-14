@@ -96,7 +96,9 @@ const numberInput = (opts: {
   // field it must not be mistaken for part of the number, so focus hides it
   // (the wrapper carries the editing state so the CSS stays declarative).
   input.addEventListener("focus", () => group.classList.add(FORM_CLASS.NUMBER_EDITING));
-  input.addEventListener("blur", () => group.classList.remove(FORM_CLASS.NUMBER_EDITING));
+  input.addEventListener("blur", () =>
+    group.classList.remove(FORM_CLASS.NUMBER_EDITING),
+  );
   return group;
 };
 
