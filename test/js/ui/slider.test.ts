@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
+import { liveGestureRetires } from "#platform/gesture.js";
 import {
   SLIDER_CLASS,
   Slider,
@@ -1522,6 +1523,25 @@ describe("Slider bubbles retire when the window loses the pointer", () => {
     expect(liveBubbles()).toHaveLength(1);
   });
 
+  it("does not re-arm the readout on a key the slider does not own", async () => {
+    // A keystroke elsewhere on the page reaches the thumb only while it holds
+    // focus; it is not the user driving THIS control.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    press(thumbEl, "a");
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key the control owns does re-arm it.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
   it("drops a parked fade node before the hidden tab can show it", async () => {
     // The fade timer is throttled in a background tab; the node it is meant
     // to detach can still be painted on return, which is a second way the
@@ -1536,6 +1556,23 @@ describe("Slider bubbles retire when the window loses the pointer", () => {
     window.dispatchEvent(new Event("blur"));
     // Gone immediately, without waiting for the throttled timer.
     expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("releases a detached row's subscription instead of accumulating it", async () => {
+    // Panels drop their rows with replaceChildren()/remove() and never call
+    // the row's own destroy — a real path (opacity.ts, zoomRange.ts). If the
+    // page-level registration outlived the row, every panel open would add
+    // one more callback that keeps a removed slider alive.
+    const before = liveGestureRetires();
+    for (let i = 0; i < 5; i += 1) {
+      const { host } = make({ min: 0, max: 100, value: 30, label: "row" });
+      expect(liveGestureRetires()).toBe(before + 1);
+      // The panel drops the row without destroying the slider.
+      host.remove();
+      window.dispatchEvent(new Event("blur"));
+    }
+    // Each interrupt saw a detached row and unregistered it.
+    expect(liveGestureRetires()).toBe(before);
   });
 
   it("stops listening once the slider is destroyed", async () => {

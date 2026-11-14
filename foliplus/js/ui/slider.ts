@@ -812,6 +812,15 @@ class Slider {
    *  A cancel that names a different pointer belongs to another gesture and
    *  leaves the live session alone. */
   private readonly retire = (event: Event): void => {
+    // A row whose panel was dropped without calling destroy() is no longer
+    // anybody's: release the subscription here rather than waiting for GC, so
+    // the page-level set cannot grow by one entry per panel the user opened.
+    if (!this.root.isConnected) {
+      this.unsubscribeRetire?.();
+      this.unsubscribeRetire = null;
+      this.drag = null;
+      return;
+    }
     const drag = this.drag;
     if (drag) {
       if (event instanceof PointerEvent && event.pointerId !== drag.id) return;
@@ -940,8 +949,6 @@ class Slider {
 
   private readonly onKeyDown = (event: KeyboardEvent, index: number): void => {
     if (this.disabled) return;
-    // A key is the user driving the control: allowed to show the readout again.
-    this.interrupted = false;
     const { min, max } = this.opts;
     const step = this.opts.step ?? 1;
     const page = Math.max(step, (max - min) / 10);
@@ -978,6 +985,11 @@ class Slider {
       default:
         return;
     }
+    // Past the switch this key is really the control's, which makes it real
+    // input: the readout may be shown again. Clearing the marker before the
+    // switch would let any unrelated key (a keystroke in a neighbouring field)
+    // re-arm the bubble the interrupt just cleared.
+    this.interrupted = false;
     // The key is the control's: prevent the page default, but let it bubble.
     // foliplus' shared dispatcher already stands aside for `role="slider"`
     // (inputOwnership), so stopping propagation here would only hide the

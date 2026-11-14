@@ -26,19 +26,41 @@
  *  gesture really ended. */
 type GestureRetire = (event: Event) => void;
 
-const retires = new Set<GestureRetire>();
+/** Registrations are weakly held.
+ *
+ *  A consumer that owns a DOM node cannot always be asked to unregister: a
+ *  panel drops its rows with `replaceChildren`/`remove()` and never calls the
+ *  row's own destroy, so a strong Set would keep one closure — and through it
+ *  the whole removed row and its slider — alive for the life of the page,
+ *  once per panel open. A WeakRef keeps the entry only while somebody else
+ *  still references the callback, which is the same lifetime the consumer
+ *  already relies on for its own DOM. */
+type Registration = { ref: WeakRef<GestureRetire> };
+
+const retires = new Set<Registration>();
 let bound = false;
 
-/** Call every registered retire, isolating failures: one consumer throwing
- *  must not leave another holding a stale drag. */
+/** Call every live registration, dropping the ones whose consumer is gone.
+ *  Failures are isolated: one consumer throwing must not leave another
+ *  holding a stale drag. */
 const retireAll = (event: Event): void => {
-  for (const retire of [...retires]) {
+  let live = 0;
+  for (const registration of [...retires]) {
+    const retire = registration.ref.deref();
+    if (!retire) {
+      // The consumer was collected without unregistering (a panel that
+      // dropped its rows): forget the entry rather than keep testing it.
+      retires.delete(registration);
+      continue;
+    }
+    live += 1;
     try {
       retire(event);
     } catch {
       // A broken consumer cannot be allowed to strand the rest of the page.
     }
   }
+  if (live === 0) unbind();
 };
 
 const onWindowBlur = (event: Event): void => retireAll(event);
@@ -74,12 +96,25 @@ const unbind = (): void => {
  *  with a teardown must pair the two (its own destroy path), exactly like the
  *  surface subscription in platform/fullscreen. */
 const onGestureRetire = (retire: GestureRetire): (() => void) => {
-  retires.add(retire);
+  const registration: Registration = { ref: new WeakRef(retire) };
+  retires.add(registration);
   bind();
   return () => {
-    retires.delete(retire);
+    retires.delete(registration);
     if (retires.size === 0) unbind();
   };
 };
 
-export { onGestureRetire };
+/** How many registrations are still live. Exposed for the guard test that
+ *  pins the weak-holding contract: a consumer that is collected without
+ *  unregistering must not be counted after the next retire. */
+const liveGestureRetires = (): number => {
+  let live = 0;
+  for (const registration of retires) {
+    if (registration.ref.deref()) live += 1;
+    else retires.delete(registration);
+  }
+  return live;
+};
+
+export { liveGestureRetires, onGestureRetire };
